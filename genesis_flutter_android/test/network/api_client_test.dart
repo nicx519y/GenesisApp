@@ -1,0 +1,115 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/network/api_client.dart';
+import 'package:genesis_flutter_android/network/api_exception.dart';
+import 'package:genesis_flutter_android/network/http_transport.dart';
+
+class _FakeTransport implements HttpTransport {
+  _FakeTransport({required this.handler});
+
+  final TransportResponse Function(TransportRequest request) handler;
+  TransportRequest? lastRequest;
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    lastRequest = request;
+    return handler(request);
+  }
+}
+
+void main() {
+  test('merges baseUrl, path and query', () async {
+    final transport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"ok":true}',
+      ),
+    );
+
+    final client = ApiClient(
+      baseUrl: 'https://example.com/api/',
+      transport: transport,
+    );
+
+    await client.get<Object?>(
+      'v1/ping',
+      query: {'a': 1, 'b': 'x'},
+    );
+
+    expect(
+      transport.lastRequest!.uri.toString(),
+      'https://example.com/api/v1/ping?a=1&b=x',
+    );
+  });
+
+  test('merges default headers and per-request headers', () async {
+    final transport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"ok":true}',
+      ),
+    );
+
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      defaultHeaders: {'x-a': '1', 'x-b': '2'},
+      transport: transport,
+    );
+
+    await client.get<Object?>(
+      '/ping',
+      headers: {'x-b': 'override', 'x-c': '3'},
+    );
+
+    expect(transport.lastRequest!.headers['x-a'], '1');
+    expect(transport.lastRequest!.headers['x-b'], 'override');
+    expect(transport.lastRequest!.headers['x-c'], '3');
+  });
+
+  test('default response processor throws on non-2xx', () async {
+    final transport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 401,
+        headers: {'content-type': 'application/json'},
+        body: '{"message":"unauthorized"}',
+      ),
+    );
+
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+    );
+
+    expect(
+      () => client.get<Object?>('/ping'),
+      throwsA(isA<ApiException>()),
+    );
+  });
+
+  test('uses custom response processor', () async {
+    final transport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"code":0,"data":{"v":123}}',
+      ),
+    );
+
+    Object? processor(ApiResponse r) {
+      final json = r.data as Map<String, dynamic>;
+      if (json['code'] == 0) return (json['data'] as Map<String, dynamic>)['v'];
+      throw ApiException(message: 'biz error');
+    }
+
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+      responseProcessor: processor,
+    );
+
+    final v = await client.get<int>('/ping');
+    expect(v, 123);
+  });
+}
+
