@@ -10,12 +10,14 @@ class ChatPage extends StatefulWidget {
   const ChatPage({
     super.key,
     required this.wid,
-    required this.locationId,
+    required this.pointId,
+    required this.sceneId,
     this.locationName = '',
   });
 
   final String wid;
-  final int locationId;
+  final String pointId;
+  final String sceneId;
   final String locationName;
 
   @override
@@ -52,20 +54,22 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _fetchMessages({bool isInitial = false}) async {
-    if (widget.wid.trim().isEmpty || widget.locationId <= 0) return;
+    if (widget.wid.trim().isEmpty || widget.pointId.trim().isEmpty) return;
     if (_pollInFlight) return;
     _pollInFlight = true;
     try {
       final page = await GenesisApi().getLocationMessages(
         wid: widget.wid,
-        locationId: widget.locationId,
+        pointId: widget.pointId,
+        locationId: widget.sceneId,
         limit: 50,
         offset: 0,
       );
 
       if (!mounted) return;
       final shouldStickToBottom =
-          _scrollController.hasClients && _scrollController.position.extentAfter < 80;
+          _scrollController.hasClients &&
+          _scrollController.position.extentAfter < 80;
 
       setState(() {
         _messages = page.data.reversed.toList(growable: false);
@@ -101,7 +105,7 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _send() async {
     if (_sending) return;
-    if (widget.wid.trim().isEmpty || widget.locationId <= 0) return;
+    if (widget.wid.trim().isEmpty || widget.pointId.trim().isEmpty) return;
     final content = _textController.text.trim();
     if (content.isEmpty) return;
 
@@ -109,7 +113,8 @@ class _ChatPageState extends State<ChatPage> {
     try {
       await GenesisApi().sendMessage(
         wid: widget.wid,
-        locationId: widget.locationId,
+        pointId: widget.pointId,
+        locationId: widget.sceneId,
         content: content,
       );
       if (!mounted) return;
@@ -118,9 +123,9 @@ class _ChatPageState extends State<ChatPage> {
       _scrollToBottom();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Send failed')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Send failed')));
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -136,7 +141,9 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.locationName.isEmpty ? 'Location ${widget.locationId}' : widget.locationName;
+    final title = widget.locationName.isEmpty
+        ? (widget.sceneId.isEmpty ? widget.pointId : widget.sceneId)
+        : widget.locationName;
     final subtitle = 'WID: ${widget.wid}';
     final messages = _messages;
 
@@ -238,7 +245,11 @@ class _ChatTopBar extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.group_outlined, size: 14, color: Colors.white),
+                    const Icon(
+                      Icons.group_outlined,
+                      size: 14,
+                      color: Colors.white,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       subtitle,
@@ -284,17 +295,19 @@ class _ChatMessages extends StatelessWidget {
         final m = messages[index];
         final isMe = myUid.isNotEmpty && m.uid == myUid;
         final author = m.uid;
-        final initials = author.isEmpty ? '?' : author.substring(0, author.length >= 2 ? 2 : 1);
+        final initials = author.isEmpty
+            ? '?'
+            : author.substring(0, author.length >= 2 ? 2 : 1);
         final text = m.content;
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12, top: 12),
           child: _MessageRow(
-              isMe: isMe,
-              author: author,
-              initials: initials,
-              text: text,
-            ),
+            isMe: isMe,
+            author: author,
+            initials: initials,
+            text: text,
+          ),
         );
       },
     );
@@ -343,7 +356,7 @@ class _MessageRow extends StatelessWidget {
             constraints: BoxConstraints(maxWidth: maxBubbleWidth),
             child: bubble,
           ),
-         const Spacer(),
+          const Spacer(),
           // _AvatarCircle(initials: initials),
         ],
       );
@@ -501,7 +514,10 @@ class _ChatComposer extends StatelessWidget {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.arrow_upward, color: Colors.white),
               ),
@@ -523,10 +539,7 @@ class _ChatBackground extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF1F2937),
-            Color(0xFF111827),
-          ],
+          colors: [Color(0xFF1F2937), Color(0xFF111827)],
         ),
       ),
       child: Stack(

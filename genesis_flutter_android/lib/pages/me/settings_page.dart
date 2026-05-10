@@ -1,0 +1,91 @@
+import 'package:flutter/material.dart';
+
+import '../../platform/user_session.dart';
+import 'about_us_page.dart';
+
+class SettingsPage extends StatelessWidget {
+  const SettingsPage({super.key});
+
+  Future<void> _logout(BuildContext context) async {
+    await UserSession.clearUid();
+    if (!context.mounted) return;
+    Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new),
+          onPressed: () => Navigator.of(context).maybePop(false),
+        ),
+        centerTitle: true,
+        title: const Text(
+          'Settings',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            children: [
+              const SizedBox(height: 18),
+              InkWell(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const AboutUsPage()),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'About us',
+                          style: TextStyle(
+                            fontSize: 20,
+                            color: Colors.black,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right,
+                        color: Color(0xFFB5B5B5),
+                        size: 30,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFE7E7E7)),
+              const Spacer(),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () => _logout(context),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFE1E1E3),
+                    foregroundColor: Colors.black,
+                    textStyle: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text('Log out'),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -14,9 +14,9 @@ class WorldMessage {
     required this.createdAt,
   });
 
-  final int id;
-  final int worldId;
-  final int locationId;
+  final String id;
+  final String worldId;
+  final String locationId;
   final String uid;
   final String content;
   final String messageType;
@@ -24,9 +24,9 @@ class WorldMessage {
 
   factory WorldMessage.fromJson(Map<String, dynamic> json) {
     return WorldMessage(
-      id: asInt(json['id']),
-      worldId: asInt(json['world_id']),
-      locationId: asInt(json['location_id']),
+      id: asString(json['id']),
+      worldId: asString(json['world_id']),
+      locationId: asString(json['location_id']),
       uid: asString(json['uid']),
       content: asString(json['content']),
       messageType: asString(json['message_type']),
@@ -34,4 +34,3 @@ class WorldMessage {
     );
   }
 }
-

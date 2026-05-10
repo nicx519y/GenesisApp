@@ -90,7 +90,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         final mapImageUrl = _resolveAssetUrl(
           origin.worldMap.isEmpty ? origin.mapImage : origin.worldMap,
         );
-        final points = _pointsFromLocations(origin.locations, origin.characters);
+        final points = _pointsFromLocations(
+          origin.locations,
+          origin.characters,
+        );
 
         return Scaffold(
           body: Stack(
@@ -148,9 +151,15 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                           if (_launching) return;
                           setState(() => _launching = true);
                           try {
-                            final world = await GenesisApi().launchWorld(originId: widget.originId);
+                            final world = await GenesisApi().launchWorld(
+                              originId: widget.originId,
+                              worldviewId: origin.oid,
+                              worldName: origin.name,
+                            );
                             if (!context.mounted) return;
-                            Navigator.of(context).pushNamed(RouteNames.world, arguments: world.wid);
+                            Navigator.of(
+                              context,
+                            ).pushNamed(RouteNames.world, arguments: world.wid);
                           } catch (_) {
                             if (!context.mounted) return;
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -174,7 +183,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 }
 
 class _WorldDetailsContent extends StatelessWidget {
-  const _WorldDetailsContent({required this.scrollController, required this.origin});
+  const _WorldDetailsContent({
+    required this.scrollController,
+    required this.origin,
+  });
 
   final ScrollController scrollController;
   final OriginDetail origin;
@@ -193,13 +205,15 @@ class _WorldDetailsContent extends StatelessWidget {
     final descriptionBody = origin.worldView;
 
     final characters = origin.characters
-        .map((c) => <String, dynamic>{
-              'name': c.name,
-              'subtitle': c.description,
-              'tags': _splitTags(c.tags),
-              'image': _resolveAssetUrl(c.avatar),
-              'powerText': '',
-            })
+        .map(
+          (c) => <String, dynamic>{
+            'name': c.name,
+            'subtitle': c.description,
+            'tags': _splitTags(c.tags),
+            'image': _resolveAssetUrl(c.avatar),
+            'powerText': '',
+          },
+        )
         .toList(growable: false);
 
     final children = <Widget>[
@@ -210,16 +224,9 @@ class _WorldDetailsContent extends StatelessWidget {
         originator: headerOriginator,
       ),
       const SizedBox(height: 12),
-      const Divider(
-        height: 1,
-        thickness: 1,
-        color: Color(0xFFEDEDED),
-      ),
+      const Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
       const SizedBox(height: 12),
-      WorldDescriptionCard(
-        title: descriptionTitle,
-        body: descriptionBody,
-      ),
+      WorldDescriptionCard(title: descriptionTitle, body: descriptionBody),
       const SizedBox(height: 12),
       CharactersList(characters: characters),
     ];
@@ -239,7 +246,11 @@ class _WorldDetailsContent extends StatelessWidget {
 
 List<String> _splitTags(String tags) {
   if (tags.trim().isEmpty) return const [];
-  return tags.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+  return tags
+      .split(',')
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toList();
 }
 
 String _resolveAssetUrl(String raw) {
@@ -254,7 +265,9 @@ List<WorldPoint> _pointsFromLocations(
 
   final avatarsByLocation = <int, List<UserAvatar>>{};
   for (final c in characters) {
-    final locationId = c.currentLocationId > 0 ? c.currentLocationId : c.initialLocationId;
+    final locationId = c.currentLocationId > 0
+        ? c.currentLocationId
+        : c.initialLocationId;
     if (locationId <= 0) continue;
     (avatarsByLocation[locationId] ??= <UserAvatar>[]).add(
       UserAvatar(
@@ -284,7 +297,10 @@ List<WorldPoint> _pointsFromLocations(
       id: '${l.id}',
       name: l.name,
       type: type,
-      position: Offset(dx.clamp(0.0, 1.0).toDouble(), dy.clamp(0.0, 1.0).toDouble()),
+      position: Offset(
+        dx.clamp(0.0, 1.0).toDouble(),
+        dy.clamp(0.0, 1.0).toDouble(),
+      ),
       users: (avatarsByLocation[l.id] ?? const <UserAvatar>[]),
       iconUrl: _resolveAssetUrl(l.icon),
       description: l.description,
@@ -295,7 +311,10 @@ List<WorldPoint> _pointsFromLocations(
 String _initials(String name) {
   final cleaned = name.trim();
   if (cleaned.isEmpty) return '?';
-  final parts = cleaned.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+  final parts = cleaned
+      .split(RegExp(r'\s+'))
+      .where((e) => e.isNotEmpty)
+      .toList();
   if (parts.length >= 2) {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }

@@ -1,10 +1,13 @@
 package com.genesis.ai.genesis_flutter_android
 
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.security.MessageDigest
 
 class MainActivity : FlutterActivity() {
     private val channel = "com.genesis.ai/device"
@@ -31,6 +34,9 @@ class MainActivity : FlutterActivity() {
                     val prefs = getSharedPreferences(prefsName, Context.MODE_PRIVATE)
                     result.success(prefs.getString(uidKey, "") ?: "")
                 }
+                "getSignInDiagnostics" -> {
+                    result.success(buildSignInDiagnostics())
+                }
                 "clearUid" -> {
                     val prefs = getSharedPreferences(prefsName, Context.MODE_PRIVATE)
                     prefs.edit().remove(uidKey).apply()
@@ -39,5 +45,30 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    private fun buildSignInDiagnostics(): Map<String, Any> {
+        val certBytesList = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val info = packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+            info.signingInfo?.apkContentsSigners?.map { it.toByteArray() }.orEmpty()
+        } else {
+            @Suppress("DEPRECATION")
+            val info = packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
+            @Suppress("DEPRECATION")
+            info.signatures?.map { it.toByteArray() }.orEmpty()
+        }
+        val sha1 = certBytesList.map { digest(it, "SHA-1") }.distinct()
+        val sha256 = certBytesList.map { digest(it, "SHA-256") }.distinct()
+        return mapOf(
+            "packageName" to packageName,
+            "sha1" to sha1,
+            "sha256" to sha256,
+            "sdkInt" to Build.VERSION.SDK_INT,
+        )
+    }
+
+    private fun digest(bytes: ByteArray, algorithm: String): String {
+        val hash = MessageDigest.getInstance(algorithm).digest(bytes)
+        return hash.joinToString(":") { b -> "%02X".format(b) }
     }
 }

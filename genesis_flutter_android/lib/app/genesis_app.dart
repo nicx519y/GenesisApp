@@ -16,6 +16,11 @@ class GenesisApp extends StatelessWidget {
           brightness: Brightness.light,
         ),
         scaffoldBackgroundColor: Colors.white,
+        textTheme: const TextTheme(
+          bodyLarge: TextStyle(fontSize: 14),
+          bodyMedium: TextStyle(fontSize: 14),
+          bodySmall: TextStyle(fontSize: 12),
+        ),
         useMaterial3: true,
       ),
       initialRoute: RouteNames.origin,

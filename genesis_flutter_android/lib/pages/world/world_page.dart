@@ -81,22 +81,26 @@ class _WorldPageState extends State<WorldPage>
       final message = await GenesisApi().progressWorld(widget.wid);
       if (!mounted) return;
       if (message.trim().isNotEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
       await _fetchWorld();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Progress failed')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Progress failed')));
     } finally {
       if (mounted) setState(() => _progressing = false);
     }
   }
 
   Future<void> _openChatForPoint(WorldPoint point) async {
-    final locationId = int.tryParse(point.id) ?? 0;
-    if (locationId <= 0) {
+    final pointId = point.pointId.trim().isNotEmpty
+        ? point.pointId.trim()
+        : point.id.trim();
+    if (pointId.isEmpty) {
       Navigator.of(context).pushNamed(RouteNames.chat);
       return;
     }
@@ -104,7 +108,7 @@ class _WorldPageState extends State<WorldPage>
     try {
       await GenesisApi().updateUserPosition(
         wid: widget.wid,
-        locationId: locationId,
+        locationId: point.sceneId,
       );
     } catch (_) {}
 
@@ -113,7 +117,8 @@ class _WorldPageState extends State<WorldPage>
       RouteNames.chat,
       arguments: {
         'wid': widget.wid,
-        'locationId': locationId,
+        'pointId': pointId,
+        'sceneId': point.sceneId,
         'locationName': point.name,
       },
     );
@@ -145,9 +150,13 @@ class _WorldPageState extends State<WorldPage>
     }
 
     final mapImageUrl = _resolveAssetUrl(
-      world.origin.worldMap.isEmpty ? world.origin.mapImage : world.origin.worldMap,
+      world.origin.worldMap.isEmpty
+          ? world.origin.mapImage
+          : world.origin.worldMap,
     );
-    final avatarsByLocation = _avatarsByLocationFromCharacterPositions(world.characterPositions);
+    final avatarsByLocation = _avatarsByLocationFromCharacterPositions(
+      world.characterPositions,
+    );
     final points = world.worldLocations.isNotEmpty
         ? _pointsFromWorldLocations(world.worldLocations, avatarsByLocation)
         : _pointsFromLocationIds(
@@ -218,7 +227,11 @@ class _WorldFeedContent extends StatelessWidget {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     final children = <Widget>[
-      _WorldInfoHeader(world: world, progressing: progressing, onProgress: onProgress),
+      _WorldInfoHeader(
+        world: world,
+        progressing: progressing,
+        onProgress: onProgress,
+      ),
       const SizedBox(height: 12),
       const Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
       const SizedBox(height: 12),
@@ -247,7 +260,8 @@ class _WorldInfoHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = '#${world.origin.name.isEmpty ? world.name : world.origin.name}';
+    final title =
+        '#${world.origin.name.isEmpty ? world.name : world.origin.name}';
     final wid = world.wid;
     final lastProgress = world.lastProgressAt == null
         ? ''
@@ -268,8 +282,10 @@ class _WorldInfoHeader extends StatelessWidget {
             TextButton(
               onPressed: progressing ? null : onProgress,
               style: TextButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 4,
+                ),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 backgroundColor: Colors.green,
@@ -281,7 +297,10 @@ class _WorldInfoHeader extends StatelessWidget {
                   ? const SizedBox(
                       width: 14,
                       height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Text(
                       'Progress',
@@ -363,7 +382,7 @@ class _WorldInfoHeader extends StatelessWidget {
               if (i != counters.length - 1) const SizedBox(width: 12),
             ],
             const Spacer(),
-            
+
             Text(
               'Invite / Request',
               style: const TextStyle(
@@ -429,61 +448,61 @@ class _LastProgressCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Colors.black,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              timeAgo,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF999999),
+              ),
+            ),
+            const Spacer(),
+            Text(
+              action,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF8A8A8A),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Text(
+          body,
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.25,
+            fontWeight: FontWeight.w500,
+            color: Colors.black.withValues(alpha: 0.78),
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (images.isNotEmpty)
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black,
+              for (int i = 0; i < images.length && i < 2; i++) ...[
+                SizedBox(
+                  width: 100,
+                  height: 100,
+                  child: _DemoImageBox(seed: images[i]),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                timeAgo,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF999999),
-                ),
-              ),
-              const Spacer(),
-              Text(
-                action,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF8A8A8A),
-                ),
-              ),
+                if (i == 0) const SizedBox(width: 10),
+              ],
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            body,
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.25,
-              fontWeight: FontWeight.w500,
-              color: Colors.black.withValues(alpha: 0.78),
-            ),
-          ),
-          const SizedBox(height: 10),
-          if (images.isNotEmpty)
-            Row(
-              children: [
-                for (int i = 0; i < images.length && i < 2; i++) ...[
-                  SizedBox(
-                    width: 100,
-                    height: 100,
-                    child: _DemoImageBox(seed: images[i]),
-                  ),
-                  if (i == 0) const SizedBox(width: 10),
-                ],
-              ],
-            ),
       ],
     );
   }
@@ -531,14 +550,14 @@ String _resolveAssetUrl(String raw) {
   return resolveAssetUrl(raw);
 }
 
-Map<int, List<UserAvatar>> _avatarsByLocationFromCharacterPositions(
+Map<String, List<UserAvatar>> _avatarsByLocationFromCharacterPositions(
   List<Map<String, dynamic>> characterPositions,
 ) {
-  final map = <int, List<UserAvatar>>{};
+  final map = <String, List<UserAvatar>>{};
   for (final cp in characterPositions) {
     final rawLocationId = cp['location_id'] ?? cp['current_location_id'];
-    final locationId = rawLocationId is int ? rawLocationId : int.tryParse('$rawLocationId') ?? 0;
-    if (locationId <= 0) continue;
+    final locationId = '$rawLocationId'.trim();
+    if (locationId.isEmpty) continue;
     final character = cp['character'];
     if (character is! Map) continue;
     final c = character;
@@ -554,7 +573,10 @@ Map<int, List<UserAvatar>> _avatarsByLocationFromCharacterPositions(
 String _initials(String name) {
   final cleaned = name.trim();
   if (cleaned.isEmpty) return '?';
-  final parts = cleaned.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+  final parts = cleaned
+      .split(RegExp(r'\s+'))
+      .where((e) => e.isNotEmpty)
+      .toList();
   if (parts.length >= 2) {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
@@ -563,23 +585,29 @@ String _initials(String name) {
 
 List<WorldPoint> _pointsFromWorldLocations(
   List<Map<String, dynamic>> locations,
-  Map<int, List<UserAvatar>> avatarsByLocation,
+  Map<String, List<UserAvatar>> avatarsByLocation,
 ) {
   if (locations.isEmpty) return const <WorldPoint>[];
 
   return List<WorldPoint>.generate(locations.length, (i) {
     final l = locations[i];
-    final rawLocationId = l['location_id'] ?? l['id'] ?? i;
-    final locationId = rawLocationId is int ? rawLocationId : int.tryParse('$rawLocationId') ?? 0;
-    final id = (locationId > 0 ? locationId : i).toString();
+    final locationId = '${l['location_id'] ?? l['id'] ?? ''}'.trim();
+    final pointId = '${l['point_id'] ?? l['id'] ?? locationId}'.trim();
+    final id = pointId.isNotEmpty
+        ? pointId
+        : (locationId.isNotEmpty ? locationId : '$i');
     final name = (l['name'] ?? '').toString();
     final description = (l['description'] ?? '').toString();
     final icon = _resolveAssetUrl((l['icon'] ?? '').toString());
 
     final rawXP = l['x_percent'] ?? l['xPercent'];
     final rawYP = l['y_percent'] ?? l['yPercent'];
-    final xPercent = rawXP is num ? rawXP.toDouble() : double.tryParse('$rawXP') ?? 0;
-    final yPercent = rawYP is num ? rawYP.toDouble() : double.tryParse('$rawYP') ?? 0;
+    final xPercent = rawXP is num
+        ? rawXP.toDouble()
+        : double.tryParse('$rawXP') ?? 0;
+    final yPercent = rawYP is num
+        ? rawYP.toDouble()
+        : double.tryParse('$rawYP') ?? 0;
 
     double? dx;
     double? dy;
@@ -595,7 +623,9 @@ List<WorldPoint> _pointsFromWorldLocations(
 
     if (dx == null || dy == null) {
       final positionRaw = l['position'];
-      final position = positionRaw is int ? positionRaw : int.tryParse('$positionRaw');
+      final position = positionRaw is int
+          ? positionRaw
+          : int.tryParse('$positionRaw');
       final index = (position == null || position <= 0) ? i : (position - 1);
       final col = index % 3;
       final row = index ~/ 3;
@@ -615,8 +645,13 @@ List<WorldPoint> _pointsFromWorldLocations(
       id: id,
       name: name,
       type: type,
-      position: Offset(dx.clamp(0.0, 1.0).toDouble(), dy.clamp(0.0, 1.0).toDouble()),
+      position: Offset(
+        dx.clamp(0.0, 1.0).toDouble(),
+        dy.clamp(0.0, 1.0).toDouble(),
+      ),
       users: (avatarsByLocation[locationId] ?? const <UserAvatar>[]),
+      sceneId: locationId,
+      pointId: pointId,
       iconUrl: icon,
       description: description,
     );
@@ -625,14 +660,15 @@ List<WorldPoint> _pointsFromWorldLocations(
 
 List<WorldPoint> _pointsFromLocationIds(
   List<dynamic> locationIds,
-  Map<int, List<UserAvatar>> avatarsByLocation,
+  Map<String, List<UserAvatar>> avatarsByLocation,
 ) {
-  final ids = locationIds
-      .map((e) => e is int ? e : int.tryParse('$e'))
-      .whereType<int>()
-      .toSet()
-      .toList(growable: false)
-    ..sort();
+  final ids =
+      locationIds
+          .map((e) => '$e'.trim())
+          .where((e) => e.isNotEmpty)
+          .toSet()
+          .toList(growable: false)
+        ..sort((a, b) => a.compareTo(b));
 
   if (ids.isEmpty) return const <WorldPoint>[];
 
@@ -651,11 +687,16 @@ List<WorldPoint> _pointsFromLocationIds(
     };
 
     return WorldPoint(
-      id: '$id',
+      id: id,
       name: 'Location $id',
       type: type,
-      position: Offset(dx.clamp(0.0, 1.0).toDouble(), dy.clamp(0.0, 1.0).toDouble()),
+      position: Offset(
+        dx.clamp(0.0, 1.0).toDouble(),
+        dy.clamp(0.0, 1.0).toDouble(),
+      ),
       users: (avatarsByLocation[id] ?? const <UserAvatar>[]),
+      sceneId: id,
+      pointId: id,
       description: '',
     );
   });

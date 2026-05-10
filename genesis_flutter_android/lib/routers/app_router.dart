@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../pages/app_shell_page.dart';
+import '../pages/create/create_origin_page.dart';
+import '../pages/search/search_page.dart';
 import '../pages/origin/origin_world_page.dart';
 import '../pages/world/world_page.dart';
 import '../pages/chat/chat_page.dart';
@@ -12,6 +14,7 @@ sealed class RouteNames {
   static const originWorld = '/origin_world';
   static const world = '/world';
   static const chat = '/chat';
+  static const search = '/search';
   static const create = '/create';
   static const messages = '/messages';
   static const me = '/me';
@@ -66,34 +69,46 @@ sealed class AppRouter {
       case RouteNames.chat:
         final args = settings.arguments;
         var wid = '';
-        var locationId = 0;
+        var pointId = '';
+        var sceneId = '';
         var locationName = '';
         if (args is Map) {
           final rawWid = args['wid'];
           if (rawWid != null) wid = rawWid.toString();
 
-          final rawLocationId = args['locationId'] ?? args['location_id'];
-          if (rawLocationId is int) {
-            locationId = rawLocationId;
-          } else if (rawLocationId != null) {
-            locationId = int.tryParse(rawLocationId.toString()) ?? 0;
-          }
+          final rawPointId =
+              args['pointId'] ??
+              args['point_id'] ??
+              args['locationId'] ??
+              args['location_id'];
+          if (rawPointId != null) pointId = rawPointId.toString();
+
+          final rawSceneId = args['sceneId'] ?? args['scene_id'];
+          if (rawSceneId != null) sceneId = rawSceneId.toString();
 
           final rawLocationName = args['locationName'] ?? args['location_name'];
-          if (rawLocationName != null) locationName = rawLocationName.toString();
+          if (rawLocationName != null) {
+            locationName = rawLocationName.toString();
+          }
         }
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => ChatPage(
             wid: wid,
-            locationId: locationId,
+            pointId: pointId,
+            sceneId: sceneId,
             locationName: locationName,
           ),
+        );
+      case RouteNames.search:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => const SearchPage(),
         );
       case RouteNames.create:
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => const AppShellPage(initialIndex: 2),
+          builder: (_) => const CreateOriginPage(),
         );
       case RouteNames.messages:
         return MaterialPageRoute<void>(

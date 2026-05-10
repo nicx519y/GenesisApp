@@ -71,7 +71,9 @@ class WorldMap extends StatelessWidget {
                           point: p,
                           width: width,
                           height: height,
-                          onTap: onPointTap == null ? null : () => onPointTap!(p),
+                          onTap: onPointTap == null
+                              ? null
+                              : () => onPointTap!(p),
                         ),
                     ],
                   ),
@@ -86,7 +88,9 @@ class WorldMap extends StatelessWidget {
               child: IgnorePointer(
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
-                  color: dimmed ? Colors.black.withValues(alpha: 0.08) : Colors.transparent,
+                  color: dimmed
+                      ? Colors.black.withValues(alpha: 0.08)
+                      : Colors.transparent,
                 ),
               ),
             ),
@@ -98,9 +102,13 @@ class WorldMap extends StatelessWidget {
               Positioned.fill(
                 top: overlayTop,
                 child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   itemCount: points.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final p = points[index];
                     return InkWell(
@@ -117,9 +125,7 @@ class WorldMap extends StatelessWidget {
                                 color: const Color(0xFFF3F4F6),
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: Center(
-                                child: _PointLabel(point: p),
-                              ),
+                              child: Center(child: _PointLabel(point: p)),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -128,7 +134,11 @@ class WorldMap extends StatelessWidget {
                                 children: [
                                   Row(
                                     children: [
-                                      const Icon(Icons.place, size: 14, color: Colors.black),
+                                      const Icon(
+                                        Icons.place,
+                                        size: 14,
+                                        color: Colors.black,
+                                      ),
                                       const SizedBox(width: 6),
                                       Expanded(
                                         child: Text(
@@ -154,14 +164,19 @@ class WorldMap extends StatelessWidget {
                                           Row(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              const Icon(Icons.person, size: 14, color: Colors.black),
+                                              const Icon(
+                                                Icons.person,
+                                                size: 14,
+                                                color: Colors.black,
+                                              ),
                                               const SizedBox(width: 6),
                                               Text(
                                                 u.name ?? u.initials,
                                                 style: TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w700,
-                                                  color: Colors.black.withValues(alpha: 0.8),
+                                                  color: Colors.black
+                                                      .withValues(alpha: 0.8),
                                                 ),
                                               ),
                                             ],
@@ -177,7 +192,9 @@ class WorldMap extends StatelessWidget {
                                       fontSize: 12,
                                       height: 1.25,
                                       fontWeight: FontWeight.w500,
-                                      color: Colors.black.withValues(alpha: 0.7),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.7,
+                                      ),
                                     ),
                                     maxLines: 3,
                                     overflow: TextOverflow.ellipsis,
@@ -278,6 +295,8 @@ class WorldPoint {
     required this.type,
     required this.position,
     required this.users,
+    this.sceneId = '',
+    this.pointId = '',
     this.iconUrl = '',
     this.description = '',
   });
@@ -287,6 +306,8 @@ class WorldPoint {
   final WorldPointType type;
   final Offset position;
   final List<UserAvatar> users;
+  final String sceneId;
+  final String pointId;
   final String iconUrl;
   final String description;
 }
@@ -348,7 +369,9 @@ class _WorldPointMarker extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: point.type.color,
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: Colors.black.withValues(alpha: 0.12)),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.12),
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.18),
@@ -454,7 +477,8 @@ class _UserAvatar extends StatelessWidget {
               ? Image.network(
                   url,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => _Initials(initials: initials),
+                  errorBuilder: (context, error, stackTrace) =>
+                      _Initials(initials: initials),
                 )
               : _Initials(initials: initials),
         ),

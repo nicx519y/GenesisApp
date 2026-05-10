@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../routers/app_router.dart';
 import 'search_bar.dart';
 
 class PageHeader extends StatelessWidget {
@@ -18,7 +20,12 @@ class PageHeader extends StatelessWidget {
     return SafeArea(
       bottom: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(horizontalPadding, topPadding, horizontalPadding, 0),
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          topPadding,
+          horizontalPadding,
+          0,
+        ),
         child: Column(
           children: [
             Text(
@@ -30,7 +37,12 @@ class PageHeader extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            SearchBarPlaceholder(hintText: 'Explore the world'),
+            SearchBarPlaceholder(
+              hintText: 'Search origins, worlds, users...',
+              onTap: () {
+                Navigator.of(context).pushNamed(RouteNames.search);
+              },
+            ),
           ],
         ),
       ),

@@ -18,9 +18,12 @@ class _FakeTransport implements HttpTransport {
   }
 }
 
-GenesisApi _apiWith(_FakeTransport apiTransport, _FakeTransport healthTransport) {
+GenesisApi _apiWith(
+  _FakeTransport apiTransport,
+  _FakeTransport healthTransport,
+) {
   final apiClient = ApiClient(
-    baseUrl: 'http://localhost:8080/api/v1/',
+    baseUrl: 'http://localhost:8080/api/',
     defaultHeaders: const {
       'content-type': 'application/json',
       'accept': 'application/json',
@@ -40,13 +43,12 @@ GenesisApi _apiWith(_FakeTransport apiTransport, _FakeTransport healthTransport)
 }
 
 void main() {
-  test('bindDevice uses POST /users/bind with did', () async {
+  test('bindDevice uses GET /auth/me/public-profile', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
         headers: {'content-type': 'application/json'},
-        body:
-            '{"data":{"id":1,"uid":"U0001","did":"d1","nickname":"n","avatar":"a","created_at":"2024-03-09T10:00:00Z"}}',
+        body: '{"id":"u_1","display_name":"n","avatar_url":"a"}',
       ),
     );
     final healthTransport = _FakeTransport(
@@ -58,25 +60,22 @@ void main() {
     );
 
     final api = _apiWith(apiTransport, healthTransport);
-    await api.bindDevice(did: 'd1');
+    final user = await api.bindDevice(did: 'd1');
 
-    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(apiTransport.lastRequest!.method, 'GET');
     expect(
       apiTransport.lastRequest!.uri.toString(),
-      'http://localhost:8080/api/v1/users/bind',
+      'http://localhost:8080/api/auth/me/public-profile',
     );
-
-    final body =
-        utf8.decode(apiTransport.lastRequest!.bodyBytes ?? const <int>[]);
-    expect(jsonDecode(body), {'did': 'd1'});
+    expect(user.uid, 'u_1');
   });
 
-  test('getOrigins uses GET /origins with query params', () async {
+  test('getOrigins uses GET /origins for default category', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
         headers: {'content-type': 'application/json'},
-        body: '{"data":[],"total":0,"limit":20,"offset":0}',
+        body: '{"origins":[]}',
       ),
     );
     final healthTransport = _FakeTransport(
@@ -91,19 +90,79 @@ void main() {
     await api.getOrigins(category: 'For you', limit: 20, offset: 0);
 
     expect(apiTransport.lastRequest!.method, 'GET');
-    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origins');
-    expect(apiTransport.lastRequest!.uri.queryParameters['category'], 'For you');
-    expect(apiTransport.lastRequest!.uri.queryParameters['limit'], '20');
-    expect(apiTransport.lastRequest!.uri.queryParameters['offset'], '0');
+    expect(apiTransport.lastRequest!.uri.path, '/api/origins');
   });
 
-  test('sendMessage uses POST /worlds/:wid/messages', () async {
+  test('getOrigins uses GET /origins/popular for other categories', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
         headers: {'content-type': 'application/json'},
-        body:
-            '{"data":{"id":1,"world_id":1,"location_id":1,"uid":"U0001","content":"Hello","message_type":"user","created_at":"2024-03-09T10:00:00Z"}}',
+        body: '{"origins":[]}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    await api.getOrigins(category: 'Billionare', limit: 20, offset: 0);
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/origins/popular');
+    expect(apiTransport.lastRequest!.uri.queryParameters['limit'], '20');
+  });
+
+  test('launchWorld uses POST /worlds/launch with new body', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"ok":true,"wid":"wid_1","wid_str":"W_1"}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    await api.launchWorld(
+      originId: 123,
+      ownerUid: 'u_1',
+      worldviewId: 'wv_1',
+      worldName: 'World 1',
+    );
+
+    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(
+      apiTransport.lastRequest!.uri.toString(),
+      'http://localhost:8080/api/worlds/launch',
+    );
+
+    final body = utf8.decode(
+      apiTransport.lastRequest!.bodyBytes ?? const <int>[],
+    );
+    expect(jsonDecode(body), {
+      'user_id': 'u_1',
+      'worldview_id': 'wv_1',
+      'world_name': 'World 1',
+    });
+  });
+
+  test('sendMessage uses POST /points/:point_id/messages/enqueue', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"ok":true,"user_message":{"id":"m_1"}}',
       ),
     );
     final healthTransport = _FakeTransport(
@@ -116,17 +175,28 @@ void main() {
 
     final api = _apiWith(apiTransport, healthTransport);
     await api.sendMessage(
-      wid: 'Wabc',
-      uid: 'U0001',
-      locationId: 1,
+      wid: 'wid_1',
+      uid: 'u_1',
+      pointId: 'pt_9',
+      locationId: 'loc_3',
       content: 'Hello',
     );
 
     expect(apiTransport.lastRequest!.method, 'POST');
     expect(
       apiTransport.lastRequest!.uri.toString(),
-      'http://localhost:8080/api/v1/worlds/Wabc/messages',
+      'http://localhost:8080/api/points/pt_9/messages/enqueue',
     );
+
+    final body = utf8.decode(
+      apiTransport.lastRequest!.bodyBytes ?? const <int>[],
+    );
+    final decoded = jsonDecode(body) as Map<String, dynamic>;
+    expect(decoded['user_id'], 'u_1');
+    expect(decoded['wid'], 'wid_1');
+    expect(decoded['location_id'], 'loc_3');
+    expect(decoded['text'], 'Hello');
+    expect(decoded['player_id'], 'player1');
   });
 
   test('health uses GET /health', () async {
@@ -148,7 +218,43 @@ void main() {
     final api = _apiWith(apiTransport, healthTransport);
     final ok = await api.health();
     expect(ok, true);
-    expect(healthTransport.lastRequest!.uri.toString(), 'http://localhost:8080/health');
+    expect(
+      healthTransport.lastRequest!.uri.toString(),
+      'http://localhost:8080/health',
+    );
+  });
+
+  test('search uses GET /search with query', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) {
+        if (request.uri.path.endsWith('/auth/me/public-profile')) {
+          return const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body: '{"id":"u_1","display_name":"n","avatar_url":"a"}',
+          );
+        }
+        return const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"origins":[],"worlds":[],"users":[]}',
+        );
+      },
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    await api.search(query: 'ori', limit: 10);
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/search');
+    expect(apiTransport.lastRequest!.uri.queryParameters['q'], 'ori');
+    expect(apiTransport.lastRequest!.uri.queryParameters['limit'], '10');
   });
 }
-

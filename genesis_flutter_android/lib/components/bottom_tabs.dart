@@ -16,9 +16,7 @@ class BottomTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Color(0xFFF9F9F9),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFFF9F9F9)),
       child: Padding(
         padding: EdgeInsets.only(bottom: bottomPadding, top: 6),
         child: SizedBox(
@@ -30,7 +28,7 @@ class BottomTabs extends StatelessWidget {
                 label: 'Home',
                 icon: MyFlutterApp.home,
                 selected: currentIndex == 0,
-                enabled: false,
+                enabled: true,
                 onTap: () => onTap(0),
               ),
               _BottomTabItem(
@@ -40,19 +38,19 @@ class BottomTabs extends StatelessWidget {
                 enabled: true,
                 onTap: () => onTap(1),
               ),
-              _BottomCreateItem(enabled: false, onTap: () => onTap(2)),
+              _BottomCreateItem(enabled: true, onTap: () => onTap(2)),
               _BottomTabItem(
                 label: 'Messages',
                 icon: MyFlutterApp.messages,
                 selected: currentIndex == 3,
-                enabled: false,
+                enabled: true,
                 onTap: () => onTap(3),
               ),
               _BottomTabItem(
                 label: 'Me',
                 icon: MyFlutterApp.me,
                 selected: currentIndex == 4,
-                enabled: false,
+                enabled: true,
                 onTap: () => onTap(4),
               ),
             ],
@@ -107,10 +105,7 @@ class _BottomTabItem extends StatelessWidget {
 }
 
 class _BottomCreateItem extends StatelessWidget {
-  const _BottomCreateItem({
-    required this.enabled,
-    required this.onTap,
-  });
+  const _BottomCreateItem({required this.enabled, required this.onTap});
 
   final bool enabled;
   final VoidCallback onTap;
@@ -128,7 +123,11 @@ class _BottomCreateItem extends StatelessWidget {
             const SizedBox(height: 2),
             const Text(
               'Create',
-              style: TextStyle(color: Color(0xFF338960), fontSize: 10, height: 1.4),
+              style: TextStyle(
+                color: Color(0xFF338960),
+                fontSize: 10,
+                height: 1.4,
+              ),
             ),
           ],
         ),
