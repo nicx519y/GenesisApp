@@ -95,6 +95,7 @@ class _AppShellPageState extends State<AppShellPage> {
             debugPrint('[Auth][AppShell] onLogin start');
             final services = AppServicesScope.read(context);
             final session = await services.identityAuth.signIn();
+            await services.sessionStore.saveUid(session.identityUid);
             try {
               final user = await services.backendAuth.loginWithIdentity(
                 session,

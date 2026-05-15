@@ -420,6 +420,51 @@ void main() {
   });
 
   test(
+    'loginWithIdentity falls back to identity uid when backend omits user id',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (request) {
+          if (request.uri.path.endsWith('/auth/apple')) {
+            return const TransportResponse(
+              statusCode: 200,
+              headers: {'content-type': 'application/json'},
+              body: '{"token":"apple-backend-token","user":{}}',
+            );
+          }
+          return const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body: '{"origins":[]}',
+          );
+        },
+      );
+      final sessionStore = MemoryUserSessionStore();
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+      );
+
+      final user = await api.loginWithIdentity(
+        const AuthSession(
+          provider: IdentityProvider.apple,
+          providerIdToken: 'apple-token',
+          firebaseIdToken: 'firebase-token',
+          identityUid: 'firebase-uid',
+          email: 'ava@example.com',
+          displayName: 'Ava',
+          photoUrl: '',
+        ),
+      );
+
+      expect(user.uid, 'firebase-uid');
+      expect(await sessionStore.readUid(), 'firebase-uid');
+      expect(await sessionStore.readAuthToken(), 'apple-backend-token');
+    },
+  );
+
+  test(
     'backend signOut posts logout then clears identity and local session',
     () async {
       final apiTransport = _FakeTransport(

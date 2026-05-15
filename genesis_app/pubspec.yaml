@@ -41,6 +41,11 @@ dependencies:
   shared_preferences: ^2.5.3
   sign_in_with_apple: ^8.0.0
   crypto: ^3.0.7
+  cached_network_image: ^3.4.1
+
+dependency_overrides:
+  firebase_auth:
+    path: third_party/firebase_auth
 
 dev_dependencies:
   flutter_test:

@@ -35,12 +35,29 @@ class AppleSignInService {
       throw const _AppleSignInFailure('Apple 未返回 identityToken，请稍后重试');
     }
 
-    final oauthCredential = OAuthProvider(
-      'apple.com',
-    ).credential(idToken: identityToken, rawNonce: rawNonce);
-    final userCredential = await FirebaseAuth.instance.signInWithCredential(
-      oauthCredential,
+    final oauthCredential = AppleAuthProvider.credentialWithIDToken(
+      identityToken,
+      rawNonce,
+      AppleFullPersonName(
+        givenName: credential.givenName,
+        familyName: credential.familyName,
+      ),
     );
+    final UserCredential userCredential;
+    try {
+      userCredential = await FirebaseAuth.instance.signInWithCredential(
+        oauthCredential,
+      );
+    } on FirebaseAuthException catch (e, st) {
+      debugPrint(
+        '[Auth][AppleSignInService] Firebase sign-in failed '
+        'code=${e.code} message=${e.message} plugin=${e.plugin}',
+      );
+      debugPrint('[Auth][AppleSignInService] stacktrace:\n$st');
+      throw _AppleSignInFailure(
+        'Firebase Apple 登录失败：${e.code}${e.message == null ? '' : ' ${e.message}'}',
+      );
+    }
     final firebaseUser = userCredential.user;
     if (firebaseUser == null) {
       throw const _AppleSignInFailure('Firebase 登录失败，请稍后重试');

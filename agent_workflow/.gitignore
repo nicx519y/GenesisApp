@@ -1,0 +1,4 @@
+reports/*
+screenshots/*
+!reports/.gitkeep
+!screenshots/.gitkeep

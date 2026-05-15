@@ -1,0 +1,16 @@
+appId: com.genesis.ai
+---
+- launchApp
+- waitForAnimationToEnd
+- tapOn:
+    text: "Me"
+    optional: true
+- tapOn:
+    text: "Sign in"
+    optional: true
+- tapOn:
+    text: "Cancel"
+    optional: true
+- assertNotVisible:
+    text: "Sign in failed"
+

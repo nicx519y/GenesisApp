@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../components/me/profile_collection_list.dart';
 import '../../network/genesis_api.dart';
 import '../../routers/app_router.dart';
+import '../../ui/genesis_ui.dart';
 import 'settings_page.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 
@@ -39,13 +41,15 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
     final services = AppServicesScope.read(context);
     final api = services.api;
     final profile = services.identityAuth.currentProfile();
+    final localUid = (await services.sessionStore.readUid())?.trim() ?? '';
     final displayName = (profile?.displayName ?? '').trim().isNotEmpty
         ? profile!.displayName.trim()
         : ((profile?.email ?? '').trim().isNotEmpty
               ? profile!.email.trim()
               : 'User');
     final avatarUrl = (profile?.photoUrl ?? '').trim();
-    final uid = (profile?.uid ?? '').trim();
+    final profileUid = (profile?.uid ?? '').trim();
+    final uid = localUid.isNotEmpty ? localUid : profileUid;
 
     List<_OriginListItemVm> origins = const [];
     try {
@@ -212,27 +216,9 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
                 const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: TabBar(
+                  child: SecendTabs(
                     controller: _tabController,
-                    isScrollable: true,
-                    labelColor: Colors.black,
-                    unselectedLabelColor: const Color(0xFF6F6F6F),
-                    labelStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    unselectedLabelStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    indicatorColor: const Color(0xFFFF4D4F),
-                    indicatorWeight: 4,
-                    tabAlignment: TabAlignment.start,
-                    dividerColor: Colors.transparent,
-                    tabs: const [
-                      Tab(text: 'Origin'),
-                      Tab(text: 'World'),
-                    ],
+                    labels: const ['Origin', 'World'],
                   ),
                 ),
                 Expanded(
@@ -289,52 +275,36 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
 class _Avatar extends StatelessWidget {
   const _Avatar({required this.url});
 
+  static const double _size = 84;
+  static const double _radius = 12;
+
   final String url;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: _AvatarImage(url: url),
-        ),
-        Positioned(
-          right: 4,
-          bottom: 4,
-          child: Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.65),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.open_in_full,
-              size: 14,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(_radius),
+      child: _AvatarImage(url: url, size: _size),
     );
   }
 }
 
 class _AvatarImage extends StatelessWidget {
-  const _AvatarImage({required this.url});
+  const _AvatarImage({required this.url, required this.size});
 
   final String url;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     if (url.trim().isNotEmpty) {
-      return Image.network(
-        url,
-        width: 112,
-        height: 112,
+      return CachedNetworkImage(
+        imageUrl: url,
+        width: size,
+        height: size,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _fallback(),
+        placeholder: (_, __) => _fallback(),
+        errorWidget: (_, __, ___) => _fallback(),
       );
     }
     return _fallback();
@@ -342,11 +312,15 @@ class _AvatarImage extends StatelessWidget {
 
   Widget _fallback() {
     return Container(
-      width: 112,
-      height: 112,
+      width: size,
+      height: size,
       color: const Color(0xFFE6E6E6),
       alignment: Alignment.center,
-      child: const Icon(Icons.person, size: 50, color: Color(0xFF9C9C9C)),
+      child: Icon(
+        Icons.person,
+        size: size * 0.45,
+        color: const Color(0xFF9C9C9C),
+      ),
     );
   }
 }

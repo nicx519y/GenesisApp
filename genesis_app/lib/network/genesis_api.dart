@@ -214,34 +214,46 @@ class GenesisApi {
     ).trim();
   }
 
-  Future<User> loginWithGoogle({required String idToken}) async {
+  Future<User> loginWithGoogle({required String idToken}) {
+    return _loginWithGoogle(idToken: idToken);
+  }
+
+  Future<User> loginWithIdentity(AuthSession session) {
+    switch (session.provider) {
+      case IdentityProvider.google:
+        return _loginWithGoogle(
+          idToken: session.providerIdToken,
+          fallbackUid: session.identityUid,
+        );
+      case IdentityProvider.apple:
+        return loginWithApple(
+          identityToken: session.providerIdToken,
+          firebaseIdToken: session.firebaseIdToken,
+          fallbackUid: session.identityUid,
+        );
+    }
+  }
+
+  Future<User> _loginWithGoogle({
+    required String idToken,
+    String fallbackUid = '',
+  }) async {
     debugPrint('[Auth][GenesisApi] POST /api/auth/google start');
     final json = await _apiClient.post<Object?>(
       'auth/google',
       body: {'id_token': idToken},
     );
-    final user = await _persistLoginResponse(json);
+    final user = await _persistLoginResponse(json, fallbackUid: fallbackUid);
     debugPrint(
       '[Auth][GenesisApi] POST /api/auth/google success uid=${user.uid}',
     );
     return user;
   }
 
-  Future<User> loginWithIdentity(AuthSession session) {
-    switch (session.provider) {
-      case IdentityProvider.google:
-        return loginWithGoogle(idToken: session.providerIdToken);
-      case IdentityProvider.apple:
-        return loginWithApple(
-          identityToken: session.providerIdToken,
-          firebaseIdToken: session.firebaseIdToken,
-        );
-    }
-  }
-
   Future<User> loginWithApple({
     required String identityToken,
     required String firebaseIdToken,
+    String fallbackUid = '',
   }) async {
     debugPrint('[Auth][GenesisApi] POST /api/auth/apple start');
     final body = <String, String>{};
@@ -254,7 +266,7 @@ class GenesisApi {
       body['firebase_id_token'] = trimmedFirebaseIdToken;
     }
     final json = await _apiClient.post<Object?>('auth/apple', body: body);
-    final user = await _persistLoginResponse(json);
+    final user = await _persistLoginResponse(json, fallbackUid: fallbackUid);
     debugPrint(
       '[Auth][GenesisApi] POST /api/auth/apple success uid=${user.uid}',
     );
@@ -270,11 +282,14 @@ class GenesisApi {
     debugPrint('[Auth][GenesisApi] POST /api/auth/logout success');
   }
 
-  Future<User> _persistLoginResponse(Object? json) async {
+  Future<User> _persistLoginResponse(
+    Object? json, {
+    String fallbackUid = '',
+  }) async {
     final map = asJsonMap(json);
     final userRaw = map['user'];
     final userMap = userRaw is Map ? asJsonMap(userRaw) : map;
-    final uid = asString(userMap['id']);
+    final uid = _loginResponseUid(userMap, fallbackUid: fallbackUid);
     final user = User(
       id: _stableInt(uid),
       uid: uid,
@@ -1285,6 +1300,22 @@ String _guestUidFromDid(String did) {
   final digest = base64Url.encode(utf8.encode(did)).replaceAll('=', '');
   final suffix = digest.length > 10 ? digest.substring(0, 10) : digest;
   return 'guest_$suffix';
+}
+
+String _loginResponseUid(
+  Map<String, dynamic> userMap, {
+  required String fallbackUid,
+}) {
+  return asString(
+    userMap['id'],
+    fallback: asString(
+      userMap['uid'],
+      fallback: asString(
+        userMap['user_id'],
+        fallback: asString(userMap['api_user_id'], fallback: fallbackUid),
+      ),
+    ),
+  ).trim();
 }
 
 int _stableInt(String value) {

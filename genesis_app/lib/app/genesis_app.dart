@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../routers/app_router.dart';
+import '../ui/genesis_ui.dart';
 import 'bootstrap/app_services_scope.dart';
 import 'bootstrap/service_registry.dart';
 
@@ -16,19 +17,7 @@ class GenesisApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Genesis',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF00C27A),
-            brightness: Brightness.light,
-          ),
-          scaffoldBackgroundColor: Colors.white,
-          textTheme: const TextTheme(
-            bodyLarge: TextStyle(fontSize: 14),
-            bodyMedium: TextStyle(fontSize: 14),
-            bodySmall: TextStyle(fontSize: 12),
-          ),
-          useMaterial3: true,
-        ),
+        theme: GenesisTheme.light(),
         initialRoute: RouteNames.origin,
         onGenerateRoute: AppRouter.onGenerateRoute,
       ),

@@ -1,0 +1,6 @@
+appId: com.genesis.ai
+---
+- launchApp
+- waitForAnimationToEnd
+- assertVisible: "Genesis"
+
