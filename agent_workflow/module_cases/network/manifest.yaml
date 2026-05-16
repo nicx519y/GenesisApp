@@ -1,0 +1,14 @@
+module: network
+description: API client, request headers, transport behavior, parser contracts.
+required:
+  static: true
+  ui: false
+tests:
+  - flutter test test/network/api_client_test.dart
+  - flutter test test/network/genesis_api_test.dart
+  - flutter test test/network/local_mock_genesis_transport_test.dart
+maestro:
+  android: []
+screenshots:
+  required: false
+

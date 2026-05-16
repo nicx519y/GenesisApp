@@ -1,0 +1,11 @@
+module: messages
+description: Messages tab, empty states, category navigation, chat entry.
+required:
+  static: true
+  ui: false
+tests: []
+maestro:
+  android: []
+screenshots:
+  required: false
+

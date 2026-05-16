@@ -18,6 +18,28 @@ fi
 
 export MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED="${MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED:-true}"
 
+append_no_proxy() {
+  local current="${1:-}"
+  shift
+  local value
+  for value in "$@"; do
+    case ",$current," in
+      *",$value,"*) ;;
+      *)
+        if [ -z "$current" ]; then
+          current="$value"
+        else
+          current="$current,$value"
+        fi
+        ;;
+    esac
+  done
+  printf '%s' "$current"
+}
+
+export NO_PROXY="$(append_no_proxy "${NO_PROXY:-}" localhost 127.0.0.1 ::1)"
+export no_proxy="$(append_no_proxy "${no_proxy:-}" localhost 127.0.0.1 ::1)"
+
 if ! java -version >/dev/null 2>&1; then
   if [ -d "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" ]; then
     export JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"

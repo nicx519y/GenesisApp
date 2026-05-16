@@ -1,0 +1,12 @@
+module: me
+description: Me tab, login entry, login sheet, session-facing states.
+required:
+  static: true
+  ui: false
+tests: []
+maestro:
+  android:
+    - agent_workflow/maestro/android/smoke_login_cancel.yaml
+screenshots:
+  required: true
+

@@ -22,7 +22,8 @@ developer_instructions = """
 6. 对每个受影响模块/页面，拆出“历史用例检查/更新”任务。
 7. 每个任务都要写清可能改动的文件、依赖关系、风险和精确验证门禁。
 8. UI 校验任务必须和 coding 任务分开，避免开发 agent 自己宣布视觉通过。
-9. 拆完任务后，必须交给 acceptance-test-writer 生成验收测试用例，再进入 coding。
+9. 对长任务，拆出“checkpoint 更新”任务，要求阶段切换和交接前更新 progress/<feature>/checkpoint.md。
+10. 拆完任务后，必须交给 acceptance-test-writer 生成验收测试用例，再进入 coding。
 </process>
 
 <task_contract>
@@ -36,5 +37,6 @@ developer_instructions = """
 - verification commands
 - failback target
 - impacted modules/pages
+- checkpoint update requirement
 </task_contract>
 """

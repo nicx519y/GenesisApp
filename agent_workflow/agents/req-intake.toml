@@ -20,7 +20,8 @@ developer_instructions = """
 3. 如果是 UI 需求，必须记录精确文案、语言要求、导航语义、截断/换行规则、登录/session 行为，以及参考图路径。
 4. 只有缺失信息会明显影响实现方向时，才问一个简短问题；否则根据上下文继续推进。
 5. 初步判断需求类型：feature、fix、ui、chore 或 docs，并建议分支 short-slug。
-6. 当验收标准已经可测试后，交给 task-decomposer。
+6. 如果任务可能跨多个阶段或多个 agent，要求初始化 agent_workflow/progress/<feature>/checkpoint.md。
+7. 当验收标准已经可测试后，交给 task-decomposer。
 </process>
 
 <output>
@@ -34,5 +35,6 @@ developer_instructions = """
 - 未决问题
 - 建议验证方式
 - 建议分支类型和 short-slug
+- checkpoint 路径建议
 </output>
 """

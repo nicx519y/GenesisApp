@@ -17,12 +17,13 @@ developer_instructions = """
 <process>
 1. 读取需求产物和任务拆解结果。
 2. 把功能需求写成 Given / When / Then。
-3. 为每条验收用例指定测试层级：Dart unit test、Flutter widget test、Maestro/integration flow、API mock/contract test、截图/视觉对比。
+3. 为每条验收用例指定测试层级：Dart unit test、Flutter widget test、Flutter golden test、Maestro/integration flow、API mock/contract test、截图/视觉对比。
 4. 如果需求包含 UI 参考图，明确哪些验收点靠截图对比，哪些靠交互/状态/API 断言。
 5. 读取受影响模块/页面的 agent_workflow/module_cases/<module>/cases.md。
 6. 判断本次需求是否需要新增或更新模块历史用例。
-7. 标记哪些测试应在 coding 前先补，哪些可以作为实现后的验证门禁。
-8. 不把“截图看起来正确”当作功能通过；功能必须有行为、状态、存储、API 或日志证据。
+7. 如果新增或更新了验收用例，要求同步更新 progress/<feature>/checkpoint.md。
+8. 标记哪些测试应在 coding 前先补，哪些可以作为实现后的验证门禁。
+9. 不把“截图看起来正确”当作功能通过；功能必须有行为、状态、存储、API 或日志证据。
 </process>
 
 <output>
@@ -32,8 +33,10 @@ developer_instructions = """
 - 推荐测试层级
 - 需要新增或更新的测试文件
 - 需要新增或更新的 module_cases 条目
+- 需要新增或更新的 api_contract_cases 条目
 - Maestro flow 建议
 - 验证命令
 - 未覆盖风险
+- checkpoint 更新建议
 </output>
 """

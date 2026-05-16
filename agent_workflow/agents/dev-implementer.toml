@@ -19,14 +19,18 @@ developer_instructions = """
 2. 编辑前先检查现有代码路径、组件边界和测试模式。
 3. 如果任务涉及 UI 或设计图，先查找现有组件、主题和样式约定，优先复用已有组件。
 4. 找不到合适组件时，先评估是否需要新增组件；新增组件必须有清晰职责、目录位置、参数边界和测试方式。
-5. 实现最小正确改动，不引入无关重构。
-6. 按 acceptance_tests 里的用例补测试或验证点。
-7. 如果改动影响某个模块/页面，必须检查并同步更新 agent_workflow/module_cases/<module>/cases.md。
-8. 先运行目标测试，再运行项目静态验证和受影响模块历史回归。
-9. 如果修改了 UI 行为或视觉效果，只能说明“代码已实现并通过静态验证”，必须交给 UI Regression Verifier 做视觉完成判定。
+5. 稳定组件级视觉改动优先补 Flutter golden test；整页真实设备状态交给 Maestro + screenshot。
+6. 涉及网络行为时，必须检查或补充 agent_workflow/api_contract_cases/<area>.md。
+7. 实现最小正确改动，不引入无关重构。
+8. 按 acceptance_tests 里的用例补测试或验证点。
+9. 如果改动影响某个模块/页面，必须检查并同步更新 agent_workflow/module_cases/<module>/cases.md。
+10. 先运行目标测试，再运行项目静态验证和受影响模块历史回归。
+11. 阶段完成、测试失败、遇到 blocker、交接或上下文可能不足前，必须更新 progress/<feature>/checkpoint.md。
+12. 如果修改了 UI 行为或视觉效果，只能说明“代码已实现并通过静态验证”，必须交给 UI Regression Verifier 做视觉完成判定。
 </process>
 
 <required_verification>
+- bash agent_workflow/scripts/update_checkpoint.sh <feature> --stage CODE_READY --done <text> --next <text>
 - bash agent_workflow/scripts/run_static_verify.sh
 - bash agent_workflow/scripts/run_module_regression.sh <module>
 - 只有涉及原生平台行为，或任务明确要求时，才追加 --build-apk 或 --build-ios。

@@ -54,6 +54,41 @@
 - 不绕开现有主题系统硬编码一套新的颜色/字号体系。
 - 不用截图通过替代功能测试。
 
+## Golden Test
+
+稳定的组件级视觉应该优先使用 Flutter golden test：
+
+```text
+登录弹窗
+搜索框
+消息空状态
+卡片/list item
+按钮/输入框等共享组件
+```
+
+使用原则：
+
+- 组件级视觉回归用 golden test。
+- 整页真实设备状态用 Maestro + screenshot。
+- Golden test 不替代交互、状态、API 行为测试。
+
+## API Contract
+
+涉及网络行为的改动，必须检查或补充：
+
+```text
+agent_workflow/api_contract_cases/<area>.md
+```
+
+需要覆盖：
+
+- 请求路径和方法。
+- query/body 参数。
+- 默认 header 和身份 header。
+- response parser 字段。
+- 错误码和异常路径。
+- mock transport / API test 文件。
+
 ## 模块用例维护
 
 实现任何模块或页面改动时，都要检查对应历史用例：
@@ -82,3 +117,43 @@ bash agent_workflow/scripts/run_module_regression.sh <module>
 ```bash
 bash agent_workflow/scripts/run_module_regression.sh <module> --ui --install
 ```
+
+如果不确定影响了哪些模块，先运行：
+
+```bash
+bash agent_workflow/scripts/list_impacted_modules.sh
+```
+
+然后运行：
+
+```bash
+bash agent_workflow/scripts/run_impacted_regression.sh
+```
+
+模块的可执行回归清单写在：
+
+```text
+agent_workflow/module_cases/<module>/manifest.yaml
+```
+
+新增或修改模块测试时，也要同步更新 manifest。
+
+## 长任务上下文维护
+
+如果一个任务会持续很久，开发实现过程中必须维护 checkpoint：
+
+```text
+agent_workflow/progress/<feature>/checkpoint.md
+```
+
+推荐节奏：
+
+```text
+开始任务 -> init_checkpoint
+阶段完成 -> update_checkpoint --stage ... --done ...
+遇到失败 -> update_checkpoint --blocker ... --next ...
+交接前 -> update_checkpoint --handoff ...
+完成前 -> update_checkpoint --stage COMPLETE --evidence ...
+```
+
+不要只把关键状态写在聊天里。能恢复任务的最小上下文必须落到 checkpoint 和对应产物文件里。

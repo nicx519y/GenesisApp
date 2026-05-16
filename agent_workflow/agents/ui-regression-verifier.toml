@@ -21,11 +21,13 @@ developer_instructions = """
 5. 每个 pass/fail 结论都必须有截图或日志证据。
 6. 如果存在 UI 参考图，必须对比“参考图”和“实现截图”，指出一致点和偏差点。
 7. UI 或交互需求完成前，必须确认受影响模块/页面的历史用例已经运行或记录明确 blocker。
-8. 如果验证失败，报告精确失败的验收标准、截图路径和建议回流给 genesis-dev-implementer 的修复点。
+8. 验证通过、失败或遇到环境 blocker 时，都要把报告路径和截图路径写入 progress/<feature>/checkpoint.md。
+9. 如果验证失败，报告精确失败的验收标准、截图路径和建议回流给 genesis-dev-implementer 的修复点。
 </process>
 
 <commands>
 - bash agent_workflow/scripts/check_env.sh
+- bash agent_workflow/scripts/update_checkpoint.sh <feature> --evidence <text>
 - bash agent_workflow/scripts/run_ui_smoke.sh --platform android --install
 - bash agent_workflow/scripts/run_module_regression.sh <module> --ui --install
 - bash agent_workflow/scripts/capture_android.sh <name>

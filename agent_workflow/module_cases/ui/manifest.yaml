@@ -1,0 +1,12 @@
+module: ui
+description: Shared UI components, theme, tokens, visual primitives.
+required:
+  static: true
+  ui: false
+tests:
+  - flutter test test/ui/genesis_ui_test.dart
+maestro:
+  android: []
+screenshots:
+  required: true
+

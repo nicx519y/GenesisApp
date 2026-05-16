@@ -1,0 +1,11 @@
+module: search
+description: Search page, search input, placeholder behavior, search result display.
+required:
+  static: true
+  ui: false
+tests: []
+maestro:
+  android: []
+screenshots:
+  required: true
+

@@ -1,0 +1,29 @@
+modules:
+  me:
+    paths:
+      - genesis_app/lib/pages/me/
+      - genesis_app/lib/components/me/
+      - genesis_app/lib/platform/auth/
+      - genesis_app/lib/platform/session/
+      - genesis_app/test/pages/me/
+      - genesis_app/test/auth/
+  messages:
+    paths:
+      - genesis_app/lib/pages/messages/
+      - genesis_app/lib/pages/chat/
+      - genesis_app/test/pages/messages/
+      - genesis_app/test/pages/chat/
+  search:
+    paths:
+      - genesis_app/lib/pages/search/
+      - genesis_app/test/pages/search/
+  network:
+    paths:
+      - genesis_app/lib/network/
+      - genesis_app/test/network/
+  ui:
+    paths:
+      - genesis_app/lib/ui/
+      - genesis_app/lib/components/
+      - genesis_app/test/ui/
+
