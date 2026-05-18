@@ -1,4 +1,5 @@
 import '../../network/genesis_api.dart';
+import '../../network/chatroom/chatroom_client.dart';
 import '../../platform/platform_services.dart';
 import '../config/app_config.dart';
 import '../config/platform_config.dart';
@@ -12,6 +13,7 @@ class AppServices {
     required this.identityAuth,
     required this.backendAuth,
     required this.api,
+    required this.chatroom,
   });
 
   final AppConfig config;
@@ -21,6 +23,7 @@ class AppServices {
   final IdentityAuthService identityAuth;
   final BackendAuthCoordinator backendAuth;
   final GenesisApi api;
+  final ChatroomClient chatroom;
 }
 
 class ServiceRegistry {
@@ -38,6 +41,12 @@ class ServiceRegistry {
       sessionStore: sessionStore,
       identityAuthService: identityAuth,
     );
+    final chatroom = ChatroomClient(
+      wsBaseUrl: config.chatroomWsBaseUrl,
+      sessionStore: sessionStore,
+      heartbeatInterval: config.chatroomHeartbeatInterval,
+      ackTimeout: config.chatroomAckTimeout,
+    );
     final backendAuth = GenesisBackendAuthCoordinator(
       api: api,
       identityAuth: identityAuth,
@@ -51,6 +60,7 @@ class ServiceRegistry {
       identityAuth: identityAuth,
       backendAuth: backendAuth,
       api: api,
+      chatroom: chatroom,
     );
   }
 }

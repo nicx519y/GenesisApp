@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/main.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/pages/create/create_characters_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_locations_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_page.dart';
@@ -46,6 +47,10 @@ Future<AppServices> _testServices({bool backendAuthenticated = false}) async {
     identityAuth: identityAuth,
     backendAuth: backendAuth,
     api: api,
+    chatroom: ChatroomClient(
+      wsBaseUrl: config.chatroomWsBaseUrl,
+      sessionStore: sessionStore,
+    ),
   );
 }
 
@@ -413,6 +418,8 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: SettingsPage()));
     await tester.pumpAndSettle();
 
+    expect(find.text('WebSocket test'), findsOneWidget);
+
     await tester.tap(find.text('About us'));
     await tester.pumpAndSettle();
 
@@ -423,5 +430,25 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('settings opens websocket test page', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: SettingsPage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('WebSocket test'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('WebSocket test'), findsWidgets);
+    expect(find.text('Status: Disconnected'), findsOneWidget);
+    expect(find.text('Connect'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Send message'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Send message'), findsOneWidget);
   });
 }

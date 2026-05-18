@@ -25,6 +25,7 @@ class GenesisApi {
   static const String defaultBaseHost = 'http://47.77.195.140:5002';
   static const String defaultApiBaseUrl = '$defaultBaseHost/api/';
   static const String defaultAssetBaseUrl = 'https://af.hushie.ai/html/';
+  static const String defaultChatroomWsBaseUrl = 'ws://47.77.195.140:5002/ws';
 
   GenesisApi({
     ApiClient? apiClient,
