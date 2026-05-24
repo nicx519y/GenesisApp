@@ -6,6 +6,7 @@ import '../pages/search/search_page.dart';
 import '../pages/origin/origin_world_page.dart';
 import '../pages/world/world_page.dart';
 import '../pages/chat/chat_page.dart';
+import '../pages/chat/location_chat_page.dart';
 import '../pages/messages/message_category_list_page.dart';
 
 sealed class RouteNames {
@@ -15,6 +16,7 @@ sealed class RouteNames {
   static const originWorld = '/origin_world';
   static const world = '/world';
   static const chat = '/chat';
+  static const locationChat = '/location_chat';
   static const search = '/search';
   static const create = '/create';
   static const messages = '/messages';
@@ -104,6 +106,37 @@ sealed class AppRouter {
             locationName: locationName,
           ),
         );
+      case RouteNames.locationChat:
+        final args = settings.arguments;
+        var worldId = '';
+        var locationId = '';
+        var locationName = '';
+        if (args is Map) {
+          final rawWorldId = args['world_id'] ?? args['worldId'] ?? args['wid'];
+          if (rawWorldId != null) worldId = rawWorldId.toString();
+
+          final rawLocationId =
+              args['location_id'] ??
+              args['locationId'] ??
+              args['scene_id'] ??
+              args['sceneId'] ??
+              args['point_id'] ??
+              args['pointId'];
+          if (rawLocationId != null) locationId = rawLocationId.toString();
+
+          final rawLocationName = args['locationName'] ?? args['location_name'];
+          if (rawLocationName != null) {
+            locationName = rawLocationName.toString();
+          }
+        }
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => LocationChatPage(
+            worldId: worldId,
+            locationId: locationId,
+            locationName: locationName,
+          ),
+        );
       case RouteNames.search:
         return MaterialPageRoute<void>(
           settings: settings,
@@ -129,10 +162,7 @@ sealed class AppRouter {
           settings: settings,
           builder: (_) => const MessageCategoryListPage(
             title: 'Notifications',
-            items: <String>[
-              'Your world "Steam Kingdom" has new activity.',
-              'A character update was generated successfully.',
-            ],
+            category: 'system',
             emptyText: 'No notifications yet.',
           ),
         );
@@ -141,10 +171,7 @@ sealed class AppRouter {
           settings: settings,
           builder: (_) => const MessageCategoryListPage(
             title: 'New followers',
-            items: <String>[
-              'Aether Nomad started following you.',
-              'MapSketcher started following you.',
-            ],
+            category: 'follower',
             emptyText: 'No new followers yet.',
           ),
         );
@@ -153,10 +180,7 @@ sealed class AppRouter {
           settings: settings,
           builder: (_) => const MessageCategoryListPage(
             title: 'Comments',
-            items: <String>[
-              '"Love this world setting!"',
-              '"Can\'t wait for the next update."',
-            ],
+            category: 'comment',
             emptyText: 'No comments yet.',
           ),
         );

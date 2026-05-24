@@ -782,14 +782,11 @@ void main() {
           verificationFailed: anyNamed('verificationFailed'),
         )).thenAnswer((i) async {});
 
-        final PhoneVerificationCompleted verificationCompleted =
-            (PhoneAuthCredential phoneAuthCredential) {};
-        final PhoneVerificationFailed verificationFailed =
-            (FirebaseAuthException authException) {};
-        final PhoneCodeSent codeSent =
-            (String verificationId, [int? forceResendingToken]) async {};
-        final PhoneCodeAutoRetrievalTimeout autoRetrievalTimeout =
-            (String verificationId) {};
+        void verificationCompleted(PhoneAuthCredential phoneAuthCredential) {}
+        void verificationFailed(FirebaseAuthException authException) {}
+        void codeSent(String verificationId,
+            [int? forceResendingToken]) async {}
+        void autoRetrievalTimeout(String verificationId) {}
 
         await auth.verifyPhoneNumber(
           phoneNumber: kMockPhoneNumber,
@@ -1235,8 +1232,8 @@ class MockUserPlatform extends Mock
     with MockPlatformInterfaceMixin
     implements TestUserPlatform {
   MockUserPlatform(FirebaseAuthPlatform auth, MultiFactorPlatform multiFactor,
-      InternalUserDetails _user) {
-    TestUserPlatform(auth, multiFactor, _user);
+      InternalUserDetails user) {
+    TestUserPlatform(auth, multiFactor, user);
   }
 }
 
@@ -1354,13 +1351,11 @@ class TestAuthProvider extends AuthProvider {
 }
 
 class TestUserPlatform extends UserPlatform {
-  TestUserPlatform(FirebaseAuthPlatform auth, MultiFactorPlatform multiFactor,
-      InternalUserDetails data)
-      : super(auth, multiFactor, data);
+  TestUserPlatform(super.auth, super.multiFactor, super.data);
 }
 
 class TestMultiFactorPlatform extends MultiFactorPlatform {
-  TestMultiFactorPlatform(FirebaseAuthPlatform auth) : super(auth);
+  TestMultiFactorPlatform(super.auth);
 }
 
 class TestUserCredentialPlatform extends UserCredentialPlatform {

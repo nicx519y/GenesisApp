@@ -91,6 +91,21 @@ class MyFlutterApp {
     fontFamily: _kFontFam,
     fontPackage: _kFontPkg,
   );
+  static const IconData add2 = IconData(
+    0xe811,
+    fontFamily: _kFontFam,
+    fontPackage: _kFontPkg,
+  );
+  static const IconData sticker = IconData(
+    0xe812,
+    fontFamily: _kFontFam,
+    fontPackage: _kFontPkg,
+  );
+  static const IconData voice = IconData(
+    0xe813,
+    fontFamily: _kFontFam,
+    fontPackage: _kFontPkg,
+  );
   static const IconData check = IconData(
     0xf00c,
     fontFamily: _kFontFam,

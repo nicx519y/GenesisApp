@@ -12,6 +12,7 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - assets/custom-icons/my_flutter_app_icons.dart
+    - third_party/firebase_auth/**
 
 linter:
   # The lint rules applied to this project can be customized in the

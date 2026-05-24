@@ -11,6 +11,7 @@ import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/origin.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../utils/stat_count_formatter.dart';
 
 const double _stickyBottomBarHeight = 58;
 
@@ -350,11 +351,17 @@ class _BottomStatsBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        StatItem(icon: MyFlutterApp.save, text: '$copyCount'),
+        StatItem(icon: MyFlutterApp.save, text: formatStatCount(copyCount)),
         const SizedBox(width: 14),
-        StatItem(icon: MyFlutterApp.copy, text: '$interactionCount'),
+        StatItem(
+          icon: MyFlutterApp.copy,
+          text: formatStatCount(interactionCount),
+        ),
         const SizedBox(width: 14),
-        StatItem(icon: MyFlutterApp.userStar, text: '$characterCount'),
+        StatItem(
+          icon: MyFlutterApp.userStar,
+          text: formatStatCount(characterCount),
+        ),
         const Spacer(),
         SizedBox(
           height: 30,

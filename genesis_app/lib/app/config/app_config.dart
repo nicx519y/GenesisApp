@@ -4,19 +4,44 @@ class AppConfig {
   const AppConfig({
     this.apiBaseUrl = GenesisApi.defaultApiBaseUrl,
     this.assetBaseUrl = GenesisApi.defaultAssetBaseUrl,
+    this.apiEnvironment = const String.fromEnvironment(
+      'GENESIS_API_ENV',
+      defaultValue: 'auto',
+    ),
     this.chatroomWsBaseUrl = const String.fromEnvironment(
       'GENESIS_CHATROOM_WS_URL',
       defaultValue: GenesisApi.defaultChatroomWsBaseUrl,
     ),
     this.chatroomHeartbeatInterval = const Duration(seconds: 30),
     this.chatroomAckTimeout = const Duration(seconds: 12),
-    this.useMock,
-  });
+    bool? useMock,
+  }) : _useMockOverride = useMock;
 
   final String apiBaseUrl;
   final String assetBaseUrl;
+  final String apiEnvironment;
   final String chatroomWsBaseUrl;
   final Duration chatroomHeartbeatInterval;
   final Duration chatroomAckTimeout;
-  final bool? useMock;
+  final bool? _useMockOverride;
+
+  bool? get useMock {
+    final override = _useMockOverride;
+    if (override != null) return override;
+    return mockApiOverrideFromEnvironment(apiEnvironment);
+  }
+}
+
+bool? mockApiOverrideFromEnvironment(String value) {
+  final normalized = value.trim().toLowerCase();
+  if (normalized.isEmpty || normalized == 'auto') return null;
+  if (normalized == 'mock' || normalized == 'local' || normalized == 'debug') {
+    return true;
+  }
+  if (normalized == 'production' ||
+      normalized == 'prod' ||
+      normalized == 'real') {
+    return false;
+  }
+  return null;
 }

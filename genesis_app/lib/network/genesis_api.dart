@@ -12,6 +12,7 @@ import 'models/user.dart';
 import 'models/world.dart';
 import 'models/world_message.dart';
 import 'http_transport.dart';
+import 'v1/genesis_v1_api.dart';
 import '../app/config/platform_config.dart';
 import '../platform/auth/auth_session.dart';
 import '../platform/auth/google_firebase_auth_service.dart';
@@ -70,10 +71,12 @@ class GenesisApi {
           transport: resolvedTransport,
           responseProcessor: _defaultGenesisProcessor,
         );
+    v1 = GenesisV1Api(_apiClient);
   }
 
   late final ApiClient _apiClient;
   late final ApiClient _healthClient;
+  late final GenesisV1Api v1;
   late final DeviceIdService _deviceIdService;
   late final UserSessionStore _sessionStore;
   late final IdentityAuthService _identityAuthService;
@@ -120,14 +123,20 @@ class GenesisApi {
     final localUid = _guestUidFromDid(deviceId);
 
     try {
-      final json = await _apiClient.get<Object?>('auth/me/public-profile');
-      final profile = asJsonMap(json);
-      final uid = asString(profile['id'], fallback: localUid);
+      final profileEnvelope = await v1.user.info();
+      final profile = asJsonMap(profileEnvelope['user']);
+      final uid = asString(
+        profile['id'],
+        fallback: asString(profile['uid'], fallback: localUid),
+      );
       final user = User(
         id: _stableInt(uid),
         uid: uid,
         did: deviceId,
-        nickname: asString(profile['display_name']),
+        nickname: asString(
+          profile['display_name'],
+          fallback: asString(profile['name']),
+        ),
         avatar: asString(
           profile['avatar_url'],
           fallback: asString(profile['avatar']),
@@ -152,9 +161,9 @@ class GenesisApi {
 
   Future<bool> hasAuthenticatedSession({bool tryAutoRefresh = true}) async {
     try {
-      final json = await _apiClient.get<Object?>('auth/me/public-profile');
-      final profile = asJsonMap(json);
-      final uid = asString(profile['id']);
+      final profileEnvelope = await v1.user.info();
+      final profile = asJsonMap(profileEnvelope['user']);
+      final uid = asString(profile['id'], fallback: asString(profile['uid']));
       if (uid.trim().isEmpty || uid.startsWith('guest_')) return false;
       await _sessionStore.saveUid(uid);
       return true;
@@ -191,13 +200,19 @@ class GenesisApi {
   }
 
   Future<User> getUser(String uid) async {
-    final json = await _apiClient.get<Object?>('users/$uid/public');
-    final profile = asJsonMap(json);
+    final profileEnvelope = await v1.user.info(uid: uid);
+    final profile = asJsonMap(profileEnvelope['user']);
     return User(
       id: _stableInt(uid),
-      uid: asString(profile['id'], fallback: uid),
+      uid: asString(
+        profile['id'],
+        fallback: asString(profile['uid'], fallback: uid),
+      ),
       did: '',
-      nickname: asString(profile['display_name']),
+      nickname: asString(
+        profile['display_name'],
+        fallback: asString(profile['name']),
+      ),
       avatar: asString(
         profile['avatar_url'],
         fallback: asString(profile['avatar']),
@@ -207,16 +222,26 @@ class GenesisApi {
   }
 
   Future<String> getDisplayUserCode() async {
-    final json = await _apiClient.get<Object?>('auth/me/public-profile');
-    final profile = asJsonMap(json);
+    final profileEnvelope = await v1.user.info();
+    final profile = asJsonMap(profileEnvelope['user']);
     return asString(
       profile['user_code'],
-      fallback: asString(profile['id']),
+      fallback: asString(profile['id'], fallback: asString(profile['uid'])),
     ).trim();
   }
 
-  Future<User> loginWithGoogle({required String idToken}) {
-    return _loginWithGoogle(idToken: idToken);
+  Future<User> loginWithGoogle({
+    required String idToken,
+    String? nonce,
+    String? name,
+    String? avatar,
+  }) {
+    return _loginWithGoogle(
+      idToken: idToken,
+      nonce: nonce,
+      name: name,
+      avatar: avatar,
+    );
   }
 
   Future<User> loginWithIdentity(AuthSession session) {
@@ -225,12 +250,16 @@ class GenesisApi {
         return _loginWithGoogle(
           idToken: session.providerIdToken,
           fallbackUid: session.identityUid,
+          name: session.displayName,
+          avatar: session.photoUrl,
         );
       case IdentityProvider.apple:
         return loginWithApple(
           identityToken: session.providerIdToken,
           firebaseIdToken: session.firebaseIdToken,
           fallbackUid: session.identityUid,
+          name: session.displayName,
+          avatar: session.photoUrl,
         );
     }
   }
@@ -238,15 +267,20 @@ class GenesisApi {
   Future<User> _loginWithGoogle({
     required String idToken,
     String fallbackUid = '',
+    String? nonce,
+    String? name,
+    String? avatar,
   }) async {
-    debugPrint('[Auth][GenesisApi] POST /api/auth/google start');
-    final json = await _apiClient.post<Object?>(
-      'auth/google',
-      body: {'id_token': idToken},
+    debugPrint('[Auth][GenesisApi] POST /api/v1/user/oauth/google start');
+    final json = await v1.user.googleAuth(
+      idToken: idToken,
+      nonce: nonce,
+      name: name,
+      avatar: avatar,
     );
     final user = await _persistLoginResponse(json, fallbackUid: fallbackUid);
     debugPrint(
-      '[Auth][GenesisApi] POST /api/auth/google success uid=${user.uid}',
+      '[Auth][GenesisApi] POST /api/v1/user/oauth/google success uid=${user.uid}',
     );
     return user;
   }
@@ -255,32 +289,31 @@ class GenesisApi {
     required String identityToken,
     required String firebaseIdToken,
     String fallbackUid = '',
+    String? name,
+    String? avatar,
   }) async {
-    debugPrint('[Auth][GenesisApi] POST /api/auth/apple start');
-    final body = <String, String>{};
+    debugPrint('[Auth][GenesisApi] POST /api/v1/user/oauth/apple start');
     final trimmedIdentityToken = identityToken.trim();
-    if (trimmedIdentityToken.isNotEmpty) {
-      body['id_token'] = trimmedIdentityToken;
-    }
     final trimmedFirebaseIdToken = firebaseIdToken.trim();
-    if (trimmedFirebaseIdToken.isNotEmpty) {
-      body['firebase_id_token'] = trimmedFirebaseIdToken;
-    }
-    final json = await _apiClient.post<Object?>('auth/apple', body: body);
+    final idToken = trimmedIdentityToken.isNotEmpty
+        ? trimmedIdentityToken
+        : trimmedFirebaseIdToken;
+    final json = await v1.user.appleAuth(
+      idToken: idToken,
+      name: name,
+      avatar: avatar,
+    );
     final user = await _persistLoginResponse(json, fallbackUid: fallbackUid);
     debugPrint(
-      '[Auth][GenesisApi] POST /api/auth/apple success uid=${user.uid}',
+      '[Auth][GenesisApi] POST /api/v1/user/oauth/apple success uid=${user.uid}',
     );
     return user;
   }
 
   Future<void> logout() async {
-    debugPrint('[Auth][GenesisApi] POST /api/auth/logout start');
-    await _apiClient.post<Object?>(
-      'auth/logout',
-      body: const <String, Object?>{},
-    );
-    debugPrint('[Auth][GenesisApi] POST /api/auth/logout success');
+    debugPrint('[Auth][GenesisApi] POST /api/v1/user/logout start');
+    await v1.user.logout();
+    debugPrint('[Auth][GenesisApi] POST /api/v1/user/logout success');
   }
 
   Future<User> _persistLoginResponse(
@@ -295,7 +328,10 @@ class GenesisApi {
       id: _stableInt(uid),
       uid: uid,
       did: '',
-      nickname: asString(userMap['display_name']),
+      nickname: asString(
+        userMap['display_name'],
+        fallback: asString(userMap['name']),
+      ),
       avatar: asString(
         userMap['avatar_url'],
         fallback: asString(
@@ -323,35 +359,30 @@ class GenesisApi {
     int limit = 20,
     int offset = 0,
   }) async {
-    final isPopular = category.trim().isNotEmpty && category != 'For you';
-    final path = isPopular ? 'origins/popular' : 'origins';
-    final query = isPopular ? <String, Object?>{'limit': limit} : null;
-
-    final json = await _apiClient.get<Object?>(path, query: query);
-    final map = asJsonMap(json);
-    final rawOrigins = map['origins'];
+    final page = _pageFromOffset(limit: limit, offset: offset);
+    final tagName = category.trim().isNotEmpty && category != 'For you'
+        ? category.trim()
+        : null;
+    final map = await v1.origin.list(tagName: tagName, pn: page, rn: limit);
+    final rawOrigins = map['list'];
     final list = (rawOrigins is List ? asJsonList(rawOrigins) : const [])
-        .map((e) => _originSummaryFromV5(asJsonMap(e)))
+        .map((e) => _originSummaryFromV1ListItem(asJsonMap(e)))
         .toList(growable: false);
 
     for (final o in list) {
       _originIdToWorldview[o.id] = o.oid;
     }
 
-    final sliced = list.skip(offset).take(limit).toList(growable: false);
     return PagedResponse(
-      data: sliced,
-      total: list.length,
+      data: list,
+      total: asInt(map['total'], fallback: list.length),
       limit: limit,
       offset: offset,
     );
   }
 
   Future<OriginDetail> getOrigin(String oid) async {
-    final worldviewId = oid.trim();
-    final json = await _apiClient.get<Object?>('origins/$worldviewId/detail');
-    final v5 = asJsonMap(json);
-    final detail = _originDetailFromV5(v5);
+    final detail = _originDetailFromV1(await v1.origin.detail(oid: oid));
     _originIdToWorldview[detail.id] = detail.oid;
     return detail;
   }
@@ -362,42 +393,16 @@ class GenesisApi {
     int offset = 0,
   }) async {
     final resolvedUid = uid ?? await _ensureUid();
-    final json = await _apiClient.get<Object?>(
-      'worlds',
-      query: {'user_id': resolvedUid},
-    );
-    final map = asJsonMap(json);
-    final worldsRaw = map['worlds'];
-    final worlds = worldsRaw is List ? asJsonList(worldsRaw) : const [];
-
-    final origins = worlds
-        .map((e) {
-          final w = asJsonMap(e);
-          final worldviewId = asString(w['worldview_id']);
-          final originId = _stableInt(worldviewId);
-          return OriginSummary(
-            id: originId,
-            oid: worldviewId,
-            name: asString(w['world_name']),
-            description: '',
-            mapImage: asString(w['snapshot_cover_url']),
-            worldMap: asString(w['snapshot_cover_url']),
-            worldView: '',
-            copyCount: 0,
-            interactCount: asInt(w['location_chat_user_send_count']),
-            tags: const <String>[],
-            createdAt: asDateTime(w['updated_at']),
-            updatedAt: asDateTime(w['updated_at']),
-            characters: const <OriginCharacter>[],
-            locations: const <OriginLocation>[],
-          );
-        })
+    final page = _pageFromOffset(limit: limit, offset: offset);
+    final map = await v1.origin.list(uid: resolvedUid, pn: page, rn: limit);
+    final originsRaw = map['list'];
+    final origins = (originsRaw is List ? asJsonList(originsRaw) : const [])
+        .map((e) => _originSummaryFromV1ListItem(asJsonMap(e)))
         .toList(growable: false);
 
-    final sliced = origins.skip(offset).take(limit).toList(growable: false);
     return PagedResponse(
-      data: sliced,
-      total: origins.length,
+      data: origins,
+      total: asInt(map['total'], fallback: origins.length),
       limit: limit,
       offset: offset,
     );
@@ -409,27 +414,11 @@ class GenesisApi {
     int offset = 0,
   }) async {
     final resolvedUid = uid ?? await _ensureUid();
-    final json = await _apiClient.get<Object?>(
-      'worlds',
-      query: {'user_id': resolvedUid},
-    );
-    final map = asJsonMap(json);
-    final worldsRaw = map['worlds'];
-    final worlds = worldsRaw is List ? asJsonList(worldsRaw) : const [];
-    final sliced = worlds.skip(offset).take(limit);
-    return sliced
-        .map((item) {
-          final world = asJsonMap(item);
-          return MyWorldSummary(
-            wid: asString(
-              world['world_instance_id'],
-              fallback: asString(world['wid']),
-            ),
-            name: asString(world['world_name']),
-            snapshotCoverUrl: asString(world['snapshot_cover_url']),
-            updatedAtText: asString(world['updated_at']),
-          );
-        })
+    final page = _pageFromOffset(limit: limit, offset: offset);
+    final map = await v1.world.list(uid: resolvedUid, pn: page, rn: limit);
+    final worldsRaw = map['list'];
+    return (worldsRaw is List ? asJsonList(worldsRaw) : const [])
+        .map((item) => _myWorldSummaryFromV1ListItem(asJsonMap(item)))
         .toList(growable: false);
   }
 
@@ -547,158 +536,7 @@ class GenesisApi {
   }
 
   Future<WorldDetail> getWorld(String wid) async {
-    final resolvedUid = await _ensureUid();
-
-    final tickJson = await _apiClient.get<Object?>(
-      'tick',
-      query: {'user_id': resolvedUid, 'wid': wid},
-    );
-    final tick = asJsonMap(tickJson);
-
-    final worldviewId = asString(tick['current_worldview_id']);
-
-    Map<String, dynamic> mapResp = const <String, dynamic>{};
-    if (worldviewId.trim().isNotEmpty) {
-      final mapJson = await _apiClient.get<Object?>(
-        'worldview-map',
-        query: {
-          'user_id': resolvedUid,
-          'worldview_id': worldviewId,
-          'wid': wid,
-        },
-      );
-      mapResp = asJsonMap(mapJson);
-    }
-
-    final charactersJson = await _apiClient.get<Object?>(
-      'characters',
-      query: {'user_id': resolvedUid, 'wid': wid},
-    );
-    final charactersResp = asJsonMap(charactersJson);
-
-    final metaJson = await _apiClient.get<Object?>('worlds/$wid/public-meta');
-    final meta = asJsonMap(metaJson);
-
-    OriginSummary origin = const OriginSummary(
-      id: 0,
-      oid: '',
-      name: '',
-      description: '',
-      mapImage: '',
-      worldMap: '',
-      worldView: '',
-      copyCount: 0,
-      interactCount: 0,
-      tags: <String>[],
-      createdAt: null,
-      updatedAt: null,
-      characters: <OriginCharacter>[],
-      locations: <OriginLocation>[],
-    );
-
-    if (worldviewId.trim().isNotEmpty) {
-      try {
-        final originJson = await _apiClient.get<Object?>(
-          'origins/$worldviewId/detail',
-        );
-        origin = _originSummaryFromV5(asJsonMap(originJson));
-      } catch (_) {
-        origin = origin.copyWith(
-          name: asString(tick['current_worldview_name']),
-        );
-      }
-    }
-
-    final worldLocationsRaw = mapResp['merged_positions'] is List
-        ? asJsonList(mapResp['merged_positions'])
-        : (mapResp['positions'] is List
-              ? asJsonList(mapResp['positions'])
-              : const []);
-    final worldLocations = worldLocationsRaw
-        .map((e) => _normalizeWorldLocation(asJsonMap(e)))
-        .toList(growable: false);
-
-    final charactersById = <String, Map<String, dynamic>>{};
-    if (charactersResp['characters_full'] is List) {
-      for (final e in asJsonList(charactersResp['characters_full'])) {
-        final c = asJsonMap(e);
-        final id = asString(c['id']);
-        if (id.isNotEmpty) {
-          charactersById[id] = {
-            'name': asString(c['name']),
-            'avatar': asString(
-              c['avatar_url'],
-              fallback: asString(c['avatar']),
-            ),
-          };
-        }
-      }
-    }
-
-    final characterPositions = <Map<String, dynamic>>[];
-    if (tick['scenes'] is List) {
-      for (final sRaw in asJsonList(tick['scenes'])) {
-        final s = asJsonMap(sRaw);
-        final locationId = asString(s['location_id']);
-        if (s['character_ids'] is! List) continue;
-        for (final cid in asJsonList(s['character_ids'])) {
-          final id = asString(cid);
-          final c =
-              charactersById[id] ?? <String, dynamic>{'name': id, 'avatar': ''};
-          characterPositions.add({'location_id': locationId, 'character': c});
-        }
-      }
-    }
-
-    final userPositions = <Map<String, dynamic>>[];
-    final slotMapRaw = tick['player_slot_last_location'];
-    if (slotMapRaw is Map) {
-      final slotMap = asJsonMap(slotMapRaw);
-      slotMap.forEach((slot, location) {
-        final locationId = asString(location);
-        if (locationId.isNotEmpty) {
-          userPositions.add({'slot': slot, 'location_id': locationId});
-        }
-      });
-    }
-
-    final tickHistory = tick['tick_history'] is List
-        ? asJsonList(tick['tick_history'])
-        : const [];
-    final lastTick = tickHistory.isNotEmpty
-        ? asJsonMap(tickHistory.last)
-        : const <String, dynamic>{};
-
-    final worldMutationRaw = tick['world_mutation'];
-    final worldMutation = worldMutationRaw is Map
-        ? asJsonMap(worldMutationRaw)
-        : const <String, dynamic>{};
-
-    return WorldDetail(
-      id: _stableInt(wid),
-      wid: wid,
-      originId: _stableInt(worldviewId),
-      ownerUid: asString(meta['owner_user_id']),
-      name: asString(
-        meta['world_name'],
-        fallback: asString(tick['current_worldview_name']),
-      ),
-      progressCount: asInt(tick['tick_index']),
-      interactCount: asInt(tick['location_chat_user_send_count']),
-      lastProgressAt: asDateTime(lastTick['created_at']),
-      lastProgressUpdate: asString(
-        lastTick['global_narrative'],
-        fallback: asString(tick['global_narrative']),
-      ),
-      isProgressing: asBool(worldMutation['busy']),
-      inviteToken: asString(meta['display_wid_str'], fallback: wid),
-      createdAt: null,
-      updatedAt: asDateTime(lastTick['created_at']),
-      origin: origin,
-      worldLocations: worldLocations,
-      characterPositions: characterPositions,
-      userPositions: userPositions,
-    );
+    return _worldDetailFromV1(await v1.world.detail(wid: wid));
   }
 
   Future<String> progressWorld(String wid) async {
@@ -915,12 +753,22 @@ class MyWorldSummary {
     required this.name,
     required this.snapshotCoverUrl,
     required this.updatedAtText,
+    required this.ownerName,
+    required this.progressCount,
+    required this.interactCount,
+    required this.characterCount,
+    required this.playerCount,
   });
 
   final String wid;
   final String name;
   final String snapshotCoverUrl;
   final String updatedAtText;
+  final String ownerName;
+  final int progressCount;
+  final int interactCount;
+  final int characterCount;
+  final int playerCount;
 }
 
 class SearchResultBundle {
@@ -954,13 +802,30 @@ HttpTransport? _resolveTransport({
   required bool? useMock,
 }) {
   if (transport != null) return transport;
+  const apiEnvironment = String.fromEnvironment('GENESIS_API_ENV');
+  final environmentUseMock = _mockEnabledByApiEnvironment(apiEnvironment);
   const forceRealApi = bool.fromEnvironment(
     'GENESIS_USE_REAL_API',
     defaultValue: false,
   );
-  final enabled = useMock ?? (kDebugMode && !forceRealApi);
+  final enabled =
+      useMock ?? environmentUseMock ?? (kDebugMode && !forceRealApi);
   if (!enabled) return null;
   return LocalMockGenesisTransport.instance;
+}
+
+bool? _mockEnabledByApiEnvironment(String value) {
+  final normalized = value.trim().toLowerCase();
+  if (normalized.isEmpty) return null;
+  if (normalized == 'mock' || normalized == 'local' || normalized == 'debug') {
+    return true;
+  }
+  if (normalized == 'production' ||
+      normalized == 'prod' ||
+      normalized == 'real') {
+    return false;
+  }
+  return null;
 }
 
 bool _isAuthFailureStatus(int? statusCode) {
@@ -1016,6 +881,103 @@ String resolveAssetUrl(String raw) {
   return '$base$value';
 }
 
+int _pageFromOffset({required int limit, required int offset}) {
+  if (limit <= 0 || offset <= 0) return 1;
+  return (offset ~/ limit) + 1;
+}
+
+OriginSummary _originSummaryFromV1ListItem(Map<String, dynamic> raw) {
+  final origin = raw['info'] is Map ? asJsonMap(raw['info']) : raw;
+  final stats = raw['stats'] is Map ? asJsonMap(raw['stats']) : raw;
+  final oid = asString(origin['oid'], fallback: asString(origin['origin_id']));
+  final cover = resolveAssetUrl(
+    asString(origin['cover'], fallback: asString(origin['map_url'])),
+  );
+
+  return OriginSummary(
+    id: asInt(origin['id'], fallback: _stableInt(oid)),
+    oid: oid,
+    name: asString(
+      origin['name'],
+      fallback: asString(origin['origin_name'], fallback: oid),
+    ),
+    description: asString(
+      origin['display_subtitle'],
+      fallback: asString(
+        origin['brief'],
+        fallback: asString(
+          origin['setting'],
+          fallback: asString(origin['world_setting']),
+        ),
+      ),
+    ),
+    mapImage: cover,
+    worldMap: cover,
+    worldView: asString(
+      origin['world_view'],
+      fallback: asString(origin['setting']),
+    ),
+    originator: asString(
+      origin['created_user_name'],
+      fallback: asString(origin['originator']),
+    ),
+    versionNum: asInt(
+      origin['version_num'],
+      fallback: asInt(origin['origin_version']),
+    ),
+    copyCount: asInt(stats['copy_cnt']),
+    interactCount: asInt(stats['connect_cnt']),
+    characterCount: asInt(stats['character_cnt']),
+    tags: _tagsFromV1(origin['tags']),
+    createdAt: _apiDateTime(origin['created_at']),
+    updatedAt: _apiDateTime(
+      origin['updated_at'] ?? origin['origin_version_time'],
+    ),
+    characters: const <OriginCharacter>[],
+    locations: const <OriginLocation>[],
+  );
+}
+
+MyWorldSummary _myWorldSummaryFromV1ListItem(Map<String, dynamic> raw) {
+  final world = raw['info'] is Map ? asJsonMap(raw['info']) : raw;
+  final stats = raw['stats'] is Map ? asJsonMap(raw['stats']) : world;
+  final wid = asString(world['wid'], fallback: asString(world['world_id']));
+  final name = asString(
+    world['name'],
+    fallback: asString(world['world_name'], fallback: wid),
+  );
+  final cover = resolveAssetUrl(
+    asString(
+      world['snapshot_cover_url'],
+      fallback: asString(
+        world['cover'],
+        fallback: asString(
+          world['map_url'],
+          fallback: asString(world['cover_url']),
+        ),
+      ),
+    ),
+  );
+
+  return MyWorldSummary(
+    wid: wid,
+    name: name,
+    snapshotCoverUrl: cover,
+    updatedAtText: _apiDateTimeText(world['updated_at'] ?? world['created_at']),
+    ownerName: asString(
+      world['owner_name'],
+      fallback: asString(world['created_user_name']),
+    ),
+    progressCount: asInt(stats['tick_cnt']),
+    interactCount: asInt(stats['connect_cnt']),
+    characterCount: asInt(
+      stats['ai_character_cnt'],
+      fallback: asInt(stats['character_cnt']),
+    ),
+    playerCount: asInt(stats['player_cnt']),
+  );
+}
+
 OriginSummary _originSummaryFromV5(Map<String, dynamic> raw) {
   final tagsRaw = raw['Otags'];
   final tags = tagsRaw is List
@@ -1048,31 +1010,12 @@ OriginSummary _originSummaryFromV5(Map<String, dynamic> raw) {
     worldView: asString(raw['Odescription']),
     copyCount: asInt(raw['Ocopycount']),
     interactCount: asInt(raw['Oconnectcount']),
+    characterCount: _originCharactersFromV5(raw['Ocharacters'], id).length,
     tags: tags,
     createdAt: null,
     updatedAt: asDateTime(raw['Oupdated_time']),
     characters: _originCharactersFromV5(raw['Ocharacters'], id),
     locations: _originLocationsFromV5(raw['Omap_points'], id),
-  );
-}
-
-OriginDetail _originDetailFromV5(Map<String, dynamic> raw) {
-  final summary = _originSummaryFromV5(raw);
-  return OriginDetail(
-    id: summary.id,
-    oid: summary.oid,
-    name: summary.name,
-    description: summary.description,
-    mapImage: summary.mapImage,
-    worldMap: summary.worldMap,
-    worldView: summary.worldView,
-    copyCount: summary.copyCount,
-    interactCount: summary.interactCount,
-    tags: summary.tags,
-    createdAt: summary.createdAt,
-    updatedAt: summary.updatedAt,
-    characters: summary.characters,
-    locations: summary.locations,
   );
 }
 
@@ -1178,16 +1121,307 @@ Map<String, dynamic> _normalizeWorldLocation(Map<String, dynamic> location) {
     'id': pointId,
     'name': asString(
       location['location_name'],
-      fallback: asString(location['label']),
+      fallback: asString(
+        location['label'],
+        fallback: asString(location['name']),
+      ),
     ),
-    'description': asString(location['state']),
+    'description': asString(
+      location['state'],
+      fallback: asString(
+        location['description'],
+        fallback: asString(location['location_summary']),
+      ),
+    ),
     'icon': asString(
       location['image'],
-      fallback: asString(location['building_sprite']),
+      fallback: asString(
+        location['building_sprite'],
+        fallback: asString(
+          location['icon'],
+          fallback: asString(location['map']),
+        ),
+      ),
     ),
     'x_percent': xPercent,
     'y_percent': yPercent,
   };
+}
+
+OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
+  final origin = raw['origin'] is Map
+      ? asJsonMap(raw['origin'])
+      : asJsonMap(raw['info']);
+  final stats = raw['stats'] is Map ? asJsonMap(raw['stats']) : origin;
+  final oid = asString(origin['oid'], fallback: asString(origin['origin_id']));
+  final id = _stableInt(oid);
+  final cover = resolveAssetUrl(
+    asString(origin['cover'], fallback: asString(origin['map_url'])),
+  );
+  final charactersRaw = raw['character_list'] ?? raw['characters'];
+  final characters = charactersRaw is List
+      ? asJsonList(charactersRaw)
+            .map((e) => _originCharacterFromV1(asJsonMap(e), id))
+            .toList(growable: false)
+      : const <OriginCharacter>[];
+  final locationsRaw = raw['location_list'] ?? raw['locations'];
+  final locations = locationsRaw is List
+      ? asJsonList(locationsRaw)
+            .map((e) => _originLocationFromV1(asJsonMap(e), id))
+            .toList(growable: false)
+      : const <OriginLocation>[];
+
+  return OriginDetail(
+    id: id,
+    oid: oid,
+    name: asString(
+      origin['name'],
+      fallback: asString(origin['origin_name'], fallback: oid),
+    ),
+    description: asString(
+      origin['world_setting'],
+      fallback: asString(
+        origin['display_subtitle'],
+        fallback: asString(
+          origin['setting'],
+          fallback: asString(origin['brief']),
+        ),
+      ),
+    ),
+    mapImage: cover,
+    worldMap: cover,
+    worldView: asString(
+      origin['world_view'],
+      fallback: asString(origin['setting']),
+    ),
+    copyCount: asInt(stats['copy_cnt']),
+    interactCount: asInt(stats['connect_cnt']),
+    tags: _tagsFromV1(origin['tags']),
+    createdAt: _apiDateTime(origin['created_at']),
+    updatedAt: _apiDateTime(
+      origin['updated_at'] ?? origin['origin_version_time'],
+    ),
+    characters: characters,
+    locations: locations,
+  );
+}
+
+WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
+  final world = raw['world'] is Map
+      ? asJsonMap(raw['world'])
+      : asJsonMap(raw['info']);
+  final stats = raw['stats'] is Map ? asJsonMap(raw['stats']) : world;
+  final wid = asString(world['wid'], fallback: asString(world['world_id']));
+  final oid = asString(world['oid'], fallback: asString(world['origin_id']));
+  final worldId = _stableInt(wid);
+  final originId = _stableInt(oid);
+  final cover = resolveAssetUrl(
+    asString(world['cover'], fallback: asString(world['map_url'])),
+  );
+  final locationsRaw = raw['location_list'] ?? raw['locations'];
+  final locations = locationsRaw is List
+      ? asJsonList(locationsRaw)
+            .map((e) => _normalizeWorldLocation(asJsonMap(e)))
+            .toList(growable: false)
+      : const <Map<String, dynamic>>[];
+  final charactersRaw = raw['character_list'] ?? raw['characters'];
+  final characters = charactersRaw is List
+      ? asJsonList(
+          charactersRaw,
+        ).map((e) => asJsonMap(e)).toList(growable: false)
+      : const <Map<String, dynamic>>[];
+  final characterPositions = characters
+      .map(_worldCharacterPositionFromV1)
+      .whereType<Map<String, dynamic>>()
+      .toList(growable: false);
+  final userPositions = characters
+      .map(_worldUserPositionFromV1)
+      .whereType<Map<String, dynamic>>()
+      .toList(growable: false);
+  final ticksRaw = raw['tick_list'] ?? raw['ticks'];
+  final ticks = ticksRaw is List
+      ? asJsonList(ticksRaw).map((e) => asJsonMap(e)).toList(growable: false)
+      : const <Map<String, dynamic>>[];
+  final lastTick = ticks.isNotEmpty ? ticks.last : const <String, dynamic>{};
+
+  return WorldDetail(
+    id: worldId,
+    wid: wid,
+    originId: originId,
+    ownerUid: asString(world['created_uid']),
+    name: asString(
+      world['name'],
+      fallback: asString(world['world_name'], fallback: wid),
+    ),
+    progressCount: asInt(stats['tick_cnt']),
+    interactCount: asInt(stats['connect_cnt']),
+    lastProgressAt: _apiDateTime(
+      lastTick['created_at'] ?? lastTick['created_time'] ?? world['updated_at'],
+    ),
+    lastProgressUpdate: asString(
+      lastTick['content'],
+      fallback: asString(
+        lastTick['summary'],
+        fallback: asString(lastTick['narrator']),
+      ),
+    ),
+    isProgressing:
+        asString(raw['action_button_state']) == 'progressing' ||
+        asInt(world['status']) == 20,
+    inviteToken: wid,
+    createdAt: _apiDateTime(world['created_at']),
+    updatedAt: _apiDateTime(world['updated_at']),
+    origin: OriginSummary(
+      id: originId,
+      oid: oid,
+      name: asString(
+        world['name'],
+        fallback: asString(world['world_name'], fallback: oid),
+      ),
+      description: asString(
+        world['world_setting'],
+        fallback: asString(
+          world['display_subtitle'],
+          fallback: asString(
+            world['setting'],
+            fallback: asString(world['brief']),
+          ),
+        ),
+      ),
+      mapImage: cover,
+      worldMap: cover,
+      worldView: asString(
+        world['world_view'],
+        fallback: asString(world['setting']),
+      ),
+      originator: asString(world['created_user_name']),
+      versionNum: asInt(
+        world['origin_version_num'],
+        fallback: asInt(world['version_num']),
+      ),
+      copyCount: asInt(world['copy_cnt']),
+      interactCount: asInt(stats['connect_cnt']),
+      characterCount: asInt(
+        stats['character_cnt'],
+        fallback: asInt(stats['ai_character_cnt']),
+      ),
+      tags: _tagsFromV1(world['tags']),
+      createdAt: _apiDateTime(world['created_at']),
+      updatedAt: _apiDateTime(world['updated_at']),
+      characters: const <OriginCharacter>[],
+      locations: const <OriginLocation>[],
+    ),
+    worldLocations: locations,
+    characterPositions: characterPositions,
+    userPositions: userPositions,
+  );
+}
+
+OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
+  final characterId = asString(
+    raw['character_id'],
+    fallback: asString(raw['char_id']),
+  );
+  final locationId = asString(
+    raw['location_id'],
+    fallback: asString(raw['initial_location_id']),
+  );
+  final stableLocationId = _stableInt(locationId);
+  return OriginCharacter(
+    id: asInt(raw['id'], fallback: _stableInt(characterId)),
+    originId: originId,
+    name: asString(raw['name']),
+    avatar: resolveAssetUrl(asString(raw['avatar'])),
+    tags: asString(raw['identity']),
+    description: asString(
+      raw['description'],
+      fallback: asString(raw['brief'], fallback: asString(raw['tagline'])),
+    ),
+    currentLocationId: stableLocationId,
+    initialLocationId: stableLocationId,
+    createdAt: _apiDateTime(raw['created_at']),
+    updatedAt: _apiDateTime(raw['updated_at']),
+  );
+}
+
+OriginLocation _originLocationFromV1(Map<String, dynamic> raw, int originId) {
+  final locationId = asString(raw['location_id']);
+  return OriginLocation(
+    id: asInt(raw['id'], fallback: _stableInt(locationId)),
+    originId: originId,
+    name: asString(raw['name'], fallback: asString(raw['location_name'])),
+    icon: resolveAssetUrl(
+      asString(raw['image'], fallback: asString(raw['map'])),
+    ),
+    description: asString(
+      raw['description'],
+      fallback: asString(raw['location_summary']),
+    ),
+    position: asInt(raw['position']),
+    isActive: true,
+    xPercent: _asDouble(raw['x_percent']),
+    yPercent: _asDouble(raw['y_percent']),
+    createdAt: _apiDateTime(raw['created_at']),
+    updatedAt: _apiDateTime(raw['updated_at']),
+  );
+}
+
+Map<String, dynamic>? _worldCharacterPositionFromV1(Map<String, dynamic> raw) {
+  final locationId = asString(raw['location_id']);
+  if (locationId.isEmpty) return null;
+  return {
+    'location_id': locationId,
+    'character': {
+      'name': asString(raw['name']),
+      'avatar': resolveAssetUrl(asString(raw['avatar'])),
+    },
+  };
+}
+
+Map<String, dynamic>? _worldUserPositionFromV1(Map<String, dynamic> raw) {
+  final playerUid = asString(raw['player_uid']);
+  if (playerUid.isEmpty) return null;
+  final locationId = asString(raw['location_id']);
+  if (locationId.isEmpty) return null;
+  return {'uid': playerUid, 'location_id': locationId};
+}
+
+List<String> _tagsFromV1(Object? raw) {
+  if (raw is List) {
+    return raw
+        .map((e) => e.toString().trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+  }
+  return _splitTags(asString(raw));
+}
+
+double _asDouble(Object? raw) {
+  return raw is num ? raw.toDouble() : double.tryParse('$raw') ?? 0;
+}
+
+DateTime? _apiDateTime(Object? raw) {
+  if (raw is DateTime) return raw;
+  if (raw is num) {
+    final value = raw.toInt();
+    if (value <= 0) return null;
+    final millis = value > 100000000000 ? value : value * 1000;
+    return DateTime.fromMillisecondsSinceEpoch(millis);
+  }
+  if (raw is String) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final numeric = int.tryParse(trimmed);
+    if (numeric != null) return _apiDateTime(numeric);
+    return DateTime.tryParse(trimmed);
+  }
+  return asDateTime(raw);
+}
+
+String _apiDateTimeText(Object? raw) {
+  final parsed = _apiDateTime(raw);
+  if (parsed != null) return parsed.toIso8601String();
+  return asString(raw);
 }
 
 WorldMessage _worldMessageFromV5(
@@ -1253,6 +1487,11 @@ OriginSummary _originSummaryFromSearchItem(Map<String, dynamic> raw) {
     mapImage: mapImage,
     worldMap: asString(raw['world_map'], fallback: mapImage),
     worldView: asString(raw['world_view']),
+    originator: asString(
+      raw['created_user_name'],
+      fallback: asString(raw['originator']),
+    ),
+    versionNum: asInt(raw['version_num']),
     copyCount: asInt(raw['copy_count'], fallback: asInt(raw['copyCount'])),
     interactCount: asInt(
       raw['interact_count'],
@@ -1261,6 +1500,7 @@ OriginSummary _originSummaryFromSearchItem(Map<String, dynamic> raw) {
         fallback: asInt(raw['interactCount']),
       ),
     ),
+    characterCount: asInt(raw['character_cnt']),
     tags: _splitTags(asString(raw['tags'])),
     createdAt: asDateTime(raw['created_at']),
     updatedAt: asDateTime(raw['updated_at']),
@@ -1281,6 +1521,17 @@ MyWorldSummary _worldSummaryFromSearchItem(Map<String, dynamic> raw) {
       fallback: asString(raw['cover_url']),
     ),
     updatedAtText: asString(raw['updated_at']),
+    ownerName: asString(
+      raw['owner_name'],
+      fallback: asString(raw['created_user_name']),
+    ),
+    progressCount: asInt(raw['tick_cnt']),
+    interactCount: asInt(raw['connect_cnt']),
+    characterCount: asInt(
+      raw['ai_character_cnt'],
+      fallback: asInt(raw['character_cnt']),
+    ),
+    playerCount: asInt(raw['player_cnt']),
   );
 }
 
@@ -1342,40 +1593,4 @@ List<String> _splitTags(String tags) {
       .map((e) => e.trim())
       .where((e) => e.isNotEmpty)
       .toList(growable: false);
-}
-
-extension on OriginSummary {
-  OriginSummary copyWith({
-    int? id,
-    String? oid,
-    String? name,
-    String? description,
-    String? mapImage,
-    String? worldMap,
-    String? worldView,
-    int? copyCount,
-    int? interactCount,
-    List<String>? tags,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    List<OriginCharacter>? characters,
-    List<OriginLocation>? locations,
-  }) {
-    return OriginSummary(
-      id: id ?? this.id,
-      oid: oid ?? this.oid,
-      name: name ?? this.name,
-      description: description ?? this.description,
-      mapImage: mapImage ?? this.mapImage,
-      worldMap: worldMap ?? this.worldMap,
-      worldView: worldView ?? this.worldView,
-      copyCount: copyCount ?? this.copyCount,
-      interactCount: interactCount ?? this.interactCount,
-      tags: tags ?? this.tags,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      characters: characters ?? this.characters,
-      locations: locations ?? this.locations,
-    );
-  }
 }

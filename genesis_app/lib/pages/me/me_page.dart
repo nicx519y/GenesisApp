@@ -1,15 +1,18 @@
 import 'dart:async';
-
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/local_image_crop_page.dart';
 import '../../components/me/profile_collection_list.dart';
+import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
+import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
 import '../../ui/genesis_ui.dart';
 import 'settings_page.dart';
-import '../../app/bootstrap/app_services_scope.dart';
 
 class MePage extends StatefulWidget {
   const MePage({super.key, this.onLoggedOut});
@@ -23,6 +26,7 @@ class MePage extends StatefulWidget {
 class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late Future<_MeDataVm> _future;
+  bool _isUpdatingProfile = false;
 
   @override
   void initState() {
@@ -50,6 +54,19 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
     final avatarUrl = (profile?.photoUrl ?? '').trim();
     final profileUid = (profile?.uid ?? '').trim();
     final uid = localUid.isNotEmpty ? localUid : profileUid;
+    var resolvedDisplayName = displayName;
+    var resolvedAvatarUrl = avatarUrl;
+
+    try {
+      final userInfo = await api.v1.user.info();
+      final user = userInfo['user'] is Map ? userInfo['user'] as Map : null;
+      final backendName = _mapString(user, 'name');
+      final backendAvatar = _mapString(user, 'avatar');
+      if (backendName.isNotEmpty) resolvedDisplayName = backendName;
+      if (backendAvatar.isNotEmpty) {
+        resolvedAvatarUrl = resolveAssetUrl(backendAvatar);
+      }
+    } catch (_) {}
 
     List<_OriginListItemVm> origins = const [];
     try {
@@ -60,10 +77,11 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
               originId: item.id,
               oid: item.oid,
               title: item.name.trim().isEmpty ? item.oid : item.name.trim(),
-              subtitle: item.description.trim().isEmpty
-                  ? 'No description'
-                  : item.description.trim(),
+              subtitle: _originSubtitle(item),
               imageUrl: resolveAssetUrl(item.mapImage),
+              copyCount: item.copyCount,
+              interactCount: item.interactCount,
+              characterCount: item.characterCount,
             ),
           )
           .toList(growable: false);
@@ -77,16 +95,21 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
             (item) => _WorldListItemVm(
               wid: item.wid,
               title: item.name.trim().isEmpty ? item.wid : item.name.trim(),
-              subtitle: 'Updated: ${item.updatedAtText}',
+              subtitle: _worldSubtitle(item.wid, item.ownerName),
               imageUrl: resolveAssetUrl(item.snapshotCoverUrl),
+              progressCount: item.progressCount,
+              interactCount: item.interactCount,
+              characterCount: item.characterCount,
+              playerCount: item.playerCount,
+              ownerName: item.ownerName,
             ),
           )
           .toList(growable: false);
     } catch (_) {}
 
     return _MeDataVm(
-      avatarUrl: avatarUrl,
-      displayName: displayName,
+      avatarUrl: resolvedAvatarUrl,
+      displayName: resolvedDisplayName,
       uid: uid.isEmpty ? 'Unknown' : uid,
       origins: origins,
       worlds: worldItems,
@@ -114,6 +137,108 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
     ).push<bool>(MaterialPageRoute<bool>(builder: (_) => const SettingsPage()));
     if (loggedOut == true) {
       widget.onLoggedOut?.call();
+    }
+  }
+
+  Future<void> _editAvatar(_MeDataVm data) async {
+    final Uint8List bytes;
+    try {
+      final image = await ImagePicker().pickImage(source: ImageSource.gallery);
+      if (image == null) return;
+      bytes = await image.readAsBytes();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Image pick failed')));
+      return;
+    }
+    if (!mounted) return;
+    final services = AppServicesScope.read(context);
+    final avatarUrl = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => LocalImageCropPage(
+          imageBytes: bytes,
+          cropSize: const Size(512, 512),
+          filename: 'avatar.png',
+          contentType: 'image/png',
+          onUpload: (result) async {
+            final uploaded = await services.api.v1.common.uploadFile(
+              bytes: result.bytes,
+              bizType: 'avatar',
+              filename: result.filename,
+              contentType: result.contentType,
+            );
+            return _mapString(uploaded, 'file_url');
+          },
+        ),
+      ),
+    );
+    if (avatarUrl == null || avatarUrl.trim().isEmpty || !mounted) return;
+
+    await _updateProfile(
+      update: () => services.api.v1.user.update(avatar: avatarUrl),
+      apply: (updatedUser) {
+        final updatedAvatar = _mapString(
+          updatedUser,
+          'avatar',
+          fallback: avatarUrl,
+        );
+        return data.copyWith(avatarUrl: resolveAssetUrl(updatedAvatar));
+      },
+    );
+  }
+
+  Future<void> _editNickName(_MeDataVm data) async {
+    final nickName = await showDialog<String>(
+      context: context,
+      builder: (_) => _NickNameDialog(initialValue: data.displayName),
+    );
+
+    final trimmedName = nickName?.trim() ?? '';
+    if (trimmedName.isEmpty || trimmedName == data.displayName) return;
+    if (!mounted) return;
+
+    final services = AppServicesScope.read(context);
+    await _updateProfile(
+      update: () => services.api.v1.user.update(name: trimmedName),
+      apply: (updatedUser) {
+        final updatedName = _mapString(
+          updatedUser,
+          'name',
+          fallback: trimmedName,
+        );
+        return data.copyWith(displayName: updatedName);
+      },
+    );
+  }
+
+  Future<void> _updateProfile({
+    required Future<Map<String, dynamic>> Function() update,
+    required _MeDataVm Function(Map<dynamic, dynamic> updatedUser) apply,
+  }) async {
+    setState(() {
+      _isUpdatingProfile = true;
+    });
+    try {
+      final response = await update();
+      final updatedUser = response['user'] is Map
+          ? response['user'] as Map
+          : response;
+      final updatedData = apply(updatedUser);
+      if (!mounted) return;
+      setState(() {
+        _future = Future<_MeDataVm>.value(updatedData);
+        _isUpdatingProfile = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isUpdatingProfile = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Update failed')));
     }
   }
 
@@ -145,126 +270,184 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
 
         return SafeArea(
           bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              children: [
-                const SizedBox(height: 4),
-                Row(
+          child: Column(
+            children: [
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Spacer(),
+                  IconButton(
+                    onPressed: _openSettings,
+                    icon: const Icon(Icons.settings, size: 24),
+                    color: Colors.black,
+                  ),
+                ],
+              ),
+              Expanded(
+                child: Column(
                   children: [
-                    const Spacer(),
-                    IconButton(
-                      onPressed: _openSettings,
-                      icon: const Icon(Icons.settings, size: 24),
-                      color: Colors.black,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _Avatar(url: data.avatarUrl),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  data.displayName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          _Avatar(
+                            url: data.avatarUrl,
+                            onEdit: _isUpdatingProfile
+                                ? null
+                                : () => _editAvatar(data),
                           ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'UID: ${data.uid}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF6F6F6F),
-                                  ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      data.displayName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        height: 1,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: _isUpdatingProfile
+                                          ? null
+                                          : () => _editNickName(data),
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(5),
+                                        child: Icon(Icons.edit, size: 14),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                              IconButton(
-                                onPressed: () => _copyUid(data.uid),
-                                icon: const Icon(Icons.copy, size: 20),
-                                color: const Color(0xFF6F6F6F),
-                                splashRadius: 22,
-                              ),
-                            ],
+                                Row(
+                                  children: [
+                                    Text(
+                                      'UID: ${data.uid}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF6F6F6F),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    GestureDetector(
+                                      behavior: HitTestBehavior.opaque,
+                                      onTap: () => _copyUid(data.uid),
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(5),
+                                        child: Icon(Icons.copy, size: 14),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: SecendTabs(
+                        controller: _tabController,
+                        labels: const ['Origin', 'World'],
+                      ),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            ProfileCollectionList(
+                              items: data.origins
+                                  .map(
+                                    (item) => GenesisProfileCollectionItemData(
+                                      imageUrl: item.imageUrl,
+                                      title: item.title,
+                                      subtitle: item.subtitle,
+                                      stats: [
+                                        GenesisProfileCollectionStat(
+                                          icon: MyFlutterApp.save,
+                                          value: item.copyCount,
+                                        ),
+                                        GenesisProfileCollectionStat(
+                                          icon: MyFlutterApp.copy,
+                                          value: item.interactCount,
+                                        ),
+                                        GenesisProfileCollectionStat(
+                                          icon: MyFlutterApp.userStar,
+                                          value: item.characterCount,
+                                        ),
+                                      ],
+                                      onTap: () =>
+                                          Navigator.of(context).pushNamed(
+                                            RouteNames.originWorld,
+                                            arguments: {
+                                              'originId': item.originId,
+                                              'oid': item.oid,
+                                            },
+                                          ),
+                                    ),
+                                  )
+                                  .toList(growable: false),
+                              emptyText: 'No Origins you created yet.',
+                            ),
+                            ProfileCollectionList(
+                              items: data.worlds
+                                  .map(
+                                    (item) => GenesisProfileCollectionItemData(
+                                      imageUrl: item.imageUrl,
+                                      title: item.title,
+                                      subtitle: item.subtitle,
+                                      stats: [
+                                        GenesisProfileCollectionStat(
+                                          icon: MyFlutterApp.pregress,
+                                          value: item.progressCount,
+                                        ),
+                                        GenesisProfileCollectionStat(
+                                          icon: MyFlutterApp.copy,
+                                          value: item.interactCount,
+                                        ),
+                                        GenesisProfileCollectionStat(
+                                          icon: MyFlutterApp.userStar,
+                                          value: item.characterCount,
+                                        ),
+                                        GenesisProfileCollectionStat(
+                                          icon: MyFlutterApp.user,
+                                          value: item.playerCount,
+                                        ),
+                                      ],
+                                      onTap: () =>
+                                          Navigator.of(context).pushNamed(
+                                            RouteNames.world,
+                                            arguments: {'wid': item.wid},
+                                          ),
+                                    ),
+                                  )
+                                  .toList(growable: false),
+                              emptyText: 'No Worlds you created yet.',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: SecendTabs(
-                    controller: _tabController,
-                    labels: const ['Origin', 'World'],
-                  ),
-                ),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      ProfileCollectionList(
-                        items: data.origins
-                            .map(
-                              (item) => ProfileCollectionItemVm(
-                                imageUrl: item.imageUrl,
-                                title: item.title,
-                                subtitle: item.subtitle,
-                                onTap: () => Navigator.of(context).pushNamed(
-                                  RouteNames.originWorld,
-                                  arguments: {
-                                    'originId': item.originId,
-                                    'oid': item.oid,
-                                  },
-                                ),
-                              ),
-                            )
-                            .toList(growable: false),
-                        emptyText: 'No Origins you created yet.',
-                      ),
-                      ProfileCollectionList(
-                        items: data.worlds
-                            .map(
-                              (item) => ProfileCollectionItemVm(
-                                imageUrl: item.imageUrl,
-                                title: item.title,
-                                subtitle: item.subtitle,
-                                onTap: () => Navigator.of(context).pushNamed(
-                                  RouteNames.world,
-                                  arguments: {'wid': item.wid},
-                                ),
-                              ),
-                            )
-                            .toList(growable: false),
-                        emptyText: 'No Worlds you created yet.',
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
@@ -272,19 +455,86 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
   }
 }
 
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.url});
+String _originSubtitle(OriginSummary item) {
+  final oid = item.oid.trim().isEmpty ? '-' : item.oid.trim();
+  final originator = item.originator.trim().isEmpty
+      ? '-'
+      : item.originator.trim();
+  final version = item.versionNum <= 0 ? '-' : 'V${item.versionNum}';
+  final updated = _relativeTime(item.updatedAt);
+  return 'OID: $oid  Originator: $originator\n'
+      'Latest Version: $version · $updated';
+}
 
-  static const double _size = 84;
-  static const double _radius = 12;
+String _worldSubtitle(String wid, String ownerName) {
+  final displayWid = wid.trim().isEmpty ? '-' : wid.trim();
+  final owner = ownerName.trim().isEmpty ? '-' : ownerName.trim();
+  return 'WID: $displayWid  Owner: $owner';
+}
+
+String _relativeTime(DateTime? time) {
+  if (time == null) return '-';
+  final diff = DateTime.now().difference(time);
+  if (diff.isNegative || diff.inMinutes < 1) return 'just now';
+  if (diff.inHours < 1) return _plural(diff.inMinutes, 'minute');
+  if (diff.inDays < 1) return _plural(diff.inHours, 'hour');
+  if (diff.inDays < 7) return _plural(diff.inDays, 'day');
+  if (diff.inDays < 30) return _plural(diff.inDays ~/ 7, 'week');
+  if (diff.inDays < 365) {
+    final months = diff.inDays ~/ 30;
+    if (months == 6) return 'half a year ago';
+    return _plural(months, 'month');
+  }
+  return _plural(diff.inDays ~/ 365, 'year');
+}
+
+String _plural(int value, String unit) {
+  return '$value $unit${value == 1 ? '' : 's'} ago';
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.url, required this.onEdit});
+
+  static const double _size = 80;
+  static const double _radius = 8;
 
   final String url;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(_radius),
-      child: _AvatarImage(url: url, size: _size),
+    return SizedBox(
+      width: _size,
+      height: _size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(_radius),
+            child: _AvatarImage(url: url, size: _size),
+          ),
+          Positioned(
+            right: 2,
+            bottom: 2,
+            child: Material(
+              color: Colors.black.withValues(alpha: 0.4),
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onEdit,
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.edit_document,
+                    size: 12,
+                    color: onEdit == null ? Colors.white54 : Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -325,6 +575,58 @@ class _AvatarImage extends StatelessWidget {
   }
 }
 
+class _NickNameDialog extends StatefulWidget {
+  const _NickNameDialog({required this.initialValue});
+
+  final String initialValue;
+
+  @override
+  State<_NickNameDialog> createState() => _NickNameDialogState();
+}
+
+class _NickNameDialogState extends State<_NickNameDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text(
+        'Edit Nick Name',
+        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+      ),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textInputAction: TextInputAction.done,
+        // decoration: const InputDecoration(labelText: 'Nick Name'),
+        onSubmitted: (value) => Navigator.of(context).pop(value),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: const Text('OK'),
+        ),
+      ],
+    );
+  }
+}
+
 class _MeDataVm {
   const _MeDataVm({
     required this.avatarUrl,
@@ -339,6 +641,16 @@ class _MeDataVm {
   final String uid;
   final List<_OriginListItemVm> origins;
   final List<_WorldListItemVm> worlds;
+
+  _MeDataVm copyWith({String? avatarUrl, String? displayName}) {
+    return _MeDataVm(
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      displayName: displayName ?? this.displayName,
+      uid: uid,
+      origins: origins,
+      worlds: worlds,
+    );
+  }
 }
 
 class _OriginListItemVm {
@@ -348,6 +660,9 @@ class _OriginListItemVm {
     required this.title,
     required this.subtitle,
     required this.imageUrl,
+    required this.copyCount,
+    required this.interactCount,
+    required this.characterCount,
   });
 
   final int originId;
@@ -355,6 +670,9 @@ class _OriginListItemVm {
   final String title;
   final String subtitle;
   final String imageUrl;
+  final int copyCount;
+  final int interactCount;
+  final int characterCount;
 }
 
 class _WorldListItemVm {
@@ -363,10 +681,30 @@ class _WorldListItemVm {
     required this.title,
     required this.subtitle,
     required this.imageUrl,
+    required this.progressCount,
+    required this.interactCount,
+    required this.characterCount,
+    required this.playerCount,
+    required this.ownerName,
   });
 
   final String wid;
   final String title;
   final String subtitle;
   final String imageUrl;
+  final int progressCount;
+  final int interactCount;
+  final int characterCount;
+  final int playerCount;
+  final String ownerName;
+}
+
+String _mapString(
+  Map<dynamic, dynamic>? map,
+  String key, {
+  String fallback = '',
+}) {
+  final value = map == null ? null : map[key];
+  final text = value?.toString().trim() ?? '';
+  return text.isEmpty ? fallback : text;
 }

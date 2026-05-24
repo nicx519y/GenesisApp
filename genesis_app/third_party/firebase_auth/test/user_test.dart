@@ -393,8 +393,8 @@ class MockFirebaseAuth extends Mock
 class MockUserPlatform extends Mock
     with MockPlatformInterfaceMixin
     implements TestUserPlatform {
-  MockUserPlatform(FirebaseAuthPlatform auth, InternalUserDetails _user) {
-    TestUserPlatform(auth, TestMultiFactorPlatform(auth), _user);
+  MockUserPlatform(FirebaseAuthPlatform auth, InternalUserDetails user) {
+    TestUserPlatform(auth, TestMultiFactorPlatform(auth), user);
   }
 
   @override
@@ -552,9 +552,7 @@ class TestFirebaseAuthPlatform extends FirebaseAuthPlatform {
 }
 
 class TestUserPlatform extends UserPlatform {
-  TestUserPlatform(FirebaseAuthPlatform auth, MultiFactorPlatform multiFactor,
-      InternalUserDetails data)
-      : super(auth, multiFactor, data);
+  TestUserPlatform(super.auth, super.multiFactor, super.data);
 }
 
 class TestUserCredentialPlatform extends UserCredentialPlatform {

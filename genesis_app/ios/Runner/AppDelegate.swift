@@ -3,7 +3,7 @@ import Security
 import UIKit
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let channelName = "com.genesis.ai/device"
   private let uidKey = "uid"
   private let authTokenKey = "auth_token"
@@ -15,19 +15,18 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
-    configureGenesisMethodChannel()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
-  private func configureGenesisMethodChannel() {
-    guard let controller = window?.rootViewController as? FlutterViewController else {
-      return
-    }
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    configureGenesisMethodChannel(messenger: engineBridge.applicationRegistrar.messenger())
+  }
 
+  private func configureGenesisMethodChannel(messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(
       name: channelName,
-      binaryMessenger: controller.binaryMessenger
+      binaryMessenger: messenger
     )
     channel.setMethodCallHandler { [weak self] call, result in
       guard let self = self else {

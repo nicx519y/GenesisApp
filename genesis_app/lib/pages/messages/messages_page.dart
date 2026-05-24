@@ -3,12 +3,21 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../components/page_header.dart';
+import '../../network/models/unread_summary.dart';
 import '../../network/models/world_message.dart';
 import '../../routers/app_router.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import 'message_category_list_page.dart';
 
 class MessagesPage extends StatefulWidget {
-  const MessagesPage({super.key});
+  const MessagesPage({
+    super.key,
+    this.unreadSummary = UnreadSummary.zero,
+    this.onUnreadSummaryRefresh,
+  });
+
+  final UnreadSummary unreadSummary;
+  final Future<void> Function()? onUnreadSummaryRefresh;
 
   @override
   State<MessagesPage> createState() => _MessagesPageState();
@@ -126,6 +135,7 @@ class _MessagesPageState extends State<MessagesPage> {
   @override
   Widget build(BuildContext context) {
     final conversations = _conversations;
+    final unreadSummary = widget.unreadSummary;
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -137,31 +147,52 @@ class _MessagesPageState extends State<MessagesPage> {
             padding: const EdgeInsets.symmetric(horizontal: 22),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
+              children: [
                 _MessageMenuButton(
                   icon: Icons.notifications_active_rounded,
                   label: 'Notifications',
                   routeName: RouteNames.notifications,
+                  category: 'system',
+                  emptyText: 'No notifications yet.',
+                  unreadCount: unreadSummary.systemUnread,
+                  onUnreadSummaryRefresh: widget.onUnreadSummaryRefresh,
                 ),
                 _MessageMenuButton(
                   icon: Icons.person_add_alt_1_rounded,
                   label: 'New followers',
                   routeName: RouteNames.newFollowers,
+                  category: 'follower',
+                  emptyText: 'No new followers yet.',
+                  unreadCount: unreadSummary.followerUnread,
+                  onUnreadSummaryRefresh: widget.onUnreadSummaryRefresh,
                 ),
                 _MessageMenuButton(
                   icon: Icons.mode_comment_outlined,
                   label: 'Comments',
                   routeName: RouteNames.comments,
+                  category: 'comment',
+                  emptyText: 'No comments yet.',
+                  unreadCount: unreadSummary.commentUnread,
+                  onUnreadSummaryRefresh: widget.onUnreadSummaryRefresh,
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 18),
-            child: Text(
-              'Direct messages',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: Row(
+              children: [
+                const Text(
+                  'Direct messages',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(width: 6),
+                _UnreadBadge(
+                  key: const ValueKey('direct-messages-unread-badge'),
+                  count: unreadSummary.dmUnread,
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 8),
@@ -186,11 +217,19 @@ class _MessageMenuButton extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.routeName,
+    required this.category,
+    required this.emptyText,
+    required this.unreadCount,
+    required this.onUnreadSummaryRefresh,
   });
 
   final IconData icon;
   final String label;
   final String routeName;
+  final String category;
+  final String emptyText;
+  final int unreadCount;
+  final Future<void> Function()? onUnreadSummaryRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -198,12 +237,40 @@ class _MessageMenuButton extends StatelessWidget {
       width: 96,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.of(context).pushNamed(routeName),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            settings: RouteSettings(name: routeName),
+            builder: (_) => MessageCategoryListPage(
+              title: label,
+              category: category,
+              emptyText: emptyText,
+              onNotificationsRead: onUnreadSummaryRefresh,
+            ),
+          ),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Column(
             children: [
-              Icon(icon, size: 30, color: Colors.black87),
+              SizedBox(
+                width: 44,
+                height: 34,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(icon, size: 30, color: Colors.black87),
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: _UnreadBadge(
+                        key: ValueKey('message-menu-$routeName-unread-badge'),
+                        count: unreadCount,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 8),
               Text(
                 label,
@@ -217,6 +284,36 @@ class _MessageMenuButton extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UnreadBadge extends StatelessWidget {
+  const _UnreadBadge({super.key, required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 0) return const SizedBox.shrink();
+    final label = count > 99 ? '99+' : count.toString();
+    return Container(
+      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE02424),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          height: 1,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

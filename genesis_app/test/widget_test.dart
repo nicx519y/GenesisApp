@@ -1,19 +1,31 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
+import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/pages/create/create_characters_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_locations_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_story_events_page.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
+import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/components/search_bar.dart';
+import 'package:genesis_flutter_android/pages/app_shell_page.dart';
+import 'package:genesis_flutter_android/pages/home/home_page.dart';
+import 'package:genesis_flutter_android/pages/me/me_page.dart';
 import 'package:genesis_flutter_android/pages/me/settings_page.dart';
+import 'package:genesis_flutter_android/pages/messages/message_category_list_page.dart';
+import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
 import 'package:genesis_flutter_android/platform/auth/identity_auth_service.dart';
@@ -21,15 +33,24 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 
-Future<AppServices> _testServices({bool backendAuthenticated = false}) async {
+Future<AppServices> _testServices({
+  bool backendAuthenticated = false,
+  ChatroomClient? chatroom,
+  HttpTransport? transport,
+  bool? useMock,
+  String? initialUid = 'u_mock',
+}) async {
   const config = AppConfig(useMock: true);
   final platformConfig = DefaultPlatformConfig(appConfig: config);
   const deviceId = _FakeDeviceIdService();
   final sessionStore = MemoryUserSessionStore();
-  await sessionStore.saveUid('u_mock');
+  if (initialUid != null) {
+    await sessionStore.saveUid(initialUid);
+  }
   const identityAuth = _FakeIdentityAuthService();
   final api = GenesisApi(
-    useMock: config.useMock,
+    useMock: useMock ?? config.useMock,
+    transport: transport,
     platformConfig: platformConfig,
     deviceIdService: deviceId,
     sessionStore: sessionStore,
@@ -47,10 +68,12 @@ Future<AppServices> _testServices({bool backendAuthenticated = false}) async {
     identityAuth: identityAuth,
     backendAuth: backendAuth,
     api: api,
-    chatroom: ChatroomClient(
-      wsBaseUrl: config.chatroomWsBaseUrl,
-      sessionStore: sessionStore,
-    ),
+    chatroom:
+        chatroom ??
+        ChatroomClient(
+          wsBaseUrl: config.chatroomWsBaseUrl,
+          sessionStore: sessionStore,
+        ),
   );
 }
 
@@ -116,6 +139,366 @@ class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
   }
 }
 
+class _RecordingV1ListTransport implements HttpTransport {
+  static const total = 100;
+
+  final requests = <TransportRequest>[];
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    if (request.uri.path.endsWith('/origin/detail')) {
+      final oid =
+          request.uri.queryParameters['origin_id'] ??
+          request.uri.queryParameters['oid'] ??
+          '';
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': _originDetail(oid),
+      });
+    }
+    if (request.uri.path.endsWith('/world/detail')) {
+      final wid =
+          request.uri.queryParameters['world_id'] ??
+          request.uri.queryParameters['wid'] ??
+          '';
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': _worldDetail(wid),
+      });
+    }
+
+    final pn = int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1;
+    final rn = int.tryParse(request.uri.queryParameters['rn'] ?? '') ?? 20;
+    final start = ((pn - 1) * rn).clamp(0, total);
+    final end = (start + rn).clamp(0, total);
+    final list = [
+      for (var index = start; index < end; index++)
+        request.uri.path.endsWith('/world/list')
+            ? _worldItem(index)
+            : _originItem(index),
+    ];
+    return _jsonResponse({
+      'err_no': 0,
+      'err_str': 'success',
+      'data': {'list': list, 'total': total},
+    });
+  }
+
+  TransportResponse _jsonResponse(Map<String, Object?> body) {
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode(body),
+    );
+  }
+
+  List<TransportRequest> requestsFor(String path) {
+    return requests.where((request) => request.uri.path == path).toList();
+  }
+
+  Map<String, Object?> _originItem(int index) {
+    final seq = index + 1;
+    return {
+      'oid': 'o_test_$seq',
+      'status': 2,
+      'version_num': 1 + index % 3,
+      'name': 'Origin $seq',
+      'cover': '',
+      'display_subtitle': 'Origin subtitle $seq',
+      'world_view': 'Origin world view $seq',
+      'created_uid': 'u_test',
+      'created_user_name': 'Tester',
+      'created_at': '2026-05-01T00:00:00Z',
+      'updated_at': '2026-05-02T00:00:00Z',
+      'tags': ['tag$seq', 'scene'],
+      'copy_cnt': seq,
+      'connect_cnt': seq + 1,
+      'discuss_cnt': seq + 2,
+      'character_cnt': 2,
+      'location_cnt': 3,
+    };
+  }
+
+  Map<String, Object?> _worldItem(int index) {
+    final seq = index + 1;
+    return {
+      'oid': 'o_test_$seq',
+      'origin_version_num': 1 + index % 3,
+      'origin_version_create_at': '2026-05-01T00:00:00Z',
+      'wid': 'w_test_$seq',
+      'status': 1,
+      'name': 'World $seq',
+      'cover': '',
+      'display_subtitle': 'World subtitle $seq',
+      'created_uid': 'u_test',
+      'created_user_name': 'Tester',
+      'owner_uid': 'u_test',
+      'owner_name': 'Tester',
+      'created_at': '2026-05-01T00:00:00Z',
+      'updated_at': '2026-05-02T00:00:00Z',
+      'last_progress_at': '2026-05-02T00:00:00Z',
+      'last_progress_summary': 'World progress summary $seq',
+      'tags': ['world$seq', 'scene'],
+      'tick_cnt': seq,
+      'connect_cnt': seq + 1,
+      'ai_character_cnt': 2,
+      'player_cnt': 3,
+      'location_cnt': 4,
+    };
+  }
+
+  Map<String, Object?> _originDetail(String oid) {
+    final fallback = oid.isEmpty ? 'o_test_1' : oid;
+    return {
+      'origin': {
+        'oid': fallback,
+        'status': 2,
+        'version_num': 1,
+        'name': 'Origin detail $fallback',
+        'cover': '',
+        'display_subtitle': 'Origin detail subtitle',
+        'world_view': 'Origin detail world view',
+        'world_setting': 'Origin detail setting',
+        'created_uid': 'u_test',
+        'created_user_name': 'Tester',
+        'created_at': '2026-05-01T00:00:00Z',
+        'updated_at': '2026-05-02T00:00:00Z',
+        'tags': ['detail'],
+        'copy_cnt': 7,
+        'connect_cnt': 8,
+        'discuss_cnt': 9,
+        'character_cnt': 1,
+        'location_cnt': 1,
+      },
+      'character_list': [
+        {
+          'character_id': 'c_$fallback',
+          'name': 'Detail Character',
+          'identity': 'Guide',
+          'tagline': 'Knows the path',
+          'description': 'A character from detail.',
+          'avatar': '',
+          'location_id': 'l_$fallback',
+        },
+      ],
+      'metric': <String, Object?>{},
+      'location_list': [
+        {
+          'location_id': 'l_$fallback',
+          'name': 'Detail Location',
+          'description': 'A location from detail.',
+          'image': '',
+          'x_percent': 30,
+          'y_percent': 40,
+        },
+      ],
+      'event_list': const [],
+    };
+  }
+
+  Map<String, Object?> _worldDetail(String wid) {
+    final fallback = wid.isEmpty ? 'w_test_1' : wid;
+    return {
+      'world': {
+        'oid': 'o_for_$fallback',
+        'origin_version_num': 1,
+        'origin_version_create_at': '2026-05-01T00:00:00Z',
+        'wid': fallback,
+        'status': 1,
+        'is_join': 1,
+        'apply_status': 'success',
+        'name': 'World detail $fallback',
+        'cover': '',
+        'display_subtitle': 'World detail subtitle',
+        'world_view': 'World detail world view',
+        'world_setting': 'World detail setting',
+        'created_uid': 'u_test',
+        'created_user_name': 'Tester',
+        'created_at': '2026-05-01T00:00:00Z',
+        'updated_at': '2026-05-02T00:00:00Z',
+        'tags': ['world-detail'],
+        'tick_cnt': 3,
+        'connect_cnt': 4,
+        'ai_character_cnt': 1,
+        'player_cnt': 1,
+        'location_cnt': 1,
+      },
+      'character_list': [
+        {
+          'type': 'ai',
+          'status': 10,
+          'player_uid': '',
+          'character_id': 'c_$fallback',
+          'name': 'World Character',
+          'identity': 'Guide',
+          'tagline': 'Knows the world',
+          'description': 'A world character.',
+          'avatar': '',
+          'location_id': 'l_$fallback',
+        },
+      ],
+      'metric': <String, Object?>{},
+      'location_list': [
+        {
+          'location_id': 'l_$fallback',
+          'name': 'World Location',
+          'description': 'A world location.',
+          'image': '',
+          'x_percent': 35,
+          'y_percent': 45,
+        },
+      ],
+      'tick_list': [
+        {
+          'content': 'World detail loaded.',
+          'created_at': '2026-05-02T00:00:00Z',
+        },
+      ],
+      'action_button_state': 'progress',
+    };
+  }
+}
+
+class _RecordingMessageCategoryTransport implements HttpTransport {
+  final requests = <TransportRequest>[];
+  var commentRead = false;
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    final path = request.uri.path;
+    Object? data = <String, Object?>{};
+    if (request.method == 'POST' &&
+        path == '/api/v1/messages/notifications/read') {
+      final body = decodedBody(request);
+      if (body['category'] == 'comment') commentRead = true;
+    } else if (request.method == 'GET' &&
+        path == '/api/v1/messages/unread-summary') {
+      data = {
+        'system_unread': 1,
+        'follower_unread': 1,
+        'comment_unread': commentRead ? 0 : 1,
+        'dm_unread': 0,
+        'total_unread': commentRead ? 2 : 3,
+      };
+    } else if (request.method == 'GET' &&
+        path == '/api/v1/messages/notifications') {
+      data = {
+        'list': [
+          {
+            'id': 99,
+            'category': request.uri.queryParameters['category'],
+            'message': 'Recorded category message',
+            'is_read': true,
+            'created_at': '2026-05-20T10:00:00Z',
+          },
+        ],
+        'total': 1,
+      };
+    }
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({'err_no': 0, 'err_str': 'success', 'data': data}),
+    );
+  }
+
+  Map<String, dynamic> decodedBody(TransportRequest request) {
+    return jsonDecode(utf8.decode(request.bodyBytes ?? const <int>[]))
+        as Map<String, dynamic>;
+  }
+}
+
+class _RecordingSearchTransport implements HttpTransport {
+  final requests = <TransportRequest>[];
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    final path = request.uri.path;
+    Object? data = <String, Object?>{};
+    if (path == '/api/v1/messages/unread-summary') {
+      data = {
+        'system_unread': 0,
+        'follower_unread': 0,
+        'comment_unread': 0,
+        'dm_unread': 0,
+        'total_unread': 0,
+      };
+    } else if (path == '/api/v1/origin/list') {
+      data = {'list': const <Object?>[], 'total': 0};
+    } else if (path == '/api/v1/search') {
+      data = {
+        'groups': [
+          {
+            'type': 'origin',
+            'total': 1,
+            'list': [
+              {
+                'type': 'origin',
+                'entity_id': 'o_search_1',
+                'short_code': 'O_SEARCH_1',
+                'title': 'Search Origin',
+                'subtitle': 'OID: O_SEARCH_1',
+                'cover_image': '',
+                'copy_cnt': 9,
+                'connect_cnt': 12,
+                'player_cnt': 8,
+              },
+            ],
+          },
+          {
+            'type': 'world',
+            'total': 1,
+            'list': [
+              {
+                'type': 'world',
+                'entity_id': 'w_search_1',
+                'short_code': 'W_SEARCH_1',
+                'title': 'Search World',
+                'subtitle': 'WID: W_SEARCH_1',
+                'cover_image': '',
+                'tick_cnt': 6,
+                'connect_cnt': 4,
+                'player_cnt': 8,
+                'member_cnt': 1,
+              },
+            ],
+          },
+          {
+            'type': 'user',
+            'total': 1,
+            'list': [
+              {
+                'type': 'user',
+                'entity_id': 'u_search_1',
+                'short_code': 'U_SEARCH_1',
+                'title': 'Search User',
+                'subtitle': 'Bio',
+                'cover_image': '',
+              },
+            ],
+          },
+        ],
+        'pn': 1,
+        'rn': 20,
+      };
+    }
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({'err_no': 0, 'err_str': 'success', 'data': data}),
+    );
+  }
+
+  List<TransportRequest> requestsFor(String path) {
+    return requests.where((request) => request.uri.path == path).toList();
+  }
+}
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -140,12 +523,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cancel'), findsOneWidget);
-    expect(
-      find.text(
-        'No search history yet.\nType at least 2 characters to search.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('No search history yet.'), findsOneWidget);
   });
 
   testWidgets('search bar placeholder stays single line with ellipsis', (
@@ -181,13 +559,86 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'zz');
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
     expect(find.text('All'), findsOneWidget);
     expect(find.text('Origin'), findsOneWidget);
     expect(find.text('World'), findsOneWidget);
     expect(find.text('User'), findsOneWidget);
+    expect(find.text('No results.'), findsOneWidget);
+  });
+
+  testWidgets('search page debounces v1 search request and renders groups', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingSearchTransport();
+    await tester.pumpWidget(
+      GenesisApp(
+        services: await _testServices(transport: transport, useMock: false),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Search origins, worlds, users...').first);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'reborn');
+    await tester.pump(const Duration(milliseconds: 1999));
+    expect(transport.requestsFor('/api/v1/search'), isEmpty);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pumpAndSettle();
+
+    final searchRequests = transport.requestsFor('/api/v1/search');
+    expect(searchRequests, hasLength(1));
+    expect(searchRequests.single.uri.queryParameters['query'], 'reborn');
+    expect(searchRequests.single.uri.queryParameters['type'], 'all');
+    expect(searchRequests.single.uri.queryParameters['pn'], '1');
+    expect(searchRequests.single.uri.queryParameters['rn'], '20');
+    expect(find.text('Origins'), findsOneWidget);
+    expect(find.text('#Search Origin'), findsOneWidget);
+    expect(find.text('Worlds'), findsOneWidget);
+    expect(find.text('Search World'), findsOneWidget);
+    expect(find.text('Users'), findsOneWidget);
+    expect(find.text('Search User'), findsOneWidget);
+  });
+
+  testWidgets('search page renders local mock Chinese user results', (
+    WidgetTester tester,
+  ) async {
+    await _pumpGenesisApp(tester);
+
+    await tester.tap(find.text('Search origins, worlds, users...').first);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '老肖');
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Origins'), findsOneWidget);
+    expect(find.textContaining('老肖'), findsWidgets);
+  });
+
+  testWidgets('search keeps previous results while debouncing next query', (
+    WidgetTester tester,
+  ) async {
+    await _pumpGenesisApp(tester);
+
+    await tester.tap(find.text('Search origins, worlds, users...').first);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), '老肖');
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('重生'), findsWidgets);
+
+    await tester.enterText(find.byType(TextField), 'zz');
+    await tester.pump(const Duration(milliseconds: 1999));
+    expect(find.textContaining('重生'), findsWidgets);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pumpAndSettle();
     expect(find.text('No results.'), findsOneWidget);
   });
 
@@ -202,7 +653,7 @@ void main() {
     await tester.enterText(find.byType(TextField), 'st');
     await tester.pump(const Duration(milliseconds: 200));
     await tester.enterText(find.byType(TextField), 'zz');
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('#Steam Kingdom'), findsNothing);
@@ -235,6 +686,59 @@ void main() {
     expect(find.text('Direct messages'), findsOneWidget);
   });
 
+  testWidgets('unread summary renders messages badges', (
+    WidgetTester tester,
+  ) async {
+    await _pumpGenesisApp(tester);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
+        matching: find.text('3'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Messages'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey('message-menu-/messages/notifications-unread-badge'),
+        ),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey('message-menu-/messages/new_followers-unread-badge'),
+        ),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey('message-menu-/messages/comments-unread-badge'),
+        ),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('direct-messages-unread-badge')),
+        matching: find.text('0'),
+      ),
+      findsNothing,
+    );
+  });
+
   testWidgets('messages action button navigates to list page', (
     WidgetTester tester,
   ) async {
@@ -248,9 +752,86 @@ void main() {
 
     expect(find.text('Notifications'), findsWidgets);
     expect(
-      find.text('Your world "Steam Kingdom" has new activity.'),
+      find.text('Penny wants to join Steam Kingdom Live.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('message category pages request matching notification category', (
+    WidgetTester tester,
+  ) async {
+    await _pumpGenesisApp(tester);
+
+    await tester.tap(find.text('Messages'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('New followers').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('New followers'), findsWidgets);
+    expect(find.text('Penny Hardaway started following you.'), findsOneWidget);
+
+    Navigator.of(tester.element(find.byType(MessageCategoryListPage))).pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Comments').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Comments'), findsWidgets);
+    expect(
+      find.text('Penny commented: "Love this world setting!"'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('message category page marks category read before loading list', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingMessageCategoryTransport();
+    final services = await _testServices(transport: transport, useMock: false);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: MessageCategoryListPage(
+            title: 'Comments',
+            category: 'comment',
+            emptyText: 'No comments yet.',
+            onNotificationsRead: () async {
+              await services.api.v1.messages.unreadSummary();
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final readRequest = transport.requests.firstWhere(
+      (request) => request.uri.path == '/api/v1/messages/notifications/read',
+    );
+    final listRequest = transport.requests.firstWhere(
+      (request) => request.uri.path == '/api/v1/messages/notifications',
+    );
+    final unreadRequest = transport.requests.firstWhere(
+      (request) => request.uri.path == '/api/v1/messages/unread-summary',
+    );
+
+    expect(readRequest.method, 'POST');
+    expect(transport.decodedBody(readRequest)['category'], 'comment');
+    expect(unreadRequest.method, 'GET');
+    expect(listRequest.method, 'GET');
+    expect(listRequest.uri.queryParameters['category'], 'comment');
+    expect(listRequest.uri.queryParameters['pn'], '1');
+    expect(listRequest.uri.queryParameters['rn'], '20');
+    expect(
+      transport.requests.indexOf(readRequest),
+      lessThan(transport.requests.indexOf(unreadRequest)),
+    );
+    expect(
+      transport.requests.indexOf(unreadRequest),
+      lessThan(transport.requests.indexOf(listRequest)),
+    );
+    expect(find.text('Recorded category message'), findsOneWidget);
   });
 
   testWidgets('tap Home switches to Home page', (WidgetTester tester) async {
@@ -262,7 +843,253 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Origin'), findsOneWidget);
+    expect(find.text('My World'), findsOneWidget);
+    expect(find.text('Popular'), findsOneWidget);
+  });
+
+  testWidgets('main tabs keep page state after switching away and back', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const AppShellPage(initialIndex: 1),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    var originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(1));
+    expect(find.text('#Origin 1'), findsOneWidget);
+
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+
+    await tester.tap(find.text('Origin'));
+    await tester.pumpAndSettle();
+
+    originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(1));
+    expect(find.text('#Origin 1'), findsOneWidget);
+  });
+
+  testWidgets('Origin tab requests v1 origin list scene on enter', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    var originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(1));
+    expect(originRequests.single.uri.queryParameters['scene'], 'foryou');
+    expect(originRequests.single.uri.queryParameters['pn'], '1');
+    expect(originRequests.single.uri.queryParameters['rn'], '20');
+    expect(originRequests.single.uri.queryParameters.containsKey('tag'), false);
+
+    await tester.tap(find.text('Destroyed'));
+    await tester.pumpAndSettle();
+
+    originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(2));
+    expect(originRequests.last.uri.queryParameters['scene'], 'destroyed');
+    expect(originRequests.last.uri.queryParameters.containsKey('tag'), false);
+  });
+
+  testWidgets('Home My World tab requests v1 world list with uid on enter', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    var worldRequests = transport.requestsFor('/api/v1/world/list');
+    expect(worldRequests, hasLength(1));
+    expect(worldRequests.single.uri.queryParameters['uid'], 'u_mock');
+    expect(worldRequests.single.uri.queryParameters['pn'], '1');
+    expect(worldRequests.single.uri.queryParameters['rn'], '20');
+    expect(
+      worldRequests.single.uri.queryParameters.containsKey('scene'),
+      false,
+    );
+
+    await tester.tap(find.text('Popular'));
+    await tester.pumpAndSettle();
+
+    final originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(1));
+    expect(originRequests.single.uri.queryParameters['pn'], '1');
+    expect(originRequests.single.uri.queryParameters['rn'], '20');
+    expect(find.text('#Origin 1'), findsOneWidget);
+  });
+
+  testWidgets('Home My World tab is empty without local uid', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: null,
+          ),
+          child: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(find.text('No data'), findsOneWidget);
+  });
+
+  testWidgets('Origin list item opens origin detail with current oid', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('#Origin 1'));
+    await tester.pumpAndSettle();
+
+    final detailRequests = transport.requestsFor('/api/v1/origin/detail');
+    expect(detailRequests, hasLength(1));
+    expect(detailRequests.single.uri.queryParameters['origin_id'], 'o_test_1');
+    expect(find.text('#Origin detail o_test_1'), findsOneWidget);
+  });
+
+  testWidgets('World list item opens world detail with current wid', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('#World 1'));
+    await tester.pumpAndSettle();
+
+    final detailRequests = transport.requestsFor('/api/v1/world/detail');
+    expect(detailRequests, hasLength(1));
+    expect(detailRequests.single.uri.queryParameters['world_id'], 'w_test_1');
+    expect(find.text('#World detail w_test_1'), findsOneWidget);
+  });
+
+  testWidgets('Home world list loads next page near bottom', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (var i = 0; i < 4; i++) {
+      await tester.drag(find.byType(ListView), const Offset(0, -900));
+      await tester.pump(const Duration(milliseconds: 200));
+      if (transport.requestsFor('/api/v1/world/list').length > 1) break;
+    }
+
+    final worldRequests = transport.requestsFor('/api/v1/world/list');
+    expect(worldRequests.length, greaterThanOrEqualTo(2));
+    expect(worldRequests[1].uri.queryParameters['pn'], '2');
+    expect(worldRequests[1].uri.queryParameters['rn'], '20');
+  });
+
+  testWidgets('Origin pull refresh reloads first page', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    tester.state<RefreshIndicatorState>(find.byType(RefreshIndicator)).show();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    final originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(2));
+    expect(originRequests.last.uri.queryParameters['pn'], '1');
+    expect(originRequests.last.uri.queryParameters['rn'], '20');
+  });
+
+  testWidgets('Origin tab keeps loaded list when switching away and back', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    var originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(1));
+    expect(find.text('#Origin 1'), findsOneWidget);
+
+    await tester.tap(find.text('Destroyed'));
+    await tester.pumpAndSettle();
+    originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(2));
+
+    await tester.tap(find.text('For you'));
+    await tester.pumpAndSettle();
+
+    originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(2));
+    expect(find.text('#Origin 1'), findsOneWidget);
   });
 
   testWidgets('tap Me shows login sheet when not logged in', (
@@ -418,6 +1245,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: SettingsPage()));
     await tester.pumpAndSettle();
 
+    expect(find.text('Location chat test'), findsOneWidget);
     expect(find.text('WebSocket test'), findsOneWidget);
 
     await tester.tap(find.text('About us'));
@@ -451,4 +1279,215 @@ void main() {
     );
     expect(find.text('Send message'), findsOneWidget);
   });
+
+  testWidgets(
+    'me page edits nickname without disposing dialog controller early',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(),
+            child: const MePage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.edit).last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Edit Nick Name'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'Updated Nick');
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Updated Nick'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'location chat route connects and sends through chatroom client',
+    (WidgetTester tester) async {
+      final chatroom = _FakeChatroomClient();
+      final services = await _testServices(chatroom: chatroom);
+      await tester.pumpWidget(GenesisApp(services: services));
+      await tester.pumpAndSettle();
+
+      Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
+        RouteNames.locationChat,
+        arguments: {
+          'world_id': 'world-1',
+          'location_id': 'castle',
+          'location_name': 'Castle',
+        },
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(chatroom.worldInstanceId, 'world-1');
+      expect(chatroom.locationId, 'castle');
+      expect(chatroom.senderId, 'u_mock');
+      expect(chatroom.senderName, 'u_mock');
+      expect(find.text('Castle (1)'), findsOneWidget);
+      expect(find.text('Me'), findsOneWidget);
+      await tester.tap(find.byType(TextField));
+      await tester.enterText(find.byType(TextField), 'hello castle');
+      await tester.pump();
+      final sendButton = find.ancestor(
+        of: find.byIcon(MyFlutterApp.add2),
+        matching: find.byType(IconButton),
+      );
+      for (var i = 0; i < 10; i++) {
+        if (tester.widget<IconButton>(sendButton).onPressed != null) break;
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(tester.widget<IconButton>(sendButton).onPressed, isNotNull);
+      await tester.tap(sendButton);
+      await tester.pump();
+
+      expect(chatroom.session.sentMessages, ['hello castle']);
+      await tester.pumpAndSettle();
+
+      expect(find.text('hello castle'), findsOneWidget);
+    },
+  );
+
+  testWidgets('location chat input stays editable before connection', (
+    WidgetTester tester,
+  ) async {
+    final services = await _testServices(chatroom: _FailingChatroomClient());
+    await tester.pumpWidget(GenesisApp(services: services));
+    await tester.pumpAndSettle();
+
+    Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
+      RouteNames.locationChat,
+      arguments: {
+        'world_id': 'world-1',
+        'location_id': 'castle',
+        'location_name': 'Castle',
+      },
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    final input = find.byType(TextField);
+    expect(tester.widget<TextField>(input).enabled, isTrue);
+    await tester.enterText(input, 'draft before connect');
+    await tester.pump();
+
+    expect(find.text('draft before connect'), findsOneWidget);
+    final sendButton = find.ancestor(
+      of: find.byIcon(MyFlutterApp.add2),
+      matching: find.byType(IconButton),
+    );
+    expect(tester.widget<IconButton>(sendButton).onPressed, isNull);
+  });
+}
+
+class _FailingChatroomClient implements ChatroomClient {
+  @override
+  Future<ChatroomSession> connect({
+    required String worldInstanceId,
+    required String locationId,
+    String? userId,
+    required String senderId,
+    required String senderName,
+  }) async {
+    throw StateError('test connection failed');
+  }
+}
+
+class _FakeChatroomClient implements ChatroomClient {
+  late final _FakeChatroomSession session;
+  String? worldInstanceId;
+  String? locationId;
+  String? userId;
+  String? senderId;
+  String? senderName;
+
+  @override
+  Future<ChatroomSession> connect({
+    required String worldInstanceId,
+    required String locationId,
+    String? userId,
+    required String senderId,
+    required String senderName,
+  }) async {
+    this.worldInstanceId = worldInstanceId;
+    this.locationId = locationId;
+    this.userId = userId;
+    this.senderId = senderId;
+    this.senderName = senderName;
+    session = _FakeChatroomSession(
+      worldInstanceId: worldInstanceId,
+      locationId: locationId,
+    );
+    return session;
+  }
+}
+
+class _FakeChatroomSession implements ChatroomSession {
+  _FakeChatroomSession({
+    required this.worldInstanceId,
+    required this.locationId,
+  });
+
+  @override
+  final String worldInstanceId;
+
+  @override
+  final String locationId;
+
+  final sentMessages = <String>[];
+  final _events = StreamController<ChatroomEvent>.broadcast();
+  final _errors = StreamController<ChatroomErrorEvent>.broadcast();
+  final _streams = StreamController<ChatroomAiMessageStream>.broadcast();
+
+  @override
+  ChatroomJoined? get joined => ChatroomJoined(
+    sessionId: 'sess-1',
+    worldInstanceId: worldInstanceId,
+    locationId: locationId,
+    onlineUsers: const [
+      ChatroomOnlineUser(
+        userId: 'u_mock',
+        senderId: 'u_mock',
+        senderName: 'Me',
+      ),
+    ],
+  );
+
+  @override
+  Stream<ChatroomEvent> get events => _events.stream;
+
+  @override
+  Stream<ChatroomErrorEvent> get errors => _errors.stream;
+
+  @override
+  Stream<ChatroomAiMessageStream> get streams => _streams.stream;
+
+  @override
+  Future<ChatroomAck> sendMessage(String text, {String? clientMsgId}) async {
+    sentMessages.add(text);
+    return ChatroomAck(
+      sessionId: 'sess-1',
+      messageId: 42,
+      conversationRoundId: 'round-1',
+      clientMsgId: clientMsgId ?? 'client-1',
+      queuePosition: 0,
+    );
+  }
+
+  @override
+  ChatroomAiMessageStream? streamForMessage(int messageId) => null;
+
+  @override
+  Future<void> close() async {
+    await _events.close();
+    await _errors.close();
+    await _streams.close();
+  }
 }

@@ -11,6 +11,7 @@ import '../../network/genesis_api.dart';
 import '../../network/models/world.dart';
 import '../../routers/app_router.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../utils/stat_count_formatter.dart';
 
 class WorldPage extends StatefulWidget {
   const WorldPage({super.key, required this.wid});
@@ -117,13 +118,16 @@ class _WorldPageState extends State<WorldPage>
     } catch (_) {}
 
     if (!mounted) return;
+    final locationId = point.sceneId.trim().isNotEmpty
+        ? point.sceneId.trim()
+        : pointId;
     Navigator.of(context).pushNamed(
-      RouteNames.chat,
+      RouteNames.locationChat,
       arguments: {
-        'wid': widget.wid,
+        'world_id': widget.wid,
+        'location_id': locationId,
         'pointId': pointId,
-        'sceneId': point.sceneId,
-        'locationName': point.name,
+        'location_name': point.name,
       },
     );
   }
@@ -332,7 +336,7 @@ class _WorldInfoHeader extends StatelessWidget {
                 Icon(MyFlutterApp.gas, size: 16),
                 const SizedBox(width: 4),
                 Text(
-                  '${world.origin.interactCount}',
+                  formatStatCount(world.origin.interactCount),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
@@ -373,7 +377,7 @@ class _WorldInfoHeader extends StatelessWidget {
                   final value = data['value'];
                   return StatItem(
                     icon: _counterIcon(iconKey),
-                    text: '$value',
+                    text: formatStatCount(value is num ? value : 0),
                     gap: 8,
                     textStyle: const TextStyle(
                       fontSize: 12,

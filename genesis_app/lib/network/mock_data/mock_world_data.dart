@@ -8,7 +8,7 @@ const Map<String, Map<String, dynamic>> kMockWorlds = {
   },
 };
 
-const Map<String, int> kMockTickByWorld = {'wid_mock_001': 3};
+const Map<String, int> kMockTickByWorld = {'wid_mock_001': 1240};
 
 const List<Map<String, dynamic>> kMockWorldMapPositions = [
   {

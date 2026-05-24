@@ -1,42 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
+import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/genesis_logo.dart';
-import '../../components/origin/origin_card.dart';
+import '../../components/home/world_item_card.dart';
+import '../../components/origin/origin_item_card.dart';
 import '../../components/secend_tabs.dart';
 import '../../components/search_bar.dart';
-import '../../models/origin_item.dart';
-import '../../network/genesis_api.dart';
-import '../../network/models/origin.dart';
+import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
-import '../../app/bootstrap/app_services_scope.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
-  static const List<String> categories = [
-    'For you',
-    'Billionare',
-    'Destroyed',
-    'End World',
-    'Vam',
-  ];
+  static const List<String> tabs = ['My World', 'Popular'];
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: categories.length,
+      length: tabs.length,
       child: Column(
         children: [
           const _HomeHeader(),
           const SizedBox(height: 4),
-          SecendTabs(labels: categories),
+          SecendTabs(labels: tabs),
           const SizedBox(height: 10),
-          Expanded(
+          const Expanded(
             child: TabBarView(
-              children: [
-                for (final label in categories) _HomeFeed(category: label),
-              ],
+              children: [_MyWorldFeed(index: 0), _PopularOriginFeed(index: 1)],
             ),
           ),
         ],
@@ -73,174 +64,508 @@ class _HomeHeader extends StatelessWidget {
   }
 }
 
-class _HomeFeed extends StatefulWidget {
-  const _HomeFeed({required this.category});
+class _MyWorldFeed extends StatefulWidget {
+  const _MyWorldFeed({required this.index});
 
-  final String category;
+  final int index;
 
   @override
-  State<_HomeFeed> createState() => _HomeFeedState();
+  State<_MyWorldFeed> createState() => _MyWorldFeedState();
 }
 
-class _HomeFeedState extends State<_HomeFeed> {
-  late Future<List<_OriginCardVm>> _future;
+class _MyWorldFeedState extends State<_MyWorldFeed>
+    with AutomaticKeepAliveClientMixin<_MyWorldFeed> {
+  static const _pageSize = 20;
+  static const _loadMoreThreshold = 700.0;
+
+  TabController? _tabController;
+  final ScrollController _scrollController = ScrollController();
+  final List<WorldListItem> _items = <WorldListItem>[];
+  var _nextPage = 1;
+  var _total = 0;
+  var _hasMore = true;
+  var _hasRequested = false;
+  var _scrollListenerAttached = false;
+  var _isInitialLoading = false;
+  var _isLoadingMore = false;
+  Object? _error;
 
   @override
-  void initState() {
-    super.initState();
-    _future = _fetchItems();
+  bool get wantKeepAlive => true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nextController = DefaultTabController.of(context);
+    if (_tabController != nextController) {
+      _tabController?.removeListener(_handleTabChange);
+      _tabController = nextController..addListener(_handleTabChange);
+    }
+    if (!_scrollListenerAttached) {
+      _scrollController.addListener(_handleScroll);
+      _scrollListenerAttached = true;
+    }
+    _requestIfCurrentTab();
   }
 
   @override
-  void didUpdateWidget(covariant _HomeFeed oldWidget) {
+  void didUpdateWidget(covariant _MyWorldFeed oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.category != widget.category) {
-      _future = _fetchItems();
+    if (oldWidget.index != widget.index) {
+      _resetListState();
+      _requestIfCurrentTab();
     }
   }
 
-  Future<List<_OriginCardVm>> _fetchItems() async {
-    if (const bool.fromEnvironment('FLUTTER_TEST')) {
-      return _itemsForCategory(widget.category)
-          .map((e) => _OriginCardVm(item: e, originId: 0, oid: ''))
-          .toList(growable: false);
+  @override
+  void dispose() {
+    _tabController?.removeListener(_handleTabChange);
+    _scrollController
+      ..removeListener(_handleScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _resetListState() {
+    _items.clear();
+    _nextPage = 1;
+    _total = 0;
+    _hasMore = true;
+    _hasRequested = false;
+    _isInitialLoading = false;
+    _isLoadingMore = false;
+    _error = null;
+  }
+
+  void _handleTabChange() {
+    _requestIfCurrentTab();
+  }
+
+  void _requestIfCurrentTab() {
+    final controller = _tabController;
+    if (controller == null ||
+        controller.index != widget.index ||
+        _hasRequested) {
+      return;
     }
-
-    final page = await AppServicesScope.of(
-      context,
-    ).api.getMyLaunchedOrigins(limit: 20, offset: 0);
-    return page.data
-        .map(
-          (o) =>
-              _OriginCardVm(item: _toOriginItem(o), originId: o.id, oid: o.oid),
-        )
-        .toList(growable: false);
+    _hasRequested = true;
+    _refreshItems();
   }
 
-  OriginItem _toOriginItem(OriginSummary origin) {
-    final hash = origin.oid.codeUnits.fold<int>(
-      0,
-      (a, b) => (a * 31 + b) & 0x7fffffff,
-    );
-    final coverHeight = (160 + (hash % 120)).clamp(140, 260).toDouble();
-
-    final name = origin.name.trim().isEmpty ? origin.oid : origin.name.trim();
-    final badgeText = _badgeText(name);
-
-    final mapImageUrl = resolveAssetUrl(origin.mapImage);
-
-    return OriginItem(
-      title: '#$name',
-      subtitle: origin.description,
-      tags: origin.tags,
-      readCount: '${origin.interactCount}',
-      likeCount: '${origin.copyCount}',
-      gradient: _gradientFor(origin.oid),
-      badgeText: badgeText,
-      coverHeight: coverHeight,
-      coverImageUrl: mapImageUrl,
-    );
+  void _handleScroll() {
+    if (!_scrollController.hasClients ||
+        _scrollController.position.extentAfter > _loadMoreThreshold) {
+      return;
+    }
+    _loadNextPage();
   }
 
-  String _badgeText(String name) {
-    final cleaned = name.replaceAll('#', '').trim();
-    final words = cleaned
-        .split(RegExp(r'\s+'))
-        .where((e) => e.trim().isNotEmpty)
-        .toList();
-    if (words.isEmpty) return 'ENTER\nWORLD';
-    return words.take(4).map((e) => e.toUpperCase()).join('\n');
+  Future<_WorldListPage> _fetchPage(int page) async {
+    final services = AppServicesScope.of(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (uid.isEmpty) {
+      return const _WorldListPage(items: <WorldListItem>[], total: 0);
+    }
+    final data = await services.api.v1.world.list(
+      uid: uid,
+      pn: page,
+      rn: _pageSize,
+    );
+    final list = data['list'];
+    final items = list is List
+        ? list
+              .whereType<Map>()
+              .map((raw) => WorldListItem.fromJson(asJsonMap(raw)))
+              .toList(growable: false)
+        : const <WorldListItem>[];
+    return _WorldListPage(items: items, total: asInt(data['total']));
   }
 
-  List<Color> _gradientFor(String seed) {
-    final hash = seed.codeUnits.fold<int>(
-      0,
-      (a, b) => (a * 131 + b) & 0x7fffffff,
-    );
-    int tint(int v) => 0xFF000000 | (v & 0x00FFFFFF) | 0x00303030;
-    return [Color(tint(hash)), Color(tint(hash * 17))];
+  Future<void> _refreshItems() async {
+    setState(() {
+      _items.clear();
+      _nextPage = 1;
+      _total = 0;
+      _hasMore = true;
+      _error = null;
+      _isInitialLoading = true;
+    });
+
+    try {
+      final page = await _fetchPage(1);
+      if (!mounted) return;
+      setState(() {
+        _items.addAll(page.items);
+        _total = page.total;
+        _nextPage = 2;
+        _hasMore = _items.length < _total && page.items.isNotEmpty;
+        _isInitialLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error;
+        _isInitialLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadNextPage() async {
+    if (!_hasMore || _isInitialLoading || _isLoadingMore) return;
+    setState(() {
+      _isLoadingMore = true;
+      _error = null;
+    });
+
+    try {
+      final page = await _fetchPage(_nextPage);
+      if (!mounted) return;
+      setState(() {
+        _items.addAll(page.items);
+        _total = page.total;
+        _nextPage += 1;
+        _hasMore = _items.length < _total && page.items.isNotEmpty;
+        _isLoadingMore = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error;
+        _isLoadingMore = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<_OriginCardVm>>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    super.build(context);
+    if (!_hasRequested) return const SizedBox.shrink();
+    if (_isInitialLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        if (snapshot.hasError) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+    if (_error != null && _items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Load failed'),
+            const SizedBox(height: 10),
+            FilledButton(onPressed: _refreshItems, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refreshItems,
+      child: _items.isEmpty
+          ? ListView(
+              key: const PageStorageKey<String>('home-feed-my-world'),
+              physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                const Text('Load failed'),
-                const SizedBox(height: 10),
-                FilledButton(
-                  onPressed: () => setState(() {
-                    _future = _fetchItems();
-                  }),
-                  child: const Text('Retry'),
+                SizedBox(
+                  height: MediaQuery.sizeOf(context).height * 0.45,
+                  child: const Center(child: Text('No data')),
                 ),
               ],
+            )
+          : ListView.separated(
+              key: const PageStorageKey<String>('home-feed-my-world'),
+              controller: _scrollController,
+              primary: false,
+              cacheExtent: 900,
+              padding: const EdgeInsets.only(top: 4),
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              itemCount: _items.length + (_isLoadingMore ? 1 : 0),
+              separatorBuilder: (context, index) => const Divider(
+                height: 25,
+                thickness: 1,
+                color: Color(0xFFEFEFEF),
+              ),
+              itemBuilder: (context, index) {
+                if (index >= _items.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 18),
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  );
+                }
+                final vm = _items[index];
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(
+                    context,
+                  ).pushNamed(RouteNames.world, arguments: {'wid': vm.wid}),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: WorldItemCard(item: vm),
+                  ),
+                );
+              },
             ),
-          );
-        }
-
-        final items = snapshot.data ?? const <_OriginCardVm>[];
-        if (items.isEmpty) {
-          return const Center(child: Text('No data'));
-        }
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: MasonryGridView.builder(
-            primary: false,
-            padding: EdgeInsets.zero,
-            physics: const BouncingScrollPhysics(),
-            gridDelegate: const SliverSimpleGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-            ),
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 11,
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final vm = items[index];
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.of(context).pushNamed(
-                  RouteNames.originWorld,
-                  arguments: {'originId': vm.originId, 'oid': vm.oid},
-                ),
-                child: OriginCard(item: vm.item),
-              );
-            },
-          ),
-        );
-      },
     );
-  }
-
-  List<OriginItem> _itemsForCategory(String category) {
-    final base = demoOriginItems;
-    final salt = category.codeUnits.fold<int>(0, (a, b) => a + b);
-    return List<OriginItem>.generate(12, (i) {
-      final item = base[(i + salt) % base.length];
-      final h = item.coverHeight + ((i % 3) - 1) * 18;
-      return item.copyWith(coverHeight: h.clamp(140, 260).toDouble());
-    });
   }
 }
 
-class _OriginCardVm {
-  const _OriginCardVm({
-    required this.item,
-    required this.originId,
-    required this.oid,
-  });
+class _WorldListPage {
+  const _WorldListPage({required this.items, required this.total});
 
-  final OriginItem item;
-  final int originId;
-  final String oid;
+  final List<WorldListItem> items;
+  final int total;
+}
+
+class _PopularOriginFeed extends StatefulWidget {
+  const _PopularOriginFeed({required this.index});
+
+  final int index;
+
+  @override
+  State<_PopularOriginFeed> createState() => _PopularOriginFeedState();
+}
+
+class _PopularOriginFeedState extends State<_PopularOriginFeed>
+    with AutomaticKeepAliveClientMixin<_PopularOriginFeed> {
+  static const _pageSize = 20;
+  static const _loadMoreThreshold = 700.0;
+
+  TabController? _tabController;
+  final ScrollController _scrollController = ScrollController();
+  final List<OriginListItem> _items = <OriginListItem>[];
+  var _nextPage = 1;
+  var _total = 0;
+  var _hasMore = true;
+  var _hasRequested = false;
+  var _scrollListenerAttached = false;
+  var _isInitialLoading = false;
+  var _isLoadingMore = false;
+  Object? _error;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nextController = DefaultTabController.of(context);
+    if (_tabController != nextController) {
+      _tabController?.removeListener(_handleTabChange);
+      _tabController = nextController..addListener(_handleTabChange);
+    }
+    if (!_scrollListenerAttached) {
+      _scrollController.addListener(_handleScroll);
+      _scrollListenerAttached = true;
+    }
+    _requestIfCurrentTab();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PopularOriginFeed oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.index != widget.index) {
+      _resetListState();
+      _requestIfCurrentTab();
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController?.removeListener(_handleTabChange);
+    _scrollController
+      ..removeListener(_handleScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _resetListState() {
+    _items.clear();
+    _nextPage = 1;
+    _total = 0;
+    _hasMore = true;
+    _hasRequested = false;
+    _isInitialLoading = false;
+    _isLoadingMore = false;
+    _error = null;
+  }
+
+  void _handleTabChange() {
+    _requestIfCurrentTab();
+  }
+
+  void _requestIfCurrentTab() {
+    final controller = _tabController;
+    if (controller == null ||
+        controller.index != widget.index ||
+        _hasRequested) {
+      return;
+    }
+    _hasRequested = true;
+    _refreshItems();
+  }
+
+  void _handleScroll() {
+    if (!_scrollController.hasClients ||
+        _scrollController.position.extentAfter > _loadMoreThreshold) {
+      return;
+    }
+    _loadNextPage();
+  }
+
+  Future<_OriginListPage> _fetchPage(int page) async {
+    final data = await AppServicesScope.of(
+      context,
+    ).api.v1.origin.list(pn: page, rn: _pageSize);
+    final list = data['list'];
+    final items = list is List
+        ? list
+              .whereType<Map>()
+              .map((raw) => OriginListItem.fromJson(asJsonMap(raw)))
+              .toList(growable: false)
+        : const <OriginListItem>[];
+    return _OriginListPage(items: items, total: asInt(data['total']));
+  }
+
+  Future<void> _refreshItems() async {
+    setState(() {
+      _items.clear();
+      _nextPage = 1;
+      _total = 0;
+      _hasMore = true;
+      _error = null;
+      _isInitialLoading = true;
+    });
+
+    try {
+      final page = await _fetchPage(1);
+      if (!mounted) return;
+      setState(() {
+        _items.addAll(page.items);
+        _total = page.total;
+        _nextPage = 2;
+        _hasMore = _items.length < _total && page.items.isNotEmpty;
+        _isInitialLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error;
+        _isInitialLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadNextPage() async {
+    if (!_hasMore || _isInitialLoading || _isLoadingMore) return;
+    setState(() {
+      _isLoadingMore = true;
+      _error = null;
+    });
+
+    try {
+      final page = await _fetchPage(_nextPage);
+      if (!mounted) return;
+      setState(() {
+        _items.addAll(page.items);
+        _total = page.total;
+        _nextPage += 1;
+        _hasMore = _items.length < _total && page.items.isNotEmpty;
+        _isLoadingMore = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error;
+        _isLoadingMore = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    if (!_hasRequested) return const SizedBox.shrink();
+    if (_isInitialLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null && _items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Load failed'),
+            const SizedBox(height: 10),
+            FilledButton(onPressed: _refreshItems, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refreshItems,
+      child: _items.isEmpty
+          ? ListView(
+              key: const PageStorageKey<String>('home-feed-popular'),
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: MediaQuery.sizeOf(context).height * 0.45,
+                  child: const Center(child: Text('No data')),
+                ),
+              ],
+            )
+          : MasonryGridView.builder(
+              key: const PageStorageKey<String>('home-feed-popular'),
+              controller: _scrollController,
+              primary: false,
+              cacheExtent: 900,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              gridDelegate:
+                  const SliverSimpleGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                  ),
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 11,
+              itemCount: _items.length + (_isLoadingMore ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index >= _items.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 18),
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  );
+                }
+                final item = _items[index];
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).pushNamed(
+                    RouteNames.originWorld,
+                    arguments: {'originId': 0, 'oid': item.oid},
+                  ),
+                  child: OriginItemCard(item: item),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _OriginListPage {
+  const _OriginListPage({required this.items, required this.total});
+
+  final List<OriginListItem> items;
+  final int total;
 }

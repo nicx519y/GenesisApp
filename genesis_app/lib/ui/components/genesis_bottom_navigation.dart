@@ -9,12 +9,14 @@ class GenesisBottomNavigationItem {
     required this.icon,
     this.enabled = true,
     this.prominent = false,
+    this.badgeCount = 0,
   });
 
   final String label;
   final IconData icon;
   final bool enabled;
   final bool prominent;
+  final int badgeCount;
 }
 
 class GenesisBottomNavigation extends StatelessWidget {
@@ -87,7 +89,13 @@ class GenesisBottomNavigationTile extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(item.icon, color: color, size: iconSize),
+            _BadgedIcon(
+              icon: item.icon,
+              color: color,
+              size: iconSize,
+              badgeCount: item.badgeCount,
+              badgeKey: ValueKey('bottom-nav-${item.label}-unread-badge'),
+            ),
             SizedBox(
               height: item.prominent ? GenesisSpacing.xxs : GenesisSpacing.xs,
             ),
@@ -101,6 +109,72 @@ class GenesisBottomNavigationTile extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BadgedIcon extends StatelessWidget {
+  const _BadgedIcon({
+    required this.icon,
+    required this.color,
+    required this.size,
+    required this.badgeCount,
+    required this.badgeKey,
+  });
+
+  final IconData icon;
+  final Color color;
+  final double size;
+  final int badgeCount;
+  final Key badgeKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size + 18,
+      height: size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          Icon(icon, color: color, size: size),
+          if (badgeCount > 0)
+            Positioned(
+              top: 0,
+              right: 0,
+              child: _UnreadBadge(key: badgeKey, count: badgeCount),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UnreadBadge extends StatelessWidget {
+  const _UnreadBadge({super.key, required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count > 99 ? '99+' : count.toString();
+    return Container(
+      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE02424),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          height: 1,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

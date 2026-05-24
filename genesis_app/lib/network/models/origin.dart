@@ -46,8 +46,11 @@ class OriginSummary {
     required this.mapImage,
     required this.worldMap,
     required this.worldView,
+    this.originator = '',
+    this.versionNum = 0,
     required this.copyCount,
     required this.interactCount,
+    this.characterCount = 0,
     required this.tags,
     required this.createdAt,
     required this.updatedAt,
@@ -62,8 +65,11 @@ class OriginSummary {
   final String mapImage;
   final String worldMap;
   final String worldView;
+  final String originator;
+  final int versionNum;
   final int copyCount;
   final int interactCount;
+  final int characterCount;
   final List<String> tags;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -80,8 +86,11 @@ class OriginSummary {
       mapImage: mapImage,
       worldMap: asString(json['world_map'], fallback: mapImage),
       worldView: asString(json['world_view']),
+      originator: asString(json['originator']),
+      versionNum: asInt(json['version_num']),
       copyCount: asInt(json['copy_count']),
       interactCount: asInt(json['interact_count']),
+      characterCount: asInt(json['character_count']),
       tags: _splitTags(asString(json['tags'])),
       createdAt: asDateTime(json['created_at']),
       updatedAt: asDateTime(json['updated_at']),

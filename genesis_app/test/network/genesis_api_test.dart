@@ -1,8 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
+import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
@@ -58,12 +60,23 @@ GenesisApi _apiWith(
 }
 
 void main() {
-  test('bindDevice uses GET /auth/me/public-profile', () async {
+  test('AppConfig switches production and mock network environments', () {
+    expect(const AppConfig().useMock, isNull);
+    expect(const AppConfig(apiEnvironment: 'mock').useMock, true);
+    expect(const AppConfig(apiEnvironment: 'production').useMock, false);
+    expect(
+      const AppConfig(apiEnvironment: 'production', useMock: true).useMock,
+      true,
+    );
+  });
+
+  test('bindDevice uses GET /v1/user/info', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
         headers: {'content-type': 'application/json'},
-        body: '{"id":"u_1","display_name":"n","avatar_url":"a"}',
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_1","name":"n","avatar":"a"}}}',
       ),
     );
     final healthTransport = _FakeTransport(
@@ -80,17 +93,17 @@ void main() {
     expect(apiTransport.lastRequest!.method, 'GET');
     expect(
       apiTransport.lastRequest!.uri.toString(),
-      'http://localhost:8080/api/auth/me/public-profile',
+      'http://localhost:8080/api/v1/user/info',
     );
     expect(user.uid, 'u_1');
   });
 
-  test('getOrigins uses GET /origins for default category', () async {
+  test('getOrigins uses GET /v1/origin/list for default category', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
         headers: {'content-type': 'application/json'},
-        body: '{"origins":[]}',
+        body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
       ),
     );
     final healthTransport = _FakeTransport(
@@ -105,15 +118,18 @@ void main() {
     await api.getOrigins(category: 'For you', limit: 20, offset: 0);
 
     expect(apiTransport.lastRequest!.method, 'GET');
-    expect(apiTransport.lastRequest!.uri.path, '/api/origins');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/list');
+    expect(apiTransport.lastRequest!.uri.queryParameters['pn'], '1');
+    expect(apiTransport.lastRequest!.uri.queryParameters['rn'], '20');
+    expect(apiTransport.lastRequest!.uri.queryParameters['tag_name'], isNull);
   });
 
-  test('getOrigins uses GET /origins/popular for other categories', () async {
+  test('getOrigins maps non-default category to Apifox tag_name', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
         headers: {'content-type': 'application/json'},
-        body: '{"origins":[]}',
+        body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
       ),
     );
     final healthTransport = _FakeTransport(
@@ -128,8 +144,66 @@ void main() {
     await api.getOrigins(category: 'Billionare', limit: 20, offset: 0);
 
     expect(apiTransport.lastRequest!.method, 'GET');
-    expect(apiTransport.lastRequest!.uri.path, '/api/origins/popular');
-    expect(apiTransport.lastRequest!.uri.queryParameters['limit'], '20');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/list');
+    expect(
+      apiTransport.lastRequest!.uri.queryParameters['tag_name'],
+      'Billionare',
+    );
+    expect(apiTransport.lastRequest!.uri.queryParameters['rn'], '20');
+  });
+
+  test('profile list facades use Apifox origin and world list endpoints', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) {
+        if (request.uri.path.endsWith('/v1/origin/list')) {
+          return const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body:
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3}}],"total":1}}',
+          );
+        }
+        if (request.uri.path.endsWith('/v1/world/list')) {
+          return const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body:
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","cover":"","created_at":1716000000},"stats":{"tick_cnt":4,"player_cnt":5}}],"total":1}}',
+          );
+        }
+        return const TransportResponse(
+          statusCode: 404,
+          headers: {'content-type': 'application/json'},
+          body: '{"error":"unexpected path"}',
+        );
+      },
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    final origins = await api.getMyLaunchedOrigins(
+      uid: 'u_2',
+      limit: 10,
+      offset: 10,
+    );
+    final worlds = await api.getMyWorlds(uid: 'u_2', limit: 10, offset: 10);
+
+    expect(origins.data.single.oid, 'o_1');
+    expect(worlds.single.wid, 'w_1');
+    expect(apiTransport.requests[0].uri.path, '/api/v1/origin/list');
+    expect(apiTransport.requests[0].uri.queryParameters['uid'], 'u_2');
+    expect(apiTransport.requests[0].uri.queryParameters['pn'], '2');
+    expect(apiTransport.requests[0].uri.queryParameters['rn'], '10');
+    expect(apiTransport.requests[1].uri.path, '/api/v1/world/list');
+    expect(apiTransport.requests[1].uri.queryParameters['uid'], 'u_2');
+    expect(apiTransport.requests[1].uri.queryParameters['pn'], '2');
+    expect(apiTransport.requests[1].uri.queryParameters['rn'], '10');
   });
 
   test('launchWorld uses POST /worlds/launch with new body', () async {
@@ -241,20 +315,11 @@ void main() {
 
   test('search uses GET /search with query', () async {
     final apiTransport = _FakeTransport(
-      handler: (request) {
-        if (request.uri.path.endsWith('/auth/me/public-profile')) {
-          return const TransportResponse(
-            statusCode: 200,
-            headers: {'content-type': 'application/json'},
-            body: '{"id":"u_1","display_name":"n","avatar_url":"a"}',
-          );
-        }
-        return const TransportResponse(
-          statusCode: 200,
-          headers: {'content-type': 'application/json'},
-          body: '{"origins":[],"worlds":[],"users":[]}',
-        );
-      },
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"origins":[],"worlds":[],"users":[]}',
+      ),
     );
     final healthTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
@@ -278,7 +343,7 @@ void main() {
       handler: (_) => const TransportResponse(
         statusCode: 200,
         headers: {'content-type': 'application/json'},
-        body: '{"origins":[]}',
+        body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
       ),
     );
 
@@ -294,7 +359,7 @@ void main() {
 
     expect(
       apiTransport.lastRequest!.uri.toString(),
-      'https://example.test/api/origins',
+      'https://example.test/api/v1/origin/list?pn=1&rn=20',
     );
   });
 
@@ -305,7 +370,7 @@ void main() {
         handler: (_) => const TransportResponse(
           statusCode: 200,
           headers: {'content-type': 'application/json'},
-          body: '{"origins":[]}',
+          body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
         ),
       );
       final sessionStore = MemoryUserSessionStore();
@@ -338,18 +403,23 @@ void main() {
       late final MemoryUserSessionStore sessionStore;
       final apiTransport = _FakeTransport(
         handler: (request) {
-          if (request.uri.path.endsWith('/auth/google')) {
+          if (request.uri.path.endsWith('/v1/user/oauth/google')) {
+            final body =
+                jsonDecode(utf8.decode(request.bodyBytes ?? const [])) as Map;
+            expect(body['id_token'], 'google-token');
+            expect(body['name'], 'Neo');
+            expect(body['avatar'], 'https://cdn/neo.png');
             return const TransportResponse(
               statusCode: 200,
               headers: {'content-type': 'application/json'},
               body:
-                  '{"token":"backend-token","user":{"id":"u_2","display_name":"Neo"}}',
+                  '{"err_no":0,"err_msg":"succ","data":{"token":"backend-token","user":{"uid":"u_2","name":"Neo"}}}',
             );
           }
           return const TransportResponse(
             statusCode: 200,
             headers: {'content-type': 'application/json'},
-            body: '{"origins":[]}',
+            body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
           );
         },
       );
@@ -361,7 +431,11 @@ void main() {
         sessionStore: sessionStore,
       );
 
-      await api.loginWithGoogle(idToken: 'google-token');
+      await api.loginWithGoogle(
+        idToken: 'google-token',
+        name: 'Neo',
+        avatar: 'https://cdn/neo.png',
+      );
       expect(await sessionStore.readUid(), 'u_2');
       expect(await sessionStore.readAuthToken(), 'backend-token');
 
@@ -376,22 +450,23 @@ void main() {
   test('loginWithIdentity posts Apple tokens and stores backend token', () async {
     final apiTransport = _FakeTransport(
       handler: (request) {
-        if (request.uri.path.endsWith('/auth/apple')) {
+        if (request.uri.path.endsWith('/v1/user/oauth/apple')) {
           final body =
               jsonDecode(utf8.decode(request.bodyBytes ?? const [])) as Map;
           expect(body['id_token'], 'apple-token');
-          expect(body['firebase_id_token'], 'firebase-token');
+          expect(body.containsKey('firebase_id_token'), isFalse);
+          expect(body['name'], 'Ava');
           return const TransportResponse(
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"token":"apple-backend-token","user":{"id":"apple_uid","display_name":"Ava"}}',
+                '{"err_no":0,"err_msg":"succ","data":{"token":"apple-backend-token","user":{"uid":"apple_uid","name":"Ava"}}}',
           );
         }
         return const TransportResponse(
           statusCode: 200,
           headers: {'content-type': 'application/json'},
-          body: '{"origins":[]}',
+          body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
         );
       },
     );
@@ -424,17 +499,18 @@ void main() {
     () async {
       final apiTransport = _FakeTransport(
         handler: (request) {
-          if (request.uri.path.endsWith('/auth/apple')) {
+          if (request.uri.path.endsWith('/v1/user/oauth/apple')) {
             return const TransportResponse(
               statusCode: 200,
               headers: {'content-type': 'application/json'},
-              body: '{"token":"apple-backend-token","user":{}}',
+              body:
+                  '{"err_no":0,"err_msg":"succ","data":{"token":"apple-backend-token","user":{}}}',
             );
           }
           return const TransportResponse(
             statusCode: 200,
             headers: {'content-type': 'application/json'},
-            body: '{"origins":[]}',
+            body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
           );
         },
       );
@@ -469,13 +545,13 @@ void main() {
     () async {
       final apiTransport = _FakeTransport(
         handler: (request) {
-          if (request.uri.path.endsWith('/auth/logout')) {
+          if (request.uri.path.endsWith('/v1/user/logout')) {
             expect(request.method, 'POST');
             expect(request.headers['authorization'], 'Bearer backend-token');
             return const TransportResponse(
               statusCode: 200,
               headers: {'content-type': 'application/json'},
-              body: '{"ok":true}',
+              body: '{"err_no":0,"err_msg":"succ","data":{}}',
             );
           }
           return const TransportResponse(
@@ -504,7 +580,7 @@ void main() {
 
       await coordinator.signOut();
 
-      expect(apiTransport.requests.single.uri.path, '/api/auth/logout');
+      expect(apiTransport.requests.single.uri.path, '/api/v1/user/logout');
       expect(identityAuth.signOutCount, 1);
       expect(await sessionStore.readUid(), isNull);
       expect(await sessionStore.readAuthToken(), isNull);
@@ -551,7 +627,7 @@ void main() {
       handler: (_) => const TransportResponse(
         statusCode: 200,
         headers: {'content-type': 'application/json'},
-        body: '{"origins":[]}',
+        body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
       ),
     );
 
@@ -563,6 +639,181 @@ void main() {
     await api.getOrigins();
 
     expect(apiTransport.lastRequest!.headers['x-platform'], 'ios');
+  });
+
+  test('v1 origin list uses Apifox query format', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    final result = await api.v1.origin.list(
+      scene: 'mine',
+      keyword: 'steam',
+      tagName: 'politics',
+      pn: 2,
+      rn: 10,
+    );
+
+    expect(result['total'], 0);
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/list');
+    expect(apiTransport.lastRequest!.uri.queryParameters['scene'], isNull);
+    expect(apiTransport.lastRequest!.uri.queryParameters['keyword'], 'steam');
+    expect(
+      apiTransport.lastRequest!.uri.queryParameters['tag_name'],
+      'politics',
+    );
+    expect(apiTransport.lastRequest!.uri.queryParameters['pn'], '2');
+    expect(apiTransport.lastRequest!.uri.queryParameters['rn'], '10');
+  });
+
+  test('v1 dm send posts snake_case JSON body', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_str":"success","data":{"message":{"message_id":"m1"}}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    await api.v1.dm.send(
+      targetUid: 'U_2',
+      content: 'hello',
+      clientMsgId: 'client-1',
+    );
+
+    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/dm/send');
+    final body = jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!));
+    expect(body['target_uid'], 'U_2');
+    expect(body['content'], 'hello');
+    expect(body['client_msg_id'], 'client-1');
+    expect(body.containsKey('targetUid'), isFalse);
+    expect(body.containsKey('clientMsgId'), isFalse);
+    expect(body.containsKey('conversation_id'), isFalse);
+  });
+
+  test('v1 API throws ApiException when err_no is non-zero', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":1001,"err_msg":"bad request","data":{}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+
+    expect(
+      () => api.v1.user.info(),
+      throwsA(
+        isA<ApiException>().having((e) => e.message, 'message', 'bad request'),
+      ),
+    );
+  });
+
+  test('v1 discuss detail normalizes camelCase response keys', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"errNo":0,"errStr":"success","data":{"post":{"postId":"p_001","userName":"GenX","likedByMe":true,"likeCnt":11,"bestTickCnt":30},"replyList":[{"postId":"p_002","userAvatar":"https://cdn.xxx/a.png","replyCnt":0}],"total":3}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    final result = await api.v1.discuss.detail(postId: 'p_001', pn: 1, rn: 20);
+
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/discuss/detail');
+    expect(apiTransport.lastRequest!.uri.queryParameters['post_id'], 'p_001');
+    expect(
+      apiTransport.lastRequest!.uri.queryParameters.containsKey('postId'),
+      isFalse,
+    );
+    final post = result['post'] as Map<String, dynamic>;
+    expect(post['post_id'], 'p_001');
+    expect(post['user_name'], 'GenX');
+    expect(post['liked_by_me'], isTrue);
+    expect(post['like_cnt'], 11);
+    expect(post['best_tick_cnt'], 30);
+    expect(post.containsKey('postId'), isFalse);
+    final replies = result['reply_list'] as List;
+    expect((replies.first as Map)['post_id'], 'p_002');
+    expect((replies.first as Map)['user_avatar'], 'https://cdn.xxx/a.png');
+  });
+
+  test('v1 upload uses multipart body through ApiClient transport', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_str":"success","data":{"file_url":"https://cdn/x.png"}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    final result = await api.v1.common.uploadFile(
+      bytes: utf8.encode('abc'),
+      bizType: 'avatar',
+      filename: 'a.txt',
+      contentType: 'text/plain',
+    );
+
+    expect(result['file_url'], 'https://cdn/x.png');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/common/upload');
+    expect(
+      apiTransport.lastRequest!.headers['content-type'],
+      startsWith('multipart/form-data; boundary='),
+    );
+    final body = utf8.decode(apiTransport.lastRequest!.bodyBytes!);
+    expect(body, contains('name="biz_type"'));
+    expect(body, contains('avatar'));
+    expect(body, contains('filename="a.txt"'));
+    expect(body, contains('abc'));
   });
 }
 

@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
-import '../../components/origin/origin_card.dart';
-import '../../components/page_header.dart';
-import '../../components/secend_tabs.dart';
-import '../../models/origin_item.dart';
-import '../../network/genesis_api.dart';
-import '../../network/models/origin.dart';
-import '../../routers/app_router.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/page_header.dart';
+import '../../components/origin/origin_item_card.dart';
+import '../../components/secend_tabs.dart';
+import '../../network/json_utils.dart';
+import '../../routers/app_router.dart';
 
 class OriginPage extends StatelessWidget {
   const OriginPage({super.key});
@@ -34,7 +32,8 @@ class OriginPage extends StatelessWidget {
           Expanded(
             child: TabBarView(
               children: [
-                for (final label in categories) _OriginFeed(category: label),
+                for (final entry in categories.indexed)
+                  _OriginFeed(index: entry.$1, category: entry.$2),
               ],
             ),
           ),
@@ -45,177 +44,258 @@ class OriginPage extends StatelessWidget {
 }
 
 class _OriginFeed extends StatefulWidget {
-  const _OriginFeed({required this.category});
+  const _OriginFeed({required this.index, required this.category});
 
+  final int index;
   final String category;
 
   @override
   State<_OriginFeed> createState() => _OriginFeedState();
 }
 
-class _OriginFeedState extends State<_OriginFeed> {
-  late Future<List<_OriginCardVm>> _future;
+class _OriginFeedState extends State<_OriginFeed>
+    with AutomaticKeepAliveClientMixin<_OriginFeed> {
+  static const _pageSize = 20;
+  static const _loadMoreThreshold = 700.0;
+
+  TabController? _tabController;
+  final ScrollController _scrollController = ScrollController();
+  final List<OriginListItem> _items = <OriginListItem>[];
+  var _nextPage = 1;
+  var _total = 0;
+  var _hasMore = true;
+  var _hasRequested = false;
+  var _scrollListenerAttached = false;
+  var _isInitialLoading = false;
+  var _isLoadingMore = false;
+  Object? _error;
 
   @override
-  void initState() {
-    super.initState();
-    _future = _fetchItems();
+  bool get wantKeepAlive => true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nextController = DefaultTabController.of(context);
+    if (_tabController != nextController) {
+      _tabController?.removeListener(_handleTabChange);
+      _tabController = nextController..addListener(_handleTabChange);
+    }
+    if (!_scrollListenerAttached) {
+      _scrollController.addListener(_handleScroll);
+      _scrollListenerAttached = true;
+    }
+    _requestIfCurrentTab();
   }
 
   @override
   void didUpdateWidget(covariant _OriginFeed oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.category != widget.category) {
-      _future = _fetchItems();
+    if (oldWidget.category != widget.category ||
+        oldWidget.index != widget.index) {
+      _resetListState();
+      _requestIfCurrentTab();
     }
   }
 
-  Future<List<_OriginCardVm>> _fetchItems() async {
-    if (const bool.fromEnvironment('FLUTTER_TEST')) {
-      return _itemsForCategory(widget.category)
-          .map((e) => _OriginCardVm(item: e, originId: 0, oid: ''))
-          .toList(growable: false);
+  @override
+  void dispose() {
+    _tabController?.removeListener(_handleTabChange);
+    _scrollController
+      ..removeListener(_handleScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _resetListState() {
+    _items.clear();
+    _nextPage = 1;
+    _total = 0;
+    _hasMore = true;
+    _hasRequested = false;
+    _isInitialLoading = false;
+    _isLoadingMore = false;
+    _error = null;
+  }
+
+  void _handleTabChange() {
+    _requestIfCurrentTab();
+  }
+
+  void _requestIfCurrentTab() {
+    final controller = _tabController;
+    if (controller == null ||
+        controller.index != widget.index ||
+        _hasRequested) {
+      return;
     }
-
-    final page = await AppServicesScope.of(
-      context,
-    ).api.getOrigins(category: widget.category, limit: 20, offset: 0);
-    return page.data
-        .map(
-          (o) =>
-              _OriginCardVm(item: _toOriginItem(o), originId: o.id, oid: o.oid),
-        )
-        .toList(growable: false);
+    _hasRequested = true;
+    _refreshItems();
   }
 
-  OriginItem _toOriginItem(OriginSummary origin) {
-    final hash = origin.oid.codeUnits.fold<int>(
-      0,
-      (a, b) => (a * 31 + b) & 0x7fffffff,
+  void _handleScroll() {
+    if (!_scrollController.hasClients ||
+        _scrollController.position.extentAfter > _loadMoreThreshold) {
+      return;
+    }
+    _loadNextPage();
+  }
+
+  Future<_OriginListPage> _fetchPage(int page) async {
+    final data = await AppServicesScope.of(context).api.v1.origin.list(
+      scene: _sceneForCategory(widget.category),
+      pn: page,
+      rn: _pageSize,
     );
-    final coverHeight = (160 + (hash % 120)).clamp(140, 260).toDouble();
-
-    final name = origin.name.trim().isEmpty ? origin.oid : origin.name.trim();
-    final badgeText = _badgeText(name);
-
-    final mapImageUrl = _resolveAssetUrl(origin.mapImage);
-
-    return OriginItem(
-      title: '#$name',
-      subtitle: origin.description,
-      tags: origin.tags,
-      readCount: '${origin.interactCount}',
-      likeCount: '${origin.copyCount}',
-      gradient: _gradientFor(origin.oid),
-      badgeText: badgeText,
-      coverHeight: coverHeight,
-      coverImageUrl: mapImageUrl,
-    );
+    final list = data['list'];
+    final items = list is List
+        ? list
+              .whereType<Map>()
+              .map((raw) => OriginListItem.fromJson(asJsonMap(raw)))
+              .toList(growable: false)
+        : const <OriginListItem>[];
+    return _OriginListPage(items: items, total: asInt(data['total']));
   }
 
-  String _resolveAssetUrl(String raw) {
-    return resolveAssetUrl(raw);
+  Future<void> _refreshItems() async {
+    setState(() {
+      _items.clear();
+      _nextPage = 1;
+      _total = 0;
+      _hasMore = true;
+      _error = null;
+      _isInitialLoading = true;
+    });
+
+    try {
+      final page = await _fetchPage(1);
+      if (!mounted) return;
+      setState(() {
+        _items.addAll(page.items);
+        _total = page.total;
+        _nextPage = 2;
+        _hasMore = _items.length < _total && page.items.isNotEmpty;
+        _isInitialLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error;
+        _isInitialLoading = false;
+      });
+    }
   }
 
-  String _badgeText(String name) {
-    final cleaned = name.replaceAll('#', '').trim();
-    final words = cleaned
-        .split(RegExp(r'\s+'))
-        .where((e) => e.trim().isNotEmpty)
-        .toList();
-    if (words.isEmpty) return 'ENTER\nWORLD';
-    return words.take(4).map((e) => e.toUpperCase()).join('\n');
+  Future<void> _loadNextPage() async {
+    if (!_hasMore || _isInitialLoading || _isLoadingMore) return;
+    setState(() {
+      _isLoadingMore = true;
+      _error = null;
+    });
+
+    try {
+      final page = await _fetchPage(_nextPage);
+      if (!mounted) return;
+      setState(() {
+        _items.addAll(page.items);
+        _total = page.total;
+        _nextPage += 1;
+        _hasMore = _items.length < _total && page.items.isNotEmpty;
+        _isLoadingMore = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error;
+        _isLoadingMore = false;
+      });
+    }
   }
 
-  List<Color> _gradientFor(String seed) {
-    final hash = seed.codeUnits.fold<int>(
-      0,
-      (a, b) => (a * 131 + b) & 0x7fffffff,
-    );
-    int tint(int v) => 0xFF000000 | (v & 0x00FFFFFF) | 0x00303030;
-    return [Color(tint(hash)), Color(tint(hash * 17))];
+  String _sceneForCategory(String category) {
+    return category.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<_OriginCardVm>>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    super.build(context);
+    if (!_hasRequested) return const SizedBox.shrink();
+    if (_isInitialLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        if (snapshot.hasError) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+    if (_error != null && _items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Load failed'),
+            const SizedBox(height: 10),
+            FilledButton(onPressed: _refreshItems, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _refreshItems,
+      child: _items.isEmpty
+          ? ListView(
+              key: PageStorageKey<String>('origin-feed-${widget.category}'),
+              physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                const Text('Load failed'),
-                const SizedBox(height: 10),
-                FilledButton(
-                  onPressed: () => setState(() {
-                    _future = _fetchItems();
-                  }),
-                  child: const Text('Retry'),
+                SizedBox(
+                  height: MediaQuery.sizeOf(context).height * 0.45,
+                  child: const Center(child: Text('No data')),
                 ),
               ],
+            )
+          : MasonryGridView.builder(
+              key: PageStorageKey<String>('origin-feed-${widget.category}'),
+              controller: _scrollController,
+              primary: false,
+              cacheExtent: 900,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              gridDelegate:
+                  const SliverSimpleGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                  ),
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 11,
+              itemCount: _items.length + (_isLoadingMore ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index >= _items.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 18),
+                    child: Center(
+                      child: SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  );
+                }
+                final item = _items[index];
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).pushNamed(
+                    RouteNames.originWorld,
+                    arguments: {'originId': 0, 'oid': item.oid},
+                  ),
+                  child: OriginItemCard(item: item),
+                );
+              },
             ),
-          );
-        }
-
-        final items = snapshot.data ?? const <_OriginCardVm>[];
-        if (items.isEmpty) {
-          return const Center(child: Text('No data'));
-        }
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: MasonryGridView.builder(
-            primary: false,
-            padding: EdgeInsets.zero,
-            physics: const BouncingScrollPhysics(),
-            gridDelegate: const SliverSimpleGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-            ),
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 11,
-            itemCount: items.length,
-            itemBuilder: (context, index) {
-              final vm = items[index];
-              return GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.of(context).pushNamed(
-                  RouteNames.originWorld,
-                  arguments: {'originId': vm.originId, 'oid': vm.oid},
-                ),
-                child: OriginCard(item: vm.item),
-              );
-            },
-          ),
-        );
-      },
     );
-  }
-
-  List<OriginItem> _itemsForCategory(String category) {
-    final base = demoOriginItems;
-    final salt = category.codeUnits.fold<int>(0, (a, b) => a + b);
-    return List<OriginItem>.generate(12, (i) {
-      final item = base[(i + salt) % base.length];
-      final h = item.coverHeight + ((i % 3) - 1) * 18;
-      return item.copyWith(coverHeight: h.clamp(140, 260).toDouble());
-    });
   }
 }
 
-class _OriginCardVm {
-  const _OriginCardVm({
-    required this.item,
-    required this.originId,
-    required this.oid,
-  });
+class _OriginListPage {
+  const _OriginListPage({required this.items, required this.total});
 
-  final OriginItem item;
-  final int originId;
-  final String oid;
+  final List<OriginListItem> items;
+  final int total;
 }

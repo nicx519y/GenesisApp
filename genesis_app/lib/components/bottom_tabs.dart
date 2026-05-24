@@ -8,20 +8,28 @@ class BottomTabs extends StatelessWidget {
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.messagesUnreadCount = 0,
   });
 
   final int currentIndex;
   final ValueChanged<int> onTap;
+  final int messagesUnreadCount;
 
   @override
   Widget build(BuildContext context) {
     return GenesisBottomNavigation(
       currentIndex: currentIndex,
       onTap: onTap,
-      items: const [
-        GenesisBottomNavigationItem(label: 'Home', icon: MyFlutterApp.home),
-        GenesisBottomNavigationItem(label: 'Origin', icon: MyFlutterApp.origin),
-        GenesisBottomNavigationItem(
+      items: [
+        const GenesisBottomNavigationItem(
+          label: 'Home',
+          icon: MyFlutterApp.home,
+        ),
+        const GenesisBottomNavigationItem(
+          label: 'Origin',
+          icon: MyFlutterApp.origin,
+        ),
+        const GenesisBottomNavigationItem(
           label: 'Create',
           icon: MyFlutterApp.create,
           prominent: true,
@@ -29,8 +37,9 @@ class BottomTabs extends StatelessWidget {
         GenesisBottomNavigationItem(
           label: 'Messages',
           icon: MyFlutterApp.messages,
+          badgeCount: messagesUnreadCount,
         ),
-        GenesisBottomNavigationItem(label: 'Me', icon: MyFlutterApp.me),
+        const GenesisBottomNavigationItem(label: 'Me', icon: MyFlutterApp.me),
       ],
     );
   }
