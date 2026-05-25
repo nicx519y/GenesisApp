@@ -52,6 +52,8 @@ class WorldDetail {
     required this.name,
     required this.progressCount,
     required this.interactCount,
+    required this.characterCount,
+    required this.playerCount,
     required this.lastProgressAt,
     required this.lastProgressUpdate,
     required this.isProgressing,
@@ -59,6 +61,7 @@ class WorldDetail {
     required this.createdAt,
     required this.updatedAt,
     required this.origin,
+    required this.characters,
     required this.worldLocations,
     required this.characterPositions,
     required this.userPositions,
@@ -71,6 +74,8 @@ class WorldDetail {
   final String name;
   final int progressCount;
   final int interactCount;
+  final int characterCount;
+  final int playerCount;
   final DateTime? lastProgressAt;
   final String lastProgressUpdate;
   final bool isProgressing;
@@ -78,6 +83,7 @@ class WorldDetail {
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final OriginSummary origin;
+  final List<Map<String, dynamic>> characters;
   final List<Map<String, dynamic>> worldLocations;
   final List<Map<String, dynamic>> characterPositions;
   final List<Map<String, dynamic>> userPositions;
@@ -91,6 +97,8 @@ class WorldDetail {
       name: asString(json['name']),
       progressCount: asInt(json['progress_count']),
       interactCount: asInt(json['interact_count']),
+      characterCount: asInt(json['character_count']),
+      playerCount: asInt(json['player_count']),
       lastProgressAt: asDateTime(json['last_progress_at']),
       lastProgressUpdate: asString(json['last_progress_update']),
       isProgressing: asBool(json['is_progressing']),
@@ -115,6 +123,11 @@ class WorldDetail {
               characters: <OriginCharacter>[],
               locations: <OriginLocation>[],
             ),
+      characters: (json['characters'] is List)
+          ? asJsonList(
+              json['characters'],
+            ).map((e) => asJsonMap(e)).toList(growable: false)
+          : const [],
       worldLocations: (json['world_locations'] is List)
           ? asJsonList(
               json['world_locations'],

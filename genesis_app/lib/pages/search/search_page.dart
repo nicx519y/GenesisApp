@@ -409,6 +409,9 @@ class _SearchPageState extends State<SearchPage>
           context,
         ).pushNamed(RouteNames.world, arguments: {'wid': item.entityId});
       case _SearchTab.user:
+        Navigator.of(
+          context,
+        ).pushNamed(RouteNames.userInfo, arguments: {'uid': item.entityId});
       case _SearchTab.all:
         break;
     }

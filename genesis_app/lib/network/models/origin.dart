@@ -118,13 +118,19 @@ class OriginDetail {
     required this.mapImage,
     required this.worldMap,
     required this.worldView,
+    this.originator = '',
+    this.versionNum = 0,
+    this.startTime = '',
     required this.copyCount,
     required this.interactCount,
+    this.discussCount = 0,
+    this.characterCount = 0,
     required this.tags,
     required this.createdAt,
     required this.updatedAt,
     required this.characters,
     required this.locations,
+    this.events = const <OriginEvent>[],
   });
 
   final int id;
@@ -134,13 +140,19 @@ class OriginDetail {
   final String mapImage;
   final String worldMap;
   final String worldView;
+  final String originator;
+  final int versionNum;
+  final String startTime;
   final int copyCount;
   final int interactCount;
+  final int discussCount;
+  final int characterCount;
   final List<String> tags;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final List<OriginCharacter> characters;
   final List<OriginLocation> locations;
+  final List<OriginEvent> events;
 
   factory OriginDetail.fromJson(Map<String, dynamic> json) {
     final mapImage = asString(json['map_image']);
@@ -152,8 +164,13 @@ class OriginDetail {
       mapImage: mapImage,
       worldMap: asString(json['world_map'], fallback: mapImage),
       worldView: asString(json['world_view']),
+      originator: asString(json['originator']),
+      versionNum: asInt(json['version_num']),
+      startTime: asString(json['start_time']),
       copyCount: asInt(json['copy_count']),
       interactCount: asInt(json['interact_count']),
+      discussCount: asInt(json['discuss_count']),
+      characterCount: asInt(json['character_count']),
       tags: _splitTags(asString(json['tags'])),
       createdAt: asDateTime(json['created_at']),
       updatedAt: asDateTime(json['updated_at']),
@@ -167,6 +184,62 @@ class OriginDetail {
                 .map((e) => OriginLocation.fromJson(asJsonMap(e)))
                 .toList(growable: false)
           : const <OriginLocation>[],
+      events: (json['events'] is List)
+          ? asJsonList(json['events'])
+                .map((e) => OriginEvent.fromJson(asJsonMap(e)))
+                .toList(growable: false)
+          : const <OriginEvent>[],
+    );
+  }
+}
+
+@immutable
+class OriginEvent {
+  const OriginEvent({
+    required this.label,
+    required this.timestamp,
+    required this.content,
+  });
+
+  final String label;
+  final String timestamp;
+  final String content;
+
+  factory OriginEvent.fromJson(Map<String, dynamic> json) {
+    return OriginEvent(
+      label: asString(
+        json['label'],
+        fallback: asString(
+          json['location_name'],
+          fallback: asString(
+            json['name'],
+            fallback: asString(
+              json['scene'],
+              fallback: asString(json['scope']),
+            ),
+          ),
+        ),
+      ),
+      timestamp: asString(
+        json['timestamp'],
+        fallback: asString(
+          json['created_at'],
+          fallback: asString(
+            json['create_time'],
+            fallback: asString(json['time']),
+          ),
+        ),
+      ),
+      content: asString(
+        json['content'],
+        fallback: asString(
+          json['text'],
+          fallback: asString(
+            json['summary'],
+            fallback: asString(json['narrator']),
+          ),
+        ),
+      ),
     );
   }
 }

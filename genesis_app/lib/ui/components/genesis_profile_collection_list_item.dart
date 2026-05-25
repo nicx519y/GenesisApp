@@ -65,7 +65,7 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF4B6192),
+                      color: Color(0xFF4B6192),
                     ),
                   ),
                   const SizedBox(height: 5),

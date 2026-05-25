@@ -230,7 +230,7 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (method == 'GET' && path == 'user/info') {
-      return _v1Ok(_state.v1AuthPayload());
+      return _v1Ok(_state.v1UserInfo(query['uid']));
     }
 
     if (method == 'POST' && path == 'user/update') {
@@ -318,9 +318,7 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (method == 'GET' && path == 'world/detail') {
-      return _v1Ok(
-        _state.v1WorldContractDetail(query['world_id'] ?? query['wid']),
-      );
+      return _v1Ok(_state.v1WorldContractDetail(query['world_id']));
     }
 
     if (method == 'POST' && path == 'world/request') {
@@ -867,10 +865,15 @@ class _MockState {
   }
 
   Map<String, dynamic> v1AuthPayload() {
+    return v1UserInfo(null);
+  }
+
+  Map<String, dynamic> v1UserInfo(String? uid) {
+    final profile = v1UserProfile(uid);
     return {
       'token': 'mock-v1-token',
-      'user': _deepCopyMap(_v1User),
-      'relation': _deepCopyMap(kMockV1SelfRelation),
+      'user': profile['user'],
+      'relation': profile['relation'],
     };
   }
 

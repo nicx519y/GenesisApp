@@ -8,6 +8,7 @@ import '../pages/world/world_page.dart';
 import '../pages/chat/chat_page.dart';
 import '../pages/chat/location_chat_page.dart';
 import '../pages/messages/message_category_list_page.dart';
+import '../pages/me/user_info_page.dart';
 
 sealed class RouteNames {
   static const shell = '/';
@@ -24,6 +25,7 @@ sealed class RouteNames {
   static const notifications = '/messages/notifications';
   static const newFollowers = '/messages/new_followers';
   static const comments = '/messages/comments';
+  static const userInfo = '/user_info';
 }
 
 sealed class AppRouter {
@@ -183,6 +185,19 @@ sealed class AppRouter {
             category: 'comment',
             emptyText: 'No comments yet.',
           ),
+        );
+      case RouteNames.userInfo:
+        final args = settings.arguments;
+        var uid = '';
+        if (args is String) {
+          uid = args;
+        } else if (args is Map) {
+          final rawUid = args['uid'] ?? args['userId'] ?? args['id'];
+          if (rawUid != null) uid = rawUid.toString();
+        }
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => UserInfoPage(uid: uid),
         );
       case RouteNames.shell:
       default:

@@ -24,6 +24,7 @@ import 'package:genesis_flutter_android/pages/app_shell_page.dart';
 import 'package:genesis_flutter_android/pages/home/home_page.dart';
 import 'package:genesis_flutter_android/pages/me/me_page.dart';
 import 'package:genesis_flutter_android/pages/me/settings_page.dart';
+import 'package:genesis_flutter_android/pages/me/user_info_page.dart';
 import 'package:genesis_flutter_android/pages/messages/message_category_list_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
@@ -302,46 +303,55 @@ class _RecordingV1ListTransport implements HttpTransport {
   Map<String, Object?> _worldDetail(String wid) {
     final fallback = wid.isEmpty ? 'w_test_1' : wid;
     return {
-      'world': {
-        'oid': 'o_for_$fallback',
-        'origin_version_num': 1,
-        'origin_version_create_at': '2026-05-01T00:00:00Z',
-        'wid': fallback,
-        'status': 1,
-        'is_join': 1,
-        'apply_status': 'success',
-        'name': 'World detail $fallback',
-        'cover': '',
-        'display_subtitle': 'World detail subtitle',
-        'world_view': 'World detail world view',
-        'world_setting': 'World detail setting',
+      'info': {
+        'world_id': fallback,
+        'world_name': 'World detail $fallback',
+        'origin_id': 'o_for_$fallback',
+        'origin_version': '1',
+        'origin_version_time': '2026-05-01T00:00:00Z',
+        'brief': 'World detail subtitle',
+        'setting': 'World detail setting',
+        'events': ['World detail loaded.'],
+        'tags': ['world-detail'],
+        'created_at': '2026-05-01T00:00:00Z',
         'created_uid': 'u_test',
         'created_user_name': 'Tester',
-        'created_at': '2026-05-01T00:00:00Z',
+        'owner_uid': 'u_test',
+        'owner_name': 'Tester',
         'updated_at': '2026-05-02T00:00:00Z',
-        'tags': ['world-detail'],
+        'last_progress_at': '2026-05-02T00:00:00Z',
+        'last_progress_summary': 'World detail loaded.',
+        'preview_images': <String>[],
+        'started_at': '2026-05-01T00:00:00Z',
+        'tick_duration_days': 30,
+        'cover': '',
+        'map_url': '',
+        'status': 1,
+      },
+      'stats': {
         'tick_cnt': 3,
         'connect_cnt': 4,
-        'ai_character_cnt': 1,
+        'character_cnt': 1,
         'player_cnt': 1,
         'location_cnt': 1,
       },
-      'character_list': [
+      'characters': [
         {
           'type': 'ai',
-          'status': 10,
           'player_uid': '',
-          'character_id': 'c_$fallback',
+          'char_id': 'c_$fallback',
           'name': 'World Character',
           'identity': 'Guide',
-          'tagline': 'Knows the world',
+          'brief': 'Knows the world',
           'description': 'A world character.',
+          'goal': 'Guide the player.',
           'avatar': '',
+          'initial_location_id': 'l_$fallback',
           'location_id': 'l_$fallback',
+          'metric_value': 50,
         },
       ],
-      'metric': <String, Object?>{},
-      'location_list': [
+      'locations': [
         {
           'location_id': 'l_$fallback',
           'name': 'World Location',
@@ -351,13 +361,12 @@ class _RecordingV1ListTransport implements HttpTransport {
           'y_percent': 45,
         },
       ],
-      'tick_list': [
+      'ticks': [
         {
           'content': 'World detail loaded.',
           'created_at': '2026-05-02T00:00:00Z',
         },
       ],
-      'action_button_state': 'progress',
     };
   }
 }
@@ -1008,7 +1017,15 @@ void main() {
     final detailRequests = transport.requestsFor('/api/v1/world/detail');
     expect(detailRequests, hasLength(1));
     expect(detailRequests.single.uri.queryParameters['world_id'], 'w_test_1');
-    expect(find.text('#World detail w_test_1'), findsOneWidget);
+    expect(find.text('World detail w_test_1'), findsOneWidget);
+
+    await tester.tap(find.text('Owner: Tester'));
+    await tester.pumpAndSettle();
+
+    final userInfoRequests = transport.requestsFor('/api/v1/user/info');
+    expect(userInfoRequests, hasLength(1));
+    expect(userInfoRequests.single.uri.queryParameters['uid'], 'u_test');
+    expect(find.text('User Info'), findsOneWidget);
   });
 
   testWidgets('Home world list loads next page near bottom', (
@@ -1293,6 +1310,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(find.text('8'), findsOneWidget);
+      expect(find.text('Following'), findsOneWidget);
+      expect(find.text('12'), findsOneWidget);
+      expect(find.text('Followers'), findsOneWidget);
+
       await tester.tap(find.byIcon(Icons.edit).last);
       await tester.pumpAndSettle();
 
@@ -1305,6 +1327,27 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('user info page renders requested uid profile from v1 info', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const UserInfoPage(uid: 'u_mock_peer'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Penny Hardaway'), findsOneWidget);
+    expect(find.text('16'), findsOneWidget);
+    expect(find.text('Following'), findsOneWidget);
+    expect(find.text('20'), findsOneWidget);
+    expect(find.text('Followers'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'location chat route connects and sends through chatroom client',

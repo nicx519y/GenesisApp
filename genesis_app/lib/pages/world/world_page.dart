@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
 import '../../components/origin/stat_item.dart';
+import '../../components/secend_tabs.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
 import '../../components/world_top_overlay_bar.dart';
@@ -196,14 +198,14 @@ class _WorldPageState extends State<WorldPage>
           Positioned(
             left: 12,
             right: 12,
-            top: topPadding + 8,
+            top: topPadding + 20,
             child: WorldTopOverlayBar(
               pointsCount: points.length,
               controller: _tabController,
             ),
           ),
           WorldDetailsShell(
-            topGap: 60,
+            topGap: 0,
             contentBuilder: (scrollController) => _WorldFeedContent(
               scrollController: scrollController,
               world: world,
@@ -217,7 +219,7 @@ class _WorldPageState extends State<WorldPage>
   }
 }
 
-class _WorldFeedContent extends StatelessWidget {
+class _WorldFeedContent extends StatefulWidget {
   const _WorldFeedContent({
     required this.scrollController,
     required this.world,
@@ -231,25 +233,63 @@ class _WorldFeedContent extends StatelessWidget {
   final Future<void> Function() onProgress;
 
   @override
+  State<_WorldFeedContent> createState() => _WorldFeedContentState();
+}
+
+class _WorldFeedContentState extends State<_WorldFeedContent>
+    with SingleTickerProviderStateMixin {
+  late final TabController _sectionController;
+  int _selectedSection = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _sectionController = TabController(length: 3, vsync: this)
+      ..addListener(_handleSectionChange);
+  }
+
+  @override
+  void dispose() {
+    _sectionController
+      ..removeListener(_handleSectionChange)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleSectionChange() {
+    if (_selectedSection == _sectionController.index) return;
+    setState(() => _selectedSection = _sectionController.index);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     final children = <Widget>[
       _WorldInfoHeader(
-        world: world,
-        progressing: progressing,
-        onProgress: onProgress,
+        world: widget.world,
+        progressing: widget.progressing,
+        onProgress: widget.onProgress,
       ),
-      const SizedBox(height: 12),
-      const Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
-      const SizedBox(height: 12),
-      _LastProgressCard(data: world),
-      const SizedBox(height: 12),
+      const SizedBox(height: 4),
+      SecendTabs(
+        controller: _sectionController,
+        labels: const ['Events', 'Status', 'Characters'],
+        horizontalPadding: 0,
+        labelPadding: EdgeInsets.zero,
+        expanded: true,
+      ),
+      const SizedBox(height: 8),
+      switch (_selectedSection) {
+        0 => _WorldEventsSection(world: widget.world),
+        1 => _WorldStatusSection(world: widget.world),
+        _ => _WorldCharactersSection(world: widget.world),
+      },
     ];
 
     return ListView(
-      controller: scrollController,
-      padding: EdgeInsets.only(top: 0, bottom: 24 + bottomPadding + 16),
+      controller: widget.scrollController,
+      padding: EdgeInsets.only(top: 12, bottom: 24 + bottomPadding + 16),
       children: children,
     );
   }
@@ -268,18 +308,17 @@ class _WorldInfoHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title =
-        '#${world.origin.name.isEmpty ? world.name : world.origin.name}';
+    final title = world.origin.name.isEmpty ? world.name : world.origin.name;
     final wid = world.wid;
-    final lastProgress = world.lastProgressAt == null
-        ? ''
-        : world.lastProgressAt!.toIso8601String().split('T').first;
-    final owner = world.ownerUid;
+    final owner = world.origin.originator.trim().isNotEmpty
+        ? world.origin.originator.trim()
+        : world.ownerUid;
+    final ownerUid = world.ownerUid.trim();
     final counters = <Map<String, dynamic>>[
-      {'icon': 'play', 'value': world.progressCount},
-      {'icon': 'eye', 'value': world.interactCount},
-      {'icon': 'group', 'value': world.userPositions.length},
-      {'icon': 'spark', 'value': world.characterPositions.length},
+      {'icon': 'tick', 'value': world.progressCount},
+      {'icon': 'connect', 'value': world.interactCount},
+      {'icon': 'character', 'value': world.characterCount},
+      {'icon': 'player', 'value': world.playerCount},
     ];
 
     return Column(
@@ -287,116 +326,127 @@ class _WorldInfoHeader extends StatelessWidget {
       children: [
         Row(
           children: [
-            TextButton(
-              onPressed: progressing ? null : onProgress,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 4,
-                ),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                backgroundColor: Colors.green,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: progressing
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text(
-                      'Progress',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-            ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 38),
             Expanded(
               child: Text(
                 title,
+                textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 16,
+                  height: 1.15,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF4B6192),
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(MyFlutterApp.gas, size: 16),
-                const SizedBox(width: 4),
-                Text(
-                  formatStatCount(world.origin.interactCount),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black.withValues(alpha: 0.7),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Icon(Icons.more_horiz, size: 18),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            _MetaText('WID: $wid'),
-            const SizedBox(width: 14),
-            _MetaText('Last Progress: $lastProgress'),
-            const Spacer(),
-            Text(
-              'Owner: $owner >',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+            const SizedBox(
+              width: 38,
+              child: Icon(
+                Icons.more_horiz_sharp,
+                size: 18,
                 color: Colors.black,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Row(
           children: [
-            for (int i = 0; i < counters.length; i++) ...[
-              Builder(
-                builder: (context) {
-                  final data = counters[i];
-                  final iconKey = data['icon'] as String? ?? '';
-                  final value = data['value'];
-                  return StatItem(
-                    icon: _counterIcon(iconKey),
-                    text: formatStatCount(value is num ? value : 0),
-                    gap: 8,
-                    textStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black,
-                    ),
-                  );
-                },
+            Flexible(
+              child: _WidMetaText(
+                wid: wid,
+                onCopy: () => _copyWid(context, wid),
               ),
-              if (i != counters.length - 1) const SizedBox(width: 12),
-            ],
+            ),
             const Spacer(),
-
-            Text(
-              'Invite / Request',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.green,
+            Flexible(
+              child: _OwnerMetaLink(
+                owner: owner,
+                onTap: ownerUid.isEmpty
+                    ? null
+                    : () => Navigator.of(context).pushNamed(
+                        RouteNames.userInfo,
+                        arguments: {'uid': ownerUid},
+                      ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  for (final data in counters)
+                    StatItem(
+                      icon: _counterIcon(data['icon'] as String? ?? ''),
+                      iconSize: 11,
+                      iconColor: Colors.black,
+                      text: formatStatCount(
+                        data['value'] is num ? data['value'] as num : 0,
+                      ),
+                      gap: 4,
+                      textStyle: const TextStyle(
+                        fontSize: 12,
+                        height: 1,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            // const Spacer(),
+            SizedBox(
+              width: 120,
+              height: 28,
+              child: FilledButton(
+                onPressed: progressing ? null : onProgress,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF2F9663),
+                  disabledBackgroundColor: const Color(
+                    0xFF2F9663,
+                  ).withValues(alpha: 0.62),
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: progressing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Center(
+                        child: Text(
+                          'Progress',
+                          strutStyle: StrutStyle(
+                            fontSize: 14,
+                            height: 1,
+                            forceStrutHeight: true,
+                          ),
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
               ),
             ),
           ],
@@ -406,18 +456,80 @@ class _WorldInfoHeader extends StatelessWidget {
   }
 }
 
-class _MetaText extends StatelessWidget {
-  const _MetaText(this.text);
-  final String text;
+class _WidMetaText extends StatelessWidget {
+  const _WidMetaText({required this.wid, required this.onCopy});
+
+  final String wid;
+  final VoidCallback onCopy;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w600,
-        color: Color(0xFF8A8A8A),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            'WID: $wid',
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.1,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF8A8A8A),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 6),
+        InkResponse(
+          onTap: onCopy,
+          radius: 18,
+          child: const Icon(
+            Icons.copy_outlined,
+            size: 16,
+            color: Color(0xFF8A8A8A),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OwnerMetaLink extends StatelessWidget {
+  const _OwnerMetaLink({required this.owner, required this.onTap});
+
+  final String owner;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Flexible(
+              child: Text(
+                'Owner: $owner',
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.1,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF8A8A8A),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 22, color: Color(0xFF8A8A8A)),
+          ],
+        ),
       ),
     );
   }
@@ -425,115 +537,458 @@ class _MetaText extends StatelessWidget {
 
 IconData _counterIcon(String key) {
   switch (key) {
-    case 'play':
-      return MyFlutterApp.skipNext;
-    case 'eye':
-      return MyFlutterApp.eye;
-    case 'group':
+    case 'tick':
+      return MyFlutterApp.pregress;
+    case 'connect':
+      return MyFlutterApp.copy;
+    case 'character':
       return MyFlutterApp.userStar;
-    case 'spark':
+    case 'player':
       return MyFlutterApp.user;
     default:
       return Icons.circle_outlined;
   }
 }
 
-class _LastProgressCard extends StatelessWidget {
-  const _LastProgressCard({required this.data});
+Future<void> _copyWid(BuildContext context, String wid) async {
+  await Clipboard.setData(ClipboardData(text: wid));
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(const SnackBar(content: Text('WID copied')));
+}
 
-  final WorldDetail data;
+class _WorldEventsSection extends StatelessWidget {
+  const _WorldEventsSection({required this.world});
+
+  final WorldDetail world;
 
   @override
   Widget build(BuildContext context) {
-    final title = 'Last Progress';
-    final timeAgo = data.lastProgressAt == null
-        ? ''
-        : data.lastProgressAt!.toIso8601String().split('T').first;
-    final action = 'View history >';
-    final body = data.origin.worldView;
-    final images = const <String>[];
+    final date = _formatShortDate(world.lastProgressAt);
+    final body = _eventBody(world);
+    final locations = world.worldLocations.take(3).toList(growable: false);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text(
-              timeAgo,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF999999),
-              ),
-            ),
-            const Spacer(),
-            Text(
-              action,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF8A8A8A),
-              ),
-            ),
-          ],
+        _TickHeader(
+          tickNumber: world.progressCount <= 0 ? 1 : world.progressCount,
+          date: date,
+          timeAgo: _relativeTime(world.lastProgressAt),
         ),
-        const SizedBox(height: 10),
-        Text(
-          body,
-          style: TextStyle(
-            fontSize: 12,
-            height: 1.25,
-            fontWeight: FontWeight.w500,
-            color: Colors.black.withValues(alpha: 0.78),
-          ),
-        ),
-        const SizedBox(height: 10),
-        if (images.isNotEmpty)
-          Row(
-            children: [
-              for (int i = 0; i < images.length && i < 2; i++) ...[
-                SizedBox(
-                  width: 100,
-                  height: 100,
-                  child: _DemoImageBox(seed: images[i]),
-                ),
-                if (i == 0) const SizedBox(width: 10),
-              ],
-            ],
-          ),
+        const SizedBox(height: 6),
+        _GlobalEventCard(body: body),
+        const SizedBox(height: 6),
+        for (final location in locations) ...[
+          _LocationEventRow(location: location, date: date, fallbackBody: body),
+          const SizedBox(height: 6),
+        ],
       ],
     );
   }
 }
 
-class _DemoImageBox extends StatelessWidget {
-  const _DemoImageBox({required this.seed});
-  final String seed;
+class _TickHeader extends StatelessWidget {
+  const _TickHeader({
+    required this.tickNumber,
+    required this.date,
+    required this.timeAgo,
+  });
+
+  final int tickNumber;
+  final String date;
+  final String timeAgo;
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 1 / 1,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: _seedGradient(seed),
-          borderRadius: BorderRadius.circular(5),
+    return Container(
+      constraints: const BoxConstraints(minHeight: 30),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F5F8),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Tick $tickNumber · $date',
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.2,
+                fontWeight: FontWeight.w500,
+                color: Colors.black,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            timeAgo,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.2,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF8F8F8F),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GlobalEventCard extends StatelessWidget {
+  const _GlobalEventCard({required this.body});
+
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F8F4),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(
+            width: 82,
+            child: Text(
+              'Global',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.6,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              body,
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.6,
+                fontWeight: FontWeight.w300,
+                color: Color(0xFF3B3B3B),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationEventRow extends StatelessWidget {
+  const _LocationEventRow({
+    required this.location,
+    required this.date,
+    required this.fallbackBody,
+  });
+
+  final Map<String, dynamic> location;
+  final String date;
+  final String fallbackBody;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = _mapString(location, const ['name', 'location_name']);
+    final body = _mapString(location, const [
+      'event',
+      'summary',
+      'content',
+      'description',
+    ], fallback: fallbackBody);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 82,
+            child: Text(
+              name.isEmpty ? 'Location' : name,
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.6,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (date.isNotEmpty) ...[
+                  Text(
+                    date,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.6,
+                      fontWeight: FontWeight.w300,
+                      color: Color(0xFF9A9A9A),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                ],
+                Text(
+                  body,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.6,
+                    fontWeight: FontWeight.w300,
+                    color: Color(0xFF3B3B3B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorldStatusSection extends StatelessWidget {
+  const _WorldStatusSection({required this.world});
+
+  final WorldDetail world;
+
+  @override
+  Widget build(BuildContext context) {
+    return _CharacterList(
+      characters: world.characters,
+      emptyText: 'No character status yet.',
+      subtitleBuilder: _metricPercentText,
+    );
+  }
+}
+
+class _WorldCharactersSection extends StatelessWidget {
+  const _WorldCharactersSection({required this.world});
+
+  final WorldDetail world;
+
+  @override
+  Widget build(BuildContext context) {
+    return _CharacterList(
+      characters: world.characters,
+      emptyText: 'No characters yet.',
+      subtitleBuilder: _characterDescriptionText,
+    );
+  }
+}
+
+class _CharacterList extends StatelessWidget {
+  const _CharacterList({
+    required this.characters,
+    required this.emptyText,
+    required this.subtitleBuilder,
+  });
+
+  final List<Map<String, dynamic>> characters;
+  final String emptyText;
+  final String Function(Map<String, dynamic> character) subtitleBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    if (characters.isEmpty) {
+      return _EmptySection(text: emptyText);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int i = 0; i < characters.length; i++) ...[
+          _CharacterRow(
+            character: characters[i],
+            subtitle: subtitleBuilder(characters[i]),
+          ),
+          if (i != characters.length - 1) const SizedBox(height: 22),
+        ],
+      ],
+    );
+  }
+}
+
+class _CharacterRow extends StatelessWidget {
+  const _CharacterRow({required this.character, required this.subtitle});
+
+  final Map<String, dynamic> character;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = _mapString(character, const ['name'], fallback: 'Character');
+    final type = _mapString(character, const ['type']).toLowerCase();
+    final isAi = type == 'ai';
+    final roleLabel = isAi
+        ? 'Character'
+        : _mapString(character, const [
+            'player_name',
+            'player_uid',
+          ], fallback: 'Player');
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _CharacterAvatar(
+          url: _mapString(character, const ['avatar']),
+          name: name,
+          showStar: isAi,
         ),
-        child: Center(
-          child: Icon(
-            Icons.image_outlined,
-            size: 28,
-            color: Colors.white.withValues(alpha: 0.9),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          height: 1.15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      roleLabel,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.15,
+                        fontWeight: FontWeight.w400,
+                        color: Color(0xFF8F8F8F),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.35,
+                    fontWeight: FontWeight.w400,
+                    color: Color(0xFF6F6F6F),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CharacterAvatar extends StatelessWidget {
+  const _CharacterAvatar({
+    required this.url,
+    required this.name,
+    required this.showStar,
+  });
+
+  final String url;
+  final String name;
+  final bool showStar;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedUrl = _resolveAssetUrl(url);
+    final fallback = Container(
+      color: const Color(0xFFEFF1F4),
+      alignment: Alignment.center,
+      child: Text(
+        _initials(name),
+        style: const TextStyle(
+          fontSize: 16,
+          height: 1,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF8D8D8D),
+        ),
+      ),
+    );
+
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: resolvedUrl.isEmpty
+                  ? fallback
+                  : Image.network(
+                      resolvedUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => fallback,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return fallback;
+                      },
+                    ),
+            ),
+          ),
+          if (showStar)
+            const Positioned(
+              top: -3,
+              right: -3,
+              child: Icon(
+                Icons.auto_awesome,
+                size: 12,
+                color: Color(0xFFFF1535),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptySection extends StatelessWidget {
+  const _EmptySection({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      child: Center(
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF8A8A8A),
           ),
         ),
       ),
@@ -541,17 +996,67 @@ class _DemoImageBox extends StatelessWidget {
   }
 }
 
-LinearGradient _seedGradient(String seed) {
-  final hash = seed.codeUnits.fold<int>(0, (a, b) => a * 31 + b);
-  final c1 = Color(0xFF000000 + (hash & 0x00FFFFFF)).withValues(alpha: 0.9);
-  final c2 = Color(
-    0xFF000000 + ((hash * 7) & 0x00FFFFFF),
-  ).withValues(alpha: 0.9);
-  return LinearGradient(
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    colors: [c1, c2],
-  );
+String _eventBody(WorldDetail world) {
+  final candidates = [
+    world.lastProgressUpdate,
+    world.origin.worldView,
+    world.origin.description,
+    world.name,
+  ];
+  for (final item in candidates) {
+    final value = item.trim();
+    if (value.isNotEmpty) return value;
+  }
+  return 'No world events yet.';
+}
+
+String _formatShortDate(DateTime? value) {
+  if (value == null) return '';
+  return value.toLocal().toIso8601String().split('T').first;
+}
+
+String _relativeTime(DateTime? value) {
+  if (value == null) return '';
+  final diff = DateTime.now().difference(value.toLocal());
+  if (diff.inMinutes < 1) return 'just now';
+  if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+  if (diff.inDays < 1) return '${diff.inHours}h ago';
+  if (diff.inDays == 1) return '1 day ago';
+  return '${diff.inDays} days ago';
+}
+
+String _characterDescriptionText(Map<String, dynamic> character) {
+  return _mapString(character, const [
+    'brief',
+    'description',
+    'identity',
+  ], fallback: 'No character details yet.');
+}
+
+String _metricPercentText(Map<String, dynamic> character) {
+  final value = character['metric_value'];
+  if (value is num) {
+    final text = value % 1 == 0 ? value.toInt().toString() : value.toString();
+    return '$text%';
+  }
+
+  final text = '$value'.trim();
+  if (text.isEmpty || text == 'null') return '0%';
+  return text.endsWith('%') ? text : '$text%';
+}
+
+String _mapString(
+  Map<String, dynamic> map,
+  List<String> keys, {
+  String fallback = '',
+}) {
+  for (final key in keys) {
+    final value = map[key];
+    if (value == null) continue;
+    final text = '$value'.trim();
+    if (text.isNotEmpty) return text;
+  }
+  return fallback;
 }
 
 String _resolveAssetUrl(String raw) {

@@ -16,6 +16,7 @@ class GenesisTabBar extends StatelessWidget {
     this.indicatorColor,
     this.indicatorWidth,
     this.indicatorHeight,
+    this.expanded = false,
   });
 
   final List<String> labels;
@@ -25,6 +26,7 @@ class GenesisTabBar extends StatelessWidget {
   final Color? indicatorColor;
   final double? indicatorWidth;
   final double? indicatorHeight;
+  final bool expanded;
 
   @override
   Widget build(BuildContext context) {
@@ -33,8 +35,8 @@ class GenesisTabBar extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: TabBar(
         controller: controller,
-        isScrollable: true,
-        tabAlignment: TabAlignment.start,
+        isScrollable: !expanded,
+        tabAlignment: expanded ? TabAlignment.fill : TabAlignment.start,
         dividerColor: Colors.transparent,
         padding: EdgeInsets.zero,
         labelPadding: labelPadding,

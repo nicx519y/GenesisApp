@@ -1083,7 +1083,7 @@ List<OriginLocation> _originLocationsFromV5(Object? raw, int originId) {
 
 Map<String, dynamic> _normalizeWorldLocation(Map<String, dynamic> location) {
   final locationId = asString(location['location_id']);
-  final pointId = asString(location['point_id'], fallback: locationId);
+  final pointId = locationId;
   final xPercentRaw = location['x_percent'];
   final yPercentRaw = location['y_percent'];
 
@@ -1094,55 +1094,13 @@ Map<String, dynamic> _normalizeWorldLocation(Map<String, dynamic> location) {
       ? yPercentRaw.toDouble()
       : double.tryParse('$yPercentRaw') ?? 0;
 
-  if ((xPercent <= 0 || yPercent <= 0) &&
-      location['x'] != null &&
-      location['y'] != null) {
-    final x = location['x'] is num
-        ? (location['x'] as num).toDouble()
-        : double.tryParse('${location['x']}') ?? 0;
-    final y = location['y'] is num
-        ? (location['y'] as num).toDouble()
-        : double.tryParse('${location['y']}') ?? 0;
-    if (x > 0 && x <= 1.0) {
-      xPercent = x * 100;
-    } else {
-      xPercent = x;
-    }
-    if (y > 0 && y <= 1.0) {
-      yPercent = y * 100;
-    } else {
-      yPercent = y;
-    }
-  }
-
   return {
     'location_id': locationId,
     'point_id': pointId,
     'id': pointId,
-    'name': asString(
-      location['location_name'],
-      fallback: asString(
-        location['label'],
-        fallback: asString(location['name']),
-      ),
-    ),
-    'description': asString(
-      location['state'],
-      fallback: asString(
-        location['description'],
-        fallback: asString(location['location_summary']),
-      ),
-    ),
-    'icon': asString(
-      location['image'],
-      fallback: asString(
-        location['building_sprite'],
-        fallback: asString(
-          location['icon'],
-          fallback: asString(location['map']),
-        ),
-      ),
-    ),
+    'name': asString(location['name']),
+    'description': asString(location['description']),
+    'icon': asString(location['image']),
     'x_percent': xPercent,
     'y_percent': yPercent,
   };
@@ -1170,6 +1128,7 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
             .map((e) => _originLocationFromV1(asJsonMap(e), id))
             .toList(growable: false)
       : const <OriginLocation>[];
+  final events = _originEventsFromV1(raw);
 
   return OriginDetail(
     id: id,
@@ -1194,8 +1153,22 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
       origin['world_view'],
       fallback: asString(origin['setting']),
     ),
+    originator: asString(
+      origin['created_user_name'],
+      fallback: asString(origin['originator']),
+    ),
+    versionNum: asInt(
+      origin['version_num'],
+      fallback: asInt(origin['origin_version_num']),
+    ),
+    startTime: asString(origin['start_time']),
     copyCount: asInt(stats['copy_cnt']),
     interactCount: asInt(stats['connect_cnt']),
+    discussCount: asInt(stats['discuss_cnt']),
+    characterCount: asInt(
+      stats['character_cnt'],
+      fallback: asInt(stats['ai_character_cnt'], fallback: characters.length),
+    ),
     tags: _tagsFromV1(origin['tags']),
     createdAt: _apiDateTime(origin['created_at']),
     updatedAt: _apiDateTime(
@@ -1203,32 +1176,71 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
     ),
     characters: characters,
     locations: locations,
+    events: events,
   );
 }
 
+List<OriginEvent> _originEventsFromV1(Map<String, dynamic> raw) {
+  final eventsRaw = raw['event_list'] ?? raw['events'];
+  if (eventsRaw is List) {
+    return asJsonList(eventsRaw)
+        .map((e) => OriginEvent.fromJson(asJsonMap(e)))
+        .where((event) => event.content.trim().isNotEmpty)
+        .toList(growable: false);
+  }
+
+  final ticksRaw = raw['tick_list'] ?? raw['ticks'];
+  if (ticksRaw is! List) return const <OriginEvent>[];
+
+  final events = <OriginEvent>[];
+  for (final tick in asJsonList(ticksRaw)) {
+    final tickMap = asJsonMap(tick);
+    final narrator = asString(
+      tickMap['narrator'],
+      fallback: asString(tickMap['summary']),
+    );
+    if (narrator.trim().isNotEmpty) {
+      events.add(
+        OriginEvent(
+          label: 'Global',
+          timestamp: asString(tickMap['created_at']),
+          content: narrator,
+        ),
+      );
+    }
+
+    final paragraphs = tickMap['paragraphs'];
+    if (paragraphs is List) {
+      for (final paragraph in asJsonList(paragraphs)) {
+        final event = OriginEvent.fromJson(asJsonMap(paragraph));
+        if (event.content.trim().isNotEmpty) events.add(event);
+      }
+    }
+  }
+  return events;
+}
+
 WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
-  final world = raw['world'] is Map
-      ? asJsonMap(raw['world'])
-      : asJsonMap(raw['info']);
-  final stats = raw['stats'] is Map ? asJsonMap(raw['stats']) : world;
-  final wid = asString(world['wid'], fallback: asString(world['world_id']));
-  final oid = asString(world['oid'], fallback: asString(world['origin_id']));
+  final world = asJsonMap(raw['info']);
+  final stats = asJsonMap(raw['stats']);
+  final wid = asString(world['world_id']);
+  final oid = asString(world['origin_id']);
   final worldId = _stableInt(wid);
   final originId = _stableInt(oid);
   final cover = resolveAssetUrl(
     asString(world['cover'], fallback: asString(world['map_url'])),
   );
-  final locationsRaw = raw['location_list'] ?? raw['locations'];
+  final locationsRaw = raw['locations'];
   final locations = locationsRaw is List
       ? asJsonList(locationsRaw)
             .map((e) => _normalizeWorldLocation(asJsonMap(e)))
             .toList(growable: false)
       : const <Map<String, dynamic>>[];
-  final charactersRaw = raw['character_list'] ?? raw['characters'];
+  final charactersRaw = raw['characters'];
   final characters = charactersRaw is List
-      ? asJsonList(
-          charactersRaw,
-        ).map((e) => asJsonMap(e)).toList(growable: false)
+      ? asJsonList(charactersRaw)
+            .map((e) => _worldCharacterFromV1(asJsonMap(e)))
+            .toList(growable: false)
       : const <Map<String, dynamic>>[];
   final characterPositions = characters
       .map(_worldCharacterPositionFromV1)
@@ -1238,7 +1250,7 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
       .map(_worldUserPositionFromV1)
       .whereType<Map<String, dynamic>>()
       .toList(growable: false);
-  final ticksRaw = raw['tick_list'] ?? raw['ticks'];
+  final ticksRaw = raw['ticks'];
   final ticks = ticksRaw is List
       ? asJsonList(ticksRaw).map((e) => asJsonMap(e)).toList(growable: false)
       : const <Map<String, dynamic>>[];
@@ -1248,69 +1260,48 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
     id: worldId,
     wid: wid,
     originId: originId,
-    ownerUid: asString(world['created_uid']),
-    name: asString(
-      world['name'],
-      fallback: asString(world['world_name'], fallback: wid),
-    ),
+    ownerUid: asString(world['owner_uid']),
+    name: asString(world['world_name']),
     progressCount: asInt(stats['tick_cnt']),
     interactCount: asInt(stats['connect_cnt']),
+    characterCount: asInt(stats['character_cnt']),
+    playerCount: asInt(stats['player_cnt']),
     lastProgressAt: _apiDateTime(
-      lastTick['created_at'] ?? lastTick['created_time'] ?? world['updated_at'],
+      lastTick['created_at'] ??
+          world['last_progress_at'] ??
+          world['updated_at'],
     ),
     lastProgressUpdate: asString(
       lastTick['content'],
-      fallback: asString(
-        lastTick['summary'],
-        fallback: asString(lastTick['narrator']),
-      ),
+      fallback: asString(world['last_progress_summary']),
     ),
-    isProgressing:
-        asString(raw['action_button_state']) == 'progressing' ||
-        asInt(world['status']) == 20,
+    isProgressing: asInt(world['status']) == 20,
     inviteToken: wid,
     createdAt: _apiDateTime(world['created_at']),
     updatedAt: _apiDateTime(world['updated_at']),
     origin: OriginSummary(
       id: originId,
       oid: oid,
-      name: asString(
-        world['name'],
-        fallback: asString(world['world_name'], fallback: oid),
-      ),
+      name: asString(world['world_name']),
       description: asString(
-        world['world_setting'],
-        fallback: asString(
-          world['display_subtitle'],
-          fallback: asString(
-            world['setting'],
-            fallback: asString(world['brief']),
-          ),
-        ),
+        world['setting'],
+        fallback: asString(world['brief']),
       ),
       mapImage: cover,
       worldMap: cover,
-      worldView: asString(
-        world['world_view'],
-        fallback: asString(world['setting']),
-      ),
-      originator: asString(world['created_user_name']),
-      versionNum: asInt(
-        world['origin_version_num'],
-        fallback: asInt(world['version_num']),
-      ),
-      copyCount: asInt(world['copy_cnt']),
+      worldView: asString(world['setting']),
+      originator: asString(world['owner_name']),
+      versionNum: asInt(world['origin_version']),
+      copyCount: 0,
       interactCount: asInt(stats['connect_cnt']),
-      characterCount: asInt(
-        stats['character_cnt'],
-        fallback: asInt(stats['ai_character_cnt']),
-      ),
+      characterCount: asInt(stats['character_cnt']),
       tags: _tagsFromV1(world['tags']),
       createdAt: _apiDateTime(world['created_at']),
       updatedAt: _apiDateTime(world['updated_at']),
       characters: const <OriginCharacter>[],
       locations: const <OriginLocation>[],
     ),
+    characters: characters,
     worldLocations: locations,
     characterPositions: characterPositions,
     userPositions: userPositions,
@@ -1372,9 +1363,30 @@ Map<String, dynamic>? _worldCharacterPositionFromV1(Map<String, dynamic> raw) {
   return {
     'location_id': locationId,
     'character': {
+      'id': asString(raw['char_id']),
       'name': asString(raw['name']),
+      'identity': asString(raw['identity']),
+      'tagline': asString(raw['brief']),
+      'description': asString(raw['description']),
       'avatar': resolveAssetUrl(asString(raw['avatar'])),
     },
+  };
+}
+
+Map<String, dynamic> _worldCharacterFromV1(Map<String, dynamic> raw) {
+  return {
+    'char_id': asString(raw['char_id']),
+    'type': asString(raw['type']),
+    'player_uid': asString(raw['player_uid']),
+    'name': asString(raw['name']),
+    'identity': asString(raw['identity']),
+    'brief': asString(raw['brief']),
+    'description': asString(raw['description']),
+    'goal': asString(raw['goal']),
+    'avatar': resolveAssetUrl(asString(raw['avatar'])),
+    'initial_location_id': asString(raw['initial_location_id']),
+    'location_id': asString(raw['location_id']),
+    'metric_value': raw['metric_value'],
   };
 }
 

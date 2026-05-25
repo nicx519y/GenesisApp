@@ -59,6 +59,8 @@ void main() {
 
     final user = await api.v1.user.info();
     expect((user['user'] as Map)['uid'], 'u_mock_001');
+    final peer = await api.v1.user.info(uid: 'u_mock_peer');
+    expect((peer['user'] as Map)['uid'], 'u_mock_peer');
     await api.v1.user.googleAuth(idToken: 'google-token');
     await api.v1.user.appleAuth(idToken: 'apple-token', fullName: 'Mock User');
     await api.v1.user.update(name: 'Mock User');

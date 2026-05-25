@@ -365,7 +365,7 @@ Query：
 
 为降低迁移风险，代码仍保留若干兼容能力：
 
-- origin/world 详情 mapper 同时支持旧的 `origin/world + character_list/location_list/tick_list` 和 Apifox 的 `info/stats/characters/locations/ticks`。
+- world 详情 mapper 只消费 Apifox 的 `info/stats/characters/locations/ticks`；origin 详情 mapper 暂保留旧字段兼容。
 - 关系字段在 mock 中同时保留 `is_followed` 与历史 `i_followed`，但 Apifox 新接口按 `is_followed` 生成。
 - Apifox 未声明 headers/security；当前客户端仍按应用运行时注入 `x-platform`、`x-device-id`、`x-user-id`、`authorization: Bearer <token>`。
 

@@ -1,17 +1,12 @@
-import 'dart:async';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/local_image_crop_page.dart';
-import '../../components/me/profile_collection_list.dart';
-import '../../icons/my_flutter_app_icons.dart';
+import '../../components/me/user_profile_content.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/origin.dart';
-import '../../routers/app_router.dart';
-import '../../ui/genesis_ui.dart';
 import 'settings_page.dart';
 
 class MePage extends StatefulWidget {
@@ -23,25 +18,17 @@ class MePage extends StatefulWidget {
   State<MePage> createState() => _MePageState();
 }
 
-class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-  late Future<_MeDataVm> _future;
+class _MePageState extends State<MePage> {
+  late Future<UserProfileData> _future;
   bool _isUpdatingProfile = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _future = _loadData();
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  Future<_MeDataVm> _loadData() async {
+  Future<UserProfileData> _loadData() async {
     final services = AppServicesScope.read(context);
     final api = services.api;
     final profile = services.identityAuth.currentProfile();
@@ -56,6 +43,8 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
     final uid = localUid.isNotEmpty ? localUid : profileUid;
     var resolvedDisplayName = displayName;
     var resolvedAvatarUrl = avatarUrl;
+    var resolvedFollowingCount = 0;
+    var resolvedFollowerCount = 0;
 
     try {
       final userInfo = await api.v1.user.info();
@@ -66,14 +55,16 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
       if (backendAvatar.isNotEmpty) {
         resolvedAvatarUrl = resolveAssetUrl(backendAvatar);
       }
+      resolvedFollowingCount = _mapInt(user, 'following_cnt');
+      resolvedFollowerCount = _mapInt(user, 'follower_cnt');
     } catch (_) {}
 
-    List<_OriginListItemVm> origins = const [];
+    List<UserProfileOriginItem> origins = const [];
     try {
       final originPage = await api.getMyLaunchedOrigins(limit: 30, offset: 0);
       origins = originPage.data
           .map(
-            (item) => _OriginListItemVm(
+            (item) => UserProfileOriginItem(
               originId: item.id,
               oid: item.oid,
               title: item.name.trim().isEmpty ? item.oid : item.name.trim(),
@@ -87,12 +78,12 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
           .toList(growable: false);
     } catch (_) {}
 
-    List<_WorldListItemVm> worldItems = const [];
+    List<UserProfileWorldItem> worldItems = const [];
     try {
       final worlds = await api.getMyWorlds(limit: 30, offset: 0);
       worldItems = worlds
           .map(
-            (item) => _WorldListItemVm(
+            (item) => UserProfileWorldItem(
               wid: item.wid,
               title: item.name.trim().isEmpty ? item.wid : item.name.trim(),
               subtitle: _worldSubtitle(item.wid, item.ownerName),
@@ -107,10 +98,12 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
           .toList(growable: false);
     } catch (_) {}
 
-    return _MeDataVm(
+    return UserProfileData(
       avatarUrl: resolvedAvatarUrl,
       displayName: resolvedDisplayName,
       uid: uid.isEmpty ? 'Unknown' : uid,
+      followingCount: resolvedFollowingCount,
+      followerCount: resolvedFollowerCount,
       origins: origins,
       worlds: worldItems,
     );
@@ -140,7 +133,7 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
     }
   }
 
-  Future<void> _editAvatar(_MeDataVm data) async {
+  Future<void> _editAvatar(UserProfileData data) async {
     final Uint8List bytes;
     try {
       final image = await ImagePicker().pickImage(source: ImageSource.gallery);
@@ -189,7 +182,7 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
     );
   }
 
-  Future<void> _editNickName(_MeDataVm data) async {
+  Future<void> _editNickName(UserProfileData data) async {
     final nickName = await showDialog<String>(
       context: context,
       builder: (_) => _NickNameDialog(initialValue: data.displayName),
@@ -215,7 +208,7 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
 
   Future<void> _updateProfile({
     required Future<Map<String, dynamic>> Function() update,
-    required _MeDataVm Function(Map<dynamic, dynamic> updatedUser) apply,
+    required UserProfileData Function(Map<dynamic, dynamic> updatedUser) apply,
   }) async {
     setState(() {
       _isUpdatingProfile = true;
@@ -228,7 +221,7 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
       final updatedData = apply(updatedUser);
       if (!mounted) return;
       setState(() {
-        _future = Future<_MeDataVm>.value(updatedData);
+        _future = Future<UserProfileData>.value(updatedData);
         _isUpdatingProfile = false;
       });
     } catch (_) {
@@ -244,7 +237,7 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<_MeDataVm>(
+    return FutureBuilder<UserProfileData>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -284,167 +277,12 @@ class _MePageState extends State<MePage> with SingleTickerProviderStateMixin {
                 ],
               ),
               Expanded(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _Avatar(
-                            url: data.avatarUrl,
-                            onEdit: _isUpdatingProfile
-                                ? null
-                                : () => _editAvatar(data),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      data.displayName,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        height: 1,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      onTap: _isUpdatingProfile
-                                          ? null
-                                          : () => _editNickName(data),
-                                      child: const Padding(
-                                        padding: EdgeInsets.all(5),
-                                        child: Icon(Icons.edit, size: 14),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    Text(
-                                      'UID: ${data.uid}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF6F6F6F),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    GestureDetector(
-                                      behavior: HitTestBehavior.opaque,
-                                      onTap: () => _copyUid(data.uid),
-                                      child: const Padding(
-                                        padding: EdgeInsets.all(5),
-                                        child: Icon(Icons.copy, size: 14),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: SecendTabs(
-                        controller: _tabController,
-                        labels: const ['Origin', 'World'],
-                      ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            ProfileCollectionList(
-                              items: data.origins
-                                  .map(
-                                    (item) => GenesisProfileCollectionItemData(
-                                      imageUrl: item.imageUrl,
-                                      title: item.title,
-                                      subtitle: item.subtitle,
-                                      stats: [
-                                        GenesisProfileCollectionStat(
-                                          icon: MyFlutterApp.save,
-                                          value: item.copyCount,
-                                        ),
-                                        GenesisProfileCollectionStat(
-                                          icon: MyFlutterApp.copy,
-                                          value: item.interactCount,
-                                        ),
-                                        GenesisProfileCollectionStat(
-                                          icon: MyFlutterApp.userStar,
-                                          value: item.characterCount,
-                                        ),
-                                      ],
-                                      onTap: () =>
-                                          Navigator.of(context).pushNamed(
-                                            RouteNames.originWorld,
-                                            arguments: {
-                                              'originId': item.originId,
-                                              'oid': item.oid,
-                                            },
-                                          ),
-                                    ),
-                                  )
-                                  .toList(growable: false),
-                              emptyText: 'No Origins you created yet.',
-                            ),
-                            ProfileCollectionList(
-                              items: data.worlds
-                                  .map(
-                                    (item) => GenesisProfileCollectionItemData(
-                                      imageUrl: item.imageUrl,
-                                      title: item.title,
-                                      subtitle: item.subtitle,
-                                      stats: [
-                                        GenesisProfileCollectionStat(
-                                          icon: MyFlutterApp.pregress,
-                                          value: item.progressCount,
-                                        ),
-                                        GenesisProfileCollectionStat(
-                                          icon: MyFlutterApp.copy,
-                                          value: item.interactCount,
-                                        ),
-                                        GenesisProfileCollectionStat(
-                                          icon: MyFlutterApp.userStar,
-                                          value: item.characterCount,
-                                        ),
-                                        GenesisProfileCollectionStat(
-                                          icon: MyFlutterApp.user,
-                                          value: item.playerCount,
-                                        ),
-                                      ],
-                                      onTap: () =>
-                                          Navigator.of(context).pushNamed(
-                                            RouteNames.world,
-                                            arguments: {'wid': item.wid},
-                                          ),
-                                    ),
-                                  )
-                                  .toList(growable: false),
-                              emptyText: 'No Worlds you created yet.',
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                child: UserProfileContent(
+                  data: data,
+                  isUpdatingProfile: _isUpdatingProfile,
+                  onEditAvatar: () => _editAvatar(data),
+                  onEditDisplayName: () => _editNickName(data),
+                  onCopyUid: _copyUid,
                 ),
               ),
             ],
@@ -490,89 +328,6 @@ String _relativeTime(DateTime? time) {
 
 String _plural(int value, String unit) {
   return '$value $unit${value == 1 ? '' : 's'} ago';
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.url, required this.onEdit});
-
-  static const double _size = 80;
-  static const double _radius = 8;
-
-  final String url;
-  final VoidCallback? onEdit;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: _size,
-      height: _size,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(_radius),
-            child: _AvatarImage(url: url, size: _size),
-          ),
-          Positioned(
-            right: 2,
-            bottom: 2,
-            child: Material(
-              color: Colors.black.withValues(alpha: 0.4),
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: onEdit,
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Icon(
-                    Icons.edit_document,
-                    size: 12,
-                    color: onEdit == null ? Colors.white54 : Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AvatarImage extends StatelessWidget {
-  const _AvatarImage({required this.url, required this.size});
-
-  final String url;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    if (url.trim().isNotEmpty) {
-      return CachedNetworkImage(
-        imageUrl: url,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        placeholder: (_, __) => _fallback(),
-        errorWidget: (_, __, ___) => _fallback(),
-      );
-    }
-    return _fallback();
-  }
-
-  Widget _fallback() {
-    return Container(
-      width: size,
-      height: size,
-      color: const Color(0xFFE6E6E6),
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.person,
-        size: size * 0.45,
-        color: const Color(0xFF9C9C9C),
-      ),
-    );
-  }
 }
 
 class _NickNameDialog extends StatefulWidget {
@@ -627,78 +382,6 @@ class _NickNameDialogState extends State<_NickNameDialog> {
   }
 }
 
-class _MeDataVm {
-  const _MeDataVm({
-    required this.avatarUrl,
-    required this.displayName,
-    required this.uid,
-    required this.origins,
-    required this.worlds,
-  });
-
-  final String avatarUrl;
-  final String displayName;
-  final String uid;
-  final List<_OriginListItemVm> origins;
-  final List<_WorldListItemVm> worlds;
-
-  _MeDataVm copyWith({String? avatarUrl, String? displayName}) {
-    return _MeDataVm(
-      avatarUrl: avatarUrl ?? this.avatarUrl,
-      displayName: displayName ?? this.displayName,
-      uid: uid,
-      origins: origins,
-      worlds: worlds,
-    );
-  }
-}
-
-class _OriginListItemVm {
-  const _OriginListItemVm({
-    required this.originId,
-    required this.oid,
-    required this.title,
-    required this.subtitle,
-    required this.imageUrl,
-    required this.copyCount,
-    required this.interactCount,
-    required this.characterCount,
-  });
-
-  final int originId;
-  final String oid;
-  final String title;
-  final String subtitle;
-  final String imageUrl;
-  final int copyCount;
-  final int interactCount;
-  final int characterCount;
-}
-
-class _WorldListItemVm {
-  const _WorldListItemVm({
-    required this.wid,
-    required this.title,
-    required this.subtitle,
-    required this.imageUrl,
-    required this.progressCount,
-    required this.interactCount,
-    required this.characterCount,
-    required this.playerCount,
-    required this.ownerName,
-  });
-
-  final String wid;
-  final String title;
-  final String subtitle;
-  final String imageUrl;
-  final int progressCount;
-  final int interactCount;
-  final int characterCount;
-  final int playerCount;
-  final String ownerName;
-}
-
 String _mapString(
   Map<dynamic, dynamic>? map,
   String key, {
@@ -707,4 +390,12 @@ String _mapString(
   final value = map == null ? null : map[key];
   final text = value?.toString().trim() ?? '';
   return text.isEmpty ? fallback : text;
+}
+
+int _mapInt(Map<dynamic, dynamic>? map, String key) {
+  final value = map == null ? null : map[key];
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value) ?? 0;
+  return 0;
 }
