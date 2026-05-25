@@ -796,6 +796,7 @@ List<WorldPoint> _pointsFromLocations(
         _initials(c.name),
         name: c.name,
         avatarUrl: _resolveAssetUrl(c.avatar),
+        showStar: true,
       ),
     );
   }

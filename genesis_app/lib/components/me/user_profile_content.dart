@@ -125,7 +125,7 @@ class _UserProfileContentState extends State<UserProfileContent>
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 20),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: _FollowStats(
@@ -133,7 +133,7 @@ class _UserProfileContentState extends State<UserProfileContent>
             followerCount: data.followerCount,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 5),
         Align(
           alignment: Alignment.centerLeft,
           child: SecendTabs(

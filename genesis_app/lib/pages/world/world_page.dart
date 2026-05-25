@@ -12,6 +12,7 @@ import '../../components/world_top_overlay_bar.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/world.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_character_avatar.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../utils/stat_count_formatter.dart';
 
@@ -206,6 +207,9 @@ class _WorldPageState extends State<WorldPage>
           ),
           WorldDetailsShell(
             topGap: 0,
+            minChildSize: 0.2,
+            initialChildSize: 0.2,
+            collapsedHeightOffset: 15,
             contentBuilder: (scrollController) => _WorldFeedContent(
               scrollController: scrollController,
               world: world,
@@ -265,32 +269,43 @@ class _WorldFeedContentState extends State<_WorldFeedContent>
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
-    final children = <Widget>[
-      _WorldInfoHeader(
-        world: widget.world,
-        progressing: widget.progressing,
-        onProgress: widget.onProgress,
-      ),
-      const SizedBox(height: 4),
-      SecendTabs(
-        controller: _sectionController,
-        labels: const ['Events', 'Status', 'Characters'],
-        horizontalPadding: 0,
-        labelPadding: EdgeInsets.zero,
-        expanded: true,
-      ),
-      const SizedBox(height: 8),
-      switch (_selectedSection) {
-        0 => _WorldEventsSection(world: widget.world),
-        1 => _WorldStatusSection(world: widget.world),
-        _ => _WorldCharactersSection(world: widget.world),
-      },
-    ];
-
-    return ListView(
+    return CustomScrollView(
       controller: widget.scrollController,
-      padding: EdgeInsets.only(top: 12, bottom: 24 + bottomPadding + 16),
-      children: children,
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.only(top: 12),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              children: [
+                _WorldInfoHeader(
+                  world: widget.world,
+                  progressing: widget.progressing,
+                  onProgress: widget.onProgress,
+                ),
+                const SizedBox(height: 4),
+                SecendTabs(
+                  controller: _sectionController,
+                  labels: const ['Events', 'Status', 'Characters'],
+                  horizontalPadding: 0,
+                  labelPadding: EdgeInsets.zero,
+                  expanded: true,
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+        switch (_selectedSection) {
+          0 => _WorldEventsSection(world: widget.world),
+          1 => SliverToBoxAdapter(
+            child: _WorldStatusSection(world: widget.world),
+          ),
+          _ => SliverToBoxAdapter(
+            child: _WorldCharactersSection(world: widget.world),
+          ),
+        },
+        SliverToBoxAdapter(child: SizedBox(height: 20 + bottomPadding)),
+      ],
     );
   }
 }
@@ -565,26 +580,85 @@ class _WorldEventsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = _formatShortDate(world.lastProgressAt);
-    final body = _eventBody(world);
-    final locations = world.worldLocations.take(3).toList(growable: false);
+    final ticks = world.ticks;
+    if (ticks.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: _EmptySection(text: 'No events yet.'),
+      );
+    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _TickHeader(
-          tickNumber: world.progressCount <= 0 ? 1 : world.progressCount,
-          date: date,
-          timeAgo: _relativeTime(world.lastProgressAt),
-        ),
-        const SizedBox(height: 6),
-        _GlobalEventCard(body: body),
-        const SizedBox(height: 6),
-        for (final location in locations) ...[
-          _LocationEventRow(location: location, date: date, fallbackBody: body),
+    final locationsById = <String, Map<String, dynamic>>{
+      for (final location in world.worldLocations)
+        _mapString(location, const ['location_id', 'id']): location,
+    }..remove('');
+    final fallbackBody = _eventBody(world);
+
+    return SliverList.builder(
+      itemCount: ticks.length,
+      itemBuilder: (context, index) {
+        return _TickEventItem(
+          tick: ticks[index],
+          tickNumber: _mapInt(ticks[index], const [
+            'tick_index',
+          ], fallback: index + 1),
+          fallbackBody: fallbackBody,
+          locationsById: locationsById,
+          isLast: index == ticks.length - 1,
+        );
+      },
+    );
+  }
+}
+
+class _TickEventItem extends StatelessWidget {
+  const _TickEventItem({
+    required this.tick,
+    required this.tickNumber,
+    required this.fallbackBody,
+    required this.locationsById,
+    required this.isLast,
+  });
+
+  final Map<String, dynamic> tick;
+  final int tickNumber;
+  final String fallbackBody;
+  final Map<String, Map<String, dynamic>> locationsById;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final createdAt = _tickDateTime(tick['created_at']);
+    final date = _formatShortDate(createdAt);
+    final body = _mapString(tick, const [
+      'narrator',
+      'content',
+      'summary',
+    ], fallback: fallbackBody);
+    final paragraphs = _tickParagraphs(tick);
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _TickHeader(
+            tickNumber: tickNumber,
+            date: date,
+            timeAgo: _relativeTime(createdAt),
+          ),
           const SizedBox(height: 6),
+          _GlobalEventCard(body: body),
+          const SizedBox(height: 6),
+          for (final paragraph in paragraphs) ...[
+            _TickParagraphRow(
+              paragraph: paragraph,
+              fallbackDate: date,
+              locationsById: locationsById,
+            ),
+            const SizedBox(height: 6),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -686,26 +760,33 @@ class _GlobalEventCard extends StatelessWidget {
   }
 }
 
-class _LocationEventRow extends StatelessWidget {
-  const _LocationEventRow({
-    required this.location,
-    required this.date,
-    required this.fallbackBody,
+class _TickParagraphRow extends StatelessWidget {
+  const _TickParagraphRow({
+    required this.paragraph,
+    required this.fallbackDate,
+    required this.locationsById,
   });
 
-  final Map<String, dynamic> location;
-  final String date;
-  final String fallbackBody;
+  final Map<String, dynamic> paragraph;
+  final String fallbackDate;
+  final Map<String, Map<String, dynamic>> locationsById;
 
   @override
   Widget build(BuildContext context) {
-    final name = _mapString(location, const ['name', 'location_name']);
-    final body = _mapString(location, const [
-      'event',
-      'summary',
+    final locationId = _mapString(paragraph, const ['location_id']);
+    final location = locationsById[locationId];
+    final name = location == null
+        ? locationId
+        : _mapString(location, const ['location_name', 'name']);
+    final date = _formatShortDate(
+      _tickDateTime(paragraph['timestamp'] ?? paragraph['created_at']),
+    );
+    final body = _mapString(paragraph, const [
+      'text',
       'content',
+      'summary',
       'description',
-    ], fallback: fallbackBody);
+    ]);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -728,9 +809,9 @@ class _LocationEventRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (date.isNotEmpty) ...[
+                if ((date.isEmpty ? fallbackDate : date).isNotEmpty) ...[
                   Text(
-                    date,
+                    date.isEmpty ? fallbackDate : date,
                     style: const TextStyle(
                       fontSize: 12,
                       height: 1.6,
@@ -841,7 +922,7 @@ class _CharacterRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _CharacterAvatar(
+        GenesisCharacterAvatar(
           url: _mapString(character, const ['avatar']),
           name: name,
           showStar: isAi,
@@ -905,74 +986,6 @@ class _CharacterRow extends StatelessWidget {
   }
 }
 
-class _CharacterAvatar extends StatelessWidget {
-  const _CharacterAvatar({
-    required this.url,
-    required this.name,
-    required this.showStar,
-  });
-
-  final String url;
-  final String name;
-  final bool showStar;
-
-  @override
-  Widget build(BuildContext context) {
-    final resolvedUrl = _resolveAssetUrl(url);
-    final fallback = Container(
-      color: const Color(0xFFEFF1F4),
-      alignment: Alignment.center,
-      child: Text(
-        _initials(name),
-        style: const TextStyle(
-          fontSize: 16,
-          height: 1,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF8D8D8D),
-        ),
-      ),
-    );
-
-    return SizedBox(
-      width: 48,
-      height: 48,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: SizedBox(
-              width: 48,
-              height: 48,
-              child: resolvedUrl.isEmpty
-                  ? fallback
-                  : Image.network(
-                      resolvedUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => fallback,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return fallback;
-                      },
-                    ),
-            ),
-          ),
-          if (showStar)
-            const Positioned(
-              top: -3,
-              right: -3,
-              child: Icon(
-                Icons.auto_awesome,
-                size: 12,
-                color: Color(0xFFFF1535),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 class _EmptySection extends StatelessWidget {
   const _EmptySection({required this.text});
 
@@ -1025,6 +1038,28 @@ String _relativeTime(DateTime? value) {
   return '${diff.inDays} days ago';
 }
 
+DateTime? _tickDateTime(Object? value) {
+  if (value is DateTime) return value;
+  if (value is num) {
+    return DateTime.fromMillisecondsSinceEpoch(
+      value.toInt() * 1000,
+      isUtc: true,
+    );
+  }
+  final text = '$value'.trim();
+  if (text.isEmpty || text == 'null') return null;
+  return DateTime.tryParse(text);
+}
+
+List<Map<String, dynamic>> _tickParagraphs(Map<String, dynamic> tick) {
+  final raw = tick['paragraphs'];
+  if (raw is! List) return const <Map<String, dynamic>>[];
+  return raw
+      .whereType<Map>()
+      .map((item) => item.cast<String, dynamic>())
+      .toList(growable: false);
+}
+
 String _characterDescriptionText(Map<String, dynamic> character) {
   return _mapString(character, const [
     'brief',
@@ -1043,6 +1078,19 @@ String _metricPercentText(Map<String, dynamic> character) {
   final text = '$value'.trim();
   if (text.isEmpty || text == 'null') return '0%';
   return text.endsWith('%') ? text : '$text%';
+}
+
+int _mapInt(Map<String, dynamic> map, List<String> keys, {int fallback = 0}) {
+  for (final key in keys) {
+    final value = map[key];
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      final parsed = int.tryParse(value.trim());
+      if (parsed != null) return parsed;
+    }
+  }
+  return fallback;
 }
 
 String _mapString(
@@ -1076,8 +1124,14 @@ Map<String, List<UserAvatar>> _avatarsByLocationFromCharacterPositions(
     final c = character;
     final name = (c['name'] ?? '').toString();
     final avatar = _resolveAssetUrl((c['avatar'] ?? '').toString());
+    final isAi = '${c['type'] ?? ''}'.trim().toLowerCase() == 'ai';
     (map[locationId] ??= <UserAvatar>[]).add(
-      UserAvatar(_initials(name), name: name, avatarUrl: avatar),
+      UserAvatar(
+        _initials(name),
+        name: name,
+        avatarUrl: avatar,
+        showStar: isAi,
+      ),
     );
   }
   return map;

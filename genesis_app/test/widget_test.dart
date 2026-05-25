@@ -143,7 +143,10 @@ class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
 class _RecordingV1ListTransport implements HttpTransport {
   static const total = 100;
 
+  _RecordingV1ListTransport({this.worldTickCompleter});
+
   final requests = <TransportRequest>[];
+  final Completer<TransportResponse>? worldTickCompleter;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -168,6 +171,21 @@ class _RecordingV1ListTransport implements HttpTransport {
         'err_no': 0,
         'err_str': 'success',
         'data': _worldDetail(wid),
+      });
+    }
+    if (request.method == 'POST' && request.uri.path.endsWith('/world/tick')) {
+      if (worldTickCompleter != null) {
+        return worldTickCompleter!.future;
+      }
+      final body = decodedBody(request);
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'world_id': body['world_id'],
+          'tick_cnt': 4,
+          'last_tick': <String, Object?>{},
+        },
       });
     }
 
@@ -198,6 +216,11 @@ class _RecordingV1ListTransport implements HttpTransport {
 
   List<TransportRequest> requestsFor(String path) {
     return requests.where((request) => request.uri.path == path).toList();
+  }
+
+  Map<String, dynamic> decodedBody(TransportRequest request) {
+    return jsonDecode(utf8.decode(request.bodyBytes ?? const <int>[]))
+        as Map<String, dynamic>;
   }
 
   Map<String, Object?> _originItem(int index) {
@@ -354,8 +377,8 @@ class _RecordingV1ListTransport implements HttpTransport {
       'locations': [
         {
           'location_id': 'l_$fallback',
-          'name': 'World Location',
-          'description': 'A world location.',
+          'location_name': 'World Location',
+          'location_summary': 'A world location.',
           'image': '',
           'x_percent': 35,
           'y_percent': 45,
@@ -363,8 +386,30 @@ class _RecordingV1ListTransport implements HttpTransport {
       ],
       'ticks': [
         {
-          'content': 'World detail loaded.',
+          'tick_index': 1,
+          'narrator': 'World detail loaded.',
           'created_at': '2026-05-02T00:00:00Z',
+          'paragraphs': [
+            {
+              'location_id': 'l_$fallback',
+              'timestamp': '2026-05-02T00:00:00Z',
+              'text': 'The first test tick wakes the location.',
+              'character_deltas': const <Map<String, Object?>>[],
+            },
+          ],
+        },
+        {
+          'tick_index': 2,
+          'narrator': 'World detail changed again.',
+          'created_at': '2026-05-03T00:00:00Z',
+          'paragraphs': [
+            {
+              'location_id': 'l_$fallback',
+              'timestamp': '2026-05-03T00:00:00Z',
+              'text': 'The second test tick moves the story forward.',
+              'character_deltas': const <Map<String, Object?>>[],
+            },
+          ],
         },
       ],
     };
@@ -1018,6 +1063,14 @@ void main() {
     expect(detailRequests, hasLength(1));
     expect(detailRequests.single.uri.queryParameters['world_id'], 'w_test_1');
     expect(find.text('World detail w_test_1'), findsOneWidget);
+    final sheet = tester.widget<DraggableScrollableSheet>(
+      find.byType(DraggableScrollableSheet),
+    );
+    final height =
+        tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    final collapsedSize = 0.2 - 10 / height;
+    expect(sheet.minChildSize, closeTo(collapsedSize, 0.001));
+    expect(sheet.initialChildSize, closeTo(collapsedSize, 0.001));
 
     await tester.tap(find.text('Owner: Tester'));
     await tester.pumpAndSettle();
@@ -1027,6 +1080,64 @@ void main() {
     expect(userInfoRequests.single.uri.queryParameters['uid'], 'u_test');
     expect(find.text('User Info'), findsOneWidget);
   });
+
+  testWidgets(
+    'World progress button calls v1 tick and disables while pending',
+    (WidgetTester tester) async {
+      final tickCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldTickCompleter: tickCompleter,
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: const HomePage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('#World 1'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Progress'));
+      await tester.pump();
+
+      var tickRequests = transport.requestsFor('/api/v1/world/tick');
+      expect(tickRequests, hasLength(1));
+      expect(
+        transport.decodedBody(tickRequests.single)['world_id'],
+        'w_test_1',
+      );
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(
+        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+        isNull,
+      );
+
+      await tester.tap(find.byType(FilledButton));
+      await tester.pump();
+      tickRequests = transport.requestsFor('/api/v1/world/tick');
+      expect(tickRequests, hasLength(1));
+
+      tickCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {
+            'world_id': 'w_test_1',
+            'tick_cnt': 4,
+            'last_tick': <String, Object?>{},
+          },
+        }),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(FilledButton, 'Progress'), findsOneWidget);
+    },
+  );
 
   testWidgets('Home world list loads next page near bottom', (
     WidgetTester tester,

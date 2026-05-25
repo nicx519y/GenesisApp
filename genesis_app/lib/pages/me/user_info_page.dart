@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/page_header.dart';
 import '../../components/me/user_profile_content.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/origin.dart';
@@ -125,10 +126,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         centerTitle: true,
-        title: const Text(
-          'User Info',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
+        title: const PageTitleText(pageName: 'User Info'),
       ),
       body: SafeArea(
         bottom: false,

@@ -7,12 +7,14 @@ class WorldDetailsShell extends StatelessWidget {
     this.minChildSize = 0.25,
     this.initialChildSize = 0.25,
     this.topGap = 60,
+    this.collapsedHeightOffset = 0,
   });
 
   final Widget Function(ScrollController) contentBuilder;
   final double minChildSize;
   final double initialChildSize;
   final double topGap;
+  final double collapsedHeightOffset;
 
   @override
   Widget build(BuildContext context) {
@@ -20,12 +22,17 @@ class WorldDetailsShell extends StatelessWidget {
       builder: (context, constraints) {
         final maxChildSize =
             (constraints.maxHeight - topGap) / constraints.maxHeight;
+        final minSize = _adjustedChildSize(minChildSize, constraints.maxHeight);
+        final initialSize = _adjustedChildSize(
+          initialChildSize,
+          constraints.maxHeight,
+        ).clamp(minSize, maxChildSize).toDouble();
         return DraggableScrollableSheet(
-          minChildSize: minChildSize,
-          initialChildSize: initialChildSize,
+          minChildSize: minSize,
+          initialChildSize: initialSize,
           maxChildSize: maxChildSize,
           snap: true,
-          snapSizes: [minChildSize, maxChildSize],
+          snapSizes: [minSize, maxChildSize],
           builder: (context, scrollController) {
             return Material(
               color: Colors.transparent,
@@ -44,5 +51,11 @@ class WorldDetailsShell extends StatelessWidget {
         );
       },
     );
+  }
+
+  double _adjustedChildSize(double size, double height) {
+    if (collapsedHeightOffset <= 0 || height <= 0) return size;
+    final adjustedHeight = size * height - collapsedHeightOffset;
+    return (adjustedHeight / height).clamp(0.0, 1.0).toDouble();
   }
 }

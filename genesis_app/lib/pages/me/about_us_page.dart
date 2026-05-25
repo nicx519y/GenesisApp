@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../components/page_header.dart';
+
 class AboutUsPage extends StatelessWidget {
   const AboutUsPage({super.key});
 
@@ -15,10 +17,7 @@ class AboutUsPage extends StatelessWidget {
           onPressed: () => Navigator.of(context).maybePop(),
         ),
         centerTitle: true,
-        title: const Text(
-          'About us',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        ),
+        title: const PageTitleText(pageName: 'About us'),
       ),
       body: const SafeArea(
         child: Padding(

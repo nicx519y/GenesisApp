@@ -1,4 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
+import '../ui/components/genesis_character_avatar.dart';
 
 class WorldMap extends StatelessWidget {
   const WorldMap({
@@ -36,16 +40,7 @@ class WorldMap extends StatelessWidget {
                 right: 0,
                 top: 0,
                 height: height,
-                child: Image.network(
-                  backgroundUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      const ColoredBox(color: Color(0xFFF3F4F6)),
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return const ColoredBox(color: Color(0xFFF3F4F6));
-                  },
-                ),
+                child: _MapBackground(url: backgroundUrl),
               )
             else
               Positioned(
@@ -216,6 +211,35 @@ class WorldMap extends StatelessWidget {
   }
 }
 
+class _MapBackground extends StatelessWidget {
+  const _MapBackground({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    if (url.startsWith('assets/')) {
+      return Image.asset(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            const ColoredBox(color: Color(0xFFF3F4F6)),
+      );
+    }
+
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) =>
+          const ColoredBox(color: Color(0xFFF3F4F6)),
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return const ColoredBox(color: Color(0xFFF3F4F6));
+      },
+    );
+  }
+}
+
 class _WorldPointPositioned extends StatelessWidget {
   const _WorldPointPositioned({
     required this.point,
@@ -229,40 +253,59 @@ class _WorldPointPositioned extends StatelessWidget {
   final double height;
   final VoidCallback? onTap;
 
-  static const double _labelHeight = 36;
-  static const double _ringSize = 24;
-  static const double _avatarSize = 30;
-  static const double _avatarSpacing = 6;
-  static const double _labelToRingSpacing = 6;
-  static const double _ringToAvatarsSpacing = 8;
-  static const int _avatarsPerRow = 3;
+  static const double _labelHeight = 20;
+  static const double _pointSize = 8;
+  static const double _avatarSize = 42;
+  static const double _avatarSpacing = 4;
+  static const double _labelToPointSpacing = 6;
+  static const double _avatarTopGap = 10;
 
   double _markerWidth() {
-    final avatarWidth =
-        _avatarSize * _avatarsPerRow + _avatarSpacing * (_avatarsPerRow - 1);
+    final count = point.users.length;
+    final avatarWidth = _avatarGroupWidth(count);
     final estimatedCharWidth = 10.0;
-    final labelWidth = (point.name.runes.length * estimatedCharWidth + 20)
+    final labelWidth = (point.name.runes.length * estimatedCharWidth + 12)
         .clamp(_labelHeight, width)
         .toDouble();
-    return avatarWidth > labelWidth ? avatarWidth : labelWidth;
+    return math.max(math.max(_pointSize, avatarWidth), labelWidth);
   }
 
   double _markerHeight() {
     final count = point.users.length;
-    final base = _labelHeight + _labelToRingSpacing + _ringSize;
-    if (count <= 0) return base;
-    final rows = (count / _avatarsPerRow).ceil();
-    final gaps = rows > 1 ? rows - 1 : 0;
-    return base +
-        _ringToAvatarsSpacing +
-        rows * _avatarSize +
-        gaps * _avatarSpacing;
+    final pointCenterY = _labelHeight + _labelToPointSpacing + _pointSize / 2;
+    if (count <= 0) return pointCenterY + _pointSize / 2;
+    if (count < 4) return pointCenterY + _avatarTopGap + _avatarSize;
+    if (count == 4) {
+      return pointCenterY + _avatarTopGap + _avatarSize * 2 + _avatarSpacing;
+    }
+
+    final radius = _avatarRingRadius(count);
+    return pointCenterY + radius * 2 + _avatarTopGap + _avatarSize;
+  }
+
+  double _avatarGroupWidth(int count) {
+    if (count <= 0) return 0;
+    if (count < 4) {
+      return count * _avatarSize + (count - 1) * _avatarSpacing;
+    }
+    if (count == 4) return _avatarSize * 2 + _avatarSpacing;
+    return _avatarRingRadius(count) * 2 + _avatarSize;
+  }
+
+  double _avatarRingRadius(int count) {
+    if (count < 4) return 0;
+    final minimumChord = count > 5
+        ? _avatarSize * 0.88
+        : _avatarSize + _avatarSpacing;
+    final radius = minimumChord / (2 * math.sin(math.pi / count));
+    return math.max(_avatarSize * 0.88, radius);
   }
 
   @override
   Widget build(BuildContext context) {
     final markerWidth = _markerWidth();
     final markerHeight = _markerHeight();
+    final pointCenterY = _labelHeight + _labelToPointSpacing + _pointSize / 2;
 
     final x = (point.position.dx * width).clamp(0, width);
     final y = (point.position.dy * height).clamp(0, height);
@@ -271,8 +314,7 @@ class _WorldPointPositioned extends StatelessWidget {
     final maxTop = (height - markerHeight) > 0 ? (height - markerHeight) : 0.0;
 
     final left = (x - markerWidth / 2).clamp(0.0, maxLeft).toDouble();
-    final anchorOffset = _labelHeight + _labelToRingSpacing + _ringSize / 2;
-    final top = (y - anchorOffset).clamp(0.0, maxTop).toDouble();
+    final top = (y - pointCenterY).clamp(0.0, maxTop).toDouble();
 
     return Positioned(
       left: left,
@@ -282,6 +324,8 @@ class _WorldPointPositioned extends StatelessWidget {
       child: _WorldPointMarker(
         point: point,
         markerWidth: markerWidth,
+        markerHeight: markerHeight,
+        pointCenterY: pointCenterY,
         onTap: onTap,
       ),
     );
@@ -313,114 +357,153 @@ class WorldPoint {
 }
 
 class UserAvatar {
-  const UserAvatar(this.initials, {this.name, this.avatarUrl = ''});
+  const UserAvatar(
+    this.initials, {
+    this.name,
+    this.avatarUrl = '',
+    this.showStar = false,
+  });
+
   final String initials;
   final String? name;
   final String avatarUrl;
+  final bool showStar;
 }
 
 enum WorldPointType { castle, shop, portal, tavern, camp }
-
-extension on WorldPointType {
-  Color get color {
-    switch (this) {
-      case WorldPointType.castle:
-        return const Color(0xFF111827);
-      case WorldPointType.shop:
-        return const Color(0xFF7C3AED);
-      case WorldPointType.portal:
-        return const Color(0xFF9333EA);
-      case WorldPointType.tavern:
-        return const Color(0xFF0F766E);
-      case WorldPointType.camp:
-        return const Color(0xFFDC2626);
-    }
-  }
-}
 
 class _WorldPointMarker extends StatelessWidget {
   const _WorldPointMarker({
     required this.point,
     required this.markerWidth,
+    required this.markerHeight,
+    required this.pointCenterY,
     this.onTap,
   });
 
   final WorldPoint point;
   final double markerWidth;
+  final double markerHeight;
+  final double pointCenterY;
   final VoidCallback? onTap;
+
+  static const double _avatarSize = 42;
+  static const double _avatarSpacing = 4;
+  static const double _avatarTopGap = 10;
+  static const double _pointSize = 8;
+
+  double _ringRadius(int count) {
+    if (count < 4) return 0;
+    final minimumChord = count > 5
+        ? _avatarSize * 0.88
+        : _avatarSize + _avatarSpacing;
+    final radius = minimumChord / (2 * math.sin(math.pi / count));
+    return math.max(_avatarSize * 0.88, radius);
+  }
 
   @override
   Widget build(BuildContext context) {
-    const avatarSize = 30.0;
-    const avatarSpacing = 6.0;
     final hasUsers = point.users.isNotEmpty;
+    final avatars = point.users;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: SizedBox(
         width: markerWidth,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        height: markerHeight,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 36),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: point.type.color,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: Colors.black.withValues(alpha: 0.12),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.18),
-                      blurRadius: 10,
-                      offset: const Offset(0, 6),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: markerWidth),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(4),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.18),
+                          blurRadius: 6,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Center(
-                    child: _PointLabel(point: point, color: Colors.white),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 4,
+                      ),
+                      child: _PointLabel(point: point, color: Colors.white),
+                    ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 6),
-            SizedBox(
-              width: 24,
-              height: 24,
-              child: DecoratedBox(
+            Positioned(
+              left: markerWidth / 2 - _pointSize / 2,
+              top: pointCenterY - _pointSize / 2,
+              width: _pointSize,
+              height: _pointSize,
+              child: const DecoratedBox(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
+                  color: Colors.red,
                 ),
               ),
             ),
-            if (hasUsers) const SizedBox(height: 8),
             if (hasUsers)
-              SizedBox(
-                width: markerWidth,
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: avatarSpacing,
-                  runSpacing: avatarSpacing,
-                  children: [
-                    for (final u in point.users)
-                      _UserAvatar(
-                        initials: u.initials,
-                        avatarUrl: u.avatarUrl,
-                        size: avatarSize,
-                      ),
-                  ],
+              for (int i = 0; i < avatars.length; i++)
+                _PositionedMapAvatar(
+                  user: avatars[i],
+                  left: _avatarLeft(i, avatars.length),
+                  top: _avatarTop(i, avatars.length),
                 ),
-              ),
           ],
         ),
       ),
     );
+  }
+
+  double _avatarLeft(int index, int count) {
+    if (count < 4) {
+      final rowWidth = count * _avatarSize + (count - 1) * _avatarSpacing;
+      return markerWidth / 2 -
+          rowWidth / 2 +
+          index * (_avatarSize + _avatarSpacing);
+    }
+    if (count == 4) {
+      final gridWidth = _avatarSize * 2 + _avatarSpacing;
+      final column = index % 2;
+      return markerWidth / 2 -
+          gridWidth / 2 +
+          column * (_avatarSize + _avatarSpacing);
+    }
+
+    final radius = _ringRadius(count);
+    final ringCenterX = markerWidth / 2;
+    final angle = -math.pi / 2 + math.pi * 2 * index / count;
+    return ringCenterX + math.cos(angle) * radius - _avatarSize / 2;
+  }
+
+  double _avatarTop(int index, int count) {
+    if (count < 4) return pointCenterY + _avatarTopGap;
+    if (count == 4) {
+      final row = index ~/ 2;
+      return pointCenterY +
+          _avatarTopGap +
+          row * (_avatarSize + _avatarSpacing);
+    }
+
+    final radius = _ringRadius(count);
+    final ringCenterY = pointCenterY + radius + _avatarTopGap + _avatarSize / 2;
+    final angle = -math.pi / 2 + math.pi * 2 * index / count;
+    return ringCenterY + math.sin(angle) * radius - _avatarSize / 2;
   }
 }
 
@@ -439,69 +522,49 @@ class _PointLabel extends StatelessWidget {
       softWrap: false,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-        fontSize: 12,
-        height: 1.0,
-        fontWeight: FontWeight.w800,
+        fontSize: 10,
+        height: 1.2,
+        leadingDistribution: TextLeadingDistribution.even,
+        fontWeight: FontWeight.w500,
         color: color ?? Colors.black,
       ),
     );
   }
 }
 
-class _UserAvatar extends StatelessWidget {
-  const _UserAvatar({
-    required this.initials,
-    required this.avatarUrl,
-    required this.size,
+class _PositionedMapAvatar extends StatelessWidget {
+  const _PositionedMapAvatar({
+    required this.user,
+    required this.left,
+    required this.top,
   });
 
-  final String initials;
-  final String avatarUrl;
-  final double size;
+  final UserAvatar user;
+  final double left;
+  final double top;
 
   @override
   Widget build(BuildContext context) {
-    final url = avatarUrl.trim();
-    final hasUrl = url.isNotEmpty;
-    return SizedBox(
-      width: size,
-      height: size,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF3F4F6),
-            border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+    return Positioned(
+      left: left,
+      top: top,
+      child: GenesisCharacterAvatar(
+        url: user.avatarUrl,
+        name: user.name ?? user.initials,
+        showStar: user.showStar,
+        size: 42,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.22),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
-          child: hasUrl
-              ? Image.network(
-                  url,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      _Initials(initials: initials),
-                )
-              : _Initials(initials: initials),
-        ),
-      ),
-    );
-  }
-}
-
-class _Initials extends StatelessWidget {
-  const _Initials({required this.initials});
-
-  final String initials;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        initials,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w900,
-          color: Colors.black,
-        ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
     );
   }

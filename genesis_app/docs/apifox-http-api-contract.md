@@ -2,15 +2,16 @@
 
 来源：
 - Apifox 分享页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/460308499e0
+- Apifox world tick 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462798656e0
 - Apifox LLM 索引：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/llms.txt
 
-提取时间：2026-05-22
+提取时间：2026-05-25
 
-本文档只记录 Apifox 分享文档当前公开的 HTTP 接口，并对比当前 Flutter 项目中的 `lib/network` HTTP 设计。字段后带 `*` 表示 Apifox 标记为必填。
+本文档记录 Flutter 项目当前对齐或待替换的 Apifox HTTP 接口，并对比当前 Flutter 项目中的 `lib/network` HTTP 设计。字段后带 `*` 表示 Apifox 标记为必填。
 
 ## 总览
 
-Apifox 当前公开 12 个接口，分为 `用户` 和 `origin` 两组：
+本文档当前覆盖 13 个接口，分为 `用户`、`origin` 和 `world` 三组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -22,8 +23,9 @@ Apifox 当前公开 12 个接口，分为 `用户` 和 `origin` 两组：
 | 用户 | GET | `/api/v1/user/followers` | 用户粉丝列表 |
 | 用户 | GET | `/api/v1/user/info` | user Info |
 | 用户 | POST | `/api/v1/user/oauth/apple` | Apple login |
-| origin | GET | `/api/v1/world/list` | World 列表 |
-| origin | GET | `/api/v1/world/detail` | World 详情 |
+| world | GET | `/api/v1/world/list` | World 列表 |
+| world | GET | `/api/v1/world/detail` | World 详情 |
+| world | POST | `/api/v1/world/tick` | world owner 触发一次 tick |
 | origin | GET | `/api/v1/origin/list` | Origin 模板列表 |
 | origin | GET | `/api/v1/origin/detail` | Origin 模板详情 |
 
@@ -142,7 +144,9 @@ Apifox 当前公开 12 个接口，分为 `用户` 和 `origin` 两组：
 
 ### Tick
 
+- `tick_no`: integer
 - `narrator*`: string
+- `created_at`: integer，Unix 秒
 - `paragraphs*`: `TickParagraph[]`
 
 `TickParagraph`：
@@ -301,6 +305,38 @@ Query：
 - `locations*`: `Location[]`
 - `ticks*`: `Tick[]`
 
+### POST `/api/v1/world/tick`
+
+world owner 触发一次 tick。该接口替代旧的 progress 触发接口，不保留旧接口兼容；请求字段使用 `world_id`，不再使用 `wid`。
+
+前置条件：
+
+- 必须登录。
+- 调用方必须等于 `world.owner_uid`，否则返回 `10011`。
+
+服务端行为：
+
+- 取当前 `max(tick_no) + 1` 作为新 `tick_no`。
+- 写入 `tbl_ticks`，包括 `obj_type=2`、`obj_id=world_id`、`narrator`、`paragraphs`。
+- 更新 `tbl_worlds.tick_cnt + 1`，刷新 `world_last_tick_time`，并将 `status` 置为 `20`（tick 中）。
+
+请求 body：
+
+- `world_id*`: string
+
+响应 `data`：
+
+- `world_id*`: string
+- `tick_cnt*`: integer
+- `last_tick*`: `Tick`
+
+错误码：
+
+- `4004`
+- `10001`
+- `10011`
+- `20201`
+
 ### GET `/api/v1/origin/list`
 
 返回 origin 模板列表。origin 是 world 的模板，可被复制为 world。列表项只返回 `info + stats`。
@@ -339,7 +375,7 @@ Query：
 
 ## 当前代码对齐状态
 
-截至 2026-05-22，客户端已按本文档公开的 12 个接口完成主要 HTTP 契约对齐：
+截至 2026-05-25，前 12 个接口已完成主要 HTTP 契约对齐；`POST /api/v1/world/tick` 是替代旧 progress 触发接口的新增契约：
 
 | Apifox 接口 | 当前实现状态 |
 | --- | --- |
@@ -353,6 +389,7 @@ Query：
 | `GET /api/v1/user/followers` | 已新增 `FollowV1Api.followers(uid,pn,rn)`。 |
 | `GET /api/v1/world/list` | `WorldV1Api.list` query 已使用 `origin_id/uid/keyword/pn/rn`；首页和个人 world 列表可消费 `list[].info + stats`。 |
 | `GET /api/v1/world/detail` | `WorldV1Api.detail` query 已使用 `world_id`；详情 mapper 支持 `info/stats/characters/locations/ticks`。 |
+| `POST /api/v1/world/tick` | 新契约替代旧 progress 触发接口；客户端应提交 `{ "world_id": "<world_id>" }` 并消费 `world_id/tick_cnt/last_tick`。 |
 | `GET /api/v1/origin/list` | `OriginV1Api.list` query 已使用 `tag_id/keyword/uid/tag_name/pn/rn`；origin 页面和主 `getOrigins/getMyLaunchedOrigins` 可消费 `list[].info + stats`。 |
 | `GET /api/v1/origin/detail` | `OriginV1Api.detail` query 已使用 `origin_id`；详情 mapper 支持 `info/stats/characters/locations/ticks`。 |
 
@@ -394,7 +431,6 @@ World：
 - `POST /api/v1/world/request`
 - `POST /api/v1/world/request/audit`
 - `POST /api/v1/world/join`
-- `POST /api/v1/world/progress`
 - `POST /api/v1/world/synclastorigin`
 - `POST /api/v1/world/close`
 - `POST /api/v1/world/del`
@@ -431,7 +467,7 @@ World：
 
 ### Apifox 未覆盖但当前仍保留的旧 HTTP 接口
 
-这些接口不属于 Apifox 公开的 12 个 `/api/v1` 接口。当前代码只在对应功能尚无 Apifox 契约时继续保留，已不再用于本文档覆盖的登录、用户信息、origin/world 列表详情接口：
+这些接口不属于本文档覆盖的 Apifox `/api/v1` 接口。当前代码只在对应功能尚无 Apifox 契约时继续保留，已不再用于本文档覆盖的登录、用户信息、origin/world 列表详情与 world tick 接口：
 
 - `POST /api/origins`
 - `POST /api/worlds/launch`

@@ -116,19 +116,19 @@ class WorldV1Api extends V1ApiResource {
     );
   }
 
-  /// POST /api/v1/world/progress
+  /// POST /api/v1/world/tick
   ///
   /// 提交参数:
   /// ```json
-  /// {"wid":"string"}
+  /// {"world_id":"string"}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"status":"progressing"}}
+  /// {"err_no":0,"err_str":"success","data":{"world_id":"string","tick_cnt":1,"last_tick":{}}}
   /// ```
-  Future<Map<String, dynamic>> progress({required String wid}) {
-    return postMap('world/progress', {'wid': wid});
+  Future<Map<String, dynamic>> tick({required String worldId}) {
+    return postMap('world/tick', v1Body({'world_id': worldId}));
   }
 
   /// POST /api/v1/world/synclastorigin

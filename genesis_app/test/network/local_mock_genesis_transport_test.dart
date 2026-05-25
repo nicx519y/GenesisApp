@@ -128,6 +128,12 @@ void main() {
       ((worldDetail['stats'] as Map)['tick_cnt']),
       greaterThanOrEqualTo(1000),
     );
+    final detailTicks = worldDetail['ticks'] as List;
+    expect(detailTicks.length, greaterThanOrEqualTo(4));
+    expect([
+      for (final tick in detailTicks)
+        ((tick as Map)['tick_index'] as num).toInt(),
+    ], List<int>.generate(detailTicks.length, (index) => index + 1));
     await api.v1.world.requestJoin(wid: world);
     await api.v1.world.auditRequest(
       requestId: 'request_mock_1',

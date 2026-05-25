@@ -212,12 +212,12 @@ class LocalMockGenesisTransport implements HttpTransport {
     return _error(404, 'mock route not found: $method $path');
   }
 
-  TransportResponse _handleV1(
+  Future<TransportResponse> _handleV1(
     String method,
     String path,
     Map<String, String> query,
     Map<String, dynamic> body,
-  ) {
+  ) async {
     if (method == 'POST' &&
         (path == 'user/oauth/google' || path == 'user/oauth/apple')) {
       _state.markAuthenticated();
@@ -333,8 +333,9 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_state.v1WorldDetail('${body['wid'] ?? ''}'));
     }
 
-    if (method == 'POST' && path == 'world/progress') {
-      return _v1Ok({'status': 'progressing'});
+    if (method == 'POST' && path == 'world/tick') {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      return _v1Ok(_state.tickV1World('${body['world_id'] ?? ''}'));
     }
 
     if (method == 'POST' &&
@@ -1017,6 +1018,26 @@ class _MockState {
     };
   }
 
+  Map<String, dynamic> tickV1World(String worldId) {
+    final world = _findV1World(worldId);
+    final tickCount = ((world['tick_cnt'] as num?)?.toInt() ?? 0) + 1;
+    final now = DateTime.now().toUtc().toIso8601String();
+    world['tick_cnt'] = tickCount;
+    world['last_progress_at'] = now;
+    world['last_progress_summary'] = 'Mock tick $tickCount completed.';
+    world['updated_at'] = now;
+    return {
+      'world_id': world['wid'],
+      'tick_cnt': tickCount,
+      'last_tick': {
+        'tick_index': tickCount,
+        'created_at': now,
+        'narrator': world['last_progress_summary'],
+        'paragraphs': const <Map<String, dynamic>>[],
+      },
+    };
+  }
+
   List<Map<String, dynamic>> v1Notifications() {
     return _v1Notifications.map(_deepCopyMap).toList();
   }
@@ -1689,16 +1710,38 @@ class _MockState {
   }
 
   Map<String, dynamic> _contractTick(Map<String, dynamic> tick) {
+    final paragraphs = tick['paragraphs'] is List
+        ? (tick['paragraphs'] as List)
+              .map((item) {
+                final paragraph = item is Map
+                    ? Map<String, dynamic>.from(item)
+                    : const <String, dynamic>{};
+                return {
+                  'location_id': paragraph['location_id'] ?? 'loc_hub',
+                  'timestamp':
+                      paragraph['timestamp'] ??
+                      tick['created_at'] ??
+                      kMockV1Now,
+                  'text': paragraph['text'] ?? tick['summary'] ?? '',
+                  'character_deltas':
+                      paragraph['character_deltas'] ??
+                      const <Map<String, dynamic>>[],
+                };
+              })
+              .toList(growable: false)
+        : [
+            {
+              'location_id': 'loc_hub',
+              'timestamp': tick['created_at'] ?? kMockV1Now,
+              'text': tick['summary'] ?? '',
+              'character_deltas': const <Map<String, dynamic>>[],
+            },
+          ];
     return {
+      'tick_index': tick['tick_index'] ?? 1,
+      'created_at': tick['created_at'] ?? kMockV1Now,
       'narrator': tick['summary'] ?? '',
-      'paragraphs': [
-        {
-          'location_id': 'loc_hub',
-          'timestamp': tick['created_at'] ?? kMockV1Now,
-          'text': tick['summary'] ?? '',
-          'character_deltas': const <Map<String, dynamic>>[],
-        },
-      ],
+      'paragraphs': paragraphs,
     };
   }
 

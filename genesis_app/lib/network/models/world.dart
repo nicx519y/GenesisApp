@@ -62,6 +62,7 @@ class WorldDetail {
     required this.updatedAt,
     required this.origin,
     required this.characters,
+    required this.ticks,
     required this.worldLocations,
     required this.characterPositions,
     required this.userPositions,
@@ -84,6 +85,7 @@ class WorldDetail {
   final DateTime? updatedAt;
   final OriginSummary origin;
   final List<Map<String, dynamic>> characters;
+  final List<Map<String, dynamic>> ticks;
   final List<Map<String, dynamic>> worldLocations;
   final List<Map<String, dynamic>> characterPositions;
   final List<Map<String, dynamic>> userPositions;
@@ -126,6 +128,11 @@ class WorldDetail {
       characters: (json['characters'] is List)
           ? asJsonList(
               json['characters'],
+            ).map((e) => asJsonMap(e)).toList(growable: false)
+          : const [],
+      ticks: (json['ticks'] is List)
+          ? asJsonList(
+              json['ticks'],
             ).map((e) => asJsonMap(e)).toList(growable: false)
           : const [],
       worldLocations: (json['world_locations'] is List)

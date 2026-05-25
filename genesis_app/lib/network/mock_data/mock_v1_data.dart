@@ -10,6 +10,8 @@ const String kMockV1DustSubtitle =
     'Desert signal survival caravan chasing radio ghosts across glass dunes before the next sand tide buries every tower.';
 const String kMockV1MoonlitSubtitle =
     'Cozy supernatural midnight shop where sleepless guests trade secrets, dreams, and unfinished regrets over impossible pie.';
+const String kMockV1SteamMapImage =
+    'assets/images/mock_maps/steam_kingdom_isometric.png';
 
 const Map<String, dynamic> kMockV1User = {
   'uid': 'u_mock_001',
@@ -69,7 +71,7 @@ const Map<String, dynamic> kMockV1Origin = {
   'status': 2,
   'version_num': 1,
   'name': 'Steam Kingdom',
-  'cover': '',
+  'cover': kMockV1SteamMapImage,
   'display_subtitle': kMockV1SteamSubtitle,
   'world_view': 'A city powered by steam and fragile alliances.',
   'world_setting': 'Players negotiate with inventors and rail guardians.',
@@ -94,7 +96,7 @@ const List<Map<String, dynamic>> kMockV1Origins = [
     'status': 2,
     'version_num': 3,
     'name': 'Neon Harbor',
-    'cover': '',
+    'cover': kMockV1SteamMapImage,
     'display_subtitle': kMockV1NeonSubtitle,
     'world_view': 'A vertical port city where memory chips are traded at dusk.',
     'world_setting': 'Players broker deals between dock guilds and rogue AIs.',
@@ -116,7 +118,7 @@ const List<Map<String, dynamic>> kMockV1Origins = [
     'status': 1,
     'version_num': 1,
     'name': 'Verdant Academy',
-    'cover': '',
+    'cover': kMockV1SteamMapImage,
     'display_subtitle': kMockV1VerdantSubtitle,
     'world_view':
         'A living campus grows new rooms according to student wishes.',
@@ -139,7 +141,7 @@ const List<Map<String, dynamic>> kMockV1Origins = [
     'status': 2,
     'version_num': 2,
     'name': 'Dust Radio',
-    'cover': '',
+    'cover': kMockV1SteamMapImage,
     'display_subtitle': kMockV1DustSubtitle,
     'world_view': 'A caravan follows radio ghosts through a glass desert.',
     'world_setting': 'Players tune signal towers before the next sand tide.',
@@ -161,7 +163,7 @@ const List<Map<String, dynamic>> kMockV1Origins = [
     'status': 2,
     'version_num': 1,
     'name': 'Moonlit Diner',
-    'cover': '',
+    'cover': kMockV1SteamMapImage,
     'display_subtitle': kMockV1MoonlitSubtitle,
     'world_view': 'A diner appears only to people who cannot sleep.',
     'world_setting':
@@ -192,7 +194,33 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Predicts unrest through machines.',
     'description': 'Builds devices that turn city rumors into forecasts.',
     'goal': 'Keep the Central Hub stable.',
-    'avatar': '',
+    'avatar': 'assets/images/mock_avatars/avatar_iris.png',
+    'location_id': 'loc_hub',
+  },
+  {
+    'type': 'ai',
+    'status': 10,
+    'player_uid': '',
+    'character_id': 'c_mock_lena',
+    'name': 'Lena North',
+    'identity': 'Signal Clerk',
+    'tagline': 'Hears trouble through copper wire.',
+    'description': 'Routes emergency messages through the public switchboard.',
+    'goal': 'Keep every station connected.',
+    'avatar': 'assets/images/mock_avatars/avatar_lena.png',
+    'location_id': 'loc_hub',
+  },
+  {
+    'type': 'player',
+    'status': 10,
+    'player_uid': 'u_mock_001',
+    'character_id': 'c_mock_toma',
+    'name': 'Toma Reed',
+    'identity': 'Field Mechanic',
+    'tagline': 'Fixes machines before asking who owns them.',
+    'description': 'Carries spare valves and a notebook of forbidden tunnels.',
+    'goal': 'Trace the pressure leak below the station.',
+    'avatar': 'assets/images/mock_avatars/avatar_toma.png',
     'location_id': 'loc_hub',
   },
   {
@@ -205,8 +233,151 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Keeps order around the rail gate.',
     'description': 'Protects the line between commerce and chaos.',
     'goal': 'Prevent sabotage at the Rail Gate.',
-    'avatar': '',
+    'avatar': 'assets/images/mock_avatars/avatar_crow.png',
     'location_id': 'loc_gate',
+  },
+  {
+    'type': 'ai',
+    'status': 10,
+    'player_uid': '',
+    'character_id': 'c_mock_orren',
+    'name': 'Orren Pike',
+    'identity': 'Rail Inspector',
+    'tagline': 'Counts every bolt on every departure.',
+    'description': 'Knows which railcars are too quiet to be legal.',
+    'goal': 'Find the forged cargo permit.',
+    'avatar': 'assets/images/mock_avatars/avatar_orren.png',
+    'location_id': 'loc_gate',
+  },
+  {
+    'type': 'ai',
+    'status': 10,
+    'player_uid': '',
+    'character_id': 'c_mock_nia',
+    'name': 'Nia Sable',
+    'identity': 'Courier',
+    'tagline': 'Runs messages through blocked platforms.',
+    'description': 'Carries sealed tubes for people who cannot be seen.',
+    'goal': 'Deliver the anonymous schedule before noon.',
+    'avatar': 'assets/images/mock_avatars/avatar_nia.png',
+    'location_id': 'loc_gate',
+  },
+  {
+    'type': 'ai',
+    'status': 10,
+    'player_uid': '',
+    'character_id': 'c_mock_jules',
+    'name': 'Jules Quill',
+    'identity': 'Permit Forger',
+    'tagline': 'Makes documents look older than the city.',
+    'description': 'Trades forged stamps for secrets about train delays.',
+    'goal': 'Slip one fake manifest past the guards.',
+    'avatar': 'assets/images/mock_avatars/avatar_jules.png',
+    'location_id': 'loc_gate',
+  },
+  {
+    'type': 'ai',
+    'status': 10,
+    'player_uid': '',
+    'character_id': 'c_mock_mira',
+    'name': 'Mira Kest',
+    'identity': 'Market Broker',
+    'tagline': 'Prices favors by the minute.',
+    'description': 'Runs the exchange board at Brass Market.',
+    'goal': 'Stabilize tool prices before panic spreads.',
+    'avatar': 'assets/images/mock_avatars/avatar_mira.png',
+    'location_id': 'loc_market',
+  },
+  {
+    'type': 'ai',
+    'status': 10,
+    'player_uid': '',
+    'character_id': 'c_mock_finn',
+    'name': 'Finn Copper',
+    'identity': 'Parts Runner',
+    'tagline': 'Knows which bins have real brass.',
+    'description': 'Sprints replacement parts between stalls and workshops.',
+    'goal': 'Find a relay coil before the next outage.',
+    'avatar': 'assets/images/mock_avatars/avatar_orren.png',
+    'location_id': 'loc_market',
+  },
+  {
+    'type': 'ai',
+    'status': 10,
+    'player_uid': '',
+    'character_id': 'c_mock_senna',
+    'name': 'Senna Volt',
+    'identity': 'Battery Trader',
+    'tagline': 'Never sells the final charge.',
+    'description': 'Hoards and lends portable batteries during grid failures.',
+    'goal': 'Decide which district receives emergency power.',
+    'avatar': 'assets/images/mock_avatars/avatar_lena.png',
+    'location_id': 'loc_market',
+  },
+  {
+    'type': 'player',
+    'status': 10,
+    'player_uid': 'u_mock_peer',
+    'character_id': 'c_mock_bram',
+    'name': 'Bram Coil',
+    'identity': 'Workshop Rival',
+    'tagline': 'Smiles whenever a rival gauge breaks.',
+    'description': 'Competes with Iris for city repair contracts.',
+    'goal': 'Win the mayoral maintenance bid.',
+    'avatar': 'assets/images/mock_avatars/avatar_crow.png',
+    'location_id': 'loc_market',
+  },
+  {
+    'type': 'ai',
+    'status': 10,
+    'player_uid': '',
+    'character_id': 'c_mock_vale',
+    'name': 'Vale Ember',
+    'identity': 'Street Chemist',
+    'tagline': 'Turns boiler soot into medicine.',
+    'description': 'Mixes emergency salves under an awning of old tickets.',
+    'goal': 'Treat the workers sick from copper fog.',
+    'avatar': 'assets/images/mock_avatars/avatar_iris.png',
+    'location_id': 'loc_market',
+  },
+  {
+    'type': 'ai',
+    'status': 10,
+    'player_uid': '',
+    'character_id': 'c_mock_rook',
+    'name': 'Rook Under',
+    'identity': 'Tunnel Scout',
+    'tagline': 'Maps the city from below.',
+    'description': 'Marks safe routes through the Underworks in chalk.',
+    'goal': 'Find the new vibration source.',
+    'avatar': 'assets/images/mock_avatars/avatar_toma.png',
+    'location_id': 'loc_underworks',
+  },
+  {
+    'type': 'ai',
+    'status': 10,
+    'player_uid': '',
+    'character_id': 'c_mock_elda',
+    'name': 'Elda Gear',
+    'identity': 'Lift Keeper',
+    'tagline': 'Keeps the old freight lifts moving.',
+    'description': 'Can hear a broken pulley before anyone else.',
+    'goal': 'Stop the lower lift from dropping into the dark.',
+    'avatar': 'assets/images/mock_avatars/avatar_nia.png',
+    'location_id': 'loc_underworks',
+  },
+  {
+    'type': 'ai',
+    'status': 10,
+    'player_uid': '',
+    'character_id': 'c_mock_asha',
+    'name': 'Asha Skye',
+    'identity': 'Airdock Pilot',
+    'tagline': 'Lands through smoke by memory.',
+    'description': 'Flies tiny cargo craft between rooftop mooring towers.',
+    'goal': 'Keep the airdock clear for evacuation craft.',
+    'avatar': 'assets/images/mock_avatars/avatar_mira.png',
+    'location_id': 'loc_airdock',
   },
 ];
 
@@ -235,11 +406,39 @@ const List<Map<String, dynamic>> kMockV1Locations = [
     'x_percent': 70.0,
     'y_percent': 35.0,
   },
+  {
+    'location_id': 'loc_market',
+    'name': 'Brass Market',
+    'description':
+        'A crowded exchange of pressure valves, battery favors, and bad news.',
+    'image': '',
+    'x_percent': 47.0,
+    'y_percent': 58.0,
+  },
+  {
+    'location_id': 'loc_underworks',
+    'name': 'Underworks',
+    'description': 'Maintenance tunnels that shake when the city lies.',
+    'image': '',
+    'x_percent': 22.0,
+    'y_percent': 68.0,
+  },
+  {
+    'location_id': 'loc_airdock',
+    'name': 'Airdock Nine',
+    'description': 'A rooftop mooring tower above the copper fog.',
+    'image': '',
+    'x_percent': 78.0,
+    'y_percent': 60.0,
+  },
 ];
 
 const List<Map<String, dynamic>> kMockV1Events = [
   {'content': 'Steam pressure spikes near the Central Hub.'},
   {'content': 'A suspicious crate arrives at the Rail Gate.'},
+  {'content': 'Brass Market doubles the price of working relay coils.'},
+  {'content': 'A new vibration echoes through the Underworks.'},
+  {'content': 'Airdock Nine delays every departure until the fog thins.'},
 ];
 
 const Map<String, dynamic> kMockV1World = {
@@ -251,7 +450,7 @@ const Map<String, dynamic> kMockV1World = {
   'is_join': 1,
   'apply_status': 'success',
   'name': 'Steam Kingdom Live',
-  'cover': '',
+  'cover': kMockV1SteamMapImage,
   'display_subtitle': kMockV1SteamSubtitle,
   'world_view': 'A city powered by steam and fragile alliances.',
   'world_setting': 'Players negotiate with inventors and rail guardians.',
@@ -282,7 +481,7 @@ const List<Map<String, dynamic>> kMockV1Worlds = [
     'is_join': 1,
     'apply_status': 'success',
     'name': 'Neon Harbor Night Shift',
-    'cover': '',
+    'cover': kMockV1SteamMapImage,
     'display_subtitle': kMockV1NeonSubtitle,
     'world_view': 'A vertical port city where memory chips are traded at dusk.',
     'world_setting': 'Players broker deals between dock guilds and rogue AIs.',
@@ -310,7 +509,7 @@ const List<Map<String, dynamic>> kMockV1Worlds = [
     'is_join': 0,
     'apply_status': 'none',
     'name': 'Verdant Academy Term One',
-    'cover': '',
+    'cover': kMockV1SteamMapImage,
     'display_subtitle': kMockV1VerdantSubtitle,
     'world_view':
         'A living campus grows new rooms according to student wishes.',
@@ -339,7 +538,7 @@ const List<Map<String, dynamic>> kMockV1Worlds = [
     'is_join': 1,
     'apply_status': 'success',
     'name': 'Dust Radio Caravan',
-    'cover': '',
+    'cover': kMockV1SteamMapImage,
     'display_subtitle': kMockV1DustSubtitle,
     'world_view': 'A caravan follows radio ghosts through a glass desert.',
     'world_setting': 'Players tune signal towers before the next sand tide.',
@@ -367,7 +566,7 @@ const List<Map<String, dynamic>> kMockV1Worlds = [
     'is_join': 1,
     'apply_status': 'success',
     'name': 'Moonlit Diner Regulars',
-    'cover': '',
+    'cover': kMockV1SteamMapImage,
     'display_subtitle': kMockV1MoonlitSubtitle,
     'world_view': 'A diner appears only to people who cannot sleep.',
     'world_setting':
@@ -391,9 +590,95 @@ const List<Map<String, dynamic>> kMockV1Worlds = [
 
 const List<Map<String, dynamic>> kMockV1Ticks = [
   {
+    'tick_index': 1,
+    'created_at': '2026-05-24T09:00:00Z',
+    'summary': 'The Central Hub wakes under a low copper fog.',
+    'paragraphs': [
+      {
+        'location_id': 'loc_hub',
+        'timestamp': '2026-05-24T09:00:00Z',
+        'text':
+            'Iris calibrates the pressure gauges and notices the city grid humming too early.',
+        'character_deltas': [
+          {'char_id': 'c_mock_iris', 'name': 'Iris Vale', 'delta': '+3 focus'},
+        ],
+      },
+    ],
+  },
+  {
+    'tick_index': 2,
+    'created_at': '2026-05-24T09:10:00Z',
+    'summary': 'Rumors gather at the Rail Gate as inspectors delay departures.',
+    'paragraphs': [
+      {
+        'location_id': 'loc_gate',
+        'timestamp': '2026-05-24T09:10:00Z',
+        'text':
+            'Marshal Crow closes the east turnstile after finding a crate with mismatched seals.',
+        'character_deltas': [
+          {
+            'char_id': 'c_mock_crow',
+            'name': 'Marshal Crow',
+            'delta': '+4 suspicion',
+          },
+        ],
+      },
+    ],
+  },
+  {
     'tick_index': 3,
+    'created_at': '2026-05-24T09:20:00Z',
+    'summary':
+        'A brass relay fails and forces both factions into the same repair queue.',
+    'paragraphs': [
+      {
+        'location_id': 'loc_hub',
+        'timestamp': '2026-05-24T09:20:00Z',
+        'text':
+            'Iris reroutes power through a museum generator while citizens trade battery favors.',
+        'character_deltas': [
+          {
+            'char_id': 'c_mock_iris',
+            'name': 'Iris Vale',
+            'delta': '-2 stamina',
+          },
+        ],
+      },
+      {
+        'location_id': 'loc_gate',
+        'timestamp': '2026-05-24T09:22:00Z',
+        'text':
+            'Crow lets a stranded courier pass after verifying the message tube by hand.',
+        'character_deltas': [
+          {
+            'char_id': 'c_mock_crow',
+            'name': 'Marshal Crow',
+            'delta': '+1 trust',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    'tick_index': 4,
     'created_at': kMockV1Now,
-    'summary': 'Iris warns that pressure is rising.',
+    'summary':
+        'The city stabilizes, but the gauges now point toward an unseen source below the platform.',
+    'paragraphs': [
+      {
+        'location_id': 'loc_hub',
+        'timestamp': kMockV1Now,
+        'text':
+            'Iris marks a new tunnel on the public map and asks for volunteers before the next shift.',
+        'character_deltas': [
+          {
+            'char_id': 'c_mock_iris',
+            'name': 'Iris Vale',
+            'delta': '+5 resolve',
+          },
+        ],
+      },
+    ],
   },
 ];
 

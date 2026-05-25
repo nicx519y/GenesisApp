@@ -74,6 +74,8 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/Genesis.png
+    - assets/images/mock_avatars/
+    - assets/images/mock_maps/
 
   fonts:
     - family: MyFlutterApp

@@ -540,17 +540,12 @@ class GenesisApi {
   }
 
   Future<String> progressWorld(String wid) async {
-    final resolvedUid = await _ensureUid();
-    final json = await _apiClient.post<Object?>(
-      'tick',
-      query: {'user_id': resolvedUid, 'wid': wid},
-      body: const <String, dynamic>{},
-    );
-    final map = asJsonMap(json);
-    if (asInt(map['tick_index']) > 0) {
-      return 'Tick ${asInt(map['tick_index'])}';
+    final map = await v1.world.tick(worldId: wid);
+    final tickCount = asInt(map['tick_cnt']);
+    if (tickCount > 0) {
+      return 'Tick $tickCount';
     }
-    return asString(map['error'], fallback: 'Progress done');
+    return asString(map['status'], fallback: 'Progress done');
   }
 
   Future<JoinedWorld> joinWorld({
@@ -874,6 +869,7 @@ String normalizeRemoteUrl(String url) {
 String resolveAssetUrl(String raw) {
   final value = normalizeRemoteUrl(raw);
   if (value.isEmpty) return '';
+  if (value.startsWith('assets/')) return value;
   if (value.startsWith('http://') || value.startsWith('https://')) return value;
 
   final base = GenesisApi.defaultAssetBaseUrl;
@@ -1098,9 +1094,19 @@ Map<String, dynamic> _normalizeWorldLocation(Map<String, dynamic> location) {
     'location_id': locationId,
     'point_id': pointId,
     'id': pointId,
-    'name': asString(location['name']),
-    'description': asString(location['description']),
-    'icon': asString(location['image']),
+    'location_name': asString(
+      location['location_name'],
+      fallback: asString(location['name']),
+    ),
+    'name': asString(
+      location['location_name'],
+      fallback: asString(location['name']),
+    ),
+    'description': asString(
+      location['location_summary'],
+      fallback: asString(location['description']),
+    ),
+    'icon': asString(location['image'], fallback: asString(location['map'])),
     'x_percent': xPercent,
     'y_percent': yPercent,
   };
@@ -1252,7 +1258,9 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
       .toList(growable: false);
   final ticksRaw = raw['ticks'];
   final ticks = ticksRaw is List
-      ? asJsonList(ticksRaw).map((e) => asJsonMap(e)).toList(growable: false)
+      ? asJsonList(ticksRaw).indexed
+            .map((entry) => _worldTickFromV1(asJsonMap(entry.$2), entry.$1))
+            .toList(growable: false)
       : const <Map<String, dynamic>>[];
   final lastTick = ticks.isNotEmpty ? ticks.last : const <String, dynamic>{};
 
@@ -1302,6 +1310,7 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
       locations: const <OriginLocation>[],
     ),
     characters: characters,
+    ticks: ticks,
     worldLocations: locations,
     characterPositions: characterPositions,
     userPositions: userPositions,
@@ -1365,6 +1374,7 @@ Map<String, dynamic>? _worldCharacterPositionFromV1(Map<String, dynamic> raw) {
     'character': {
       'id': asString(raw['char_id']),
       'name': asString(raw['name']),
+      'type': asString(raw['type']),
       'identity': asString(raw['identity']),
       'tagline': asString(raw['brief']),
       'description': asString(raw['description']),
@@ -1387,6 +1397,25 @@ Map<String, dynamic> _worldCharacterFromV1(Map<String, dynamic> raw) {
     'initial_location_id': asString(raw['initial_location_id']),
     'location_id': asString(raw['location_id']),
     'metric_value': raw['metric_value'],
+  };
+}
+
+Map<String, dynamic> _worldTickFromV1(Map<String, dynamic> raw, int index) {
+  final paragraphsRaw = raw['paragraphs'];
+  final paragraphs = paragraphsRaw is List
+      ? asJsonList(
+          paragraphsRaw,
+        ).map((e) => asJsonMap(e)).toList(growable: false)
+      : const <Map<String, dynamic>>[];
+  final createdAt = raw['created_at'] ?? raw['timestamp'];
+  return {
+    'tick_index': asInt(raw['tick_index'], fallback: index + 1),
+    'created_at': createdAt,
+    'narrator': asString(
+      raw['narrator'],
+      fallback: asString(raw['content'], fallback: asString(raw['summary'])),
+    ),
+    'paragraphs': paragraphs,
   };
 }
 
