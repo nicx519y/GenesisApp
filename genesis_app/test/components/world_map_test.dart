@@ -12,7 +12,7 @@ void main() {
   });
 
   test('mock world data includes dense map points and local avatar assets', () {
-    expect(kMockV1Locations.length, greaterThanOrEqualTo(5));
+    expect(kMockV1Locations.length, greaterThanOrEqualTo(9));
 
     final countsByLocation = <String, int>{};
     for (final character in kMockV1Characters) {
@@ -41,6 +41,15 @@ void main() {
         .toSet();
     expect(avatarPaths.length, greaterThanOrEqualTo(8));
     for (final path in avatarPaths) {
+      expect(File(path).existsSync(), isTrue, reason: path);
+    }
+
+    final locationCoverPaths = kMockV1Locations
+        .map((location) => '${location['image']}')
+        .where((path) => path.startsWith('assets/images/mock_locations/'))
+        .toSet();
+    expect(locationCoverPaths.length, greaterThanOrEqualTo(9));
+    for (final path in locationCoverPaths) {
       expect(File(path).existsSync(), isTrue, reason: path);
     }
   });
@@ -175,6 +184,69 @@ void main() {
     final secondCenter = tester.getCenter(avatars.at(1));
     expect((firstCenter - secondCenter).distance, lessThan(42));
   });
+
+  testWidgets('points list shows root header and indents child locations', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      showPointsList: true,
+      points: const [
+        WorldPoint(
+          id: 'root',
+          name: 'Root Gate',
+          type: WorldPointType.portal,
+          position: _pointPosition,
+          users: [],
+          iconUrl: kMockV1SteamMapImage,
+        ),
+        WorldPoint(
+          id: 'level-1',
+          name: 'Rail Gate',
+          type: WorldPointType.shop,
+          position: _pointPosition,
+          users: [],
+          iconUrl: kMockV1SteamMapImage,
+          depth: 1,
+        ),
+        WorldPoint(
+          id: 'level-2',
+          name: 'Airdock Nine',
+          type: WorldPointType.camp,
+          position: _pointPosition,
+          users: [],
+          iconUrl: kMockV1SteamMapImage,
+          depth: 2,
+        ),
+      ],
+    );
+
+    final list = find.byType(ListView);
+    expect(find.byType(WorldLocationList), findsOneWidget);
+    final rootTitle = find.descendant(
+      of: list,
+      matching: find.text('- Root Gate'),
+    );
+    final levelOneTitle = find.descendant(
+      of: list,
+      matching: find.text('Rail Gate'),
+    );
+    final levelTwoTitle = find.descendant(
+      of: list,
+      matching: find.text('Airdock Nine'),
+    );
+
+    expect(rootTitle, findsOneWidget);
+    expect(levelOneTitle, findsOneWidget);
+    expect(levelTwoTitle, findsOneWidget);
+    expect(find.byType(Divider), findsNWidgets(2));
+    expect(find.byIcon(Icons.place), findsNWidgets(2));
+    expect(
+      tester.getTopLeft(levelTwoTitle).dx - tester.getTopLeft(levelOneTitle).dx,
+      closeTo(15, 0.01),
+    );
+  });
 }
 
 const _mapSize = Size(375, 670);
@@ -184,6 +256,8 @@ Future<void> _pumpWorldMap(
   WidgetTester tester, {
   required List<UserAvatar> users,
   String mapImageUrl = '',
+  bool showPointsList = false,
+  List<WorldPoint>? points,
 }) async {
   tester.view.physicalSize = const Size(430, 820);
   tester.view.devicePixelRatio = 1;
@@ -200,15 +274,18 @@ Future<void> _pumpWorldMap(
             height: _mapSize.height,
             child: WorldMap(
               mapImageUrl: mapImageUrl,
-              points: [
-                WorldPoint(
-                  id: 'point-1',
-                  name: 'Gate',
-                  type: WorldPointType.portal,
-                  position: _pointPosition,
-                  users: users,
-                ),
-              ],
+              showPointsList: showPointsList,
+              points:
+                  points ??
+                  [
+                    WorldPoint(
+                      id: 'point-1',
+                      name: 'Gate',
+                      type: WorldPointType.portal,
+                      position: _pointPosition,
+                      users: users,
+                    ),
+                  ],
             ),
           ),
         ),

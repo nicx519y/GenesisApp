@@ -75,6 +75,7 @@ flutter:
   assets:
     - assets/images/Genesis.png
     - assets/images/mock_avatars/
+    - assets/images/mock_locations/
     - assets/images/mock_maps/
 
   fonts:

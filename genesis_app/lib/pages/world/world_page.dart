@@ -10,6 +10,7 @@ import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
 import '../../components/world_top_overlay_bar.dart';
 import '../../network/genesis_api.dart';
+import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
@@ -168,7 +169,16 @@ class _WorldPageState extends State<WorldPage>
     final avatarsByLocation = _avatarsByLocationFromCharacterPositions(
       world.characterPositions,
     );
-    final points = world.worldLocations.isNotEmpty
+    final locationNodes = flattenLocationTree(world.worldLocationTree);
+    final points = locationNodes.isNotEmpty
+        ? _pointsFromWorldLocations(
+            locationNodes.map((node) => node.value).toList(growable: false),
+            avatarsByLocation,
+            depths: locationNodes
+                .map((node) => node.depth)
+                .toList(growable: false),
+          )
+        : world.worldLocations.isNotEmpty
         ? _pointsFromWorldLocations(world.worldLocations, avatarsByLocation)
         : _pointsFromLocationIds(
             world.characterPositions
@@ -1152,8 +1162,9 @@ String _initials(String name) {
 
 List<WorldPoint> _pointsFromWorldLocations(
   List<Map<String, dynamic>> locations,
-  Map<String, List<UserAvatar>> avatarsByLocation,
-) {
+  Map<String, List<UserAvatar>> avatarsByLocation, {
+  List<int>? depths,
+}) {
   if (locations.isEmpty) return const <WorldPoint>[];
 
   return List<WorldPoint>.generate(locations.length, (i) {
@@ -1221,6 +1232,7 @@ List<WorldPoint> _pointsFromWorldLocations(
       pointId: pointId,
       iconUrl: icon,
       description: description,
+      depth: depths == null || i >= depths.length ? 0 : depths[i],
     );
   });
 }

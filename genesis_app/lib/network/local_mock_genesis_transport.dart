@@ -1698,7 +1698,7 @@ class _MockState {
   Map<String, dynamic> _contractLocation(Map<String, dynamic> location) {
     return {
       'location_id': location['location_id'],
-      'location_pid': '',
+      'location_pid': location['location_pid'] ?? '',
       'location_name': location['name'],
       'location_summary': location['description'],
       'image': location['image'],

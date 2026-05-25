@@ -3,6 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../ui/components/genesis_character_avatar.dart';
+import 'world_location_list.dart';
+import 'world_point.dart';
+
+export 'world_location_list.dart';
+export 'world_point.dart';
 
 class WorldMap extends StatelessWidget {
   const WorldMap({
@@ -58,7 +63,7 @@ class WorldMap extends StatelessWidget {
               child: IgnorePointer(
                 ignoring: showPointsList,
                 child: Opacity(
-                  opacity: showPointsList ? 0.25 : 1,
+                  opacity: showPointsList ? 0.6 : 1,
                   child: Stack(
                     children: [
                       for (final p in points)
@@ -96,112 +101,16 @@ class WorldMap extends StatelessWidget {
             if (showPointsList)
               Positioned.fill(
                 top: overlayTop,
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  itemCount: points.length,
-                  separatorBuilder: (context, index) =>
-                      const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final p = points[index];
-                    return InkWell(
-                      onTap: onPointTap == null ? null : () => onPointTap!(p),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF3F4F6),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: Center(child: _PointLabel(point: p)),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.place,
-                                        size: 14,
-                                        color: Colors.black,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: Text(
-                                          p.name,
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w900,
-                                            color: Colors.black,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  if (p.users.isNotEmpty)
-                                    Wrap(
-                                      spacing: 12,
-                                      runSpacing: 6,
-                                      children: [
-                                        for (final u in p.users.take(2))
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(
-                                                Icons.person,
-                                                size: 14,
-                                                color: Colors.black,
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                u.name ?? u.initials,
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: Colors.black
-                                                      .withValues(alpha: 0.8),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                      ],
-                                    ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    p.description.isEmpty
-                                        ? 'Explore this location and its stories.'
-                                        : p.description,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      height: 1.25,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.black.withValues(
-                                        alpha: 0.7,
-                                      ),
-                                    ),
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: WorldLocationList(
+                        points: points,
+                        onPointTap: onPointTap,
                       ),
-                    );
-                  },
+                    ),
+                    const SizedBox(height: 150),
+                  ],
                 ),
               ),
           ],
@@ -331,46 +240,6 @@ class _WorldPointPositioned extends StatelessWidget {
     );
   }
 }
-
-class WorldPoint {
-  const WorldPoint({
-    required this.id,
-    required this.name,
-    required this.type,
-    required this.position,
-    required this.users,
-    this.sceneId = '',
-    this.pointId = '',
-    this.iconUrl = '',
-    this.description = '',
-  });
-
-  final String id;
-  final String name;
-  final WorldPointType type;
-  final Offset position;
-  final List<UserAvatar> users;
-  final String sceneId;
-  final String pointId;
-  final String iconUrl;
-  final String description;
-}
-
-class UserAvatar {
-  const UserAvatar(
-    this.initials, {
-    this.name,
-    this.avatarUrl = '',
-    this.showStar = false,
-  });
-
-  final String initials;
-  final String? name;
-  final String avatarUrl;
-  final bool showStar;
-}
-
-enum WorldPointType { castle, shop, portal, tavern, camp }
 
 class _WorldPointMarker extends StatelessWidget {
   const _WorldPointMarker({

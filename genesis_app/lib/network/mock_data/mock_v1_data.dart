@@ -12,6 +12,24 @@ const String kMockV1MoonlitSubtitle =
     'Cozy supernatural midnight shop where sleepless guests trade secrets, dreams, and unfinished regrets over impossible pie.';
 const String kMockV1SteamMapImage =
     'assets/images/mock_maps/steam_kingdom_isometric.png';
+const String kMockV1LocationCentralHub =
+    'assets/images/mock_locations/central_hub.png';
+const String kMockV1LocationRailGate =
+    'assets/images/mock_locations/rail_gate.png';
+const String kMockV1LocationBrassMarket =
+    'assets/images/mock_locations/brass_market.png';
+const String kMockV1LocationUnderworks =
+    'assets/images/mock_locations/underworks.png';
+const String kMockV1LocationAirdock =
+    'assets/images/mock_locations/airdock_nine.png';
+const String kMockV1LocationClocktower =
+    'assets/images/mock_locations/clocktower_balcony.png';
+const String kMockV1LocationBoilerArchive =
+    'assets/images/mock_locations/boiler_archive.png';
+const String kMockV1LocationCanalLock =
+    'assets/images/mock_locations/canal_lock.png';
+const String kMockV1LocationSignalWorkshop =
+    'assets/images/mock_locations/signal_workshop.png';
 
 const Map<String, dynamic> kMockV1User = {
   'uid': 'u_mock_001',
@@ -392,44 +410,85 @@ const Map<String, dynamic> kMockV1Metric = {
 const List<Map<String, dynamic>> kMockV1Locations = [
   {
     'location_id': 'loc_hub',
+    'location_pid': '',
     'name': 'Central Hub',
     'description': 'A loud station filled with brass pipes and gossip.',
-    'image': '',
+    'image': kMockV1LocationCentralHub,
     'x_percent': 30.0,
     'y_percent': 45.0,
   },
   {
     'location_id': 'loc_gate',
+    'location_pid': 'loc_hub',
     'name': 'Rail Gate',
     'description': 'The armored gate that controls access to the old rails.',
-    'image': '',
+    'image': kMockV1LocationRailGate,
     'x_percent': 70.0,
     'y_percent': 35.0,
   },
   {
     'location_id': 'loc_market',
+    'location_pid': 'loc_hub',
     'name': 'Brass Market',
     'description':
         'A crowded exchange of pressure valves, battery favors, and bad news.',
-    'image': '',
+    'image': kMockV1LocationBrassMarket,
     'x_percent': 47.0,
     'y_percent': 58.0,
   },
   {
+    'location_id': 'loc_clocktower',
+    'location_pid': 'loc_hub',
+    'name': 'Clocktower Balcony',
+    'description': 'A wind-cut ledge where brass bells count every bargain.',
+    'image': kMockV1LocationClocktower,
+    'x_percent': 58.0,
+    'y_percent': 24.0,
+  },
+  {
+    'location_id': 'loc_canal',
+    'location_pid': 'loc_hub',
+    'name': 'Canal Lock',
+    'description': 'A misty valve bridge that lifts cargo through the city.',
+    'image': kMockV1LocationCanalLock,
+    'x_percent': 36.0,
+    'y_percent': 72.0,
+  },
+  {
     'location_id': 'loc_underworks',
+    'location_pid': 'loc_market',
     'name': 'Underworks',
     'description': 'Maintenance tunnels that shake when the city lies.',
-    'image': '',
+    'image': kMockV1LocationUnderworks,
     'x_percent': 22.0,
     'y_percent': 68.0,
   },
   {
     'location_id': 'loc_airdock',
+    'location_pid': 'loc_gate',
     'name': 'Airdock Nine',
     'description': 'A rooftop mooring tower above the copper fog.',
-    'image': '',
+    'image': kMockV1LocationAirdock,
     'x_percent': 78.0,
     'y_percent': 60.0,
+  },
+  {
+    'location_id': 'loc_boiler_archive',
+    'location_pid': 'loc_clocktower',
+    'name': 'Boiler Archive',
+    'description': 'A sealed records room warmed by humming pressure tanks.',
+    'image': kMockV1LocationBoilerArchive,
+    'x_percent': 63.0,
+    'y_percent': 42.0,
+  },
+  {
+    'location_id': 'loc_signal_workshop',
+    'location_pid': 'loc_canal',
+    'name': 'Signal Workshop',
+    'description': 'A narrow repair shop where relay lamps blink in code.',
+    'image': kMockV1LocationSignalWorkshop,
+    'x_percent': 42.0,
+    'y_percent': 84.0,
   },
 ];
 

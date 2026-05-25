@@ -16,6 +16,20 @@ void main() {
     final firstOrigin = origins.data.first;
     final detail = await api.getOrigin(firstOrigin.oid);
     expect(detail.name.isNotEmpty, true);
+    expect(detail.locationTree.map((node) => node.id), ['loc_hub']);
+    expect(detail.locationTree.first.children.map((node) => node.id), [
+      'loc_gate',
+      'loc_market',
+      'loc_clocktower',
+      'loc_canal',
+    ]);
+    expect(
+      detail.locationTree.first.children
+          .expand((node) => node.children)
+          .map((node) => node.depth)
+          .toSet(),
+      {2},
+    );
 
     final world = await api.launchWorld(
       originId: firstOrigin.id,
@@ -26,6 +40,18 @@ void main() {
 
     final worldDetail = await api.getWorld(world.wid);
     expect(worldDetail.worldLocations.isNotEmpty, true);
+    expect(worldDetail.worldLocationTree.map((node) => node.id), ['loc_hub']);
+    expect(
+      worldDetail.worldLocationTree.first.children.map((node) => node.id),
+      ['loc_gate', 'loc_market', 'loc_clocktower', 'loc_canal'],
+    );
+    expect(
+      worldDetail.worldLocationTree.first.children
+          .expand((node) => node.children)
+          .map((node) => node.depth)
+          .toSet(),
+      {2},
+    );
 
     final before = await api.getLocationMessages(
       wid: world.wid,
@@ -140,7 +166,7 @@ void main() {
       action: 'approve',
     );
     await api.v1.world.join(wid: world);
-    await api.v1.world.progress(wid: world);
+    await api.v1.world.tick(worldId: world);
     await api.v1.world.syncLatestOrigin(wid: world);
 
     var unreadSummary = await api.v1.messages.unreadSummary();

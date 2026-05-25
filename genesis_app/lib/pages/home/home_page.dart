@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/genesis_logo.dart';
+import '../../components/home/popular_origin_list.dart';
 import '../../components/home/world_item_card.dart';
 import '../../components/origin/origin_item_card.dart';
 import '../../components/secend_tabs.dart';
@@ -520,42 +520,15 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
                 ),
               ],
             )
-          : MasonryGridView.builder(
-              key: const PageStorageKey<String>('home-feed-popular'),
+          : PopularOriginList(
+              storageKey: const PageStorageKey<String>('home-feed-popular'),
+              items: _items,
               controller: _scrollController,
-              primary: false,
-              cacheExtent: 900,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              gridDelegate:
-                  const SliverSimpleGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                  ),
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 11,
-              itemCount: _items.length + (_isLoadingMore ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index >= _items.length) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 18),
-                    child: Center(
-                      child: SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-                  );
-                }
-                final item = _items[index];
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => Navigator.of(context).pushNamed(
-                    RouteNames.originWorld,
-                    arguments: {'originId': 0, 'oid': item.oid},
-                  ),
-                  child: OriginItemCard(item: item),
+              isLoadingMore: _isLoadingMore,
+              onItemTap: (item) {
+                Navigator.of(context).pushNamed(
+                  RouteNames.originWorld,
+                  arguments: {'originId': 0, 'oid': item.oid},
                 );
               },
             ),

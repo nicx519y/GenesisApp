@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../json_utils.dart';
+import 'location_tree.dart';
 
 @immutable
 class OriginListResponse {
@@ -131,6 +132,7 @@ class OriginDetail {
     required this.characters,
     required this.locations,
     this.events = const <OriginEvent>[],
+    this.locationTree = const <LocationTreeNode<OriginLocation>>[],
   });
 
   final int id;
@@ -153,9 +155,15 @@ class OriginDetail {
   final List<OriginCharacter> characters;
   final List<OriginLocation> locations;
   final List<OriginEvent> events;
+  final List<LocationTreeNode<OriginLocation>> locationTree;
 
   factory OriginDetail.fromJson(Map<String, dynamic> json) {
     final mapImage = asString(json['map_image']);
+    final locations = (json['locations'] is List)
+        ? asJsonList(json['locations'])
+              .map((e) => OriginLocation.fromJson(asJsonMap(e)))
+              .toList(growable: false)
+        : const <OriginLocation>[];
     return OriginDetail(
       id: asInt(json['id']),
       oid: asString(json['oid']),
@@ -179,16 +187,17 @@ class OriginDetail {
                 .map((e) => OriginCharacter.fromJson(asJsonMap(e)))
                 .toList(growable: false)
           : const <OriginCharacter>[],
-      locations: (json['locations'] is List)
-          ? asJsonList(json['locations'])
-                .map((e) => OriginLocation.fromJson(asJsonMap(e)))
-                .toList(growable: false)
-          : const <OriginLocation>[],
+      locations: locations,
       events: (json['events'] is List)
           ? asJsonList(json['events'])
                 .map((e) => OriginEvent.fromJson(asJsonMap(e)))
                 .toList(growable: false)
           : const <OriginEvent>[],
+      locationTree: buildLocationTree(
+        locations,
+        idOf: (location) => location.locationId,
+        parentIdOf: (location) => location.parentLocationId,
+      ),
     );
   }
 }
@@ -314,6 +323,8 @@ class OriginLocation {
     required this.yPercent,
     required this.createdAt,
     required this.updatedAt,
+    this.locationId = '',
+    this.parentLocationId = '',
   });
 
   final int id;
@@ -327,6 +338,8 @@ class OriginLocation {
   final double yPercent;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String locationId;
+  final String parentLocationId;
 
   factory OriginLocation.fromJson(Map<String, dynamic> json) {
     final rawX = json['x_percent'] ?? json['xPercent'];
@@ -336,15 +349,23 @@ class OriginLocation {
     return OriginLocation(
       id: asInt(json['id']),
       originId: asInt(json['origin_id']),
-      name: asString(json['name']),
-      icon: asString(json['icon']),
-      description: asString(json['description']),
+      name: asString(json['name'], fallback: asString(json['location_name'])),
+      icon: asString(
+        json['icon'],
+        fallback: asString(json['image'], fallback: asString(json['map'])),
+      ),
+      description: asString(
+        json['description'],
+        fallback: asString(json['location_summary']),
+      ),
       position: asInt(json['position']),
       isActive: asBool(json['is_active']),
       xPercent: x,
       yPercent: y,
       createdAt: asDateTime(json['created_at']),
       updatedAt: asDateTime(json['updated_at']),
+      locationId: asString(json['location_id']),
+      parentLocationId: asString(json['location_pid']),
     );
   }
 }

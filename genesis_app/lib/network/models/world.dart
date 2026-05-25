@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../json_utils.dart';
+import 'location_tree.dart';
 import 'origin.dart';
 
 @immutable
@@ -64,6 +65,7 @@ class WorldDetail {
     required this.characters,
     required this.ticks,
     required this.worldLocations,
+    this.worldLocationTree = const <LocationTreeNode<Map<String, dynamic>>>[],
     required this.characterPositions,
     required this.userPositions,
   });
@@ -87,10 +89,16 @@ class WorldDetail {
   final List<Map<String, dynamic>> characters;
   final List<Map<String, dynamic>> ticks;
   final List<Map<String, dynamic>> worldLocations;
+  final List<LocationTreeNode<Map<String, dynamic>>> worldLocationTree;
   final List<Map<String, dynamic>> characterPositions;
   final List<Map<String, dynamic>> userPositions;
 
   factory WorldDetail.fromJson(Map<String, dynamic> json) {
+    final worldLocations = (json['world_locations'] is List)
+        ? asJsonList(
+            json['world_locations'],
+          ).map((e) => asJsonMap(e)).toList(growable: false)
+        : const <Map<String, dynamic>>[];
     return WorldDetail(
       id: asInt(json['id']),
       wid: asString(json['wid']),
@@ -135,11 +143,12 @@ class WorldDetail {
               json['ticks'],
             ).map((e) => asJsonMap(e)).toList(growable: false)
           : const [],
-      worldLocations: (json['world_locations'] is List)
-          ? asJsonList(
-              json['world_locations'],
-            ).map((e) => asJsonMap(e)).toList(growable: false)
-          : const [],
+      worldLocations: worldLocations,
+      worldLocationTree: buildLocationTree(
+        worldLocations,
+        idOf: (location) => asString(location['location_id']),
+        parentIdOf: (location) => asString(location['location_pid']),
+      ),
       characterPositions: (json['character_positions'] is List)
           ? asJsonList(
               json['character_positions'],

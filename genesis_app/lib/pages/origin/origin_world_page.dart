@@ -6,6 +6,7 @@ import '../../components/world_details_shell.dart';
 import '../../components/world_top_overlay_bar.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
+import '../../network/models/location_tree.dart';
 import '../../network/models/origin.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 
@@ -92,10 +93,16 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         final mapImageUrl = _resolveAssetUrl(
           origin.worldMap.isEmpty ? origin.mapImage : origin.worldMap,
         );
-        final points = _pointsFromLocations(
-          origin.locations,
-          origin.characters,
-        );
+        final locationNodes = flattenLocationTree(origin.locationTree);
+        final points = locationNodes.isNotEmpty
+            ? _pointsFromLocations(
+                locationNodes.map((node) => node.value).toList(growable: false),
+                origin.characters,
+                depths: locationNodes
+                    .map((node) => node.depth)
+                    .toList(growable: false),
+              )
+            : _pointsFromLocations(origin.locations, origin.characters);
 
         return Scaffold(
           body: Stack(
@@ -781,8 +788,9 @@ String _fallbackEventTime(int index) {
 
 List<WorldPoint> _pointsFromLocations(
   List<OriginLocation> locations,
-  List<OriginCharacter> characters,
-) {
+  List<OriginCharacter> characters, {
+  List<int>? depths,
+}) {
   if (locations.isEmpty) return const <WorldPoint>[];
 
   final avatarsByLocation = <int, List<UserAvatar>>{};
@@ -827,6 +835,7 @@ List<WorldPoint> _pointsFromLocations(
       users: (avatarsByLocation[l.id] ?? const <UserAvatar>[]),
       iconUrl: _resolveAssetUrl(l.icon),
       description: l.description,
+      depth: depths == null || i >= depths.length ? 0 : depths[i],
     );
   });
 }

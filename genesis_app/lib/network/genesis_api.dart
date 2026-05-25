@@ -6,6 +6,7 @@ import 'api_client.dart';
 import 'api_exception.dart';
 import 'json_utils.dart';
 import 'local_mock_genesis_transport.dart';
+import 'models/location_tree.dart';
 import 'models/origin.dart';
 import 'models/paged_response.dart';
 import 'models/user.dart';
@@ -1072,6 +1073,8 @@ List<OriginLocation> _originLocationsFromV5(Object? raw, int originId) {
           yPercent: y,
           createdAt: null,
           updatedAt: null,
+          locationId: asString(p['location_id'], fallback: '$id'),
+          parentLocationId: asString(p['location_pid']),
         );
       })
       .toList(growable: false);
@@ -1079,6 +1082,7 @@ List<OriginLocation> _originLocationsFromV5(Object? raw, int originId) {
 
 Map<String, dynamic> _normalizeWorldLocation(Map<String, dynamic> location) {
   final locationId = asString(location['location_id']);
+  final parentLocationId = asString(location['location_pid']);
   final pointId = locationId;
   final xPercentRaw = location['x_percent'];
   final yPercentRaw = location['y_percent'];
@@ -1092,6 +1096,7 @@ Map<String, dynamic> _normalizeWorldLocation(Map<String, dynamic> location) {
 
   return {
     'location_id': locationId,
+    'location_pid': parentLocationId,
     'point_id': pointId,
     'id': pointId,
     'location_name': asString(
@@ -1134,6 +1139,11 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
             .map((e) => _originLocationFromV1(asJsonMap(e), id))
             .toList(growable: false)
       : const <OriginLocation>[];
+  final locationTree = buildLocationTree(
+    locations,
+    idOf: (location) => location.locationId,
+    parentIdOf: (location) => location.parentLocationId,
+  );
   final events = _originEventsFromV1(raw);
 
   return OriginDetail(
@@ -1182,6 +1192,7 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
     ),
     characters: characters,
     locations: locations,
+    locationTree: locationTree,
     events: events,
   );
 }
@@ -1242,6 +1253,11 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
             .map((e) => _normalizeWorldLocation(asJsonMap(e)))
             .toList(growable: false)
       : const <Map<String, dynamic>>[];
+  final locationTree = buildLocationTree(
+    locations,
+    idOf: (location) => asString(location['location_id']),
+    parentIdOf: (location) => asString(location['location_pid']),
+  );
   final charactersRaw = raw['characters'];
   final characters = charactersRaw is List
       ? asJsonList(charactersRaw)
@@ -1312,6 +1328,7 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
     characters: characters,
     ticks: ticks,
     worldLocations: locations,
+    worldLocationTree: locationTree,
     characterPositions: characterPositions,
     userPositions: userPositions,
   );
@@ -1346,6 +1363,7 @@ OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
 
 OriginLocation _originLocationFromV1(Map<String, dynamic> raw, int originId) {
   final locationId = asString(raw['location_id']);
+  final parentLocationId = asString(raw['location_pid']);
   return OriginLocation(
     id: asInt(raw['id'], fallback: _stableInt(locationId)),
     originId: originId,
@@ -1363,6 +1381,8 @@ OriginLocation _originLocationFromV1(Map<String, dynamic> raw, int originId) {
     yPercent: _asDouble(raw['y_percent']),
     createdAt: _apiDateTime(raw['created_at']),
     updatedAt: _apiDateTime(raw['updated_at']),
+    locationId: locationId,
+    parentLocationId: parentLocationId,
   );
 }
 
