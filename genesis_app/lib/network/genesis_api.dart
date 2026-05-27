@@ -720,6 +720,7 @@ class GenesisApi {
     required Map<String, dynamic> payload,
   }) async {
     final created = await v1.origin.create(
+      originId: asString(payload['origin_id']),
       name: asString(payload['name']),
       worldView: asString(payload['world_view']),
       worldSetting: asString(payload['world_setting']),

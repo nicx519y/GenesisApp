@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../components/page_header.dart';
 import '../../ui/genesis_ui.dart';
 import 'create_form_widgets.dart';
 import 'create_origin_draft_store.dart';
+import 'create_origin_id_utils.dart';
 
 class CreateCharactersPage extends StatefulWidget {
   const CreateCharactersPage({super.key});
@@ -16,7 +19,10 @@ class _CreateCharactersPageState extends State<CreateCharactersPage> {
   static const int _maxCharacters = 8;
 
   final List<_CharacterForm> _forms = <_CharacterForm>[];
+  Timer? _tempSaveDebounce;
+  String _uid = 'anonymous';
   bool _isSaving = false;
+  bool _isFinalSynced = false;
 
   @override
   void initState() {
@@ -25,14 +31,18 @@ class _CreateCharactersPageState extends State<CreateCharactersPage> {
   }
 
   Future<void> _bootstrap() async {
+    final uidFuture = readCreateOriginUid(context);
     final draft = await CreateOriginDraftStore.load();
+    _uid = await uidFuture;
     final source = draft.characters.isEmpty
         ? const <CharacterDraft>[CharacterDraft()]
         : draft.characters;
+    final missingIds = source.any((item) => item.charId.trim().isEmpty);
     for (final item in source) {
-      _forms.add(_CharacterForm.fromDraft(item));
+      _forms.add(_CharacterForm.fromDraft(item, uid: _uid));
     }
     if (!mounted) return;
+    _isFinalSynced = draft.charactersSaved && !missingIds;
     setState(() {});
   }
 
@@ -41,7 +51,14 @@ class _CreateCharactersPageState extends State<CreateCharactersPage> {
       _showError('You can add up to $_maxCharacters characters.');
       return;
     }
-    setState(() => _forms.add(_CharacterForm.empty()));
+    setState(() {
+      _forms.add(
+        _CharacterForm.empty(
+          charId: createUidTimestampHashId(uid: _uid, prefix: 'char'),
+        ),
+      );
+    });
+    _onFormChanged();
   }
 
   Future<void> _requestRemoveCharacter(int index) async {
@@ -63,7 +80,44 @@ class _CreateCharactersPageState extends State<CreateCharactersPage> {
       final form = _forms.removeAt(index);
       form.dispose();
     }
-    setState(() {});
+    _onFormChanged();
+  }
+
+  void _onFormChanged() {
+    _tempSaveDebounce?.cancel();
+    _tempSaveDebounce = Timer(const Duration(seconds: 10), () {
+      unawaited(_writeTempDraft());
+    });
+    setState(() => _isFinalSynced = false);
+  }
+
+  List<CharacterDraft> _snapshotCharacters() {
+    return _forms
+        .map(
+          (form) => CharacterDraft(
+            charId: form.charId,
+            avatarUrl: form.avatarUrl.text.trim(),
+            name: form.name.text.trim(),
+            identity: form.identity.text.trim(),
+            personality: form.personality.text.trim(),
+            bio: form.bio.text.trim(),
+            goal: form.goal.text.trim(),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<void> _writeTempDraft() async {
+    final characters = _snapshotCharacters();
+    final draft = await CreateOriginDraftStore.load();
+    final validCharacterIds = characters
+        .map((item) => item.charId.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    final updatedDraft = draft
+        .copyWith(characters: characters, charactersSaved: false)
+        .pruneLocationBindings(validCharacterIds);
+    await CreateOriginDraftStore.saveTemp(updatedDraft, syncedToFinal: false);
   }
 
   Future<void> _saveCharacters() async {
@@ -85,25 +139,23 @@ class _CreateCharactersPageState extends State<CreateCharactersPage> {
 
     setState(() => _isSaving = true);
     final draft = await CreateOriginDraftStore.load();
-    final characters = _forms
-        .map(
-          (form) => CharacterDraft(
-            avatarUrl: form.avatarUrl.text.trim(),
-            name: form.name.text.trim(),
-            identity: form.identity.text.trim(),
-            personality: form.personality.text.trim(),
-            bio: form.bio.text.trim(),
-            goal: form.goal.text.trim(),
-          ),
-        )
-        .toList(growable: false);
+    final characters = _snapshotCharacters();
+    final validCharacterIds = characters
+        .map((item) => item.charId.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    final updatedDraft = draft
+        .copyWith(characters: characters, charactersSaved: true)
+        .pruneLocationBindings(validCharacterIds);
 
-    await CreateOriginDraftStore.save(
-      draft.copyWith(characters: characters, charactersSaved: true),
-    );
+    _tempSaveDebounce?.cancel();
+    await CreateOriginDraftStore.saveFinal(updatedDraft);
 
     if (!mounted) return;
-    setState(() => _isSaving = false);
+    setState(() {
+      _isSaving = false;
+      _isFinalSynced = true;
+    });
     Navigator.of(context).pop(true);
   }
 
@@ -115,6 +167,10 @@ class _CreateCharactersPageState extends State<CreateCharactersPage> {
 
   @override
   void dispose() {
+    _tempSaveDebounce?.cancel();
+    if (!_isFinalSynced) {
+      unawaited(_writeTempDraft());
+    }
     for (final form in _forms) {
       form.dispose();
     }
@@ -129,37 +185,49 @@ class _CreateCharactersPageState extends State<CreateCharactersPage> {
       body: CreateKeyboardDismissArea(
         child: SafeArea(
           top: false,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 14, 24, 28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (int i = 0; i < _forms.length; i++) ...[
-                  _CharacterCard(
-                    index: i + 1,
-                    form: _forms[i],
-                    onChanged: () => setState(() {}),
-                    onDelete: () {
-                      _requestRemoveCharacter(i);
-                    },
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 14, 24, 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (int i = 0; i < _forms.length; i++) ...[
+                        _CharacterCard(
+                          index: i + 1,
+                          form: _forms[i],
+                          onChanged: _onFormChanged,
+                          onDelete: () {
+                            _requestRemoveCharacter(i);
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      CreateAddButton(
+                        label: '+ Add Character',
+                        onTap: _addCharacter,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-                ],
-                CreateAddButton(label: '+ Add Character', onTap: _addCharacter),
-                const SizedBox(height: 12),
-              ],
-            ),
+                ),
+              ),
+              SafeArea(
+                top: false,
+                minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
+                child: GenesisPrimaryButton(
+                  label: _isSaving ? 'Saving...' : 'Save',
+                  onPressed: (_isSaving || _isFinalSynced)
+                      ? null
+                      : _saveCharacters,
+                  backgroundColor: createFormGreen,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: const Color(0xFFBFD8CD),
+                ),
+              ),
+            ],
           ),
-        ),
-      ),
-      bottomNavigationBar: CreateKeyboardAwareSaveBar(
-        minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
-        child: GenesisPrimaryButton(
-          label: _isSaving ? 'Saving...' : 'Save',
-          onPressed: _isSaving ? null : _saveCharacters,
-          backgroundColor: createFormGreen,
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: const Color(0xFFBFD8CD),
         ),
       ),
     );
@@ -264,6 +332,7 @@ class _CharacterCard extends StatelessWidget {
 
 class _CharacterForm {
   _CharacterForm({
+    required this.charId,
     required this.avatarUrl,
     required this.name,
     required this.identity,
@@ -272,8 +341,9 @@ class _CharacterForm {
     required this.goal,
   });
 
-  factory _CharacterForm.empty() {
+  factory _CharacterForm.empty({required String charId}) {
     return _CharacterForm(
+      charId: charId,
       avatarUrl: TextEditingController(),
       name: TextEditingController(),
       identity: TextEditingController(),
@@ -283,8 +353,14 @@ class _CharacterForm {
     );
   }
 
-  factory _CharacterForm.fromDraft(CharacterDraft draft) {
+  factory _CharacterForm.fromDraft(
+    CharacterDraft draft, {
+    required String uid,
+  }) {
     return _CharacterForm(
+      charId: draft.charId.trim().isEmpty
+          ? createUidTimestampHashId(uid: uid, prefix: 'char')
+          : draft.charId.trim(),
       avatarUrl: TextEditingController(text: draft.avatarUrl),
       name: TextEditingController(text: draft.name),
       identity: TextEditingController(text: draft.identity),
@@ -294,6 +370,7 @@ class _CharacterForm {
     );
   }
 
+  final String charId;
   final TextEditingController avatarUrl;
   final TextEditingController name;
   final TextEditingController identity;

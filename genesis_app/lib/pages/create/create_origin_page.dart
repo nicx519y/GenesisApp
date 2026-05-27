@@ -29,7 +29,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
   }
 
   Future<void> _reloadDraft() async {
-    final draft = await CreateOriginDraftStore.load();
+    final draft = await CreateOriginDraftStore.loadFinal();
     if (!mounted) return;
     setState(() {
       _draft = draft;
@@ -47,7 +47,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
   }
 
   Future<void> _onCreate() async {
-    final latest = await CreateOriginDraftStore.load();
+    final latest = await CreateOriginDraftStore.loadFinal();
     if (!mounted) return;
     final errors = latest.validateForSubmit();
     if (errors.isNotEmpty) {
@@ -94,10 +94,6 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  String _statusFor(bool saved) {
-    return saved ? 'Completed' : 'Not started yet';
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -121,25 +117,29 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
                     _SectionRow(
                       icon: '🌐',
                       title: 'Basics',
-                      status: _statusFor(_draft.basicsSaved),
+                      summary: _basicsSummary(_draft),
+                      completed: _draft.basicsSaved,
                       onTap: () => _openSection(const CreateBasicsPage()),
                     ),
                     _SectionRow(
                       icon: '👤',
                       title: 'Characters',
-                      status: _statusFor(_draft.charactersSaved),
+                      summary: _charactersSummary(_draft),
+                      completed: _draft.charactersSaved,
                       onTap: () => _openSection(const CreateCharactersPage()),
                     ),
                     _SectionRow(
                       icon: '📍',
-                      title: 'Locations (Optional)',
-                      status: _statusFor(_draft.locationsSaved),
+                      title: 'Locations',
+                      summary: _locationsSummary(_draft),
+                      completed: _draft.locationsSaved,
                       onTap: () => _openSection(const CreateLocationsPage()),
                     ),
                     _SectionRow(
                       icon: '📜',
                       title: 'Story Events (Optional)',
-                      status: _statusFor(_draft.storyEventsSaved),
+                      summary: _storyEventsSummary(_draft),
+                      completed: _draft.storyEventsSaved,
                       showDivider: false,
                       onTap: () => _openSection(const CreateStoryEventsPage()),
                     ),
@@ -163,6 +163,51 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
         ),
       ),
     );
+  }
+
+  String _basicsSummary(CreateOriginDraft draft) {
+    if (!draft.basicsSaved) return 'Not started yet';
+    final basics = draft.basics;
+    return [
+      'World Name: ${_summaryValue(basics.originName)}',
+      'World View: ${_summaryValue(basics.worldView)}',
+      'World Logic: ${_summaryValue(basics.worldLogic, maxLength: 36)}',
+      'Cover Image: ${basics.coverImageUrl.trim().isEmpty ? 'Not uploaded' : 'Uploaded'}',
+    ].join('\n');
+  }
+
+  String _charactersSummary(CreateOriginDraft draft) {
+    if (!draft.charactersSaved) return 'Not started yet';
+    final names = draft.characters
+        .map((item) => item.name.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    return '${names.length} characters: ${_summaryValue(names.join(', '), maxLength: 42)}';
+  }
+
+  String _locationsSummary(CreateOriginDraft draft) {
+    if (!draft.locationsSaved) return 'Not started yet';
+    final names = draft.locations
+        .map((item) => item.name.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    return '${names.length} locations: ${_summaryValue(names.join(', '), maxLength: 42)}';
+  }
+
+  String _storyEventsSummary(CreateOriginDraft draft) {
+    if (!draft.storyEventsSaved) return 'Not started yet';
+    final count = draft.storyEvents
+        .map((item) => item.event.trim())
+        .where((item) => item.isNotEmpty)
+        .length;
+    return '$count Events';
+  }
+
+  String _summaryValue(String value, {int maxLength = 48}) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '-';
+    if (trimmed.length <= maxLength) return trimmed;
+    return '${trimmed.substring(0, maxLength)}...';
   }
 }
 
@@ -248,14 +293,16 @@ class _SectionRow extends StatelessWidget {
   const _SectionRow({
     required this.icon,
     required this.title,
-    required this.status,
+    required this.summary,
+    required this.completed,
     this.showDivider = true,
     this.onTap,
   });
 
   final String icon;
   final String title;
-  final String status;
+  final String summary;
+  final bool completed;
   final bool showDivider;
   final VoidCallback? onTap;
 
@@ -280,22 +327,31 @@ class _SectionRow extends StatelessWidget {
                         style: const TextStyle(
                           color: Colors.black,
                           fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w400,
+                          height: 1.12,
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        status,
-                        style: TextStyle(
-                          color: status == 'Completed'
-                              ? const Color(0xFF198B64)
-                              : const Color(0xFF6F6F6F),
-                          fontSize: 12,
+                      for (final line in summary.split('\n'))
+                        Text(
+                          line,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF6F6F6F),
+                            fontSize: 12,
+                            height: 1.18,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
+                if (completed) ...[
+                  const SizedBox(width: 12),
+                  const Icon(Icons.check, size: 28, color: Color(0xFF00834C)),
+                ],
+                const SizedBox(width: 12),
                 const Icon(
                   Icons.chevron_right,
                   size: 24,

@@ -15,6 +15,8 @@ const Color createFormMuted = Color(0xFF6F6F6F);
 const Color createFormBorder = Color(0xFFE1E1E6);
 const Color createFormDash = Color(0xFFB8CDBF);
 
+final Object createFormTextFieldTapRegionGroup = Object();
+
 class CreateTextFieldBlock extends StatelessWidget {
   const CreateTextFieldBlock({
     super.key,
@@ -70,27 +72,32 @@ class CreateTextFieldBlock extends StatelessWidget {
             children: [
               if (prefix != null) ...[prefix!, const SizedBox(width: 8)],
               Expanded(
-                child: TextField(
-                  controller: controller,
-                  onChanged: onChanged,
-                  maxLength: maxLength,
-                  minLines: minLines,
-                  maxLines: maxLines,
-                  style: const TextStyle(
-                    color: createFormText,
-                    fontSize: 14,
-                    height: 1.42,
-                  ),
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    counterText: '',
-                    hintText: hintText,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                    hintStyle: const TextStyle(
-                      color: createFormHint,
+                child: TextFieldTapRegion(
+                  groupId: createFormTextFieldTapRegionGroup,
+                  child: TextField(
+                    controller: controller,
+                    onChanged: onChanged,
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
+                    maxLength: maxLength,
+                    minLines: minLines,
+                    maxLines: maxLines,
+                    style: const TextStyle(
+                      color: createFormText,
                       fontSize: 14,
                       height: 1.42,
+                    ),
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      counterText: '',
+                      hintText: hintText,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      hintStyle: const TextStyle(
+                        color: createFormHint,
+                        fontSize: 14,
+                        height: 1.42,
+                      ),
                     ),
                   ),
                 ),
@@ -126,32 +133,7 @@ class CreateKeyboardDismissArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: child,
-    );
-  }
-}
-
-class CreateKeyboardAwareSaveBar extends StatelessWidget {
-  const CreateKeyboardAwareSaveBar({
-    super.key,
-    required this.child,
-    this.minimum = const EdgeInsets.fromLTRB(20, 8, 20, 14),
-  });
-
-  final Widget child;
-  final EdgeInsets minimum;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SafeArea(top: false, minimum: minimum, child: child),
-    );
+    return child;
   }
 }
 

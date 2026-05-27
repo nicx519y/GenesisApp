@@ -6,6 +6,7 @@ import '../../components/page_header.dart';
 import '../../components/me/user_profile_content.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/origin.dart';
+import '../../utils/relative_time_formatter.dart';
 
 class UserInfoPage extends StatefulWidget {
   const UserInfoPage({super.key, required this.uid});
@@ -168,7 +169,7 @@ String _originSubtitle(OriginSummary item) {
       ? '-'
       : item.originator.trim();
   final version = item.versionNum <= 0 ? '-' : 'V${item.versionNum}';
-  final updated = _relativeTime(item.updatedAt);
+  final updated = formatRelativeTime(item.updatedAt);
   return 'OID: $oid  Originator: $originator\n'
       'Latest Version: $version · $updated';
 }
@@ -177,26 +178,6 @@ String _worldSubtitle(String wid, String ownerName) {
   final displayWid = wid.trim().isEmpty ? '-' : wid.trim();
   final owner = ownerName.trim().isEmpty ? '-' : ownerName.trim();
   return 'WID: $displayWid  Owner: $owner';
-}
-
-String _relativeTime(DateTime? time) {
-  if (time == null) return '-';
-  final diff = DateTime.now().difference(time);
-  if (diff.isNegative || diff.inMinutes < 1) return 'just now';
-  if (diff.inHours < 1) return _plural(diff.inMinutes, 'minute');
-  if (diff.inDays < 1) return _plural(diff.inHours, 'hour');
-  if (diff.inDays < 7) return _plural(diff.inDays, 'day');
-  if (diff.inDays < 30) return _plural(diff.inDays ~/ 7, 'week');
-  if (diff.inDays < 365) {
-    final months = diff.inDays ~/ 30;
-    if (months == 6) return 'half a year ago';
-    return _plural(months, 'month');
-  }
-  return _plural(diff.inDays ~/ 365, 'year');
-}
-
-String _plural(int value, String unit) {
-  return '$value $unit${value == 1 ? '' : 's'} ago';
 }
 
 String _mapString(

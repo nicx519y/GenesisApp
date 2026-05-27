@@ -679,13 +679,13 @@ void main() {
     expect(apiTransport.lastRequest!.uri.queryParameters['rn'], '10');
   });
 
-  test('v1 dm send posts snake_case JSON body', () async {
+  test('v1 direct message send posts Apifox JSON body', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
         headers: {'content-type': 'application/json'},
         body:
-            '{"err_no":0,"err_str":"success","data":{"message":{"message_id":"m1"}}}',
+            '{"err_no":0,"err_msg":"succ","data":{"message":{"msg_id":"m1"}}}',
       ),
     );
     final healthTransport = _FakeTransport(
@@ -697,21 +697,17 @@ void main() {
     );
 
     final api = _apiWith(apiTransport, healthTransport);
-    await api.v1.dm.send(
-      targetUid: 'U_2',
-      content: 'hello',
-      clientMsgId: 'client-1',
-    );
+    await api.v1.dm.send(peerUid: 'U_2', content: 'hello');
 
     expect(apiTransport.lastRequest!.method, 'POST');
-    expect(apiTransport.lastRequest!.uri.path, '/api/v1/dm/send');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/direct_message/send');
     final body = jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!));
-    expect(body['target_uid'], 'U_2');
+    expect(body['peer_uid'], 'U_2');
     expect(body['content'], 'hello');
-    expect(body['client_msg_id'], 'client-1');
     expect(body.containsKey('targetUid'), isFalse);
-    expect(body.containsKey('clientMsgId'), isFalse);
-    expect(body.containsKey('conversation_id'), isFalse);
+    expect(body.containsKey('peerUid'), isFalse);
+    expect(body.containsKey('target_uid'), isFalse);
+    expect(body.containsKey('client_msg_id'), isFalse);
   });
 
   test('v1 API throws ApiException when err_no is non-zero', () async {

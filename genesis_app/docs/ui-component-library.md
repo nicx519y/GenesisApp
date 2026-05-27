@@ -33,6 +33,13 @@ import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 新增样式时先判断是否是全局语义。如果多个页面会共用，放入 token；如果只是某个业务卡片的个性样式，保留在对应业务组件内。
 
+## Create Flow Typography
+
+- Create 入口页的分组标题使用 `14px`，例如 `Basics`、`Characters`、`Locations`、`Story Events`。
+- Create 入口页的终表摘要正文使用 `12px`，例如 `World Name: ...`、`1 characters: ...`、`2 Events`。
+- Create 入口页 Basics 摘要里的 `World Name`、`World View`、`World Logic` 每项固定单行显示，超长内容使用省略号，不允许自动换行。
+- 分组完成态使用绿色 check 图标表达，不再用 `Completed` 文案占用摘要位置。
+
 ## Theme
 
 全局主题由 `GenesisTheme.light()` 提供，并在 `lib/app/genesis_app.dart` 的 `MaterialApp.theme` 中使用。主题负责基础 Material 控件默认值，例如：

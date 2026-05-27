@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../components/page_header.dart';
@@ -18,6 +20,8 @@ class _CreateStoryEventsPageState extends State<CreateStoryEventsPage> {
       <TextEditingController>[];
 
   bool _isSaving = false;
+  bool _isFinalSynced = false;
+  Timer? _tempSaveDebounce;
 
   @override
   void initState() {
@@ -34,6 +38,7 @@ class _CreateStoryEventsPageState extends State<CreateStoryEventsPage> {
       _eventControllers.add(TextEditingController(text: event.event));
     }
     if (!mounted) return;
+    _isFinalSynced = draft.storyEventsSaved;
     setState(() {});
   }
 
@@ -43,6 +48,7 @@ class _CreateStoryEventsPageState extends State<CreateStoryEventsPage> {
       return;
     }
     setState(() => _eventControllers.add(TextEditingController()));
+    _onFormChanged();
   }
 
   Future<void> _requestRemoveEvent(int index) async {
@@ -64,22 +70,47 @@ class _CreateStoryEventsPageState extends State<CreateStoryEventsPage> {
       final controller = _eventControllers.removeAt(index);
       controller.dispose();
     }
-    setState(() {});
+    _onFormChanged();
+  }
+
+  void _onFormChanged() {
+    _tempSaveDebounce?.cancel();
+    _tempSaveDebounce = Timer(const Duration(seconds: 10), () {
+      unawaited(_writeTempDraft());
+    });
+    setState(() => _isFinalSynced = false);
+  }
+
+  List<StoryEventDraft> _snapshotEvents() {
+    return _eventControllers
+        .map((controller) => StoryEventDraft(event: controller.text.trim()))
+        .toList(growable: false);
+  }
+
+  Future<void> _writeTempDraft() async {
+    final events = _snapshotEvents();
+    final draft = await CreateOriginDraftStore.load();
+    await CreateOriginDraftStore.saveTemp(
+      draft.copyWith(storyEvents: events, storyEventsSaved: false),
+      syncedToFinal: false,
+    );
   }
 
   Future<void> _saveEvents() async {
     setState(() => _isSaving = true);
     final draft = await CreateOriginDraftStore.load();
-    final events = _eventControllers
-        .map((controller) => StoryEventDraft(event: controller.text.trim()))
-        .toList(growable: false);
+    final events = _snapshotEvents();
 
-    await CreateOriginDraftStore.save(
+    _tempSaveDebounce?.cancel();
+    await CreateOriginDraftStore.saveFinal(
       draft.copyWith(storyEvents: events, storyEventsSaved: true),
     );
 
     if (!mounted) return;
-    setState(() => _isSaving = false);
+    setState(() {
+      _isSaving = false;
+      _isFinalSynced = true;
+    });
     Navigator.of(context).pop(true);
   }
 
@@ -91,6 +122,10 @@ class _CreateStoryEventsPageState extends State<CreateStoryEventsPage> {
 
   @override
   void dispose() {
+    _tempSaveDebounce?.cancel();
+    if (!_isFinalSynced) {
+      unawaited(_writeTempDraft());
+    }
     for (final controller in _eventControllers) {
       controller.dispose();
     }
@@ -105,58 +140,65 @@ class _CreateStoryEventsPageState extends State<CreateStoryEventsPage> {
       body: CreateKeyboardDismissArea(
         child: SafeArea(
           top: false,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(22, 16, 22, 28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Optional story beats or scenes. Each event is free text; keep them short and clear for the world runtime.',
-                  style: TextStyle(
-                    color: createFormMuted,
-                    fontSize: 14,
-                    height: 1.4,
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(22, 16, 22, 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Optional story beats or scenes. Each event is free text; keep them short and clear for the world runtime.',
+                        style: TextStyle(
+                          color: createFormMuted,
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${_eventControllers.length}/$_maxEvents (Added / Max)',
+                          style: const TextStyle(
+                            color: createFormText,
+                            fontSize: 12,
+                            height: 1.2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      for (int i = 0; i < _eventControllers.length; i++) ...[
+                        _StoryEventCard(
+                          index: i + 1,
+                          controller: _eventControllers[i],
+                          onChanged: _onFormChanged,
+                          onDelete: () {
+                            _requestRemoveEvent(i);
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      CreateAddButton(label: '+ Add Event', onTap: _addEvent),
+                      const SizedBox(height: 12),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 24),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    '${_eventControllers.length}/$_maxEvents (Added / Max)',
-                    style: const TextStyle(
-                      color: createFormText,
-                      fontSize: 12,
-                      height: 1.2,
-                    ),
-                  ),
+              ),
+              SafeArea(
+                top: false,
+                minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
+                child: GenesisPrimaryButton(
+                  label: _isSaving ? 'Saving...' : 'Save',
+                  onPressed: (_isSaving || _isFinalSynced) ? null : _saveEvents,
+                  backgroundColor: createFormGreen,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: const Color(0xFFBFD8CD),
                 ),
-                const SizedBox(height: 18),
-                for (int i = 0; i < _eventControllers.length; i++) ...[
-                  _StoryEventCard(
-                    index: i + 1,
-                    controller: _eventControllers[i],
-                    onChanged: () => setState(() {}),
-                    onDelete: () {
-                      _requestRemoveEvent(i);
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                CreateAddButton(label: '+ Add Event', onTap: _addEvent),
-                const SizedBox(height: 12),
-              ],
-            ),
+              ),
+            ],
           ),
-        ),
-      ),
-      bottomNavigationBar: CreateKeyboardAwareSaveBar(
-        minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
-        child: GenesisPrimaryButton(
-          label: _isSaving ? 'Saving...' : 'Save',
-          onPressed: _isSaving ? null : _saveEvents,
-          backgroundColor: createFormGreen,
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: const Color(0xFFBFD8CD),
         ),
       ),
     );

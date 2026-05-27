@@ -77,6 +77,7 @@ class OriginV1Api extends V1ApiResource {
   /// {"err_no":0,"err_str":"success","data":{"origin":{"oid":"string","status":1,"version_num":1,"name":"string","cover":"string","display_subtitle":"string","world_view":"string","world_setting":"string","created_uid":"string","created_user_name":"string","created_at":"string","updated_at":"string","tags":[],"copy_cnt":0,"connect_cnt":0,"discuss_cnt":0,"character_cnt":0,"location_cnt":0,"start_time":"string","tick_duration_days":30},"character_list":[{"character_id":"string","name":"string","identity":"string","tagline":"string","description":"string","goal":"string","avatar":"string","location_id":"string"}],"metric":{"mode":"quantitative","label":"string","unit":"string","range":[0,100],"default":50},"location_list":[{"location_id":"string","name":"string","description":"string","image":"string","x_percent":0,"y_percent":0}],"event_list":[{"content":"string"}]}}
   /// ```
   Future<Map<String, dynamic>> create({
+    String? originId,
     required String name,
     required String worldView,
     required String cover,
@@ -89,6 +90,7 @@ class OriginV1Api extends V1ApiResource {
     return postMap(
       'origin/create',
       v1Body({
+        'origin_id': originId,
         'name': name,
         'world_view': worldView,
         'world_setting': worldSetting,

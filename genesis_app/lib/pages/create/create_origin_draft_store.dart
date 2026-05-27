@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class CreateOriginDraftStore {
   static const String _storageKey = 'create_origin_draft_v1';
+  static const String _tempTableKey = 'create_origin_temp_table_v1';
+  static const String _finalTableKey = 'create_origin_final_table_v1';
 
   static Future<CreateOriginDraft> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -32,9 +34,102 @@ class CreateOriginDraftStore {
     await prefs.setString(_storageKey, jsonEncode(draft.toJson()));
   }
 
+  static Future<void> saveTemp(
+    CreateOriginDraft draft, {
+    required bool syncedToFinal,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final table = _decodeTable(prefs.getString(_tempTableKey));
+    table[_rowIdFor(draft)] = {
+      'synced_to_final': syncedToFinal,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+      'draft': draft.toJson(),
+    };
+    await prefs.setString(_tempTableKey, jsonEncode(table));
+    await save(draft);
+  }
+
+  static Future<void> saveFinal(CreateOriginDraft draft) async {
+    final prefs = await SharedPreferences.getInstance();
+    final rowId = _rowIdFor(draft);
+    final finalTable = _decodeTable(prefs.getString(_finalTableKey));
+    finalTable[rowId] = {
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+      'draft': draft.toJson(),
+    };
+
+    final tempTable = _decodeTable(prefs.getString(_tempTableKey));
+    tempTable[rowId] = {
+      'synced_to_final': true,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+      'draft': draft.toJson(),
+    };
+
+    await prefs.setString(_finalTableKey, jsonEncode(finalTable));
+    await prefs.setString(_tempTableKey, jsonEncode(tempTable));
+    await save(draft);
+  }
+
+  static Future<CreateOriginDraft> loadFinal() async {
+    final prefs = await SharedPreferences.getInstance();
+    final table = _decodeTable(prefs.getString(_finalTableKey));
+    if (table.isEmpty) return CreateOriginDraft.empty();
+
+    final current = await load();
+    final rowId = _rowIdFor(current);
+    final row = table[rowId] ?? table['pending_origin'];
+    final draft = _draftFromTableRow(row);
+    if (draft != null) return draft;
+
+    for (final value in table.values) {
+      final fallbackDraft = _draftFromTableRow(value);
+      if (fallbackDraft != null) return fallbackDraft;
+    }
+    return CreateOriginDraft.empty();
+  }
+
+  static Future<List<CharacterDraft>> loadFinalCharacters() async {
+    final draft = await loadFinal();
+    if (!draft.charactersSaved) return const <CharacterDraft>[];
+    return draft.characters
+        .where(
+          (item) =>
+              item.charId.trim().isNotEmpty && item.name.trim().isNotEmpty,
+        )
+        .toList(growable: false);
+  }
+
   static Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_storageKey);
+    await prefs.remove(_tempTableKey);
+    await prefs.remove(_finalTableKey);
+  }
+
+  static Map<String, dynamic> _decodeTable(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return <String, dynamic>{};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) return decoded.map((k, v) => MapEntry('$k', v));
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+    return <String, dynamic>{};
+  }
+
+  static CreateOriginDraft? _draftFromTableRow(Object? row) {
+    final rowMap = _asMap(row);
+    if (rowMap.isEmpty) return null;
+    final draftMap = _asMap(rowMap['draft']);
+    if (draftMap.isEmpty) return null;
+    return CreateOriginDraft.fromJson(draftMap);
+  }
+
+  static String _rowIdFor(CreateOriginDraft draft) {
+    final originId = draft.basics.originId.trim();
+    if (originId.isNotEmpty) return originId;
+    return 'pending_origin';
   }
 }
 
@@ -149,19 +244,30 @@ class CreateOriginDraft {
     );
   }
 
+  CreateOriginDraft pruneLocationBindings(Set<String> validCharacterIds) {
+    return copyWith(
+      locations: locations
+          .map((item) => item.pruneCharacterBindings(validCharacterIds))
+          .toList(growable: false),
+    );
+  }
+
   bool get hasAllSectionsSaved {
     return basicsSaved && charactersSaved && locationsSaved && storyEventsSaved;
+  }
+
+  bool get hasRequiredSectionsSaved {
+    return basicsSaved && charactersSaved && locationsSaved;
   }
 
   List<String> validateForSubmit() {
     final errors = <String>[];
 
-    if (!hasAllSectionsSaved) {
+    if (!hasRequiredSectionsSaved) {
       final missing = <String>[
         if (!basicsSaved) 'Basics',
         if (!charactersSaved) 'Characters',
         if (!locationsSaved) 'Locations',
-        if (!storyEventsSaved) 'Story Events',
       ];
       errors.add('Please save ${missing.join(', ')} before creating.');
     }
@@ -208,6 +314,8 @@ class CreateOriginDraft {
 
   Map<String, dynamic> toCreateOriginPayload() {
     final payload = <String, dynamic>{
+      if (basics.originId.trim().isNotEmpty)
+        'origin_id': basics.originId.trim(),
       'name': basics.originName.trim(),
       'world_view': basics.worldView.trim(),
       'world_setting': basics.worldLogic.trim(),
@@ -215,6 +323,7 @@ class CreateOriginDraft {
       'character_list': characters
           .map(
             (item) => <String, dynamic>{
+              if (item.charId.trim().isNotEmpty) 'char_id': item.charId.trim(),
               'name': item.name.trim(),
               'identity': item.identity.trim(),
               'tagline': item.personality.trim(),
@@ -227,10 +336,12 @@ class CreateOriginDraft {
       'location_list': locations
           .map(
             (item) => <String, dynamic>{
+              if (item.locationId.trim().isNotEmpty)
+                'location_id': item.locationId.trim(),
               'name': item.name.trim(),
               'image': item.imageUrl.trim(),
               'description': item.description.trim(),
-              'initial_character_indexes': item.initialCharacterIndexes,
+              'initial_character_ids': item.initialCharacterIds,
             },
           )
           .toList(growable: false),
@@ -255,6 +366,7 @@ class CreateOriginDraft {
 
 class BasicsDraft {
   const BasicsDraft({
+    this.originId = '',
     this.originName = '',
     this.worldView = '',
     this.worldLogic = '',
@@ -262,6 +374,7 @@ class BasicsDraft {
     this.coverImageUrl = '',
   });
 
+  final String originId;
   final String originName;
   final String worldView;
   final String worldLogic;
@@ -270,6 +383,7 @@ class BasicsDraft {
 
   factory BasicsDraft.fromJson(Map<String, dynamic> json) {
     return BasicsDraft(
+      originId: _asString(json['origin_id']),
       originName: _asString(json['origin_name']),
       worldView: _asString(json['world_view']),
       worldLogic: _asString(json['world_logic']),
@@ -279,6 +393,7 @@ class BasicsDraft {
   }
 
   BasicsDraft copyWith({
+    String? originId,
     String? originName,
     String? worldView,
     String? worldLogic,
@@ -286,6 +401,7 @@ class BasicsDraft {
     String? coverImageUrl,
   }) {
     return BasicsDraft(
+      originId: originId ?? this.originId,
       originName: originName ?? this.originName,
       worldView: worldView ?? this.worldView,
       worldLogic: worldLogic ?? this.worldLogic,
@@ -296,6 +412,7 @@ class BasicsDraft {
 
   Map<String, dynamic> toJson() {
     return {
+      'origin_id': originId,
       'origin_name': originName,
       'world_view': worldView,
       'world_logic': worldLogic,
@@ -307,6 +424,7 @@ class BasicsDraft {
 
 class CharacterDraft {
   const CharacterDraft({
+    this.charId = '',
     this.avatarUrl = '',
     this.name = '',
     this.identity = '',
@@ -315,6 +433,7 @@ class CharacterDraft {
     this.goal = '',
   });
 
+  final String charId;
   final String avatarUrl;
   final String name;
   final String identity;
@@ -324,6 +443,7 @@ class CharacterDraft {
 
   factory CharacterDraft.fromJson(Map<String, dynamic> json) {
     return CharacterDraft(
+      charId: _asString(json['char_id']),
       avatarUrl: _asString(json['avatar_url']),
       name: _asString(json['name']),
       identity: _asString(json['identity']),
@@ -334,6 +454,7 @@ class CharacterDraft {
   }
 
   CharacterDraft copyWith({
+    String? charId,
     String? avatarUrl,
     String? name,
     String? identity,
@@ -342,6 +463,7 @@ class CharacterDraft {
     String? goal,
   }) {
     return CharacterDraft(
+      charId: charId ?? this.charId,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       name: name ?? this.name,
       identity: identity ?? this.identity,
@@ -353,6 +475,7 @@ class CharacterDraft {
 
   Map<String, dynamic> toJson() {
     return {
+      'char_id': charId,
       'avatar_url': avatarUrl,
       'name': name,
       'identity': identity,
@@ -365,49 +488,63 @@ class CharacterDraft {
 
 class LocationDraft {
   const LocationDraft({
+    this.locationId = '',
     this.imageUrl = '',
     this.name = '',
     this.description = '',
-    this.initialCharacterIndexes = const <int>[],
+    this.initialCharacterIds = const <String>[],
   });
 
+  final String locationId;
   final String imageUrl;
   final String name;
   final String description;
-  final List<int> initialCharacterIndexes;
+  final List<String> initialCharacterIds;
 
   factory LocationDraft.fromJson(Map<String, dynamic> json) {
     return LocationDraft(
+      locationId: _asString(json['location_id']),
       imageUrl: _asString(json['image_url']),
       name: _asString(json['name']),
       description: _asString(json['description']),
-      initialCharacterIndexes: _asList(
-        json['initial_character_indexes'],
-      ).map((item) => int.tryParse('$item') ?? 0).toList(growable: false),
+      initialCharacterIds: _asList(json['initial_character_ids'])
+          .map((item) => '$item'.trim())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false),
     );
   }
 
   LocationDraft copyWith({
+    String? locationId,
     String? imageUrl,
     String? name,
     String? description,
-    List<int>? initialCharacterIndexes,
+    List<String>? initialCharacterIds,
   }) {
     return LocationDraft(
+      locationId: locationId ?? this.locationId,
       imageUrl: imageUrl ?? this.imageUrl,
       name: name ?? this.name,
       description: description ?? this.description,
-      initialCharacterIndexes:
-          initialCharacterIndexes ?? this.initialCharacterIndexes,
+      initialCharacterIds: initialCharacterIds ?? this.initialCharacterIds,
+    );
+  }
+
+  LocationDraft pruneCharacterBindings(Set<String> validCharacterIds) {
+    return copyWith(
+      initialCharacterIds: initialCharacterIds
+          .where(validCharacterIds.contains)
+          .toList(growable: false),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'location_id': locationId,
       'image_url': imageUrl,
       'name': name,
       'description': description,
-      'initial_character_indexes': initialCharacterIndexes,
+      'initial_character_ids': initialCharacterIds,
     };
   }
 }

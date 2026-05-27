@@ -909,35 +909,34 @@ const List<Map<String, dynamic>> kMockV1Notifications = [
 
 const List<Map<String, dynamic>> kMockV1DmMessages = [
   {
-    'message_id': 'dm_msg_001',
-    'conversation_id': 'dm_conv_001',
-    'seq': 1,
+    'msg_id': 'DM_MOCK_001',
+    'conv_id': 'DMC_MOCK_001',
     'sender_uid': 'u_mock_peer',
-    'message_type': 'text',
+    'receiver_uid': 'u_mock_001',
     'content': 'Ready to test the local mock service?',
-    'create_time': '2026-05-20T09:55:00Z',
+    'created_at': 1797731700,
   },
   {
-    'message_id': 'dm_msg_002',
-    'conversation_id': 'dm_conv_001',
-    'seq': 2,
+    'msg_id': 'DM_MOCK_002',
+    'conv_id': 'DMC_MOCK_001',
     'sender_uid': 'u_mock_001',
-    'message_type': 'text',
+    'receiver_uid': 'u_mock_peer',
     'content': 'Yes, keep everything deterministic.',
-    'create_time': '2026-05-20T09:56:00Z',
+    'created_at': 1797731760,
   },
 ];
 
 const Map<String, dynamic> kMockV1DmConversation = {
-  'conversation_id': 'dm_conv_001',
-  'peer_name': 'Penny Hardaway',
-  'peer_uid': 'u_mock_peer',
-  'peer_avatar': '',
-  'last_message_text': 'Yes, keep everything deterministic.',
-  'last_message_at': '2026-05-20T09:56:00Z',
-  'last_message_sender_uid': 'u_mock_001',
-  'unread_cnt': 0,
-  'dm_permission': 'unlimited',
+  'conv_id': 'DMC_MOCK_001',
+  'peer': kMockV1PeerUser,
+  'last_message': 'Yes, keep everything deterministic.',
+  'last_message_at': 1797731760,
+  'last_sender_uid': 'u_mock_001',
+  'unread_cnt': 1,
+  'is_friend': true,
+  'i_blocked_peer': false,
+  'peer_blocked_me': false,
+  'can_send_next_message': true,
 };
 
 const List<Map<String, dynamic>> kMockV1DiscussPosts = [

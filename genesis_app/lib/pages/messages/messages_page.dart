@@ -2,11 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../components/page_header.dart';
-import '../../network/models/unread_summary.dart';
-import '../../network/models/world_message.dart';
-import '../../routers/app_router.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/page_header.dart';
+import '../../network/json_utils.dart';
+import '../../network/models/unread_summary.dart';
+import '../../routers/app_router.dart';
+import '../../utils/relative_time_formatter.dart';
 import 'message_category_list_page.dart';
 
 class MessagesPage extends StatefulWidget {
@@ -24,112 +25,135 @@ class MessagesPage extends StatefulWidget {
 }
 
 class _MessagesPageState extends State<MessagesPage> {
+  static const _pageSize = 20;
+
+  final _scrollController = ScrollController();
+  Timer? _conversationPollTimer;
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _refreshing = false;
+  int _loadedPageCount = 0;
+  int _total = 0;
   List<_DirectMessageConversation> _conversations = const [];
+
+  bool get _hasMore => _conversations.length < _total;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_loadConversations());
-  }
-
-  Future<void> _loadConversations() async {
-    final api = AppServicesScope.read(context).api;
-    final conversations = <_DirectMessageConversation>[];
-    try {
-      final worlds = await api.getMyWorlds(limit: 12, offset: 0);
-      for (final world in worlds) {
-        final detail = await api.getWorld(world.wid);
-        final location = detail.worldLocations
-            .cast<Map<String, dynamic>>()
-            .firstWhere(
-              (item) => _asString(item['point_id']).trim().isNotEmpty,
-              orElse: () => const <String, dynamic>{},
-            );
-        final pointId = _asString(location['point_id']).trim();
-        final sceneId = _asString(location['location_id']).trim();
-        if (pointId.isEmpty) continue;
-
-        final locationName = _asString(location['location_name']).trim();
-        var preview = '';
-        DateTime? updatedAt = DateTime.tryParse(world.updatedAtText);
-
-        try {
-          final page = await api.getLocationMessages(
-            wid: world.wid,
-            pointId: pointId,
-            locationId: sceneId,
-            limit: 20,
-            offset: 0,
-          );
-          final latest = _findLatest(page.data);
-          if (latest != null) {
-            preview = latest.content.trim();
-            updatedAt = latest.createdAt ?? updatedAt;
-          }
-        } catch (_) {}
-
-        conversations.add(
-          _DirectMessageConversation(
-            wid: world.wid,
-            pointId: pointId,
-            sceneId: sceneId,
-            title: locationName.isEmpty ? world.name : locationName,
-            subtitle: preview,
-            updatedAt: updatedAt,
-          ),
-        );
-      }
-    } catch (_) {}
-
-    conversations.sort((a, b) {
-      final aTime = a.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bTime = b.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      return bTime.compareTo(aTime);
-    });
-
-    if (!mounted) return;
-    setState(() {
-      _conversations = conversations;
-      _loading = false;
+    _scrollController.addListener(_onScroll);
+    unawaited(_loadFirstPage());
+    _conversationPollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      unawaited(_pollConversations());
     });
   }
 
-  WorldMessage? _findLatest(List<WorldMessage> items) {
-    if (items.isEmpty) return null;
-    WorldMessage latest = items.first;
-    var latestMillis =
-        latest.createdAt?.millisecondsSinceEpoch ??
-        DateTime.fromMillisecondsSinceEpoch(0).millisecondsSinceEpoch;
-    for (final item in items.skip(1)) {
-      final itemMillis =
-          item.createdAt?.millisecondsSinceEpoch ??
-          DateTime.fromMillisecondsSinceEpoch(0).millisecondsSinceEpoch;
-      if (itemMillis > latestMillis) {
-        latest = item;
-        latestMillis = itemMillis;
-      }
+  @override
+  void dispose() {
+    _conversationPollTimer?.cancel();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients ||
+        _loading ||
+        _loadingMore ||
+        _refreshing ||
+        !_hasMore) {
+      return;
     }
-    return latest;
+    if (_scrollController.position.extentAfter < 600) {
+      unawaited(_loadNextPage());
+    }
   }
 
-  String _asString(Object? value) {
-    if (value == null) return '';
-    return value.toString();
+  Future<void> _loadFirstPage() async {
+    if (mounted) {
+      setState(() => _loading = true);
+    }
+    await _replaceLoadedPages(pageCount: 1);
+  }
+
+  Future<void> _loadNextPage() async {
+    if (!_hasMore || _loading || _loadingMore || _refreshing) return;
+    final nextPage = _loadedPageCount + 1;
+    setState(() => _loadingMore = true);
+    try {
+      final page = await _fetchConversationsPage(nextPage);
+      if (!mounted) return;
+      setState(() {
+        _conversations = [..._conversations, ...page.items];
+        _loadedPageCount = nextPage;
+        _total = page.total;
+        _loadingMore = false;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('[Messages][DM] load page $nextPage failed: $error');
+      debugPrint('[Messages][DM] stacktrace:\n$stackTrace');
+      if (!mounted) return;
+      setState(() => _loadingMore = false);
+    }
+  }
+
+  Future<void> _pollConversations() async {
+    if (_loading || _loadingMore || _refreshing) return;
+    final pageCount = _loadedPageCount == 0 ? 1 : _loadedPageCount;
+    await _replaceLoadedPages(pageCount: pageCount);
+  }
+
+  Future<void> _replaceLoadedPages({required int pageCount}) async {
+    _refreshing = true;
+    try {
+      final pages = <_DirectMessageConversationPage>[];
+      for (var page = 1; page <= pageCount; page += 1) {
+        pages.add(await _fetchConversationsPage(page));
+      }
+      final conversations = [for (final page in pages) ...page.items];
+      final total = pages.isEmpty ? 0 : pages.last.total;
+      if (!mounted) return;
+      setState(() {
+        _conversations = conversations;
+        _loadedPageCount = pageCount;
+        _total = total;
+        _loading = false;
+        _refreshing = false;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('[Messages][DM] refresh failed: $error');
+      debugPrint('[Messages][DM] stacktrace:\n$stackTrace');
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _refreshing = false;
+      });
+    }
+  }
+
+  Future<_DirectMessageConversationPage> _fetchConversationsPage(
+    int page,
+  ) async {
+    final data = await AppServicesScope.read(
+      context,
+    ).api.v1.dm.conversations(pn: page, rn: _pageSize);
+    final rawItems = data['list'] is List
+        ? asJsonList(data['list'])
+        : const <Object?>[];
+    final items = rawItems
+        .map((item) => _DirectMessageConversation.fromJson(asJsonMap(item)))
+        .toList(growable: false);
+    return _DirectMessageConversationPage(
+      items: items,
+      total: asInt(data['total'], fallback: items.length),
+    );
   }
 
   Future<void> _openConversation(_DirectMessageConversation item) async {
-    await Navigator.of(context).pushNamed(
-      RouteNames.chat,
-      arguments: {
-        'wid': item.wid,
-        'pointId': item.pointId,
-        'sceneId': item.sceneId,
-        'locationName': item.title,
-      },
-    );
+    debugPrint('[Messages][DM] tapped conversation ${item.conversationId}');
     if (!mounted) return;
-    unawaited(_loadConversations());
+    unawaited(_pollConversations());
   }
 
   @override
@@ -185,7 +209,7 @@ class _MessagesPageState extends State<MessagesPage> {
               children: [
                 const Text(
                   'Direct messages',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(width: 6),
                 _UnreadBadge(
@@ -202,7 +226,9 @@ class _MessagesPageState extends State<MessagesPage> {
                 : conversations.isEmpty
                 ? const _NoMessagesFooter()
                 : _ConversationList(
+                    controller: _scrollController,
                     conversations: conversations,
+                    loadingMore: _loadingMore,
                     onTap: _openConversation,
                   ),
           ),
@@ -321,56 +347,74 @@ class _UnreadBadge extends StatelessWidget {
 }
 
 class _ConversationList extends StatelessWidget {
-  const _ConversationList({required this.conversations, required this.onTap});
+  const _ConversationList({
+    required this.controller,
+    required this.conversations,
+    required this.loadingMore,
+    required this.onTap,
+  });
 
+  final ScrollController controller;
   final List<_DirectMessageConversation> conversations;
+  final bool loadingMore;
   final Future<void> Function(_DirectMessageConversation item) onTap;
 
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
+      controller: controller,
       padding: EdgeInsets.only(
         left: 14,
         right: 14,
         top: 4,
         bottom: 18 + MediaQuery.paddingOf(context).bottom,
       ),
-      itemCount: conversations.length,
+      itemCount: conversations.length + (loadingMore ? 1 : 0),
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
+        if (index >= conversations.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
         final item = conversations[index];
-        final subtitle = item.subtitle.isEmpty
-            ? 'Tap to start chatting'
-            : item.subtitle;
         return Material(
           color: const Color(0xFFF6F7F8),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(10),
           child: InkWell(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(10),
             onTap: () => unawaited(onTap(item)),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
               child: Row(
                 children: [
-                  _Avatar(title: item.title),
+                  _Avatar(
+                    avatarUrl: item.avatarUrl,
+                    title: item.peerName,
+                    unreadCount: item.unreadCount,
+                    unreadBadgeKey: ValueKey(
+                      'dm-avatar-${item.conversationId}-unread-badge',
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          item.title,
+                          item.peerName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: Colors.black87,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          subtitle,
+                          item.lastMessage,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -383,12 +427,18 @@ class _ConversationList extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    _formatTime(item.updatedAt),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF9CA0A8),
-                      fontWeight: FontWeight.w600,
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 112),
+                    child: Text(
+                      item.lastMessageAt,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF9CA0A8),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -399,26 +449,20 @@ class _ConversationList extends StatelessWidget {
       },
     );
   }
-
-  static String _formatTime(DateTime? time) {
-    if (time == null) return '';
-    final local = time.toLocal();
-    final now = DateTime.now();
-    final dayStart = DateTime(now.year, now.month, now.day);
-    final targetStart = DateTime(local.year, local.month, local.day);
-    if (targetStart == dayStart) {
-      final hh = local.hour.toString().padLeft(2, '0');
-      final mm = local.minute.toString().padLeft(2, '0');
-      return '$hh:$mm';
-    }
-    return '${local.month}/${local.day}';
-  }
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({required this.title});
+  const _Avatar({
+    required this.avatarUrl,
+    required this.title,
+    required this.unreadCount,
+    required this.unreadBadgeKey,
+  });
 
+  final String avatarUrl;
   final String title;
+  final int unreadCount;
+  final Key unreadBadgeKey;
 
   @override
   Widget build(BuildContext context) {
@@ -426,16 +470,10 @@ class _Avatar extends StatelessWidget {
     final initials = trimmed.isEmpty
         ? 'DM'
         : trimmed.substring(0, trimmed.length >= 2 ? 2 : 1).toUpperCase();
-    return Container(
-      width: 44,
-      height: 44,
+    final fallback = Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF262A33), Color(0xFF4B5565)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: const Color(0xFF262A33),
+        borderRadius: BorderRadius.circular(8),
       ),
       alignment: Alignment.center,
       child: Text(
@@ -447,7 +485,87 @@ class _Avatar extends StatelessWidget {
         ),
       ),
     );
+    final avatar = avatarUrl.trim().isEmpty
+        ? fallback
+        : ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: avatarUrl.startsWith('assets/')
+                ? Image.asset(
+                    avatarUrl,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => fallback,
+                  )
+                : Image.network(
+                    avatarUrl,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => fallback,
+                  ),
+          );
+
+    return SizedBox(
+      width: 48,
+      height: 48,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            bottom: 0,
+            child: SizedBox(width: 44, height: 44, child: avatar),
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: _UnreadBadge(key: unreadBadgeKey, count: unreadCount),
+          ),
+        ],
+      ),
+    );
   }
+}
+
+class _DirectMessageConversationPage {
+  const _DirectMessageConversationPage({
+    required this.items,
+    required this.total,
+  });
+
+  final List<_DirectMessageConversation> items;
+  final int total;
+}
+
+class _DirectMessageConversation {
+  const _DirectMessageConversation({
+    required this.conversationId,
+    required this.avatarUrl,
+    required this.peerName,
+    required this.lastMessage,
+    required this.lastMessageAt,
+    required this.unreadCount,
+  });
+
+  factory _DirectMessageConversation.fromJson(Map<String, dynamic> json) {
+    final peer = asJsonMap(json['peer'] ?? const <String, dynamic>{});
+    return _DirectMessageConversation(
+      conversationId: asString(json['conv_id']),
+      avatarUrl: asString(peer['avatar']),
+      peerName: asString(peer['name'], fallback: 'Unknown user'),
+      lastMessage: asString(json['last_message']),
+      lastMessageAt: formatRelativeTimestamp(json['last_message_at']),
+      unreadCount: asInt(json['unread_cnt']),
+    );
+  }
+
+  final String conversationId;
+  final String avatarUrl;
+  final String peerName;
+  final String lastMessage;
+  final String lastMessageAt;
+  final int unreadCount;
 }
 
 class _NoMessagesFooter extends StatelessWidget {
@@ -472,22 +590,4 @@ class _NoMessagesFooter extends StatelessWidget {
       ),
     );
   }
-}
-
-class _DirectMessageConversation {
-  const _DirectMessageConversation({
-    required this.wid,
-    required this.pointId,
-    required this.sceneId,
-    required this.title,
-    required this.subtitle,
-    required this.updatedAt,
-  });
-
-  final String wid;
-  final String pointId;
-  final String sceneId;
-  final String title;
-  final String subtitle;
-  final DateTime? updatedAt;
 }

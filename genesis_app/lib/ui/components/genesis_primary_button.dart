@@ -11,6 +11,7 @@ class GenesisPrimaryButton extends StatelessWidget {
     this.foregroundColor,
     this.disabledBackgroundColor,
     this.disabledForegroundColor,
+    this.side,
   });
 
   static const double _height = 42;
@@ -28,6 +29,7 @@ class GenesisPrimaryButton extends StatelessWidget {
   final Color? foregroundColor;
   final Color? disabledBackgroundColor;
   final Color? disabledForegroundColor;
+  final BorderSide? side;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +43,7 @@ class GenesisPrimaryButton extends StatelessWidget {
           foregroundColor: foregroundColor,
           disabledBackgroundColor: disabledBackgroundColor,
           disabledForegroundColor: disabledForegroundColor,
+          side: side,
           textStyle: _textStyle,
           shape: const RoundedRectangleBorder(borderRadius: _borderRadius),
           padding: const EdgeInsets.symmetric(horizontal: GenesisSpacing.page),

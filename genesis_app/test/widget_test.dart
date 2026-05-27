@@ -17,6 +17,7 @@ import 'package:genesis_flutter_android/pages/create/create_basics_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_characters_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_locations_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_draft_store.dart';
+import 'package:genesis_flutter_android/pages/create/create_origin_id_utils.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_story_events_page.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
@@ -30,6 +31,7 @@ import 'package:genesis_flutter_android/pages/me/me_page.dart';
 import 'package:genesis_flutter_android/pages/me/settings_page.dart';
 import 'package:genesis_flutter_android/pages/me/user_info_page.dart';
 import 'package:genesis_flutter_android/pages/messages/message_category_list_page.dart';
+import 'package:genesis_flutter_android/pages/messages/messages_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
@@ -525,6 +527,50 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
   }
 }
 
+class _RecordingDmConversationsTransport implements HttpTransport {
+  final requests = <TransportRequest>[];
+  var lastMessage = 'First direct message preview';
+  final lastMessageAt =
+      DateTime.now()
+          .subtract(const Duration(hours: 2))
+          .millisecondsSinceEpoch ~/
+      1000;
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    final path = request.uri.path;
+    Object? data = <String, Object?>{};
+    if (request.method == 'GET' &&
+        path == '/api/v1/direct_message/conversations') {
+      data = {
+        'list': [
+          {
+            'conv_id': 'dm_test_001',
+            'peer': {'uid': 'u_peer_dm', 'name': 'Penny Direct', 'avatar': ''},
+            'last_message': lastMessage,
+            'last_message_at': lastMessageAt,
+            'last_sender_uid': 'u_peer_dm',
+            'unread_cnt': 2,
+            'is_friend': true,
+            'i_blocked_peer': false,
+            'peer_blocked_me': false,
+            'can_send_next_message': true,
+          },
+        ],
+        'total': 1,
+        'pn': int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1,
+        'rn': int.tryParse(request.uri.queryParameters['rn'] ?? '') ?? 20,
+      };
+    }
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({'err_no': 0, 'err_msg': 'succ', 'data': data}),
+    );
+  }
+}
+
 class _RecordingSearchTransport implements HttpTransport {
   final requests = <TransportRequest>[];
 
@@ -837,6 +883,51 @@ void main() {
     expect(find.text('New followers'), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
     expect(find.text('Direct messages'), findsOneWidget);
+  });
+
+  testWidgets('direct messages list uses conversations endpoint and polls', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingDmConversationsTransport();
+    final services = await _testServices(transport: transport, useMock: false);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(services: services, child: const MessagesPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Penny Direct'), findsOneWidget);
+    expect(find.text('First direct message preview'), findsOneWidget);
+    expect(find.text('2 hours ago'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('dm-avatar-dm_test_001-unread-badge')),
+        matching: find.text('2'),
+      ),
+      findsOneWidget,
+    );
+
+    final initialRequest = transport.requests.firstWhere(
+      (request) => request.uri.path == '/api/v1/direct_message/conversations',
+    );
+    expect(initialRequest.uri.queryParameters['pn'], '1');
+    expect(initialRequest.uri.queryParameters['rn'], '20');
+
+    transport.lastMessage = 'Polled direct message preview';
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Polled direct message preview'), findsOneWidget);
+    expect(
+      transport.requests
+          .where(
+            (request) =>
+                request.uri.path == '/api/v1/direct_message/conversations',
+          )
+          .length,
+      greaterThanOrEqualTo(2),
+    );
   });
 
   testWidgets('unread summary renders messages badges', (
@@ -1541,7 +1632,7 @@ void main() {
     Navigator.of(tester.element(find.byType(Scaffold).first)).pop();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Locations (Optional)'));
+    await tester.tap(find.text('Locations'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Locations'), findsWidgets);
     Navigator.of(tester.element(find.byType(Scaffold).first)).pop();
@@ -1550,6 +1641,55 @@ void main() {
     await tester.tap(find.text('Story Events (Optional)'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Story Events'), findsWidgets);
+  });
+
+  testWidgets('create origin page renders final draft summaries', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.saveFinal(
+      const CreateOriginDraft(
+        basics: BasicsDraft(
+          originName: '#Cff',
+          worldView: 'Xkkdd',
+          worldLogic: 'Nfhnnfjdkd dndiengmcksowbdjcxjnsked rules',
+          coverImageUrl: 'https://example.com/cover.png',
+        ),
+        characters: <CharacterDraft>[
+          CharacterDraft(
+            charId: 'char_tff',
+            name: 'Tff',
+            identity: 'Guide',
+            personality: 'Calm',
+          ),
+        ],
+        locations: <LocationDraft>[
+          LocationDraft(locationId: 'location_1', name: 'Jenrn ff'),
+        ],
+        storyEvents: <StoryEventDraft>[
+          StoryEventDraft(event: 'First event'),
+          StoryEventDraft(event: 'Second event'),
+        ],
+        basicsSaved: true,
+        charactersSaved: true,
+        locationsSaved: true,
+        storyEventsSaved: true,
+      ),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('World Name: #Cff'), findsOneWidget);
+    expect(find.textContaining('World View: Xkkdd'), findsOneWidget);
+    final worldLogic = tester.widget<Text>(
+      find.textContaining('World Logic:').first,
+    );
+    expect(worldLogic.maxLines, 1);
+    expect(worldLogic.softWrap, isFalse);
+    expect(find.textContaining('Cover Image: Uploaded'), findsOneWidget);
+    expect(find.text('1 characters: Tff'), findsOneWidget);
+    expect(find.text('1 locations: Jenrn ff'), findsOneWidget);
+    expect(find.text('2 Events'), findsOneWidget);
   });
 
   testWidgets('characters add button appends empty form', (
@@ -1623,6 +1763,85 @@ void main() {
     expect(find.text('Location 2'), findsOneWidget);
   });
 
+  testWidgets('locations character picker reports empty final characters', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('location-character-picker')).first,
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('location-character-picker')).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('There are no characters yet.'), findsOneWidget);
+  });
+
+  testWidgets('locations character picker binds available character ids', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.saveFinal(
+      const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[
+          CharacterDraft(
+            charId: 'char_ari',
+            name: 'Ari',
+            identity: 'Guide',
+            personality: 'Calm',
+          ),
+          CharacterDraft(
+            charId: 'char_bex',
+            name: 'Bex',
+            identity: 'Scout',
+            personality: 'Bold',
+          ),
+        ],
+        locations: <LocationDraft>[LocationDraft()],
+        storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        basicsSaved: false,
+        charactersSaved: true,
+        locationsSaved: false,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('location-character-picker')).first,
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('location-character-picker')).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Select Characters'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const ValueKey('character-picker-tile-char_ari')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Select'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ari'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, 'Gate');
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    final draft = await CreateOriginDraftStore.load();
+    expect(draft.locations.single.initialCharacterIds, <String>['char_ari']);
+  });
+
   testWidgets('story events add button appends empty form', (
     WidgetTester tester,
   ) async {
@@ -1655,6 +1874,25 @@ void main() {
     expect(find.text('Origin Name is required.'), findsOneWidget);
   });
 
+  test('create id helper hashes uid and timestamp deterministically', () {
+    final id = createUidTimestampHashId(
+      uid: 'u_mock',
+      timestamp: DateTime.fromMicrosecondsSinceEpoch(42, isUtc: true),
+      prefix: 'origin',
+    );
+
+    expect(
+      id,
+      createUidTimestampHashId(
+        uid: 'u_mock',
+        timestamp: DateTime.fromMicrosecondsSinceEpoch(42, isUtc: true),
+        prefix: 'origin',
+      ),
+    );
+    expect(id, startsWith('origin_'));
+    expect(id.length, 'origin_'.length + 24);
+  });
+
   testWidgets('create save reports missing local draft sections', (
     WidgetTester tester,
   ) async {
@@ -1665,9 +1903,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text(
-        'Please save Basics, Characters, Locations, Story Events before creating.',
-      ),
+      find.text('Please save Basics, Characters, Locations before creating.'),
       findsOneWidget,
     );
   });
@@ -1676,18 +1912,26 @@ void main() {
     WidgetTester tester,
   ) async {
     final transport = _RecordingCreateOriginTransport();
-    await CreateOriginDraftStore.save(
+    await CreateOriginDraftStore.saveFinal(
       const CreateOriginDraft(
         basics: BasicsDraft(
+          originId: 'origin_local_1',
           originName: 'Crystal City',
           worldView: 'A public world view.',
           worldLogic: 'Hidden rules.',
           coverImageUrl: 'https://example.com/cover.png',
         ),
         characters: <CharacterDraft>[
-          CharacterDraft(name: 'Ari', identity: 'Guide', personality: 'Calm'),
+          CharacterDraft(
+            charId: 'char_local_1',
+            name: 'Ari',
+            identity: 'Guide',
+            personality: 'Calm',
+          ),
         ],
-        locations: <LocationDraft>[LocationDraft(name: 'Gate')],
+        locations: <LocationDraft>[
+          LocationDraft(locationId: 'location_local_1', name: 'Gate'),
+        ],
         storyEvents: <StoryEventDraft>[StoryEventDraft()],
         basicsSaved: true,
         charactersSaved: true,
@@ -1710,10 +1954,16 @@ void main() {
     final requests = transport.requestsFor('/api/v1/origin/create');
     expect(requests, hasLength(1));
     final body = transport.decodedBody(requests.single);
+    expect(body['origin_id'], 'origin_local_1');
     expect(body['name'], 'Crystal City');
     expect(body['cover'], 'https://example.com/cover.png');
     expect(body['character_list'], isA<List>());
+    expect((body['character_list'] as List).single['char_id'], 'char_local_1');
     expect(body['location_list'], isA<List>());
+    expect(
+      (body['location_list'] as List).single['location_id'],
+      'location_local_1',
+    );
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);

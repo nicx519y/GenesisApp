@@ -3,7 +3,7 @@ import 'v1_api_resource.dart';
 class DmV1Api extends V1ApiResource {
   const DmV1Api(super.client);
 
-  /// GET /api/v1/dm/chatlist
+  /// GET /api/v1/direct_message/conversations
   ///
   /// 提交参数:
   /// ```json
@@ -12,166 +12,125 @@ class DmV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"list":[{"conversation_id":"string","peer_name":"string","peer_uid":"string","peer_avatar":"string","last_message_text":"string","last_message_at":"string","last_message_sender_uid":"string","unread_cnt":0,"dm_permission":"unlimited"}],"total":0}}
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"conv_id":"string","peer":{},"last_message":"string","last_message_at":"string","last_sender_uid":"string","unread_cnt":0,"is_friend":true,"i_blocked_peer":false,"peer_blocked_me":false,"can_send_next_message":true}],"total":0,"pn":1,"rn":20}}
   /// ```
-  Future<Map<String, dynamic>> chatList({int? pn, int? rn}) {
-    return getMap('dm/chatlist', v1Query({'pn': pn, 'rn': rn}));
+  Future<Map<String, dynamic>> conversations({int? pn, int? rn}) {
+    return getMap(
+      'direct_message/conversations',
+      v1Query({'pn': pn, 'rn': rn}),
+    );
   }
 
-  /// GET /api/v1/dm/messagelist
+  /// GET /api/v1/direct_message/list
   ///
   /// 提交参数:
   /// ```json
-  /// {"conversation_id":"string","before_seq":24,"rn":20}
+  /// {"peer_uid":"string","pn":1,"rn":20}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"conversation_id":"string","peer_name":"string","peer_uid":"string","peer_avatar":"string","dm_permission":"unlimited","messages":[{"message_id":"string","conversation_id":"string","seq":1,"sender_uid":"string","message_type":"text","content":"string","invite_world_id":"string","invite_origin_id":"string","invite_world_name":"string","inviter_user_name":"string","invite_status":"pending","create_time":"string"}],"has_more":true}}
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"msg_id":"string","conv_id":"string","sender_uid":"string","receiver_uid":"string","content":"string","created_at":"2026-05-23 12:34:56"}],"total":0,"pn":1,"rn":20}}
   /// ```
-  Future<Map<String, dynamic>> messageList({
-    required String conversationId,
-    int? beforeSeq,
+  Future<Map<String, dynamic>> list({
+    required String peerUid,
+    int? pn,
     int? rn,
   }) {
     return getMap(
-      'dm/messagelist',
-      v1Query({
-        'conversation_id': conversationId,
-        'before_seq': beforeSeq,
-        'rn': rn,
-      }),
+      'direct_message/list',
+      v1Query({'peer_uid': peerUid, 'pn': pn, 'rn': rn}),
     );
   }
 
-  /// POST /api/v1/dm/send
+  /// POST /api/v1/direct_message/send
   ///
   /// 提交参数:
   /// ```json
-  /// {"target_uid":"string","conversation_id":"string","content":"string","client_msg_id":"string"}
+  /// {"peer_uid":"string","content":"string"}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"message":{"message_id":"string","conversation_id":"string","seq":1,"sender_uid":"string","message_type":"text","content":"string","create_time":"string"},"permission":{"relation_type":"friend","dm_permission":"unlimited","can_send_now":true,"block_reason":"string","latest_sender_uid":"string","conversation_id":"string"}}}
+  /// {"err_no":0,"err_msg":"succ","data":{"message":{"msg_id":"string","conv_id":"string","sender_uid":"string","receiver_uid":"string","content":"string","created_at":"2026-05-23 12:34:56"},"conversation":{}}}
   /// ```
   Future<Map<String, dynamic>> send({
-    String? targetUid,
-    String? conversationId,
+    required String peerUid,
     required String content,
-    required String clientMsgId,
   }) {
     return postMap(
-      'dm/send',
-      v1Body({
-        'target_uid': targetUid,
-        'conversation_id': conversationId,
-        'content': content,
-        'client_msg_id': clientMsgId,
-      }),
+      'direct_message/send',
+      v1Body({'peer_uid': peerUid, 'content': content}),
     );
   }
 
-  /// POST /api/v1/dm/delchat
+  /// POST /api/v1/direct_message/read
   ///
   /// 提交参数:
   /// ```json
-  /// {"conversation_id":"string"}
+  /// {"peer_uid":"string"}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{}}
+  /// {"err_no":0,"err_msg":"succ","data":{}}
   /// ```
-  Future<void> deleteChat({required String conversationId}) {
-    return postVoid('dm/delchat', {'conversation_id': conversationId});
+  Future<void> markRead({required String peerUid}) {
+    return postVoid('direct_message/read', {'peer_uid': peerUid});
   }
 
-  /// POST /api/v1/dm/delmessage
-  ///
-  /// 提交参数:
-  /// ```json
-  /// {"conversation_id":"string","message_id":"string"}
-  /// ```
+  /// GET /api/v1/direct_message/unread
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{}}
+  /// {"err_no":0,"err_msg":"succ","data":{"unread_cnt":3}}
   /// ```
-  Future<void> deleteMessage({
-    required String conversationId,
-    required String messageId,
-  }) {
-    return postVoid('dm/delmessage', {
-      'conversation_id': conversationId,
-      'message_id': messageId,
-    });
+  Future<Map<String, dynamic>> unread() {
+    return getMap('direct_message/unread');
   }
 
-  /// POST /api/v1/dm/read
+  /// POST /api/v1/direct_message/block
   ///
   /// 提交参数:
   /// ```json
-  /// {"conversation_id":"string","last_read_seq":25}
+  /// {"target_uid":"string"}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{}}
+  /// {"err_no":0,"err_msg":"succ","data":{}}
   /// ```
-  Future<void> markRead({
-    required String conversationId,
-    required int lastReadSeq,
-  }) {
-    return postVoid('dm/read', {
-      'conversation_id': conversationId,
-      'last_read_seq': lastReadSeq,
-    });
+  Future<void> block({required String targetUid}) {
+    return postVoid('direct_message/block', {'target_uid': targetUid});
   }
 
-  /// POST /api/v1/dm/inviteworldcard
+  /// POST /api/v1/direct_message/unblock
   ///
   /// 提交参数:
   /// ```json
-  /// {"conversation_id":"string","world_instance_id":"string","origin_id":"string","client_msg_id":"string"}
+  /// {"target_uid":"string"}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"message":{"message_id":"string","conversation_id":"string","seq":1,"sender_uid":"string","message_type":"invite","invite_world_id":"string","invite_origin_id":"string","invite_world_name":"string","invite_origin_name":"string","inviter_user_name":"string","invite_status":"pending","create_time":"string"}}}
+  /// {"err_no":0,"err_msg":"succ","data":{}}
   /// ```
-  Future<Map<String, dynamic>> inviteWorldCard({
-    required String conversationId,
-    required String worldInstanceId,
-    required String originId,
-    required String clientMsgId,
-  }) {
-    return postMap('dm/inviteworldcard', {
-      'conversation_id': conversationId,
-      'world_instance_id': worldInstanceId,
-      'origin_id': originId,
-      'client_msg_id': clientMsgId,
-    });
+  Future<void> unblock({required String targetUid}) {
+    return postVoid('direct_message/unblock', {'target_uid': targetUid});
   }
 
-  /// POST /api/v1/dm/respondworldcard
+  /// GET /api/v1/direct_message/blocks
   ///
   /// 提交参数:
   /// ```json
-  /// {"invite_id":"string","action":"accept"}
+  /// {"pn":1,"rn":20}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"invite_id":"string","invite_status":"accepted","world_instance_id":"string","origin_id":"string"}}
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{}],"total":0,"pn":1,"rn":20}}
   /// ```
-  Future<Map<String, dynamic>> respondWorldCard({
-    required String inviteId,
-    required String action,
-  }) {
-    return postMap('dm/respondworldcard', {
-      'invite_id': inviteId,
-      'action': action,
-    });
+  Future<Map<String, dynamic>> blocks({int? pn, int? rn}) {
+    return getMap('direct_message/blocks', v1Query({'pn': pn, 'rn': rn}));
   }
 }

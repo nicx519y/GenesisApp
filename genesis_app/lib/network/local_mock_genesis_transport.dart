@@ -374,37 +374,41 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_paged(_state.v1FollowerMessages(), query));
     }
 
-    if (method == 'GET' && path == 'dm/chatlist') {
-      return _v1Ok(_paged(_state.v1DmChatList(), query));
+    if (method == 'GET' && path == 'direct_message/conversations') {
+      return _v1Ok(_paged(_state.v1DmConversations(), query));
     }
 
-    if (method == 'GET' && path == 'dm/messagelist') {
-      return _v1Ok(_state.v1DmMessageList(query['conversation_id']));
+    if (method == 'GET' && path == 'direct_message/list') {
+      return _v1Ok(
+        _paged(_state.v1DmMessagesForPeer(query['peer_uid']), query),
+      );
     }
 
-    if (method == 'POST' && path == 'dm/send') {
-      return _v1Ok(_state.sendV1Dm(body));
+    if (method == 'POST' && path == 'direct_message/send') {
+      return _v1Ok(_state.sendV1DirectMessage(body));
     }
 
-    if (method == 'POST' &&
-        (path == 'dm/delchat' ||
-            path == 'dm/delmessage' ||
-            path == 'dm/read')) {
+    if (method == 'POST' && path == 'direct_message/read') {
+      _state.markV1DirectMessagesRead(body['peer_uid']?.toString());
       return _v1Ok(<String, dynamic>{});
     }
 
-    if (method == 'POST' && path == 'dm/inviteworldcard') {
-      return _v1Ok(_state.v1InviteWorldCard(body));
+    if (method == 'GET' && path == 'direct_message/unread') {
+      return _v1Ok({'unread_cnt': _state.v1DirectMessageUnreadCount()});
     }
 
-    if (method == 'POST' && path == 'dm/respondworldcard') {
-      final action = '${body['action'] ?? 'accept'}';
-      return _v1Ok({
-        'invite_id': '${body['invite_id'] ?? 'invite_mock_001'}',
-        'invite_status': action == 'accept' ? 'accepted' : 'rejected',
-        'world_instance_id': 'w_mock_001',
-        'origin_id': 'o_mock_001',
-      });
+    if (method == 'POST' && path == 'direct_message/block') {
+      _state.blockV1DirectMessagePeer(body['target_uid']?.toString());
+      return _v1Ok(<String, dynamic>{});
+    }
+
+    if (method == 'POST' && path == 'direct_message/unblock') {
+      _state.unblockV1DirectMessagePeer(body['target_uid']?.toString());
+      return _v1Ok(<String, dynamic>{});
+    }
+
+    if (method == 'GET' && path == 'direct_message/blocks') {
+      return _v1Ok(_paged(_state.v1DirectMessageBlocks(), query));
     }
 
     if (method == 'GET' && path == 'discuss/list') {
@@ -542,6 +546,8 @@ class LocalMockGenesisTransport implements HttpTransport {
     return {
       'list': items.sublist(start, end).map(_deepCopyMap).toList(),
       'total': items.length,
+      'pn': page,
+      'rn': size,
     };
   }
 
@@ -587,6 +593,8 @@ class _MockState {
 
   final Map<String, dynamic> _v1User = _deepCopyMap(kMockV1User);
   final Map<String, dynamic> _v1PeerUser = _deepCopyMap(kMockV1PeerUser);
+  late final List<Map<String, dynamic>> _v1DirectMessagePeers =
+      _mockDirectMessagePeers();
   final List<Map<String, dynamic>> _v1Origins = _expandMockV1Origins()
       .map((item) => _deepCopyMap(item))
       .toList(growable: true);
@@ -599,6 +607,8 @@ class _MockState {
   final List<Map<String, dynamic>> _v1DmMessages = kMockV1DmMessages
       .map((item) => _deepCopyMap(item))
       .toList(growable: true);
+  final Set<String> _v1BlockedDirectMessagePeers = <String>{};
+  int _v1DirectMessageUnreadCount = 1;
   final List<Map<String, dynamic>> _v1DiscussPosts = kMockV1DiscussPosts
       .map((item) => _deepCopyMap(item))
       .toList(growable: true);
@@ -1244,66 +1254,122 @@ class _MockState {
     };
   }
 
-  List<Map<String, dynamic>> v1DmChatList() {
-    return [_deepCopyMap(kMockV1DmConversation)];
+  List<Map<String, dynamic>> v1DmConversations() {
+    return [
+      _v1DirectMessageConversation(),
+      for (var index = 1; index < _v1DirectMessagePeers.length; index += 1)
+        _mockDirectMessageConversation(index),
+    ];
   }
 
-  Map<String, dynamic> v1DmMessageList(String? conversationId) {
-    return {
-      'conversation_id': conversationId ?? 'dm_conv_001',
-      'peer_name': _v1PeerUser['name'],
-      'peer_uid': _v1PeerUser['uid'],
-      'peer_avatar': _v1PeerUser['avatar'],
-      'dm_permission': 'unlimited',
-      'messages': _v1DmMessages.map(_deepCopyMap).toList(),
-      'has_more': false,
-    };
+  List<Map<String, dynamic>> v1DmMessagesForPeer(String? peerUid) {
+    if (peerUid != null &&
+        peerUid.trim().isNotEmpty &&
+        peerUid != _v1PeerUser['uid']) {
+      return const <Map<String, dynamic>>[];
+    }
+    return _v1DmMessages.reversed.map(_deepCopyMap).toList(growable: false);
   }
 
-  Map<String, dynamic> sendV1Dm(Map<String, dynamic> body) {
-    final conversationId = '${body['conversation_id'] ?? 'dm_conv_001'}';
-    final nextSeq = _v1DmMessages.isEmpty
-        ? 1
-        : (_v1DmMessages.last['seq'] as int? ?? 0) + 1;
+  Map<String, dynamic> sendV1DirectMessage(Map<String, dynamic> body) {
+    final peerUid = '${body['peer_uid'] ?? _v1PeerUser['uid']}';
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final message = {
-      'message_id': 'dm_msg_${DateTime.now().millisecondsSinceEpoch}',
-      'conversation_id': conversationId,
-      'seq': nextSeq,
+      'msg_id': 'DM_MOCK_${DateTime.now().millisecondsSinceEpoch}',
+      'conv_id': 'DMC_MOCK_001',
       'sender_uid': _v1User['uid'],
-      'message_type': 'text',
+      'receiver_uid': peerUid,
       'content': '${body['content'] ?? ''}',
-      'create_time': DateTime.now().toUtc().toIso8601String(),
+      'created_at': now,
     };
     _v1DmMessages.add(message);
     return {
       'message': _deepCopyMap(message),
-      'permission': {
-        'relation_type': 'friend',
-        'dm_permission': 'unlimited',
-        'can_send_now': true,
-        'block_reason': '',
-        'latest_sender_uid': _v1User['uid'],
-        'conversation_id': conversationId,
-      },
+      'conversation': _v1DirectMessageConversation(),
     };
   }
 
-  Map<String, dynamic> v1InviteWorldCard(Map<String, dynamic> body) {
+  void markV1DirectMessagesRead(String? peerUid) {
+    if (peerUid == null || peerUid.isEmpty || peerUid == _v1PeerUser['uid']) {
+      _v1DirectMessageUnreadCount = 0;
+    }
+  }
+
+  int v1DirectMessageUnreadCount() => _v1DirectMessageUnreadCount;
+
+  void blockV1DirectMessagePeer(String? targetUid) {
+    final uid = targetUid?.trim();
+    if (uid == null || uid.isEmpty) return;
+    _v1BlockedDirectMessagePeers.add(uid);
+  }
+
+  void unblockV1DirectMessagePeer(String? targetUid) {
+    final uid = targetUid?.trim();
+    if (uid == null || uid.isEmpty) return;
+    _v1BlockedDirectMessagePeers.remove(uid);
+  }
+
+  List<Map<String, dynamic>> v1DirectMessageBlocks() {
+    return [
+      if (_v1BlockedDirectMessagePeers.contains(_v1PeerUser['uid']))
+        _deepCopyMap(_v1PeerUser),
+    ];
+  }
+
+  Map<String, dynamic> _v1DirectMessageConversation() {
+    final conversation = _deepCopyMap(kMockV1DmConversation);
+    final latest = _v1DmMessages.isEmpty ? null : _v1DmMessages.last;
+    if (latest != null) {
+      conversation['last_message'] = latest['content'];
+      conversation['last_message_at'] = latest['created_at'];
+      conversation['last_sender_uid'] = latest['sender_uid'];
+    }
+    final iBlockedPeer = _v1BlockedDirectMessagePeers.contains(
+      _v1PeerUser['uid'],
+    );
+    conversation['unread_cnt'] = _v1DirectMessageUnreadCount;
+    conversation['i_blocked_peer'] = iBlockedPeer;
+    conversation['peer_blocked_me'] = false;
+    conversation['can_send_next_message'] = !iBlockedPeer;
+    return conversation;
+  }
+
+  List<Map<String, dynamic>> _mockDirectMessagePeers() {
+    return [
+      _deepCopyMap(_v1PeerUser),
+      for (var index = 2; index <= 25; index += 1)
+        {
+          'uid': 'u_mock_dm_${index.toString().padLeft(3, '0')}',
+          'name': 'DM Contact $index',
+          'avatar': '',
+          'bio': 'Mock direct message contact $index.',
+          'last_login_at': kMockV1Now,
+          'create_at': '2026-05-02T08:00:00Z',
+          'follower_cnt': 10 + index,
+          'following_cnt': 6 + index,
+          'friend_cnt': index % 7,
+          'create_origin_cnt': index % 5,
+          'launch_world_cnt': index % 4,
+          'join_world_cnt': 2 + index,
+        },
+    ];
+  }
+
+  Map<String, dynamic> _mockDirectMessageConversation(int index) {
+    final peer = _v1DirectMessagePeers[index];
+    final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final timestamp = nowSeconds - index * 23 * 60;
     return {
-      'message': {
-        'message_id': 'dm_invite_${DateTime.now().millisecondsSinceEpoch}',
-        'conversation_id': '${body['conversation_id'] ?? 'dm_conv_001'}',
-        'seq': (_v1DmMessages.length + 1),
-        'sender_uid': _v1User['uid'],
-        'message_type': 'invite',
-        'invite_world_id': '${body['world_instance_id'] ?? _v1World['wid']}',
-        'invite_origin_id': '${body['origin_id'] ?? _v1Origin['oid']}',
-        'invite_world_name': _v1World['name'],
-        'invite_origin_name': _v1Origin['name'],
-        'inviter_user_name': _v1User['name'],
-        'invite_status': 'pending',
-        'create_time': DateTime.now().toUtc().toIso8601String(),
-      },
+      'conv_id': 'DMC_MOCK_${(index + 1).toString().padLeft(3, '0')}',
+      'peer': _deepCopyMap(peer),
+      'last_message': 'Mock conversation ${index + 1} preview message.',
+      'last_message_at': timestamp,
+      'last_sender_uid': index.isEven ? peer['uid'] : _v1User['uid'],
+      'unread_cnt': index % 4 == 0 ? index % 9 + 1 : 0,
+      'is_friend': index.isEven,
+      'i_blocked_peer': false,
+      'peer_blocked_me': false,
+      'can_send_next_message': true,
     };
   }
 

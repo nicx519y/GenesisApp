@@ -4,16 +4,17 @@
 - Apifox 分享页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/460308499e0
 - Apifox world tick 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462798656e0
 - Apifox discuss 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462474822e0
+- Apifox direct_message 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462474827e0
 - Apifox upload 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463764231e0
 - Apifox LLM 索引：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/llms.txt
 
-提取时间：2026-05-26
+提取时间：2026-05-27
 
 本文档记录 Flutter 项目当前对齐或待替换的 Apifox HTTP 接口，并对比当前 Flutter 项目中的 `lib/network` HTTP 设计。字段后带 `*` 表示 Apifox 标记为必填。
 
 ## 总览
 
-本文档当前覆盖 19 个接口，分为 `用户`、`origin`、`world`、`discuss` 和 `upload` 五组：
+本文档当前覆盖 27 个接口，分为 `用户`、`origin`、`world`、`discuss`、`direct_message` 和 `upload` 六组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -35,6 +36,14 @@
 | discuss | POST | `/api/v1/discuss/delete` | 删除自己的评论或回复 |
 | discuss | POST | `/api/v1/discuss/like` | 点赞评论或回复 |
 | discuss | POST | `/api/v1/discuss/unlike` | 取消点赞 |
+| direct_message | POST | `/api/v1/direct_message/send` | 给指定用户发送私信 |
+| direct_message | GET | `/api/v1/direct_message/conversations` | 拉取我的会话列表 |
+| direct_message | GET | `/api/v1/direct_message/list` | 拉取与指定用户的消息列表 |
+| direct_message | POST | `/api/v1/direct_message/read` | 把与某 peer 的会话标记为已读 |
+| direct_message | GET | `/api/v1/direct_message/unread` | 获取我的私信未读总数 |
+| direct_message | POST | `/api/v1/direct_message/block` | 拉黑指定用户 |
+| direct_message | POST | `/api/v1/direct_message/unblock` | 取消拉黑 |
+| direct_message | GET | `/api/v1/direct_message/blocks` | 拉取我的拉黑列表 |
 | upload | POST | `/api/v1/upload/image` | 上传图片到阿里云 OSS |
 
 所有 Apifox 200 响应都使用 envelope：
@@ -70,6 +79,28 @@
 - `is_followed*`: boolean
 - `followed_me*`: boolean
 - `is_friend*`: boolean
+
+### DirectMessage
+
+- `msg_id*`: string
+- `conv_id*`: string
+- `sender_uid*`: string
+- `receiver_uid*`: string
+- `content*`: string，非空且长度不超过 1000 字符
+- `created_at*`: string，示例 `2026-05-23 12:34:56`
+
+### DirectMessageConversation
+
+- `conv_id*`: string
+- `peer*`: UserInfo，对话中的另一方
+- `last_message*`: string
+- `last_message_at*`: string
+- `last_sender_uid*`: string
+- `unread_cnt*`: integer，当前用户视角下该会话未读数
+- `is_friend*`: boolean
+- `i_blocked_peer*`: boolean，当前用户是否已拉黑 peer
+- `peer_blocked_me*`: boolean，peer 是否已拉黑当前用户
+- `can_send_next_message*`: boolean，是否允许当前用户继续发送下一条私信
 
 ### OriginInfo
 
@@ -526,6 +557,143 @@ Query：
 
 - `10001`
 
+## Direct Message 接口
+
+这些接口替换旧的 `/api/v1/dm/*` 封装。最新 Apifox 以 peer 为客户端主键：客户端发送、拉取列表和标记已读时都传 `peer_uid` 或 `target_uid`，不再传 `conversation_id`、`message_id`、`last_read_seq`、`client_msg_id`。
+
+### POST `/api/v1/direct_message/send`
+
+当前登录用户向 `peer_uid` 发送一条私信。sender 不能是 peer；任一方拉黑对方会拒绝；互关用户可自由发送，未互关时受 ping-pong 限制；`content` 非空且长度不超过 1000 字符。
+
+请求 body：
+
+- `peer_uid*`: string
+- `content*`: string
+
+响应 `data`：
+
+- `message*`: DirectMessage
+- `conversation*`: DirectMessageConversation
+
+错误码：`10001`、`10002`、`20301`、`20302`、`20303`、`20304`、`20305`。
+
+实现状态：已封装在 `DmV1Api.send({peerUid, content})`。
+
+### GET `/api/v1/direct_message/conversations`
+
+返回当前登录用户参与的全部 1 对 1 会话，按 `last_message_at` 倒序。默认 `pn=1`、`rn=20`，最大 `rn=100`。
+
+query：
+
+- `pn`: integer
+- `rn`: integer
+
+响应 `data`：
+
+- `list*`: DirectMessageConversation[]
+- `total*`: integer
+- `pn*`: integer
+- `rn*`: integer
+
+错误码：`10001`。
+
+实现状态：已封装在 `DmV1Api.conversations`。
+
+### GET `/api/v1/direct_message/list`
+
+分页返回当前登录用户与 `peer_uid` 之间的私信，按消息 id 倒序，最新在前；没有会话时返回空列表。默认 `pn=1`、`rn=20`，最大 `rn=100`。
+
+query：
+
+- `peer_uid*`: string
+- `pn`: integer
+- `rn`: integer
+
+响应 `data`：
+
+- `list*`: DirectMessage[]
+- `total*`: integer
+- `pn*`: integer
+- `rn*`: integer
+
+错误码：`10001`、`10002`。
+
+实现状态：已封装在 `DmV1Api.list({peerUid, pn, rn})`。
+
+### POST `/api/v1/direct_message/read`
+
+将当前登录用户与 `peer_uid` 的会话未读数清零，并把 `last_read_message_id` 推到当前会话最新消息 id；会话不存在时幂等返回成功。
+
+请求 body：
+
+- `peer_uid*`: string
+
+响应 `data`：空对象。
+
+错误码：`10001`、`10002`。
+
+实现状态：已封装在 `DmV1Api.markRead({peerUid})`。
+
+### GET `/api/v1/direct_message/unread`
+
+返回当前登录用户在所有会话中的未读消息总数。
+
+响应 `data`：
+
+- `unread_cnt*`: integer
+
+错误码：`10001`。
+
+实现状态：已封装在 `DmV1Api.unread`。
+
+### POST `/api/v1/direct_message/block`
+
+将 `target_uid` 拉黑，已拉黑时幂等成功；拉黑不会自动取消互相关注。
+
+请求 body：
+
+- `target_uid*`: string
+
+响应 `data`：空对象。
+
+错误码：`10001`、`10002`、`20301`。
+
+实现状态：已封装在 `DmV1Api.block({targetUid})`。
+
+### POST `/api/v1/direct_message/unblock`
+
+取消对 `target_uid` 的拉黑，未拉黑时幂等成功。
+
+请求 body：
+
+- `target_uid*`: string
+
+响应 `data`：空对象。
+
+错误码：`10001`。
+
+实现状态：已封装在 `DmV1Api.unblock({targetUid})`。
+
+### GET `/api/v1/direct_message/blocks`
+
+返回当前登录用户拉黑过的用户分页列表，按拉黑时间倒序。默认 `pn=1`、`rn=20`。
+
+query：
+
+- `pn`: integer
+- `rn`: integer
+
+响应 `data`：
+
+- `list*`: UserInfo[]
+- `total*`: integer
+- `pn*`: integer
+- `rn*`: integer
+
+错误码：`10001`。
+
+实现状态：已封装在 `DmV1Api.blocks`。
+
 ## Upload 接口
 
 ### POST `/api/v1/upload/image`
@@ -568,7 +736,7 @@ Query：
 
 ## 当前代码对齐状态
 
-截至 2026-05-26，本文档覆盖的 19 个接口已完成主要 HTTP 契约对齐；本次新增记录的 upload 接口已按 Apifox 新契约调整当前封装、头像上传调用点与本地 mock：
+截至 2026-05-27，本文档覆盖的 27 个接口已完成主要 HTTP 契约对齐；本次新增记录的 direct_message 接口已按 Apifox 新契约调整当前封装与本地 mock：
 
 | Apifox 接口 | 当前实现状态 |
 | --- | --- |
@@ -590,6 +758,14 @@ Query：
 | `POST /api/v1/discuss/delete` | `DiscussV1Api.delete` 已改为 `/discuss/delete` + `discuss_id`，响应按空对象处理。 |
 | `POST /api/v1/discuss/like` | `DiscussV1Api.like` 已改为 `discuss_id`，响应按空对象处理；本地 mock 幂等维护 `is_liked/like_cnt`。 |
 | `POST /api/v1/discuss/unlike` | `DiscussV1Api.unlike` 已新增 `/discuss/unlike` + `discuss_id`，响应按空对象处理；本地 mock 幂等维护 `is_liked/like_cnt`。 |
+| `POST /api/v1/direct_message/send` | `DmV1Api.send` 已改为 `/direct_message/send`，body 使用 `peer_uid/content`，响应消费 `message/conversation`。 |
+| `GET /api/v1/direct_message/conversations` | `DmV1Api.conversations` 已替代旧 `/dm/chatlist`，响应消费 `list/total/pn/rn`。 |
+| `GET /api/v1/direct_message/list` | `DmV1Api.list` 已替代旧 `/dm/messagelist`，query 使用 `peer_uid/pn/rn`，响应消费 `list/total/pn/rn`。 |
+| `POST /api/v1/direct_message/read` | `DmV1Api.markRead` 已改为使用 `peer_uid`，不再提交 `conversation_id/last_read_seq`。 |
+| `GET /api/v1/direct_message/unread` | 已新增 `DmV1Api.unread`，响应消费 `unread_cnt`。 |
+| `POST /api/v1/direct_message/block` | 已新增 `DmV1Api.block`，body 使用 `target_uid`。 |
+| `POST /api/v1/direct_message/unblock` | 已新增 `DmV1Api.unblock`，body 使用 `target_uid`。 |
+| `GET /api/v1/direct_message/blocks` | 已新增 `DmV1Api.blocks`，响应消费拉黑用户分页列表。 |
 | `POST /api/v1/upload/image` | 已新增 `UploadV1Api.image`，multipart 字段名固定为 `file`，响应消费 `url/object_key`；头像上传已改用新接口，本地 mock 返回 `https://mock.local/uploads/...`。 |
 
 当前 v1 响应处理：
@@ -634,20 +810,12 @@ World：
 - `POST /api/v1/world/close`
 - `POST /api/v1/world/del`
 
-消息、DM、搜索、首页、通用：
+消息、搜索、首页、通用：
 
 - `GET /api/v1/messages/unread-summary`
 - `GET /api/v1/messages/notifications`
 - `POST /api/v1/messages/notifications/read`
 - `GET /api/v1/messages/followers`
-- `GET /api/v1/dm/chatlist`
-- `GET /api/v1/dm/messagelist`
-- `POST /api/v1/dm/send`
-- `POST /api/v1/dm/delchat`
-- `POST /api/v1/dm/delmessage`
-- `POST /api/v1/dm/read`
-- `POST /api/v1/dm/inviteworldcard`
-- `POST /api/v1/dm/respondworldcard`
 - `GET /api/v1/search`
 - `GET /api/v1/search/suggest`
 - `GET /api/v1/home`

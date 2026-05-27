@@ -318,24 +318,32 @@ void main() {
     await api.v1.follow.status(uids: const ['u_mock_peer']);
 
     final dm = await api.v1.dm.send(
-      targetUid: 'u_mock_peer',
+      peerUid: 'u_mock_peer',
       content: 'hello v1 mock',
-      clientMsgId: 'client_mock_1',
     );
     expect(((dm['message'] as Map)['content']), 'hello v1 mock');
-    await api.v1.dm.chatList(pn: 1, rn: 10);
-    await api.v1.dm.messageList(conversationId: 'dm_conv_001', rn: 20);
-    await api.v1.dm.markRead(conversationId: 'dm_conv_001', lastReadSeq: 2);
-    await api.v1.dm.inviteWorldCard(
-      conversationId: 'dm_conv_001',
-      worldInstanceId: world,
-      originId: createdOrigin,
-      clientMsgId: 'invite_mock_1',
+    final conversations = await api.v1.dm.conversations(pn: 1, rn: 10);
+    expect(conversations['total'], greaterThan(20));
+    final firstConversation = (conversations['list'] as List).first as Map;
+    expect(firstConversation, contains('conv_id'));
+    expect(firstConversation['last_message_at'], isA<int>());
+    final secondPageConversations = await api.v1.dm.conversations(
+      pn: 2,
+      rn: 10,
     );
-    await api.v1.dm.respondWorldCard(
-      inviteId: 'invite_mock_1',
-      action: 'accept',
-    );
+    expect(secondPageConversations['list'], isNotEmpty);
+    await api.v1.dm.list(peerUid: 'u_mock_peer', pn: 1, rn: 20);
+    var dmUnread = await api.v1.dm.unread();
+    expect(dmUnread['unread_cnt'], greaterThanOrEqualTo(0));
+    await api.v1.dm.markRead(peerUid: 'u_mock_peer');
+    dmUnread = await api.v1.dm.unread();
+    expect(dmUnread['unread_cnt'], 0);
+    await api.v1.dm.block(targetUid: 'u_mock_peer');
+    var blocks = await api.v1.dm.blocks(pn: 1, rn: 20);
+    expect((blocks['list'] as List).single, containsPair('uid', 'u_mock_peer'));
+    await api.v1.dm.unblock(targetUid: 'u_mock_peer');
+    blocks = await api.v1.dm.blocks(pn: 1, rn: 20);
+    expect(blocks['list'], isEmpty);
 
     final newPost = await api.v1.discuss.post(
       bizId: createdOrigin,
