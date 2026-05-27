@@ -14,7 +14,9 @@ import '../../network/models/location_tree.dart';
 import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/components/genesis_primary_button.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../utils/relative_time_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
 class OriginWorldPage extends StatefulWidget {
@@ -199,8 +201,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
               ),
               WorldDetailsShell(
                 topGap: 0,
-                minChildSize: 0.2,
-                initialChildSize: 0.2,
+                minChildSize: 0.31,
+                initialChildSize: 0.31,
                 collapsedHeightOffset: 15,
                 contentBuilder: (scrollController) => _WorldDetailsContent(
                   scrollController: scrollController,
@@ -391,7 +393,7 @@ class _OriginHeader extends StatelessWidget {
         ? '-'
         : origin.originator.trim();
     final version = origin.versionNum <= 0 ? 1 : origin.versionNum;
-    final age = _relativeAge(origin.updatedAt);
+    final age = formatRelativeTime(origin.updatedAt, fallback: '');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,6 +435,15 @@ class _OriginHeader extends StatelessWidget {
             fontWeight: FontWeight.w500,
             color: Color(0xFF8C8C8C),
           ),
+        ),
+        const SizedBox(height: 12),
+        GenesisPrimaryButton(
+          label: 'Edit Origin',
+          onPressed: () => Navigator.of(
+            context,
+          ).pushNamed(RouteNames.edit, arguments: {'origin_id': origin.oid}),
+          backgroundColor: const Color(0xFF3B2468),
+          foregroundColor: Colors.white,
         ),
       ],
     );
@@ -840,19 +851,6 @@ Future<void> _copyOid(BuildContext context, String oid) async {
   ScaffoldMessenger.of(
     context,
   ).showSnackBar(const SnackBar(content: Text('OID copied')));
-}
-
-String _relativeAge(DateTime? dateTime) {
-  if (dateTime == null) return '';
-  final now = DateTime.now();
-  final local = dateTime.toLocal();
-  final diff = now.difference(local);
-  if (diff.inDays >= 365) return '${diff.inDays ~/ 365}年前';
-  if (diff.inDays >= 30) return '${diff.inDays ~/ 30}月前';
-  if (diff.inDays >= 1) return '${diff.inDays}天前';
-  if (diff.inHours >= 1) return '${diff.inHours}小时前';
-  if (diff.inMinutes >= 1) return '${diff.inMinutes}分钟前';
-  return '刚刚';
 }
 
 List<OriginEvent> _previewEvents(OriginDetail origin) {
