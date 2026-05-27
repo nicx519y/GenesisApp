@@ -736,6 +736,31 @@ class GenesisApi {
     final oid = asString(detail['oid'], fallback: asString(created['oid']));
     return CreateOriginResult(worldviewId: oid, oid: oid);
   }
+
+  Future<CreateOriginResult> updateOrigin({
+    required String oid,
+    required Map<String, dynamic> payload,
+  }) async {
+    final updated = await v1.origin.update(
+      oid: oid,
+      name: asString(payload['name']),
+      worldView: asString(payload['world_view']),
+      worldSetting: asString(payload['world_setting']),
+      cover: asString(payload['cover']),
+      characterList: _payloadMapList(payload['character_list']),
+      locationList: _payloadMapList(payload['location_list']),
+      eventList: _payloadMapList(payload['event_list']),
+      metric: payload['metric'] is Map ? asJsonMap(payload['metric']) : null,
+    );
+    final detail = updated['origin'] is Map
+        ? asJsonMap(updated['origin'])
+        : updated;
+    final updatedOid = asString(
+      detail['oid'],
+      fallback: asString(updated['oid'], fallback: oid),
+    );
+    return CreateOriginResult(worldviewId: updatedOid, oid: updatedOid);
+  }
 }
 
 class CreateOriginResult {

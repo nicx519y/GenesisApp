@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../pages/app_shell_page.dart';
 import '../pages/create/create_origin_page.dart';
+import '../pages/edit/edit_origin_page.dart';
 import '../pages/search/search_page.dart';
 import '../pages/origin/origin_world_page.dart';
 import '../pages/world/world_page.dart';
@@ -21,6 +22,7 @@ sealed class RouteNames {
   static const locationChat = '/location_chat';
   static const search = '/search';
   static const create = '/create';
+  static const edit = '/edit';
   static const messages = '/messages';
   static const me = '/me';
   static const notifications = '/messages/notifications';
@@ -155,6 +157,20 @@ sealed class AppRouter {
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => const CreateOriginPage(),
+        );
+      case RouteNames.edit:
+        final args = settings.arguments;
+        var originId = '';
+        if (args is String) {
+          originId = args;
+        } else if (args is Map) {
+          final rawOriginId =
+              args['origin_id'] ?? args['originId'] ?? args['oid'];
+          if (rawOriginId != null) originId = rawOriginId.toString();
+        }
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => EditOriginPage(originId: originId),
         );
       case RouteNames.messages:
         return MaterialPageRoute<void>(

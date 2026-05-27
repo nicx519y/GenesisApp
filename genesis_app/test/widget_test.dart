@@ -20,6 +20,7 @@ import 'package:genesis_flutter_android/pages/create/create_origin_draft_store.d
 import 'package:genesis_flutter_android/pages/create/create_origin_id_utils.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_story_events_page.dart';
+import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/components/search_bar.dart';
@@ -679,6 +680,59 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         'character_list': const <Object?>[],
         'location_list': const <Object?>[],
         'event_list': const <Object?>[],
+      };
+    }
+    if (request.method == 'GET' &&
+        request.uri.path == '/api/v1/origin/detail') {
+      final oid = request.uri.queryParameters['origin_id'] ?? '';
+      data = {
+        'origin': {
+          'oid': oid,
+          'name': 'Editable Origin',
+          'cover': 'https://example.com/edit-cover.png',
+          'world_view': 'Editable public view.',
+          'world_setting': 'Editable hidden rules.',
+        },
+        'character_list': [
+          {
+            'character_id': 'char_edit_1',
+            'name': 'Mira',
+            'identity': 'Archivist',
+            'tagline': 'Patient',
+            'description': 'Keeps the records.',
+            'goal': 'Find the first page.',
+            'avatar': '',
+            'location_id': 'location_edit_1',
+          },
+        ],
+        'location_list': [
+          {
+            'location_id': 'location_edit_1',
+            'name': 'Archive',
+            'description': 'A quiet tower.',
+            'image': '',
+          },
+        ],
+        'event_list': [
+          {'content': 'The archive opens.'},
+        ],
+        'metric': {'mode': 'quantitative', 'label': 'Influence'},
+      };
+    }
+    if (request.method == 'POST' &&
+        request.uri.path == '/api/v1/origin/update') {
+      final body = decodedBody(request);
+      data = {
+        'origin': {
+          'oid': body['oid'],
+          'name': body['name'],
+          'cover': body['cover'],
+          'world_view': body['world_view'],
+          'world_setting': body['world_setting'],
+        },
+        'character_list': body['character_list'] ?? const <Object?>[],
+        'location_list': body['location_list'] ?? const <Object?>[],
+        'event_list': body['event_list'] ?? const <Object?>[],
       };
     }
     return TransportResponse(
@@ -1971,6 +2025,64 @@ void main() {
       find.text('Origin created successfully: o_created_1'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('edit flow loads origin detail and posts update after changes', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingCreateOriginTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: EditOriginPage(originId: 'o_edit_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final detailRequests = transport.requestsFor('/api/v1/origin/detail');
+    expect(detailRequests, hasLength(1));
+    expect(detailRequests.single.uri.queryParameters['origin_id'], 'o_edit_1');
+    expect(find.textContaining('World Name: Editable Origin'), findsOneWidget);
+
+    var rootSave = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(rootSave.onPressed, isNull);
+
+    await tester.tap(find.text('Basics'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit Origin'), findsNothing);
+    expect(find.text('🌐 Basics'), findsOneWidget);
+    await tester.enterText(find.byType(TextField).first, 'Edited Origin');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('World Name: Edited Origin'), findsOneWidget);
+    rootSave = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(rootSave.onPressed, isNotNull);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    final updateRequests = transport.requestsFor('/api/v1/origin/update');
+    expect(updateRequests, hasLength(1));
+    final body = transport.decodedBody(updateRequests.single);
+    expect(body['oid'], 'o_edit_1');
+    expect(body['name'], 'Edited Origin');
+    expect(body['cover'], 'https://example.com/edit-cover.png');
+    expect((body['character_list'] as List).single['char_id'], 'char_edit_1');
+    expect(
+      (body['location_list'] as List).single['initial_character_ids'],
+      contains('char_edit_1'),
+    );
+
+    final draft = await CreateOriginDraftStore.load();
+    expect(draft.hasAllSectionsSaved, isFalse);
+    expect(find.text('Origin saved successfully: o_edit_1'), findsOneWidget);
   });
 
   testWidgets('settings opens about us page', (WidgetTester tester) async {
