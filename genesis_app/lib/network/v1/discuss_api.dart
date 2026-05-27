@@ -7,29 +7,22 @@ class DiscussV1Api extends V1ApiResource {
   ///
   /// 提交参数:
   /// ```json
-  /// {"biz_id":"string","biz_type":"origin","post_id":"string","pn":1,"rn":10}
+  /// {"biz_type":1,"biz_id":"ori_a1b2c3","pn":1,"rn":10}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"list":[{"post_id":"string","uid":"string","user_name":"string","user_avatar":"string","create_at":1716000000,"content":"string","images":[],"liked_by_me":true,"like_cnt":0,"reply_cnt":0,"best_tick_cnt":0,"best_wid":"string","comment_list":[{"post_id":"string","uid":"string","user_name":"string","user_avatar":"string","create_at":1716000000,"content":"string","images":[],"liked_by_me":false,"like_cnt":0,"reply_cnt":0,"best_tick_cnt":0,"best_wid":"string"}]}],"total":0}}
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"comment":{"discuss_id":"dis_X9KQ4M2A1B2C"},"latest_replies":[]}],"top_total":12,"total_all":47,"pn":1,"rn":10}}
   /// ```
   Future<Map<String, dynamic>> list({
     required String bizId,
-    String bizType = 'origin',
-    String? postId,
+    int bizType = 1,
     int? pn,
     int? rn,
   }) {
     return getMap(
       'discuss/list',
-      v1Query({
-        'biz_id': bizId,
-        'biz_type': bizType,
-        'post_id': postId,
-        'pn': pn,
-        'rn': rn,
-      }),
+      v1Query({'biz_type': bizType, 'biz_id': bizId, 'pn': pn, 'rn': rn}),
     );
   }
 
@@ -37,104 +30,76 @@ class DiscussV1Api extends V1ApiResource {
   ///
   /// 提交参数:
   /// ```json
-  /// {"biz_id":"string","biz_type":"origin","content":"string","images":[]}
+  /// {"biz_type":1,"biz_id":"ori_a1b2c3","content":"first!","images":[],"root_discuss_id":"","parent_discuss_id":""}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"post_id":"string"}}
+  /// {"err_no":0,"err_msg":"succ","data":{"discuss_id":"dis_X9KQ4M2A1B2C","root_discuss_id":"","level":1}}
   /// ```
   Future<Map<String, dynamic>> post({
     required String bizId,
-    String bizType = 'origin',
-    required String content,
+    int bizType = 1,
+    String? content,
     List<String>? images,
+    String? rootDiscussId,
+    String? parentDiscussId,
   }) {
     return postMap(
       'discuss/post',
       v1Body({
-        'biz_id': bizId,
         'biz_type': bizType,
+        'biz_id': bizId,
         'content': content,
         'images': images,
+        'root_discuss_id': rootDiscussId,
+        'parent_discuss_id': parentDiscussId,
       }),
     );
   }
 
-  /// GET /api/v1/discuss/detail
+  /// POST /api/v1/discuss/delete
   ///
   /// 提交参数:
   /// ```json
-  /// {"post_id":"string","pn":1,"rn":20}
+  /// {"discuss_id":"dis_X9KQ4M2A1B2C"}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"post":{"post_id":"string","uid":"string","user_name":"string","user_avatar":"string","create_at":1716000000,"content":"string","images":[],"liked_by_me":true,"like_cnt":0,"reply_cnt":0,"best_tick_cnt":0,"best_wid":"string"},"reply_list":[{"post_id":"string","uid":"string","user_name":"string","user_avatar":"string","create_at":1716100000,"content":"string","images":[],"liked_by_me":false,"like_cnt":0,"reply_cnt":0,"best_tick_cnt":0,"best_wid":"string"}],"total":0}}
+  /// {"err_no":0,"err_msg":"succ","data":{}}
   /// ```
-  Future<Map<String, dynamic>> detail({
-    required String postId,
-    int? pn,
-    int? rn,
-  }) {
-    return getMap(
-      'discuss/detail',
-      v1Query({'post_id': postId, 'pn': pn, 'rn': rn}),
-    );
-  }
-
-  /// POST /api/v1/discuss/reply
-  ///
-  /// 提交参数:
-  /// ```json
-  /// {"comment_id":"string","content":"string","images":[]}
-  /// ```
-  ///
-  /// Response:
-  /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"post_id":"string"}}
-  /// ```
-  Future<Map<String, dynamic>> reply({
-    required String commentId,
-    required String content,
-    List<String>? images,
-  }) {
-    return postMap(
-      'discuss/reply',
-      v1Body({'comment_id': commentId, 'content': content, 'images': images}),
-    );
+  Future<void> delete({required String discussId}) {
+    return postVoid('discuss/delete', {'discuss_id': discussId});
   }
 
   /// POST /api/v1/discuss/like
   ///
   /// 提交参数:
   /// ```json
-  /// {"comment_id":"string","action":"like"}
+  /// {"discuss_id":"dis_X9KQ4M2A1B2C"}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"comment_id":"string","liked_by_me":true,"like_cnt":0}}
+  /// {"err_no":0,"err_msg":"succ","data":{}}
   /// ```
-  Future<Map<String, dynamic>> like({
-    required String commentId,
-    required String action,
-  }) {
-    return postMap('discuss/like', {'comment_id': commentId, 'action': action});
+  Future<void> like({required String discussId}) {
+    return postVoid('discuss/like', {'discuss_id': discussId});
   }
 
-  /// POST /api/v1/discuss/del
+  /// POST /api/v1/discuss/unlike
   ///
   /// 提交参数:
   /// ```json
-  /// {"comment_id":"string"}
+  /// {"discuss_id":"dis_X9KQ4M2A1B2C"}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{}}
+  /// {"err_no":0,"err_msg":"succ","data":{}}
   /// ```
-  Future<void> delete({required String commentId}) {
-    return postVoid('discuss/del', {'comment_id': commentId});
+  Future<void> unlike({required String discussId}) {
+    return postVoid('discuss/unlike', {'discuss_id': discussId});
   }
 }

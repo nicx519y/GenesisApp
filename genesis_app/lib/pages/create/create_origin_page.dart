@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../components/page_header.dart';
 import '../../network/api_exception.dart';
+import '../../ui/genesis_ui.dart';
 import 'create_basics_page.dart';
 import 'create_characters_page.dart';
 import 'create_locations_page.dart';
@@ -20,8 +21,6 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
   CreateOriginDraft _draft = CreateOriginDraft.empty();
   bool _isLoading = true;
   bool _isSubmitting = false;
-
-  bool get _canCreate => !_isSubmitting && _draft.hasAllSectionsSaved;
 
   @override
   void initState() {
@@ -48,16 +47,16 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
   }
 
   Future<void> _onCreate() async {
-    final api = AppServicesScope.read(context).api;
     final latest = await CreateOriginDraftStore.load();
+    if (!mounted) return;
     final errors = latest.validateForSubmit();
     if (errors.isNotEmpty) {
       _showError(errors.first);
-      if (!mounted) return;
       setState(() => _draft = latest);
       return;
     }
 
+    final api = AppServicesScope.read(context).api;
     setState(() {
       _isSubmitting = true;
       _draft = latest;
@@ -72,9 +71,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          SnackBar(
-            content: Text('Created: ${result.worldviewId} (Oid ${result.oid})'),
-          ),
+          SnackBar(content: Text('Origin created successfully: ${result.oid}')),
         );
       setState(() {
         _draft = CreateOriginDraft.empty();
@@ -108,17 +105,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        title: const PageTitleText(pageName: 'Create Origin'),
-      ),
+      appBar: const GenesisBackAppBar(pageName: 'Create Origin'),
       body: SafeArea(
         top: false,
         child: Padding(
@@ -126,8 +113,8 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
           child: Column(
             children: [
               const SizedBox(height: 14),
-              _UploadCard(onGenerate: () {}),
-              const SizedBox(height: 18),
+              // _UploadCard(onGenerate: () {}),
+              // const SizedBox(height: 18),
               Expanded(
                 child: ListView(
                   children: [
@@ -166,113 +153,96 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       bottomNavigationBar: SafeArea(
         top: false,
         minimum: const EdgeInsets.fromLTRB(20, 8, 20, 14),
-        child: SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: FilledButton(
-            onPressed: _canCreate ? _onCreate : null,
-            style: FilledButton.styleFrom(
-              backgroundColor: _canCreate
-                  ? const Color(0xFF198B64)
-                  : const Color(0xFFE3E3E3),
-              disabledBackgroundColor: const Color(0xFFE3E3E3),
-              foregroundColor: _canCreate
-                  ? Colors.white
-                  : const Color(0xFF6F6F6F),
-              disabledForegroundColor: const Color(0xFF6F6F6F),
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
-            child: Text(_isSubmitting ? 'Creating...' : 'Create'),
-          ),
+        child: GenesisPrimaryButton(
+          label: _isSubmitting ? 'Saving...' : 'Save',
+          onPressed: _isSubmitting ? null : _onCreate,
+          backgroundColor: const Color(0xFF198B64),
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: const Color(0xFFE3E3E3),
+          disabledForegroundColor: const Color(0xFF6F6F6F),
         ),
       ),
     );
   }
 }
 
-class _UploadCard extends StatelessWidget {
-  const _UploadCard({required this.onGenerate});
+// class _UploadCard extends StatelessWidget {
+//   const _UploadCard({required this.onGenerate});
 
-  final VoidCallback onGenerate;
+//   final VoidCallback onGenerate;
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F1F3),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 74,
-            height: 74,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE7E7EA),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Icon(
-              Icons.file_upload_outlined,
-              size: 32,
-              color: Color(0xFF198B64),
-            ),
-          ),
-          const SizedBox(width: 14),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Upload context file',
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'PDF, TXT or Markdown',
-                  style: TextStyle(color: Color(0xFF6F6F6F), fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          SizedBox(
-            height: 58,
-            child: FilledButton(
-              onPressed: onGenerate,
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF198B64),
-                textStyle: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 0,
-              ),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 18),
-                child: Text('Generate'),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       padding: const EdgeInsets.all(16),
+//       decoration: BoxDecoration(
+//         color: const Color(0xFFF1F1F3),
+//         borderRadius: BorderRadius.circular(18),
+//       ),
+//       child: Row(
+//         children: [
+//           Container(
+//             width: 74,
+//             height: 74,
+//             decoration: BoxDecoration(
+//               color: const Color(0xFFE7E7EA),
+//               borderRadius: BorderRadius.circular(18),
+//             ),
+//             child: const Icon(
+//               Icons.file_upload_outlined,
+//               size: 32,
+//               color: Color(0xFF198B64),
+//             ),
+//           ),
+//           const SizedBox(width: 14),
+//           const Expanded(
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 Text(
+//                   'Upload context file',
+//                   style: TextStyle(
+//                     color: Colors.black,
+//                     fontSize: 14,
+//                     fontWeight: FontWeight.w500,
+//                   ),
+//                 ),
+//                 SizedBox(height: 4),
+//                 Text(
+//                   'PDF, TXT or Markdown',
+//                   style: TextStyle(color: Color(0xFF6F6F6F), fontSize: 12),
+//                 ),
+//               ],
+//             ),
+//           ),
+//           const SizedBox(width: 10),
+//           SizedBox(
+//             height: 58,
+//             child: FilledButton(
+//               onPressed: onGenerate,
+//               style: FilledButton.styleFrom(
+//                 backgroundColor: Colors.white,
+//                 foregroundColor: const Color(0xFF198B64),
+//                 textStyle: const TextStyle(
+//                   fontSize: 14,
+//                   fontWeight: FontWeight.w700,
+//                 ),
+//                 shape: RoundedRectangleBorder(
+//                   borderRadius: BorderRadius.circular(16),
+//                 ),
+//                 elevation: 0,
+//               ),
+//               child: const Padding(
+//                 padding: EdgeInsets.symmetric(horizontal: 18),
+//                 child: Text('Generate'),
+//               ),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
 
 class _SectionRow extends StatelessWidget {
   const _SectionRow({

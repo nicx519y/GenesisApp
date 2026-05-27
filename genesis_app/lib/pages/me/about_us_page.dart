@@ -8,17 +8,7 @@ class AboutUsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        centerTitle: true,
-        title: const PageTitleText(pageName: 'About us'),
-      ),
+      appBar: const GenesisBackAppBar(pageName: 'About us'),
       body: const SafeArea(
         child: Padding(
           padding: EdgeInsets.fromLTRB(20, 24, 20, 16),

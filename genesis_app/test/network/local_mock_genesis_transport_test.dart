@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
+import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 
 void main() {
   test('local mock supports origin world and chat flow', () async {
@@ -16,20 +17,51 @@ void main() {
     final firstOrigin = origins.data.first;
     final detail = await api.getOrigin(firstOrigin.oid);
     expect(detail.name.isNotEmpty, true);
-    expect(detail.locationTree.map((node) => node.id), ['loc_hub']);
-    expect(detail.locationTree.first.children.map((node) => node.id), [
+    expect(detail.worldMap, kMockV1SteamMapImage);
+    expect(
+      detail.locationTree.first.value.mapUrl,
+      kMockV1LocationCentralHubMap,
+    );
+    expect(detail.locationTree.map((node) => node.id), [
+      'loc_hub',
       'loc_gate',
       'loc_market',
-      'loc_clocktower',
       'loc_canal',
     ]);
+    final originRootsById = {
+      for (final node in detail.locationTree) node.id: node,
+    };
+    expect(originRootsById['loc_hub']!.children.map((node) => node.id), [
+      'loc_clocktower',
+      'loc_dispatch_hall',
+      'loc_pressure_garden',
+    ]);
+    expect(originRootsById['loc_gate']!.children.map((node) => node.id), [
+      'loc_airdock',
+      'loc_switchyard',
+      'loc_customs_house',
+    ]);
+    expect(originRootsById['loc_market']!.children.map((node) => node.id), [
+      'loc_underworks',
+      'loc_battery_exchange',
+      'loc_parts_arcade',
+    ]);
+    expect(originRootsById['loc_canal']!.children.map((node) => node.id), [
+      'loc_signal_workshop',
+      'loc_pump_gallery',
+      'loc_water_basin',
+    ]);
     expect(
-      detail.locationTree.first.children
+      detail.locationTree
+          .expand((root) => root.children)
           .expand((node) => node.children)
           .map((node) => node.depth)
           .toSet(),
       {2},
     );
+    for (final root in detail.locationTree) {
+      expect(root.children.length, inInclusiveRange(2, 3));
+    }
 
     final world = await api.launchWorld(
       originId: firstOrigin.id,
@@ -40,18 +72,51 @@ void main() {
 
     final worldDetail = await api.getWorld(world.wid);
     expect(worldDetail.worldLocations.isNotEmpty, true);
-    expect(worldDetail.worldLocationTree.map((node) => node.id), ['loc_hub']);
+    expect(worldDetail.origin.worldMap, kMockV1SteamMapImage);
     expect(
-      worldDetail.worldLocationTree.first.children.map((node) => node.id),
-      ['loc_gate', 'loc_market', 'loc_clocktower', 'loc_canal'],
+      worldDetail.worldLocationTree.first.value['map_url'],
+      kMockV1LocationCentralHubMap,
     );
+    expect(worldDetail.worldLocationTree.map((node) => node.id), [
+      'loc_hub',
+      'loc_gate',
+      'loc_market',
+      'loc_canal',
+    ]);
+    final worldRootsById = {
+      for (final node in worldDetail.worldLocationTree) node.id: node,
+    };
+    expect(worldRootsById['loc_hub']!.children.map((node) => node.id), [
+      'loc_clocktower',
+      'loc_dispatch_hall',
+      'loc_pressure_garden',
+    ]);
+    expect(worldRootsById['loc_gate']!.children.map((node) => node.id), [
+      'loc_airdock',
+      'loc_switchyard',
+      'loc_customs_house',
+    ]);
+    expect(worldRootsById['loc_market']!.children.map((node) => node.id), [
+      'loc_underworks',
+      'loc_battery_exchange',
+      'loc_parts_arcade',
+    ]);
+    expect(worldRootsById['loc_canal']!.children.map((node) => node.id), [
+      'loc_signal_workshop',
+      'loc_pump_gallery',
+      'loc_water_basin',
+    ]);
     expect(
-      worldDetail.worldLocationTree.first.children
+      worldDetail.worldLocationTree
+          .expand((root) => root.children)
           .expand((node) => node.children)
           .map((node) => node.depth)
           .toSet(),
       {2},
     );
+    for (final root in worldDetail.worldLocationTree) {
+      expect(root.children.length, inInclusiveRange(2, 3));
+    }
 
     final before = await api.getLocationMessages(
       wid: world.wid,
@@ -110,6 +175,24 @@ void main() {
     final secondOriginName =
         ((((origins['list'] as List)[1] as Map)['info'] as Map)['origin_name']);
     expect(firstOriginName, isNot(secondOriginName));
+    final laterOrigins = await api.v1.origin.list(pn: 2, rn: 10);
+    final laterOrigin =
+        (((laterOrigins['list'] as List).last as Map)['info'] as Map);
+    final laterOriginId = laterOrigin['origin_id'] as String;
+    final laterOriginDiscussions = await api.v1.discuss.list(
+      bizId: laterOriginId,
+      rn: 2,
+    );
+    final laterDiscussionItems = laterOriginDiscussions['list'] as List;
+    expect(laterDiscussionItems, hasLength(2));
+    expect(
+      ((laterDiscussionItems.first as Map)['comment'] as Map)['biz_id'],
+      laterOriginId,
+    );
+    expect(
+      ((laterDiscussionItems.first as Map)['latest_replies'] as List),
+      isNotEmpty,
+    );
 
     final origin =
         (((origins['list'] as List).first as Map)['info'] as Map)['origin_id']
@@ -156,6 +239,10 @@ void main() {
     );
     final detailTicks = worldDetail['ticks'] as List;
     expect(detailTicks.length, greaterThanOrEqualTo(4));
+    final detailLocations = worldDetail['locations'] as List;
+    final firstDetailLocation = detailLocations.first as Map;
+    expect(firstDetailLocation['map_url'], kMockV1LocationCentralHubMap);
+    expect(firstDetailLocation.containsKey('map'), isFalse);
     expect([
       for (final tick in detailTicks)
         ((tick as Map)['tick_index'] as num).toInt(),
@@ -208,8 +295,25 @@ void main() {
 
     await api.v1.follow.follow(uid: 'u_mock_peer');
     await api.v1.follow.unfollow(uid: 'u_mock_peer');
-    await api.v1.follow.following(uid: 'u_mock_001', pn: 1, rn: 10);
-    await api.v1.follow.followers(uid: 'u_mock_001', pn: 1, rn: 10);
+    final following = await api.v1.follow.following(
+      uid: 'u_mock_001',
+      pn: 1,
+      rn: 10,
+    );
+    final followingList = following['list'] as List;
+    expect(following['total'], greaterThan(10));
+    expect(followingList, hasLength(10));
+    expect((followingList.first as Map)['user'], isA<Map>());
+
+    final followers = await api.v1.follow.followers(
+      uid: 'u_mock_001',
+      pn: 1,
+      rn: 10,
+    );
+    final followersList = followers['list'] as List;
+    expect(followers['total'], greaterThan(10));
+    expect(followersList, hasLength(10));
+    expect((followersList.first as Map)['relation'], isA<Map>());
     await api.v1.follow.relations(type: 'followers', pn: 1, rn: 10);
     await api.v1.follow.status(uids: const ['u_mock_peer']);
 
@@ -233,19 +337,27 @@ void main() {
       action: 'accept',
     );
 
-    final discussions = await api.v1.discuss.list(bizId: createdOrigin);
-    final postId =
-        ((discussions['list'] as List).first as Map)['post_id'] as String;
-    await api.v1.discuss.detail(postId: postId, pn: 2, rn: 10);
     final newPost = await api.v1.discuss.post(
       bizId: createdOrigin,
       content: 'mock post',
     );
-    await api.v1.discuss.reply(
-      commentId: newPost['post_id'] as String,
+    final postId = newPost['discuss_id'] as String;
+    await api.v1.discuss.post(
+      bizId: createdOrigin,
       content: 'mock reply',
+      rootDiscussId: postId,
     );
-    await api.v1.discuss.like(commentId: postId, action: 'like');
+    final discussions = await api.v1.discuss.list(bizId: createdOrigin);
+    final discussionItems = discussions['list'] as List;
+    expect(discussionItems.length, 1);
+    final firstDiscussion = discussionItems.first as Map;
+    expect((firstDiscussion['comment'] as Map)['discuss_id'], postId);
+    expect((firstDiscussion['latest_replies'] as List).length, 1);
+    expect(discussions['top_total'], 1);
+    expect(discussions['total_all'], 2);
+    await api.v1.discuss.like(discussId: postId);
+    await api.v1.discuss.unlike(discussId: postId);
+    await api.v1.discuss.delete(discussId: postId);
 
     final search = await api.v1.search.search(query: 'steam');
     expect((search['groups'] as List).isNotEmpty, true);
@@ -315,6 +427,13 @@ void main() {
       bizType: 'avatar',
     );
     expect(upload['file_url'], isNotEmpty);
+    final imageUpload = await api.v1.upload.image(
+      bytes: const [255, 216, 255, 224],
+      filename: 'avatar.jpg',
+      contentType: 'image/jpeg',
+    );
+    expect(imageUpload['url'], startsWith('https://mock.local/uploads/'));
+    expect(imageUpload['object_key'], startsWith('uploads/'));
     final draft = await api.v1.common.saveDraft(
       draftType: 'origin_create',
       draftData: const {'name': 'draft'},

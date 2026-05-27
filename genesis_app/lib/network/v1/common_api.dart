@@ -24,9 +24,9 @@ class CommonV1Api extends V1ApiResource {
     final body = multipartBody(
       boundary: boundary,
       bytes: bytes,
-      bizType: bizType,
       filename: filename,
       contentType: contentType,
+      fields: {'biz_type': bizType},
     );
     return postMap('common/upload', body, {
       'content-type': 'multipart/form-data; boundary=$boundary',

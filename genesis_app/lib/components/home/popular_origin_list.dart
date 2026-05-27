@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../discuss/origin_discuss_preview_list.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../origin/origin_item_card.dart';
 
-class PopularOriginList extends StatelessWidget {
+class PopularOriginList extends StatefulWidget {
   const PopularOriginList({
     super.key,
     required this.items,
@@ -12,6 +13,7 @@ class PopularOriginList extends StatelessWidget {
     this.controller,
     this.storageKey,
     this.isLoadingMore = false,
+    this.discussLoader,
   });
 
   final List<OriginListItem> items;
@@ -19,23 +21,59 @@ class PopularOriginList extends StatelessWidget {
   final ScrollController? controller;
   final PageStorageKey<String>? storageKey;
   final bool isLoadingMore;
+  final OriginDiscussPreviewLoader? discussLoader;
+
+  @override
+  State<PopularOriginList> createState() => _PopularOriginListState();
+}
+
+class _PopularOriginListState extends State<PopularOriginList> {
+  final Map<String, Future<List<OriginDiscussPreviewItem>>> _discussFutures =
+      <String, Future<List<OriginDiscussPreviewItem>>>{};
+
+  @override
+  void didUpdateWidget(covariant PopularOriginList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.discussLoader != widget.discussLoader) {
+      _discussFutures.clear();
+      return;
+    }
+
+    final activeOids = widget.items.map((item) => item.oid.trim()).toSet();
+    _discussFutures.removeWhere((oid, _) => !activeOids.contains(oid));
+  }
+
+  Future<List<OriginDiscussPreviewItem>> _loadDiscuss(String oid) {
+    final resolvedOid = oid.trim();
+    if (resolvedOid.isEmpty) {
+      return Future<List<OriginDiscussPreviewItem>>.value(
+        const <OriginDiscussPreviewItem>[],
+      );
+    }
+    return _discussFutures.putIfAbsent(resolvedOid, () async {
+      final loader = widget.discussLoader;
+      if (loader != null) return loader(resolvedOid);
+
+      return loadOriginDiscussPreviewItems(context, resolvedOid);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      key: storageKey,
-      controller: controller,
+      key: widget.storageKey,
+      controller: widget.controller,
       primary: false,
       cacheExtent: 900,
       padding: const EdgeInsets.only(top: 4, bottom: 24),
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
-      itemCount: items.length + (isLoadingMore ? 1 : 0),
+      itemCount: widget.items.length + (widget.isLoadingMore ? 1 : 0),
       separatorBuilder: (context, index) =>
           const Divider(height: 25, thickness: 1, color: Color(0xFFEFEFEF)),
       itemBuilder: (context, index) {
-        if (index >= items.length) {
+        if (index >= widget.items.length) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 18),
             child: Center(
@@ -47,13 +85,16 @@ class PopularOriginList extends StatelessWidget {
           );
         }
 
-        final item = items[index];
+        final item = widget.items[index];
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => onItemTap(item),
+          onTap: () => widget.onItemTap(item),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: PopularOriginListItem(item: item),
+            child: PopularOriginListItem(
+              item: item,
+              discussLoader: _loadDiscuss,
+            ),
           ),
         );
       },
@@ -62,9 +103,14 @@ class PopularOriginList extends StatelessWidget {
 }
 
 class PopularOriginListItem extends StatelessWidget {
-  const PopularOriginListItem({super.key, required this.item});
+  const PopularOriginListItem({
+    super.key,
+    required this.item,
+    this.discussLoader,
+  });
 
   final OriginListItem item;
+  final OriginDiscussPreviewLoader? discussLoader;
 
   @override
   Widget build(BuildContext context) {
@@ -78,11 +124,11 @@ class PopularOriginListItem extends StatelessWidget {
           imageUrl: item.cover,
           seed: item.oid.isEmpty ? title : item.oid,
           label: _badgeText(title),
-          width: 54,
-          height: 54,
+          width: 48,
+          height: 48,
           borderRadius: 8,
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,9 +139,9 @@ class PopularOriginListItem extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Color(0xFF4B6192),
-                  fontSize: 18,
-                  height: 1.12,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  height: 1.1,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(height: 10),
@@ -104,9 +150,9 @@ class PopularOriginListItem extends StatelessWidget {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF1D1D1D),
-                  fontSize: 16,
-                  height: 1.42,
+                  color: Color(0xFF111111),
+                  fontSize: 12,
+                  height: 1.33,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -114,14 +160,16 @@ class PopularOriginListItem extends StatelessWidget {
               _OriginHeroImage(item: item),
               const SizedBox(height: 16),
               _ProgressHeader(),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
               _ProgressBody(item: item),
               const SizedBox(height: 6),
               _MetaRow(item: item, timeText: metaTime),
-              const SizedBox(height: 16),
-              _DiscussHeader(count: item.discussCnt),
-              const SizedBox(height: 12),
-              _CreatorLine(item: item),
+              const SizedBox(height: 6),
+              OriginDiscussPreviewList(
+                oid: item.oid,
+                count: item.discussCnt,
+                loader: discussLoader,
+              ),
               const SizedBox(height: 14),
               _EnterOriginRow(title: title),
             ],
@@ -273,8 +321,8 @@ class _ProgressHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Row(
       children: [
-        Icon(MyFlutterApp.pregress, color: Color(0xFFFF2344), size: 16),
-        SizedBox(width: 7),
+        Icon(MyFlutterApp.pregress, color: Color(0xFFFF2344), size: 14),
+        SizedBox(width: 4),
         Expanded(
           child: Text(
             'Copy World Progress',
@@ -282,9 +330,9 @@ class _ProgressHeader extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: Color(0xFF1D1D1D),
-              fontSize: 16,
+              fontSize: 14,
               height: 1,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -369,84 +417,6 @@ class _MetaRow extends StatelessWidget {
   }
 }
 
-class _DiscussHeader extends StatelessWidget {
-  const _DiscussHeader({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Icon(MyFlutterApp.discuss, size: 18, color: Color(0xFF1D1D1D)),
-        const SizedBox(width: 7),
-        Text(
-          'Discuss (${formatStatCount(count)})',
-          style: const TextStyle(
-            color: Color(0xFF1D1D1D),
-            fontSize: 16,
-            height: 1,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CreatorLine extends StatelessWidget {
-  const _CreatorLine({required this.item});
-
-  final OriginListItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final creator = item.createdUserName.trim();
-    final tags = item.tags.take(2).join(', ');
-    final label = creator.isEmpty ? 'Origin creator' : creator;
-    final detail = tags.isEmpty ? item.subtitle : 'Tags: $tags';
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _Avatar(
-          seed: item.createdUid.isEmpty ? label : item.createdUid,
-          label: label,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _metaStyle.copyWith(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                detail,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF1D1D1D),
-                  fontSize: 15,
-                  height: 1.35,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _EnterOriginRow extends StatelessWidget {
   const _EnterOriginRow({required this.title});
 
@@ -470,8 +440,8 @@ class _EnterOriginRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Color(0xFF1D1D1D),
-                  fontSize: 15,
-                  height: 1.1,
+                  fontSize: 12,
+                  height: 1.4,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -487,36 +457,6 @@ class _EnterOriginRow extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.seed, required this.label});
-
-  final String seed;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final initial = label.trim().isEmpty ? '?' : label.trim().characters.first;
-    return Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(colors: _gradientFor(seed)),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        initial.toUpperCase(),
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 18,
-          height: 1,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -561,14 +501,14 @@ class _CoverPlaceholder extends StatelessWidget {
 
 const _bodyStyle = TextStyle(
   color: Color(0xFF1D1D1D),
-  fontSize: 16,
-  height: 1.42,
+  fontSize: 11,
+  height: 1.32,
   fontWeight: FontWeight.w400,
 );
 
 const _metaStyle = TextStyle(
   color: Color(0xFF8B8B8B),
-  fontSize: 15,
+  fontSize: 12,
   height: 1.1,
   fontWeight: FontWeight.w400,
 );

@@ -41,3 +41,35 @@ class PageTitleText extends StatelessWidget {
     return GenesisPageTitle(text: pageName);
   }
 }
+
+class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const GenesisBackAppBar({
+    super.key,
+    required this.pageName,
+    this.onBack,
+    this.actions,
+  });
+
+  final String pageName;
+  final VoidCallback? onBack;
+  final List<Widget>? actions;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: true,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+        onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+      ),
+      title: PageTitleText(pageName: pageName),
+      actions: actions,
+    );
+  }
+}

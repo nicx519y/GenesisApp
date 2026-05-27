@@ -9,16 +9,18 @@ class LocalImageCropPage extends StatefulWidget {
     super.key,
     required this.imageBytes,
     required this.cropSize,
-    required this.onUpload,
+    this.onUpload,
     this.filename = 'crop.png',
     this.contentType = 'image/png',
+    this.uploadOnConfirm = true,
   });
 
   final Uint8List imageBytes;
   final Size cropSize;
   final String filename;
   final String contentType;
-  final Future<String> Function(LocalImageCropResult result) onUpload;
+  final bool uploadOnConfirm;
+  final Future<String> Function(LocalImageCropResult result)? onUpload;
 
   @override
   State<LocalImageCropPage> createState() => _LocalImageCropPageState();
@@ -310,7 +312,16 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
     });
     try {
       final crop = await _crop();
-      final url = (await widget.onUpload(crop)).trim();
+      if (!widget.uploadOnConfirm) {
+        if (!mounted) return;
+        Navigator.of(context).pop(crop);
+        return;
+      }
+      final upload = widget.onUpload;
+      if (upload == null) {
+        throw StateError('Upload handler is not configured');
+      }
+      final url = (await upload(crop)).trim();
       if (url.isEmpty) {
         throw StateError('Upload returned an empty URL');
       }
@@ -402,7 +413,7 @@ class _CropOverlayPainter extends CustomPainter {
     final overlay = Path()
       ..fillType = PathFillType.evenOdd
       ..addRect(Offset.zero & size)
-      ..addRRect(RRect.fromRectAndRadius(cropRect, const Radius.circular(16)));
+      ..addRect(cropRect);
     canvas.drawPath(
       overlay,
       Paint()..color = Colors.black.withValues(alpha: 0.48),
@@ -412,10 +423,7 @@ class _CropOverlayPainter extends CustomPainter {
       ..color = Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(cropRect, const Radius.circular(16)),
-      borderPaint,
-    );
+    canvas.drawRect(cropRect, borderPaint);
   }
 
   @override

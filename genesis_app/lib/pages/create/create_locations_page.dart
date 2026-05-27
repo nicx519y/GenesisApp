@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../components/page_header.dart';
+import '../../ui/genesis_ui.dart';
+import 'create_form_widgets.dart';
 import 'create_origin_draft_store.dart';
 
 class CreateLocationsPage extends StatefulWidget {
@@ -10,7 +13,6 @@ class CreateLocationsPage extends StatefulWidget {
 }
 
 class _CreateLocationsPageState extends State<CreateLocationsPage> {
-  static const Color _green = Color(0xFF198B64);
   static const int _maxLocations = 10;
 
   final List<_LocationForm> _forms = <_LocationForm>[];
@@ -36,17 +38,31 @@ class _CreateLocationsPageState extends State<CreateLocationsPage> {
 
   void _addLocation() {
     if (_forms.length >= _maxLocations) {
+      _showError('You can add up to $_maxLocations locations.');
       return;
     }
     setState(() => _forms.add(_LocationForm.empty()));
   }
 
+  Future<void> _requestRemoveLocation(int index) async {
+    final form = _forms[index];
+    if (form.hasContent) {
+      final confirmed = await confirmCreateFormDelete(
+        context,
+        itemLabel: 'Location ${index + 1}',
+      );
+      if (!confirmed || !mounted) return;
+    }
+    _removeLocation(index);
+  }
+
   void _removeLocation(int index) {
     if (_forms.length <= 1) {
-      return;
+      _forms[index].clear();
+    } else {
+      final form = _forms.removeAt(index);
+      form.dispose();
     }
-    final form = _forms.removeAt(index);
-    form.dispose();
     setState(() {});
   }
 
@@ -109,98 +125,62 @@ class _CreateLocationsPageState extends State<CreateLocationsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        title: const Text(
-          '📍 Locations',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-      body: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 14),
-                      const Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Add up to 10 important places for your story world.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.black,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          '${_forms.length}/$_maxLocations (Added / Max)',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF6F6F6F),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      for (int i = 0; i < _forms.length; i++) ...<Widget>[
-                        _LocationCard(
-                          index: i + 1,
-                          form: _forms[i],
-                          onChanged: () => setState(() {}),
-                          onDelete: () => _removeLocation(i),
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-                      _DashedAddButton(onTap: _addLocation),
-                      const SizedBox(height: 12),
-                    ],
+      appBar: const GenesisBackAppBar(pageName: '📍 Locations'),
+      body: CreateKeyboardDismissArea(
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 16, 22, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Place your world on the map. Add a location image and name, then link characters who start there.',
+                  style: TextStyle(
+                    color: createFormMuted,
+                    fontSize: 14,
+                    height: 1.4,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 24),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '${_forms.length}/$_maxLocations (Added / Max)',
+                    style: const TextStyle(
+                      color: createFormText,
+                      fontSize: 12,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                for (int i = 0; i < _forms.length; i++) ...[
+                  _LocationCard(
+                    index: i + 1,
+                    form: _forms[i],
+                    onChanged: () => setState(() {}),
+                    onDelete: () {
+                      _requestRemoveLocation(i);
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                ],
+                CreateAddButton(label: '+ Add Location', onTap: _addLocation),
+                const SizedBox(height: 12),
+              ],
+            ),
           ),
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.fromLTRB(20, 8, 20, 14),
-        child: SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: FilledButton(
-            onPressed: _isSaving ? null : _saveLocations,
-            style: FilledButton.styleFrom(
-              backgroundColor: _green,
-              foregroundColor: Colors.white,
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
-            child: Text(_isSaving ? 'Saving...' : 'Save'),
-          ),
+      bottomNavigationBar: CreateKeyboardAwareSaveBar(
+        minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
+        child: GenesisPrimaryButton(
+          label: _isSaving ? 'Saving...' : 'Save',
+          onPressed: _isSaving ? null : _saveLocations,
+          backgroundColor: createFormGreen,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: const Color(0xFFBFD8CD),
         ),
       ),
     );
@@ -222,209 +202,57 @@ class _LocationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFDCDCDC)),
-      ),
+    return CreateFormCard(
+      title: 'Location $index',
+      onDelete: onDelete,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Location $index',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(
-                  Icons.delete_outline,
-                  size: 20,
-                  color: Color(0xFF8E8E8E),
-                ),
-                splashRadius: 20,
-                visualDensity: VisualDensity.compact,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ImagePlaceholder(form: form, onChanged: onChanged),
-              const SizedBox(width: 10),
+              CreateUploadBox(
+                controller: form.imageUrl,
+                label: 'IMAGE\n(Optional)',
+                width: 96,
+                height: 150,
+                iconSize: 36,
+                cropSize: const Size(384, 600),
+                onChanged: onChanged,
+              ),
+              const SizedBox(width: 14),
               Expanded(
-                child: _TextFieldPlaceholder(form: form, onChanged: onChanged),
+                child: CreateTextFieldBlock(
+                  label: 'Location Name *',
+                  controller: form.name,
+                  hintText: 'Enter location name...',
+                  maxLength: 25,
+                  maxLines: 1,
+                  onChanged: (_) => onChanged(),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          _DescriptionPlaceholder(form: form, onChanged: onChanged),
-          const SizedBox(height: 12),
-          _InitialCharactersPlaceholder(form: form, onChanged: onChanged),
-        ],
-      ),
-    );
-  }
-}
-
-class _ImagePlaceholder extends StatelessWidget {
-  const _ImagePlaceholder({required this.form, required this.onChanged});
-
-  final _LocationForm form;
-  final VoidCallback onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 98,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F4F6),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE3E3E3)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.image_outlined, color: Color(0xFF8E8E8E), size: 22),
-          const SizedBox(height: 6),
-          const Text(
-            'IMAGE\n(Optional)',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFF6F6F6F),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              height: 1.2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: form.imageUrl,
-            onChanged: (_) => onChanged(),
-            style: const TextStyle(fontSize: 12),
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              isDense: true,
-              hintText: 'URL',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TextFieldPlaceholder extends StatelessWidget {
-  const _TextFieldPlaceholder({required this.form, required this.onChanged});
-
-  final _LocationForm form;
-  final VoidCallback onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Location Name*',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE3E3E3)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: TextField(
-            controller: form.name,
-            onChanged: (_) => onChanged(),
-            decoration: const InputDecoration(border: InputBorder.none),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Text(
-            '${form.name.text.length}/25',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF8A8A8A)),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DescriptionPlaceholder extends StatelessWidget {
-  const _DescriptionPlaceholder({required this.form, required this.onChanged});
-
-  final _LocationForm form;
-  final VoidCallback onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Description (Optional)',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE3E3E3)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: TextField(
+          const SizedBox(height: 22),
+          CreateTextFieldBlock(
+            label: 'Description (Optional)',
             controller: form.description,
+            hintText: 'Show in Origin location list',
+            maxLength: 100,
+            minLines: 2,
             onChanged: (_) => onChanged(),
-            minLines: 3,
-            maxLines: 4,
-            decoration: const InputDecoration(border: InputBorder.none),
           ),
-        ),
-        const SizedBox(height: 4),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Text(
-            '${form.description.text.length}/100',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF8A8A8A)),
-          ),
-        ),
-      ],
+          const SizedBox(height: 22),
+          _InitialCharactersField(form: form, onChanged: onChanged),
+        ],
+      ),
     );
   }
 }
 
-class _InitialCharactersPlaceholder extends StatelessWidget {
-  const _InitialCharactersPlaceholder({
-    required this.form,
-    required this.onChanged,
-  });
+class _InitialCharactersField extends StatelessWidget {
+  const _InitialCharactersField({required this.form, required this.onChanged});
 
   final _LocationForm form;
   final VoidCallback onChanged;
@@ -437,111 +265,45 @@ class _InitialCharactersPlaceholder extends StatelessWidget {
         const Text(
           'Initial Characters (Optional)',
           style: TextStyle(
+            color: createFormText,
             fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black,
+            fontWeight: FontWeight.w700,
+            height: 1.2,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          height: 54,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE3E3E3)),
+            color: createFormFieldFill,
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: TextField(
-            controller: form.initialCharacters,
-            onChanged: (_) => onChanged(),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              hintText: 'Character indexes, e.g. 0,1',
-              hintStyle: TextStyle(fontSize: 12, color: Color(0xFF8A8A8A)),
-            ),
+          padding: const EdgeInsets.only(left: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: form.initialCharacters,
+                  onChanged: (_) => onChanged(),
+                  maxLines: 1,
+                  style: const TextStyle(fontSize: 14, color: createFormText),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: '',
+                    counterText: '',
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () {},
+                icon: const Icon(Icons.add, color: createFormGreen, size: 32),
+                splashRadius: 22,
+              ),
+            ],
           ),
         ),
       ],
     );
-  }
-}
-
-class _DashedAddButton extends StatelessWidget {
-  const _DashedAddButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: CustomPaint(
-          painter: _DashedBorderPainter(
-            color: const Color(0xFFB7B7B7),
-            borderRadius: 14,
-          ),
-          child: const SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: Center(
-              child: Text(
-                '+ Add Location',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: _CreateLocationsPageState._green,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DashedBorderPainter extends CustomPainter {
-  _DashedBorderPainter({required this.color, required this.borderRadius});
-
-  final Color color;
-  final double borderRadius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-
-    const double dash = 6;
-    const double gap = 4;
-
-    final Rect rect = Offset.zero & size;
-    final RRect rRect = RRect.fromRectAndRadius(
-      rect,
-      Radius.circular(borderRadius),
-    );
-    canvas.clipRRect(rRect);
-
-    for (double x = 0; x < size.width; x += dash + gap) {
-      final double end = (x + dash).clamp(0, size.width);
-      canvas.drawLine(Offset(x, 0), Offset(end, 0), paint);
-      canvas.drawLine(Offset(x, size.height), Offset(end, size.height), paint);
-    }
-
-    for (double y = 0; y < size.height; y += dash + gap) {
-      final double end = (y + dash).clamp(0, size.height);
-      canvas.drawLine(Offset(0, y), Offset(0, end), paint);
-      canvas.drawLine(Offset(size.width, y), Offset(size.width, end), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) {
-    return color != oldDelegate.color ||
-        borderRadius != oldDelegate.borderRadius;
   }
 }
 
@@ -583,5 +345,21 @@ class _LocationForm {
     name.dispose();
     description.dispose();
     initialCharacters.dispose();
+  }
+
+  bool get hasContent {
+    return [
+      imageUrl,
+      name,
+      description,
+      initialCharacters,
+    ].any((controller) => controller.text.trim().isNotEmpty);
+  }
+
+  void clear() {
+    imageUrl.clear();
+    name.clear();
+    description.clear();
+    initialCharacters.clear();
   }
 }

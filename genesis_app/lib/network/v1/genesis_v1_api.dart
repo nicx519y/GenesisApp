@@ -7,6 +7,7 @@ import 'home_api.dart';
 import 'messages_api.dart';
 import 'origin_api.dart';
 import 'search_api.dart';
+import 'upload_api.dart';
 import 'user_api.dart';
 import 'world_api.dart';
 
@@ -21,6 +22,7 @@ class GenesisV1Api {
       discuss = DiscussV1Api(client),
       search = SearchV1Api(client),
       home = HomeV1Api(client),
+      upload = UploadV1Api(client),
       common = CommonV1Api(client);
 
   final UserV1Api user;
@@ -32,5 +34,6 @@ class GenesisV1Api {
   final DiscussV1Api discuss;
   final SearchV1Api search;
   final HomeV1Api home;
+  final UploadV1Api upload;
   final CommonV1Api common;
 }

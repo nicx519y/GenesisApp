@@ -1,0 +1,749 @@
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../app/bootstrap/app_services_scope.dart';
+import '../../platform/native_image_picker.dart';
+
+export '../../platform/native_image_picker.dart' show DiscussPickedImage;
+
+typedef DiscussPostSubmitter =
+    Future<Map<String, dynamic>> Function(String content, List<String> images);
+typedef DiscussImagePicker = Future<List<DiscussPickedImage>> Function();
+typedef DiscussImageUploader =
+    Future<String> Function(DiscussPickedImage image);
+
+const int discussPostMaxImages = 6;
+
+class DiscussPostInput extends StatefulWidget {
+  const DiscussPostInput({
+    super.key,
+    required this.bizId,
+    this.bizType = 1,
+    this.placeholder = 'Write a post',
+    this.title = 'New post',
+    this.submitter,
+    this.imagePicker,
+    this.imageUploader,
+    this.onSubmitted,
+  });
+
+  final String bizId;
+  final int bizType;
+  final String placeholder;
+  final String title;
+  final DiscussPostSubmitter? submitter;
+  final DiscussImagePicker? imagePicker;
+  final DiscussImageUploader? imageUploader;
+  final VoidCallback? onSubmitted;
+
+  @override
+  State<DiscussPostInput> createState() => _DiscussPostInputState();
+}
+
+class _DiscussPostInputState extends State<DiscussPostInput> {
+  final FocusNode _focusNode = FocusNode();
+  bool _composerOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_handleFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_handleFocusChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleFocusChange() {
+    if (_focusNode.hasFocus) _openComposer();
+  }
+
+  Future<void> _openComposer() async {
+    if (_composerOpen || widget.bizId.trim().isEmpty) return;
+    _composerOpen = true;
+    _focusNode.unfocus();
+
+    final submitted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      useSafeArea: false,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.38),
+      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height),
+      builder: (sheetContext) {
+        return _DiscussComposerSheet(
+          title: widget.title,
+          placeholder: widget.placeholder,
+          pickImages: widget.imagePicker ?? _pickImages,
+          uploadImage: widget.imageUploader ?? _uploadImage,
+          onSubmit: _submit,
+        );
+      },
+    );
+
+    _composerOpen = false;
+    if (!mounted || submitted != true) return;
+    widget.onSubmitted?.call();
+  }
+
+  Future<void> _submit(String content, List<String> images) async {
+    final submitter = widget.submitter;
+    if (submitter != null) {
+      await submitter(content, images);
+      return;
+    }
+
+    await AppServicesScope.read(context).api.v1.discuss.post(
+      bizId: widget.bizId.trim(),
+      bizType: widget.bizType,
+      content: content,
+      images: images,
+    );
+  }
+
+  Future<List<DiscussPickedImage>> _pickImages() async {
+    return pickGenesisImages(limit: discussPostMaxImages);
+  }
+
+  Future<String> _uploadImage(DiscussPickedImage image) async {
+    final uploaded = await AppServicesScope.read(context).api.v1.upload.image(
+      bytes: image.bytes,
+      filename: image.filename,
+      contentType: image.contentType,
+    );
+    final url = '${uploaded['url'] ?? ''}'.trim();
+    if (url.isEmpty) throw StateError('Upload returned an empty URL');
+    return url;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      focusNode: _focusNode,
+      readOnly: true,
+      showCursor: false,
+      minLines: 1,
+      maxLines: 3,
+      style: const TextStyle(
+        fontSize: 12,
+        height: 1.2,
+        fontWeight: FontWeight.w500,
+        color: Color(0xFF1D1D1D),
+      ),
+      decoration: InputDecoration(
+        hintText: widget.placeholder,
+        hintStyle: const TextStyle(
+          fontSize: 12,
+          height: 1.2,
+          fontWeight: FontWeight.w500,
+          color: Color(0xFF9A9A9A),
+        ),
+        isDense: true,
+        filled: true,
+        fillColor: const Color(0xFFF4F4F4),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+}
+
+class _DiscussComposerSheet extends StatefulWidget {
+  const _DiscussComposerSheet({
+    required this.title,
+    required this.placeholder,
+    required this.pickImages,
+    required this.uploadImage,
+    required this.onSubmit,
+  });
+
+  final String title;
+  final String placeholder;
+  final DiscussImagePicker pickImages;
+  final DiscussImageUploader uploadImage;
+  final Future<void> Function(String content, List<String> images) onSubmit;
+
+  @override
+  State<_DiscussComposerSheet> createState() => _DiscussComposerSheetState();
+}
+
+class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
+    with WidgetsBindingObserver {
+  final TextEditingController _controller = TextEditingController();
+  final List<_DiscussImageAttachment> _images = <_DiscussImageAttachment>[];
+  final List<Timer> _metricsSyncTimers = <Timer>[];
+  bool _submitting = false;
+  bool _pickerOpen = false;
+  bool _closing = false;
+  double _keyboardInsetFloor = 0;
+  int _nextImageId = 0;
+  int _metricsSyncToken = 0;
+
+  bool get _canSend {
+    if (_submitting || _images.any((image) => image.failed)) return false;
+    return _controller.text.trim().isNotEmpty || _images.isNotEmpty;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _controller.addListener(_handleTextChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncKeyboardMetrics();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _metricsSyncToken += 1;
+    for (final timer in _metricsSyncTimers) {
+      timer.cancel();
+    }
+    _metricsSyncTimers.clear();
+    _controller.removeListener(_handleTextChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    _scheduleKeyboardMetricsSync();
+  }
+
+  void _handleTextChanged() {
+    setState(() {});
+  }
+
+  void _scheduleKeyboardMetricsSync() {
+    if (!mounted) return;
+    final token = ++_metricsSyncToken;
+    for (final timer in _metricsSyncTimers) {
+      timer.cancel();
+    }
+    _metricsSyncTimers.clear();
+    _syncKeyboardMetrics();
+    for (final delay in const <Duration>[
+      Duration(milliseconds: 16),
+      Duration(milliseconds: 80),
+      Duration(milliseconds: 180),
+      Duration(milliseconds: 320),
+    ]) {
+      late final Timer timer;
+      timer = Timer(delay, () {
+        _metricsSyncTimers.remove(timer);
+        if (!mounted || token != _metricsSyncToken) return;
+        _syncKeyboardMetrics();
+      });
+      _metricsSyncTimers.add(timer);
+    }
+  }
+
+  void _syncKeyboardMetrics() {
+    if (!mounted) return;
+    final measuredInset = _keyboardInsetBottom(context, MediaQuery.of(context));
+    // Image picker return can report a partial IME inset before the keyboard
+    // finishes rising, so keep the last full positive inset as the floor.
+    if (measuredInset > _keyboardInsetFloor) {
+      _keyboardInsetFloor = measuredInset;
+    }
+    setState(() {});
+  }
+
+  Future<void> _send() async {
+    if (!_canSend) return;
+    setState(() => _submitting = true);
+    try {
+      await Future.wait(_images.map((image) => image.uploadFuture));
+      final imageUrls = _images
+          .map((image) => image.url?.trim() ?? '')
+          .where((url) => url.isNotEmpty)
+          .toList(growable: false);
+      await widget.onSubmit(_controller.text.trim(), imageUrls);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(const SnackBar(content: Text('Post failed')));
+    }
+  }
+
+  Future<void> _pickAndUploadImages() async {
+    if (_submitting || _images.length >= discussPostMaxImages) return;
+    final available = discussPostMaxImages - _images.length;
+    List<DiscussPickedImage>? picked;
+    Object? pickError;
+    setState(() => _pickerOpen = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    try {
+      picked = await widget.pickImages();
+    } catch (error, stackTrace) {
+      pickError = error;
+      debugPrint('Discuss image selection failed: $error\n$stackTrace');
+    } finally {
+      if (mounted) {
+        setState(() => _pickerOpen = false);
+        _scheduleKeyboardMetricsSync();
+      }
+    }
+    if (!mounted) return;
+    if (pickError != null) {
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(SnackBar(content: Text(_imagePickErrorText(pickError))));
+      return;
+    }
+    if (picked == null || picked.isEmpty) return;
+
+    final selected = picked.take(available).toList(growable: false);
+    final added = <_DiscussImageAttachment>[];
+    for (final image in selected) {
+      added.add(_DiscussImageAttachment(id: _nextImageId++, image: image));
+    }
+    setState(() => _images.addAll(added));
+
+    for (final attachment in added) {
+      final uploadFuture = _uploadAttachment(attachment);
+      attachment.uploadFuture = uploadFuture;
+    }
+  }
+
+  Future<void> _uploadAttachment(_DiscussImageAttachment attachment) async {
+    try {
+      final url = await widget.uploadImage(attachment.image);
+      if (!mounted || !_images.contains(attachment)) return;
+      setState(() {
+        attachment.url = url;
+        attachment.uploading = false;
+      });
+    } catch (_) {
+      if (!mounted || !_images.contains(attachment)) return;
+      setState(() {
+        attachment.failed = true;
+        attachment.uploading = false;
+      });
+      ScaffoldMessenger.maybeOf(
+        context,
+      )?.showSnackBar(const SnackBar(content: Text('Image upload failed')));
+      rethrow;
+    }
+  }
+
+  void _removeImage(_DiscussImageAttachment image) {
+    if (_submitting) return;
+    setState(() => _images.remove(image));
+  }
+
+  Future<void> _dismiss() async {
+    if (_submitting || _closing) return;
+    setState(() => _closing = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    Navigator.of(context).pop(false);
+    unawaited(SystemChannels.textInput.invokeMethod<void>('TextInput.hide'));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final keyboardInset = math.max(
+      _keyboardInsetBottom(context, media),
+      _keyboardInsetFloor,
+    );
+    final maxSheetHeight = math.max(
+      0.0,
+      media.size.height - keyboardInset - media.padding.top - 12,
+    );
+    final sheetHeight = math.min(324.0, maxSheetHeight);
+    if (_closing) return const SizedBox.shrink();
+    return Offstage(
+      offstage: _pickerOpen,
+      child: SizedBox.expand(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                key: const ValueKey('discuss-composer-scrim-dismiss'),
+                behavior: HitTestBehavior.opaque,
+                onTap: _dismiss,
+              ),
+            ),
+            AnimatedPadding(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              padding: EdgeInsets.only(bottom: keyboardInset),
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {},
+                  child: Material(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(28),
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: SizedBox(
+                        key: const ValueKey('discuss-composer-sheet'),
+                        height: sheetHeight,
+                        width: double.infinity,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 22, 16, 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.title,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  height: 1.1,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF111111),
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              Expanded(
+                                child: TextField(
+                                  controller: _controller,
+                                  autofocus: true,
+                                  keyboardType: TextInputType.multiline,
+                                  textInputAction: TextInputAction.newline,
+                                  minLines: null,
+                                  maxLines: null,
+                                  expands: true,
+                                  cursorColor: const Color(0xFF6C657A),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    height: 1.25,
+                                    fontWeight: FontWeight.w400,
+                                    color: Color(0xFF111111),
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: widget.placeholder,
+                                    hintStyle: const TextStyle(
+                                      fontSize: 14,
+                                      height: 1.25,
+                                      fontWeight: FontWeight.w400,
+                                      color: Color(0xFFB8B8B8),
+                                    ),
+                                    border: InputBorder.none,
+                                    isCollapsed: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              _DiscussImageStrip(
+                                images: _images,
+                                showAddButton:
+                                    _images.isNotEmpty &&
+                                    _images.length < discussPostMaxImages,
+                                submitting: _submitting,
+                                onAdd: _pickAndUploadImages,
+                                onRemove: _removeImage,
+                              ),
+                              const SizedBox(height: 14),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    key: const ValueKey(
+                                      'discuss-image-picker-button',
+                                    ),
+                                    onPressed: _submitting
+                                        ? null
+                                        : _pickAndUploadImages,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 36,
+                                      height: 36,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.add_photo_alternate_outlined,
+                                      size: 30,
+                                      color: Color(0xFF00834C),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  TextButton(
+                                    onPressed: _canSend ? _send : null,
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: const Color(0xFF4B5F8E),
+                                      disabledForegroundColor: const Color(
+                                        0xFF9BA4B8,
+                                      ),
+                                      textStyle: const TextStyle(
+                                        fontSize: 16,
+                                        height: 1.1,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    child: _submitting
+                                        ? const SizedBox.square(
+                                            dimension: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Text('Send'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DiscussImageAttachment {
+  _DiscussImageAttachment({required this.id, required this.image})
+    : uploadFuture = Future<void>.value();
+
+  final int id;
+  final DiscussPickedImage image;
+  late Future<void> uploadFuture;
+  String? url;
+  bool uploading = true;
+  bool failed = false;
+}
+
+class _DiscussImageStrip extends StatelessWidget {
+  const _DiscussImageStrip({
+    required this.images,
+    required this.showAddButton,
+    required this.submitting,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  final List<_DiscussImageAttachment> images;
+  final bool showAddButton;
+  final bool submitting;
+  final VoidCallback onAdd;
+  final ValueChanged<_DiscussImageAttachment> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gap = _discussImageGap(constraints.maxWidth);
+        final tileSize = _discussImageTileSize(constraints.maxWidth, gap);
+        final itemCount = images.length + (showAddButton ? 1 : 0);
+
+        return SizedBox(
+          key: const ValueKey('discuss-image-strip'),
+          height: tileSize + 8,
+          child: itemCount == 0
+              ? const SizedBox.expand()
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    for (var index = 0; index < itemCount; index++) ...[
+                      if (index == images.length)
+                        _DiscussImageAddTile(
+                          size: tileSize,
+                          enabled: !submitting,
+                          onTap: onAdd,
+                        )
+                      else
+                        _DiscussImageTile(
+                          size: tileSize,
+                          attachment: images[index],
+                          submitting: submitting,
+                          onRemove: () => onRemove(images[index]),
+                        ),
+                      if (index != itemCount - 1) SizedBox(width: gap),
+                    ],
+                  ],
+                ),
+        );
+      },
+    );
+  }
+}
+
+class _DiscussImageAddTile extends StatelessWidget {
+  const _DiscussImageAddTile({
+    required this.size,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final double size;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      key: const ValueKey('discuss-image-add-button'),
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE3E3E3), width: 1.4),
+        ),
+        child: const Icon(Icons.add, size: 28, color: Color(0xFF8E8E8E)),
+      ),
+    );
+  }
+}
+
+class _DiscussImageTile extends StatelessWidget {
+  const _DiscussImageTile({
+    required this.size,
+    required this.attachment,
+    required this.submitting,
+    required this.onRemove,
+  });
+
+  final double size;
+  final _DiscussImageAttachment attachment;
+  final bool submitting;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size + 8,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 0,
+            bottom: 0,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: SizedBox(
+                key: ValueKey('discuss-image-thumb-${attachment.id}'),
+                width: size,
+                height: size,
+                child: Image.memory(attachment.image.bytes, fit: BoxFit.cover),
+              ),
+            ),
+          ),
+          if (attachment.uploading || attachment.failed)
+            Positioned(
+              left: 0,
+              bottom: 0,
+              child: Container(
+                width: size,
+                height: size,
+                color: Colors.black.withValues(alpha: 0.24),
+                alignment: Alignment.center,
+                child: attachment.failed
+                    ? const Icon(
+                        Icons.error_outline,
+                        color: Colors.white,
+                        size: 22,
+                      )
+                    : const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+              ),
+            ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: InkWell(
+              key: ValueKey('discuss-image-remove-${attachment.id}'),
+              onTap: submitting ? null : onRemove,
+              customBorder: const CircleBorder(),
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4F4F4F),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.14),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 18),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _imagePickErrorText(Object error) {
+  if (error is PlatformException) {
+    final code = error.code.toLowerCase();
+    if (code.contains('denied') || code.contains('permission')) {
+      return 'Photo access denied';
+    }
+  }
+  return 'Image selection failed';
+}
+
+double _keyboardInsetBottom(BuildContext context, MediaQueryData media) {
+  final view = View.of(context);
+  final viewInset = view.viewInsets.bottom / view.devicePixelRatio;
+  var dispatcherInset = 0.0;
+  for (final dispatcherView
+      in WidgetsBinding.instance.platformDispatcher.views) {
+    dispatcherInset = math.max(
+      dispatcherInset,
+      dispatcherView.viewInsets.bottom / dispatcherView.devicePixelRatio,
+    );
+  }
+  return math.max(
+    media.viewInsets.bottom,
+    math.max(viewInset, dispatcherInset),
+  );
+}
+
+double _discussImageGap(double maxWidth) {
+  if (maxWidth <= 0) return 8;
+  return (maxWidth * 0.026).clamp(6.0, 12.0).toDouble();
+}
+
+double _discussImageTileSize(double maxWidth, double gap) {
+  if (maxWidth <= 0) return 52;
+  return ((maxWidth - gap * (discussPostMaxImages - 1)) / discussPostMaxImages)
+      .clamp(36.0, maxWidth)
+      .toDouble();
+}

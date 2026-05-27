@@ -719,20 +719,21 @@ class GenesisApi {
   Future<CreateOriginResult> createOrigin({
     required Map<String, dynamic> payload,
   }) async {
-    final json = await _apiClient.post<Object?>('origins', body: payload);
-    final map = asJsonMap(json);
-    if (!asBool(map['ok'], fallback: true)) {
-      throw ApiException(
-        message: asString(map['error'], fallback: 'create origin failed'),
-      );
-    }
-    final detail = map['detail'] is Map
-        ? asJsonMap(map['detail'])
-        : const <String, dynamic>{};
-    return CreateOriginResult(
-      worldviewId: asString(map['worldview_id']),
-      oid: asInt(detail['Oid']),
+    final created = await v1.origin.create(
+      name: asString(payload['name']),
+      worldView: asString(payload['world_view']),
+      worldSetting: asString(payload['world_setting']),
+      cover: asString(payload['cover']),
+      characterList: _payloadMapList(payload['character_list']),
+      locationList: _payloadMapList(payload['location_list']),
+      eventList: _payloadMapList(payload['event_list']),
+      metric: payload['metric'] is Map ? asJsonMap(payload['metric']) : null,
     );
+    final detail = created['origin'] is Map
+        ? asJsonMap(created['origin'])
+        : created;
+    final oid = asString(detail['oid'], fallback: asString(created['oid']));
+    return CreateOriginResult(worldviewId: oid, oid: oid);
   }
 }
 
@@ -740,7 +741,7 @@ class CreateOriginResult {
   const CreateOriginResult({required this.worldviewId, required this.oid});
 
   final String worldviewId;
-  final int oid;
+  final String oid;
 }
 
 class MyWorldSummary {
@@ -808,6 +809,11 @@ HttpTransport? _resolveTransport({
       useMock ?? environmentUseMock ?? (kDebugMode && !forceRealApi);
   if (!enabled) return null;
   return LocalMockGenesisTransport.instance;
+}
+
+List<Map<String, dynamic>> _payloadMapList(Object? raw) {
+  if (raw is! List) return const <Map<String, dynamic>>[];
+  return raw.map((item) => asJsonMap(item)).toList(growable: false);
 }
 
 bool? _mockEnabledByApiEnvironment(String value) {
@@ -890,6 +896,9 @@ OriginSummary _originSummaryFromV1ListItem(Map<String, dynamic> raw) {
   final cover = resolveAssetUrl(
     asString(origin['cover'], fallback: asString(origin['map_url'])),
   );
+  final mapUrl = resolveAssetUrl(
+    asString(origin['map_url'], fallback: asString(origin['cover'])),
+  );
 
   return OriginSummary(
     id: asInt(origin['id'], fallback: _stableInt(oid)),
@@ -909,7 +918,7 @@ OriginSummary _originSummaryFromV1ListItem(Map<String, dynamic> raw) {
       ),
     ),
     mapImage: cover,
-    worldMap: cover,
+    worldMap: mapUrl,
     worldView: asString(
       origin['world_view'],
       fallback: asString(origin['setting']),
@@ -1030,7 +1039,9 @@ List<OriginCharacter> _originCharactersFromV5(Object? raw, int originId) {
           name: asString(c['name']),
           avatar: asString(c['image']),
           tags: asString(c['identity']),
+          tagline: asString(c['tagline']),
           description: asString(c['intro']),
+          goal: asString(c['goal']),
           currentLocationId: _extractTrailingInt(asString(c['Ochar_point'])),
           initialLocationId: _extractTrailingInt(asString(c['Ochar_point'])),
           createdAt: null,
@@ -1066,6 +1077,7 @@ List<OriginLocation> _originLocationsFromV5(Object? raw, int originId) {
           originId: originId,
           name: asString(p['label']),
           icon: asString(p['image']),
+          mapUrl: asString(p['map_url']),
           description: '',
           position: i + 1,
           isActive: true,
@@ -1111,7 +1123,8 @@ Map<String, dynamic> _normalizeWorldLocation(Map<String, dynamic> location) {
       location['location_summary'],
       fallback: asString(location['description']),
     ),
-    'icon': asString(location['image'], fallback: asString(location['map'])),
+    'icon': asString(location['image']),
+    'map_url': asString(location['map_url']),
     'x_percent': xPercent,
     'y_percent': yPercent,
   };
@@ -1126,6 +1139,9 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
   final id = _stableInt(oid);
   final cover = resolveAssetUrl(
     asString(origin['cover'], fallback: asString(origin['map_url'])),
+  );
+  final mapUrl = resolveAssetUrl(
+    asString(origin['map_url'], fallback: asString(origin['cover'])),
   );
   final charactersRaw = raw['character_list'] ?? raw['characters'];
   final characters = charactersRaw is List
@@ -1164,7 +1180,7 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
       ),
     ),
     mapImage: cover,
-    worldMap: cover,
+    worldMap: mapUrl,
     worldView: asString(
       origin['world_view'],
       fallback: asString(origin['setting']),
@@ -1247,6 +1263,9 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
   final cover = resolveAssetUrl(
     asString(world['cover'], fallback: asString(world['map_url'])),
   );
+  final mapUrl = resolveAssetUrl(
+    asString(world['map_url'], fallback: asString(world['cover'])),
+  );
   final locationsRaw = raw['locations'];
   final locations = locationsRaw is List
       ? asJsonList(locationsRaw)
@@ -1312,7 +1331,7 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
         fallback: asString(world['brief']),
       ),
       mapImage: cover,
-      worldMap: cover,
+      worldMap: mapUrl,
       worldView: asString(world['setting']),
       originator: asString(world['owner_name']),
       versionNum: asInt(world['origin_version']),
@@ -1350,10 +1369,12 @@ OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
     name: asString(raw['name']),
     avatar: resolveAssetUrl(asString(raw['avatar'])),
     tags: asString(raw['identity']),
+    tagline: asString(raw['tagline'], fallback: asString(raw['brief'])),
     description: asString(
       raw['description'],
       fallback: asString(raw['brief'], fallback: asString(raw['tagline'])),
     ),
+    goal: asString(raw['goal']),
     currentLocationId: stableLocationId,
     initialLocationId: stableLocationId,
     createdAt: _apiDateTime(raw['created_at']),
@@ -1368,9 +1389,8 @@ OriginLocation _originLocationFromV1(Map<String, dynamic> raw, int originId) {
     id: asInt(raw['id'], fallback: _stableInt(locationId)),
     originId: originId,
     name: asString(raw['name'], fallback: asString(raw['location_name'])),
-    icon: resolveAssetUrl(
-      asString(raw['image'], fallback: asString(raw['map'])),
-    ),
+    icon: resolveAssetUrl(asString(raw['image'])),
+    mapUrl: resolveAssetUrl(asString(raw['map_url'])),
     description: asString(
       raw['description'],
       fallback: asString(raw['location_summary']),

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../icons/my_flutter_app_icons.dart';
 import 'world_point.dart';
 
 class WorldLocationList extends StatelessWidget {
@@ -12,29 +13,12 @@ class WorldLocationList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rootIndex = points.indexWhere((point) => point.depth <= 0);
-    final rootPoint = rootIndex < 0 ? null : points[rootIndex];
-    final listPoints = rootPoint == null
-        ? points
-        : [
-            for (var i = 0; i < points.length; i++)
-              if (i != rootIndex) points[i],
-          ];
-    final listRowCount = listPoints.length + (rootPoint == null ? 0 : 1);
-
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      itemCount: listRowCount,
-      separatorBuilder: (context, index) {
-        if (rootPoint != null && index == 0) return const SizedBox.shrink();
-        return const Divider(height: 1);
-      },
+      itemCount: points.length,
+      separatorBuilder: (context, index) => const Divider(height: 1),
       itemBuilder: (context, index) {
-        if (rootPoint != null && index == 0) {
-          return _PointListRootHeader(point: rootPoint);
-        }
-        final pointIndex = rootPoint == null ? index : index - 1;
-        return _PointListItem(point: listPoints[pointIndex], onTap: onPointTap);
+        return _PointListItem(point: points[index], onTap: onPointTap);
       },
     );
   }
@@ -65,7 +49,7 @@ class _PointListItem extends StatelessWidget {
                   Row(
                     children: [
                       const Icon(Icons.place, size: 14, color: Colors.black),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 2),
                       Expanded(
                         child: Text(
                           point.name,
@@ -82,46 +66,9 @@ class _PointListItem extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   if (point.users.isNotEmpty)
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 6,
-                      children: [
-                        for (final u in point.users.take(2))
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.person,
-                                size: 12,
-                                color: Colors.black,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                u.name ?? u.initials,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w400,
-                                  color: Colors.black,
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
+                    _PointCharacterGroups(users: point.users),
                   const SizedBox(height: 4),
-                  Text(
-                    point.description.isEmpty
-                        ? 'Explore this location and its stories.'
-                        : point.description,
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1.25,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.black,
-                    ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  _PointSummaryRow(description: point.description),
                 ],
               ),
             ),
@@ -132,30 +79,104 @@ class _PointListItem extends StatelessWidget {
   }
 }
 
-class _PointListRootHeader extends StatelessWidget {
-  const _PointListRootHeader({required this.point});
+class _PointCharacterGroups extends StatelessWidget {
+  const _PointCharacterGroups({required this.users});
 
-  final WorldPoint point;
+  final List<UserAvatar> users;
 
   @override
   Widget build(BuildContext context) {
+    final aiNames = users
+        .where((user) => user.showStar)
+        .map(_characterName)
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
+    final nonAiNames = users
+        .where((user) => !user.showStar)
+        .map(_characterName)
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+        if (aiNames.isNotEmpty)
+          _PointCharacterGroupRow(icon: MyFlutterApp.userStar, names: aiNames),
+        if (aiNames.isNotEmpty && nonAiNames.isNotEmpty)
+          const SizedBox(height: 2),
+        if (nonAiNames.isNotEmpty)
+          _PointCharacterGroupRow(icon: MyFlutterApp.user, names: nonAiNames),
+      ],
+    );
+  }
+
+  String _characterName(UserAvatar user) {
+    return (user.name ?? user.initials).trim();
+  }
+}
+
+class _PointCharacterGroupRow extends StatelessWidget {
+  const _PointCharacterGroupRow({required this.icon, required this.names});
+
+  final IconData icon;
+  final List<String> names;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 12, color: Colors.black),
+        const SizedBox(width: 4),
+        Expanded(
           child: Text(
-            "- ${point.name}",
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            names.join(', '),
             style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              height: 1.2,
+              fontWeight: FontWeight.w400,
               color: Colors.black,
             ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
-        const Divider(height: 1),
+      ],
+    );
+  }
+}
+
+class _PointSummaryRow extends StatelessWidget {
+  const _PointSummaryRow({required this.description});
+
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = description.isEmpty
+        ? 'Explore this location and its stories.'
+        : description;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: const Icon(Icons.schedule, size: 12, color: Colors.black),
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            summary,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.25,
+              fontWeight: FontWeight.w400,
+              color: Colors.black,
+            ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }

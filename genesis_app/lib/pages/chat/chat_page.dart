@@ -27,20 +27,29 @@ class _ChatPageState extends State<ChatPage> {
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
   Timer? _pollTimer;
+  late _ChatTarget _target;
   bool _loading = true;
   bool _sending = false;
-  bool _pollInFlight = false;
+  String? _fetchInFlightKey;
   Object? _loadError;
   String _uid = '';
+  int _targetGeneration = 0;
   List<WorldMessage> _messages = const <WorldMessage>[];
 
   @override
   void initState() {
     super.initState();
+    _target = _ChatTarget.fromWidget(widget);
     unawaited(_init());
     _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       unawaited(_fetchMessages());
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _activateTarget(_ChatTarget.fromWidget(widget));
   }
 
   Future<void> _init() async {
@@ -53,19 +62,35 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _fetchMessages({bool isInitial = false}) async {
-    if (widget.wid.trim().isEmpty || widget.pointId.trim().isEmpty) return;
-    if (_pollInFlight) return;
-    _pollInFlight = true;
+    final target = _target;
+    if (!target.canLoad) {
+      if (isInitial && mounted) {
+        setState(() {
+          _loading = false;
+          _loadError = null;
+        });
+      }
+      return;
+    }
+
+    final fetchKey = target.identityKey;
+    if (_fetchInFlightKey == fetchKey) return;
+    final generation = _targetGeneration;
+    _fetchInFlightKey = fetchKey;
     try {
       final page = await AppServicesScope.read(context).api.getLocationMessages(
-        wid: widget.wid,
-        pointId: widget.pointId,
-        locationId: widget.sceneId,
+        wid: target.wid,
+        pointId: target.pointId,
+        locationId: target.sceneId,
         limit: 50,
         offset: 0,
       );
 
-      if (!mounted) return;
+      if (!mounted ||
+          generation != _targetGeneration ||
+          !_target.hasSameContentIdentity(target)) {
+        return;
+      }
       final shouldStickToBottom =
           _scrollController.hasClients &&
           _scrollController.position.extentAfter < 80;
@@ -78,7 +103,11 @@ class _ChatPageState extends State<ChatPage> {
 
       if (shouldStickToBottom) _scrollToBottom();
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted ||
+          generation != _targetGeneration ||
+          !_target.hasSameContentIdentity(target)) {
+        return;
+      }
       if (isInitial) {
         setState(() {
           _loadError = e;
@@ -86,8 +115,30 @@ class _ChatPageState extends State<ChatPage> {
         });
       }
     } finally {
-      _pollInFlight = false;
+      if (_fetchInFlightKey == fetchKey) {
+        _fetchInFlightKey = null;
+      }
     }
+  }
+
+  void _activateTarget(_ChatTarget next) {
+    if (_target.hasSameContentIdentity(next)) {
+      if (_target != next) {
+        setState(() => _target = next);
+      }
+      return;
+    }
+
+    _targetGeneration += 1;
+    _textController.clear();
+    setState(() {
+      _target = next;
+      _messages = const <WorldMessage>[];
+      _loadError = null;
+      _loading = next.canLoad;
+      _sending = false;
+    });
+    unawaited(_fetchMessages(isInitial: true));
   }
 
   void _scrollToBottom() {
@@ -104,16 +155,17 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _send() async {
     if (_sending) return;
-    if (widget.wid.trim().isEmpty || widget.pointId.trim().isEmpty) return;
+    final target = _target;
+    if (!target.canLoad) return;
     final content = _textController.text.trim();
     if (content.isEmpty) return;
 
     setState(() => _sending = true);
     try {
       await AppServicesScope.read(context).api.sendMessage(
-        wid: widget.wid,
-        pointId: widget.pointId,
-        locationId: widget.sceneId,
+        wid: target.wid,
+        pointId: target.pointId,
+        locationId: target.sceneId,
         content: content,
       );
       if (!mounted) return;
@@ -140,10 +192,10 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final title = widget.locationName.isEmpty
-        ? (widget.sceneId.isEmpty ? widget.pointId : widget.sceneId)
-        : widget.locationName;
-    final subtitle = 'WID: ${widget.wid}';
+    final title = _target.locationName.isEmpty
+        ? (_target.sceneId.isEmpty ? _target.pointId : _target.sceneId)
+        : _target.locationName;
+    final subtitle = 'WID: ${_target.wid}';
     final messages = _messages;
 
     return Scaffold(
@@ -200,6 +252,52 @@ class _ChatPageState extends State<ChatPage> {
       myUid: _uid,
     );
   }
+}
+
+@immutable
+class _ChatTarget {
+  const _ChatTarget({
+    required this.wid,
+    required this.pointId,
+    required this.sceneId,
+    required this.locationName,
+  });
+
+  factory _ChatTarget.fromWidget(ChatPage widget) {
+    return _ChatTarget(
+      wid: widget.wid,
+      pointId: widget.pointId,
+      sceneId: widget.sceneId,
+      locationName: widget.locationName,
+    );
+  }
+
+  final String wid;
+  final String pointId;
+  final String sceneId;
+  final String locationName;
+
+  bool get canLoad => wid.trim().isNotEmpty && pointId.trim().isNotEmpty;
+
+  String get identityKey {
+    return '${wid.trim()}\u001F${pointId.trim()}\u001F${sceneId.trim()}';
+  }
+
+  bool hasSameContentIdentity(_ChatTarget other) {
+    return identityKey == other.identityKey;
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _ChatTarget &&
+        wid == other.wid &&
+        pointId == other.pointId &&
+        sceneId == other.sceneId &&
+        locationName == other.locationName;
+  }
+
+  @override
+  int get hashCode => Object.hash(wid, pointId, sceneId, locationName);
 }
 
 class _ChatTopBar extends StatelessWidget {

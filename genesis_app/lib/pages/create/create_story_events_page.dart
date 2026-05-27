@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../components/page_header.dart';
+import '../../ui/genesis_ui.dart';
+import 'create_form_widgets.dart';
 import 'create_origin_draft_store.dart';
 
 class CreateStoryEventsPage extends StatefulWidget {
@@ -36,17 +39,31 @@ class _CreateStoryEventsPageState extends State<CreateStoryEventsPage> {
 
   void _addEvent() {
     if (_eventControllers.length >= _maxEvents) {
+      _showError('You can add up to $_maxEvents events.');
       return;
     }
     setState(() => _eventControllers.add(TextEditingController()));
   }
 
+  Future<void> _requestRemoveEvent(int index) async {
+    final controller = _eventControllers[index];
+    if (controller.text.trim().isNotEmpty) {
+      final confirmed = await confirmCreateFormDelete(
+        context,
+        itemLabel: 'Event ${index + 1}',
+      );
+      if (!confirmed || !mounted) return;
+    }
+    _removeEvent(index);
+  }
+
   void _removeEvent(int index) {
     if (_eventControllers.length <= 1) {
-      return;
+      _eventControllers[index].clear();
+    } else {
+      final controller = _eventControllers.removeAt(index);
+      controller.dispose();
     }
-    final controller = _eventControllers.removeAt(index);
-    controller.dispose();
     setState(() {});
   }
 
@@ -66,6 +83,12 @@ class _CreateStoryEventsPageState extends State<CreateStoryEventsPage> {
     Navigator.of(context).pop(true);
   }
 
+  void _showError(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   void dispose() {
     for (final controller in _eventControllers) {
@@ -76,115 +99,64 @@ class _CreateStoryEventsPageState extends State<CreateStoryEventsPage> {
 
   @override
   Widget build(BuildContext context) {
-    const double titleSize = 18;
-    const double bodySize = 14;
-    const double captionSize = 12;
-
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        title: const Text(
-          '📜 Story Events',
-          style: TextStyle(
-            fontSize: titleSize,
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
-          ),
-        ),
-      ),
-      body: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Add up to 20 key events for your story.',
-                        style: TextStyle(
-                          fontSize: bodySize,
-                          height: 1.45,
-                          color: Color(0xFF4B5563),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '${_eventControllers.length}/$_maxEvents (Added / Max)',
-                          style: const TextStyle(
-                            fontSize: captionSize,
-                            color: Color(0xFF6B7280),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      for (
-                        int i = 0;
-                        i < _eventControllers.length;
-                        i++
-                      ) ...<Widget>[
-                        _StoryEventCard(
-                          index: i + 1,
-                          controller: _eventControllers[i],
-                          onChanged: () => setState(() {}),
-                          onDelete: () => _removeEvent(i),
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-                      _DashedBorderButton(
-                        onTap: _addEvent,
-                        child: const Text(
-                          '+ Add Event',
-                          style: TextStyle(
-                            fontSize: bodySize,
-                            color: Color(0xFF4B5563),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
+      appBar: const GenesisBackAppBar(pageName: '📜 Story Events'),
+      body: CreateKeyboardDismissArea(
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(22, 16, 22, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Optional story beats or scenes. Each event is free text; keep them short and clear for the world runtime.',
+                  style: TextStyle(
+                    color: createFormMuted,
+                    fontSize: 14,
+                    height: 1.4,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 24),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '${_eventControllers.length}/$_maxEvents (Added / Max)',
+                    style: const TextStyle(
+                      color: createFormText,
+                      fontSize: 12,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                for (int i = 0; i < _eventControllers.length; i++) ...[
+                  _StoryEventCard(
+                    index: i + 1,
+                    controller: _eventControllers[i],
+                    onChanged: () => setState(() {}),
+                    onDelete: () {
+                      _requestRemoveEvent(i);
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                ],
+                CreateAddButton(label: '+ Add Event', onTap: _addEvent),
+                const SizedBox(height: 12),
+              ],
+            ),
           ),
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        child: SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: ElevatedButton(
-            onPressed: _isSaving ? null : _saveEvents,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              textStyle: const TextStyle(
-                fontSize: bodySize,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            child: Text(_isSaving ? 'Saving...' : 'Save'),
-          ),
+      bottomNavigationBar: CreateKeyboardAwareSaveBar(
+        minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
+        child: GenesisPrimaryButton(
+          label: _isSaving ? 'Saving...' : 'Save',
+          onPressed: _isSaving ? null : _saveEvents,
+          backgroundColor: createFormGreen,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: const Color(0xFFBFD8CD),
         ),
       ),
     );
@@ -206,150 +178,24 @@ class _StoryEventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const double bodySize = 14;
-    const double captionSize = 12;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFD1D5DB)),
-      ),
+    return CreateFormCard(
+      title: 'Event $index',
+      onDelete: onDelete,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text(
-                'Event $index',
-                style: const TextStyle(
-                  fontSize: bodySize,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(
-                  Icons.delete_outline,
-                  color: Color(0xFF9CA3AF),
-                ),
-                splashRadius: 20,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFD1D5DB)),
-            ),
-            child: TextField(
-              controller: controller,
-              onChanged: (_) => onChanged(),
-              minLines: 6,
-              maxLines: 8,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                hintText: 'Event (any language)',
-                hintStyle: TextStyle(
-                  fontSize: bodySize,
-                  color: Color(0xFF9CA3AF),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '${controller.text.length}/1000',
-              style: const TextStyle(
-                fontSize: captionSize,
-                color: Color(0xFF9CA3AF),
-              ),
-            ),
+          const SizedBox(height: 12),
+          CreateTextFieldBlock(
+            label: '',
+            controller: controller,
+            hintText: 'Event (any language)',
+            maxLength: 1000,
+            minLines: 7,
+            labelSize: 0,
+            onChanged: (_) => onChanged(),
           ),
         ],
       ),
     );
-  }
-}
-
-class _DashedBorderButton extends StatelessWidget {
-  const _DashedBorderButton({required this.onTap, required this.child});
-
-  final VoidCallback onTap;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: CustomPaint(
-          painter: _DashedRRectPainter(
-            color: const Color(0xFFD1D5DB),
-            radius: 12,
-          ),
-          child: Container(
-            width: double.infinity,
-            height: 50,
-            alignment: Alignment.center,
-            child: child,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DashedRRectPainter extends CustomPainter {
-  _DashedRRectPainter({required this.color, required this.radius});
-
-  final Color color;
-  final double radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const double dashWidth = 6;
-    const double dashSpace = 4;
-
-    final Paint paint = Paint()
-      ..color = color
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-
-    final RRect rrect = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      Radius.circular(radius),
-    );
-
-    final Path path = Path()..addRRect(rrect);
-    for (final metric in path.computeMetrics()) {
-      double distance = 0;
-      while (distance < metric.length) {
-        final double end = (distance + dashWidth)
-            .clamp(0.0, metric.length)
-            .toDouble();
-        canvas.drawPath(metric.extractPath(distance, end), paint);
-        distance += dashWidth + dashSpace;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedRRectPainter oldDelegate) {
-    return oldDelegate.color != color || oldDelegate.radius != radius;
   }
 }

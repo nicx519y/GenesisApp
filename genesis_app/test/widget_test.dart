@@ -13,20 +13,25 @@ import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
+import 'package:genesis_flutter_android/pages/create/create_basics_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_characters_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_locations_page.dart';
+import 'package:genesis_flutter_android/pages/create/create_origin_draft_store.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_story_events_page.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/components/search_bar.dart';
 import 'package:genesis_flutter_android/pages/app_shell_page.dart';
+import 'package:genesis_flutter_android/pages/chat/chat_page.dart';
 import 'package:genesis_flutter_android/pages/home/home_page.dart';
+import 'package:genesis_flutter_android/pages/me/follows_page.dart';
 import 'package:genesis_flutter_android/pages/me/me_page.dart';
 import 'package:genesis_flutter_android/pages/me/settings_page.dart';
 import 'package:genesis_flutter_android/pages/me/user_info_page.dart';
 import 'package:genesis_flutter_android/pages/messages/message_category_list_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
+import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
 import 'package:genesis_flutter_android/platform/auth/identity_auth_service.dart';
@@ -185,6 +190,49 @@ class _RecordingV1ListTransport implements HttpTransport {
           'world_id': body['world_id'],
           'tick_cnt': 4,
           'last_tick': <String, Object?>{},
+        },
+      });
+    }
+    if (request.method == 'POST' &&
+        request.uri.path.endsWith('/origin/launch')) {
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {'wid': 'w_launched_from_origin'},
+      });
+    }
+    if (request.method == 'POST' &&
+        request.uri.path.endsWith('/discuss/post')) {
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {'discuss_id': 'dis_new', 'root_discuss_id': '', 'level': 1},
+      });
+    }
+    if (request.uri.path.endsWith('/discuss/list')) {
+      final bizId = request.uri.queryParameters['biz_id'] ?? '';
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'list': [
+            {
+              'comment': {
+                'discuss_id': 'dis_$bizId',
+                'biz_type': 1,
+                'biz_id': bizId,
+                'author': {'uid': 'u_discuss_$bizId', 'name': 'Shawn'},
+                'content': 'Discuss preview for $bizId',
+                'reply_cnt': 36,
+                'created_at': '2026-02-09T00:00:00Z',
+              },
+              'latest_replies': const <Object?>[],
+            },
+          ],
+          'top_total': 1,
+          'total_all': 1,
+          'pn': 1,
+          'rn': 2,
         },
       });
     }
@@ -380,7 +428,18 @@ class _RecordingV1ListTransport implements HttpTransport {
           'location_name': 'World Location',
           'location_summary': 'A world location.',
           'image': '',
+          'map_url': '',
           'x_percent': 35,
+          'y_percent': 45,
+        },
+        {
+          'location_id': 'l_${fallback}_child',
+          'location_pid': 'l_$fallback',
+          'location_name': 'Child Location',
+          'location_summary': 'A child world location.',
+          'image': '',
+          'map_url': '',
+          'x_percent': 55,
           'y_percent': 45,
         },
       ],
@@ -546,6 +605,46 @@ class _RecordingSearchTransport implements HttpTransport {
       headers: const {'content-type': 'application/json'},
       body: jsonEncode({'err_no': 0, 'err_str': 'success', 'data': data}),
     );
+  }
+
+  List<TransportRequest> requestsFor(String path) {
+    return requests.where((request) => request.uri.path == path).toList();
+  }
+}
+
+class _RecordingCreateOriginTransport implements HttpTransport {
+  final requests = <TransportRequest>[];
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    Object? data = <String, Object?>{};
+    if (request.method == 'POST' &&
+        request.uri.path == '/api/v1/origin/create') {
+      final body = decodedBody(request);
+      data = {
+        'origin': {
+          'oid': 'o_created_1',
+          'name': body['name'],
+          'cover': body['cover'],
+          'world_view': body['world_view'],
+          'world_setting': body['world_setting'],
+        },
+        'character_list': const <Object?>[],
+        'location_list': const <Object?>[],
+        'event_list': const <Object?>[],
+      };
+    }
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({'err_no': 0, 'err_str': 'success', 'data': data}),
+    );
+  }
+
+  Map<String, dynamic> decodedBody(TransportRequest request) {
+    return jsonDecode(utf8.decode(request.bodyBytes ?? const <int>[]))
+        as Map<String, dynamic>;
   }
 
   List<TransportRequest> requestsFor(String path) {
@@ -992,7 +1091,15 @@ void main() {
     expect(originRequests, hasLength(1));
     expect(originRequests.single.uri.queryParameters['pn'], '1');
     expect(originRequests.single.uri.queryParameters['rn'], '20');
-    expect(find.text('#Origin 1'), findsOneWidget);
+    expect(find.text('#Origin 1'), findsWidgets);
+
+    final discussRequests = transport.requestsFor('/api/v1/discuss/list');
+    expect(discussRequests, isNotEmpty);
+    expect(discussRequests.first.uri.queryParameters['biz_type'], '1');
+    expect(discussRequests.first.uri.queryParameters['biz_id'], 'o_test_1');
+    expect(discussRequests.first.uri.queryParameters['pn'], '1');
+    expect(discussRequests.first.uri.queryParameters['rn'], '2');
+    expect(find.text('Discuss preview for o_test_1'), findsOneWidget);
   });
 
   testWidgets('Home My World tab is empty without local uid', (
@@ -1039,6 +1146,85 @@ void main() {
     expect(detailRequests, hasLength(1));
     expect(detailRequests.single.uri.queryParameters['origin_id'], 'o_test_1');
     expect(find.text('#Origin detail o_test_1'), findsOneWidget);
+
+    final previousDiscussRequestCount = transport
+        .requestsFor('/api/v1/discuss/list')
+        .length;
+    await tester.dragFrom(const Offset(400, 510), const Offset(0, -420));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('View More >'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+
+    final discussRequests = transport.requestsFor('/api/v1/discuss/list');
+    expect(discussRequests.length, greaterThan(previousDiscussRequestCount));
+    final detailDiscussRequest = discussRequests.last;
+    expect(detailDiscussRequest.uri.queryParameters['biz_type'], '1');
+    expect(detailDiscussRequest.uri.queryParameters['biz_id'], 'o_test_1');
+    expect(detailDiscussRequest.uri.queryParameters['pn'], '1');
+    expect(detailDiscussRequest.uri.queryParameters['rn'], '2');
+    expect(find.widgetWithText(TextField, 'Write a post'), findsOneWidget);
+    expect(find.text('Discuss preview for o_test_1'), findsOneWidget);
+    expect(find.text('View More >'), findsOneWidget);
+
+    final discussListCountBeforePost = discussRequests.length;
+    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New post'), findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Write a post').last,
+      'A new discuss post',
+    );
+    await tester.pump();
+    await tester.tap(find.text('Send'));
+    await tester.pumpAndSettle();
+
+    final postRequests = transport.requestsFor('/api/v1/discuss/post');
+    expect(postRequests, hasLength(1));
+    final postBody = transport.decodedBody(postRequests.single);
+    expect(postBody['biz_type'], 1);
+    expect(postBody['biz_id'], 'o_test_1');
+    expect(postBody['content'], 'A new discuss post');
+    expect(postBody['images'], isEmpty);
+    expect(find.text('New post'), findsNothing);
+    expect(
+      transport.requestsFor('/api/v1/discuss/list').length,
+      greaterThan(discussListCountBeforePost),
+    );
+  });
+
+  testWidgets('Origin detail launch bar launches a world', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Launch'), findsOneWidget);
+    await tester.tap(find.text('Launch'));
+    await tester.pumpAndSettle();
+
+    final launchRequests = transport.requestsFor('/api/v1/origin/launch');
+    expect(launchRequests, hasLength(1));
+    expect(transport.decodedBody(launchRequests.single)['oid'], 'o_test_1');
+    final worldRequests = transport.requestsFor('/api/v1/world/detail');
+    expect(worldRequests, isNotEmpty);
+    expect(
+      worldRequests.last.uri.queryParameters['world_id'],
+      'w_launched_from_origin',
+    );
   });
 
   testWidgets('World list item opens world detail with current wid', (
@@ -1062,7 +1248,7 @@ void main() {
     final detailRequests = transport.requestsFor('/api/v1/world/detail');
     expect(detailRequests, hasLength(1));
     expect(detailRequests.single.uri.queryParameters['world_id'], 'w_test_1');
-    expect(find.text('World detail w_test_1'), findsOneWidget);
+    expect(find.text('World detail w_test_1'), findsWidgets);
     final sheet = tester.widget<DraggableScrollableSheet>(
       find.byType(DraggableScrollableSheet),
     );
@@ -1079,6 +1265,73 @@ void main() {
     expect(userInfoRequests, hasLength(1));
     expect(userInfoRequests.single.uri.queryParameters['uid'], 'u_test');
     expect(find.text('User Info'), findsOneWidget);
+  });
+
+  testWidgets('World map drills into non-leaf locations', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('#World 1'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('World Location'), findsWidgets);
+    expect(find.text('Child Location'), findsNothing);
+
+    await tester.tap(find.text('Point (2)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('World Location').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('World detail w_test_1'), findsWidgets);
+    expect(find.text('Child Location'), findsWidgets);
+    expect(find.text('Point (2)'), findsOneWidget);
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.ancestor(
+          of: find.byIcon(Icons.subdirectory_arrow_left),
+          matching: find.byType(InkWell),
+        ),
+        matching: find.text('World Location'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Point (2)'));
+    await tester.pumpAndSettle();
+    expect(find.text('World Location'), findsWidgets);
+    expect(find.text('Child Location'), findsWidgets);
+
+    await tester.tap(find.text('Map'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.subdirectory_arrow_left));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsNothing);
+    expect(find.text('World Location'), findsWidgets);
+    expect(find.text('Child Location'), findsNothing);
+
+    await tester.tap(find.text('Point (2)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('World Location').last);
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+
+    expect(find.text('World detail w_test_1'), findsNothing);
+    expect(find.text('#World 1'), findsOneWidget);
   });
 
   testWidgets(
@@ -1240,7 +1493,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Create Origin'), findsOneWidget);
-    expect(find.text('Upload context file'), findsOneWidget);
+    expect(find.text('Basics'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Save'), findsOneWidget);
   });
 
   testWidgets('create route opens create origin page', (
@@ -1255,7 +1509,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Create Origin'), findsOneWidget);
-    expect(find.text('Upload context file'), findsOneWidget);
+    expect(find.text('Basics'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Save'), findsOneWidget);
   });
 
   testWidgets('create origin entries navigate to detail pages', (
@@ -1317,6 +1572,37 @@ void main() {
     expect(find.text('Character 2'), findsOneWidget);
   });
 
+  testWidgets('characters delete confirms before clearing edited form', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateCharactersPage()));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'Ari');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete Character 1?'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+    TextField nameField = tester.widget<TextField>(
+      find.byType(TextField).first,
+    );
+    expect(nameField.controller?.text, 'Ari');
+
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Character 1'), findsOneWidget);
+    nameField = tester.widget<TextField>(find.byType(TextField).first);
+    expect(nameField.controller?.text, isEmpty);
+  });
+
   testWidgets('locations add button appends empty form', (
     WidgetTester tester,
   ) async {
@@ -1357,16 +1643,84 @@ void main() {
     expect(find.text('Event 2'), findsOneWidget);
   });
 
-  testWidgets('create button disabled before all sections saved', (
+  testWidgets('basics save validates required starred fields', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Origin Name is required.'), findsOneWidget);
+  });
+
+  testWidgets('create save reports missing local draft sections', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
     await tester.pumpAndSettle();
 
-    final FilledButton button = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Create'),
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Please save Basics, Characters, Locations, Story Events before creating.',
+      ),
+      findsOneWidget,
     );
-    expect(button.onPressed, isNull);
+  });
+
+  testWidgets('create save posts v1 origin and clears local draft', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingCreateOriginTransport();
+    await CreateOriginDraftStore.save(
+      const CreateOriginDraft(
+        basics: BasicsDraft(
+          originName: 'Crystal City',
+          worldView: 'A public world view.',
+          worldLogic: 'Hidden rules.',
+          coverImageUrl: 'https://example.com/cover.png',
+        ),
+        characters: <CharacterDraft>[
+          CharacterDraft(name: 'Ari', identity: 'Guide', personality: 'Calm'),
+        ],
+        locations: <LocationDraft>[LocationDraft(name: 'Gate')],
+        storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        basicsSaved: true,
+        charactersSaved: true,
+        locationsSaved: true,
+        storyEventsSaved: true,
+      ),
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: CreateOriginPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    final requests = transport.requestsFor('/api/v1/origin/create');
+    expect(requests, hasLength(1));
+    final body = transport.decodedBody(requests.single);
+    expect(body['name'], 'Crystal City');
+    expect(body['cover'], 'https://example.com/cover.png');
+    expect(body['character_list'], isA<List>());
+    expect(body['location_list'], isA<List>());
+
+    final draft = await CreateOriginDraftStore.load();
+    expect(draft.hasAllSectionsSaved, isFalse);
+    expect(
+      find.text('Origin created successfully: o_created_1'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('settings opens about us page', (WidgetTester tester) async {
@@ -1460,6 +1814,170 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('peer profile follows and opens messages', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingProfileActionTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const UserInfoPage(uid: 'u_peer'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Peer User'), findsOneWidget);
+    expect(find.text('Follow'), findsOneWidget);
+    expect(find.text('Message'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('user-profile-follow-button')));
+    await tester.pump();
+
+    final followButton = tester.widget<FilledButton>(
+      find.byKey(const ValueKey('user-profile-follow-button')),
+    );
+    expect(followButton.onPressed, isNull);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(transport.followRequests, hasLength(1));
+    expect(transport.decodedBody(transport.followRequests.single), {
+      'target_uid': 'u_peer',
+    });
+
+    transport.completeFollow();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unfollow'), findsOneWidget);
+    expect(find.text('22'), findsOneWidget);
+    final unfollowButton = tester.widget<FilledButton>(
+      find.byKey(const ValueKey('user-profile-follow-button')),
+    );
+    expect(
+      unfollowButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+      const Color(0xFFE5E5E5),
+    );
+    expect(
+      unfollowButton.style?.foregroundColor?.resolve(<WidgetState>{}),
+      Colors.black,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('user-profile-message-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Messages'), findsWidgets);
+  });
+
+  testWidgets('follows page loads following and followers lists', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingFollowsTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: FollowsPage(uid: 'u_peer', initialTitle: 'Peer User'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      transport
+          .requestsFor('/api/v1/user/following')
+          .single
+          .uri
+          .queryParameters['uid'],
+      'u_peer',
+    );
+    expect(
+      transport
+          .requestsFor('/api/v1/user/followers')
+          .single
+          .uri
+          .queryParameters['uid'],
+      'u_peer',
+    );
+    expect(find.text('Peer User'), findsOneWidget);
+    expect(find.text('24 Following'), findsOneWidget);
+    expect(find.text('24 Followers'), findsOneWidget);
+    expect(find.text('Following Friend 01'), findsOneWidget);
+    expect(find.text('Following Friend 24'), findsNothing);
+    expect(find.text('Unfollow'), findsWidgets);
+    final unfollowButtonSize = tester.getSize(
+      find.byKey(const ValueKey('follows-action-u_following_01')),
+    );
+    expect(unfollowButtonSize, const Size(86, 28));
+
+    await tester.tap(find.text('24 Followers'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Follower Friend 01'), findsOneWidget);
+    expect(find.text('Follower Friend 24'), findsNothing);
+    expect(find.text('Follow'), findsWidgets);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('follows-action-u_follower_01')),
+      ),
+      unfollowButtonSize,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('follows-action-u_follower_01')),
+    );
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('follows-action-u_follower_01')),
+      ),
+      unfollowButtonSize,
+    );
+
+    transport.completeFollow();
+    await tester.pumpAndSettle();
+
+    expect(transport.followRequests, hasLength(1));
+    expect(transport.decodedBody(transport.followRequests.single), {
+      'target_uid': 'u_follower_01',
+    });
+    expect(find.text('Unfollow'), findsOneWidget);
+  });
+
+  testWidgets('chat page reloads content when location changes in same slot', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingChatTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const _ChatPageHost(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Castle message'), findsOneWidget);
+    expect(find.text('Garden message'), findsNothing);
+
+    tester.state<_ChatPageHostState>(find.byType(_ChatPageHost)).showGarden();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Castle message'), findsNothing);
+    expect(find.text('Garden message'), findsOneWidget);
+    expect(
+      transport.messageRequests.map(
+        (request) => request.uri.queryParameters['location_id'],
+      ),
+      containsAllInOrder(['castle', 'garden']),
+    );
+  });
+
   testWidgets(
     'location chat route connects and sends through chatroom client',
     (WidgetTester tester) async {
@@ -1472,6 +1990,7 @@ void main() {
         RouteNames.locationChat,
         arguments: {
           'world_id': 'world-1',
+          'world_name': 'World One',
           'location_id': 'castle',
           'location_name': 'Castle',
         },
@@ -1486,6 +2005,7 @@ void main() {
       expect(chatroom.senderId, 'u_mock');
       expect(chatroom.senderName, 'u_mock');
       expect(find.text('Castle (1)'), findsOneWidget);
+      expect(find.text('World One'), findsOneWidget);
       expect(find.text('Me'), findsOneWidget);
       await tester.tap(find.byType(TextField));
       await tester.enterText(find.byType(TextField), 'hello castle');
@@ -1539,6 +2059,216 @@ void main() {
     );
     expect(tester.widget<IconButton>(sendButton).onPressed, isNull);
   });
+}
+
+class _ChatPageHost extends StatefulWidget {
+  const _ChatPageHost();
+
+  @override
+  State<_ChatPageHost> createState() => _ChatPageHostState();
+}
+
+class _ChatPageHostState extends State<_ChatPageHost> {
+  String _locationId = 'castle';
+
+  void showGarden() {
+    setState(() => _locationId = 'garden');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ChatPage(
+      wid: 'world-1',
+      pointId: 'point-1',
+      sceneId: _locationId,
+      locationName: _locationId,
+    );
+  }
+}
+
+class _RecordingProfileActionTransport implements HttpTransport {
+  final requests = <TransportRequest>[];
+  final Completer<TransportResponse> _followCompleter =
+      Completer<TransportResponse>();
+
+  List<TransportRequest> get followRequests {
+    return requests
+        .where(
+          (request) =>
+              request.method == 'POST' &&
+              request.uri.path == '/api/v1/user/follow',
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    final path = request.uri.path;
+    if (path == '/api/v1/user/info') {
+      return _v1Response({
+        'user': {
+          'uid': 'u_peer',
+          'name': 'Peer User',
+          'avatar': '',
+          'follower_cnt': 21,
+          'following_cnt': 8,
+        },
+        'relation': {
+          'is_self': false,
+          'is_followed': false,
+          'i_followed': false,
+        },
+      });
+    }
+    if (path == '/api/v1/origin/list' || path == '/api/v1/world/list') {
+      return _v1Response({'list': const <Object?>[], 'total': 0});
+    }
+    if (path == '/api/v1/messages/unread-summary') {
+      return _v1Response({
+        'system_unread': 0,
+        'follower_unread': 0,
+        'comment_unread': 0,
+        'dm_unread': 0,
+        'total_unread': 0,
+      });
+    }
+    if (request.method == 'POST' && path == '/api/v1/user/follow') {
+      return _followCompleter.future;
+    }
+    return _v1Response(<String, Object?>{});
+  }
+
+  void completeFollow() {
+    _followCompleter.complete(_v1Response(<String, Object?>{}));
+  }
+
+  Map<String, dynamic> decodedBody(TransportRequest request) {
+    return jsonDecode(utf8.decode(request.bodyBytes ?? const <int>[]))
+        as Map<String, dynamic>;
+  }
+
+  TransportResponse _v1Response(Object? data) {
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({'err_no': 0, 'err_msg': 'succ', 'data': data}),
+    );
+  }
+}
+
+class _RecordingFollowsTransport implements HttpTransport {
+  final requests = <TransportRequest>[];
+  final Completer<TransportResponse> _followCompleter =
+      Completer<TransportResponse>();
+
+  List<TransportRequest> requestsFor(String path) {
+    return requests
+        .where((request) => request.uri.path == path)
+        .toList(growable: false);
+  }
+
+  List<TransportRequest> get followRequests {
+    return requestsFor(
+      '/api/v1/user/follow',
+    ).where((request) => request.method == 'POST').toList(growable: false);
+  }
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    final path = request.uri.path;
+    if (path == '/api/v1/user/following') {
+      return _v1Response({
+        'total': 24,
+        'pn': 1,
+        'rn': 50,
+        'list': _followUsers(prefix: 'u_following', name: 'Following Friend'),
+      });
+    }
+    if (path == '/api/v1/user/followers') {
+      return _v1Response({
+        'total': 24,
+        'pn': 1,
+        'rn': 50,
+        'list': _followUsers(
+          prefix: 'u_follower',
+          name: 'Follower Friend',
+          followed: false,
+        ),
+      });
+    }
+    if (request.method == 'POST' && path == '/api/v1/user/follow') {
+      return _followCompleter.future;
+    }
+    if (request.method == 'POST' && path == '/api/v1/user/unfollow') {
+      return _v1Response(<String, Object?>{});
+    }
+    return _v1Response(<String, Object?>{});
+  }
+
+  void completeFollow() {
+    _followCompleter.complete(_v1Response(<String, Object?>{}));
+  }
+
+  List<Map<String, Object?>> _followUsers({
+    required String prefix,
+    required String name,
+    bool followed = true,
+  }) {
+    return List<Map<String, Object?>>.generate(24, (index) {
+      final seq = (index + 1).toString().padLeft(2, '0');
+      final uid = '${prefix}_$seq';
+      return {
+        'user': {'uid': uid, 'name': '$name $seq', 'avatar': ''},
+        'relation': {'target_user_id': uid, 'i_followed': followed},
+      };
+    });
+  }
+
+  Map<String, dynamic> decodedBody(TransportRequest request) {
+    return jsonDecode(utf8.decode(request.bodyBytes ?? const <int>[]))
+        as Map<String, dynamic>;
+  }
+
+  TransportResponse _v1Response(Object? data) {
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({'err_no': 0, 'err_msg': 'succ', 'data': data}),
+    );
+  }
+}
+
+class _RecordingChatTransport implements HttpTransport {
+  final requests = <TransportRequest>[];
+
+  List<TransportRequest> get messageRequests {
+    return requests
+        .where((request) => request.uri.path == '/api/points/point-1/messages')
+        .toList(growable: false);
+  }
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    final locationId = request.uri.queryParameters['location_id'] ?? '';
+    final text = locationId == 'garden' ? 'Garden message' : 'Castle message';
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({
+        'messages': [
+          {
+            'id': 'msg-$locationId',
+            'api_user_id': 'peer',
+            'content': text,
+            'created_at': '2026-05-26T00:00:00Z',
+          },
+        ],
+      }),
+    );
+  }
 }
 
 class _FailingChatroomClient implements ChatroomClient {

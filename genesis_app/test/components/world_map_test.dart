@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
+import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 
@@ -50,6 +51,15 @@ void main() {
         .toSet();
     expect(locationCoverPaths.length, greaterThanOrEqualTo(9));
     for (final path in locationCoverPaths) {
+      expect(File(path).existsSync(), isTrue, reason: path);
+    }
+
+    final locationMapPaths = kMockV1Locations
+        .map((location) => '${location['map_url']}')
+        .where((path) => path.startsWith('assets/images/mock_maps/'))
+        .toSet();
+    expect(locationMapPaths.length, greaterThanOrEqualTo(5));
+    for (final path in locationMapPaths) {
       expect(File(path).existsSync(), isTrue, reason: path);
     }
   });
@@ -185,7 +195,7 @@ void main() {
     expect((firstCenter - secondCenter).distance, lessThan(42));
   });
 
-  testWidgets('points list shows root header and indents child locations', (
+  testWidgets('points list shows all locations and indents by hierarchy', (
     tester,
   ) async {
     await _pumpWorldMap(
@@ -206,8 +216,14 @@ void main() {
           name: 'Rail Gate',
           type: WorldPointType.shop,
           position: _pointPosition,
-          users: [],
+          users: [
+            UserAvatar('AA', name: 'Ada', showStar: true),
+            UserAvatar('BB', name: 'Bert', showStar: true),
+            UserAvatar('CC', name: 'Cara'),
+            UserAvatar('DD', name: 'Drew'),
+          ],
           iconUrl: kMockV1SteamMapImage,
+          description: 'Gate checkpoint summary.',
           depth: 1,
         ),
         WorldPoint(
@@ -226,7 +242,7 @@ void main() {
     expect(find.byType(WorldLocationList), findsOneWidget);
     final rootTitle = find.descendant(
       of: list,
-      matching: find.text('- Root Gate'),
+      matching: find.text('Root Gate'),
     );
     final levelOneTitle = find.descendant(
       of: list,
@@ -241,12 +257,218 @@ void main() {
     expect(levelOneTitle, findsOneWidget);
     expect(levelTwoTitle, findsOneWidget);
     expect(find.byType(Divider), findsNWidgets(2));
-    expect(find.byIcon(Icons.place), findsNWidgets(2));
+    expect(find.byIcon(Icons.place), findsNWidgets(3));
+    expect(find.byIcon(MyFlutterApp.userStar), findsOneWidget);
+    expect(find.byIcon(MyFlutterApp.user), findsOneWidget);
+    expect(find.byIcon(Icons.schedule), findsNWidgets(3));
+    expect(find.text('Ada, Bert'), findsOneWidget);
+    expect(find.text('Cara, Drew'), findsOneWidget);
+    expect(find.text('Gate checkpoint summary.'), findsOneWidget);
+    expect(
+      tester.getTopLeft(levelOneTitle).dx - tester.getTopLeft(rootTitle).dx,
+      closeTo(15, 0.01),
+    );
     expect(
       tester.getTopLeft(levelTwoTitle).dx - tester.getTopLeft(levelOneTitle).dx,
       closeTo(15, 0.01),
     );
   });
+
+  testWidgets('world map preloads next-level location maps', (tester) async {
+    await _pumpWorldMap(
+      tester,
+      mapImageUrl: kMockV1SteamMapImage,
+      preloadMapImageUrls: const [
+        kMockV1LocationCentralHubMap,
+        kMockV1LocationRailGateMap,
+      ],
+      users: const [],
+    );
+
+    expect(
+      _assetImageFinder(kMockV1SteamMapImage, skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(
+      _assetImageFinder(kMockV1LocationCentralHubMap, skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(
+      _assetImageFinder(kMockV1LocationRailGateMap, skipOffstage: false),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('map taps report branch and leaf locations', (tester) async {
+    final tappedIds = <String>[];
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [
+        WorldPoint(
+          id: 'root',
+          name: 'Root Hub',
+          type: WorldPointType.portal,
+          position: Offset(0.3, 0.35),
+          users: [],
+          isLeafLocation: false,
+        ),
+        WorldPoint(
+          id: 'leaf',
+          name: 'Leaf Dock',
+          type: WorldPointType.shop,
+          position: Offset(0.7, 0.35),
+          users: [],
+        ),
+      ],
+      onPointTap: (point) => tappedIds.add(point.id),
+    );
+
+    await tester.tap(find.text('Root Hub'), warnIfMissed: false);
+    expect(tappedIds, ['root']);
+
+    await tester.tap(find.text('Leaf Dock'));
+    expect(tappedIds, ['root', 'leaf']);
+  });
+
+  testWidgets('world map drills into branch locations internally', (
+    tester,
+  ) async {
+    final tappedIds = <String>[];
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [],
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'root',
+          mapImageUrl: kMockV1LocationCentralHubMap,
+          point: WorldPoint(
+            id: 'root',
+            sceneId: 'root',
+            name: 'Root Hub',
+            type: WorldPointType.portal,
+            position: Offset(0.3, 0.35),
+            users: [],
+            isLeafLocation: false,
+          ),
+          children: [
+            WorldMapLocationNode(
+              id: 'leaf',
+              point: WorldPoint(
+                id: 'leaf',
+                sceneId: 'leaf',
+                name: 'Leaf Dock',
+                type: WorldPointType.shop,
+                position: Offset(0.7, 0.35),
+                users: [],
+              ),
+            ),
+          ],
+        ),
+      ],
+      onPointTap: (point) => tappedIds.add(point.id),
+    );
+
+    await tester.tap(find.text('Root Hub'), warnIfMissed: false);
+    await tester.pump();
+    expect(tappedIds, isEmpty);
+    expect(find.text('Leaf Dock'), findsOneWidget);
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsOneWidget);
+    expect(
+      _assetImageFinder(kMockV1LocationCentralHubMap, skipOffstage: false),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Leaf Dock'));
+    expect(tappedIds, ['leaf']);
+  });
+
+  testWidgets('points list taps report branch and leaf locations', (
+    tester,
+  ) async {
+    final tappedIds = <String>[];
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      showPointsList: true,
+      points: const [
+        WorldPoint(
+          id: 'root',
+          name: 'Root Hub',
+          type: WorldPointType.portal,
+          position: _pointPosition,
+          users: [],
+          isLeafLocation: false,
+        ),
+        WorldPoint(
+          id: 'leaf',
+          name: 'Leaf Dock',
+          type: WorldPointType.shop,
+          position: _pointPosition,
+          users: [],
+          depth: 1,
+        ),
+      ],
+      onPointTap: (point) => tappedIds.add(point.id),
+    );
+
+    final rootTitle = find.text('Root Hub').last;
+    final leafTitle = find.text('Leaf Dock').last;
+
+    await tester.tap(rootTitle, warnIfMissed: false);
+    expect(tappedIds, ['root']);
+
+    await tester.tap(leafTitle);
+    expect(tappedIds, ['root', 'leaf']);
+  });
+
+  testWidgets(
+    'points list can show full hierarchy while map points stay scoped',
+    (tester) async {
+      await _pumpWorldMap(
+        tester,
+        users: const [],
+        showPointsList: true,
+        points: const [
+          WorldPoint(
+            id: 'root',
+            name: 'Root Gate',
+            type: WorldPointType.portal,
+            position: _pointPosition,
+            users: [],
+          ),
+        ],
+        listPoints: const [
+          WorldPoint(
+            id: 'root',
+            name: 'Root Gate',
+            type: WorldPointType.portal,
+            position: _pointPosition,
+            users: [],
+          ),
+          WorldPoint(
+            id: 'child',
+            name: 'Hidden Child',
+            type: WorldPointType.shop,
+            position: _pointPosition,
+            users: [],
+            depth: 1,
+          ),
+        ],
+      );
+
+      final list = find.byType(ListView);
+      expect(
+        find.descendant(of: list, matching: find.text('Root Gate')),
+        findsWidgets,
+      );
+      expect(
+        find.descendant(of: list, matching: find.text('Hidden Child')),
+        findsWidgets,
+      );
+    },
+  );
 }
 
 const _mapSize = Size(375, 670);
@@ -256,8 +478,12 @@ Future<void> _pumpWorldMap(
   WidgetTester tester, {
   required List<UserAvatar> users,
   String mapImageUrl = '',
+  List<String> preloadMapImageUrls = const <String>[],
   bool showPointsList = false,
   List<WorldPoint>? points,
+  List<WorldPoint>? listPoints,
+  List<WorldMapLocationNode> locationNodes = const <WorldMapLocationNode>[],
+  ValueChanged<WorldPoint>? onPointTap,
 }) async {
   tester.view.physicalSize = const Size(430, 820);
   tester.view.devicePixelRatio = 1;
@@ -274,7 +500,11 @@ Future<void> _pumpWorldMap(
             height: _mapSize.height,
             child: WorldMap(
               mapImageUrl: mapImageUrl,
+              preloadMapImageUrls: preloadMapImageUrls,
               showPointsList: showPointsList,
+              listPoints: listPoints,
+              locationNodes: locationNodes,
+              onPointTap: onPointTap,
               points:
                   points ??
                   [
@@ -291,5 +521,15 @@ Future<void> _pumpWorldMap(
         ),
       ),
     ),
+  );
+}
+
+Finder _assetImageFinder(String path, {bool skipOffstage = true}) {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is Image &&
+        widget.image is AssetImage &&
+        (widget.image as AssetImage).assetName == path,
+    skipOffstage: skipOffstage,
   );
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/page_header.dart';
 import '../../network/json_utils.dart';
 
 class MessageCategoryListPage extends StatefulWidget {
@@ -131,19 +132,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          widget.title,
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
+      appBar: GenesisBackAppBar(pageName: widget.title),
       body: RefreshIndicator(
         onRefresh: _loadFirstPage,
         child: _buildBody(context),

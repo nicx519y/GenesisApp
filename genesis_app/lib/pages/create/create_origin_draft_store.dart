@@ -157,7 +157,13 @@ class CreateOriginDraft {
     final errors = <String>[];
 
     if (!hasAllSectionsSaved) {
-      errors.add('Please save all sections before creating.');
+      final missing = <String>[
+        if (!basicsSaved) 'Basics',
+        if (!charactersSaved) 'Characters',
+        if (!locationsSaved) 'Locations',
+        if (!storyEventsSaved) 'Story Events',
+      ];
+      errors.add('Please save ${missing.join(', ')} before creating.');
     }
 
     if (basics.originName.trim().isEmpty) {
@@ -202,39 +208,37 @@ class CreateOriginDraft {
 
   Map<String, dynamic> toCreateOriginPayload() {
     final payload = <String, dynamic>{
-      'title': basics.originName.trim(),
-      'description': basics.worldView.trim(),
+      'name': basics.originName.trim(),
       'world_view': basics.worldView.trim(),
       'world_setting': basics.worldLogic.trim(),
-      'cover_image_url': basics.coverImageUrl.trim(),
-      'npcs': characters
+      'cover': basics.coverImageUrl.trim(),
+      'character_list': characters
           .map(
             (item) => <String, dynamic>{
               'name': item.name.trim(),
               'identity': item.identity.trim(),
               'tagline': item.personality.trim(),
-              'intro': item.bio.trim(),
+              'description': item.bio.trim(),
               'goal': item.goal.trim(),
-              'avatar_url': item.avatarUrl.trim(),
               'avatar': item.avatarUrl.trim(),
             },
           )
           .toList(growable: false),
-      'locations': locations
+      'location_list': locations
           .map(
             (item) => <String, dynamic>{
               'name': item.name.trim(),
-              'image_url': item.imageUrl.trim(),
+              'image': item.imageUrl.trim(),
               'description': item.description.trim(),
               'initial_character_indexes': item.initialCharacterIndexes,
             },
           )
           .toList(growable: false),
-      'events': storyEvents
+      'event_list': storyEvents
           .map((item) => item.event.trim())
           .where((text) => text.isNotEmpty)
+          .map((text) => <String, dynamic>{'content': text})
           .toList(growable: false),
-      'launch_world_name': basics.originName.trim(),
     };
 
     if (basics.metricJson.trim().isNotEmpty) {

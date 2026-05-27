@@ -93,16 +93,19 @@ Map<String, Object?> v1Body(Map<String, Object?> values) {
 List<int> multipartBody({
   required String boundary,
   required List<int> bytes,
-  required String bizType,
   required String filename,
   required String contentType,
+  Map<String, String> fields = const <String, String>{},
 }) {
   final out = <int>[];
   void addText(String value) => out.addAll(utf8.encode(value));
 
-  addText('--$boundary\r\n');
-  addText('Content-Disposition: form-data; name="biz_type"\r\n\r\n');
-  addText('$bizType\r\n');
+  for (final entry in fields.entries) {
+    addText('--$boundary\r\n');
+    addText('Content-Disposition: form-data; name="${entry.key}"\r\n\r\n');
+    addText('${entry.value}\r\n');
+  }
+
   addText('--$boundary\r\n');
   addText(
     'Content-Disposition: form-data; name="file"; filename="$filename"\r\n',

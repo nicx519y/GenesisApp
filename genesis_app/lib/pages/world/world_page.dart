@@ -8,7 +8,8 @@ import '../../components/origin/stat_item.dart';
 import '../../components/secend_tabs.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
-import '../../components/world_top_overlay_bar.dart';
+import '../../components/world_map_stage.dart';
+import '../../components/world_tick_event_item.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
@@ -129,10 +130,20 @@ class _WorldPageState extends State<WorldPage>
       RouteNames.locationChat,
       arguments: {
         'world_id': widget.wid,
+        'world_name': _world?.name ?? '',
         'location_id': locationId,
         'pointId': pointId,
         'location_name': point.name,
       },
+    );
+  }
+
+  void _showMapTab() {
+    if (_tabController.index == 0) return;
+    _tabController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOutCubic,
     );
   }
 
@@ -161,25 +172,23 @@ class _WorldPageState extends State<WorldPage>
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final mapImageUrl = _resolveAssetUrl(
-      world.origin.worldMap.isEmpty
-          ? world.origin.mapImage
-          : world.origin.worldMap,
-    );
+    final rootMapImageUrl = _rootWorldMapImageUrl(world);
     final avatarsByLocation = _avatarsByLocationFromCharacterPositions(
       world.characterPositions,
     );
-    final locationNodes = flattenLocationTree(world.worldLocationTree);
-    final points = locationNodes.isNotEmpty
-        ? _pointsFromWorldLocations(
-            locationNodes.map((node) => node.value).toList(growable: false),
-            avatarsByLocation,
-            depths: locationNodes
-                .map((node) => node.depth)
-                .toList(growable: false),
-          )
+    final rootLocationNodes = world.worldLocationTree;
+    final allLocationNodes = flattenLocationTree(rootLocationNodes);
+    final locationNodes = _worldMapLocationNodes(
+      rootLocationNodes,
+      avatarsByLocation,
+    );
+    final points = rootLocationNodes.isNotEmpty
+        ? _pointsFromWorldLocationNodes(rootLocationNodes, avatarsByLocation)
         : world.worldLocations.isNotEmpty
-        ? _pointsFromWorldLocations(world.worldLocations, avatarsByLocation)
+        ? _pointsFromWorldLocations(
+            _rootWorldLocations(world.worldLocations),
+            avatarsByLocation,
+          )
         : _pointsFromLocationIds(
             world.characterPositions
                 .map((e) => e['location_id'])
@@ -187,32 +196,29 @@ class _WorldPageState extends State<WorldPage>
                 .toList(growable: false),
             avatarsByLocation,
           );
+    final listPoints = allLocationNodes.isNotEmpty
+        ? _pointsFromWorldLocationNodes(allLocationNodes, avatarsByLocation)
+        : world.worldLocations.isNotEmpty
+        ? _pointsFromWorldLocations(world.worldLocations, avatarsByLocation)
+        : points;
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _tabController,
-              builder: (context, _) {
-                final pointMode = _tabController.index == 1;
-                return WorldMap(
-                  points: points,
-                  mapImageUrl: mapImageUrl,
-                  dimmed: pointMode,
-                  showPointsList: pointMode,
-                  overlayTop: topPadding + 8 + 48,
-                  onPointTap: (p) => unawaited(_openChatForPoint(p)),
-                );
-              },
-            ),
-          ),
-          Positioned(
-            left: 12,
-            right: 12,
+          WorldMapStage(
+            controller: _tabController,
+            pointsCount: listPoints.length,
             top: topPadding + 20,
-            child: WorldTopOverlayBar(
-              pointsCount: points.length,
-              controller: _tabController,
+            mapBuilder: (context, pointMode) => WorldMap(
+              points: points,
+              listPoints: listPoints,
+              locationNodes: locationNodes,
+              mapImageUrl: rootMapImageUrl,
+              dimmed: pointMode,
+              showPointsList: pointMode,
+              overlayTop: topPadding + 8 + 48,
+              drillExitTop: topPadding + 68,
+              onDrillIntoLocation: _showMapTab,
+              onPointTap: (point) => unawaited(_openChatForPoint(point)),
             ),
           ),
           WorldDetailsShell(
@@ -606,245 +612,14 @@ class _WorldEventsSection extends StatelessWidget {
     return SliverList.builder(
       itemCount: ticks.length,
       itemBuilder: (context, index) {
-        return _TickEventItem(
+        return WorldTickEventItem(
           tick: ticks[index],
-          tickNumber: _mapInt(ticks[index], const [
-            'tick_index',
-          ], fallback: index + 1),
+          tickNumber: worldTickEventNumber(ticks[index], fallback: index + 1),
           fallbackBody: fallbackBody,
           locationsById: locationsById,
           isLast: index == ticks.length - 1,
         );
       },
-    );
-  }
-}
-
-class _TickEventItem extends StatelessWidget {
-  const _TickEventItem({
-    required this.tick,
-    required this.tickNumber,
-    required this.fallbackBody,
-    required this.locationsById,
-    required this.isLast,
-  });
-
-  final Map<String, dynamic> tick;
-  final int tickNumber;
-  final String fallbackBody;
-  final Map<String, Map<String, dynamic>> locationsById;
-  final bool isLast;
-
-  @override
-  Widget build(BuildContext context) {
-    final createdAt = _tickDateTime(tick['created_at']);
-    final date = _formatShortDate(createdAt);
-    final body = _mapString(tick, const [
-      'narrator',
-      'content',
-      'summary',
-    ], fallback: fallbackBody);
-    final paragraphs = _tickParagraphs(tick);
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _TickHeader(
-            tickNumber: tickNumber,
-            date: date,
-            timeAgo: _relativeTime(createdAt),
-          ),
-          const SizedBox(height: 6),
-          _GlobalEventCard(body: body),
-          const SizedBox(height: 6),
-          for (final paragraph in paragraphs) ...[
-            _TickParagraphRow(
-              paragraph: paragraph,
-              fallbackDate: date,
-              locationsById: locationsById,
-            ),
-            const SizedBox(height: 6),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _TickHeader extends StatelessWidget {
-  const _TickHeader({
-    required this.tickNumber,
-    required this.date,
-    required this.timeAgo,
-  });
-
-  final int tickNumber;
-  final String date;
-  final String timeAgo;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 30),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F5F8),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Tick $tickNumber · $date',
-              style: const TextStyle(
-                fontSize: 12,
-                height: 1.2,
-                fontWeight: FontWeight.w500,
-                color: Colors.black,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            timeAgo,
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1.2,
-              fontWeight: FontWeight.w400,
-              color: Color(0xFF8F8F8F),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GlobalEventCard extends StatelessWidget {
-  const _GlobalEventCard({required this.body});
-
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF0F8F4),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(
-            width: 82,
-            child: Text(
-              'Global',
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.6,
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              body,
-              style: const TextStyle(
-                fontSize: 12,
-                height: 1.6,
-                fontWeight: FontWeight.w300,
-                color: Color(0xFF3B3B3B),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TickParagraphRow extends StatelessWidget {
-  const _TickParagraphRow({
-    required this.paragraph,
-    required this.fallbackDate,
-    required this.locationsById,
-  });
-
-  final Map<String, dynamic> paragraph;
-  final String fallbackDate;
-  final Map<String, Map<String, dynamic>> locationsById;
-
-  @override
-  Widget build(BuildContext context) {
-    final locationId = _mapString(paragraph, const ['location_id']);
-    final location = locationsById[locationId];
-    final name = location == null
-        ? locationId
-        : _mapString(location, const ['location_name', 'name']);
-    final date = _formatShortDate(
-      _tickDateTime(paragraph['timestamp'] ?? paragraph['created_at']),
-    );
-    final body = _mapString(paragraph, const [
-      'text',
-      'content',
-      'summary',
-      'description',
-    ]);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 82,
-            child: Text(
-              name.isEmpty ? 'Location' : name,
-              style: const TextStyle(
-                fontSize: 12,
-                height: 1.6,
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if ((date.isEmpty ? fallbackDate : date).isNotEmpty) ...[
-                  Text(
-                    date.isEmpty ? fallbackDate : date,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      height: 1.6,
-                      fontWeight: FontWeight.w300,
-                      color: Color(0xFF9A9A9A),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                ],
-                Text(
-                  body,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.6,
-                    fontWeight: FontWeight.w300,
-                    color: Color(0xFF3B3B3B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1033,43 +808,6 @@ String _eventBody(WorldDetail world) {
   return 'No world events yet.';
 }
 
-String _formatShortDate(DateTime? value) {
-  if (value == null) return '';
-  return value.toLocal().toIso8601String().split('T').first;
-}
-
-String _relativeTime(DateTime? value) {
-  if (value == null) return '';
-  final diff = DateTime.now().difference(value.toLocal());
-  if (diff.inMinutes < 1) return 'just now';
-  if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-  if (diff.inDays < 1) return '${diff.inHours}h ago';
-  if (diff.inDays == 1) return '1 day ago';
-  return '${diff.inDays} days ago';
-}
-
-DateTime? _tickDateTime(Object? value) {
-  if (value is DateTime) return value;
-  if (value is num) {
-    return DateTime.fromMillisecondsSinceEpoch(
-      value.toInt() * 1000,
-      isUtc: true,
-    );
-  }
-  final text = '$value'.trim();
-  if (text.isEmpty || text == 'null') return null;
-  return DateTime.tryParse(text);
-}
-
-List<Map<String, dynamic>> _tickParagraphs(Map<String, dynamic> tick) {
-  final raw = tick['paragraphs'];
-  if (raw is! List) return const <Map<String, dynamic>>[];
-  return raw
-      .whereType<Map>()
-      .map((item) => item.cast<String, dynamic>())
-      .toList(growable: false);
-}
-
 String _characterDescriptionText(Map<String, dynamic> character) {
   return _mapString(character, const [
     'brief',
@@ -1090,19 +828,6 @@ String _metricPercentText(Map<String, dynamic> character) {
   return text.endsWith('%') ? text : '$text%';
 }
 
-int _mapInt(Map<String, dynamic> map, List<String> keys, {int fallback = 0}) {
-  for (final key in keys) {
-    final value = map[key];
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) {
-      final parsed = int.tryParse(value.trim());
-      if (parsed != null) return parsed;
-    }
-  }
-  return fallback;
-}
-
 String _mapString(
   Map<String, dynamic> map,
   List<String> keys, {
@@ -1119,6 +844,54 @@ String _mapString(
 
 String _resolveAssetUrl(String raw) {
   return resolveAssetUrl(raw);
+}
+
+String _rootWorldMapImageUrl(WorldDetail world) {
+  return _resolveAssetUrl(
+    world.origin.worldMap.isEmpty
+        ? world.origin.mapImage
+        : world.origin.worldMap,
+  );
+}
+
+List<WorldPoint> _pointsFromWorldLocationNodes(
+  List<LocationTreeNode<Map<String, dynamic>>> nodes,
+  Map<String, List<UserAvatar>> avatarsByLocation,
+) {
+  return _pointsFromWorldLocations(
+    nodes.map((node) => node.value).toList(growable: false),
+    avatarsByLocation,
+    depths: nodes.map((node) => node.depth).toList(growable: false),
+    isLeafLocations: nodes
+        .map((node) => node.children.isEmpty)
+        .toList(growable: false),
+  );
+}
+
+List<WorldMapLocationNode> _worldMapLocationNodes(
+  List<LocationTreeNode<Map<String, dynamic>>> nodes,
+  Map<String, List<UserAvatar>> avatarsByLocation,
+) {
+  return nodes
+      .map((node) {
+        return WorldMapLocationNode(
+          id: node.id,
+          point: _pointsFromWorldLocationNodes([node], avatarsByLocation).first,
+          mapImageUrl: _locationMapImageUrl(node.value),
+          children: _worldMapLocationNodes(node.children, avatarsByLocation),
+        );
+      })
+      .toList(growable: false);
+}
+
+String _locationMapImageUrl(
+  Map<String, dynamic> location, {
+  String fallback = '',
+}) {
+  final url = _resolveAssetUrl(
+    _mapString(location, const ['map_url', 'mapUrl']),
+  );
+  return url.isEmpty ? fallback : url;
 }
 
 Map<String, List<UserAvatar>> _avatarsByLocationFromCharacterPositions(
@@ -1160,10 +933,19 @@ String _initials(String name) {
   return cleaned.substring(0, cleaned.length >= 2 ? 2 : 1).toUpperCase();
 }
 
+List<Map<String, dynamic>> _rootWorldLocations(
+  List<Map<String, dynamic>> locations,
+) {
+  return locations
+      .where((location) => _mapString(location, const ['location_pid']).isEmpty)
+      .toList(growable: false);
+}
+
 List<WorldPoint> _pointsFromWorldLocations(
   List<Map<String, dynamic>> locations,
   Map<String, List<UserAvatar>> avatarsByLocation, {
   List<int>? depths,
+  List<bool>? isLeafLocations,
 }) {
   if (locations.isEmpty) return const <WorldPoint>[];
 
@@ -1233,6 +1015,9 @@ List<WorldPoint> _pointsFromWorldLocations(
       iconUrl: icon,
       description: description,
       depth: depths == null || i >= depths.length ? 0 : depths[i],
+      isLeafLocation: isLeafLocations == null || i >= isLeafLocations.length
+          ? true
+          : isLeafLocations[i],
     );
   });
 }

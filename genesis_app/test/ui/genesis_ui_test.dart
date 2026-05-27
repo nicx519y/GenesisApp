@@ -161,6 +161,48 @@ void main() {
     expect(tapped, isTrue);
   });
 
+  testWidgets('GenesisPrimaryButton supports action-specific styling', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: GenesisPrimaryButton(
+            label: 'Log out',
+            onPressed: null,
+            backgroundColor: Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+            disabledBackgroundColor: Color(0xFFE3E3E3),
+            disabledForegroundColor: Color(0xFF6F6F6F),
+          ),
+        ),
+      ),
+    );
+
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Log out'),
+    );
+    expect(button.onPressed, isNull);
+    expect(
+      button.style?.backgroundColor?.resolve(<WidgetState>{
+        WidgetState.disabled,
+      }),
+      const Color(0xFFE3E3E3),
+    );
+    expect(
+      button.style?.foregroundColor?.resolve(<WidgetState>{
+        WidgetState.disabled,
+      }),
+      const Color(0xFF6F6F6F),
+    );
+    final shape =
+        button.style?.shape?.resolve(<WidgetState>{}) as RoundedRectangleBorder;
+    expect(shape.borderRadius, BorderRadius.circular(8));
+    final textStyle = button.style?.textStyle?.resolve(<WidgetState>{});
+    expect(textStyle?.fontSize, 16);
+    expect(textStyle?.fontWeight, FontWeight.w600);
+  });
+
   testWidgets('GenesisBottomNavigation delegates selection to onTap', (
     tester,
   ) async {

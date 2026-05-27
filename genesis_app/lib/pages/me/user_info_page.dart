@@ -26,11 +26,16 @@ class _UserInfoPageState extends State<UserInfoPage> {
   }
 
   Future<UserProfileData> _loadData() async {
-    final api = AppServicesScope.read(context).api;
+    final services = AppServicesScope.read(context);
+    final api = services.api;
     final uid = widget.uid.trim();
+    final localUid = (await services.sessionStore.readUid())?.trim() ?? '';
     final userInfo = await api.v1.user.info(uid: uid);
     final user = userInfo['user'] is Map
         ? userInfo['user'] as Map
+        : const <String, dynamic>{};
+    final relation = userInfo['relation'] is Map
+        ? userInfo['relation'] as Map
         : const <String, dynamic>{};
     final resolvedUid = _mapString(user, 'uid', fallback: uid);
     final displayName = _mapString(user, 'name', fallback: 'User');
@@ -94,6 +99,11 @@ class _UserInfoPageState extends State<UserInfoPage> {
       uid: profileUid.trim().isEmpty ? 'Unknown' : profileUid,
       followingCount: _mapInt(user, 'following_cnt'),
       followerCount: _mapInt(user, 'follower_cnt'),
+      isSelf:
+          _mapBool(relation, 'is_self') ||
+          (localUid.isNotEmpty && localUid == profileUid),
+      isFollowed:
+          _mapBool(relation, 'is_followed') || _mapBool(relation, 'i_followed'),
       origins: origins,
       worlds: worldItems,
     );
@@ -117,17 +127,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        centerTitle: true,
-        title: const PageTitleText(pageName: 'User Info'),
-      ),
+      appBar: const GenesisBackAppBar(pageName: 'User Info'),
       body: SafeArea(
         bottom: false,
         child: FutureBuilder<UserProfileData>(
@@ -215,4 +215,15 @@ int _mapInt(Map<dynamic, dynamic>? map, String key) {
   if (value is num) return value.toInt();
   if (value is String) return int.tryParse(value) ?? 0;
   return 0;
+}
+
+bool _mapBool(Map<dynamic, dynamic>? map, String key) {
+  final value = map == null ? null : map[key];
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    return normalized == 'true' || normalized == '1' || normalized == 'yes';
+  }
+  return false;
 }

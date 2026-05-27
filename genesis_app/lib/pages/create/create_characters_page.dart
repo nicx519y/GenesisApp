@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../components/page_header.dart';
+import '../../ui/genesis_ui.dart';
+import 'create_form_widgets.dart';
 import 'create_origin_draft_store.dart';
 
 class CreateCharactersPage extends StatefulWidget {
@@ -35,15 +38,31 @@ class _CreateCharactersPageState extends State<CreateCharactersPage> {
 
   void _addCharacter() {
     if (_forms.length >= _maxCharacters) {
+      _showError('You can add up to $_maxCharacters characters.');
       return;
     }
     setState(() => _forms.add(_CharacterForm.empty()));
   }
 
+  Future<void> _requestRemoveCharacter(int index) async {
+    final form = _forms[index];
+    if (form.hasContent) {
+      final confirmed = await confirmCreateFormDelete(
+        context,
+        itemLabel: 'Character ${index + 1}',
+      );
+      if (!confirmed || !mounted) return;
+    }
+    _removeCharacter(index);
+  }
+
   void _removeCharacter(int index) {
-    if (_forms.length <= 1) return;
-    final form = _forms.removeAt(index);
-    form.dispose();
+    if (_forms.length <= 1) {
+      _forms[index].clear();
+    } else {
+      final form = _forms.removeAt(index);
+      form.dispose();
+    }
     setState(() {});
   }
 
@@ -104,92 +123,43 @@ class _CreateCharactersPageState extends State<CreateCharactersPage> {
 
   @override
   Widget build(BuildContext context) {
-    const double titleSize = 18;
-    const double bodySize = 14;
-    const double hintSize = 12;
-
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        centerTitle: true,
-        title: const Text(
-          '👤 Characters',
-          style: TextStyle(fontSize: titleSize, fontWeight: FontWeight.w600),
+      backgroundColor: Colors.white,
+      appBar: const GenesisBackAppBar(pageName: '👤 Characters'),
+      body: CreateKeyboardDismissArea(
+        child: SafeArea(
+          top: false,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 14, 24, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (int i = 0; i < _forms.length; i++) ...[
+                  _CharacterCard(
+                    index: i + 1,
+                    form: _forms[i],
+                    onChanged: () => setState(() {}),
+                    onDelete: () {
+                      _requestRemoveCharacter(i);
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                ],
+                CreateAddButton(label: '+ Add Character', onTap: _addCharacter),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
         ),
       ),
-      body: SafeArea(
-        child: Column(
-          children: <Widget>[
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    const Text(
-                      'Create vivid companions for your story. Fill in key traits to make each character feel alive.',
-                      style: TextStyle(fontSize: bodySize, height: 1.5),
-                    ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        '${_forms.length}/$_maxCharacters (Added / Max)',
-                        style: const TextStyle(
-                          fontSize: hintSize,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF666666),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    for (int i = 0; i < _forms.length; i++) ...<Widget>[
-                      _CharacterCard(
-                        index: i + 1,
-                        form: _forms[i],
-                        onChanged: () => setState(() {}),
-                        onDelete: () => _removeCharacter(i),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    _DashedAddButton(
-                      onTap: _addCharacter,
-                      label: '+ Add Character',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFEAEAEA))),
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isSaving ? null : _saveCharacters,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF22A652),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: bodySize,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  child: Text(_isSaving ? 'Saving...' : 'Save'),
-                ),
-              ),
-            ),
-          ],
+      bottomNavigationBar: CreateKeyboardAwareSaveBar(
+        minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
+        child: GenesisPrimaryButton(
+          label: _isSaving ? 'Saving...' : 'Save',
+          onPressed: _isSaving ? null : _saveCharacters,
+          backgroundColor: createFormGreen,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: const Color(0xFFBFD8CD),
         ),
       ),
     );
@@ -211,272 +181,84 @@ class _CharacterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const double bodySize = 14;
-    const double hintSize = 12;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFDDDDDD)),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
-      ),
+    return CreateFormCard(
+      title: 'Character $index',
+      onDelete: onDelete,
       child: Column(
-        children: <Widget>[
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 12),
           Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  'Character $index',
-                  style: const TextStyle(
-                    fontSize: bodySize,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CreateUploadBox(
+                controller: form.avatarUrl,
+                label: 'AVATAR\n(Optional)',
+                width: 104,
+                height: 168,
+                iconSize: 38,
+                cropSize: const Size(416, 672),
+                onChanged: onChanged,
               ),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline),
-                visualDensity: VisualDensity.compact,
-                splashRadius: 20,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  children: [
+                    CreateTextFieldBlock(
+                      label: 'Name *',
+                      controller: form.name,
+                      hintText: 'Enter name...',
+                      maxLength: 25,
+                      labelSize: 14,
+                      maxLines: 1,
+                      onChanged: (_) => onChanged(),
+                    ),
+                    const SizedBox(height: 18),
+                    CreateTextFieldBlock(
+                      label: 'Identity *',
+                      controller: form.identity,
+                      hintText: 'Who they are in the world',
+                      maxLength: 50,
+                      labelSize: 14,
+                      maxLines: 1,
+                      onChanged: (_) => onChanged(),
+                    ),
+                    const SizedBox(height: 18),
+                    CreateTextFieldBlock(
+                      label: 'Personality *',
+                      controller: form.personality,
+                      hintText: 'How they speak and behave',
+                      maxLength: 50,
+                      labelSize: 14,
+                      maxLines: 1,
+                      onChanged: (_) => onChanged(),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Container(
-                width: 100,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFE0E0E0)),
-                  borderRadius: BorderRadius.circular(10),
-                  color: const Color(0xFFF8F8F8),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    const Icon(
-                      Icons.account_circle_outlined,
-                      size: 28,
-                      color: Color(0xFF7C7C7C),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'AVATAR\n(Optional)',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: hintSize,
-                        height: 1.3,
-                        color: Color(0xFF7C7C7C),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: form.avatarUrl,
-                      onChanged: (_) => onChanged(),
-                      style: const TextStyle(fontSize: 12),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: OutlineInputBorder(),
-                        hintText: 'Image URL',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  children: <Widget>[
-                    _LabeledInput(
-                      label: 'Name*',
-                      counter: '${form.name.text.length}/25',
-                      controller: form.name,
-                      onChanged: (_) => onChanged(),
-                    ),
-                    const SizedBox(height: 10),
-                    _LabeledInput(
-                      label: 'Identity*',
-                      counter: '${form.identity.text.length}/50',
-                      controller: form.identity,
-                      onChanged: (_) => onChanged(),
-                    ),
-                    const SizedBox(height: 10),
-                    _LabeledInput(
-                      label: 'Personality*',
-                      counter: '${form.personality.text.length}/50',
-                      controller: form.personality,
-                      onChanged: (_) => onChanged(),
-                    ),
-                    const SizedBox(height: 10),
-                    _LabeledInput(
-                      label: 'Bio optional',
-                      counter: '${form.bio.text.length}/1000',
-                      controller: form.bio,
-                      onChanged: (_) => onChanged(),
-                      minLines: 3,
-                      maxLines: 4,
-                    ),
-                    const SizedBox(height: 10),
-                    _LabeledInput(
-                      label: 'Goal optional',
-                      counter: '${form.goal.text.length}/300',
-                      controller: form.goal,
-                      onChanged: (_) => onChanged(),
-                      minLines: 2,
-                      maxLines: 3,
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          const SizedBox(height: 22),
+          CreateTextFieldBlock(
+            label: 'Bio (Optional)',
+            controller: form.bio,
+            hintText: 'Background and relationships',
+            maxLength: 1000,
+            minLines: 3,
+            onChanged: (_) => onChanged(),
+          ),
+          const SizedBox(height: 22),
+          CreateTextFieldBlock(
+            label: 'Goal (Optional)',
+            controller: form.goal,
+            hintText: 'What they want to achieve',
+            maxLength: 300,
+            minLines: 2,
+            onChanged: (_) => onChanged(),
           ),
         ],
       ),
     );
-  }
-}
-
-class _LabeledInput extends StatelessWidget {
-  const _LabeledInput({
-    required this.label,
-    required this.counter,
-    required this.controller,
-    required this.onChanged,
-    this.minLines = 1,
-    this.maxLines = 1,
-  });
-
-  final String label;
-  final String counter;
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-  final int minLines;
-  final int maxLines;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Row(
-          children: <Widget>[
-            Text(
-              label,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            ),
-            const Spacer(),
-            Text(
-              counter,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF7C7C7C)),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF7F7F7),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFE0E0E0)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: TextField(
-            controller: controller,
-            onChanged: onChanged,
-            minLines: minLines,
-            maxLines: maxLines,
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              isDense: true,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DashedAddButton extends StatelessWidget {
-  const _DashedAddButton({required this.onTap, required this.label});
-
-  final VoidCallback onTap;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: CustomPaint(
-          painter: _DashedRRectPainter(
-            color: const Color(0xFFB7B7B7),
-            radius: 12,
-          ),
-          child: SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: Center(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF22A652),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DashedRRectPainter extends CustomPainter {
-  _DashedRRectPainter({required this.color, required this.radius});
-
-  final Color color;
-  final double radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const double dashWidth = 6;
-    const double dashSpace = 4;
-
-    final Paint paint = Paint()
-      ..color = color
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-
-    final RRect rrect = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      Radius.circular(radius),
-    );
-
-    final Path path = Path()..addRRect(rrect);
-    for (final metric in path.computeMetrics()) {
-      double distance = 0;
-      while (distance < metric.length) {
-        final double end = (distance + dashWidth)
-            .clamp(0.0, metric.length)
-            .toDouble();
-        canvas.drawPath(metric.extractPath(distance, end), paint);
-        distance += dashWidth + dashSpace;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedRRectPainter oldDelegate) {
-    return oldDelegate.color != color || oldDelegate.radius != radius;
   }
 }
 
@@ -526,5 +308,25 @@ class _CharacterForm {
     personality.dispose();
     bio.dispose();
     goal.dispose();
+  }
+
+  bool get hasContent {
+    return [
+      avatarUrl,
+      name,
+      identity,
+      personality,
+      bio,
+      goal,
+    ].any((controller) => controller.text.trim().isNotEmpty);
+  }
+
+  void clear() {
+    avatarUrl.clear();
+    name.clear();
+    identity.clear();
+    personality.clear();
+    bio.clear();
+    goal.clear();
   }
 }

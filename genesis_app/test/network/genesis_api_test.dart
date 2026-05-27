@@ -740,14 +740,69 @@ void main() {
     );
   });
 
-  test('v1 discuss detail normalizes camelCase response keys', () async {
+  test(
+    'v1 discuss list uses Apifox query and normalizes response keys',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"errNo":0,"errStr":"success","data":{"list":[{"comment":{"discussId":"dis_001","isLiked":true,"likeCnt":11},"latestReplies":[{"discussId":"dis_002","rootDiscussId":"dis_001"}]}],"topTotal":1,"totalAll":2,"pn":1,"rn":20}}',
+        ),
+      );
+      final healthTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      );
+
+      final api = _apiWith(apiTransport, healthTransport);
+      final result = await api.v1.discuss.list(bizId: 'ori_001', pn: 1, rn: 20);
+
+      expect(apiTransport.lastRequest!.method, 'GET');
+      expect(apiTransport.lastRequest!.uri.path, '/api/v1/discuss/list');
+      expect(apiTransport.lastRequest!.uri.queryParameters['biz_type'], '1');
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters['biz_id'],
+        'ori_001',
+      );
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters.containsKey('bizType'),
+        isFalse,
+      );
+      final item = (result['list'] as List).first as Map<String, dynamic>;
+      final comment = item['comment'] as Map<String, dynamic>;
+      expect(comment['discuss_id'], 'dis_001');
+      expect(comment['is_liked'], isTrue);
+      expect(comment['like_cnt'], 11);
+      expect(comment.containsKey('discussId'), isFalse);
+      final replies = item['latest_replies'] as List;
+      expect((replies.first as Map)['discuss_id'], 'dis_002');
+      expect(result['top_total'], 1);
+      expect(result['total_all'], 2);
+    },
+  );
+
+  test('v1 discuss write APIs use Apifox paths and body fields', () async {
     final apiTransport = _FakeTransport(
-      handler: (_) => const TransportResponse(
-        statusCode: 200,
-        headers: {'content-type': 'application/json'},
-        body:
-            '{"errNo":0,"errStr":"success","data":{"post":{"postId":"p_001","userName":"GenX","likedByMe":true,"likeCnt":11,"bestTickCnt":30},"replyList":[{"postId":"p_002","userAvatar":"https://cdn.xxx/a.png","replyCnt":0}],"total":3}}',
-      ),
+      handler: (request) {
+        if (request.uri.path.endsWith('/discuss/post')) {
+          return const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body:
+                '{"err_no":0,"err_msg":"succ","data":{"discuss_id":"dis_new","root_discuss_id":"dis_root","level":2}}',
+          );
+        }
+        return const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":0,"err_msg":"succ","data":{}}',
+        );
+      },
     );
     final healthTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
@@ -758,24 +813,41 @@ void main() {
     );
 
     final api = _apiWith(apiTransport, healthTransport);
-    final result = await api.v1.discuss.detail(postId: 'p_001', pn: 1, rn: 20);
-
-    expect(apiTransport.lastRequest!.uri.path, '/api/v1/discuss/detail');
-    expect(apiTransport.lastRequest!.uri.queryParameters['post_id'], 'p_001');
-    expect(
-      apiTransport.lastRequest!.uri.queryParameters.containsKey('postId'),
-      isFalse,
+    final created = await api.v1.discuss.post(
+      bizId: 'ori_001',
+      content: 'reply',
+      images: const ['https://cdn.example.com/discuss/a.jpg'],
+      rootDiscussId: 'dis_root',
+      parentDiscussId: 'dis_parent',
     );
-    final post = result['post'] as Map<String, dynamic>;
-    expect(post['post_id'], 'p_001');
-    expect(post['user_name'], 'GenX');
-    expect(post['liked_by_me'], isTrue);
-    expect(post['like_cnt'], 11);
-    expect(post['best_tick_cnt'], 30);
-    expect(post.containsKey('postId'), isFalse);
-    final replies = result['reply_list'] as List;
-    expect((replies.first as Map)['post_id'], 'p_002');
-    expect((replies.first as Map)['user_avatar'], 'https://cdn.xxx/a.png');
+
+    expect(created['discuss_id'], 'dis_new');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/discuss/post');
+    final postBody = jsonDecode(
+      utf8.decode(apiTransport.lastRequest!.bodyBytes!),
+    );
+    expect(postBody['biz_type'], 1);
+    expect(postBody['biz_id'], 'ori_001');
+    expect(postBody['root_discuss_id'], 'dis_root');
+    expect(postBody['parent_discuss_id'], 'dis_parent');
+    expect(postBody.containsKey('rootDiscussId'), isFalse);
+
+    await api.v1.discuss.like(discussId: 'dis_new');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/discuss/like');
+    final likeBody = jsonDecode(
+      utf8.decode(apiTransport.lastRequest!.bodyBytes!),
+    );
+    expect(likeBody, {'discuss_id': 'dis_new'});
+
+    await api.v1.discuss.unlike(discussId: 'dis_new');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/discuss/unlike');
+
+    await api.v1.discuss.delete(discussId: 'dis_new');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/discuss/delete');
+    final deleteBody = jsonDecode(
+      utf8.decode(apiTransport.lastRequest!.bodyBytes!),
+    );
+    expect(deleteBody, {'discuss_id': 'dis_new'});
   });
 
   test('v1 upload uses multipart body through ApiClient transport', () async {
@@ -814,6 +886,44 @@ void main() {
     expect(body, contains('avatar'));
     expect(body, contains('filename="a.txt"'));
     expect(body, contains('abc'));
+  });
+
+  test('v1 upload image uses Apifox multipart contract', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"url":"https://cdn.example.com/uploads/20260526/123.jpg","object_key":"uploads/20260526/123.jpg"}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    final result = await api.v1.upload.image(
+      bytes: utf8.encode('image-bytes'),
+      filename: 'avatar.png',
+      contentType: 'image/png',
+    );
+
+    expect(result['url'], 'https://cdn.example.com/uploads/20260526/123.jpg');
+    expect(result['object_key'], 'uploads/20260526/123.jpg');
+    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/upload/image');
+    expect(
+      apiTransport.lastRequest!.headers['content-type'],
+      startsWith('multipart/form-data; boundary='),
+    );
+    final body = utf8.decode(apiTransport.lastRequest!.bodyBytes!);
+    expect(body, contains('name="file"; filename="avatar.png"'));
+    expect(body, contains('Content-Type: image/png'));
+    expect(body, isNot(contains('name="biz_type"')));
   });
 }
 

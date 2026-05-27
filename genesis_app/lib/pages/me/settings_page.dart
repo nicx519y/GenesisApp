@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/page_header.dart';
 import '../../routers/app_router.dart';
+import '../../ui/genesis_ui.dart';
 import 'about_us_page.dart';
 import 'chatroom_test_page.dart';
 
@@ -18,16 +19,9 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          onPressed: () => Navigator.of(context).maybePop(false),
-        ),
-        centerTitle: true,
-        title: const PageTitleText(pageName: 'Settings'),
+      appBar: GenesisBackAppBar(
+        pageName: 'Settings',
+        onBack: () => Navigator.of(context).maybePop(false),
       ),
       body: SafeArea(
         child: Padding(
@@ -68,6 +62,7 @@ class SettingsPage extends StatelessWidget {
                   RouteNames.locationChat,
                   arguments: const {
                     'world_id': 'world-1',
+                    'world_name': 'World 1',
                     'location_id': 'castle',
                     'location_name': 'Castle',
                   },
@@ -127,25 +122,11 @@ class SettingsPage extends StatelessWidget {
               ),
               const Divider(height: 1, color: Color(0xFFE7E7E7)),
               const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: FilledButton(
-                  onPressed: () => _logout(context),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFE1E1E3),
-                    foregroundColor: Colors.black,
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text('Log out'),
-                ),
+              GenesisPrimaryButton(
+                label: 'Log out',
+                onPressed: () => _logout(context),
+                backgroundColor: const Color(0xFFE1E1E3),
+                foregroundColor: Colors.black,
               ),
               const SizedBox(height: 20),
             ],

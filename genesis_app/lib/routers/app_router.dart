@@ -8,6 +8,7 @@ import '../pages/world/world_page.dart';
 import '../pages/chat/chat_page.dart';
 import '../pages/chat/location_chat_page.dart';
 import '../pages/messages/message_category_list_page.dart';
+import '../pages/me/follows_page.dart';
 import '../pages/me/user_info_page.dart';
 
 sealed class RouteNames {
@@ -26,6 +27,7 @@ sealed class RouteNames {
   static const newFollowers = '/messages/new_followers';
   static const comments = '/messages/comments';
   static const userInfo = '/user_info';
+  static const follows = '/follows';
 }
 
 sealed class AppRouter {
@@ -112,10 +114,14 @@ sealed class AppRouter {
         final args = settings.arguments;
         var worldId = '';
         var locationId = '';
+        var worldName = '';
         var locationName = '';
         if (args is Map) {
           final rawWorldId = args['world_id'] ?? args['worldId'] ?? args['wid'];
           if (rawWorldId != null) worldId = rawWorldId.toString();
+
+          final rawWorldName = args['world_name'] ?? args['worldName'];
+          if (rawWorldName != null) worldName = rawWorldName.toString();
 
           final rawLocationId =
               args['location_id'] ??
@@ -136,6 +142,7 @@ sealed class AppRouter {
           builder: (_) => LocationChatPage(
             worldId: worldId,
             locationId: locationId,
+            worldName: worldName,
             locationName: locationName,
           ),
         );
@@ -198,6 +205,41 @@ sealed class AppRouter {
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => UserInfoPage(uid: uid),
+        );
+      case RouteNames.follows:
+        final args = settings.arguments;
+        var uid = '';
+        var initialIndex = 0;
+        String? title;
+        if (args is String) {
+          uid = args;
+        } else if (args is Map) {
+          final rawUid = args['uid'] ?? args['userId'] ?? args['id'];
+          if (rawUid != null) uid = rawUid.toString();
+
+          final rawTitle = args['title'] ?? args['name'] ?? args['displayName'];
+          if (rawTitle != null && rawTitle.toString().trim().isNotEmpty) {
+            title = rawTitle.toString();
+          }
+
+          final rawTab =
+              args['initialIndex'] ?? args['tabIndex'] ?? args['tab'];
+          if (rawTab is int) {
+            initialIndex = rawTab;
+          } else if (rawTab != null) {
+            final tabText = rawTab.toString().trim().toLowerCase();
+            initialIndex =
+                int.tryParse(tabText) ??
+                (tabText == 'followers' || tabText == 'follower' ? 1 : 0);
+          }
+        }
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => FollowsPage(
+            uid: uid,
+            initialIndex: initialIndex,
+            initialTitle: title,
+          ),
         );
       case RouteNames.shell:
       default:

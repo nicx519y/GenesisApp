@@ -42,9 +42,9 @@ class WorldTopOverlayBar extends StatelessWidget {
               controller: controller,
               dividerColor: Colors.transparent,
               indicatorSize: TabBarIndicatorSize.tab,
-              indicator: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
+              indicator: const UnderlineTabIndicator(
+                borderSide: BorderSide(color: Color(0xFFFF4D58), width: 1.5),
+                insets: EdgeInsets.symmetric(horizontal: 28),
               ),
               labelColor: Colors.black,
               unselectedLabelColor: Colors.black.withValues(alpha: 0.7),
@@ -73,7 +73,7 @@ class WorldTopOverlayBar extends StatelessWidget {
                     children: [
                       const Icon(Icons.place_outlined, size: 16),
                       const SizedBox(width: 6),
-                      Text('Point ($pointsCount)'),
+                      Text('Location ($pointsCount)'),
                     ],
                   ),
                 ),

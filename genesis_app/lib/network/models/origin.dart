@@ -261,7 +261,9 @@ class OriginCharacter {
     required this.name,
     required this.avatar,
     required this.tags,
+    this.tagline = '',
     required this.description,
+    this.goal = '',
     required this.currentLocationId,
     required this.initialLocationId,
     required this.createdAt,
@@ -273,7 +275,9 @@ class OriginCharacter {
   final String name;
   final String avatar;
   final String tags;
+  final String tagline;
   final String description;
+  final String goal;
   final int currentLocationId;
   final int initialLocationId;
   final DateTime? createdAt;
@@ -299,8 +303,13 @@ class OriginCharacter {
       originId: asInt(json['origin_id']),
       name: asString(json['name']),
       avatar: asString(json['avatar']),
-      tags: asString(json['tags']),
-      description: asString(json['description']),
+      tags: asString(json['tags'], fallback: asString(json['identity'])),
+      tagline: asString(json['tagline'], fallback: asString(json['brief'])),
+      description: asString(
+        json['description'],
+        fallback: asString(json['bio']),
+      ),
+      goal: asString(json['goal']),
       currentLocationId: currentLocationId,
       initialLocationId: asInt(json['initial_location_id']),
       createdAt: asDateTime(json['created_at']),
@@ -316,6 +325,7 @@ class OriginLocation {
     required this.originId,
     required this.name,
     required this.icon,
+    required this.mapUrl,
     required this.description,
     required this.position,
     required this.isActive,
@@ -331,6 +341,7 @@ class OriginLocation {
   final int originId;
   final String name;
   final String icon;
+  final String mapUrl;
   final String description;
   final int position;
   final bool isActive;
@@ -350,10 +361,8 @@ class OriginLocation {
       id: asInt(json['id']),
       originId: asInt(json['origin_id']),
       name: asString(json['name'], fallback: asString(json['location_name'])),
-      icon: asString(
-        json['icon'],
-        fallback: asString(json['image'], fallback: asString(json['map'])),
-      ),
+      icon: asString(json['icon'], fallback: asString(json['image'])),
+      mapUrl: asString(json['map_url']),
       description: asString(
         json['description'],
         fallback: asString(json['location_summary']),

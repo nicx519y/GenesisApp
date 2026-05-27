@@ -15,11 +15,13 @@ class LocationChatPage extends StatefulWidget {
     super.key,
     required this.worldId,
     required this.locationId,
+    this.worldName,
     this.locationName,
   });
 
   final String worldId;
   final String locationId;
+  final String? worldName;
   final String? locationName;
 
   @override
@@ -328,6 +330,7 @@ class _LocationChatPageState extends State<LocationChatPage> {
   Widget build(BuildContext context) {
     final titleCount = _onlineUsers.isEmpty ? 1 : _onlineUsers.length;
     final title = firstNonEmpty([widget.locationName, widget.locationId]);
+    final worldName = firstNonEmpty([widget.worldName, widget.worldId]);
     final subtitle = _onlineUsers.isEmpty
         ? _status
         : _onlineUsers
@@ -352,6 +355,7 @@ class _LocationChatPageState extends State<LocationChatPage> {
             child: LocationChatMessageList(
               controller: _scrollController,
               messages: _messages,
+              worldName: worldName,
             ),
           ),
           LocationChatComposer(

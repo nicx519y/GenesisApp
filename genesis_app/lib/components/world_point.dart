@@ -12,6 +12,7 @@ class WorldPoint {
     this.iconUrl = '',
     this.description = '',
     this.depth = 0,
+    this.isLeafLocation = true,
   });
 
   final String id;
@@ -24,6 +25,7 @@ class WorldPoint {
   final String iconUrl;
   final String description;
   final int depth;
+  final bool isLeafLocation;
 }
 
 class UserAvatar {

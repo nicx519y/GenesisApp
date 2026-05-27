@@ -104,6 +104,8 @@ class _MePageState extends State<MePage> {
       uid: uid.isEmpty ? 'Unknown' : uid,
       followingCount: resolvedFollowingCount,
       followerCount: resolvedFollowerCount,
+      isSelf: true,
+      isFollowed: false,
       origins: origins,
       worlds: worldItems,
     );
@@ -156,13 +158,12 @@ class _MePageState extends State<MePage> {
           filename: 'avatar.png',
           contentType: 'image/png',
           onUpload: (result) async {
-            final uploaded = await services.api.v1.common.uploadFile(
+            final uploaded = await services.api.v1.upload.image(
               bytes: result.bytes,
-              bizType: 'avatar',
               filename: result.filename,
               contentType: result.contentType,
             );
-            return _mapString(uploaded, 'file_url');
+            return _mapString(uploaded, 'url');
           },
         ),
       ),

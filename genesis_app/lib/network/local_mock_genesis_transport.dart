@@ -408,27 +408,25 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (method == 'GET' && path == 'discuss/list') {
-      return _v1Ok(_paged(_state.v1DiscussList(), query));
+      return _v1Ok(_state.v1DiscussList(query));
     }
 
     if (method == 'POST' && path == 'discuss/post') {
-      return _v1Ok({'post_id': _state.addV1DiscussPost(body)});
-    }
-
-    if (method == 'GET' && path == 'discuss/detail') {
-      return _v1Ok(_state.v1DiscussDetail(query['post_id']));
-    }
-
-    if (method == 'POST' && path == 'discuss/reply') {
-      return _v1Ok({'post_id': _state.addV1DiscussReply(body)});
+      return _v1Ok(_state.addV1Discuss(body));
     }
 
     if (method == 'POST' && path == 'discuss/like') {
-      return _v1Ok(_state.likeV1Discuss('${body['comment_id'] ?? ''}'));
+      _state.likeV1Discuss('${body['discuss_id'] ?? ''}');
+      return _v1Ok(<String, dynamic>{});
     }
 
-    if (method == 'POST' && path == 'discuss/del') {
-      _state.deleteV1Discuss('${body['comment_id'] ?? ''}');
+    if (method == 'POST' && path == 'discuss/unlike') {
+      _state.unlikeV1Discuss('${body['discuss_id'] ?? ''}');
+      return _v1Ok(<String, dynamic>{});
+    }
+
+    if (method == 'POST' && path == 'discuss/delete') {
+      _state.deleteV1Discuss('${body['discuss_id'] ?? ''}');
       return _v1Ok(<String, dynamic>{});
     }
 
@@ -456,6 +454,18 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(
         _paged(_state.v1FollowingFeed(), query)..['has_more'] = false,
       );
+    }
+
+    if (method == 'POST' && path == 'upload/image') {
+      final now = DateTime.now();
+      final y = now.year.toString().padLeft(4, '0');
+      final m = now.month.toString().padLeft(2, '0');
+      final d = now.day.toString().padLeft(2, '0');
+      final objectKey = 'uploads/$y$m$d/mock_${now.microsecondsSinceEpoch}.png';
+      return _v1Ok({
+        'url': 'https://mock.local/$objectKey',
+        'object_key': objectKey,
+      });
     }
 
     if (method == 'POST' && path == 'common/upload') {
@@ -537,7 +547,7 @@ class LocalMockGenesisTransport implements HttpTransport {
 
   Map<String, dynamic> _decodeBody(List<int>? bytes) {
     if (bytes == null || bytes.isEmpty) return const <String, dynamic>{};
-    final decodedText = utf8.decode(bytes);
+    final decodedText = utf8.decode(bytes, allowMalformed: true);
     Object? decoded;
     try {
       decoded = jsonDecode(decodedText);
@@ -600,6 +610,10 @@ class _MockState {
       .toList(growable: true);
   final Map<String, Map<String, dynamic>> _v1Drafts =
       <String, Map<String, dynamic>>{};
+
+  _MockState() {
+    _ensureV1DiscussCoverage();
+  }
 
   Map<String, dynamic> get _v1Origin => _v1Origins.first;
 
@@ -1096,8 +1110,8 @@ class _MockState {
     required String type,
   }) {
     final users = type == 'following'
-        ? [_deepCopyMap(_v1PeerUser)]
-        : v1FollowerMessages();
+        ? _v1FollowingUsers()
+        : _v1FollowerUsers();
     final pagedUsers = _v1PageItems(users, query);
     return {
       'total': users.length,
@@ -1117,6 +1131,64 @@ class _MockState {
   }
 
   List<Map<String, dynamic>> v1Relations() => v1FollowerMessages();
+
+  List<Map<String, dynamic>> _v1FollowingUsers() {
+    return _v1SearchUsers
+        .skip(1)
+        .take(36)
+        .map((item) {
+          final user = _deepCopyMap(item);
+          user['is_followed'] = true;
+          user['i_followed'] = true;
+          user['followed_me'] = item['followed_me'] ?? false;
+          user['is_friend'] = item['is_friend'] ?? false;
+          user['follow_button_state'] = 'following';
+          user['relation'] = _relationForFollowUser(user, followed: true);
+          return user;
+        })
+        .toList(growable: false);
+  }
+
+  List<Map<String, dynamic>> _v1FollowerUsers() {
+    return _v1SearchUsers
+        .skip(2)
+        .take(42)
+        .map((item) {
+          final user = _deepCopyMap(item);
+          final followed = item['i_followed'] == true;
+          user['is_followed'] = followed;
+          user['i_followed'] = followed;
+          user['followed_me'] = true;
+          user['is_friend'] = followed && item['is_friend'] == true;
+          user['follow_button_state'] = followed ? 'following' : 'follow_back';
+          user['relation'] = _relationForFollowUser(user, followed: followed);
+          return user;
+        })
+        .toList(growable: false);
+  }
+
+  Map<String, dynamic> _relationForFollowUser(
+    Map<String, dynamic> user, {
+    required bool followed,
+  }) {
+    final followedMe = user['followed_me'] == true;
+    final isFriend = followed && followedMe;
+    return {
+      'target_user_id': user['uid'],
+      'is_self': user['uid'] == _v1User['uid'],
+      'is_followed': followed,
+      'i_followed': followed,
+      'followed_me': followedMe,
+      'is_friend': isFriend,
+      'follow_button_state': followed
+          ? 'following'
+          : followedMe
+          ? 'follow_back'
+          : 'follow',
+      'can_send_dm': true,
+      'dm_permission': isFriend ? 'unlimited' : 'pingpong',
+    };
+  }
 
   Map<String, dynamic> _v1Paged(
     List<Map<String, dynamic>> items,
@@ -1235,86 +1307,276 @@ class _MockState {
     };
   }
 
-  List<Map<String, dynamic>> v1DiscussList() {
-    return _v1DiscussPosts
-        .map(
-          (post) => {..._deepCopyMap(post), 'comment_list': v1DiscussReplies()},
+  void _ensureV1DiscussCoverage() {
+    for (final entry in _v1Origins.indexed) {
+      final originIndex = entry.$1;
+      final origin = entry.$2;
+      final oid = '${origin['oid'] ?? ''}'.trim();
+      if (oid.isEmpty) continue;
+
+      final existingTopCount = _v1DiscussPosts
+          .where((item) => item['biz_type'] == 1 && item['biz_id'] == oid)
+          .length;
+      for (var slot = existingTopCount; slot < 2; slot++) {
+        final comment = _mockV1DiscussPost(
+          origin: origin,
+          originIndex: originIndex,
+          slot: slot,
+        );
+        _v1DiscussPosts.add(comment);
+        _v1DiscussReplies.add(
+          _mockV1DiscussReply(
+            origin: origin,
+            comment: comment,
+            originIndex: originIndex,
+            slot: slot,
+          ),
+        );
+      }
+    }
+  }
+
+  Map<String, dynamic> _mockV1DiscussPost({
+    required Map<String, dynamic> origin,
+    required int originIndex,
+    required int slot,
+  }) {
+    final oid = '${origin['oid']}';
+    final title = '${origin['name']}';
+    final idPart = _safeDiscussIdPart(oid);
+    final author = (originIndex + slot).isEven ? _v1User : _v1PeerUser;
+    return {
+      'discuss_id': 'dis_mock_auto_${idPart}_$slot',
+      'biz_type': 1,
+      'biz_id': oid,
+      'author': _deepCopyMap(author),
+      'content': slot.isEven
+          ? '$title 的最新分支很适合继续推进角色关系。'
+          : '我在 $title 里补了一条 mock discuss，用来验证列表预览。',
+      'images': <String>[],
+      'root_discuss_id': '',
+      'parent_discuss_id': '',
+      'reply_to_uid': '',
+      'level': 1,
+      'reply_cnt': 1,
+      'like_cnt': (originIndex + slot) % 9,
+      'is_liked': (originIndex + slot) % 4 == 0,
+      'created_at': _mockDiscussTimestamp(originIndex: originIndex, slot: slot),
+    };
+  }
+
+  Map<String, dynamic> _mockV1DiscussReply({
+    required Map<String, dynamic> origin,
+    required Map<String, dynamic> comment,
+    required int originIndex,
+    required int slot,
+  }) {
+    final oid = '${origin['oid']}';
+    final idPart = _safeDiscussIdPart(oid);
+    final author = (originIndex + slot).isEven ? _v1PeerUser : _v1User;
+    return {
+      'discuss_id': 'dis_mock_auto_${idPart}_${slot}_reply',
+      'biz_type': 1,
+      'biz_id': oid,
+      'author': _deepCopyMap(author),
+      'content': '收到，这条讨论会出现在 ${origin['name']} 的最新回复里。',
+      'images': <String>[],
+      'root_discuss_id': comment['discuss_id'],
+      'parent_discuss_id': comment['discuss_id'],
+      'reply_to_uid':
+          '${comment['author'] is Map ? comment['author']['uid'] : ''}',
+      'level': 2,
+      'reply_cnt': 0,
+      'like_cnt': slot,
+      'is_liked': false,
+      'created_at': _mockDiscussTimestamp(
+        originIndex: originIndex,
+        slot: slot,
+        minuteOffset: 2,
+      ),
+    };
+  }
+
+  Map<String, dynamic> v1DiscussList(Map<String, String> query) {
+    final bizType = _positiveInt(query['biz_type'], fallback: 1);
+    final bizId = query['biz_id'] ?? '${_v1Origin['oid']}';
+    final page = _positiveInt(query['pn'], fallback: 1);
+    final pageSize = _positiveInt(query['rn'], fallback: 10);
+    final topComments =
+        _v1DiscussPosts
+            .where(
+              (item) =>
+                  item['biz_type'] == bizType &&
+                  (bizId.isEmpty || item['biz_id'] == bizId),
+            )
+            .toList()
+          ..sort(_compareDiscussCreatedDesc);
+    final roots = topComments.map((item) => item['discuss_id']).toSet();
+    final replies = _v1DiscussReplies
+        .where(
+          (item) =>
+              item['biz_type'] == bizType &&
+              (bizId.isEmpty || item['biz_id'] == bizId) &&
+              roots.contains(item['root_discuss_id']),
         )
         .toList();
-  }
-
-  List<Map<String, dynamic>> v1DiscussReplies() {
-    return _v1DiscussReplies.map(_deepCopyMap).toList();
-  }
-
-  Map<String, dynamic> v1DiscussDetail(String? postId) {
-    final post = _v1DiscussPosts.firstWhere(
-      (item) => item['post_id'] == postId,
-      orElse: () => _v1DiscussPosts.first,
-    );
+    final rawStart = (page - 1) * pageSize;
+    final start = rawStart > topComments.length ? topComments.length : rawStart;
+    final rawEnd = start + pageSize;
+    final end = rawEnd > topComments.length ? topComments.length : rawEnd;
+    final pageItems = topComments.sublist(start, end);
     return {
-      'post': _deepCopyMap(post),
-      'reply_list': v1DiscussReplies(),
-      'total': _v1DiscussReplies.length,
+      'list': pageItems
+          .map(
+            (comment) => {
+              'comment': _deepCopyMap(comment),
+              'latest_replies': _latestV1DiscussReplies(
+                '${comment['discuss_id']}',
+              ),
+            },
+          )
+          .toList(),
+      'top_total': topComments.length,
+      'total_all': topComments.length + replies.length,
+      'pn': page,
+      'rn': pageSize,
     };
   }
 
-  String addV1DiscussPost(Map<String, dynamic> body) {
-    final postId = 'p_mock_${DateTime.now().millisecondsSinceEpoch}';
-    _v1DiscussPosts.insert(0, {
-      'post_id': postId,
-      'uid': _v1User['uid'],
-      'user_name': _v1User['name'],
-      'user_avatar': _v1User['avatar'],
-      'create_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+  Map<String, dynamic> addV1Discuss(Map<String, dynamic> body) {
+    final rootDiscussId = '${body['root_discuss_id'] ?? ''}';
+    final isReply = rootDiscussId.trim().isNotEmpty;
+    final parentDiscussId = '${body['parent_discuss_id'] ?? ''}'.trim();
+    final discussId = 'dis_mock_${DateTime.now().microsecondsSinceEpoch}';
+    final parentId = isReply
+        ? (parentDiscussId.isEmpty ? rootDiscussId : parentDiscussId)
+        : '';
+    final parent = _findV1Discuss(parentId);
+    final item = {
+      'discuss_id': discussId,
+      'biz_type': _positiveInt('${body['biz_type'] ?? ''}', fallback: 1),
+      'biz_id': '${body['biz_id'] ?? _v1Origin['oid']}',
+      'author': _deepCopyMap(_v1User),
       'content': '${body['content'] ?? ''}',
       'images': body['images'] is List ? body['images'] : <String>[],
-      'liked_by_me': false,
-      'like_cnt': 0,
+      'root_discuss_id': isReply ? rootDiscussId : '',
+      'parent_discuss_id': parentId,
+      'reply_to_uid':
+          '${parent?['author'] is Map ? parent!['author']['uid'] : ''}',
+      'level': isReply ? 2 : 1,
       'reply_cnt': 0,
-      'best_tick_cnt': 0,
-      'best_wid': _v1World['wid'],
-    });
-    return postId;
-  }
-
-  String addV1DiscussReply(Map<String, dynamic> body) {
-    final postId = 'p_mock_reply_${DateTime.now().millisecondsSinceEpoch}';
-    _v1DiscussReplies.insert(0, {
-      'post_id': postId,
-      'uid': _v1User['uid'],
-      'user_name': _v1User['name'],
-      'user_avatar': _v1User['avatar'],
-      'create_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      'content': '${body['content'] ?? ''}',
-      'images': body['images'] is List ? body['images'] : <String>[],
-      'liked_by_me': false,
       'like_cnt': 0,
-      'reply_cnt': 0,
-      'best_tick_cnt': 0,
-      'best_wid': _v1World['wid'],
-    });
-    return postId;
-  }
-
-  Map<String, dynamic> likeV1Discuss(String commentId) {
-    final post = _v1DiscussPosts.firstWhere(
-      (item) => item['post_id'] == commentId,
-      orElse: () => _v1DiscussPosts.first,
-    );
-    final liked = !(post['liked_by_me'] as bool? ?? false);
-    post['liked_by_me'] = liked;
-    post['like_cnt'] = (post['like_cnt'] as int? ?? 0) + (liked ? 1 : -1);
+      'is_liked': false,
+      'created_at': _mockSqlTimestamp(),
+    };
+    if (isReply) {
+      _v1DiscussReplies.insert(0, item);
+      final root = _findV1Discuss(rootDiscussId);
+      if (root != null) {
+        root['reply_cnt'] = (root['reply_cnt'] as int? ?? 0) + 1;
+      }
+    } else {
+      _v1DiscussPosts.insert(0, item);
+      _adjustV1OriginDiscussCount('${item['biz_id']}', 1);
+    }
     return {
-      'comment_id': commentId,
-      'liked_by_me': liked,
-      'like_cnt': post['like_cnt'],
+      'discuss_id': discussId,
+      'root_discuss_id': isReply ? rootDiscussId : '',
+      'level': isReply ? 2 : 1,
     };
   }
 
-  void deleteV1Discuss(String commentId) {
-    _v1DiscussPosts.removeWhere((item) => item['post_id'] == commentId);
-    _v1DiscussReplies.removeWhere((item) => item['post_id'] == commentId);
+  void likeV1Discuss(String discussId) {
+    final item = _findV1Discuss(discussId);
+    if (item == null || (item['is_liked'] as bool? ?? false)) return;
+    item['is_liked'] = true;
+    item['like_cnt'] = (item['like_cnt'] as int? ?? 0) + 1;
+  }
+
+  void unlikeV1Discuss(String discussId) {
+    final item = _findV1Discuss(discussId);
+    if (item == null || !(item['is_liked'] as bool? ?? false)) return;
+    item['is_liked'] = false;
+    final next = (item['like_cnt'] as int? ?? 0) - 1;
+    item['like_cnt'] = next < 0 ? 0 : next;
+  }
+
+  void deleteV1Discuss(String discussId) {
+    final removedReply = _v1DiscussReplies
+        .where((item) => item['discuss_id'] == discussId)
+        .toList();
+    _v1DiscussReplies.removeWhere((item) => item['discuss_id'] == discussId);
+    for (final reply in removedReply) {
+      final root = _findV1Discuss('${reply['root_discuss_id']}');
+      if (root != null) {
+        final next = (root['reply_cnt'] as int? ?? 0) - 1;
+        root['reply_cnt'] = next < 0 ? 0 : next;
+      }
+    }
+    final removedTop = _v1DiscussPosts
+        .where((item) => item['discuss_id'] == discussId)
+        .toList();
+    _v1DiscussPosts.removeWhere((item) => item['discuss_id'] == discussId);
+    for (final comment in removedTop) {
+      _adjustV1OriginDiscussCount('${comment['biz_id']}', -1);
+    }
+  }
+
+  List<Map<String, dynamic>> _latestV1DiscussReplies(String rootDiscussId) {
+    final replies =
+        _v1DiscussReplies
+            .where((item) => item['root_discuss_id'] == rootDiscussId)
+            .toList()
+          ..sort(_compareDiscussCreatedDesc);
+    return replies.take(3).map(_deepCopyMap).toList();
+  }
+
+  Map<String, dynamic>? _findV1Discuss(String discussId) {
+    for (final item in [..._v1DiscussPosts, ..._v1DiscussReplies]) {
+      if (item['discuss_id'] == discussId) return item;
+    }
+    return null;
+  }
+
+  int _compareDiscussCreatedDesc(
+    Map<String, dynamic> a,
+    Map<String, dynamic> b,
+  ) {
+    return '${b['created_at']}'.compareTo('${a['created_at']}');
+  }
+
+  String _mockSqlTimestamp() {
+    final now = DateTime.now().toLocal();
+    String two(int value) => value.toString().padLeft(2, '0');
+    return '${now.year}-${two(now.month)}-${two(now.day)} '
+        '${two(now.hour)}:${two(now.minute)}:${two(now.second)}';
+  }
+
+  String _mockDiscussTimestamp({
+    required int originIndex,
+    required int slot,
+    int minuteOffset = 0,
+  }) {
+    final day = ((originIndex + slot) % 28) + 1;
+    final hour = 8 + ((originIndex + slot) % 10);
+    final minute = ((originIndex * 3) + (slot * 11) + minuteOffset) % 60;
+    return '2026-05-${day.toString().padLeft(2, '0')} '
+        '${hour.toString().padLeft(2, '0')}:'
+        '${minute.toString().padLeft(2, '0')}:00';
+  }
+
+  String _safeDiscussIdPart(String oid) {
+    return oid.replaceAll(RegExp(r'[^a-zA-Z0-9]+'), '_');
+  }
+
+  void _adjustV1OriginDiscussCount(String originId, int delta) {
+    final origin = _v1Origins.firstWhere(
+      (item) => item['oid'] == originId,
+      orElse: () => <String, dynamic>{},
+    );
+    if (origin.isEmpty) return;
+    final next = (origin['discuss_cnt'] as int? ?? 0) + delta;
+    origin['discuss_cnt'] = next < 0 ? 0 : next;
   }
 
   Map<String, dynamic> v1Search(Map<String, String> query) {
@@ -1627,7 +1889,7 @@ class _MockState {
         'started_at': origin['start_time'],
         'tick_duration_days': origin['tick_duration_days'],
         'cover': origin['cover'],
-        'map_url': origin['cover'],
+        'map_url': origin['map_url'] ?? origin['cover'],
         'status': origin['status'],
       },
       'stats': {
@@ -1665,7 +1927,7 @@ class _MockState {
         'started_at': world['created_at'],
         'tick_duration_days': 30,
         'cover': world['cover'],
-        'map_url': world['cover'],
+        'map_url': world['map_url'] ?? world['cover'],
         'status': world['status'],
       },
       'stats': {
@@ -1704,7 +1966,7 @@ class _MockState {
       'image': location['image'],
       'x_percent': location['x_percent'],
       'y_percent': location['y_percent'],
-      'map': location['image'],
+      'map_url': location['map_url'] ?? location['image'],
       'initial_dialogue': const <Map<String, dynamic>>[],
     };
   }

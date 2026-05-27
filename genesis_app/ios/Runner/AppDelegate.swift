@@ -1,15 +1,19 @@
 import Flutter
+import PhotosUI
 import Security
 import UIKit
+import UniformTypeIdentifiers
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, PHPickerViewControllerDelegate {
   private let channelName = "com.genesis.ai/device"
+  private let discussImagePickerChannelName = "com.genesis.ai/discuss_image_picker"
   private let uidKey = "uid"
   private let authTokenKey = "auth_token"
   private let deviceIdKey = "genesis_device_id"
   private let deviceIdKeychainService = "com.genesis.ai.device-id"
   private let prefs = UserDefaults.standard
+  private var pendingDiscussImagePickerResult: FlutterResult?
 
   override func application(
     _ application: UIApplication,
@@ -21,6 +25,7 @@ import UIKit
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     configureGenesisMethodChannel(messenger: engineBridge.applicationRegistrar.messenger())
+    configureDiscussImagePickerChannel(messenger: engineBridge.applicationRegistrar.messenger())
   }
 
   private func configureGenesisMethodChannel(messenger: FlutterBinaryMessenger) {
@@ -60,6 +65,217 @@ import UIKit
         result(FlutterMethodNotImplemented)
       }
     }
+  }
+
+  private func configureDiscussImagePickerChannel(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: discussImagePickerChannelName,
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else {
+        result(FlutterError(code: "unavailable", message: "AppDelegate released", details: nil))
+        return
+      }
+      switch call.method {
+      case "pickImages":
+        let args = call.arguments as? [String: Any]
+        let limit = max(1, args?["limit"] as? Int ?? 6)
+        self.pickDiscussImages(limit: limit, result: result)
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  private func pickDiscussImages(limit: Int, result: @escaping FlutterResult) {
+    guard #available(iOS 14, *) else {
+      result(FlutterError(code: "unsupported_ios", message: "PHPicker requires iOS 14 or later.", details: nil))
+      return
+    }
+    guard pendingDiscussImagePickerResult == nil else {
+      result(FlutterError(code: "picker_active", message: "An image picker is already active.", details: nil))
+      return
+    }
+    guard let presenter = topViewController() else {
+      result(FlutterError(code: "no_presenter", message: "Cannot find a view controller to present image picker.", details: nil))
+      return
+    }
+
+    pendingDiscussImagePickerResult = result
+
+    var config = PHPickerConfiguration(photoLibrary: .shared())
+    config.filter = .images
+    config.selectionLimit = limit
+    config.preferredAssetRepresentationMode = .automatic
+
+    let picker = PHPickerViewController(configuration: config)
+    picker.delegate = self
+    presenter.present(picker, animated: true)
+  }
+
+  @available(iOS 14, *)
+  func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+    picker.dismiss(animated: true)
+    guard let result = pendingDiscussImagePickerResult else {
+      return
+    }
+    pendingDiscussImagePickerResult = nil
+
+    guard !results.isEmpty else {
+      result([])
+      return
+    }
+
+    let group = DispatchGroup()
+    var paths = Array<String?>(repeating: nil, count: results.count)
+    var failures: [String] = []
+    let lock = NSLock()
+
+    for (index, item) in results.enumerated() {
+      group.enter()
+      saveDiscussPickedImage(item.itemProvider) { path, error in
+        lock.lock()
+        if let path = path {
+          paths[index] = path
+        } else if let error = error {
+          failures.append(error)
+          NSLog("Discuss image selection failed for item \(index): \(error)")
+        }
+        lock.unlock()
+        group.leave()
+      }
+    }
+
+    group.notify(queue: .main) {
+      let loadedPaths = paths.compactMap { $0 }
+      if loadedPaths.isEmpty, let firstFailure = failures.first {
+        result(FlutterError(code: "invalid_image", message: firstFailure, details: failures))
+      } else {
+        result(loadedPaths)
+      }
+    }
+  }
+
+  @available(iOS 14, *)
+  private func saveDiscussPickedImage(
+    _ provider: NSItemProvider,
+    completion: @escaping (String?, String?) -> Void
+  ) {
+    loadDiscussUIImageRepresentation(provider) { [weak self] path, error in
+      if let path = path {
+        completion(path, nil)
+        return
+      }
+
+      NSLog("Discuss UIImage representation failed: \(error ?? "unknown error")")
+      self?.loadDiscussImageDataRepresentation(provider) { dataPath, dataError in
+        if let dataPath = dataPath {
+          completion(dataPath, nil)
+        } else {
+          completion(nil, dataError ?? error ?? "Cannot load selected image.")
+        }
+      }
+    }
+  }
+
+  @available(iOS 14, *)
+  private func loadDiscussImageDataRepresentation(
+    _ provider: NSItemProvider,
+    completion: @escaping (String?, String?) -> Void
+  ) {
+    var remaining = provider.registeredTypeIdentifiers.filter { identifier in
+      guard let type = UTType(identifier) else {
+        return false
+      }
+      return type.conforms(to: .image)
+    }
+
+    func tryNext(lastError: String?) {
+      guard !remaining.isEmpty else {
+        completion(nil, lastError)
+        return
+      }
+
+      let identifier = remaining.removeFirst()
+      provider.loadDataRepresentation(forTypeIdentifier: identifier) { [weak self] data, error in
+        if let data = data,
+           let image = UIImage(data: data),
+           let path = self?.writeDiscussJPEGImage(image) {
+          completion(path, nil)
+        } else {
+          let message = error?.localizedDescription ?? "Cannot load data representation of type \(identifier)."
+          NSLog("Discuss image data representation failed: \(message)")
+          tryNext(lastError: message)
+        }
+      }
+    }
+
+    tryNext(lastError: nil)
+  }
+
+  private func loadDiscussUIImageRepresentation(
+    _ provider: NSItemProvider,
+    completion: @escaping (String?, String?) -> Void
+  ) {
+    guard provider.canLoadObject(ofClass: UIImage.self) else {
+      completion(nil, "Provider cannot load UIImage.")
+      return
+    }
+
+    provider.loadObject(ofClass: UIImage.self) { [weak self] object, error in
+      guard let image = object as? UIImage,
+            let path = self?.writeDiscussJPEGImage(image) else {
+        completion(nil, error?.localizedDescription ?? "Cannot load UIImage representation.")
+        return
+      }
+      completion(path, nil)
+    }
+  }
+
+  private func writeDiscussJPEGImage(_ image: UIImage) -> String? {
+    guard let data = image.jpegData(compressionQuality: 0.92) else {
+      return nil
+    }
+    return writeDiscussImageData(data, extension: "jpg")
+  }
+
+  private func writeDiscussImageData(_ data: Data, extension fileExtension: String) -> String? {
+    let destination = discussPickerTempURL(fileExtension: fileExtension)
+    do {
+      try data.write(to: destination, options: .atomic)
+      return destination.path
+    } catch {
+      NSLog("Discuss image data write failed: \(error)")
+      return nil
+    }
+  }
+
+  private func discussPickerTempURL(fileExtension: String) -> URL {
+    let filename = "\(UUID().uuidString).\(fileExtension)"
+    return URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).appendingPathComponent(filename)
+  }
+
+  private func topViewController() -> UIViewController? {
+    let activeScene = UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+      .first { $0.activationState == .foregroundActive }
+    let root = activeScene?.windows.first { $0.isKeyWindow }?.rootViewController
+      ?? UIApplication.shared.windows.first { $0.isKeyWindow }?.rootViewController
+    return topViewController(from: root)
+  }
+
+  private func topViewController(from controller: UIViewController?) -> UIViewController? {
+    if let navigationController = controller as? UINavigationController {
+      return topViewController(from: navigationController.visibleViewController)
+    }
+    if let tabBarController = controller as? UITabBarController {
+      return topViewController(from: tabBarController.selectedViewController)
+    }
+    if let presented = controller?.presentedViewController {
+      return topViewController(from: presented)
+    }
+    return controller
   }
 
   private func deviceId() -> String {
