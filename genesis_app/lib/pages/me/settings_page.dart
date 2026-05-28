@@ -16,6 +16,46 @@ class SettingsPage extends StatelessWidget {
     Navigator.of(context).pop(true);
   }
 
+  Future<void> _clearDirectMessageCache(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Clear direct message cache?'),
+          content: const Text(
+            'This only removes cached conversations and messages from this device.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Clear'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final services = AppServicesScope.read(context);
+    try {
+      await services.directMessageConversations.clearCache();
+      await services.directMessageMessages.clearCache();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Direct message cache cleared')),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Clear failed: $error')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -74,6 +114,32 @@ class SettingsPage extends StatelessWidget {
                       Expanded(
                         child: Text(
                           'Location chat test',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.black,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right,
+                        color: Color(0xFFB5B5B5),
+                        size: 30,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFE7E7E7)),
+              InkWell(
+                onTap: () => _clearDirectMessageCache(context),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Clear direct message cache',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.black,

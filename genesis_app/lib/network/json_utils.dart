@@ -38,6 +38,17 @@ bool asBool(Object? v, {bool fallback = false}) {
 DateTime? asDateTime(Object? v) {
   if (v == null) return null;
   if (v is DateTime) return v;
-  if (v is String) return DateTime.tryParse(v);
+  if (v is num) return _dateTimeFromEpoch(v);
+  if (v is String) {
+    final numeric = num.tryParse(v);
+    if (numeric != null) return _dateTimeFromEpoch(numeric);
+    return DateTime.tryParse(v);
+  }
   return null;
+}
+
+DateTime _dateTimeFromEpoch(num value) {
+  final intValue = value.toInt();
+  final millis = intValue.abs() >= 1000000000000 ? intValue : intValue * 1000;
+  return DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
 }

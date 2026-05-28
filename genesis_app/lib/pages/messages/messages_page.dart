@@ -4,10 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/page_header.dart';
-import '../../network/json_utils.dart';
+import '../../network/direct_message_conversation_store.dart';
 import '../../network/models/unread_summary.dart';
 import '../../routers/app_router.dart';
-import '../../utils/relative_time_formatter.dart';
 import 'message_category_list_page.dart';
 
 class MessagesPage extends StatefulWidget {
@@ -25,140 +24,84 @@ class MessagesPage extends StatefulWidget {
 }
 
 class _MessagesPageState extends State<MessagesPage> {
-  static const _pageSize = 20;
-
   final _scrollController = ScrollController();
   Timer? _conversationPollTimer;
-  bool _loading = true;
-  bool _loadingMore = false;
-  bool _refreshing = false;
-  int _loadedPageCount = 0;
-  int _total = 0;
-  List<_DirectMessageConversation> _conversations = const [];
-
-  bool get _hasMore => _conversations.length < _total;
+  late final DirectMessageConversationStore _conversationStore;
+  bool _loadedLocalConversations = false;
+  bool _syncingConversations = false;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
-    unawaited(_loadFirstPage());
+    _conversationStore = AppServicesScope.read(
+      context,
+    ).directMessageConversations;
+    unawaited(_bootstrapConversations());
     _conversationPollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      unawaited(_pollConversations());
+      unawaited(_syncConversations());
     });
   }
 
   @override
   void dispose() {
     _conversationPollTimer?.cancel();
-    _scrollController
-      ..removeListener(_onScroll)
-      ..dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _onScroll() {
-    if (!_scrollController.hasClients ||
-        _loading ||
-        _loadingMore ||
-        _refreshing ||
-        !_hasMore) {
+  Future<void> _bootstrapConversations() async {
+    try {
+      await _conversationStore.loadFromDb();
+      if (!mounted) return;
+      setState(() => _loadedLocalConversations = true);
+      await _syncConversations();
+    } catch (error, stackTrace) {
+      debugPrint('[Messages][DM] bootstrap failed: $error');
+      debugPrint('[Messages][DM] stacktrace:\n$stackTrace');
+      if (!mounted) return;
+      setState(() => _loadedLocalConversations = true);
+    }
+  }
+
+  Future<void> _syncConversations() async {
+    if (_syncingConversations) return;
+    setState(() => _syncingConversations = true);
+    try {
+      await _conversationStore.syncConversations();
+    } catch (error, stackTrace) {
+      debugPrint('[Messages][DM] sync failed: $error');
+      debugPrint('[Messages][DM] stacktrace:\n$stackTrace');
+    } finally {
+      if (mounted) {
+        setState(() => _syncingConversations = false);
+      }
+    }
+  }
+
+  Future<void> _openConversation(DirectMessageConversationRecord item) async {
+    final peerUid = item.peerUid.trim();
+    if (peerUid.isEmpty) {
+      debugPrint(
+        '[Messages][DM] conversation ${item.conversationId} has no peer uid',
+      );
       return;
     }
-    if (_scrollController.position.extentAfter < 600) {
-      unawaited(_loadNextPage());
-    }
-  }
-
-  Future<void> _loadFirstPage() async {
-    if (mounted) {
-      setState(() => _loading = true);
-    }
-    await _replaceLoadedPages(pageCount: 1);
-  }
-
-  Future<void> _loadNextPage() async {
-    if (!_hasMore || _loading || _loadingMore || _refreshing) return;
-    final nextPage = _loadedPageCount + 1;
-    setState(() => _loadingMore = true);
-    try {
-      final page = await _fetchConversationsPage(nextPage);
-      if (!mounted) return;
-      setState(() {
-        _conversations = [..._conversations, ...page.items];
-        _loadedPageCount = nextPage;
-        _total = page.total;
-        _loadingMore = false;
-      });
-    } catch (error, stackTrace) {
-      debugPrint('[Messages][DM] load page $nextPage failed: $error');
-      debugPrint('[Messages][DM] stacktrace:\n$stackTrace');
-      if (!mounted) return;
-      setState(() => _loadingMore = false);
-    }
-  }
-
-  Future<void> _pollConversations() async {
-    if (_loading || _loadingMore || _refreshing) return;
-    final pageCount = _loadedPageCount == 0 ? 1 : _loadedPageCount;
-    await _replaceLoadedPages(pageCount: pageCount);
-  }
-
-  Future<void> _replaceLoadedPages({required int pageCount}) async {
-    _refreshing = true;
-    try {
-      final pages = <_DirectMessageConversationPage>[];
-      for (var page = 1; page <= pageCount; page += 1) {
-        pages.add(await _fetchConversationsPage(page));
-      }
-      final conversations = [for (final page in pages) ...page.items];
-      final total = pages.isEmpty ? 0 : pages.last.total;
-      if (!mounted) return;
-      setState(() {
-        _conversations = conversations;
-        _loadedPageCount = pageCount;
-        _total = total;
-        _loading = false;
-        _refreshing = false;
-      });
-    } catch (error, stackTrace) {
-      debugPrint('[Messages][DM] refresh failed: $error');
-      debugPrint('[Messages][DM] stacktrace:\n$stackTrace');
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _refreshing = false;
-      });
-    }
-  }
-
-  Future<_DirectMessageConversationPage> _fetchConversationsPage(
-    int page,
-  ) async {
-    final data = await AppServicesScope.read(
-      context,
-    ).api.v1.dm.conversations(pn: page, rn: _pageSize);
-    final rawItems = data['list'] is List
-        ? asJsonList(data['list'])
-        : const <Object?>[];
-    final items = rawItems
-        .map((item) => _DirectMessageConversation.fromJson(asJsonMap(item)))
-        .toList(growable: false);
-    return _DirectMessageConversationPage(
-      items: items,
-      total: asInt(data['total'], fallback: items.length),
-    );
-  }
-
-  Future<void> _openConversation(_DirectMessageConversation item) async {
-    debugPrint('[Messages][DM] tapped conversation ${item.conversationId}');
     if (!mounted) return;
-    unawaited(_pollConversations());
+    await Navigator.of(context).pushNamed(
+      RouteNames.chat,
+      arguments: {
+        'peer_uid': peerUid,
+        'peer_name': item.peerName,
+        'peer_avatar': item.avatarUrl,
+        'conv_id': item.conversationId,
+      },
+    );
+    if (!mounted) return;
+    unawaited(_syncConversations());
   }
 
   @override
   Widget build(BuildContext context) {
-    final conversations = _conversations;
     final unreadSummary = widget.unreadSummary;
     return Scaffold(
       backgroundColor: Colors.white,
@@ -221,16 +164,22 @@ class _MessagesPageState extends State<MessagesPage> {
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : conversations.isEmpty
-                ? const _NoMessagesFooter()
-                : _ConversationList(
-                    controller: _scrollController,
-                    conversations: conversations,
-                    loadingMore: _loadingMore,
-                    onTap: _openConversation,
-                  ),
+            child: ValueListenableBuilder<List<String>>(
+              valueListenable: _conversationStore.orderedConversationIds,
+              builder: (context, conversationIds, _) {
+                if (!_loadedLocalConversations ||
+                    (conversationIds.isEmpty && _syncingConversations)) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (conversationIds.isEmpty) return const _NoMessagesFooter();
+                return _ConversationList(
+                  controller: _scrollController,
+                  conversationIds: conversationIds,
+                  conversationStore: _conversationStore,
+                  onTap: _openConversation,
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -349,15 +298,15 @@ class _UnreadBadge extends StatelessWidget {
 class _ConversationList extends StatelessWidget {
   const _ConversationList({
     required this.controller,
-    required this.conversations,
-    required this.loadingMore,
+    required this.conversationIds,
+    required this.conversationStore,
     required this.onTap,
   });
 
   final ScrollController controller;
-  final List<_DirectMessageConversation> conversations;
-  final bool loadingMore;
-  final Future<void> Function(_DirectMessageConversation item) onTap;
+  final List<String> conversationIds;
+  final DirectMessageConversationStore conversationStore;
+  final Future<void> Function(DirectMessageConversationRecord item) onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -369,84 +318,97 @@ class _ConversationList extends StatelessWidget {
         top: 4,
         bottom: 18 + MediaQuery.paddingOf(context).bottom,
       ),
-      itemCount: conversations.length + (loadingMore ? 1 : 0),
+      itemCount: conversationIds.length,
       separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
-        if (index >= conversations.length) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final item = conversations[index];
-        return Material(
-          color: const Color(0xFFF6F7F8),
-          borderRadius: BorderRadius.circular(10),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(10),
-            onTap: () => unawaited(onTap(item)),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-              child: Row(
-                children: [
-                  _Avatar(
-                    avatarUrl: item.avatarUrl,
-                    title: item.peerName,
-                    unreadCount: item.unreadCount,
-                    unreadBadgeKey: ValueKey(
-                      'dm-avatar-${item.conversationId}-unread-badge',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.peerName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          item.lastMessage,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF80848D),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 112),
-                    child: Text(
-                      item.lastMessageAt,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF9CA0A8),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+        final conversationId = conversationIds[index];
+        final listenable = conversationStore.rowListenable(conversationId);
+        if (listenable == null) return const SizedBox.shrink();
+        return ValueListenableBuilder<DirectMessageConversationRecord>(
+          key: ValueKey(conversationId),
+          valueListenable: listenable,
+          builder: (context, item, _) =>
+              _ConversationTile(item: item, onTap: onTap),
         );
       },
+    );
+  }
+}
+
+class _ConversationTile extends StatelessWidget {
+  const _ConversationTile({required this.item, required this.onTap});
+
+  final DirectMessageConversationRecord item;
+  final Future<void> Function(DirectMessageConversationRecord item) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFF6F7F8),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => unawaited(onTap(item)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          child: Row(
+            children: [
+              _Avatar(
+                avatarUrl: item.avatarUrl,
+                title: item.peerName,
+                unreadCount: item.unreadCount,
+                unreadBadgeKey: ValueKey(
+                  'dm-avatar-${item.conversationId}-unread-badge',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.peerName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.lastMessage,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF80848D),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 112),
+                child: Text(
+                  item.lastMessageAt,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF9CA0A8),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -526,46 +488,6 @@ class _Avatar extends StatelessWidget {
       ),
     );
   }
-}
-
-class _DirectMessageConversationPage {
-  const _DirectMessageConversationPage({
-    required this.items,
-    required this.total,
-  });
-
-  final List<_DirectMessageConversation> items;
-  final int total;
-}
-
-class _DirectMessageConversation {
-  const _DirectMessageConversation({
-    required this.conversationId,
-    required this.avatarUrl,
-    required this.peerName,
-    required this.lastMessage,
-    required this.lastMessageAt,
-    required this.unreadCount,
-  });
-
-  factory _DirectMessageConversation.fromJson(Map<String, dynamic> json) {
-    final peer = asJsonMap(json['peer'] ?? const <String, dynamic>{});
-    return _DirectMessageConversation(
-      conversationId: asString(json['conv_id']),
-      avatarUrl: asString(peer['avatar']),
-      peerName: asString(peer['name'], fallback: 'Unknown user'),
-      lastMessage: asString(json['last_message']),
-      lastMessageAt: formatRelativeTimestamp(json['last_message_at']),
-      unreadCount: asInt(json['unread_cnt']),
-    );
-  }
-
-  final String conversationId;
-  final String avatarUrl;
-  final String peerName;
-  final String lastMessage;
-  final String lastMessageAt;
-  final int unreadCount;
 }
 
 class _NoMessagesFooter extends StatelessWidget {

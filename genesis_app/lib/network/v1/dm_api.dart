@@ -7,17 +7,24 @@ class DmV1Api extends V1ApiResource {
   ///
   /// 提交参数:
   /// ```json
-  /// {"pn":1,"rn":20}
+  /// {"pn":1,"rn":20,"after_message_id":"string"}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"conv_id":"string","peer":{},"last_message":"string","last_message_at":"string","last_sender_uid":"string","unread_cnt":0,"is_friend":true,"i_blocked_peer":false,"peer_blocked_me":false,"can_send_next_message":true}],"total":0,"pn":1,"rn":20}}
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"conv_id":"string","peer":{"uid":"string","name":"string","avatar":"string","bio":"string","last_login_at":1779271200,"create_at":1777708800},"last_message_id":"string","last_message":"string","last_message_at":1797731760,"last_sender_uid":"string","unread_cnt":0,"is_friend":true,"i_blocked_peer":false,"peer_blocked_me":false,"can_send_next_message":true}],"total":0,"pn":1,"rn":20,"next_after_message_id":"string"}}
   /// ```
-  Future<Map<String, dynamic>> conversations({int? pn, int? rn}) {
+  Future<Map<String, dynamic>> conversations({
+    int? pn,
+    int? rn,
+    String? afterMessageId,
+  }) {
+    final cursor = afterMessageId?.trim();
     return getMap(
       'direct_message/conversations',
-      v1Query({'pn': pn, 'rn': rn}),
+      cursor == null || cursor.isEmpty
+          ? v1Query({'pn': pn, 'rn': rn})
+          : v1Query({'after_message_id': cursor}),
     );
   }
 
@@ -30,7 +37,7 @@ class DmV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"msg_id":"string","conv_id":"string","sender_uid":"string","receiver_uid":"string","content":"string","created_at":"2026-05-23 12:34:56"}],"total":0,"pn":1,"rn":20}}
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"msg_id":"string","conv_id":"string","sender_uid":"string","receiver_uid":"string","content":"string","created_at":1779539696}],"total":0,"pn":1,"rn":20}}
   /// ```
   Future<Map<String, dynamic>> list({
     required String peerUid,
@@ -52,7 +59,7 @@ class DmV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"message":{"msg_id":"string","conv_id":"string","sender_uid":"string","receiver_uid":"string","content":"string","created_at":"2026-05-23 12:34:56"},"conversation":{}}}
+  /// {"err_no":0,"err_msg":"succ","data":{"message":{"msg_id":"string","conv_id":"string","sender_uid":"string","receiver_uid":"string","content":"string","created_at":1779539696},"conversation":{}}}
   /// ```
   Future<Map<String, dynamic>> send({
     required String peerUid,

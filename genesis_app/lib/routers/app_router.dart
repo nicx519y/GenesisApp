@@ -80,36 +80,37 @@ sealed class AppRouter {
         );
       case RouteNames.chat:
         final args = settings.arguments;
-        var wid = '';
-        var pointId = '';
-        var sceneId = '';
-        var locationName = '';
+        var peerUid = '';
+        var peerName = '';
+        var peerAvatar = '';
+        var conversationId = '';
         if (args is Map) {
-          final rawWid = args['wid'];
-          if (rawWid != null) wid = rawWid.toString();
+          final rawPeerUid = args['peer_uid'] ?? args['peerUid'] ?? args['uid'];
+          if (rawPeerUid != null) peerUid = rawPeerUid.toString();
 
-          final rawPointId =
-              args['pointId'] ??
-              args['point_id'] ??
-              args['locationId'] ??
-              args['location_id'];
-          if (rawPointId != null) pointId = rawPointId.toString();
+          final rawPeerName =
+              args['peer_name'] ?? args['peerName'] ?? args['name'];
+          if (rawPeerName != null) peerName = rawPeerName.toString();
 
-          final rawSceneId = args['sceneId'] ?? args['scene_id'];
-          if (rawSceneId != null) sceneId = rawSceneId.toString();
+          final rawPeerAvatar =
+              args['peer_avatar'] ?? args['peerAvatar'] ?? args['avatar'];
+          if (rawPeerAvatar != null) peerAvatar = rawPeerAvatar.toString();
 
-          final rawLocationName = args['locationName'] ?? args['location_name'];
-          if (rawLocationName != null) {
-            locationName = rawLocationName.toString();
+          final rawConversationId =
+              args['conv_id'] ??
+              args['conversationId'] ??
+              args['conversation_id'];
+          if (rawConversationId != null) {
+            conversationId = rawConversationId.toString();
           }
         }
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => ChatPage(
-            wid: wid,
-            pointId: pointId,
-            sceneId: sceneId,
-            locationName: locationName,
+            peerUid: peerUid,
+            peerName: peerName,
+            peerAvatar: peerAvatar,
+            conversationId: conversationId,
           ),
         );
       case RouteNames.locationChat:

@@ -152,6 +152,9 @@ void main() {
     expect((user['user'] as Map)['uid'], 'u_mock_001');
     final peer = await api.v1.user.info(uid: 'u_mock_peer');
     expect((peer['user'] as Map)['uid'], 'u_mock_peer');
+    final dmPeer = await api.v1.user.info(uid: 'u_mock_dm_002');
+    expect((dmPeer['user'] as Map)['uid'], 'u_mock_dm_002');
+    expect((dmPeer['user'] as Map)['name'], 'DM Contact 2');
     await api.v1.user.googleAuth(idToken: 'google-token');
     await api.v1.user.appleAuth(idToken: 'apple-token', fullName: 'Mock User');
     await api.v1.user.update(name: 'Mock User');
@@ -326,13 +329,67 @@ void main() {
     expect(conversations['total'], greaterThan(20));
     final firstConversation = (conversations['list'] as List).first as Map;
     expect(firstConversation, contains('conv_id'));
+    expect(firstConversation, contains('last_message_id'));
     expect(firstConversation['last_message_at'], isA<int>());
+    final firstConversationPeer = firstConversation['peer'] as Map;
+    expect(firstConversationPeer['last_login_at'], isA<int>());
+    expect(firstConversationPeer['create_at'], isA<int>());
+    expect(conversations['next_after_message_id'], isA<String>());
+    final deltaConversations = await api.v1.dm.conversations(
+      afterMessageId: '${conversations['next_after_message_id']}',
+    );
+    final deltaList = deltaConversations['list'] as List;
+    expect(deltaList, isNotEmpty);
+    expect(
+      deltaConversations['next_after_message_id'],
+      isNot(conversations['next_after_message_id']),
+    );
+    final defaultConversations = await api.v1.dm.conversations();
+    expect(defaultConversations['rn'], 20);
+    expect(defaultConversations['list'], hasLength(20));
+    final cappedConversations = await api.v1.dm.conversations(pn: 1, rn: 500);
+    expect(cappedConversations['rn'], 100);
     final secondPageConversations = await api.v1.dm.conversations(
       pn: 2,
       rn: 10,
     );
     expect(secondPageConversations['list'], isNotEmpty);
-    await api.v1.dm.list(peerUid: 'u_mock_peer', pn: 1, rn: 20);
+    final directMessages = await api.v1.dm.list(
+      peerUid: 'u_mock_peer',
+      pn: 1,
+      rn: 20,
+    );
+    final firstMessage = (directMessages['list'] as List).first as Map;
+    expect(firstMessage['created_at'], isA<int>());
+    final otherPeerMessages = await api.v1.dm.list(
+      peerUid: 'u_mock_dm_002',
+      pn: 1,
+      rn: 5,
+    );
+    expect(otherPeerMessages['list'], hasLength(1));
+    expect(
+      ((otherPeerMessages['list'] as List).first as Map)['sender_uid'],
+      isNotEmpty,
+    );
+    final twoMessagePeerMessages = await api.v1.dm.list(
+      peerUid: 'u_mock_dm_003',
+      pn: 1,
+      rn: 5,
+    );
+    expect(twoMessagePeerMessages['list'], hasLength(2));
+    expect(
+      ((twoMessagePeerMessages['list'] as List).first as Map)['content'],
+      'Second short mock reply.',
+    );
+    final shortConversation = (defaultConversations['list'] as List)
+        .cast<Map>()
+        .firstWhere(
+          (item) => ((item['peer'] as Map)['uid']) == 'u_mock_dm_002',
+        );
+    expect(
+      shortConversation['last_message'],
+      'One-message mock chat with DM Contact 2.',
+    );
     var dmUnread = await api.v1.dm.unread();
     expect(dmUnread['unread_cnt'], greaterThanOrEqualTo(0));
     await api.v1.dm.markRead(peerUid: 'u_mock_peer');

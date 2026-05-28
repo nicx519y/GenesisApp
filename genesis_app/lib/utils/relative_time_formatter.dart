@@ -33,7 +33,8 @@ DateTime? parseFlexibleTimestamp(Object? raw) {
   if (text.isEmpty) return null;
   final numeric = num.tryParse(text);
   if (numeric != null) return _dateTimeFromEpoch(numeric);
-  return DateTime.tryParse(text);
+  return DateTime.tryParse(text) ??
+      DateTime.tryParse(text.replaceFirst(' ', 'T'));
 }
 
 DateTime _dateTimeFromEpoch(num value) {

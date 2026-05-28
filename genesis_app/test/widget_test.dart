@@ -11,8 +11,11 @@ import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/main.dart';
+import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
+import 'package:genesis_flutter_android/network/direct_message_conversation_store.dart';
+import 'package:genesis_flutter_android/network/direct_message_message_store.dart';
 import 'package:genesis_flutter_android/pages/create/create_basics_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_characters_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_locations_page.dart';
@@ -48,6 +51,8 @@ Future<AppServices> _testServices({
   HttpTransport? transport,
   bool? useMock,
   String? initialUid = 'u_mock',
+  DirectMessageConversationStore? directMessageConversations,
+  DirectMessageMessageStore? directMessageMessages,
 }) async {
   const config = AppConfig(useMock: true);
   final platformConfig = DefaultPlatformConfig(appConfig: config);
@@ -82,6 +87,20 @@ Future<AppServices> _testServices({
         ChatroomClient(
           wsBaseUrl: config.chatroomWsBaseUrl,
           sessionStore: sessionStore,
+        ),
+    directMessageConversations:
+        directMessageConversations ??
+        DirectMessageConversationStore(
+          api: api,
+          sessionStore: sessionStore,
+          storage: MemoryDirectMessageConversationStorage(),
+        ),
+    directMessageMessages:
+        directMessageMessages ??
+        DirectMessageMessageStore(
+          api: api,
+          sessionStore: sessionStore,
+          storage: MemoryDirectMessageMessageStorage(),
         ),
   );
 }
@@ -531,11 +550,9 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
 class _RecordingDmConversationsTransport implements HttpTransport {
   final requests = <TransportRequest>[];
   var lastMessage = 'First direct message preview';
-  final lastMessageAt =
-      DateTime.now()
-          .subtract(const Duration(hours: 2))
-          .millisecondsSinceEpoch ~/
-      1000;
+  final lastMessageAt = _unixTimestamp(
+    DateTime.now().subtract(const Duration(hours: 2)),
+  );
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -544,11 +561,21 @@ class _RecordingDmConversationsTransport implements HttpTransport {
     Object? data = <String, Object?>{};
     if (request.method == 'GET' &&
         path == '/api/v1/direct_message/conversations') {
+      final isDelta = request.uri.queryParameters.containsKey(
+        'after_message_id',
+      );
       data = {
         'list': [
           {
             'conv_id': 'dm_test_001',
-            'peer': {'uid': 'u_peer_dm', 'name': 'Penny Direct', 'avatar': ''},
+            'peer': {
+              'uid': 'u_peer_dm',
+              'name': 'Penny Direct',
+              'avatar': '',
+              'last_login_at': _unixTimestamp(DateTime.utc(2026, 5, 20, 10)),
+              'create_at': _unixTimestamp(DateTime.utc(2026, 5, 2, 8)),
+            },
+            'last_message_id': isDelta ? 'dm_msg_test_002' : 'dm_msg_test_001',
             'last_message': lastMessage,
             'last_message_at': lastMessageAt,
             'last_sender_uid': 'u_peer_dm',
@@ -562,6 +589,7 @@ class _RecordingDmConversationsTransport implements HttpTransport {
         'total': 1,
         'pn': int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1,
         'rn': int.tryParse(request.uri.queryParameters['rn'] ?? '') ?? 20,
+        'next_after_message_id': isDelta ? 'dm_cursor_002' : 'dm_cursor_001',
       };
     }
     return TransportResponse(
@@ -570,6 +598,167 @@ class _RecordingDmConversationsTransport implements HttpTransport {
       body: jsonEncode({'err_no': 0, 'err_msg': 'succ', 'data': data}),
     );
   }
+}
+
+class _RecordingDmDeltaTransport implements HttpTransport {
+  final requests = <TransportRequest>[];
+  var deltaMessage = 'Old preview';
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    final isDelta = request.uri.queryParameters.containsKey('after_message_id');
+    final data = isDelta
+        ? {
+            'list': [
+              _dmConversationJson(
+                convId: 'dm_existing',
+                peerName: 'Delta Peer',
+                messageId: 'dm_delta_002',
+                message: deltaMessage,
+                minutesAgo: 1,
+              ),
+              _dmConversationJson(
+                convId: 'dm_inserted',
+                peerName: 'Inserted Peer',
+                messageId: 'dm_delta_003',
+                message: 'Inserted preview',
+                minutesAgo: 2,
+              ),
+            ],
+            'next_after_message_id': 'dm_cursor_002',
+          }
+        : {
+            'list': [
+              _dmConversationJson(
+                convId: 'dm_existing',
+                peerName: 'Delta Peer',
+                messageId: 'dm_delta_001',
+                message: 'Old preview',
+                minutesAgo: 4,
+              ),
+            ],
+            'total': 1,
+            'pn': 1,
+            'rn': 100,
+            'next_after_message_id': 'dm_cursor_001',
+          };
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({'err_no': 0, 'err_msg': 'succ', 'data': data}),
+    );
+  }
+}
+
+class _RecordingDmChatTransport implements HttpTransport {
+  _RecordingDmChatTransport({this.failSend = false});
+
+  final bool failSend;
+  final requests = <TransportRequest>[];
+  final messages = <Map<String, dynamic>>[
+    {
+      'msg_id': 'dm_synced_001',
+      'conv_id': 'dm_conv',
+      'sender_uid': 'u_peer_dm',
+      'receiver_uid': 'u_mock',
+      'content': 'Synced direct chat',
+      'created_at': _unixTimestamp(DateTime.now()),
+    },
+  ];
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    final path = request.uri.path;
+    if (request.method == 'GET' && path == '/api/v1/direct_message/list') {
+      return _v1Response({
+        'list': messages.reversed.toList(growable: false),
+        'total': messages.length,
+        'pn': int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1,
+        'rn': int.tryParse(request.uri.queryParameters['rn'] ?? '') ?? 20,
+      });
+    }
+    if (request.method == 'POST' && path == '/api/v1/direct_message/send') {
+      if (failSend) {
+        return TransportResponse(
+          statusCode: 200,
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({
+            'err_no': 10001,
+            'err_msg': 'send failed',
+            'data': <String, Object?>{},
+          }),
+        );
+      }
+      final body = jsonDecode(utf8.decode(request.bodyBytes!)) as Map;
+      final message = {
+        'msg_id': 'dm_sent_${messages.length + 1}',
+        'conv_id': 'dm_conv',
+        'sender_uid': 'u_mock',
+        'receiver_uid': body['peer_uid'],
+        'content': body['content'],
+        'created_at': _unixTimestamp(DateTime.now()),
+      };
+      messages.add(message);
+      return _v1Response({
+        'message': message,
+        'conversation': _dmConversationJson(
+          convId: 'dm_conv',
+          peerName: 'Penny Direct',
+          messageId: '${message['msg_id']}',
+          message: '${message['content']}',
+          minutesAgo: 0,
+        ),
+      });
+    }
+    if (request.method == 'POST' && path == '/api/v1/direct_message/read') {
+      return _v1Response(<String, Object?>{});
+    }
+    return _v1Response(<String, Object?>{});
+  }
+}
+
+Map<String, dynamic> _dmConversationJson({
+  required String convId,
+  required String peerName,
+  required String messageId,
+  required String message,
+  required int minutesAgo,
+}) {
+  return {
+    'conv_id': convId,
+    'peer': {
+      'uid': 'peer_$convId',
+      'name': peerName,
+      'avatar': '',
+      'last_login_at': _unixTimestamp(DateTime.utc(2026, 5, 20, 10)),
+      'create_at': _unixTimestamp(DateTime.utc(2026, 5, 2, 8)),
+    },
+    'last_message_id': messageId,
+    'last_message': message,
+    'last_message_at': _unixTimestamp(
+      DateTime.now().subtract(Duration(minutes: minutesAgo)),
+    ),
+    'last_sender_uid': 'peer_$convId',
+    'unread_cnt': 1,
+    'is_friend': true,
+    'i_blocked_peer': false,
+    'peer_blocked_me': false,
+    'can_send_next_message': true,
+  };
+}
+
+int _unixTimestamp(DateTime value) {
+  return value.millisecondsSinceEpoch ~/ 1000;
+}
+
+TransportResponse _v1Response(Object? data) {
+  return TransportResponse(
+    statusCode: 200,
+    headers: const {'content-type': 'application/json'},
+    body: jsonEncode({'err_no': 0, 'err_msg': 'succ', 'data': data}),
+  );
 }
 
 class _RecordingSearchTransport implements HttpTransport {
@@ -966,22 +1155,136 @@ void main() {
       (request) => request.uri.path == '/api/v1/direct_message/conversations',
     );
     expect(initialRequest.uri.queryParameters['pn'], '1');
-    expect(initialRequest.uri.queryParameters['rn'], '20');
+    expect(initialRequest.uri.queryParameters['rn'], '100');
+    expect(
+      initialRequest.uri.queryParameters.containsKey('after_message_id'),
+      isFalse,
+    );
 
     transport.lastMessage = 'Polled direct message preview';
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
 
     expect(find.text('Polled direct message preview'), findsOneWidget);
-    expect(
-      transport.requests
-          .where(
-            (request) =>
-                request.uri.path == '/api/v1/direct_message/conversations',
-          )
-          .length,
-      greaterThanOrEqualTo(2),
+    final deltaRequest = transport.requests.lastWhere(
+      (request) =>
+          request.uri.path == '/api/v1/direct_message/conversations' &&
+          request.uri.queryParameters.containsKey('after_message_id'),
     );
+    expect(
+      deltaRequest.uri.queryParameters['after_message_id'],
+      'dm_cursor_001',
+    );
+    expect(deltaRequest.uri.queryParameters.containsKey('pn'), isFalse);
+    expect(deltaRequest.uri.queryParameters.containsKey('rn'), isFalse);
+  });
+
+  testWidgets('direct messages tap opens chat page with peer uid', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingDmConversationsTransport();
+    final services = await _testServices(transport: transport, useMock: false);
+    await tester.pumpWidget(
+      MaterialApp(
+        onGenerateRoute: AppRouter.onGenerateRoute,
+        builder: (context, child) {
+          return AppServicesScope(
+            services: services,
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
+        home: const MessagesPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Penny Direct').first);
+    await tester.pumpAndSettle();
+
+    final listRequest = transport.requests.firstWhere(
+      (request) => request.uri.path == '/api/v1/direct_message/list',
+    );
+    expect(listRequest.uri.queryParameters['peer_uid'], 'u_peer_dm');
+  });
+
+  testWidgets('direct messages render cached db data before delta sync', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingDmDeltaTransport();
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const DefaultPlatformConfig(),
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: const _FakeIdentityAuthService(),
+    );
+    final storage = MemoryDirectMessageConversationStorage();
+    await storage.mergeConversations(
+      ownerUid: 'u_mock',
+      conversations: [
+        _dmConversationJson(
+          convId: 'cached_conv',
+          peerName: 'Cached Peer',
+          messageId: 'cached_msg',
+          message: 'Cached preview',
+          minutesAgo: 5,
+        ),
+      ],
+      nextAfterMessageId: 'cached_cursor',
+    );
+    final store = DirectMessageConversationStore(
+      api: api,
+      sessionStore: sessionStore,
+      storage: storage,
+    );
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      directMessageConversations: store,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(services: services, child: const MessagesPage()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Cached Peer'), findsOneWidget);
+    expect(find.text('Cached preview'), findsOneWidget);
+    final deltaRequest = transport.requests.singleWhere(
+      (request) => request.uri.queryParameters.containsKey('after_message_id'),
+    );
+    expect(
+      deltaRequest.uri.queryParameters['after_message_id'],
+      'cached_cursor',
+    );
+  });
+
+  testWidgets('direct messages merge delta rows without clearing the list', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingDmDeltaTransport();
+    final services = await _testServices(transport: transport, useMock: false);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(services: services, child: const MessagesPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Old preview'), findsOneWidget);
+    transport.deltaMessage = 'Updated preview';
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Old preview'), findsNothing);
+    expect(find.text('Updated preview'), findsOneWidget);
+    expect(find.text('Inserted preview'), findsOneWidget);
+    expect(find.text('Delta Peer'), findsOneWidget);
   });
 
   testWidgets('unread summary renders messages badges', (
@@ -2124,6 +2427,91 @@ void main() {
     expect(find.text('Send message'), findsOneWidget);
   });
 
+  testWidgets('settings clears local direct message cache', (
+    WidgetTester tester,
+  ) async {
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    final api = GenesisApi(
+      useMock: true,
+      platformConfig: const DefaultPlatformConfig(),
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: const _FakeIdentityAuthService(),
+    );
+    final conversationStorage = MemoryDirectMessageConversationStorage();
+    await conversationStorage.mergeConversations(
+      ownerUid: 'u_mock',
+      conversations: [
+        _dmConversationJson(
+          convId: 'dm_cached',
+          peerName: 'Cached Peer',
+          messageId: 'dm_cached_msg',
+          message: 'Cached preview',
+          minutesAgo: 1,
+        ),
+      ],
+      nextAfterMessageId: 'dm_cached_cursor',
+    );
+    final messageStorage = MemoryDirectMessageMessageStorage();
+    await messageStorage.mergeMessages(
+      ownerUid: 'u_mock',
+      peerUid: 'peer_dm_cached',
+      messages: [
+        {
+          'msg_id': 'dm_cached_msg',
+          'conv_id': 'dm_cached',
+          'sender_uid': 'peer_dm_cached',
+          'receiver_uid': 'u_mock',
+          'content': 'Cached message',
+          'created_at': _unixTimestamp(DateTime.now()),
+        },
+      ],
+    );
+    final conversationStore = DirectMessageConversationStore(
+      api: api,
+      sessionStore: sessionStore,
+      storage: conversationStorage,
+    );
+    final messageStore = DirectMessageMessageStore(
+      api: api,
+      sessionStore: sessionStore,
+      storage: messageStorage,
+    );
+    await conversationStore.loadFromDb();
+    await messageStore.loadFromDb('peer_dm_cached');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            directMessageConversations: conversationStore,
+            directMessageMessages: messageStore,
+          ),
+          child: const SettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Clear direct message cache'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'Clear'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Direct message cache cleared'), findsOneWidget);
+    expect(conversationStore.orderedConversationIds.value, isEmpty);
+    expect(messageStore.orderedMessageIds.value, isEmpty);
+    expect(await conversationStorage.loadConversations('u_mock'), isEmpty);
+    expect(
+      await messageStorage.loadMessages(
+        ownerUid: 'u_mock',
+        peerUid: 'peer_dm_cached',
+      ),
+      isEmpty,
+    );
+  });
+
   testWidgets(
     'me page edits nickname without disposing dialog controller early',
     (WidgetTester tester) async {
@@ -2308,36 +2696,192 @@ void main() {
     expect(find.text('Unfollow'), findsOneWidget);
   });
 
-  testWidgets('chat page reloads content when location changes in same slot', (
+  testWidgets('chat page renders cached direct messages then syncs', (
     WidgetTester tester,
   ) async {
-    final transport = _RecordingChatTransport();
+    final transport = _RecordingDmChatTransport();
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const DefaultPlatformConfig(),
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: const _FakeIdentityAuthService(),
+    );
+    final storage = MemoryDirectMessageMessageStorage();
+    await storage.mergeMessages(
+      ownerUid: 'u_mock',
+      peerUid: 'u_peer_dm',
+      messages: [
+        {
+          'msg_id': 'dm_cached_001',
+          'conv_id': 'dm_conv',
+          'sender_uid': 'u_peer_dm',
+          'receiver_uid': 'u_mock',
+          'content': 'Cached direct chat',
+          'created_at': _unixTimestamp(DateTime.now()),
+        },
+      ],
+    );
+    final store = DirectMessageMessageStore(
+      api: api,
+      sessionStore: sessionStore,
+      storage: storage,
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: AppServicesScope(
-          services: await _testServices(transport: transport, useMock: false),
-          child: const _ChatPageHost(),
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            directMessageMessages: store,
+          ),
+          child: const ChatPage(peerUid: 'u_peer_dm', peerName: 'Penny Direct'),
         ),
       ),
     );
     await tester.pump();
-    await tester.pump();
 
-    expect(find.text('Castle message'), findsOneWidget);
-    expect(find.text('Garden message'), findsNothing);
+    expect(find.text('Cached direct chat'), findsOneWidget);
+    expect(find.text('Direct message'), findsNothing);
+    expect(find.byIcon(Icons.location_on), findsNothing);
+    expect(find.byIcon(Icons.more_horiz), findsNothing);
+    await tester.pumpAndSettle();
 
-    tester.state<_ChatPageHostState>(find.byType(_ChatPageHost)).showGarden();
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.text('Castle message'), findsNothing);
-    expect(find.text('Garden message'), findsOneWidget);
+    expect(find.text('Synced direct chat'), findsOneWidget);
+    expect(tester.widget<ListView>(find.byType(ListView)).reverse, isTrue);
     expect(
-      transport.messageRequests.map(
-        (request) => request.uri.queryParameters['location_id'],
-      ),
-      containsAllInOrder(['castle', 'garden']),
+      transport.requests
+          .where((request) => request.uri.path == '/api/v1/direct_message/list')
+          .single
+          .uri
+          .queryParameters,
+      containsPair('peer_uid', 'u_peer_dm'),
     );
+  });
+
+  testWidgets('chat page inserts optimistic message and marks send failure', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingDmChatTransport(failSend: true);
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const DefaultPlatformConfig(),
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: const _FakeIdentityAuthService(),
+    );
+    final storage = MemoryDirectMessageMessageStorage();
+    final store = DirectMessageMessageStore(
+      api: api,
+      sessionStore: sessionStore,
+      storage: storage,
+    );
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      directMessageMessages: store,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const ChatPage(peerUid: 'u_peer_dm', peerName: 'Penny Direct'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'optimistic hello');
+    await tester.tap(find.byIcon(MyFlutterApp.add2));
+    await tester.pump();
+
+    expect(find.text('optimistic hello'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('optimistic hello')).dy,
+      greaterThan(tester.getTopLeft(find.text('Synced direct chat')).dy),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.priority_high), findsOneWidget);
+    final persisted = await storage.loadMessages(
+      ownerUid: 'u_mock',
+      peerUid: 'u_peer_dm',
+    );
+    expect(
+      persisted.where((record) => record.content == 'optimistic hello'),
+      isEmpty,
+    );
+  });
+
+  testWidgets('chat page opens peer user info from message avatar', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingDmChatTransport();
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const DefaultPlatformConfig(),
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: const _FakeIdentityAuthService(),
+    );
+    final storage = MemoryDirectMessageMessageStorage();
+    await storage.mergeMessages(
+      ownerUid: 'u_mock',
+      peerUid: 'u_peer_dm',
+      messages: [
+        {
+          'msg_id': 'dm_cached_avatar',
+          'conv_id': 'dm_conv',
+          'sender_uid': 'u_peer_dm',
+          'receiver_uid': 'u_mock',
+          'content': 'Tap my avatar',
+          'created_at': _unixTimestamp(DateTime.now()),
+        },
+      ],
+    );
+    final store = DirectMessageMessageStore(
+      api: api,
+      sessionStore: sessionStore,
+      storage: storage,
+    );
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      directMessageMessages: store,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        onGenerateRoute: AppRouter.onGenerateRoute,
+        builder: (context, child) {
+          return AppServicesScope(
+            services: services,
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
+        home: const ChatPage(peerUid: 'u_peer_dm', peerName: 'Penny Direct'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(ChatAvatar).first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump();
+
+    expect(find.byType(UserInfoPage), findsOneWidget);
+    final userInfoRequest = transport.requests.lastWhere(
+      (request) => request.uri.path == '/api/v1/user/info',
+    );
+    expect(userInfoRequest.uri.queryParameters['uid'], 'u_peer_dm');
   });
 
   testWidgets(
@@ -2421,31 +2965,6 @@ void main() {
     );
     expect(tester.widget<IconButton>(sendButton).onPressed, isNull);
   });
-}
-
-class _ChatPageHost extends StatefulWidget {
-  const _ChatPageHost();
-
-  @override
-  State<_ChatPageHost> createState() => _ChatPageHostState();
-}
-
-class _ChatPageHostState extends State<_ChatPageHost> {
-  String _locationId = 'castle';
-
-  void showGarden() {
-    setState(() => _locationId = 'garden');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ChatPage(
-      wid: 'world-1',
-      pointId: 'point-1',
-      sceneId: _locationId,
-      locationName: _locationId,
-    );
-  }
 }
 
 class _RecordingProfileActionTransport implements HttpTransport {
@@ -2598,37 +3117,6 @@ class _RecordingFollowsTransport implements HttpTransport {
       statusCode: 200,
       headers: const {'content-type': 'application/json'},
       body: jsonEncode({'err_no': 0, 'err_msg': 'succ', 'data': data}),
-    );
-  }
-}
-
-class _RecordingChatTransport implements HttpTransport {
-  final requests = <TransportRequest>[];
-
-  List<TransportRequest> get messageRequests {
-    return requests
-        .where((request) => request.uri.path == '/api/points/point-1/messages')
-        .toList(growable: false);
-  }
-
-  @override
-  Future<TransportResponse> send(TransportRequest request) async {
-    requests.add(request);
-    final locationId = request.uri.queryParameters['location_id'] ?? '';
-    final text = locationId == 'garden' ? 'Garden message' : 'Castle message';
-    return TransportResponse(
-      statusCode: 200,
-      headers: const {'content-type': 'application/json'},
-      body: jsonEncode({
-        'messages': [
-          {
-            'id': 'msg-$locationId',
-            'api_user_id': 'peer',
-            'content': text,
-            'created_at': '2026-05-26T00:00:00Z',
-          },
-        ],
-      }),
     );
   }
 }

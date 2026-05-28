@@ -112,7 +112,10 @@ class _WorldPageState extends State<WorldPage>
         ? point.pointId.trim()
         : point.id.trim();
     if (pointId.isEmpty) {
-      Navigator.of(context).pushNamed(RouteNames.chat);
+      Navigator.of(context).pushNamed(
+        RouteNames.locationChat,
+        arguments: {'world_id': widget.wid, 'world_name': _world?.name ?? ''},
+      );
       return;
     }
 

@@ -5,10 +5,11 @@
 - Apifox world tick 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462798656e0
 - Apifox discuss 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462474822e0
 - Apifox direct_message 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462474827e0
+- Apifox direct_message 会话列表页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462474828e0
 - Apifox upload 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463764231e0
 - Apifox LLM 索引：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/llms.txt
 
-提取时间：2026-05-27
+提取时间：2026-05-28
 
 本文档记录 Flutter 项目当前对齐或待替换的 Apifox HTTP 接口，并对比当前 Flutter 项目中的 `lib/network` HTTP 设计。字段后带 `*` 表示 Apifox 标记为必填。
 
@@ -64,8 +65,8 @@
 - `name*`: string
 - `avatar*`: string
 - `bio*`: string
-- `last_login_at*`: string
-- `create_at*`: string
+- `last_login_at*`: integer，Unix 秒时间戳
+- `create_at*`: integer，Unix 秒时间戳
 - `follower_cnt*`: integer
 - `following_cnt*`: integer
 - `friend_cnt*`: integer
@@ -87,14 +88,15 @@
 - `sender_uid*`: string
 - `receiver_uid*`: string
 - `content*`: string，非空且长度不超过 1000 字符
-- `created_at*`: string，示例 `2026-05-23 12:34:56`
+- `created_at*`: integer，Unix 秒时间戳，示例 `1779539696`
 
 ### DirectMessageConversation
 
 - `conv_id*`: string
-- `peer*`: UserInfo，对话中的另一方
+- `peer*`: UserInfo，对话中的另一方；其中 `last_login_at`、`create_at` 等时间字段均为 Unix 秒时间戳
+- `last_message_id*`: string，当前会话最后一条消息 id
 - `last_message*`: string
-- `last_message_at*`: string
+- `last_message_at*`: integer，Unix 秒时间戳，示例 `1797731760`
 - `last_sender_uid*`: string
 - `unread_cnt*`: integer，当前用户视角下该会话未读数
 - `is_friend*`: boolean
@@ -577,16 +579,17 @@ Query：
 
 错误码：`10001`、`10002`、`20301`、`20302`、`20303`、`20304`、`20305`。
 
-实现状态：已封装在 `DmV1Api.send({peerUid, content})`。
+实现状态：已封装在 `DmV1Api.send({peerUid, content})`。`chat_page.dart` 发送私信时先写入本地 DB 并以 `sending` 状态渲染；接口成功后用返回的 `message` 替换本地临时消息并 merge 返回的 `conversation`，接口失败则从本地 DB 删除该临时消息，但当前页面保留一条临时失败行并显示红色感叹号。
 
 ### GET `/api/v1/direct_message/conversations`
 
-返回当前登录用户参与的全部 1 对 1 会话，按 `last_message_at` 倒序。默认 `pn=1`、`rn=20`，最大 `rn=100`。
+返回当前登录用户参与的 1 对 1 会话，按 `last_message_at` 倒序。无 `after_message_id` 时为全量分页模式，默认 `pn=1`、`rn=20`，最大 `rn=100`；有 `after_message_id` 时为增量同步模式，服务端返回该游标之后变更过的会话。
 
 query：
 
-- `pn`: integer
-- `rn`: integer
+- `pn`: integer，全量分页时使用
+- `rn`: integer，全量分页时使用；客户端全量同步固定传 `100`
+- `after_message_id`: string，客户端上次保存的 `next_after_message_id`；增量同步时只传该字段，不传 `pn/rn`
 
 响应 `data`：
 
@@ -594,10 +597,11 @@ query：
 - `total*`: integer
 - `pn*`: integer
 - `rn*`: integer
+- `next_after_message_id*`: string，下次增量同步要提交的游标
 
 错误码：`10001`。
 
-实现状态：已封装在 `DmV1Api.conversations`。
+实现状态：已封装在 `DmV1Api.conversations({pn, rn, afterMessageId})`；传 `afterMessageId` 时客户端只发送 `after_message_id`。`DirectMessageConversationStore.syncConversations()` 会在无本地游标时循环请求 `pn=1/rn=100`、`pn=2/rn=100`，直到返回不足 100 条；有本地游标时只请求增量并按 `conv_id` merge 到本地 DB。`messages_page.dart` 订阅本地 store 渲染，不直接暴露全量分页细节。
 
 ### GET `/api/v1/direct_message/list`
 
@@ -618,7 +622,7 @@ query：
 
 错误码：`10001`、`10002`。
 
-实现状态：已封装在 `DmV1Api.list({peerUid, pn, rn})`。
+实现状态：已封装在 `DmV1Api.list({peerUid, pn, rn})`。`chat_page.dart` 进入后先加载本地 DB，再请求 `pn=1/rn=20`；停留期间每 5 秒请求第一页并按 `msg_id` merge，滚动到顶部时按 `pn=2,3.../rn=20` 拉取本地没有的旧消息。DB 内消息状态为 `sending/sent`，发送失败消息不持久化，仅作为当前页面临时失败行展示。
 
 ### POST `/api/v1/direct_message/read`
 
@@ -736,7 +740,7 @@ query：
 
 ## 当前代码对齐状态
 
-截至 2026-05-27，本文档覆盖的 27 个接口已完成主要 HTTP 契约对齐；本次新增记录的 direct_message 接口已按 Apifox 新契约调整当前封装与本地 mock：
+截至 2026-05-28，本文档覆盖的 27 个接口已完成主要 HTTP 契约对齐；本次新增记录的 direct_message 接口已按 Apifox 新契约调整当前封装与本地 mock：
 
 | Apifox 接口 | 当前实现状态 |
 | --- | --- |
@@ -759,8 +763,8 @@ query：
 | `POST /api/v1/discuss/like` | `DiscussV1Api.like` 已改为 `discuss_id`，响应按空对象处理；本地 mock 幂等维护 `is_liked/like_cnt`。 |
 | `POST /api/v1/discuss/unlike` | `DiscussV1Api.unlike` 已新增 `/discuss/unlike` + `discuss_id`，响应按空对象处理；本地 mock 幂等维护 `is_liked/like_cnt`。 |
 | `POST /api/v1/direct_message/send` | `DmV1Api.send` 已改为 `/direct_message/send`，body 使用 `peer_uid/content`，响应消费 `message/conversation`。 |
-| `GET /api/v1/direct_message/conversations` | `DmV1Api.conversations` 已替代旧 `/dm/chatlist`，响应消费 `list/total/pn/rn`。 |
-| `GET /api/v1/direct_message/list` | `DmV1Api.list` 已替代旧 `/dm/messagelist`，query 使用 `peer_uid/pn/rn`，响应消费 `list/total/pn/rn`。 |
+| `GET /api/v1/direct_message/conversations` | `DmV1Api.conversations` 已替代旧 `/dm/chatlist`，query 支持全量 `pn/rn` 或增量 `after_message_id`；响应消费 `list/total/pn/rn/next_after_message_id`；本地 mock 支持全量分页、增量更新、增量插入和空增量。 |
+| `GET /api/v1/direct_message/list` | `DmV1Api.list` 已替代旧 `/dm/messagelist`，query 使用 `peer_uid/pn/rn`，响应消费 `list/total/pn/rn`；`ChatPage` 已接本地 DB、5 秒轮询 merge、顶部滚动分页和行级渲染。 |
 | `POST /api/v1/direct_message/read` | `DmV1Api.markRead` 已改为使用 `peer_uid`，不再提交 `conversation_id/last_read_seq`。 |
 | `GET /api/v1/direct_message/unread` | 已新增 `DmV1Api.unread`，响应消费 `unread_cnt`。 |
 | `POST /api/v1/direct_message/block` | 已新增 `DmV1Api.block`，body 使用 `target_uid`。 |

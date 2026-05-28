@@ -375,12 +375,24 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (method == 'GET' && path == 'direct_message/conversations') {
-      return _v1Ok(_paged(_state.v1DmConversations(), query));
+      final afterMessageId = query['after_message_id']?.trim();
+      if (afterMessageId != null && afterMessageId.isNotEmpty) {
+        return _v1Ok(_state.v1DmConversationDeltas(afterMessageId));
+      }
+      return _v1Ok(
+        _paged(_state.v1DmConversations(), query, defaultSize: 20, maxSize: 100)
+          ..['next_after_message_id'] = _state.v1DmConversationCursor(),
+      );
     }
 
     if (method == 'GET' && path == 'direct_message/list') {
       return _v1Ok(
-        _paged(_state.v1DmMessagesForPeer(query['peer_uid']), query),
+        _paged(
+          _state.v1DmMessagesForPeer(query['peer_uid']),
+          query,
+          defaultSize: 20,
+          maxSize: 100,
+        ),
       );
     }
 
@@ -533,12 +545,20 @@ class LocalMockGenesisTransport implements HttpTransport {
 
   Map<String, dynamic> _paged(
     List<Map<String, dynamic>> items,
-    Map<String, String> query,
-  ) {
+    Map<String, String> query, {
+    int? defaultSize,
+    int? maxSize,
+  }) {
     final parsedPage = int.tryParse(query['pn'] ?? '') ?? 1;
-    final parsedSize = int.tryParse(query['rn'] ?? '') ?? items.length;
+    final parsedSize =
+        int.tryParse(query['rn'] ?? '') ?? defaultSize ?? items.length;
     final page = parsedPage < 1 ? 1 : parsedPage;
-    final size = parsedSize < 1 ? items.length : parsedSize;
+    final positiveSize = parsedSize < 1
+        ? defaultSize ?? items.length
+        : parsedSize;
+    final size = maxSize == null || positiveSize <= maxSize
+        ? positiveSize
+        : maxSize;
     final rawStart = (page - 1) * size;
     final start = rawStart > items.length ? items.length : rawStart;
     final rawEnd = start + size;
@@ -604,11 +624,12 @@ class _MockState {
   final List<Map<String, dynamic>> _v1SearchUsers = _expandMockV1SearchUsers()
       .map((item) => _deepCopyMap(item))
       .toList(growable: true);
-  final List<Map<String, dynamic>> _v1DmMessages = kMockV1DmMessages
-      .map((item) => _deepCopyMap(item))
-      .toList(growable: true);
+  late final Map<String, List<Map<String, dynamic>>> _v1DmMessagesByPeer =
+      _mockDirectMessageMessagesByPeer();
   final Set<String> _v1BlockedDirectMessagePeers = <String>{};
   int _v1DirectMessageUnreadCount = 1;
+  String _v1DmConversationCursor = 'dm_sync_1';
+  bool _v1DmConversationDeltaSent = false;
   final List<Map<String, dynamic>> _v1DiscussPosts = kMockV1DiscussPosts
       .map((item) => _deepCopyMap(item))
       .toList(growable: true);
@@ -911,12 +932,27 @@ class _MockState {
   }
 
   Map<String, dynamic> v1UserProfile(String? uid) {
-    final isSelf = uid == null || uid.isEmpty || uid == _v1User['uid'];
+    final normalizedUid = uid?.trim() ?? '';
+    final isSelf = normalizedUid.isEmpty || normalizedUid == _v1User['uid'];
+    final user = isSelf ? _v1User : _v1UserForUid(normalizedUid);
     return {
-      'user': _deepCopyMap(isSelf ? _v1User : _v1PeerUser),
+      'user': _deepCopyMap(user),
       'relation': _deepCopyMap(
-        isSelf ? kMockV1SelfRelation : kMockV1PeerRelation,
+        isSelf ? kMockV1SelfRelation : _relationForSearchUser(user),
       ),
+    };
+  }
+
+  Map<String, dynamic> _v1UserForUid(String uid) {
+    if (uid == _v1PeerUser['uid']) return _v1PeerUser;
+    for (final user in [..._v1DirectMessagePeers, ..._v1SearchUsers]) {
+      if (user['uid'] == uid) return user;
+    }
+    return {
+      ..._deepCopyMap(_v1PeerUser),
+      'uid': uid,
+      'name': uid,
+      'bio': 'Mock profile for $uid.',
     };
   }
 
@@ -1258,34 +1294,64 @@ class _MockState {
     return [
       _v1DirectMessageConversation(),
       for (var index = 1; index < _v1DirectMessagePeers.length; index += 1)
-        _mockDirectMessageConversation(index),
+        _conversationForPeer('${_v1DirectMessagePeers[index]['uid']}'),
     ];
   }
 
-  List<Map<String, dynamic>> v1DmMessagesForPeer(String? peerUid) {
-    if (peerUid != null &&
-        peerUid.trim().isNotEmpty &&
-        peerUid != _v1PeerUser['uid']) {
-      return const <Map<String, dynamic>>[];
+  String v1DmConversationCursor() => _v1DmConversationCursor;
+
+  Map<String, dynamic> v1DmConversationDeltas(String afterMessageId) {
+    if (afterMessageId != _v1DmConversationCursor ||
+        _v1DmConversationDeltaSent) {
+      return {
+        'list': <Map<String, dynamic>>[],
+        'total': 0,
+        'next_after_message_id': _v1DmConversationCursor,
+      };
     }
-    return _v1DmMessages.reversed.map(_deepCopyMap).toList(growable: false);
+    _v1DmConversationDeltaSent = true;
+    _v1DmConversationCursor = 'dm_sync_2';
+    final updatedPrimary = _v1DirectMessageConversation()
+      ..['last_message_id'] = 'DM_MOCK_DELTA_001'
+      ..['last_message'] = 'Incremental mock direct message update.'
+      ..['last_message_at'] = _mockUnixTimestamp(DateTime.now())
+      ..['last_sender_uid'] = _v1PeerUser['uid']
+      ..['unread_cnt'] = 2;
+    final newConversation = _mockDirectMessageConversation(1)
+      ..['conv_id'] = 'DMC_MOCK_DELTA_001'
+      ..['last_message_id'] = 'DM_MOCK_DELTA_002'
+      ..['last_message'] = 'Brand new incremental conversation.'
+      ..['last_message_at'] = _mockUnixTimestamp(
+        DateTime.now().add(const Duration(seconds: 1)),
+      )
+      ..['unread_cnt'] = 1;
+    return {
+      'list': [updatedPrimary, newConversation],
+      'total': 2,
+      'next_after_message_id': _v1DmConversationCursor,
+    };
+  }
+
+  List<Map<String, dynamic>> v1DmMessagesForPeer(String? peerUid) {
+    final messages = _messagesForPeer(peerUid);
+    return messages.reversed.map(_deepCopyMap).toList(growable: false);
   }
 
   Map<String, dynamic> sendV1DirectMessage(Map<String, dynamic> body) {
     final peerUid = '${body['peer_uid'] ?? _v1PeerUser['uid']}';
-    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final now = _mockUnixTimestamp(DateTime.now());
     final message = {
       'msg_id': 'DM_MOCK_${DateTime.now().millisecondsSinceEpoch}',
-      'conv_id': 'DMC_MOCK_001',
+      'conv_id': _conversationIdForPeer(peerUid),
       'sender_uid': _v1User['uid'],
       'receiver_uid': peerUid,
       'content': '${body['content'] ?? ''}',
       'created_at': now,
     };
-    _v1DmMessages.add(message);
+    _messagesForPeer(peerUid).add(message);
     return {
       'message': _deepCopyMap(message),
-      'conversation': _v1DirectMessageConversation(),
+      'conversation': _conversationForPeer(peerUid),
     };
   }
 
@@ -1318,9 +1384,11 @@ class _MockState {
 
   Map<String, dynamic> _v1DirectMessageConversation() {
     final conversation = _deepCopyMap(kMockV1DmConversation);
-    final latest = _v1DmMessages.isEmpty ? null : _v1DmMessages.last;
+    final messages = _messagesForPeer('${_v1PeerUser['uid']}');
+    final latest = messages.isEmpty ? null : messages.last;
     if (latest != null) {
       conversation['last_message'] = latest['content'];
+      conversation['last_message_id'] = latest['msg_id'];
       conversation['last_message_at'] = latest['created_at'];
       conversation['last_sender_uid'] = latest['sender_uid'];
     }
@@ -1334,6 +1402,118 @@ class _MockState {
     return conversation;
   }
 
+  Map<String, dynamic> _conversationForPeer(String? peerUid) {
+    final uid = (peerUid ?? '').trim();
+    if (uid.isEmpty || uid == _v1PeerUser['uid']) {
+      return _v1DirectMessageConversation();
+    }
+    final index = _v1DirectMessagePeers.indexWhere(
+      (peer) => peer['uid'] == uid,
+    );
+    final conversation = index < 0
+        ? _mockDirectMessageConversation(1)
+        : _mockDirectMessageConversation(index);
+    final messages = _messagesForPeer(uid);
+    final latest = messages.isEmpty ? null : messages.last;
+    if (latest != null) {
+      conversation['last_message'] = latest['content'];
+      conversation['last_message_id'] = latest['msg_id'];
+      conversation['last_message_at'] = latest['created_at'];
+      conversation['last_sender_uid'] = latest['sender_uid'];
+    }
+    return conversation;
+  }
+
+  String _conversationIdForPeer(String? peerUid) {
+    final uid = (peerUid ?? '').trim();
+    if (uid.isEmpty || uid == _v1PeerUser['uid']) return 'DMC_MOCK_001';
+    final index = _v1DirectMessagePeers.indexWhere(
+      (peer) => peer['uid'] == uid,
+    );
+    if (index < 0) return 'DMC_MOCK_UNKNOWN';
+    return 'DMC_MOCK_${(index + 1).toString().padLeft(3, '0')}';
+  }
+
+  List<Map<String, dynamic>> _messagesForPeer(String? peerUid) {
+    final uid = '${peerUid ?? _v1PeerUser['uid']}'.trim();
+    final effectiveUid = uid.isEmpty ? '${_v1PeerUser['uid']}' : uid;
+    return _v1DmMessagesByPeer.putIfAbsent(
+      effectiveUid,
+      () => <Map<String, dynamic>>[],
+    );
+  }
+
+  Map<String, List<Map<String, dynamic>>> _mockDirectMessageMessagesByPeer() {
+    final result = <String, List<Map<String, dynamic>>>{
+      '${_v1PeerUser['uid']}': kMockV1DmMessages
+          .map((item) => _deepCopyMap(item))
+          .toList(growable: true),
+    };
+    for (var index = 1; index < _v1DirectMessagePeers.length; index += 1) {
+      final peer = _v1DirectMessagePeers[index];
+      final peerUid = '${peer['uid']}';
+      final messageCount = _mockDirectMessageCountForPeerIndex(index);
+      result[peerUid] = List<Map<String, dynamic>>.generate(messageCount, (
+        messageIndex,
+      ) {
+        final senderIsPeer = messageIndex.isEven;
+        final shortConversation = messageCount <= 2;
+        return {
+          'msg_id':
+              'DM_${peerUid}_${(messageIndex + 1).toString().padLeft(3, '0')}',
+          'conv_id': 'DMC_MOCK_${(index + 1).toString().padLeft(3, '0')}',
+          'sender_uid': senderIsPeer ? peerUid : _v1User['uid'],
+          'receiver_uid': senderIsPeer ? _v1User['uid'] : peerUid,
+          'content': shortConversation
+              ? _shortDirectMessageContent(index, messageIndex, peer['name'])
+              : 'Mock message ${messageIndex + 1} with ${peer['name']}.',
+          'created_at': _mockUnixTimestamp(
+            DateTime.now().subtract(
+              shortConversation
+                  ? Duration(minutes: index * 7 + messageCount - messageIndex)
+                  : Duration(minutes: (28 - messageIndex) * 11 + index),
+            ),
+          ),
+        };
+      }, growable: true);
+    }
+    return result;
+  }
+
+  int _mockDirectMessageCountForPeerIndex(int index) {
+    return switch (index) {
+      1 => 1,
+      2 => 2,
+      3 => 1,
+      4 => 2,
+      _ => 28,
+    };
+  }
+
+  String _shortDirectMessageContent(
+    int peerIndex,
+    int messageIndex,
+    Object? peerName,
+  ) {
+    final displayName = '$peerName'.trim().isEmpty
+        ? 'this contact'
+        : '$peerName';
+    if (peerIndex == 1) {
+      return 'One-message mock chat with $displayName.';
+    }
+    if (peerIndex == 2) {
+      return messageIndex == 0
+          ? 'First short mock message from $displayName.'
+          : 'Second short mock reply.';
+    }
+    if (peerIndex == 3) {
+      return 'Single short conversation for layout testing.';
+    }
+    return messageIndex == 0
+        ? 'Tiny two-message thread starts here.'
+        : 'And ends here.';
+  }
+
   List<Map<String, dynamic>> _mockDirectMessagePeers() {
     return [
       _deepCopyMap(_v1PeerUser),
@@ -1343,8 +1523,12 @@ class _MockState {
           'name': 'DM Contact $index',
           'avatar': '',
           'bio': 'Mock direct message contact $index.',
-          'last_login_at': kMockV1Now,
-          'create_at': '2026-05-02T08:00:00Z',
+          'last_login_at': _mockUnixTimestamp(
+            DateTime.utc(2026, 5, (index % 20) + 1, 10),
+          ),
+          'create_at': _mockUnixTimestamp(
+            DateTime.utc(2026, 4, (index % 28) + 1, 8),
+          ),
           'follower_cnt': 10 + index,
           'following_cnt': 6 + index,
           'friend_cnt': index % 7,
@@ -1357,11 +1541,14 @@ class _MockState {
 
   Map<String, dynamic> _mockDirectMessageConversation(int index) {
     final peer = _v1DirectMessagePeers[index];
-    final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final timestamp = nowSeconds - index * 23 * 60;
+    final timestamp = _mockUnixTimestamp(
+      DateTime.now().subtract(Duration(minutes: index * 23)),
+    );
     return {
       'conv_id': 'DMC_MOCK_${(index + 1).toString().padLeft(3, '0')}',
       'peer': _deepCopyMap(peer),
+      'last_message_id':
+          'DM_MOCK_CONV_${(index + 1).toString().padLeft(3, '0')}',
       'last_message': 'Mock conversation ${index + 1} preview message.',
       'last_message_at': timestamp,
       'last_sender_uid': index.isEven ? peer['uid'] : _v1User['uid'],
@@ -1612,7 +1799,15 @@ class _MockState {
   }
 
   String _mockSqlTimestamp() {
-    final now = DateTime.now().toLocal();
+    return _formatMockDateTime(DateTime.now());
+  }
+
+  int _mockUnixTimestamp(DateTime value) {
+    return value.millisecondsSinceEpoch ~/ 1000;
+  }
+
+  String _formatMockDateTime(DateTime value) {
+    final now = value.toLocal();
     String two(int value) => value.toString().padLeft(2, '0');
     return '${now.year}-${two(now.month)}-${two(now.day)} '
         '${two(now.hour)}:${two(now.minute)}:${two(now.second)}';

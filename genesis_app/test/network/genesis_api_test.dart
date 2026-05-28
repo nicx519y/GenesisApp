@@ -710,6 +710,51 @@ void main() {
     expect(body.containsKey('client_msg_id'), isFalse);
   });
 
+  test(
+    'v1 direct message conversations supports after_message_id cursor',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":0,"err_msg":"succ","data":{"list":[]}}',
+        ),
+      );
+      final healthTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      );
+
+      final api = _apiWith(apiTransport, healthTransport);
+      await api.v1.dm.conversations(
+        pn: 2,
+        rn: 20,
+        afterMessageId: 'DM_CURSOR_001',
+      );
+
+      expect(apiTransport.lastRequest!.method, 'GET');
+      expect(
+        apiTransport.lastRequest!.uri.path,
+        '/api/v1/direct_message/conversations',
+      );
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters.containsKey('pn'),
+        isFalse,
+      );
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters.containsKey('rn'),
+        isFalse,
+      );
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters['after_message_id'],
+        'DM_CURSOR_001',
+      );
+    },
+  );
+
   test('v1 API throws ApiException when err_no is non-zero', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(

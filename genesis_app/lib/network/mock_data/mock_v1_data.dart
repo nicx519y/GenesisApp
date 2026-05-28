@@ -1,4 +1,5 @@
 const String kMockV1Now = '2026-05-20T10:00:00Z';
+const int kMockV1NowEpoch = 1779271200;
 
 const String kMockV1SteamSubtitle =
     'Clockwork frontier where inventors, rail guardians, and uneasy merchant houses keep the city balanced while pressure rises beneath the brass streets.';
@@ -46,8 +47,8 @@ const Map<String, dynamic> kMockV1User = {
   'name': 'Mock User',
   'avatar': '',
   'bio': 'Local mock profile for debug builds.',
-  'last_login_at': kMockV1Now,
-  'create_at': '2026-05-01T08:00:00Z',
+  'last_login_at': kMockV1NowEpoch,
+  'create_at': 1777622400,
   'follower_cnt': 12,
   'following_cnt': 8,
   'friend_cnt': 3,
@@ -61,8 +62,8 @@ const Map<String, dynamic> kMockV1PeerUser = {
   'name': 'Penny Hardaway',
   'avatar': '',
   'bio': 'A debug peer user for relation and DM flows.',
-  'last_login_at': kMockV1Now,
-  'create_at': '2026-05-02T08:00:00Z',
+  'last_login_at': kMockV1NowEpoch,
+  'create_at': 1777708800,
   'follower_cnt': 20,
   'following_cnt': 16,
   'friend_cnt': 5,
@@ -929,6 +930,7 @@ const List<Map<String, dynamic>> kMockV1DmMessages = [
 const Map<String, dynamic> kMockV1DmConversation = {
   'conv_id': 'DMC_MOCK_001',
   'peer': kMockV1PeerUser,
+  'last_message_id': 'DM_MOCK_002',
   'last_message': 'Yes, keep everything deterministic.',
   'last_message_at': 1797731760,
   'last_sender_uid': 'u_mock_001',

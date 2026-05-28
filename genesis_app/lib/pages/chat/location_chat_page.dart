@@ -3,10 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
-import '../../components/chat/location_chat/location_chat_composer.dart';
-import '../../components/chat/location_chat/location_chat_header.dart';
-import '../../components/chat/location_chat/location_chat_message_list.dart';
-import '../../components/chat/location_chat/location_chat_message_vm.dart';
+import '../../components/chat/shared/chat_ui.dart';
 import '../../network/chatroom/chatroom_client.dart';
 import '../../network/chatroom/chatroom_models.dart';
 
@@ -31,9 +28,9 @@ class LocationChatPage extends StatefulWidget {
 class _LocationChatPageState extends State<LocationChatPage> {
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
-  final _messages = <LocationChatMessageVm>[];
+  final _messages = <ChatMessageVm>[];
   final _streamSubscriptions = <StreamSubscription<Object?>>[];
-  final _activeStreams = <int, LocationChatMessageVm>{};
+  final _activeStreams = <int, ChatMessageVm>{};
 
   ChatroomSession? _session;
   StreamSubscription<ChatroomEvent>? _eventsSubscription;
@@ -105,9 +102,7 @@ class _LocationChatPageState extends State<LocationChatPage> {
       setState(() {
         _status = 'Connection failed';
         _connecting = false;
-        _messages.add(
-          LocationChatMessageVm.system('WebSocket connection failed: $e'),
-        );
+        _messages.add(ChatMessageVm.system('WebSocket connection failed: $e'));
       });
       _scrollToBottom();
     }
@@ -127,7 +122,7 @@ class _LocationChatPageState extends State<LocationChatPage> {
         case ChatroomQueuePosition e:
           setState(() {
             _messages.add(
-              LocationChatMessageVm.system('Queue position: ${e.position}'),
+              ChatMessageVm.system('Queue position: ${e.position}'),
             );
           });
           _scrollToBottom();
@@ -151,7 +146,7 @@ class _LocationChatPageState extends State<LocationChatPage> {
 
     setState(() {
       _messages.add(
-        LocationChatMessageVm(
+        ChatMessageVm(
           localId: 'user-${event.messageId}',
           messageId: event.messageId,
           roundId: event.conversationRoundId,
@@ -167,7 +162,7 @@ class _LocationChatPageState extends State<LocationChatPage> {
   }
 
   void _handleAiStream(ChatroomAiMessageStream stream) {
-    final message = LocationChatMessageVm(
+    final message = ChatMessageVm(
       localId: 'ai-${stream.start.messageId}',
       messageId: stream.start.messageId,
       roundId: stream.start.conversationRoundId,
@@ -233,9 +228,7 @@ class _LocationChatPageState extends State<LocationChatPage> {
   void _handleError(ChatroomErrorEvent error) {
     if (!mounted) return;
     setState(() {
-      _messages.add(
-        LocationChatMessageVm.system('${error.code}: ${error.message}'),
-      );
+      _messages.add(ChatMessageVm.system('${error.code}: ${error.message}'));
     });
     _scrollToBottom();
   }
@@ -246,7 +239,7 @@ class _LocationChatPageState extends State<LocationChatPage> {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
-    final localMessage = LocationChatMessageVm(
+    final localMessage = ChatMessageVm(
       localId: 'local-${DateTime.now().microsecondsSinceEpoch}',
       senderId: _mySenderId,
       senderName: _mySenderName,
@@ -344,7 +337,7 @@ class _LocationChatPageState extends State<LocationChatPage> {
       resizeToAvoidBottomInset: true,
       body: Column(
         children: [
-          LocationChatHeader(
+          ChatHeader(
             title: '$title ($titleCount)',
             subtitle: subtitle.isEmpty ? _status : subtitle,
             connected: _session != null,
@@ -352,13 +345,13 @@ class _LocationChatPageState extends State<LocationChatPage> {
             onBack: () => Navigator.of(context).maybePop(),
           ),
           Expanded(
-            child: LocationChatMessageList(
+            child: ChatMessageList(
               controller: _scrollController,
               messages: _messages,
-              worldName: worldName,
+              topTitle: worldName,
             ),
           ),
-          LocationChatComposer(
+          ChatComposer(
             controller: _textController,
             inputEnabled: !_sending,
             sendEnabled: _session != null && !_sending,
