@@ -131,19 +131,10 @@ class _AppShellPageState extends State<AppShellPage>
 
   Future<void> _ensureMeTabWithAuth() async {
     debugPrint('[Auth][AppShell] checking auth before entering Me');
-    final services = AppServicesScope.read(context);
-    final identityAuthed = services.identityAuth.hasLocalIdentitySession();
-    final backendAuthed = identityAuthed
-        ? false
-        : await services.backendAuth.hasAuthenticatedBackendSession(
-            tryAutoRefresh: false,
-          );
-    final authed = identityAuthed || backendAuthed;
-    debugPrint(
-      '[Auth][AppShell] identityAuthed=$identityAuthed backendAuthed=$backendAuthed',
-    );
+    final locallyAuthed = await _hasLocalLoginSession();
+    debugPrint('[Auth][AppShell] locallyAuthed=$locallyAuthed');
     if (!mounted) return;
-    if (authed) {
+    if (locallyAuthed) {
       _selectTab(4);
       return;
     }
@@ -158,21 +149,26 @@ class _AppShellPageState extends State<AppShellPage>
             debugPrint('[Auth][AppShell] onLogin start');
             final services = AppServicesScope.read(context);
             final session = await services.identityAuth.signIn();
-            await services.sessionStore.saveUid(session.identityUid);
-            try {
-              final user = await services.backendAuth.loginWithIdentity(
-                session,
-              );
-              debugPrint(
-                '[Auth][AppShell] backend login success uid=${user.uid}',
-              );
-              return true;
-            } catch (e, st) {
-              debugPrint('[Auth][AppShell] backend login skipped: $e');
-              debugPrint('[Auth][AppShell] backend login stacktrace:\n$st');
-              await services.sessionStore.saveUid(session.identityUid);
-              return true;
+            final user = await services.backendAuth.loginWithIdentity(session);
+            if (user.uid.trim().isNotEmpty) {
+              await services.sessionStore.saveUid(user.uid);
             }
+            final cachedUserInfo = await services.sessionStore.readUserInfo();
+            final loginUserInfo = <String, dynamic>{
+              if (cachedUserInfo != null) ...cachedUserInfo,
+              'uid': user.uid,
+            };
+            if (user.nickname.trim().isNotEmpty) {
+              loginUserInfo['name'] = user.nickname;
+            }
+            if (user.avatar.trim().isNotEmpty) {
+              loginUserInfo['avatar'] = user.avatar;
+            }
+            await services.sessionStore.saveUserInfo(loginUserInfo);
+            debugPrint(
+              '[Auth][AppShell] backend login success uid=${user.uid}',
+            );
+            return true;
           },
         );
       },
@@ -184,6 +180,14 @@ class _AppShellPageState extends State<AppShellPage>
     } else if (_selectedIndex == 4) {
       _selectTab(1);
     }
+  }
+
+  Future<bool> _hasLocalLoginSession() async {
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
   }
 
   int _normalTabIndex(int index) {

@@ -11,6 +11,7 @@ class WorldPoint {
     this.pointId = '',
     this.iconUrl = '',
     this.description = '',
+    this.locationDescription = '',
     this.depth = 0,
     this.isLeafLocation = true,
   });
@@ -24,6 +25,7 @@ class WorldPoint {
   final String pointId;
   final String iconUrl;
   final String description;
+  final String locationDescription;
   final int depth;
   final bool isLeafLocation;
 }

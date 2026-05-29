@@ -4,14 +4,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/origin/stat_item.dart';
 import '../../components/search_bar.dart';
 import '../../components/secend_tabs.dart';
+import '../../icons/my_flutter_app_icons.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../utils/stat_count_formatter.dart';
 
 enum _SearchTab {
-  all('all', 'All', 'Results'),
+  all('', 'All', 'Results'),
   origin('origin', 'Origin', 'Origins'),
   world('world', 'World', 'Worlds'),
   user('user', 'User', 'Users');
@@ -253,6 +255,9 @@ class _SearchPageState extends State<SearchPage>
       pn: pageNumber,
       rn: _pageSize,
     );
+    final contractResult = _parseSearchEnvelope(data, tab, pageNumber);
+    if (contractResult != null) return contractResult;
+
     final groups = data['groups'] is List
         ? asJsonList(data['groups'])
         : const <Object?>[];
@@ -285,6 +290,62 @@ class _SearchPageState extends State<SearchPage>
       total: total,
       hasMore: items.isNotEmpty && pageNumber * _pageSize < total,
     );
+  }
+
+  _SearchPageResult? _parseSearchEnvelope(
+    Map<String, dynamic> data,
+    _SearchTab tab,
+    int pageNumber,
+  ) {
+    final sectionKeys = tab == _SearchTab.all
+        ? const {
+            _SearchTab.origin: 'origins',
+            _SearchTab.world: 'worlds',
+            _SearchTab.user: 'users',
+          }
+        : {tab: _searchSectionKey(tab)};
+    final items = <_SearchResultItem>[];
+    var total = 0;
+    var hasMore = false;
+    var matchedSection = false;
+
+    for (final entry in sectionKeys.entries) {
+      final section = data[entry.value];
+      if (section is! Map) continue;
+      matchedSection = true;
+      final sectionMap = asJsonMap(section);
+      final list = sectionMap['list'] is List
+          ? asJsonList(sectionMap['list'])
+          : const <Object?>[];
+      final sectionTotal = asInt(sectionMap['total'], fallback: list.length);
+      final sectionPage = asInt(sectionMap['pn'], fallback: pageNumber);
+      final sectionPageSize = asInt(sectionMap['rn'], fallback: _pageSize);
+      total += sectionTotal;
+      hasMore =
+          hasMore ||
+          (list.isNotEmpty && sectionPage * sectionPageSize < sectionTotal);
+
+      for (final rawItem in list) {
+        items.add(
+          _SearchResultItem.fromContractJson(
+            asJsonMap(rawItem),
+            fallbackTab: entry.key,
+          ),
+        );
+      }
+    }
+
+    if (!matchedSection) return null;
+    return _SearchPageResult(items: items, total: total, hasMore: hasMore);
+  }
+
+  String _searchSectionKey(_SearchTab tab) {
+    return switch (tab) {
+      _SearchTab.origin => 'origins',
+      _SearchTab.world => 'worlds',
+      _SearchTab.user => 'users',
+      _SearchTab.all => '',
+    };
   }
 
   _SearchTab? _tabFromApiType(String type) {
@@ -329,7 +390,7 @@ class _SearchPageState extends State<SearchPage>
                       child: Text(
                         'Cancel',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 16,
                           color: Color(0xFF222222),
                           fontWeight: FontWeight.w400,
                         ),
@@ -586,6 +647,7 @@ class _SearchItemRow extends _SearchDisplayRow {
   final _SearchResultItem item;
 }
 
+// The following classes are adapted from WorldDetailsPanel and WorldDetailsShell to be used in the search page result details.
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
 
@@ -599,7 +661,7 @@ class _SectionTitle extends StatelessWidget {
         text,
         style: const TextStyle(
           color: Color(0xFF111111),
-          fontSize: 20,
+          fontSize: 16,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -636,9 +698,9 @@ class _SearchResultTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Color(0xFF486284),
-                      fontSize: 18,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      height: 1.15,
+                      height: 1.2,
                     ),
                   ),
                   const SizedBox(height: 9),
@@ -648,9 +710,9 @@ class _SearchResultTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Color(0xFF888888),
-                      fontSize: 16,
+                      fontSize: 12,
                       fontWeight: FontWeight.w400,
-                      height: 1.25,
+                      height: 1.33,
                     ),
                   ),
                   if (!isUser) ...[
@@ -712,36 +774,35 @@ class _ResultStats extends StatelessWidget {
   Widget build(BuildContext context) {
     final stats = item.tab == _SearchTab.origin
         ? [
-            _StatData(Icons.view_list, item.copyCount),
-            _StatData(Icons.hub_outlined, item.connectCount),
-            _StatData(Icons.person, item.playerCount),
+            _StatData(MyFlutterApp.save, item.copyCount),
+            _StatData(MyFlutterApp.copy, item.connectCount),
+            _StatData(MyFlutterApp.userStar, item.playerCount),
           ]
         : [
-            _StatData(Icons.play_arrow, item.tickCount),
-            _StatData(Icons.hub_outlined, item.connectCount),
-            _StatData(Icons.person, item.playerCount),
-            _StatData(Icons.person, item.memberCount),
+            _StatData(MyFlutterApp.pregress, item.tickCount),
+            _StatData(MyFlutterApp.copy, item.connectCount),
+            _StatData(MyFlutterApp.userStar, item.playerCount),
+            _StatData(MyFlutterApp.user, item.memberCount),
           ];
 
     return Wrap(
-      spacing: 20,
-      runSpacing: 8,
+      spacing: 10,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (final stat in stats)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(stat.icon, size: 20, color: Colors.black),
-              const SizedBox(width: 6),
-              Text(
-                formatStatCount(stat.value),
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+          StatItem(
+            icon: stat.icon,
+            iconSize: 11,
+            iconColor: Colors.black,
+            gap: 4,
+            text: formatStatCount(stat.value),
+            textStyle: const TextStyle(
+              color: Colors.black,
+              fontSize: 12,
+              height: 1,
+              fontWeight: FontWeight.w400,
+            ),
           ),
       ],
     );
@@ -834,6 +895,68 @@ class _SearchResultItem {
       tickCount: asInt(json['tick_cnt']),
       playerCount: asInt(json['player_cnt']),
       memberCount: asInt(json['member_cnt'], fallback: asInt(json['user_cnt'])),
+    );
+  }
+
+  factory _SearchResultItem.fromContractJson(
+    Map<String, dynamic> json, {
+    required _SearchTab fallbackTab,
+  }) {
+    final user = json['user'] is Map ? asJsonMap(json['user']) : null;
+    if (fallbackTab == _SearchTab.user || user != null) {
+      final raw = user ?? json;
+      final uid = asString(raw['uid']);
+      return _SearchResultItem(
+        tab: _SearchTab.user,
+        entityId: uid,
+        shortCode: uid,
+        title: asString(raw['name'], fallback: uid),
+        subtitle: asString(raw['bio']),
+        coverImage: asString(raw['avatar']),
+        copyCount: 0,
+        connectCount: 0,
+        tickCount: 0,
+        playerCount: 0,
+        memberCount: 0,
+      );
+    }
+
+    final info = json['info'] is Map
+        ? asJsonMap(json['info'])
+        : const <String, dynamic>{};
+    final stats = json['stats'] is Map
+        ? asJsonMap(json['stats'])
+        : const <String, dynamic>{};
+    if (fallbackTab == _SearchTab.world || info.containsKey('world_id')) {
+      final worldId = asString(info['world_id']);
+      return _SearchResultItem(
+        tab: _SearchTab.world,
+        entityId: worldId,
+        shortCode: worldId,
+        title: asString(info['world_name'], fallback: worldId),
+        subtitle: asString(info['brief']),
+        coverImage: asString(info['cover']),
+        copyCount: 0,
+        connectCount: asInt(stats['connect_cnt']),
+        tickCount: asInt(stats['tick_cnt']),
+        playerCount: asInt(stats['player_cnt']),
+        memberCount: asInt(stats['location_cnt']),
+      );
+    }
+
+    final originId = asString(info['origin_id']);
+    return _SearchResultItem(
+      tab: _SearchTab.origin,
+      entityId: originId,
+      shortCode: originId,
+      title: asString(info['origin_name'], fallback: originId),
+      subtitle: asString(info['brief']),
+      coverImage: asString(info['cover']),
+      copyCount: asInt(stats['copy_cnt']),
+      connectCount: asInt(stats['connect_cnt']),
+      tickCount: asInt(stats['tick_cnt']),
+      playerCount: asInt(stats['character_cnt']),
+      memberCount: asInt(stats['location_cnt']),
     );
   }
 

@@ -11,10 +11,22 @@ class UnreadSummary {
 
   factory UnreadSummary.fromJson(Map<String, dynamic> json) {
     return UnreadSummary(
-      systemUnread: asInt(json['system_unread']),
-      followerUnread: asInt(json['follower_unread']),
-      commentUnread: asInt(json['comment_unread']),
-      dmUnread: asInt(json['dm_unread']),
+      systemUnread: asInt(
+        json['world_apply_unread'],
+        fallback: asInt(json['system_unread']),
+      ),
+      followerUnread: asInt(
+        json['follow_unread'],
+        fallback: asInt(json['follower_unread']),
+      ),
+      commentUnread: asInt(
+        json['interaction_unread'],
+        fallback: asInt(json['comment_unread']),
+      ),
+      dmUnread: asInt(
+        json['direct_message_unread'],
+        fallback: asInt(json['dm_unread']),
+      ),
       totalUnread: asInt(json['total_unread']),
     );
   }

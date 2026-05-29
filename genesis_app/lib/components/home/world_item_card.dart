@@ -37,6 +37,11 @@ class WorldListItem {
   factory WorldListItem.fromJson(Map<String, dynamic> json) {
     final info = json['info'] is Map ? asJsonMap(json['info']) : json;
     final stats = json['stats'] is Map ? asJsonMap(json['stats']) : json;
+    final lastTick = json['last_tick'] is Map
+        ? asJsonMap(json['last_tick'])
+        : (info['last_tick'] is Map
+              ? asJsonMap(info['last_tick'])
+              : const <String, dynamic>{});
     final wid = asString(info['wid'], fallback: asString(info['world_id']));
     final name = asString(
       info['name'],
@@ -75,16 +80,7 @@ class WorldListItem {
         info['last_progress_at'],
         fallback: asString(info['updated_at']),
       ),
-      lastProgressSummary: asString(
-        info['last_progress_summary'],
-        fallback: asString(
-          info['progress_summary'],
-          fallback: asString(
-            info['display_subtitle'],
-            fallback: asString(info['brief']),
-          ),
-        ),
-      ),
+      lastProgressSummary: asString(lastTick['narrator']),
       previewImages: _previewImagesFromJson(info),
       tags: _tagsFromJson(info['tags']),
       tickCnt: asInt(stats['tick_cnt']),
@@ -137,11 +133,7 @@ class WorldListItem {
       ? 'Updated $updatedAt'
       : displaySubtitle.trim();
 
-  String get progressSummary {
-    final progress = lastProgressSummary.trim();
-    if (progress.isNotEmpty) return progress;
-    return subtitle;
-  }
+  String get progressSummary => lastProgressSummary.trim();
 
   List<String> get resolvedPreviewImages {
     if (previewImages.isNotEmpty) return previewImages;

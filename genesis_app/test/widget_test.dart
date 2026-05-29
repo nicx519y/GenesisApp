@@ -26,6 +26,8 @@ import 'package:genesis_flutter_android/pages/create/create_story_events_page.da
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
+import 'package:genesis_flutter_android/network/models/user.dart';
+import 'package:genesis_flutter_android/components/origin/stat_item.dart';
 import 'package:genesis_flutter_android/components/search_bar.dart';
 import 'package:genesis_flutter_android/pages/app_shell_page.dart';
 import 'package:genesis_flutter_android/pages/chat/chat_page.dart';
@@ -47,10 +49,14 @@ import 'package:genesis_flutter_android/routers/app_router.dart';
 
 Future<AppServices> _testServices({
   bool backendAuthenticated = false,
+  IdentityAuthService? identityAuth,
+  BackendAuthCoordinator? backendAuth,
   ChatroomClient? chatroom,
   HttpTransport? transport,
   bool? useMock,
   String? initialUid = 'u_mock',
+  String? initialAuthToken,
+  Map<String, dynamic>? initialUserInfo,
   DirectMessageConversationStore? directMessageConversations,
   DirectMessageMessageStore? directMessageMessages,
 }) async {
@@ -61,26 +67,34 @@ Future<AppServices> _testServices({
   if (initialUid != null) {
     await sessionStore.saveUid(initialUid);
   }
-  const identityAuth = _FakeIdentityAuthService();
+  if (initialAuthToken != null) {
+    await sessionStore.saveAuthToken(initialAuthToken);
+  }
+  if (initialUserInfo != null) {
+    await sessionStore.saveUserInfo(initialUserInfo);
+  }
+  final resolvedIdentityAuth = identityAuth ?? const _FakeIdentityAuthService();
   final api = GenesisApi(
     useMock: useMock ?? config.useMock,
     transport: transport,
     platformConfig: platformConfig,
     deviceIdService: deviceId,
     sessionStore: sessionStore,
-    identityAuthService: identityAuth,
+    identityAuthService: resolvedIdentityAuth,
   );
-  final backendAuth = _FakeBackendAuthCoordinator(
-    authenticated: backendAuthenticated,
-    sessionStore: sessionStore,
-  );
+  final resolvedBackendAuth =
+      backendAuth ??
+      _FakeBackendAuthCoordinator(
+        authenticated: backendAuthenticated,
+        sessionStore: sessionStore,
+      );
   return AppServices(
     config: config,
     platformConfig: platformConfig,
     deviceId: deviceId,
     sessionStore: sessionStore,
-    identityAuth: identityAuth,
-    backendAuth: backendAuth,
+    identityAuth: resolvedIdentityAuth,
+    backendAuth: resolvedBackendAuth,
     api: api,
     chatroom:
         chatroom ??
@@ -117,19 +131,35 @@ class _FakeDeviceIdService implements DeviceIdService {
 }
 
 class _FakeIdentityAuthService implements IdentityAuthService {
-  const _FakeIdentityAuthService();
+  const _FakeIdentityAuthService({
+    this.hasLocalSession = false,
+    this.signInSession,
+  });
+
+  final bool hasLocalSession;
+  final AuthSession? signInSession;
 
   @override
-  IdentityProfile? currentProfile() => null;
+  IdentityProfile? currentProfile() {
+    if (!hasLocalSession) return null;
+    return const IdentityProfile(
+      uid: 'identity_uid',
+      displayName: 'Identity User',
+      email: 'identity@example.com',
+      photoUrl: '',
+    );
+  }
 
   @override
-  bool hasLocalIdentitySession() => false;
+  bool hasLocalIdentitySession() => hasLocalSession;
 
   @override
   Future<AuthSession?> refreshSilently() async => null;
 
   @override
-  Future<AuthSession> signIn() {
+  Future<AuthSession> signIn() async {
+    final session = signInSession;
+    if (session != null) return session;
     throw UnimplementedError(
       'Widget tests should not launch identity sign-in.',
     );
@@ -140,25 +170,51 @@ class _FakeIdentityAuthService implements IdentityAuthService {
 }
 
 class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
-  const _FakeBackendAuthCoordinator({
+  _FakeBackendAuthCoordinator({
     required bool authenticated,
     required MemoryUserSessionStore sessionStore,
+    User? loginUser,
+    Object? loginError,
   }) : _authenticated = authenticated,
-       _sessionStore = sessionStore;
+       _sessionStore = sessionStore,
+       _loginUser = loginUser,
+       _loginError = loginError;
 
-  final bool _authenticated;
+  bool _authenticated;
   final MemoryUserSessionStore _sessionStore;
+  final User? _loginUser;
+  final Object? _loginError;
+  int loginCount = 0;
+  int sessionCheckCount = 0;
 
   @override
   Future<bool> hasAuthenticatedBackendSession({
     bool tryAutoRefresh = true,
   }) async {
+    sessionCheckCount += 1;
     return _authenticated;
   }
 
   @override
-  Future<Never> loginWithIdentity(AuthSession session) {
-    throw UnimplementedError('Widget tests should not perform backend login.');
+  Future<User> loginWithIdentity(AuthSession session) async {
+    loginCount += 1;
+    final error = _loginError;
+    if (error != null) throw error;
+    final user =
+        _loginUser ??
+        User(
+          id: 1,
+          uid: session.identityUid,
+          did: '',
+          nickname: session.displayName,
+          avatar: session.photoUrl,
+          createdAt: null,
+        );
+    if (user.uid.trim().isNotEmpty) {
+      await _sessionStore.saveUid(user.uid);
+    }
+    _authenticated = true;
+    return user;
   }
 
   @override
@@ -170,10 +226,11 @@ class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
 class _RecordingV1ListTransport implements HttpTransport {
   static const total = 100;
 
-  _RecordingV1ListTransport({this.worldTickCompleter});
+  _RecordingV1ListTransport({this.worldTickCompleter, this.userInfoCompleter});
 
   final requests = <TransportRequest>[];
   final Completer<TransportResponse>? worldTickCompleter;
+  final Completer<TransportResponse>? userInfoCompleter;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -231,30 +288,65 @@ class _RecordingV1ListTransport implements HttpTransport {
         'data': {'discuss_id': 'dis_new', 'root_discuss_id': '', 'level': 1},
       });
     }
+    if (request.uri.path.endsWith('/user/info')) {
+      if (userInfoCompleter != null) {
+        return userInfoCompleter!.future;
+      }
+      final uid = request.uri.queryParameters['uid'] ?? 'u_cached';
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'user': {
+            'uid': uid,
+            'name': 'Remote User',
+            'avatar': '',
+            'following_cnt': 13,
+            'follower_cnt': 17,
+          },
+          'relation': {
+            'is_self': uid == 'u_cached',
+            'is_followed': false,
+            'i_followed': false,
+          },
+        },
+      });
+    }
     if (request.uri.path.endsWith('/discuss/list')) {
       final bizId = request.uri.queryParameters['biz_id'] ?? '';
+      final pn = int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1;
+      final rn = int.tryParse(request.uri.queryParameters['rn'] ?? '') ?? 20;
+      const totalAll = 25;
+      final start = ((pn - 1) * rn).clamp(0, totalAll);
+      final end = (start + rn).clamp(0, totalAll);
       return _jsonResponse({
         'err_no': 0,
         'err_str': 'success',
         'data': {
           'list': [
-            {
-              'comment': {
-                'discuss_id': 'dis_$bizId',
-                'biz_type': 1,
-                'biz_id': bizId,
-                'author': {'uid': 'u_discuss_$bizId', 'name': 'Shawn'},
-                'content': 'Discuss preview for $bizId',
-                'reply_cnt': 36,
-                'created_at': '2026-02-09T00:00:00Z',
+            for (var index = start; index < end; index += 1)
+              {
+                'comment': {
+                  'discuss_id': 'dis_${bizId}_${index + 1}',
+                  'biz_type': 1,
+                  'biz_id': bizId,
+                  'author': {
+                    'uid': 'u_discuss_${bizId}_${index + 1}',
+                    'name': index == 0 ? 'Shawn' : 'User ${index + 1}',
+                  },
+                  'content': index == 0
+                      ? 'Discuss preview for $bizId'
+                      : 'Discuss preview ${index + 1} for $bizId',
+                  'reply_cnt': 36 + index,
+                  'created_at': '2026-02-09T00:00:00Z',
+                },
+                'latest_replies': const <Object?>[],
               },
-              'latest_replies': const <Object?>[],
-            },
           ],
-          'top_total': 1,
-          'total_all': 1,
-          'pn': 1,
-          'rn': 2,
+          'top_total': totalAll,
+          'total_all': totalAll,
+          'pn': pn,
+          'rn': rn,
         },
       });
     }
@@ -334,7 +426,13 @@ class _RecordingV1ListTransport implements HttpTransport {
       'created_at': '2026-05-01T00:00:00Z',
       'updated_at': '2026-05-02T00:00:00Z',
       'last_progress_at': '2026-05-02T00:00:00Z',
-      'last_progress_summary': 'World progress summary $seq',
+      'last_progress_summary': 'Legacy world progress summary $seq',
+      'last_tick': {
+        'tick_index': seq,
+        'created_at': '2026-05-02T00:00:00Z',
+        'narrator': 'World tick narrator $seq',
+        'paragraphs': const <Map<String, Object?>>[],
+      },
       'tags': ['world$seq', 'scene'],
       'tick_cnt': seq,
       'connect_cnt': seq + 1,
@@ -431,7 +529,7 @@ class _RecordingV1ListTransport implements HttpTransport {
       'characters': [
         {
           'type': 'ai',
-          'player_uid': '',
+          'player_uid': 'u_mock',
           'char_id': 'c_$fallback',
           'name': 'World Character',
           'identity': 'Guide',
@@ -468,29 +566,35 @@ class _RecordingV1ListTransport implements HttpTransport {
       'ticks': [
         {
           'tick_index': 1,
-          'narrator': 'World detail loaded.',
           'created_at': '2026-05-02T00:00:00Z',
-          'paragraphs': [
-            {
-              'location_id': 'l_$fallback',
-              'timestamp': '2026-05-02T00:00:00Z',
-              'text': 'The first test tick wakes the location.',
-              'character_deltas': const <Map<String, Object?>>[],
-            },
-          ],
+          'tick_result': {
+            'narrator': 'World detail loaded.',
+            'paragraphs': [
+              {
+                'location_id': 'l_$fallback',
+                'text': 'The first test tick wakes the location.',
+                'character_details': [
+                  {'name': 'World Character', 'delta': '+3 focus'},
+                ],
+              },
+            ],
+          },
         },
         {
           'tick_index': 2,
-          'narrator': 'World detail changed again.',
           'created_at': '2026-05-03T00:00:00Z',
-          'paragraphs': [
-            {
-              'location_id': 'l_$fallback',
-              'timestamp': '2026-05-03T00:00:00Z',
-              'text': 'The second test tick moves the story forward.',
-              'character_deltas': const <Map<String, Object?>>[],
-            },
-          ],
+          'tick_result': {
+            'narrator': 'World detail changed again.',
+            'paragraphs': [
+              {
+                'location_id': 'l_$fallback',
+                'text': 'The second test tick moves the story forward.',
+                'character_details': [
+                  {'name': 'World Character', 'delta': '-1 stamina'},
+                ],
+              },
+            ],
+          },
         },
       ],
     };
@@ -510,13 +614,12 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
         path == '/api/v1/messages/notifications/read') {
       final body = decodedBody(request);
       if (body['category'] == 'comment') commentRead = true;
-    } else if (request.method == 'GET' &&
-        path == '/api/v1/messages/unread-summary') {
+    } else if (request.method == 'GET' && path == '/api/v1/message/unread') {
       data = {
-        'system_unread': 1,
-        'follower_unread': 1,
-        'comment_unread': commentRead ? 0 : 1,
-        'dm_unread': 0,
+        'world_apply_unread': 1,
+        'follow_unread': 1,
+        'interaction_unread': commentRead ? 0 : 1,
+        'direct_message_unread': 0,
         'total_unread': commentRead ? 2 : 3,
       };
     } else if (request.method == 'GET' &&
@@ -769,71 +872,78 @@ class _RecordingSearchTransport implements HttpTransport {
     requests.add(request);
     final path = request.uri.path;
     Object? data = <String, Object?>{};
-    if (path == '/api/v1/messages/unread-summary') {
+    if (path == '/api/v1/message/unread') {
       data = {
-        'system_unread': 0,
-        'follower_unread': 0,
-        'comment_unread': 0,
-        'dm_unread': 0,
+        'world_apply_unread': 0,
+        'follow_unread': 0,
+        'interaction_unread': 0,
+        'direct_message_unread': 0,
         'total_unread': 0,
       };
     } else if (path == '/api/v1/origin/list') {
       data = {'list': const <Object?>[], 'total': 0};
     } else if (path == '/api/v1/search') {
       data = {
-        'groups': [
-          {
-            'type': 'origin',
-            'total': 1,
-            'list': [
-              {
-                'type': 'origin',
-                'entity_id': 'o_search_1',
-                'short_code': 'O_SEARCH_1',
-                'title': 'Search Origin',
-                'subtitle': 'OID: O_SEARCH_1',
-                'cover_image': '',
-                'copy_cnt': 9,
-                'connect_cnt': 12,
-                'player_cnt': 8,
+        'keyword': request.uri.queryParameters['keyword'] ?? '',
+        'type': request.uri.queryParameters['type'] ?? '',
+        'origins': {
+          'total': 1,
+          'pn': 1,
+          'rn': 20,
+          'list': [
+            {
+              'info': {
+                'origin_id': 'o_search_1',
+                'origin_name': 'Search Origin',
+                'brief': 'OID: O_SEARCH_1',
+                'cover': '',
               },
-            ],
-          },
-          {
-            'type': 'world',
-            'total': 1,
-            'list': [
-              {
-                'type': 'world',
-                'entity_id': 'w_search_1',
-                'short_code': 'W_SEARCH_1',
-                'title': 'Search World',
-                'subtitle': 'WID: W_SEARCH_1',
-                'cover_image': '',
+              'stats': {'copy_cnt': 9, 'connect_cnt': 12, 'character_cnt': 8},
+            },
+          ],
+        },
+        'worlds': {
+          'total': 1,
+          'pn': 1,
+          'rn': 20,
+          'list': [
+            {
+              'info': {
+                'world_id': 'w_search_1',
+                'world_name': 'Search World',
+                'brief': 'WID: W_SEARCH_1',
+                'cover': '',
+              },
+              'stats': {
                 'tick_cnt': 6,
                 'connect_cnt': 4,
                 'player_cnt': 8,
-                'member_cnt': 1,
+                'location_cnt': 1,
               },
-            ],
-          },
-          {
-            'type': 'user',
-            'total': 1,
-            'list': [
-              {
-                'type': 'user',
-                'entity_id': 'u_search_1',
-                'short_code': 'U_SEARCH_1',
-                'title': 'Search User',
-                'subtitle': 'Bio',
-                'cover_image': '',
+            },
+          ],
+        },
+        'users': {
+          'total': 1,
+          'pn': 1,
+          'rn': 20,
+          'list': [
+            {
+              'user': {
+                'uid': 'u_search_1',
+                'name': 'Search User',
+                'bio': 'Bio',
+                'avatar': '',
               },
-            ],
-          },
-        ],
-        'pn': 1,
-        'rn': 20,
+              'relation': {
+                'is_self': false,
+                'is_followed': false,
+                'followed_me': false,
+                'is_friend': false,
+              },
+            },
+          ],
+        },
       };
     }
     return TransportResponse(
@@ -1011,7 +1121,7 @@ void main() {
     expect(find.text('No results.'), findsOneWidget);
   });
 
-  testWidgets('search page debounces v1 search request and renders groups', (
+  testWidgets('search page debounces v1 search request and renders sections', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingSearchTransport();
@@ -1026,7 +1136,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'reborn');
-    await tester.pump(const Duration(milliseconds: 1999));
+    await tester.pump(const Duration(milliseconds: 599));
     expect(transport.requestsFor('/api/v1/search'), isEmpty);
 
     await tester.pump(const Duration(milliseconds: 1));
@@ -1034,16 +1144,26 @@ void main() {
 
     final searchRequests = transport.requestsFor('/api/v1/search');
     expect(searchRequests, hasLength(1));
-    expect(searchRequests.single.uri.queryParameters['query'], 'reborn');
-    expect(searchRequests.single.uri.queryParameters['type'], 'all');
+    expect(searchRequests.single.uri.queryParameters['keyword'], 'reborn');
+    expect(
+      searchRequests.single.uri.queryParameters.containsKey('type'),
+      false,
+    );
     expect(searchRequests.single.uri.queryParameters['pn'], '1');
     expect(searchRequests.single.uri.queryParameters['rn'], '20');
     expect(find.text('Origins'), findsOneWidget);
     expect(find.text('#Search Origin'), findsOneWidget);
+    final title = tester.widget<Text>(find.text('#Search Origin'));
+    expect(title.style?.fontSize, 14);
+    expect(title.style?.fontWeight, FontWeight.w700);
     expect(find.text('Worlds'), findsOneWidget);
     expect(find.text('Search World'), findsOneWidget);
     expect(find.text('Users'), findsOneWidget);
     expect(find.text('Search User'), findsOneWidget);
+    final subtitle = tester.widget<Text>(find.text('OID: O_SEARCH_1'));
+    expect(subtitle.style?.fontSize, 12);
+    expect(subtitle.style?.fontWeight, FontWeight.w400);
+    expect(find.byType(StatItem), findsNWidgets(7));
   });
 
   testWidgets('search page renders local mock Chinese user results', (
@@ -1296,7 +1416,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
-        matching: find.text('3'),
+        matching: find.text('4'),
       ),
       findsOneWidget,
     );
@@ -1334,9 +1454,9 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('direct-messages-unread-badge')),
-        matching: find.text('0'),
+        matching: find.text('1'),
       ),
-      findsNothing,
+      findsOneWidget,
     );
   });
 
@@ -1414,7 +1534,7 @@ void main() {
       (request) => request.uri.path == '/api/v1/messages/notifications',
     );
     final unreadRequest = transport.requests.firstWhere(
-      (request) => request.uri.path == '/api/v1/messages/unread-summary',
+      (request) => request.uri.path == '/api/v1/message/unread',
     );
 
     expect(readRequest.method, 'POST');
@@ -1508,47 +1628,54 @@ void main() {
     expect(originRequests.last.uri.queryParameters.containsKey('tag'), false);
   });
 
-  testWidgets('Home My World tab requests v1 world list with uid on enter', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(transport: transport, useMock: false),
-          child: const HomePage(),
+  testWidgets(
+    'Home My World tab requests v1 world list with owner_uid on enter',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const HomePage(),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    var worldRequests = transport.requestsFor('/api/v1/world/list');
-    expect(worldRequests, hasLength(1));
-    expect(worldRequests.single.uri.queryParameters['uid'], 'u_mock');
-    expect(worldRequests.single.uri.queryParameters['pn'], '1');
-    expect(worldRequests.single.uri.queryParameters['rn'], '20');
-    expect(
-      worldRequests.single.uri.queryParameters.containsKey('scene'),
-      false,
-    );
+      var worldRequests = transport.requestsFor('/api/v1/world/list');
+      expect(worldRequests, hasLength(1));
+      expect(worldRequests.single.uri.queryParameters['owner_uid'], 'u_mock');
+      expect(
+        worldRequests.single.uri.queryParameters.containsKey('uid'),
+        false,
+      );
+      expect(worldRequests.single.uri.queryParameters['pn'], '1');
+      expect(worldRequests.single.uri.queryParameters['rn'], '20');
+      expect(
+        worldRequests.single.uri.queryParameters.containsKey('scene'),
+        false,
+      );
+      expect(find.text('World tick narrator 1'), findsOneWidget);
+      expect(find.text('Legacy world progress summary 1'), findsNothing);
 
-    await tester.tap(find.text('Popular'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Popular'));
+      await tester.pumpAndSettle();
 
-    final originRequests = transport.requestsFor('/api/v1/origin/list');
-    expect(originRequests, hasLength(1));
-    expect(originRequests.single.uri.queryParameters['pn'], '1');
-    expect(originRequests.single.uri.queryParameters['rn'], '20');
-    expect(find.text('#Origin 1'), findsWidgets);
+      final originRequests = transport.requestsFor('/api/v1/origin/list');
+      expect(originRequests, hasLength(1));
+      expect(originRequests.single.uri.queryParameters['pn'], '1');
+      expect(originRequests.single.uri.queryParameters['rn'], '20');
+      expect(find.text('#Origin 1'), findsWidgets);
 
-    final discussRequests = transport.requestsFor('/api/v1/discuss/list');
-    expect(discussRequests, isNotEmpty);
-    expect(discussRequests.first.uri.queryParameters['biz_type'], '1');
-    expect(discussRequests.first.uri.queryParameters['biz_id'], 'o_test_1');
-    expect(discussRequests.first.uri.queryParameters['pn'], '1');
-    expect(discussRequests.first.uri.queryParameters['rn'], '2');
-    expect(find.text('Discuss preview for o_test_1'), findsOneWidget);
-  });
+      final discussRequests = transport.requestsFor('/api/v1/discuss/list');
+      expect(discussRequests, isNotEmpty);
+      expect(discussRequests.first.uri.queryParameters['biz_type'], '1');
+      expect(discussRequests.first.uri.queryParameters['biz_id'], 'o_test_1');
+      expect(discussRequests.first.uri.queryParameters['pn'], '1');
+      expect(discussRequests.first.uri.queryParameters['rn'], '20');
+      expect(find.text('Discuss preview for o_test_1'), findsOneWidget);
+    },
+  );
 
   testWidgets('Home My World tab is empty without local uid', (
     WidgetTester tester,
@@ -1595,9 +1722,16 @@ void main() {
     expect(detailRequests.single.uri.queryParameters['origin_id'], 'o_test_1');
     expect(find.text('#Origin detail o_test_1'), findsOneWidget);
 
-    final previousDiscussRequestCount = transport
-        .requestsFor('/api/v1/discuss/list')
-        .length;
+    final discussRequestsAfterDetail = transport.requestsFor(
+      '/api/v1/discuss/list',
+    );
+    final detailDiscussRequest = discussRequestsAfterDetail.last;
+    expect(detailDiscussRequest.uri.queryParameters['biz_type'], '1');
+    expect(detailDiscussRequest.uri.queryParameters['biz_id'], 'o_test_1');
+    expect(detailDiscussRequest.uri.queryParameters['pn'], '1');
+    expect(detailDiscussRequest.uri.queryParameters['rn'], '20');
+    final previousDiscussRequestCount = discussRequestsAfterDetail.length;
+
     await tester.dragFrom(const Offset(400, 510), const Offset(0, -420));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
@@ -1608,12 +1742,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final discussRequests = transport.requestsFor('/api/v1/discuss/list');
-    expect(discussRequests.length, greaterThan(previousDiscussRequestCount));
-    final detailDiscussRequest = discussRequests.last;
-    expect(detailDiscussRequest.uri.queryParameters['biz_type'], '1');
-    expect(detailDiscussRequest.uri.queryParameters['biz_id'], 'o_test_1');
-    expect(detailDiscussRequest.uri.queryParameters['pn'], '1');
-    expect(detailDiscussRequest.uri.queryParameters['rn'], '2');
+    expect(discussRequests.length, previousDiscussRequestCount);
     expect(find.widgetWithText(TextField, 'Write a post'), findsOneWidget);
     expect(find.text('Discuss preview for o_test_1'), findsOneWidget);
     expect(find.text('View More >'), findsOneWidget);
@@ -1639,10 +1768,12 @@ void main() {
     expect(postBody['content'], 'A new discuss post');
     expect(postBody['images'], isEmpty);
     expect(find.text('New post'), findsNothing);
-    expect(
-      transport.requestsFor('/api/v1/discuss/list').length,
-      greaterThan(discussListCountBeforePost),
+    final discussRequestsAfterPost = transport.requestsFor(
+      '/api/v1/discuss/list',
     );
+    expect(discussRequestsAfterPost.length, discussListCountBeforePost + 1);
+    expect(discussRequestsAfterPost.last.uri.queryParameters['pn'], '1');
+    expect(discussRequestsAfterPost.last.uri.queryParameters['rn'], '20');
   });
 
   testWidgets('Origin detail launch bar launches a world', (
@@ -1696,13 +1827,13 @@ void main() {
     final detailRequests = transport.requestsFor('/api/v1/world/detail');
     expect(detailRequests, hasLength(1));
     expect(detailRequests.single.uri.queryParameters['world_id'], 'w_test_1');
-    expect(find.text('World detail w_test_1'), findsWidgets);
+    expect(find.text('#World detail w_test_1'), findsWidgets);
     final sheet = tester.widget<DraggableScrollableSheet>(
       find.byType(DraggableScrollableSheet),
     );
     final height =
         tester.view.physicalSize.height / tester.view.devicePixelRatio;
-    final collapsedSize = 0.2 - 10 / height;
+    final collapsedSize = 0.31 - 15 / height;
     expect(sheet.minChildSize, closeTo(collapsedSize, 0.001));
     expect(sheet.initialChildSize, closeTo(collapsedSize, 0.001));
 
@@ -1713,6 +1844,31 @@ void main() {
     expect(userInfoRequests, hasLength(1));
     expect(userInfoRequests.single.uri.queryParameters['uid'], 'u_test');
     expect(find.text('User Info'), findsOneWidget);
+  });
+
+  testWidgets('World character row marks current player as Me', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('#World 1'));
+    await tester.pumpAndSettle();
+    await tester.dragFrom(const Offset(400, 570), const Offset(0, -360));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Characters'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('World Character (Me)'), findsOneWidget);
   });
 
   testWidgets('World map drills into non-leaf locations', (
@@ -1736,14 +1892,14 @@ void main() {
     expect(find.text('World Location'), findsWidgets);
     expect(find.text('Child Location'), findsNothing);
 
-    await tester.tap(find.text('Point (2)'));
+    await tester.tap(find.text('Location (2)'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('World Location').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('World detail w_test_1'), findsWidgets);
+    expect(find.text('#World detail w_test_1'), findsWidgets);
     expect(find.text('Child Location'), findsWidgets);
-    expect(find.text('Point (2)'), findsOneWidget);
+    expect(find.text('Location (2)'), findsOneWidget);
     expect(find.byIcon(Icons.subdirectory_arrow_left), findsOneWidget);
     expect(
       find.descendant(
@@ -1756,7 +1912,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.text('Point (2)'));
+    await tester.tap(find.text('Location (2)'));
     await tester.pumpAndSettle();
     expect(find.text('World Location'), findsWidgets);
     expect(find.text('Child Location'), findsWidgets);
@@ -1770,7 +1926,7 @@ void main() {
     expect(find.text('World Location'), findsWidgets);
     expect(find.text('Child Location'), findsNothing);
 
-    await tester.tap(find.text('Point (2)'));
+    await tester.tap(find.text('Location (2)'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('World Location').last);
     await tester.pumpAndSettle();
@@ -1778,7 +1934,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
     await tester.pumpAndSettle();
 
-    expect(find.text('World detail w_test_1'), findsNothing);
+    expect(find.text('#World detail w_test_1'), findsNothing);
     expect(find.text('#World 1'), findsOneWidget);
   });
 
@@ -1862,6 +2018,8 @@ void main() {
 
     final worldRequests = transport.requestsFor('/api/v1/world/list');
     expect(worldRequests.length, greaterThanOrEqualTo(2));
+    expect(worldRequests[1].uri.queryParameters['owner_uid'], 'u_mock');
+    expect(worldRequests[1].uri.queryParameters.containsKey('uid'), false);
     expect(worldRequests[1].uri.queryParameters['pn'], '2');
     expect(worldRequests[1].uri.queryParameters['rn'], '20');
   });
@@ -1929,6 +2087,178 @@ void main() {
     await tester.tap(find.text('Me'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Sign In With Google'), findsOneWidget);
+  });
+
+  testWidgets('tap Me shows login sheet without local backend login state', (
+    WidgetTester tester,
+  ) async {
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: true,
+      sessionStore: MemoryUserSessionStore(),
+    );
+    await tester.pumpWidget(
+      GenesisApp(
+        services: await _testServices(
+          identityAuth: const _FakeIdentityAuthService(hasLocalSession: true),
+          backendAuth: backendAuth,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Sign In With Google'), findsOneWidget);
+    expect(backendAuth.sessionCheckCount, 0);
+  });
+
+  testWidgets('tap Me renders cached profile then refreshes user info', (
+    WidgetTester tester,
+  ) async {
+    final userInfoCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      userInfoCompleter: userInfoCompleter,
+    );
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: false,
+      sessionStore: MemoryUserSessionStore(),
+    );
+    final services = await _testServices(
+      backendAuth: backendAuth,
+      transport: transport,
+      useMock: false,
+      initialUid: 'u_cached',
+      initialAuthToken: 'backend-token',
+      initialUserInfo: {
+        'uid': 'u_cached',
+        'name': 'Cached User',
+        'avatar': '',
+        'following_cnt': 7,
+        'follower_cnt': 11,
+      },
+    );
+    await tester.pumpWidget(GenesisApp(services: services));
+
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in to continue'), findsNothing);
+    expect(find.text('Cached User'), findsOneWidget);
+    expect(find.text('11'), findsOneWidget);
+    expect(backendAuth.sessionCheckCount, 0);
+    expect(transport.requestsFor('/api/v1/user/info'), hasLength(1));
+
+    userInfoCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'user': {
+            'uid': 'u_cached',
+            'name': 'Remote User',
+            'avatar': '',
+            'following_cnt': 13,
+            'follower_cnt': 17,
+          },
+          'relation': {
+            'is_self': true,
+            'is_followed': false,
+            'i_followed': false,
+          },
+        },
+      }),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Remote User'), findsOneWidget);
+    expect(find.text('17'), findsOneWidget);
+    final cachedUser = await services.sessionStore.readUserInfo();
+    expect(cachedUser?['following_cnt'], 13);
+    expect(cachedUser?['follower_cnt'], 17);
+  });
+
+  testWidgets('login sheet enters Me after backend HTTP login succeeds', (
+    WidgetTester tester,
+  ) async {
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: false,
+      sessionStore: MemoryUserSessionStore(),
+      loginUser: const User(
+        id: 42,
+        uid: 'backend_uid',
+        did: '',
+        nickname: 'Backend User',
+        avatar: '',
+        createdAt: null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      GenesisApp(
+        services: await _testServices(
+          identityAuth: const _FakeIdentityAuthService(
+            signInSession: AuthSession(
+              provider: IdentityProvider.google,
+              providerIdToken: 'google-token',
+              firebaseIdToken: 'firebase-token',
+              identityUid: 'identity_uid',
+              email: 'identity@example.com',
+              displayName: 'Identity User',
+              photoUrl: '',
+            ),
+          ),
+          backendAuth: backendAuth,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign In With Google'));
+    await tester.pumpAndSettle();
+
+    expect(backendAuth.loginCount, 1);
+    expect(find.text('Sign in to continue'), findsNothing);
+    expect(find.text('Sign In With Google'), findsNothing);
+  });
+
+  testWidgets('login sheet stays open when backend HTTP login fails', (
+    WidgetTester tester,
+  ) async {
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: false,
+      sessionStore: MemoryUserSessionStore(),
+      loginError: Exception('backend login failed'),
+    );
+
+    await tester.pumpWidget(
+      GenesisApp(
+        services: await _testServices(
+          identityAuth: const _FakeIdentityAuthService(
+            signInSession: AuthSession(
+              provider: IdentityProvider.google,
+              providerIdToken: 'google-token',
+              firebaseIdToken: 'firebase-token',
+              identityUid: 'identity_uid',
+              email: 'identity@example.com',
+              displayName: 'Identity User',
+              photoUrl: '',
+            ),
+          ),
+          backendAuth: backendAuth,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sign In With Google'));
+    await tester.pumpAndSettle();
+
+    expect(backendAuth.loginCount, 1);
     expect(find.text('Sign in to continue'), findsOneWidget);
     expect(find.text('Sign In With Google'), findsOneWidget);
   });
@@ -2696,6 +3026,68 @@ void main() {
     expect(find.text('Unfollow'), findsOneWidget);
   });
 
+  testWidgets('follows page renders cached totals before list totals', (
+    WidgetTester tester,
+  ) async {
+    final followingCompleter = Completer<TransportResponse>();
+    final followersCompleter = Completer<TransportResponse>();
+    final transport = _RecordingFollowsTransport(
+      followingCompleter: followingCompleter,
+      followersCompleter: followersCompleter,
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialUid: 'u_cached',
+          initialUserInfo: {
+            'uid': 'u_cached',
+            'following_cnt': 7,
+            'follower_cnt': 11,
+          },
+        ),
+        child: const MaterialApp(
+          home: FollowsPage(uid: 'u_cached', initialTitle: 'Cached User'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('7 Following'), findsOneWidget);
+    expect(find.text('11 Followers'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/user/following'), hasLength(1));
+    expect(transport.requestsFor('/api/v1/user/followers'), hasLength(1));
+
+    followingCompleter.complete(
+      transport._v1Response({
+        'total': 24,
+        'pn': 1,
+        'rn': 50,
+        'list': transport._followUsers(
+          prefix: 'u_following',
+          name: 'Following Friend',
+        ),
+      }),
+    );
+    followersCompleter.complete(
+      transport._v1Response({
+        'total': 24,
+        'pn': 1,
+        'rn': 50,
+        'list': transport._followUsers(
+          prefix: 'u_follower',
+          name: 'Follower Friend',
+          followed: false,
+        ),
+      }),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('24 Following'), findsOneWidget);
+    expect(find.text('24 Followers'), findsOneWidget);
+  });
+
   testWidgets('chat page renders cached direct messages then syncs', (
     WidgetTester tester,
   ) async {
@@ -3005,12 +3397,12 @@ class _RecordingProfileActionTransport implements HttpTransport {
     if (path == '/api/v1/origin/list' || path == '/api/v1/world/list') {
       return _v1Response({'list': const <Object?>[], 'total': 0});
     }
-    if (path == '/api/v1/messages/unread-summary') {
+    if (path == '/api/v1/message/unread') {
       return _v1Response({
-        'system_unread': 0,
-        'follower_unread': 0,
-        'comment_unread': 0,
-        'dm_unread': 0,
+        'world_apply_unread': 0,
+        'follow_unread': 0,
+        'interaction_unread': 0,
+        'direct_message_unread': 0,
         'total_unread': 0,
       });
     }
@@ -3039,7 +3431,14 @@ class _RecordingProfileActionTransport implements HttpTransport {
 }
 
 class _RecordingFollowsTransport implements HttpTransport {
+  _RecordingFollowsTransport({
+    this.followingCompleter,
+    this.followersCompleter,
+  });
+
   final requests = <TransportRequest>[];
+  final Completer<TransportResponse>? followingCompleter;
+  final Completer<TransportResponse>? followersCompleter;
   final Completer<TransportResponse> _followCompleter =
       Completer<TransportResponse>();
 
@@ -3060,6 +3459,7 @@ class _RecordingFollowsTransport implements HttpTransport {
     requests.add(request);
     final path = request.uri.path;
     if (path == '/api/v1/user/following') {
+      if (followingCompleter != null) return followingCompleter!.future;
       return _v1Response({
         'total': 24,
         'pn': 1,
@@ -3068,6 +3468,7 @@ class _RecordingFollowsTransport implements HttpTransport {
       });
     }
     if (path == '/api/v1/user/followers') {
+      if (followersCompleter != null) return followersCompleter!.future;
       return _v1Response({
         'total': 24,
         'pn': 1,
@@ -3124,11 +3525,12 @@ class _RecordingFollowsTransport implements HttpTransport {
 class _FailingChatroomClient implements ChatroomClient {
   @override
   Future<ChatroomSession> connect({
-    required String worldInstanceId,
+    String? worldId,
+    String? worldInstanceId,
     required String locationId,
     String? userId,
-    required String senderId,
-    required String senderName,
+    String? senderId,
+    String? senderName,
   }) async {
     throw StateError('test connection failed');
   }
@@ -3144,19 +3546,21 @@ class _FakeChatroomClient implements ChatroomClient {
 
   @override
   Future<ChatroomSession> connect({
-    required String worldInstanceId,
+    String? worldId,
+    String? worldInstanceId,
     required String locationId,
     String? userId,
-    required String senderId,
-    required String senderName,
+    String? senderId,
+    String? senderName,
   }) async {
-    this.worldInstanceId = worldInstanceId;
+    final resolvedWorldId = worldId ?? worldInstanceId ?? '';
+    this.worldInstanceId = resolvedWorldId;
     this.locationId = locationId;
     this.userId = userId;
     this.senderId = senderId;
     this.senderName = senderName;
     session = _FakeChatroomSession(
-      worldInstanceId: worldInstanceId,
+      worldInstanceId: resolvedWorldId,
       locationId: locationId,
     );
     return session;
@@ -3183,8 +3587,12 @@ class _FakeChatroomSession implements ChatroomSession {
   @override
   ChatroomJoined? get joined => ChatroomJoined(
     sessionId: 'sess-1',
-    worldInstanceId: worldInstanceId,
+    worldId: worldInstanceId,
     locationId: locationId,
+    userId: 'u_mock',
+    code: 0,
+    codeMsg: 'ok',
+    ts: null,
     onlineUsers: const [
       ChatroomOnlineUser(
         userId: 'u_mock',
@@ -3204,13 +3612,23 @@ class _FakeChatroomSession implements ChatroomSession {
   Stream<ChatroomAiMessageStream> get streams => _streams.stream;
 
   @override
-  Future<ChatroomAck> sendMessage(String text, {String? clientMsgId}) async {
+  Future<ChatroomAck> sendMessage(
+    String text, {
+    String? clientUuid,
+    String? clientMsgId,
+  }) async {
     sentMessages.add(text);
     return ChatroomAck(
       sessionId: 'sess-1',
+      worldId: worldInstanceId,
+      locationId: locationId,
+      userId: 'u_mock',
+      code: 0,
+      codeMsg: 'ok',
+      ts: null,
       messageId: 42,
       conversationRoundId: 'round-1',
-      clientMsgId: clientMsgId ?? 'client-1',
+      clientUuid: clientUuid ?? clientMsgId ?? 'client-1',
       queuePosition: 0,
     );
   }

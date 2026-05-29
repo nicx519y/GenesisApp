@@ -10,6 +10,7 @@ import UniformTypeIdentifiers
   private let discussImagePickerChannelName = "com.genesis.ai/discuss_image_picker"
   private let uidKey = "uid"
   private let authTokenKey = "auth_token"
+  private let userInfoKey = "user_info"
   private let deviceIdKey = "genesis_device_id"
   private let deviceIdKeychainService = "com.genesis.ai.device-id"
   private let prefs = UserDefaults.standard
@@ -55,9 +56,17 @@ import UniformTypeIdentifiers
         result(nil)
       case "getAuthToken":
         result(self.prefs.string(forKey: self.authTokenKey) ?? "")
+      case "setUserInfo":
+        let args = call.arguments as? [String: Any]
+        let userInfo = (args?["userInfo"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        self.prefs.set(userInfo, forKey: self.userInfoKey)
+        result(nil)
+      case "getUserInfo":
+        result(self.prefs.string(forKey: self.userInfoKey) ?? "")
       case "clearUid":
         self.prefs.removeObject(forKey: self.uidKey)
         self.prefs.removeObject(forKey: self.authTokenKey)
+        self.prefs.removeObject(forKey: self.userInfoKey)
         result(nil)
       case "getSignInDiagnostics":
         result(self.signInDiagnostics())

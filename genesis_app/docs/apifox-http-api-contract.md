@@ -7,15 +7,16 @@
 - Apifox direct_message 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462474827e0
 - Apifox direct_message 会话列表页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462474828e0
 - Apifox upload 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463764231e0
+- Apifox search 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/465724653e0
 - Apifox LLM 索引：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/llms.txt
 
-提取时间：2026-05-28
+提取时间：2026-05-29
 
 本文档记录 Flutter 项目当前对齐或待替换的 Apifox HTTP 接口，并对比当前 Flutter 项目中的 `lib/network` HTTP 设计。字段后带 `*` 表示 Apifox 标记为必填。
 
 ## 总览
 
-本文档当前覆盖 27 个接口，分为 `用户`、`origin`、`world`、`discuss`、`direct_message` 和 `upload` 六组：
+本文档当前覆盖 28 个接口，分为 `用户`、`origin`、`world`、`search`、`discuss`、`direct_message` 和 `upload` 七组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -30,6 +31,7 @@
 | world | GET | `/api/v1/world/list` | World 列表 |
 | world | GET | `/api/v1/world/detail` | World 详情 |
 | world | POST | `/api/v1/world/tick` | world owner 触发一次 tick |
+| search | GET | `/api/v1/search` | 全局搜索 |
 | origin | GET | `/api/v1/origin/list` | Origin 模板列表 |
 | origin | GET | `/api/v1/origin/detail` | Origin 模板详情 |
 | discuss | GET | `/api/v1/discuss/list` | 顶级评论分页列表 |
@@ -176,7 +178,8 @@
 - `location_id*`: string
 - `location_pid`: string
 - `location_name*`: string
-- `location_summary`: string
+- `location_description`: string，地点基础描述；当 `location_summary` 为空时，地点列表用它兜底展示
+- `location_summary`: string，地点当前摘要，地点列表优先展示
 - `image`: string
 - `x_percent`: integer
 - `y_percent`: integer
@@ -342,7 +345,7 @@ Query：
 - `pn`: integer，默认 1
 - `rn`: integer，默认 10
 - `origin_id`: string，仅查询基于该 origin 复制出的 world
-- `uid`: string，仅查询某个用户拥有或创建的 world
+- `owner_uid`: string，仅查询某个用户拥有或创建的 world
 - `keyword`: string，模糊搜索 `world_name` / `brief`
 
 响应 `data`：
@@ -435,6 +438,50 @@ Query：
 - `characters*`: `Character[]`
 - `locations*`: `Location[]`
 - `ticks*`: `Tick[]`
+
+## Search 接口
+
+### GET `/api/v1/search`
+
+全局搜索。新契约使用 `keyword` 作为搜索词，不再使用旧实现里的 `query`；`type` 为空字符串时表示同时搜索 origin、world、user 三类。
+
+Query：
+
+- `keyword`: string
+- `type`: string，空字符串表示三类都搜；可传 `origin`、`world`、`user`
+- `pn`: integer，页码，从 1 开始
+- `rn`: integer，每页条数
+
+响应 `data`：
+
+- `keyword*`: string，回显搜索词
+- `type*`: string，回显搜索类型；空字符串表示三类都搜
+- `origins*`: `SearchOriginResult`
+- `worlds*`: `SearchWorldResult`
+- `users*`: `SearchUserResult`
+
+`SearchOriginResult`：
+
+- `list*`: `{ info: OriginInfo, stats: OriginStats }[]`
+- `total*`: integer
+- `pn*`: integer
+- `rn*`: integer
+
+`SearchWorldResult`：
+
+- `list*`: `{ info: WorldInfo, stats: WorldStats, last_tick: Tick }[]`
+- `total*`: integer
+- `pn*`: integer
+- `rn*`: integer
+
+`SearchUserResult`：
+
+- `list*`: `{ user: UserInfo, relation: UserRelation }[]`
+- `total*`: integer
+- `pn*`: integer
+- `rn*`: integer
+
+实现状态：`SearchV1Api.search({query, type, pn, rn})` 保留 Dart 层 `query` 参数名，但请求已改为发送 `keyword`；`SearchPage` 已消费 `origins/worlds/users` 三段结果，并兼容旧 mock 的 `groups` 结构作为过渡兜底。
 
 ## Discuss 接口
 
@@ -740,7 +787,7 @@ query：
 
 ## 当前代码对齐状态
 
-截至 2026-05-28，本文档覆盖的 27 个接口已完成主要 HTTP 契约对齐；本次新增记录的 direct_message 接口已按 Apifox 新契约调整当前封装与本地 mock：
+截至 2026-05-29，本文档覆盖的 28 个接口已完成主要 HTTP 契约对齐；本次新增记录的 search 接口已按 Apifox 新契约调整当前封装与本地 mock：
 
 | Apifox 接口 | 当前实现状态 |
 | --- | --- |
@@ -752,9 +799,10 @@ query：
 | `POST /api/v1/user/unfollow` | `FollowV1Api.unfollow` body 已改为 `target_uid`，响应按空对象处理。 |
 | `GET /api/v1/user/following` | 已新增 `FollowV1Api.following(uid,pn,rn)`。 |
 | `GET /api/v1/user/followers` | 已新增 `FollowV1Api.followers(uid,pn,rn)`。 |
-| `GET /api/v1/world/list` | `WorldV1Api.list` query 已使用 `origin_id/uid/keyword/pn/rn`；首页和个人 world 列表可消费 `list[].info + stats`。 |
-| `GET /api/v1/world/detail` | `WorldV1Api.detail` query 已使用 `world_id`；详情 mapper 支持 `info/stats/characters/locations/ticks`。 |
+| `GET /api/v1/world/list` | `WorldV1Api.list` query 已使用 `origin_id/owner_uid/keyword/pn/rn`；首页和个人 world 列表可消费 `list[].info + stats`。 |
+| `GET /api/v1/world/detail` | `WorldV1Api.detail` query 已使用 `world_id`；详情 mapper 支持 `info/stats/characters/locations/ticks`，并保留 `locations[].location_description` 供 `location_summary` 为空时展示。 |
 | `POST /api/v1/world/tick` | 新契约替代旧 progress 触发接口；客户端应提交 `{ "world_id": "<world_id>" }` 并消费 `world_id/tick_cnt/last_tick`。 |
+| `GET /api/v1/search` | `SearchV1Api.search` 已改为发送 `keyword/type/pn/rn`；`type` 为空时不随 query 发送，表示全局搜索；`SearchPage` 已消费 `origins/worlds/users` 分类结果块。 |
 | `GET /api/v1/origin/list` | `OriginV1Api.list` query 已使用 `tag_id/keyword/uid/tag_name/pn/rn`；origin 页面和主 `getOrigins/getMyLaunchedOrigins` 可消费 `list[].info + stats`。 |
 | `GET /api/v1/origin/detail` | `OriginV1Api.detail` query 已使用 `origin_id`；详情 mapper 支持 `info/stats/characters/locations/ticks`。 |
 | `GET /api/v1/discuss/list` | `DiscussV1Api.list` 已使用 `biz_type=1`、`biz_id/pn/rn`，并消费 `list[].comment/latest_replies/top_total/total_all`；本地 mock 会按业务对象分页并为每条顶级评论返回最新 3 条回复。 |
@@ -767,6 +815,7 @@ query：
 | `GET /api/v1/direct_message/list` | `DmV1Api.list` 已替代旧 `/dm/messagelist`，query 使用 `peer_uid/pn/rn`，响应消费 `list/total/pn/rn`；`ChatPage` 已接本地 DB、5 秒轮询 merge、顶部滚动分页和行级渲染。 |
 | `POST /api/v1/direct_message/read` | `DmV1Api.markRead` 已改为使用 `peer_uid`，不再提交 `conversation_id/last_read_seq`。 |
 | `GET /api/v1/direct_message/unread` | 已新增 `DmV1Api.unread`，响应消费 `unread_cnt`。 |
+| `GET /api/v1/message/unread` | `MessagesV1Api.unreadSummary` 已改用消息页未读统计接口，响应消费 `world_apply_unread/follow_unread/interaction_unread/direct_message_unread/total_unread`。 |
 | `POST /api/v1/direct_message/block` | 已新增 `DmV1Api.block`，body 使用 `target_uid`。 |
 | `POST /api/v1/direct_message/unblock` | 已新增 `DmV1Api.unblock`，body 使用 `target_uid`。 |
 | `GET /api/v1/direct_message/blocks` | 已新增 `DmV1Api.blocks`，响应消费拉黑用户分页列表。 |
@@ -783,7 +832,7 @@ query：
 
 - world 详情 mapper 只消费 Apifox 的 `info/stats/characters/locations/ticks`；origin 详情 mapper 暂保留旧字段兼容。
 - 关系字段在 mock 中同时保留 `is_followed` 与历史 `i_followed`，但 Apifox 新接口按 `is_followed` 生成。
-- Apifox 未声明 headers/security；当前客户端仍按应用运行时注入 `x-platform`、`x-device-id`、`x-user-id`、`authorization: Bearer <token>`。
+- Apifox 未声明 headers/security；当前客户端仍按应用运行时注入 `x-platform`、`device-id`、`authorization: Bearer <token>`。
 
 ### Apifox 未覆盖但当前 v1 已封装的接口
 
@@ -814,13 +863,11 @@ World：
 - `POST /api/v1/world/close`
 - `POST /api/v1/world/del`
 
-消息、搜索、首页、通用：
+消息、首页、通用：
 
-- `GET /api/v1/messages/unread-summary`
 - `GET /api/v1/messages/notifications`
 - `POST /api/v1/messages/notifications/read`
 - `GET /api/v1/messages/followers`
-- `GET /api/v1/search`
 - `GET /api/v1/search/suggest`
 - `GET /api/v1/home`
 - `GET /api/v1/home/following`

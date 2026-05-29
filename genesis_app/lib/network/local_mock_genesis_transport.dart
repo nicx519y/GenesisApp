@@ -345,7 +345,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(<String, dynamic>{});
     }
 
-    if (method == 'GET' && path == 'messages/unread-summary') {
+    if (method == 'GET' && path == 'message/unread') {
       return _v1Ok(_state.v1UnreadSummary());
     }
 
@@ -1043,14 +1043,14 @@ class _MockState {
   }
 
   Map<String, dynamic> v1WorldContractList(Map<String, String> query) {
-    final uid = (query['uid'] ?? '').trim();
-    final worlds = uid.isEmpty
+    final ownerUid = (query['owner_uid'] ?? '').trim();
+    final worlds = ownerUid.isEmpty
         ? _v1Worlds
         : _v1Worlds
               .where(
                 (world) =>
                     '${world['owner_uid'] ?? world['created_uid']}'.trim() ==
-                    uid,
+                    ownerUid,
               )
               .toList(growable: false);
     return _v1Paged(worlds.map(_v1WorldContractItem).toList(), query);
@@ -1103,16 +1103,20 @@ class _MockState {
   }
 
   Map<String, dynamic> v1UnreadSummary() {
-    final systemUnread = _v1UnreadCount('system');
-    final followerUnread = _v1UnreadCount('follower');
-    final commentUnread = _v1UnreadCount('comment');
-    const dmUnread = 0;
+    final worldApplyUnread = _v1UnreadCount('system');
+    final followUnread = _v1UnreadCount('follower');
+    final interactionUnread = _v1UnreadCount('comment');
+    final directMessageUnread = v1DirectMessageUnreadCount();
     return {
-      'system_unread': systemUnread,
-      'follower_unread': followerUnread,
-      'comment_unread': commentUnread,
-      'dm_unread': dmUnread,
-      'total_unread': systemUnread + followerUnread + commentUnread + dmUnread,
+      'world_apply_unread': worldApplyUnread,
+      'follow_unread': followUnread,
+      'interaction_unread': interactionUnread,
+      'direct_message_unread': directMessageUnread,
+      'total_unread':
+          worldApplyUnread +
+          followUnread +
+          interactionUnread +
+          directMessageUnread,
     };
   }
 
@@ -1841,65 +1845,44 @@ class _MockState {
   }
 
   Map<String, dynamic> v1Search(Map<String, String> query) {
-    final raw = query['query'] ?? '';
+    final raw = query['keyword'] ?? query['query'] ?? '';
     final normalized = raw.trim().toLowerCase();
-    final requestedType = (query['type'] ?? 'all').trim().toLowerCase();
+    final requestedType = (query['type'] ?? '').trim().toLowerCase();
     final page = _positiveInt(query['pn'], fallback: 1);
     final pageSize = _positiveInt(query['rn'], fallback: 20);
-    final originItems = v1OriginSummaries();
-    final worldItems = v1WorldSummaries();
     bool matches(Object? value) =>
         normalized.isEmpty || '$value'.toLowerCase().contains(normalized);
 
-    final originResults = originItems
+    final originResults = _v1Origins
         .where(
-          (item) =>
-              matches(item['oid']) ||
-              matches(item['name']) ||
-              matches(item['display_subtitle']) ||
-              matches(item['created_user_name']) ||
-              matches((item['tags'] as List?)?.join(' ')),
+          (origin) =>
+              matches(origin['oid']) ||
+              matches(origin['name']) ||
+              matches(origin['display_subtitle']) ||
+              matches(origin['created_user_name']) ||
+              matches((origin['tags'] as List?)?.join(' ')),
         )
-        .map(
-          (item) => {
-            ..._searchItem(
-              'origin',
-              item['oid'],
-              item['name'],
-              _originSearchSubtitle(item),
-            ),
-            'cover_image': item['cover'] ?? '',
-            'tags': item['tags'] is List ? item['tags'] : <String>[],
-            'copy_cnt': item['copy_cnt'] ?? 0,
-            'connect_cnt': item['connect_cnt'] ?? 0,
-            'player_cnt': item['character_cnt'] ?? 0,
-          },
-        )
+        .map(_v1OriginContractItem)
         .toList();
 
-    final worldResults = worldItems
+    final worldResults = _v1Worlds
         .where(
-          (item) =>
-              matches(item['wid']) ||
-              matches(item['name']) ||
-              matches(item['display_subtitle']) ||
-              matches(item['owner_name']) ||
-              matches((item['tags'] as List?)?.join(' ')),
+          (world) =>
+              matches(world['wid']) ||
+              matches(world['name']) ||
+              matches(world['display_subtitle']) ||
+              matches(world['owner_name']) ||
+              matches((world['tags'] as List?)?.join(' ')),
         )
         .map(
-          (item) => {
-            ..._searchItem(
-              'world',
-              item['wid'],
-              item['name'],
-              _worldSearchSubtitle(item),
-            ),
-            'cover_image': item['cover'] ?? '',
-            'tags': item['tags'] is List ? item['tags'] : <String>[],
-            'tick_cnt': item['tick_cnt'] ?? 0,
-            'connect_cnt': item['connect_cnt'] ?? 0,
-            'player_cnt': item['player_cnt'] ?? 0,
-            'member_cnt': item['location_cnt'] ?? 0,
+          (world) => {
+            ..._v1WorldContractItem(world),
+            'last_tick': {
+              'tick_no': world['tick_cnt'] ?? 0,
+              'narrator': world['last_progress_summary'] ?? '',
+              'created_at': world['last_progress_at'] ?? 0,
+              'paragraphs': const <Map<String, dynamic>>[],
+            },
           },
         )
         .toList();
@@ -1914,45 +1897,48 @@ class _MockState {
         )
         .map(
           (item) => {
-            ..._searchItem('user', item['uid'], item['name'], item['bio']),
-            'short_code': item['user_code'] ?? item['uid'],
-            'cover_image': item['avatar'] ?? '',
+            'user': {
+              'uid': item['uid'] ?? '',
+              'name': item['name'] ?? '',
+              'avatar': item['avatar'] ?? '',
+              'bio': item['bio'] ?? '',
+              'last_login_at': item['last_login_at'] ?? kMockV1Now,
+              'create_at': item['create_at'] ?? kMockV1Now,
+              'follower_cnt': item['follower_cnt'] ?? 0,
+              'following_cnt': item['following_cnt'] ?? 0,
+              'friend_cnt': item['friend_cnt'] ?? 0,
+              'create_origin_cnt': item['create_origin_cnt'] ?? 0,
+              'launch_world_cnt': item['launch_world_cnt'] ?? 0,
+              'join_world_cnt': item['join_world_cnt'] ?? 0,
+            },
             'relation': _relationForSearchUser(item),
           },
         )
         .toList();
 
-    Map<String, dynamic> group(String type, List<Map<String, dynamic>> items) {
+    Map<String, dynamic> section(
+      String type,
+      List<Map<String, dynamic>> items,
+    ) {
       final include =
           requestedType.isEmpty ||
           requestedType == 'all' ||
           requestedType == type;
       final visibleItems = include ? items : <Map<String, dynamic>>[];
       return {
-        'type': type,
-        'total': visibleItems.length,
         'list': _pageSearchResults(visibleItems, page, pageSize),
+        'total': visibleItems.length,
+        'pn': page,
+        'rn': pageSize,
       };
     }
 
     return {
-      'intent': {
-        'raw_query': raw,
-        'normalized_query': normalized,
-        'strict_code_or_id':
-            normalized.startsWith('u_') ||
-            normalized.startsWith('o_') ||
-            normalized.startsWith('w_'),
-        'detected_type': requestedType == 'all' ? 'all' : requestedType,
-        'detected_field': 'keyword',
-      },
-      'groups': [
-        group('user', userResults),
-        group('origin', originResults),
-        group('world', worldResults),
-      ],
-      'pn': page,
-      'rn': pageSize,
+      'keyword': raw,
+      'type': requestedType == 'all' ? '' : requestedType,
+      'origins': section('origin', originResults),
+      'worlds': section('world', worldResults),
+      'users': section('user', userResults),
     };
   }
 
@@ -1973,21 +1959,6 @@ class _MockState {
     return items.sublist(start, end).map(_deepCopyMap).toList();
   }
 
-  String _originSearchSubtitle(Map<String, dynamic> item) {
-    return [
-      'OID: ${item['oid'] ?? ''}',
-      'Originator: ${item['created_user_name'] ?? '-'}',
-      'Latest Version: V${item['version_num'] ?? 1}',
-    ].join(' · ');
-  }
-
-  String _worldSearchSubtitle(Map<String, dynamic> item) {
-    return [
-      'WID: ${item['wid'] ?? ''}',
-      'Owner: ${item['owner_name'] ?? item['created_user_name'] ?? '-'}',
-    ].join(' · ');
-  }
-
   Map<String, dynamic> _relationForSearchUser(Map<String, dynamic> item) {
     if (item['uid'] == _v1User['uid']) return _deepCopyMap(kMockV1SelfRelation);
     return {
@@ -2003,10 +1974,10 @@ class _MockState {
 
   Map<String, dynamic> v1SearchSuggest(Map<String, String> query) {
     final result = v1Search(query);
-    final groups = result['groups'] as List;
+    final sections = [result['origins'], result['worlds'], result['users']];
     return {
-      'list': groups
-          .expand((group) => ((group as Map)['list'] as List))
+      'list': sections
+          .expand((section) => ((section as Map)['list'] as List))
           .cast<Map<String, dynamic>>()
           .take(int.tryParse(query['limit'] ?? '') ?? 10)
           .map(_deepCopyMap)
@@ -2125,7 +2096,12 @@ class _MockState {
       'created_at': world['created_at'],
       'updated_at': world['updated_at'],
       'last_progress_at': world['last_progress_at'],
-      'last_progress_summary': world['last_progress_summary'],
+      'last_tick': {
+        'tick_index': world['tick_cnt'],
+        'created_at': world['last_progress_at'],
+        'narrator': world['last_progress_summary'],
+        'paragraphs': const <Map<String, dynamic>>[],
+      },
       'tags': world['tags'],
       'tick_cnt': world['tick_cnt'],
       'connect_cnt': world['connect_cnt'],
@@ -2223,6 +2199,8 @@ class _MockState {
       'location_id': location['location_id'],
       'location_pid': location['location_pid'] ?? '',
       'location_name': location['name'],
+      'location_description':
+          location['location_description'] ?? location['description'],
       'location_summary': location['description'],
       'image': location['image'],
       'x_percent': location['x_percent'],
@@ -2246,7 +2224,8 @@ class _MockState {
                       tick['created_at'] ??
                       kMockV1Now,
                   'text': paragraph['text'] ?? tick['summary'] ?? '',
-                  'character_deltas':
+                  'character_details':
+                      paragraph['character_details'] ??
                       paragraph['character_deltas'] ??
                       const <Map<String, dynamic>>[],
                 };
@@ -2257,35 +2236,17 @@ class _MockState {
               'location_id': 'loc_hub',
               'timestamp': tick['created_at'] ?? kMockV1Now,
               'text': tick['summary'] ?? '',
-              'character_deltas': const <Map<String, dynamic>>[],
+              'character_details': const <Map<String, dynamic>>[],
             },
           ];
     return {
       'tick_index': tick['tick_index'] ?? 1,
       'created_at': tick['created_at'] ?? kMockV1Now,
-      'narrator': tick['summary'] ?? '',
-      'paragraphs': paragraphs,
-    };
-  }
-
-  Map<String, dynamic> _searchItem(
-    String type,
-    Object? id,
-    Object? title,
-    Object? subtitle,
-  ) {
-    return {
-      'type': type,
-      'entity_id': '$id',
-      'short_code': '$id',
-      'title': '$title',
-      'subtitle': '$subtitle',
-      'cover_image': '',
-      'tags': type == 'origin' ? _v1Origin['tags'] : <String>[],
-      'copy_cnt': type == 'origin' ? _v1Origin['copy_cnt'] : 0,
-      'connect_cnt': type == 'origin' ? _v1Origin['connect_cnt'] : 0,
-      'tick_cnt': type == 'world' ? _v1World['tick_cnt'] : 0,
-      'player_cnt': type == 'world' ? _v1World['player_cnt'] : 0,
+      'tick_result': {
+        'created_at': tick['created_at'] ?? kMockV1Now,
+        'narrator': tick['summary'] ?? '',
+        'paragraphs': paragraphs,
+      },
     };
   }
 

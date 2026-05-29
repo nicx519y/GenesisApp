@@ -222,7 +222,11 @@ void main() {
         (((worlds['list'] as List).first as Map)['stats'] as Map);
     expect(firstWorldStats['tick_cnt'], greaterThanOrEqualTo(1000));
     expect(firstWorldStats['connect_cnt'], greaterThanOrEqualTo(1000));
-    final myWorlds = await api.v1.world.list(uid: 'u_mock_001', pn: 1, rn: 10);
+    final myWorlds = await api.v1.world.list(
+      ownerUid: 'u_mock_001',
+      pn: 1,
+      rn: 10,
+    );
     expect(myWorlds['total'], greaterThan(0));
     for (final item in myWorlds['list'] as List) {
       expect(((item as Map)['info'] as Map)['owner_uid'], 'u_mock_001');
@@ -425,22 +429,12 @@ void main() {
     await api.v1.discuss.delete(discussId: postId);
 
     final search = await api.v1.search.search(query: 'steam');
-    expect((search['groups'] as List).isNotEmpty, true);
+    expect((search['origins'] as Map)['list'] as List, isNotEmpty);
     await api.v1.search.suggest(query: 'steam', limit: 10);
 
-    final rebornSearch = await api.v1.search.search(
-      query: '重生',
-      type: 'all',
-      pn: 1,
-      rn: 20,
-    );
-    final rebornGroups = (rebornSearch['groups'] as List).cast<Map>();
-    final rebornOrigins = rebornGroups.firstWhere(
-      (group) => group['type'] == 'origin',
-    );
-    final rebornWorlds = rebornGroups.firstWhere(
-      (group) => group['type'] == 'world',
-    );
+    final rebornSearch = await api.v1.search.search(query: '重生', pn: 1, rn: 20);
+    final rebornOrigins = rebornSearch['origins'] as Map;
+    final rebornWorlds = rebornSearch['worlds'] as Map;
     expect(rebornOrigins['total'], greaterThan(0));
     expect(rebornOrigins['list'] as List, isNotEmpty);
     expect(rebornWorlds['total'], greaterThan(0));
@@ -452,21 +446,16 @@ void main() {
       pn: 1,
       rn: 20,
     );
-    final userSearchGroup = (userSearch['groups'] as List)
-        .cast<Map>()
-        .firstWhere((group) => group['type'] == 'user');
+    final userSearchGroup = userSearch['users'] as Map;
     expect(userSearchGroup['total'], greaterThan(0));
     expect(userSearchGroup['list'] as List, isNotEmpty);
 
-    final searchAllPage1 = await api.v1.search.search(
-      query: '',
-      type: 'all',
-      pn: 1,
-      rn: 20,
-    );
-    final searchAllGroups = searchAllPage1['groups'] as List;
-    for (final rawGroup in searchAllGroups) {
-      final group = rawGroup as Map;
+    final searchAllPage1 = await api.v1.search.search(query: '', pn: 1, rn: 20);
+    for (final group in [
+      searchAllPage1['origins'] as Map,
+      searchAllPage1['worlds'] as Map,
+      searchAllPage1['users'] as Map,
+    ]) {
       expect(group['total'], greaterThanOrEqualTo(50));
       expect(group['list'] as List, hasLength(20));
     }
@@ -476,12 +465,8 @@ void main() {
       pn: 2,
       rn: 20,
     );
-    final userGroup = (searchUserPage2['groups'] as List)
-        .cast<Map>()
-        .firstWhere((group) => group['type'] == 'user');
-    final originGroup = (searchUserPage2['groups'] as List)
-        .cast<Map>()
-        .firstWhere((group) => group['type'] == 'origin');
+    final userGroup = searchUserPage2['users'] as Map;
+    final originGroup = searchUserPage2['origins'] as Map;
     expect(userGroup['total'], greaterThanOrEqualTo(50));
     expect(userGroup['list'] as List, hasLength(20));
     expect(originGroup['total'], 0);

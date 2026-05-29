@@ -68,7 +68,10 @@ class _PointListItem extends StatelessWidget {
                   if (point.users.isNotEmpty)
                     _PointCharacterGroups(users: point.users),
                   const SizedBox(height: 4),
-                  _PointSummaryRow(description: point.description),
+                  _PointSummaryRow(
+                    summary: point.description,
+                    description: point.locationDescription,
+                  ),
                 ],
               ),
             ),
@@ -147,15 +150,17 @@ class _PointCharacterGroupRow extends StatelessWidget {
 }
 
 class _PointSummaryRow extends StatelessWidget {
-  const _PointSummaryRow({required this.description});
+  const _PointSummaryRow({required this.summary, required this.description});
 
+  final String summary;
   final String description;
 
   @override
   Widget build(BuildContext context) {
-    final summary = description.isEmpty
+    final displayText = summary.isEmpty ? description : summary;
+    final text = displayText.isEmpty
         ? 'Explore this location and its stories.'
-        : description;
+        : displayText;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -166,7 +171,7 @@ class _PointSummaryRow extends StatelessWidget {
         const SizedBox(width: 4),
         Expanded(
           child: Text(
-            summary,
+            text,
             style: const TextStyle(
               fontSize: 12,
               height: 1.25,

@@ -4,16 +4,16 @@ import 'v1_api_resource.dart';
 class MessagesV1Api extends V1ApiResource {
   const MessagesV1Api(super.client);
 
-  /// GET /api/v1/messages/unread-summary
+  /// GET /api/v1/message/unread
   ///
   /// 提交参数: 无
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"system_unread":0,"follower_unread":0,"comment_unread":0,"dm_unread":0,"total_unread":0}}
+  /// {"err_no":0,"err_msg":"succ","data":{"total_unread":12,"world_apply_unread":2,"follow_unread":3,"interaction_unread":4,"direct_message_unread":3}}
   /// ```
   Future<UnreadSummary> unreadSummary() async {
-    return UnreadSummary.fromJson(await getMap('messages/unread-summary'));
+    return UnreadSummary.fromJson(await getMap('message/unread'));
   }
 
   /// GET /api/v1/messages/notifications

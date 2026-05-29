@@ -1,5 +1,34 @@
 import 'package:flutter/material.dart';
 
+class WorldDetailsPanel extends StatelessWidget {
+  const WorldDetailsPanel({
+    super.key,
+    required this.slivers,
+    this.exposedChildSize = 0.31,
+    this.topGap = 0,
+    this.collapsedHeightOffset = 15,
+  });
+
+  final double exposedChildSize;
+  final List<Widget> slivers;
+  final double topGap;
+  final double collapsedHeightOffset;
+
+  @override
+  Widget build(BuildContext context) {
+    return WorldDetailsShell(
+      topGap: topGap,
+      minChildSize: exposedChildSize,
+      initialChildSize: exposedChildSize,
+      collapsedHeightOffset: collapsedHeightOffset,
+      contentBuilder: (scrollController) => WorldDetailsScrollContent(
+        controller: scrollController,
+        slivers: slivers,
+      ),
+    );
+  }
+}
+
 class WorldDetailsShell extends StatelessWidget {
   const WorldDetailsShell({
     super.key,
@@ -57,5 +86,21 @@ class WorldDetailsShell extends StatelessWidget {
     if (collapsedHeightOffset <= 0 || height <= 0) return size;
     final adjustedHeight = size * height - collapsedHeightOffset;
     return (adjustedHeight / height).clamp(0.0, 1.0).toDouble();
+  }
+}
+
+class WorldDetailsScrollContent extends StatelessWidget {
+  const WorldDetailsScrollContent({
+    super.key,
+    required this.controller,
+    required this.slivers,
+  });
+
+  final ScrollController controller;
+  final List<Widget> slivers;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(controller: controller, slivers: slivers);
   }
 }

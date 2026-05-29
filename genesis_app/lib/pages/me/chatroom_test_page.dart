@@ -473,6 +473,10 @@ String _describeEvent(ChatroomEvent event) {
       'ack: message=${e.messageId}, round=${e.conversationRoundId}',
     ChatroomUserMessage e =>
       'user_message: message=${e.messageId}, round=${e.conversationRoundId}',
+    ChatroomCharacterMessage e =>
+      'character_message: message=${e.messageId}, round=${e.conversationRoundId}',
+    ChatroomNarratorMessage e =>
+      'narrator_message: message=${e.messageId}, round=${e.conversationRoundId}',
     ChatroomAiStreamStart e =>
       'ai_stream_start: message=${e.messageId}, round=${e.conversationRoundId}',
     ChatroomAiStreamChunk e =>
@@ -481,6 +485,13 @@ String _describeEvent(ChatroomEvent event) {
       'ai_stream_end: message=${e.messageId}, round=${e.conversationRoundId}',
     ChatroomQueuePosition e =>
       'queue_position: round=${e.conversationRoundId}, position=${e.position}',
+    ChatroomLeaved e => 'leaved: session=${e.sessionId}',
+    ChatroomKicked e => 'kicked: ${e.codeMsg}',
+    ChatroomDisconnected() => 'disconnected',
+    ChatroomInputBlocked e => 'input_blocked: ${e.codeMsg}',
+    ChatroomInputReady e => 'input_ready: ${e.codeMsg}',
+    ChatroomWorldNotification e =>
+      'world_notification: ${e.eventType}, ${e.title}',
     ChatroomErrorEvent e => _describeError(e),
   };
 }

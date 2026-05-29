@@ -167,7 +167,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       return const _WorldListPage(items: <WorldListItem>[], total: 0);
     }
     final data = await services.api.v1.world.list(
-      uid: uid,
+      ownerUid: uid,
       pn: page,
       rn: _pageSize,
     );

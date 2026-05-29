@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
@@ -44,6 +46,7 @@ class _FollowsPageState extends State<FollowsPage>
       vsync: this,
       initialIndex: widget.initialIndex.clamp(0, 1),
     );
+    unawaited(_loadCachedTotals());
     _followingFuture = _loadUsers(_FollowListType.following);
     _followersFuture = _loadUsers(_FollowListType.followers);
     if (_cleanTitle(widget.initialTitle) == null) {
@@ -55,6 +58,28 @@ class _FollowsPageState extends State<FollowsPage>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCachedTotals() async {
+    final uid = widget.uid.trim();
+    if (uid.isEmpty) return;
+    final sessionStore = AppServicesScope.read(context).sessionStore;
+    final cachedUser = await sessionStore.readUserInfo();
+    if (cachedUser == null || cachedUser.isEmpty) return;
+
+    final localUid = (await sessionStore.readUid())?.trim() ?? '';
+    final cachedUid = _mapString(cachedUser, 'uid') ?? '';
+    final matchesCurrentUser =
+        (localUid.isNotEmpty && localUid == uid) ||
+        (cachedUid.isNotEmpty && cachedUid == uid);
+    if (!matchesCurrentUser || !mounted) return;
+
+    setState(() {
+      _followingTotal =
+          _mapIntOrNull(cachedUser, 'following_cnt') ?? _followingTotal;
+      _followersTotal =
+          _mapIntOrNull(cachedUser, 'follower_cnt') ?? _followersTotal;
+    });
   }
 
   Future<void> _loadTitle() async {
@@ -476,11 +501,15 @@ String? _mapString(Map<dynamic, dynamic> map, String key) {
 }
 
 int _mapInt(Map<dynamic, dynamic> map, String key, {required int fallback}) {
+  return _mapIntOrNull(map, key) ?? fallback;
+}
+
+int? _mapIntOrNull(Map<dynamic, dynamic> map, String key) {
   final value = map[key];
   if (value is int) return value;
   if (value is num) return value.toInt();
-  if (value is String) return int.tryParse(value) ?? fallback;
-  return fallback;
+  if (value is String) return int.tryParse(value);
+  return null;
 }
 
 bool _mapBool(Map<dynamic, dynamic> map, String key) {

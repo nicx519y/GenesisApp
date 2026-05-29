@@ -15,6 +15,7 @@ class MainActivity : FlutterActivity() {
     private val channel = "com.genesis.ai/device"
     private val uidKey = "uid"
     private val authTokenKey = "auth_token"
+    private val userInfoKey = "user_info"
     private val prefsName = "genesis"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,12 +53,22 @@ class MainActivity : FlutterActivity() {
                     val prefs = getSharedPreferences(prefsName, Context.MODE_PRIVATE)
                     result.success(prefs.getString(authTokenKey, "") ?: "")
                 }
+                "setUserInfo" -> {
+                    val userInfo = call.argument<String>("userInfo") ?: ""
+                    val prefs = getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+                    prefs.edit().putString(userInfoKey, userInfo).apply()
+                    result.success(null)
+                }
+                "getUserInfo" -> {
+                    val prefs = getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+                    result.success(prefs.getString(userInfoKey, "") ?: "")
+                }
                 "getSignInDiagnostics" -> {
                     result.success(buildSignInDiagnostics())
                 }
                 "clearUid" -> {
                     val prefs = getSharedPreferences(prefsName, Context.MODE_PRIVATE)
-                    prefs.edit().remove(uidKey).remove(authTokenKey).apply()
+                    prefs.edit().remove(uidKey).remove(authTokenKey).remove(userInfoKey).apply()
                     result.success(null)
                 }
                 else -> result.notImplemented()

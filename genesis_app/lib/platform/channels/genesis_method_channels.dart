@@ -13,5 +13,7 @@ class GenesisMethodChannels {
   static const clearUid = 'clearUid';
   static const setAuthToken = 'setAuthToken';
   static const getAuthToken = 'getAuthToken';
+  static const setUserInfo = 'setUserInfo';
+  static const getUserInfo = 'getUserInfo';
   static const getSignInDiagnostics = 'getSignInDiagnostics';
 }

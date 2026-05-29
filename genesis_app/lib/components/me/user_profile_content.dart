@@ -326,6 +326,7 @@ class UserProfileData {
   UserProfileData copyWith({
     String? avatarUrl,
     String? displayName,
+    String? uid,
     int? followingCount,
     int? followerCount,
     bool? isSelf,
@@ -334,7 +335,7 @@ class UserProfileData {
     return UserProfileData(
       avatarUrl: avatarUrl ?? this.avatarUrl,
       displayName: displayName ?? this.displayName,
-      uid: uid,
+      uid: uid ?? this.uid,
       followingCount: followingCount ?? this.followingCount,
       followerCount: followerCount ?? this.followerCount,
       isSelf: isSelf ?? this.isSelf,

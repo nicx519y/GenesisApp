@@ -6,13 +6,13 @@ class AppConfig {
     this.assetBaseUrl = GenesisApi.defaultAssetBaseUrl,
     this.apiEnvironment = const String.fromEnvironment(
       'GENESIS_API_ENV',
-      defaultValue: 'auto',
+      defaultValue: 'real',
     ),
     this.chatroomWsBaseUrl = const String.fromEnvironment(
       'GENESIS_CHATROOM_WS_URL',
       defaultValue: GenesisApi.defaultChatroomWsBaseUrl,
     ),
-    this.chatroomHeartbeatInterval = const Duration(seconds: 30),
+    this.chatroomHeartbeatInterval = const Duration(seconds: 5),
     this.chatroomAckTimeout = const Duration(seconds: 12),
     bool? useMock,
   }) : _useMockOverride = useMock;

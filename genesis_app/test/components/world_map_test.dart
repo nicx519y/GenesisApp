@@ -274,6 +274,37 @@ void main() {
     );
   });
 
+  testWidgets('points list falls back to location description', (tester) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      showPointsList: true,
+      points: const [
+        WorldPoint(
+          id: 'summary',
+          name: 'Summary Point',
+          type: WorldPointType.portal,
+          position: _pointPosition,
+          users: [],
+          description: 'Preferred current summary.',
+          locationDescription: 'Older location description.',
+        ),
+        WorldPoint(
+          id: 'description',
+          name: 'Description Point',
+          type: WorldPointType.shop,
+          position: _pointPosition,
+          users: [],
+          locationDescription: 'Fallback location description.',
+        ),
+      ],
+    );
+
+    expect(find.text('Preferred current summary.'), findsOneWidget);
+    expect(find.text('Fallback location description.'), findsOneWidget);
+    expect(find.text('Older location description.'), findsNothing);
+  });
+
   testWidgets('world map preloads next-level location maps', (tester) async {
     await _pumpWorldMap(
       tester,

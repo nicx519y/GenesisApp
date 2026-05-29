@@ -24,10 +24,11 @@ import '../platform/session/method_channel_user_session_store.dart';
 import '../platform/session/user_session_store.dart';
 
 class GenesisApi {
-  static const String defaultBaseHost = 'http://47.77.195.140:5002';
+  static const String defaultBaseHost = 'https://dev.hushie.ai';
   static const String defaultApiBaseUrl = '$defaultBaseHost/api/';
   static const String defaultAssetBaseUrl = 'https://af.hushie.ai/html/';
-  static const String defaultChatroomWsBaseUrl = 'ws://47.77.195.140:5002/ws';
+  static const String defaultChatroomWsBaseUrl =
+      'ws://47.77.195.140:5002/aitown-chat/ws';
 
   GenesisApi({
     ApiClient? apiClient,
@@ -87,10 +88,7 @@ class GenesisApi {
   Future<Map<String, String>> _runtimeRequestHeaders() async {
     final headers = <String, String>{};
     final deviceId = await _readHeaderValue(_deviceIdService.getDeviceId);
-    if (deviceId != null) headers['x-device-id'] = deviceId;
-
-    final uid = await _readHeaderValue(_sessionStore.readUid);
-    if (uid != null) headers['x-user-id'] = uid;
+    if (deviceId != null) headers['device-id'] = deviceId;
 
     final authToken = await _readHeaderValue(_sessionStore.readAuthToken);
     if (authToken != null) {
@@ -345,6 +343,15 @@ class GenesisApi {
     if (user.uid.trim().isNotEmpty) {
       await _sessionStore.saveUid(user.uid);
     }
+    final cachedUserInfo = Map<String, dynamic>.from(userMap);
+    cachedUserInfo['uid'] = user.uid;
+    if (user.nickname.trim().isNotEmpty) {
+      cachedUserInfo.putIfAbsent('name', () => user.nickname);
+    }
+    if (user.avatar.trim().isNotEmpty) {
+      cachedUserInfo.putIfAbsent('avatar', () => user.avatar);
+    }
+    await _sessionStore.saveUserInfo(cachedUserInfo);
     final authToken = asString(
       map['token'],
       fallback: asString(map['access_token'], fallback: asString(map['jwt'])),
@@ -416,7 +423,7 @@ class GenesisApi {
   }) async {
     final resolvedUid = uid ?? await _ensureUid();
     final page = _pageFromOffset(limit: limit, offset: offset);
-    final map = await v1.world.list(uid: resolvedUid, pn: page, rn: limit);
+    final map = await v1.world.list(ownerUid: resolvedUid, pn: page, rn: limit);
     final worldsRaw = map['list'];
     return (worldsRaw is List ? asJsonList(worldsRaw) : const [])
         .map((item) => _myWorldSummaryFromV1ListItem(asJsonMap(item)))
@@ -827,12 +834,7 @@ HttpTransport? _resolveTransport({
   if (transport != null) return transport;
   const apiEnvironment = String.fromEnvironment('GENESIS_API_ENV');
   final environmentUseMock = _mockEnabledByApiEnvironment(apiEnvironment);
-  const forceRealApi = bool.fromEnvironment(
-    'GENESIS_USE_REAL_API',
-    defaultValue: false,
-  );
-  final enabled =
-      useMock ?? environmentUseMock ?? (kDebugMode && !forceRealApi);
+  final enabled = useMock ?? environmentUseMock ?? false;
   if (!enabled) return null;
   return LocalMockGenesisTransport.instance;
 }
@@ -1132,23 +1134,29 @@ Map<String, dynamic> _normalizeWorldLocation(Map<String, dynamic> location) {
       ? yPercentRaw.toDouble()
       : double.tryParse('$yPercentRaw') ?? 0;
 
+  final locationName = asString(
+    location['location_name'],
+    fallback: asString(location['name']),
+  );
+  final locationSummary = asString(
+    location['location_summary'],
+    fallback: asString(location['summary']),
+  );
+  final locationDescription = asString(
+    location['location_description'],
+    fallback: asString(location['description']),
+  );
+
   return {
     'location_id': locationId,
     'location_pid': parentLocationId,
     'point_id': pointId,
     'id': pointId,
-    'location_name': asString(
-      location['location_name'],
-      fallback: asString(location['name']),
-    ),
-    'name': asString(
-      location['location_name'],
-      fallback: asString(location['name']),
-    ),
-    'description': asString(
-      location['location_summary'],
-      fallback: asString(location['description']),
-    ),
+    'location_name': locationName,
+    'name': locationName,
+    'location_summary': locationSummary,
+    'location_description': locationDescription,
+    'description': locationSummary,
     'icon': asString(location['image']),
     'map_url': asString(location['map_url']),
     'x_percent': xPercent,
@@ -1324,6 +1332,9 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
             .toList(growable: false)
       : const <Map<String, dynamic>>[];
   final lastTick = ticks.isNotEmpty ? ticks.last : const <String, dynamic>{};
+  final lastTickResult = lastTick['tick_result'] is Map
+      ? asJsonMap(lastTick['tick_result'])
+      : const <String, dynamic>{};
 
   return WorldDetail(
     id: worldId,
@@ -1336,12 +1347,13 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
     characterCount: asInt(stats['character_cnt']),
     playerCount: asInt(stats['player_cnt']),
     lastProgressAt: _apiDateTime(
-      lastTick['created_at'] ??
+      lastTickResult['created_at'] ??
+          lastTick['created_at'] ??
           world['last_progress_at'] ??
           world['updated_at'],
     ),
     lastProgressUpdate: asString(
-      lastTick['content'],
+      lastTickResult['narrator'],
       fallback: asString(world['last_progress_summary']),
     ),
     isProgressing: asInt(world['status']) == 20,
@@ -1467,21 +1479,25 @@ Map<String, dynamic> _worldCharacterFromV1(Map<String, dynamic> raw) {
 }
 
 Map<String, dynamic> _worldTickFromV1(Map<String, dynamic> raw, int index) {
-  final paragraphsRaw = raw['paragraphs'];
+  final result = raw['tick_result'] is Map
+      ? asJsonMap(raw['tick_result'])
+      : raw;
+  final paragraphsRaw = result['paragraphs'];
   final paragraphs = paragraphsRaw is List
       ? asJsonList(
           paragraphsRaw,
         ).map((e) => asJsonMap(e)).toList(growable: false)
       : const <Map<String, dynamic>>[];
-  final createdAt = raw['created_at'] ?? raw['timestamp'];
+  final createdAt =
+      result['created_at'] ?? raw['created_at'] ?? raw['timestamp'];
   return {
     'tick_index': asInt(raw['tick_index'], fallback: index + 1),
     'created_at': createdAt,
-    'narrator': asString(
-      raw['narrator'],
-      fallback: asString(raw['content'], fallback: asString(raw['summary'])),
-    ),
-    'paragraphs': paragraphs,
+    'tick_result': {
+      'created_at': createdAt,
+      'narrator': asString(result['narrator']),
+      'paragraphs': paragraphs,
+    },
   };
 }
 

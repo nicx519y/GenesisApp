@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +9,7 @@ import '../../components/common/local_image_crop_page.dart';
 import '../../components/me/user_profile_content.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/origin.dart';
+import '../../platform/session/user_session_store.dart';
 import '../../utils/relative_time_formatter.dart';
 import 'settings_page.dart';
 
@@ -22,6 +25,7 @@ class MePage extends StatefulWidget {
 class _MePageState extends State<MePage> {
   late Future<UserProfileData> _future;
   bool _isUpdatingProfile = false;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
@@ -30,6 +34,8 @@ class _MePageState extends State<MePage> {
   }
 
   Future<UserProfileData> _loadData() async {
+    final generation = _loadGeneration + 1;
+    _loadGeneration = generation;
     final services = AppServicesScope.read(context);
     final api = services.api;
     final profile = services.identityAuth.currentProfile();
@@ -47,18 +53,23 @@ class _MePageState extends State<MePage> {
     var resolvedFollowingCount = 0;
     var resolvedFollowerCount = 0;
 
-    try {
-      final userInfo = await api.v1.user.info();
-      final user = userInfo['user'] is Map ? userInfo['user'] as Map : null;
-      final backendName = _mapString(user, 'name');
-      final backendAvatar = _mapString(user, 'avatar');
+    final cachedUser = await services.sessionStore.readUserInfo();
+    if (cachedUser != null) {
+      final backendName = _mapString(cachedUser, 'name');
+      final backendAvatar = _mapString(cachedUser, 'avatar');
       if (backendName.isNotEmpty) resolvedDisplayName = backendName;
       if (backendAvatar.isNotEmpty) {
         resolvedAvatarUrl = resolveAssetUrl(backendAvatar);
       }
-      resolvedFollowingCount = _mapInt(user, 'following_cnt');
-      resolvedFollowerCount = _mapInt(user, 'follower_cnt');
-    } catch (_) {}
+      resolvedFollowingCount = _mapInt(cachedUser, 'following_cnt');
+      resolvedFollowerCount = _mapInt(cachedUser, 'follower_cnt');
+    }
+
+    final remoteUserFuture = _fetchAndCacheUserInfo(
+      api,
+      services.sessionStore,
+      fallbackUid: uid,
+    );
 
     List<UserProfileOriginItem> origins = const [];
     try {
@@ -99,7 +110,7 @@ class _MePageState extends State<MePage> {
           .toList(growable: false);
     } catch (_) {}
 
-    return UserProfileData(
+    final data = UserProfileData(
       avatarUrl: resolvedAvatarUrl,
       displayName: resolvedDisplayName,
       uid: uid.isEmpty ? 'Unknown' : uid,
@@ -110,6 +121,69 @@ class _MePageState extends State<MePage> {
       origins: origins,
       worlds: worldItems,
     );
+    unawaited(
+      remoteUserFuture.then((remoteUser) {
+        _applyRemoteUserInfo(generation, data, remoteUser);
+      }),
+    );
+    return data;
+  }
+
+  Future<Map<String, dynamic>?> _fetchAndCacheUserInfo(
+    GenesisApi api,
+    UserSessionStore sessionStore, {
+    required String fallbackUid,
+  }) async {
+    try {
+      final userInfo = await api.v1.user.info();
+      final user = userInfo['user'] is Map
+          ? Map<String, dynamic>.from(userInfo['user'] as Map)
+          : null;
+      if (user == null || user.isEmpty) return null;
+      final uid = fallbackUid.trim();
+      if (uid.isNotEmpty) {
+        user.putIfAbsent('uid', () => uid);
+      }
+      final current = await sessionStore.readUserInfo();
+      final merged = <String, dynamic>{
+        if (current != null) ...current,
+        ...user,
+      };
+      await sessionStore.saveUserInfo(merged);
+      return merged;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _applyRemoteUserInfo(
+    int generation,
+    UserProfileData currentData,
+    Map<String, dynamic>? remoteUser,
+  ) {
+    if (remoteUser == null || !mounted || generation != _loadGeneration) return;
+    final backendName = _mapString(remoteUser, 'name');
+    final backendAvatar = _mapString(remoteUser, 'avatar');
+    final backendUid = _mapString(remoteUser, 'uid');
+    setState(() {
+      _future = Future<UserProfileData>.value(
+        currentData.copyWith(
+          avatarUrl: backendAvatar.isEmpty
+              ? currentData.avatarUrl
+              : resolveAssetUrl(backendAvatar),
+          displayName: backendName.isEmpty
+              ? currentData.displayName
+              : backendName,
+          uid: backendUid.isEmpty ? currentData.uid : backendUid,
+          followingCount:
+              _mapIntOrNull(remoteUser, 'following_cnt') ??
+              currentData.followingCount,
+          followerCount:
+              _mapIntOrNull(remoteUser, 'follower_cnt') ??
+              currentData.followerCount,
+        ),
+      );
+    });
   }
 
   Future<void> _refresh() async {
@@ -220,6 +294,7 @@ class _MePageState extends State<MePage> {
       final updatedUser = response['user'] is Map
           ? response['user'] as Map
           : response;
+      await _cacheUpdatedUserInfo(updatedUser);
       final updatedData = apply(updatedUser);
       if (!mounted) return;
       setState(() {
@@ -235,6 +310,21 @@ class _MePageState extends State<MePage> {
         context,
       ).showSnackBar(const SnackBar(content: Text('Update failed')));
     }
+  }
+
+  Future<void> _cacheUpdatedUserInfo(Map<dynamic, dynamic> updatedUser) async {
+    final services = AppServicesScope.read(context);
+    final current = await services.sessionStore.readUserInfo();
+    final merged = <String, dynamic>{
+      if (current != null) ...current,
+      for (final entry in updatedUser.entries)
+        if (entry.key is String) (entry.key as String): entry.value,
+    };
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (uid.isNotEmpty) {
+      merged.putIfAbsent('uid', () => uid);
+    }
+    await services.sessionStore.saveUserInfo(merged);
   }
 
   @override
@@ -375,9 +465,13 @@ String _mapString(
 }
 
 int _mapInt(Map<dynamic, dynamic>? map, String key) {
+  return _mapIntOrNull(map, key) ?? 0;
+}
+
+int? _mapIntOrNull(Map<dynamic, dynamic>? map, String key) {
   final value = map == null ? null : map[key];
   if (value is int) return value;
   if (value is num) return value.toInt();
-  if (value is String) return int.tryParse(value) ?? 0;
-  return 0;
+  if (value is String) return int.tryParse(value);
+  return null;
 }

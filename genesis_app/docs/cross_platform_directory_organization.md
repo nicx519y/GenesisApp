@@ -721,7 +721,7 @@ abstract interface class IdentityAuthService {
 }
 ```
 
-它只处理 Google/Firebase identity，不直接处理后端业务登录。
+它只处理平台 identity（Google/Apple/Firebase），不直接处理后端业务登录。
 
 #### `google_firebase_auth_service.dart`
 
@@ -737,7 +737,7 @@ abstract interface class IdentityAuthService {
 
 - 协调 identity auth 和后端 auth
 - 调用 `GenesisApi.hasAuthenticatedSession()`
-- 调用 `GenesisApi.loginWithGoogle(idToken: ...)`
+- 调用 `GenesisApi.loginWithIdentity(session)`，再由 HTTP 层走 `/api/v1/user/oauth/google` 或 `/api/v1/user/oauth/apple`
 - 调用 `UserSessionStore.saveUid/clearUid`
 
 页面只应调用 coordinator，不自己拼登录流程。

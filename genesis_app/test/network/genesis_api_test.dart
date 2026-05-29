@@ -61,7 +61,7 @@ GenesisApi _apiWith(
 
 void main() {
   test('AppConfig switches production and mock network environments', () {
-    expect(const AppConfig().useMock, isNull);
+    expect(const AppConfig().useMock, false);
     expect(const AppConfig(apiEnvironment: 'mock').useMock, true);
     expect(const AppConfig(apiEnvironment: 'production').useMock, false);
     expect(
@@ -201,9 +201,98 @@ void main() {
     expect(apiTransport.requests[0].uri.queryParameters['pn'], '2');
     expect(apiTransport.requests[0].uri.queryParameters['rn'], '10');
     expect(apiTransport.requests[1].uri.path, '/api/v1/world/list');
-    expect(apiTransport.requests[1].uri.queryParameters['uid'], 'u_2');
+    expect(apiTransport.requests[1].uri.queryParameters['owner_uid'], 'u_2');
+    expect(
+      apiTransport.requests[1].uri.queryParameters.containsKey('uid'),
+      false,
+    );
     expect(apiTransport.requests[1].uri.queryParameters['pn'], '2');
     expect(apiTransport.requests[1].uri.queryParameters['rn'], '10');
+  });
+
+  test('getWorld maps tick_result narrator paragraphs from detail', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'info': {
+              'world_id': 'w_1',
+              'world_name': 'World One',
+              'origin_id': 'o_1',
+              'owner_uid': 'u_1',
+              'owner_name': 'Tester',
+              'created_at': '2026-05-01T00:00:00Z',
+              'updated_at': '2026-05-02T00:00:00Z',
+              'status': 1,
+            },
+            'stats': {
+              'tick_cnt': 1,
+              'connect_cnt': 0,
+              'character_cnt': 0,
+              'player_cnt': 0,
+            },
+            'characters': const <Object?>[],
+            'locations': [
+              {
+                'location_id': 'loc_1',
+                'location_name': 'Gate',
+                'location_summary': '',
+                'location_description': 'Gate fallback description.',
+              },
+            ],
+            'ticks': [
+              {
+                'tick_index': 1,
+                'created_at': '2026-05-02T00:00:00Z',
+                'tick_result': {
+                  'narrator': 'Narrator from tick result.',
+                  'paragraphs': [
+                    {
+                      'location_id': 'loc_1',
+                      'text': 'Location paragraph text.',
+                      'character_details': [
+                        {'name': 'Iris Vale', 'delta': '+3 focus'},
+                      ],
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        }),
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    final world = await api.getWorld('w_1');
+    final location = world.worldLocations.single;
+    final tickResult = world.ticks.single['tick_result'] as Map;
+    final paragraph = (tickResult['paragraphs'] as List).single as Map;
+
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/world/detail');
+    expect(apiTransport.lastRequest!.uri.queryParameters['world_id'], 'w_1');
+    expect(location['location_summary'], '');
+    expect(location['location_description'], 'Gate fallback description.');
+    expect(location['description'], '');
+    expect(world.lastProgressUpdate, 'Narrator from tick result.');
+    expect(tickResult['narrator'], 'Narrator from tick result.');
+    expect(paragraph['location_id'], 'loc_1');
+    expect(paragraph['text'], 'Location paragraph text.');
+    expect((paragraph['character_details'] as List).single, {
+      'name': 'Iris Vale',
+      'delta': '+3 focus',
+    });
   });
 
   test('launchWorld uses POST /worlds/launch with new body', () async {
@@ -363,39 +452,55 @@ void main() {
     );
   });
 
-  test(
-    'default client injects device user and authorization headers',
-    () async {
-      final apiTransport = _FakeTransport(
-        handler: (_) => const TransportResponse(
-          statusCode: 200,
-          headers: {'content-type': 'application/json'},
-          body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
-        ),
-      );
-      final sessionStore = MemoryUserSessionStore();
-      await sessionStore.saveUid('u_1');
-      await sessionStore.saveAuthToken('backend-token');
+  test('default client targets dev API base URL', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
+      ),
+    );
 
-      final api = GenesisApi(
-        transport: apiTransport,
-        useMock: false,
-        deviceIdService: const _TestDeviceIdService(),
-        sessionStore: sessionStore,
-      );
-      await api.getOrigins();
+    final api = GenesisApi(transport: apiTransport, useMock: false);
+    await api.getOrigins();
 
-      expect(
-        apiTransport.lastRequest!.headers['x-device-id'],
-        'test-device-id',
-      );
-      expect(apiTransport.lastRequest!.headers['x-user-id'], 'u_1');
-      expect(
-        apiTransport.lastRequest!.headers['authorization'],
-        'Bearer backend-token',
-      );
-    },
-  );
+    expect(
+      apiTransport.lastRequest!.uri.toString(),
+      'https://dev.hushie.ai/api/v1/origin/list?pn=1&rn=20',
+    );
+  });
+
+  test('default client injects device and authorization headers', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
+      ),
+    );
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_1');
+    await sessionStore.saveAuthToken('backend-token');
+
+    final api = GenesisApi(
+      transport: apiTransport,
+      useMock: false,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: sessionStore,
+    );
+    await api.getOrigins();
+
+    expect(apiTransport.lastRequest!.headers['device-id'], 'test-device-id');
+    expect(
+      apiTransport.lastRequest!.headers.containsKey('x-device-id'),
+      isFalse,
+    );
+    expect(apiTransport.lastRequest!.headers.containsKey('x-user-id'), isFalse);
+    expect(
+      apiTransport.lastRequest!.headers['authorization'],
+      'Bearer backend-token',
+    );
+  });
 
   test(
     'loginWithGoogle stores backend token for later default auth header',
@@ -438,6 +543,8 @@ void main() {
       );
       expect(await sessionStore.readUid(), 'u_2');
       expect(await sessionStore.readAuthToken(), 'backend-token');
+      expect(await sessionStore.readUserInfo(), containsPair('uid', 'u_2'));
+      expect(await sessionStore.readUserInfo(), containsPair('name', 'Neo'));
 
       await api.getOrigins();
       expect(
@@ -492,6 +599,7 @@ void main() {
 
     expect(await sessionStore.readUid(), 'apple_uid');
     expect(await sessionStore.readAuthToken(), 'apple-backend-token');
+    expect(await sessionStore.readUserInfo(), containsPair('uid', 'apple_uid'));
   });
 
   test(
@@ -537,6 +645,10 @@ void main() {
       expect(user.uid, 'firebase-uid');
       expect(await sessionStore.readUid(), 'firebase-uid');
       expect(await sessionStore.readAuthToken(), 'apple-backend-token');
+      expect(
+        await sessionStore.readUserInfo(),
+        containsPair('uid', 'firebase-uid'),
+      );
     },
   );
 
@@ -584,6 +696,7 @@ void main() {
       expect(identityAuth.signOutCount, 1);
       expect(await sessionStore.readUid(), isNull);
       expect(await sessionStore.readAuthToken(), isNull);
+      expect(await sessionStore.readUserInfo(), isNull);
     },
   );
 
@@ -619,6 +732,7 @@ void main() {
       expect(identityAuth.signOutCount, 1);
       expect(await sessionStore.readUid(), isNull);
       expect(await sessionStore.readAuthToken(), isNull);
+      expect(await sessionStore.readUserInfo(), isNull);
     },
   );
 

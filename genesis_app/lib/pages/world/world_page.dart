@@ -224,17 +224,14 @@ class _WorldPageState extends State<WorldPage>
               onPointTap: (point) => unawaited(_openChatForPoint(point)),
             ),
           ),
-          WorldDetailsShell(
-            topGap: 0,
-            minChildSize: 0.2,
-            initialChildSize: 0.2,
-            collapsedHeightOffset: 15,
-            contentBuilder: (scrollController) => _WorldFeedContent(
-              scrollController: scrollController,
-              world: world,
-              progressing: _progressing,
-              onProgress: _progress,
-            ),
+          WorldDetailsPanel(
+            slivers: [
+              _WorldFeedContent(
+                world: world,
+                progressing: _progressing,
+                onProgress: _progress,
+              ),
+            ],
           ),
         ],
       ),
@@ -244,13 +241,11 @@ class _WorldPageState extends State<WorldPage>
 
 class _WorldFeedContent extends StatefulWidget {
   const _WorldFeedContent({
-    required this.scrollController,
     required this.world,
     required this.progressing,
     required this.onProgress,
   });
 
-  final ScrollController scrollController;
   final WorldDetail world;
   final bool progressing;
   final Future<void> Function() onProgress;
@@ -263,6 +258,8 @@ class _WorldFeedContentState extends State<_WorldFeedContent>
     with SingleTickerProviderStateMixin {
   late final TabController _sectionController;
   int _selectedSection = 0;
+  var _currentUid = '';
+  var _currentUidRequested = false;
 
   @override
   void initState() {
@@ -285,11 +282,26 @@ class _WorldFeedContentState extends State<_WorldFeedContent>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_currentUidRequested) return;
+    _currentUidRequested = true;
+    unawaited(_loadCurrentUid());
+  }
+
+  Future<void> _loadCurrentUid() async {
+    final uid =
+        (await AppServicesScope.of(context).sessionStore.readUid())?.trim() ??
+        '';
+    if (!mounted || uid == _currentUid) return;
+    setState(() => _currentUid = uid);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
-    return CustomScrollView(
-      controller: widget.scrollController,
+    return SliverMainAxisGroup(
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.only(top: 12),
@@ -317,10 +329,16 @@ class _WorldFeedContentState extends State<_WorldFeedContent>
         switch (_selectedSection) {
           0 => _WorldEventsSection(world: widget.world),
           1 => SliverToBoxAdapter(
-            child: _WorldStatusSection(world: widget.world),
+            child: _WorldStatusSection(
+              world: widget.world,
+              currentUid: _currentUid,
+            ),
           ),
           _ => SliverToBoxAdapter(
-            child: _WorldCharactersSection(world: widget.world),
+            child: _WorldCharactersSection(
+              world: widget.world,
+              currentUid: _currentUid,
+            ),
           ),
         },
         SliverToBoxAdapter(child: SizedBox(height: 20 + bottomPadding)),
@@ -363,12 +381,12 @@ class _WorldInfoHeader extends StatelessWidget {
             const SizedBox(width: 38),
             Expanded(
               child: Text(
-                title,
+                '#$title',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 16,
-                  height: 1.15,
-                  fontWeight: FontWeight.w500,
+                  height: 1.25,
+                  fontWeight: FontWeight.w800,
                   color: Color(0xFF4B6192),
                 ),
                 maxLines: 2,
@@ -388,23 +406,20 @@ class _WorldInfoHeader extends StatelessWidget {
         const SizedBox(height: 12),
         Row(
           children: [
-            Flexible(
+            Expanded(
               child: _WidMetaText(
                 wid: wid,
                 onCopy: () => _copyWid(context, wid),
               ),
             ),
-            const Spacer(),
-            Flexible(
-              child: _OwnerMetaLink(
-                owner: owner,
-                onTap: ownerUid.isEmpty
-                    ? null
-                    : () => Navigator.of(context).pushNamed(
-                        RouteNames.userInfo,
-                        arguments: {'uid': ownerUid},
-                      ),
-              ),
+            _OwnerMetaLink(
+              owner: owner,
+              onTap: ownerUid.isEmpty
+                  ? null
+                  : () => Navigator.of(context).pushNamed(
+                      RouteNames.userInfo,
+                      arguments: {'uid': ownerUid},
+                    ),
             ),
           ],
         ),
@@ -628,14 +643,16 @@ class _WorldEventsSection extends StatelessWidget {
 }
 
 class _WorldStatusSection extends StatelessWidget {
-  const _WorldStatusSection({required this.world});
+  const _WorldStatusSection({required this.world, required this.currentUid});
 
   final WorldDetail world;
+  final String currentUid;
 
   @override
   Widget build(BuildContext context) {
     return _CharacterList(
       characters: world.characters,
+      currentUid: currentUid,
       emptyText: 'No character status yet.',
       subtitleBuilder: _metricPercentText,
     );
@@ -643,14 +660,19 @@ class _WorldStatusSection extends StatelessWidget {
 }
 
 class _WorldCharactersSection extends StatelessWidget {
-  const _WorldCharactersSection({required this.world});
+  const _WorldCharactersSection({
+    required this.world,
+    required this.currentUid,
+  });
 
   final WorldDetail world;
+  final String currentUid;
 
   @override
   Widget build(BuildContext context) {
     return _CharacterList(
       characters: world.characters,
+      currentUid: currentUid,
       emptyText: 'No characters yet.',
       subtitleBuilder: _characterDescriptionText,
     );
@@ -660,11 +682,13 @@ class _WorldCharactersSection extends StatelessWidget {
 class _CharacterList extends StatelessWidget {
   const _CharacterList({
     required this.characters,
+    required this.currentUid,
     required this.emptyText,
     required this.subtitleBuilder,
   });
 
   final List<Map<String, dynamic>> characters;
+  final String currentUid;
   final String emptyText;
   final String Function(Map<String, dynamic> character) subtitleBuilder;
 
@@ -680,6 +704,7 @@ class _CharacterList extends StatelessWidget {
         for (int i = 0; i < characters.length; i++) ...[
           _CharacterRow(
             character: characters[i],
+            currentUid: currentUid,
             subtitle: subtitleBuilder(characters[i]),
           ),
           if (i != characters.length - 1) const SizedBox(height: 22),
@@ -690,22 +715,27 @@ class _CharacterList extends StatelessWidget {
 }
 
 class _CharacterRow extends StatelessWidget {
-  const _CharacterRow({required this.character, required this.subtitle});
+  const _CharacterRow({
+    required this.character,
+    required this.currentUid,
+    required this.subtitle,
+  });
 
   final Map<String, dynamic> character;
+  final String currentUid;
   final String subtitle;
 
   @override
   Widget build(BuildContext context) {
     final name = _mapString(character, const ['name'], fallback: 'Character');
+    final playerUid = _mapString(character, const ['player_uid']);
+    final displayName =
+        currentUid.isNotEmpty && playerUid.isNotEmpty && playerUid == currentUid
+        ? '$name (Me)'
+        : name;
     final type = _mapString(character, const ['type']).toLowerCase();
     final isAi = type == 'ai';
-    final roleLabel = isAi
-        ? 'Character'
-        : _mapString(character, const [
-            'player_name',
-            'player_uid',
-          ], fallback: 'Player');
+    final roleLabel = isAi ? 'Character' : 'Player';
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -727,7 +757,7 @@ class _CharacterRow extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        name,
+                        displayName,
                         style: const TextStyle(
                           fontSize: 14,
                           height: 1.15,
@@ -960,7 +990,15 @@ List<WorldPoint> _pointsFromWorldLocations(
         ? pointId
         : (locationId.isNotEmpty ? locationId : '$i');
     final name = (l['name'] ?? '').toString();
-    final description = (l['description'] ?? '').toString();
+    final locationSummary = _mapString(l, const ['location_summary']);
+    final legacyDescription = _mapString(l, const ['description']);
+    final locationDescription = _mapString(l, const ['location_description']);
+    final description = locationSummary.isNotEmpty
+        ? locationSummary
+        : (locationDescription.isEmpty ? legacyDescription : '');
+    final descriptionFallback = locationDescription.isNotEmpty
+        ? locationDescription
+        : legacyDescription;
     final icon = _resolveAssetUrl((l['icon'] ?? '').toString());
 
     final rawXP = l['x_percent'] ?? l['xPercent'];
@@ -1017,6 +1055,7 @@ List<WorldPoint> _pointsFromWorldLocations(
       pointId: pointId,
       iconUrl: icon,
       description: description,
+      locationDescription: descriptionFallback,
       depth: depths == null || i >= depths.length ? 0 : depths[i],
       isLeafLocation: isLeafLocations == null || i >= isLeafLocations.length
           ? true

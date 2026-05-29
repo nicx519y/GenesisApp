@@ -44,20 +44,24 @@ void main() {
                 requestedDiscussOid = oid;
                 return <OriginDiscussPreviewItem>[
                   OriginDiscussPreviewItem(
+                    discussId: 'dis_1',
                     authorName: 'Shawn',
                     avatar: '',
                     content: '24 replies pushed the story into a new branch.',
                     replyCount: 36,
                     createdAt: DateTime(2026, 2, 9),
                     seed: 'u_shawn',
+                    latestReplies: const <Map<String, dynamic>>[],
                   ),
                   OriginDiscussPreviewItem(
+                    discussId: 'dis_2',
                     authorName: 'kmev',
                     avatar: '',
                     content: 'The new sibling route is working nicely.',
                     replyCount: 87,
                     createdAt: DateTime(2026, 3, 10),
                     seed: 'u_kmev',
+                    latestReplies: const <Map<String, dynamic>>[],
                   ),
                 ];
               },

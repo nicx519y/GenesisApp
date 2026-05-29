@@ -22,15 +22,17 @@ class WorldTickEventItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final createdAt = _tickDateTime(tick['created_at']);
+    final tickResult = _tickResult(tick);
+    final hasTickResult = tick['tick_result'] is Map;
+    final createdAt = _tickDateTime(
+      tickResult['created_at'] ?? tick['created_at'],
+    );
     final date = dateLabel ?? _formatShortDate(createdAt);
     final timeAgo = timeAgoLabel ?? _relativeTime(createdAt);
-    final body = _mapString(tick, const [
+    final body = _mapString(tickResult, const [
       'narrator',
-      'content',
-      'summary',
-    ], fallback: fallbackBody);
-    final paragraphs = _tickParagraphs(tick);
+    ], fallback: hasTickResult ? '' : fallbackBody);
+    final paragraphs = _tickParagraphs(tickResult);
 
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
@@ -44,7 +46,6 @@ class WorldTickEventItem extends StatelessWidget {
           for (final paragraph in paragraphs) ...[
             _TickParagraphRow(
               paragraph: paragraph,
-              fallbackDate: date,
               locationsById: locationsById,
             ),
             const SizedBox(height: 6),
@@ -147,7 +148,7 @@ class _GlobalEventCard extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 12,
                 height: 1.6,
-                fontWeight: FontWeight.w300,
+                fontWeight: FontWeight.w400,
                 color: Color(0xFF3B3B3B),
               ),
             ),
@@ -161,34 +162,23 @@ class _GlobalEventCard extends StatelessWidget {
 class _TickParagraphRow extends StatelessWidget {
   const _TickParagraphRow({
     required this.paragraph,
-    required this.fallbackDate,
     required this.locationsById,
   });
 
   final Map<String, dynamic> paragraph;
-  final String fallbackDate;
   final Map<String, Map<String, dynamic>> locationsById;
 
   @override
   Widget build(BuildContext context) {
     final locationId = _mapString(paragraph, const ['location_id']);
-    final location = locationsById[locationId];
-    final mappedName = location == null
-        ? ''
-        : _mapString(location, const ['location_name', 'name']);
-    final name = _mapString(paragraph, const [
-      'location_name',
-      'name',
-      'label',
-      'scene',
-    ], fallback: mappedName.isEmpty ? locationId : mappedName);
-    final date = _paragraphDateLabel(paragraph);
+    final mappedName = _locationName(locationId, locationsById);
+    final name = mappedName.isEmpty
+        ? _mapString(paragraph, const ['label'], fallback: locationId)
+        : mappedName;
     final body = _mapString(paragraph, const [
       'text',
-      'content',
-      'summary',
-      'description',
-    ]);
+    ], fallback: _mapString(paragraph, const ['content', 'summary']));
+    final characterDetails = _characterDetails(paragraph);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -211,27 +201,27 @@ class _TickParagraphRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if ((date.isEmpty ? fallbackDate : date).isNotEmpty) ...[
-                  Text(
-                    date.isEmpty ? fallbackDate : date,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      height: 1.6,
-                      fontWeight: FontWeight.w300,
-                      color: Color(0xFF9A9A9A),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                ],
                 Text(
                   body,
                   style: const TextStyle(
                     fontSize: 12,
                     height: 1.6,
-                    fontWeight: FontWeight.w300,
+                    fontWeight: FontWeight.w400,
                     color: Color(0xFF3B3B3B),
                   ),
                 ),
+                if (characterDetails.isNotEmpty) ...[
+                  const SizedBox(height: 19.2),
+                  Text(
+                    characterDetails,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.6,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF3B3B3B),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -244,15 +234,6 @@ class _TickParagraphRow extends StatelessWidget {
 String _formatShortDate(DateTime? value) {
   if (value == null) return '';
   return value.toLocal().toIso8601String().split('T').first;
-}
-
-String _paragraphDateLabel(Map<String, dynamic> paragraph) {
-  final raw = paragraph['timestamp'] ?? paragraph['created_at'];
-  final parsed = _tickDateTime(raw);
-  if (parsed != null) return _formatShortDate(parsed);
-  final text = '$raw'.trim();
-  if (text.isEmpty || text == 'null') return '';
-  return text;
 }
 
 String _relativeTime(DateTime? value) {
@@ -285,6 +266,37 @@ List<Map<String, dynamic>> _tickParagraphs(Map<String, dynamic> tick) {
       .whereType<Map>()
       .map((item) => item.cast<String, dynamic>())
       .toList(growable: false);
+}
+
+Map<String, dynamic> _tickResult(Map<String, dynamic> tick) {
+  final raw = tick['tick_result'];
+  if (raw is Map) return raw.cast<String, dynamic>();
+  return tick;
+}
+
+String _locationName(
+  String locationId,
+  Map<String, Map<String, dynamic>> locationsById,
+) {
+  final location = locationsById[locationId];
+  if (location == null) return '';
+  return _mapString(location, const ['location_name', 'name']);
+}
+
+String _characterDetails(Map<String, dynamic> paragraph) {
+  final raw = paragraph['character_details'] ?? paragraph['character_deltas'];
+  if (raw is! List) return '';
+  final lines = raw
+      .whereType<Map>()
+      .map((item) {
+        final detail = item.cast<String, dynamic>();
+        final name = _mapString(detail, const ['name']);
+        final delta = _mapString(detail, const ['delta']);
+        return [name, delta].where((part) => part.isNotEmpty).join(' ');
+      })
+      .where((line) => line.isNotEmpty)
+      .toList(growable: false);
+  return lines.join('\n');
 }
 
 int _mapInt(Map<String, dynamic> map, List<String> keys, {int fallback = 0}) {

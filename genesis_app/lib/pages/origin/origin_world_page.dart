@@ -1,8 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../components/discuss/discuss_post_input.dart';
-import '../../components/discuss/origin_discuss_preview_list.dart';
+import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/world_map.dart';
 import '../../components/world_map_stage.dart';
@@ -32,6 +34,7 @@ class OriginWorldPage extends StatefulWidget {
 class _OriginWorldPageState extends State<OriginWorldPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  late final OriginDiscussListController _discussController;
   Future<OriginDetail>? _future;
   bool _launching = false;
 
@@ -39,26 +42,58 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _discussController = OriginDiscussListController();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _future ??= AppServicesScope.read(context).api.getOrigin(widget.oid);
+    _future ??= _loadOriginDetail();
+  }
+
+  @override
+  void didUpdateWidget(covariant OriginWorldPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.oid != widget.oid) {
+      _future = _loadOriginDetail();
+    }
   }
 
   @override
   void reassemble() {
     super.reassemble();
     setState(() {
-      _future = AppServicesScope.read(context).api.getOrigin(widget.oid);
+      _future = _loadOriginDetail();
     });
   }
 
   @override
   void dispose() {
+    _discussController.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<OriginDetail> _loadOriginDetail() {
+    final api = AppServicesScope.read(context).api;
+    final future = api.getOrigin(widget.oid);
+    future.then((origin) {
+      if (!mounted) return;
+      _configureDiscuss(origin.oid);
+      unawaited(_discussController.loadInitialIfNeeded());
+    }, onError: (_) {});
+    return future;
+  }
+
+  void _configureDiscuss(String oid) {
+    final api = AppServicesScope.read(context).api;
+    _discussController.configure(
+      oid: oid,
+      loader: ({required String oid, required int pn, required int rn}) async {
+        final data = await api.v1.discuss.list(bizId: oid, pn: pn, rn: rn);
+        return OriginDiscussPage.fromJson(data);
+      },
+    );
   }
 
   void _showMapTab() {
@@ -120,9 +155,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                   const SizedBox(height: 10),
                   FilledButton(
                     onPressed: () => setState(() {
-                      _future = AppServicesScope.of(
-                        context,
-                      ).api.getOrigin(widget.oid);
+                      _future = _loadOriginDetail();
                     }),
                     child: const Text('Retry'),
                   ),
@@ -199,15 +232,13 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                   onDrillIntoLocation: _showMapTab,
                 ),
               ),
-              WorldDetailsShell(
-                topGap: 0,
-                minChildSize: 0.31,
-                initialChildSize: 0.31,
-                collapsedHeightOffset: 15,
-                contentBuilder: (scrollController) => _WorldDetailsContent(
-                  scrollController: scrollController,
-                  origin: origin,
-                ),
+              WorldDetailsPanel(
+                slivers: [
+                  _WorldDetailsContent(
+                    origin: origin,
+                    discussController: _discussController,
+                  ),
+                ],
               ),
               Positioned(
                 left: 0,
@@ -229,40 +260,41 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
 class _WorldDetailsContent extends StatelessWidget {
   const _WorldDetailsContent({
-    required this.scrollController,
     required this.origin,
+    required this.discussController,
   });
 
-  final ScrollController scrollController;
   final OriginDetail origin;
+  final OriginDiscussListController discussController;
 
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
-    return ListView(
-      controller: scrollController,
+    return SliverPadding(
       padding: EdgeInsets.only(
         bottom: 126 + bottomPadding,
         top: 12,
         right: 0,
         left: 0,
       ),
-      children: [
-        _OriginHeader(origin: origin),
-        const SizedBox(height: 22),
-        _WorldViewSection(origin: origin),
-        const SizedBox(height: 26),
-        _LaunchPreviewSection(origin: origin),
-        const SizedBox(height: 28),
-        const _CopyWorldProgressSection(),
-        const SizedBox(height: 18),
-        _DiscussSection(origin: origin),
-        const SizedBox(height: 24),
-        const Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
-        const SizedBox(height: 24),
-        _OriginCharactersSection(characters: origin.characters),
-      ],
+      sliver: SliverList.list(
+        children: [
+          _OriginHeader(origin: origin),
+          const SizedBox(height: 22),
+          _WorldViewSection(origin: origin),
+          const SizedBox(height: 26),
+          _LaunchPreviewSection(origin: origin),
+          const SizedBox(height: 28),
+          const _CopyWorldProgressSection(),
+          const SizedBox(height: 18),
+          _DiscussSection(origin: origin, controller: discussController),
+          const SizedBox(height: 24),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
+          const SizedBox(height: 24),
+          _OriginCharactersSection(characters: origin.characters),
+        ],
+      ),
     );
   }
 }
@@ -406,7 +438,7 @@ class _OriginHeader extends StatelessWidget {
               fontSize: 16,
               height: 1.25,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF53699E),
+              color: Color(0xFF4B6192),
             ),
           ),
         ),
@@ -625,25 +657,14 @@ class _CopyWorldProgressSection extends StatelessWidget {
   }
 }
 
-class _DiscussSection extends StatefulWidget {
-  const _DiscussSection({required this.origin});
+class _DiscussSection extends StatelessWidget {
+  const _DiscussSection({required this.origin, required this.controller});
 
   final OriginDetail origin;
-
-  @override
-  State<_DiscussSection> createState() => _DiscussSectionState();
-}
-
-class _DiscussSectionState extends State<_DiscussSection> {
-  int _reloadSerial = 0;
-
-  void _refreshDiscussPreview() {
-    setState(() => _reloadSerial += 1);
-  }
+  final OriginDiscussListController controller;
 
   @override
   Widget build(BuildContext context) {
-    final origin = widget.origin;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -655,27 +676,13 @@ class _DiscussSectionState extends State<_DiscussSection> {
         const SizedBox(height: 14),
         DiscussPostInput(
           bizId: origin.oid,
-          onSubmitted: _refreshDiscussPreview,
+          onSubmitted: () => unawaited(controller.refreshFirstPage()),
         ),
         const SizedBox(height: 14),
-        OriginDiscussPreviewList(
-          key: ValueKey('origin-discuss-preview-${origin.oid}-$_reloadSerial'),
-          oid: origin.oid,
+        OriginDiscussList(
+          controller: controller,
           count: origin.discussCount,
           showHeader: false,
-        ),
-        const SizedBox(height: 12),
-        const Align(
-          alignment: Alignment.center,
-          child: Text(
-            'View More >',
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.2,
-              fontWeight: FontWeight.w400,
-              color: Color(0xFF888888),
-            ),
-          ),
         ),
       ],
     );
@@ -821,7 +828,7 @@ class _SectionTitle extends StatelessWidget {
 const _bodyTextStyle = TextStyle(
   fontSize: 12,
   height: 1.45,
-  fontWeight: FontWeight.w500,
+  fontWeight: FontWeight.w400,
   color: Color(0xFF3C3C3C),
 );
 

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import '../channels/genesis_method_channels.dart';
@@ -53,6 +54,35 @@ class NativeUserSessionStore implements UserSessionStore {
     await GenesisMethodChannels.device.invokeMethod<void>(
       GenesisMethodChannels.setAuthToken,
       {'token': value},
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>?> readUserInfo() async {
+    if (!_supportsNativeSessionStore) return _fallback.readUserInfo();
+    final json = await GenesisMethodChannels.device.invokeMethod<String>(
+      GenesisMethodChannels.getUserInfo,
+    );
+    final value = (json ?? '').trim();
+    if (value.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  @override
+  Future<void> saveUserInfo(Map<String, dynamic> userInfo) async {
+    if (userInfo.isEmpty) return;
+    final value = Map<String, dynamic>.from(userInfo);
+    await _fallback.saveUserInfo(value);
+    if (!_supportsNativeSessionStore) return;
+    await GenesisMethodChannels.device.invokeMethod<void>(
+      GenesisMethodChannels.setUserInfo,
+      {'userInfo': jsonEncode(value)},
     );
   }
 

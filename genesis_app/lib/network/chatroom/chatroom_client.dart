@@ -10,7 +10,7 @@ class ChatroomClient {
     required String wsBaseUrl,
     required UserSessionStore sessionStore,
     ChatroomSocketTransport? transport,
-    Duration heartbeatInterval = const Duration(seconds: 30),
+    Duration heartbeatInterval = const Duration(seconds: 5),
     Duration ackTimeout = const Duration(seconds: 12),
   }) : _wsBaseUri = Uri.parse(wsBaseUrl),
        _sessionStore = sessionStore,
@@ -25,35 +25,43 @@ class ChatroomClient {
   final Duration _ackTimeout;
 
   Future<ChatroomSession> connect({
-    required String worldInstanceId,
+    String? worldId,
+    String? worldInstanceId,
     required String locationId,
     String? userId,
-    required String senderId,
-    required String senderName,
+    String? senderId,
+    String? senderName,
   }) async {
+    final resolvedWorldId = (worldId ?? worldInstanceId)?.trim();
+    if (resolvedWorldId == null || resolvedWorldId.isEmpty) {
+      throw const ChatroomProtocolException('worldId is required');
+    }
     final resolvedUserId = (userId ?? await _sessionStore.readUid())?.trim();
     if (resolvedUserId == null || resolvedUserId.isEmpty) {
       throw const ChatroomProtocolException('userId is required');
     }
 
-    final uri = _resolveUri(
-      worldInstanceId: worldInstanceId,
-      locationId: locationId,
+    final authToken = (await _sessionStore.readAuthToken())?.trim();
+    final uri = _resolveUri(worldId: resolvedWorldId);
+    final socket = await _transport.connect(
+      uri,
+      headers: authToken == null || authToken.isEmpty
+          ? null
+          : <String, String>{
+              'Authorization': authToken.toLowerCase().startsWith('bearer ')
+                  ? authToken
+                  : 'Bearer $authToken',
+            },
     );
-    final socket = await _transport.connect(uri);
     final session = ChatroomSession._(
       socket: socket,
-      worldInstanceId: worldInstanceId,
+      worldInstanceId: resolvedWorldId,
       locationId: locationId,
       heartbeatInterval: _heartbeatInterval,
       ackTimeout: _ackTimeout,
     );
     try {
-      await session._join(
-        userId: resolvedUserId,
-        senderId: senderId,
-        senderName: senderName,
-      );
+      await session._join();
     } catch (_) {
       await session.close();
       rethrow;
@@ -61,18 +69,14 @@ class ChatroomClient {
     return session;
   }
 
-  Uri _resolveUri({
-    required String worldInstanceId,
-    required String locationId,
-  }) {
+  Uri _resolveUri({required String worldId}) {
     final base = _wsBaseUri;
-    final path = base.path.trim().isEmpty ? '/ws' : base.path;
+    final path = base.path.trim().isEmpty ? '/aitown-chat/ws' : base.path;
     return base.replace(
       path: path,
       queryParameters: <String, String>{
         ...base.queryParameters,
-        'world_instance_id': worldInstanceId,
-        'location_id': locationId,
+        'world_id': worldId,
       },
     );
   }
@@ -120,35 +124,40 @@ class ChatroomSession {
 
   ChatroomJoined? get joined => _joined;
 
-  Future<ChatroomAck> sendMessage(String text, {String? clientMsgId}) async {
+  Future<ChatroomAck> sendMessage(
+    String text, {
+    String? clientUuid,
+    String? clientMsgId,
+  }) async {
     _throwIfClosed();
     final trimmed = text.trim();
     if (trimmed.isEmpty) {
       throw const ChatroomProtocolException('Message text is required');
     }
-    final resolvedClientMsgId = clientMsgId ?? _newClientMessageId();
+    final resolvedClientUuid =
+        clientUuid ?? clientMsgId ?? _newClientMessageId();
     final completer = Completer<ChatroomAck>();
     final timer = Timer(_ackTimeout, () {
-      final pending = _pendingAcks.remove(resolvedClientMsgId);
+      final pending = _pendingAcks.remove(resolvedClientUuid);
       if (pending != null && !pending.completer.isCompleted) {
         final error = ChatroomErrorEvent(
           code: 'ack_timeout',
           message: 'Timed out waiting for message ack',
-          cause: resolvedClientMsgId,
+          cause: resolvedClientUuid,
         );
         _emitError(error);
         pending.completer.completeError(error);
       }
     });
-    _pendingAcks[resolvedClientMsgId] = _PendingAck(completer, timer);
+    _pendingAcks[resolvedClientUuid] = _PendingAck(completer, timer);
 
     try {
       await _sendEnvelope('send_message', <String, Object?>{
         'text': trimmed,
-        'client_msg_id': resolvedClientMsgId,
+        'client_uuid': resolvedClientUuid,
       });
     } catch (e) {
-      final pending = _pendingAcks.remove(resolvedClientMsgId);
+      final pending = _pendingAcks.remove(resolvedClientUuid);
       pending?.cancel();
       rethrow;
     }
@@ -170,11 +179,7 @@ class ChatroomSession {
     await _socket.close();
   }
 
-  Future<void> _join({
-    required String userId,
-    required String senderId,
-    required String senderName,
-  }) async {
+  Future<void> _join() async {
     final joinedCompleter = Completer<ChatroomJoined>();
     late final StreamSubscription<ChatroomEvent> joinedSubscription;
     joinedSubscription = events.listen((event) {
@@ -183,11 +188,7 @@ class ChatroomSession {
       }
     });
 
-    await _sendEnvelope('join', <String, Object?>{
-      'user_id': userId,
-      'sender_id': senderId,
-      'sender_name': senderName,
-    });
+    await _sendEnvelope('join', <String, Object?>{'location_id': locationId});
 
     try {
       final joined = await joinedCompleter.future.timeout(_ackTimeout);
@@ -229,16 +230,26 @@ class ChatroomSession {
 
   void _dispatchEvent(ChatroomEvent event) {
     if (event is ChatroomAck) {
-      final pending = _pendingAcks.remove(event.clientMsgId);
+      final pending = event.clientUuid.isEmpty
+          ? _removeOldestPendingAck()
+          : _pendingAcks.remove(event.clientUuid);
       pending?.complete(event);
     } else if (event is ChatroomAiStreamStart) {
       final stream = ChatroomAiMessageStream._(event);
       _activeStreams[event.messageId] = stream;
       _streams.add(stream);
     } else if (event is ChatroomAiStreamChunk) {
-      _activeStreams[event.messageId]?.addChunk(event);
+      _streamForAiEvent(
+        messageId: event.messageId,
+        conversationRoundId: event.conversationRoundId,
+        senderId: event.senderId,
+      )?.addChunk(event);
     } else if (event is ChatroomAiStreamEnd) {
-      final stream = _activeStreams.remove(event.messageId);
+      final stream = _removeStreamForAiEvent(
+        messageId: event.messageId,
+        conversationRoundId: event.conversationRoundId,
+        senderId: event.senderId,
+      );
       stream?.complete(event);
     } else if (event is ChatroomErrorEvent) {
       _emitError(event);
@@ -273,9 +284,9 @@ class ChatroomSession {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) {
       unawaited(
-        _sendEnvelope('heartbeat', <String, Object?>{
-          'timestamp': DateTime.now().millisecondsSinceEpoch,
-        }).catchError((Object error) {
+        _sendEnvelope('heartbeat', const <String, Object?>{}).catchError((
+          Object error,
+        ) {
           _handleSocketError(error);
         }),
       );
@@ -344,6 +355,63 @@ class ChatroomSession {
     }
   }
 
+  ChatroomAiMessageStream? _streamForAiEvent({
+    required int messageId,
+    required String conversationRoundId,
+    required String senderId,
+  }) {
+    if (messageId != 0) {
+      final exact = _activeStreams[messageId];
+      if (exact != null) return exact;
+    }
+    final matches = _matchingStreams(
+      conversationRoundId: conversationRoundId,
+      senderId: senderId,
+    );
+    if (matches.length == 1) return matches.single.value;
+    if (_activeStreams.length == 1) return _activeStreams.values.single;
+    return null;
+  }
+
+  ChatroomAiMessageStream? _removeStreamForAiEvent({
+    required int messageId,
+    required String conversationRoundId,
+    required String senderId,
+  }) {
+    if (messageId != 0) {
+      final exact = _activeStreams.remove(messageId);
+      if (exact != null) return exact;
+    }
+    final matches = _matchingStreams(
+      conversationRoundId: conversationRoundId,
+      senderId: senderId,
+    );
+    if (matches.length == 1) {
+      return _activeStreams.remove(matches.single.key);
+    }
+    if (_activeStreams.length == 1) {
+      final key = _activeStreams.keys.single;
+      return _activeStreams.remove(key);
+    }
+    return null;
+  }
+
+  List<MapEntry<int, ChatroomAiMessageStream>> _matchingStreams({
+    required String conversationRoundId,
+    required String senderId,
+  }) {
+    return _activeStreams.entries
+        .where((entry) {
+          final start = entry.value.start;
+          final roundMatches =
+              conversationRoundId.isEmpty ||
+              conversationRoundId == start.conversationRoundId;
+          final senderMatches = senderId.isEmpty || senderId == start.senderId;
+          return roundMatches && senderMatches;
+        })
+        .toList(growable: false);
+  }
+
   void _throwIfClosed() {
     if (_closed) {
       throw const ChatroomProtocolException('Chatroom session is closed');
@@ -353,6 +421,12 @@ class ChatroomSession {
   String _newClientMessageId() {
     final random = Random().nextInt(1 << 32).toRadixString(16);
     return '${DateTime.now().microsecondsSinceEpoch}-$random';
+  }
+
+  _PendingAck? _removeOldestPendingAck() {
+    if (_pendingAcks.isEmpty) return null;
+    final key = _pendingAcks.keys.first;
+    return _pendingAcks.remove(key);
   }
 }
 
