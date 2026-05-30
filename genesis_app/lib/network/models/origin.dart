@@ -263,6 +263,7 @@ class OriginEvent {
 class OriginCharacter {
   const OriginCharacter({
     required this.id,
+    this.characterId = '',
     required this.originId,
     required this.name,
     required this.avatar,
@@ -277,6 +278,7 @@ class OriginCharacter {
   });
 
   final int id;
+  final String characterId;
   final int originId;
   final String name;
   final String avatar;
@@ -306,6 +308,10 @@ class OriginCharacter {
 
     return OriginCharacter(
       id: asInt(json['id']),
+      characterId: asString(
+        json['character_id'],
+        fallback: asString(json['char_id']),
+      ),
       originId: asInt(json['origin_id']),
       name: asString(json['name']),
       avatar: asString(json['avatar']),

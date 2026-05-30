@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import 'genesis_center_toast.dart';
+
 class LocalImageCropPage extends StatefulWidget {
   const LocalImageCropPage({
     super.key,
@@ -329,9 +331,7 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
       Navigator.of(context).pop(url);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Upload failed')));
+      showGenesisToast(context, 'Upload failed');
       setState(() {
         _isSubmitting = false;
       });

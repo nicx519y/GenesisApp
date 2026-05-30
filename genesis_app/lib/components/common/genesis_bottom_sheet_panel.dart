@@ -9,6 +9,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
     this.trailing,
     this.padding = const EdgeInsets.fromLTRB(16, 22, 16, 14),
     this.titleBottomSpacing = 18,
+    this.titleTextStyle,
   });
 
   static const BorderRadius borderRadius = BorderRadius.vertical(
@@ -28,6 +29,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
   final Widget? trailing;
   final EdgeInsets padding;
   final double titleBottomSpacing;
+  final TextStyle? titleTextStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +48,14 @@ class GenesisBottomSheetPanel extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Expanded(child: Text(title, style: titleStyle)),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style:
+                            titleTextStyle ??
+                            GenesisBottomSheetPanel.titleStyle,
+                      ),
+                    ),
                     if (trailing != null) trailing!,
                   ],
                 ),

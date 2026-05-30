@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
 import '../../routers/app_router.dart';
 import '../../ui/genesis_ui.dart';
@@ -45,14 +46,10 @@ class SettingsPage extends StatelessWidget {
       await services.directMessageConversations.clearCache();
       await services.directMessageMessages.clearCache();
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Direct message cache cleared')),
-      );
+      showGenesisToast(context, 'Direct message cache cleared');
     } catch (error) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Clear failed: $error')));
+      showGenesisToast(context, 'Clear failed: $error');
     }
   }
 

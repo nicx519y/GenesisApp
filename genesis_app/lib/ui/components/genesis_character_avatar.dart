@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 class GenesisCharacterAvatar extends StatelessWidget {
@@ -87,14 +88,11 @@ class _AvatarImage extends StatelessWidget {
         errorBuilder: (context, error, stackTrace) => fallback,
       );
     }
-    return Image.network(
-      url,
+    return CachedNetworkImage(
+      imageUrl: url,
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => fallback,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return fallback;
-      },
+      placeholder: (context, url) => fallback,
+      errorWidget: (context, url, error) => fallback,
     );
   }
 }

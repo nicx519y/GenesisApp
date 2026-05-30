@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
 import '../../components/secend_tabs.dart';
 import '../../network/genesis_api.dart';
@@ -152,9 +153,7 @@ class _FollowsPageState extends State<FollowsPage>
     } catch (_) {
       if (!mounted) return;
       setState(() => _loadingUids.remove(uid));
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Follow update failed')));
+      showGenesisToast(context, 'Follow update failed');
     }
   }
 

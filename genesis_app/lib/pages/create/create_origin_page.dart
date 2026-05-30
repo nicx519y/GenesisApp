@@ -27,6 +27,7 @@ class CreateOriginPage extends StatelessWidget {
       storyEventsPageBuilder: (_) => const CreateStoryEventsPage(),
       failurePrefix: 'Create failed',
       onSubmit: _onCreate,
+      popOnSubmitSuccess: true,
     );
   }
 

@@ -297,7 +297,11 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (method == 'POST' && path == 'origin/launch') {
-      return _v1Ok({'wid': _state.launchV1World('${body['oid'] ?? ''}')});
+      return _v1Ok({
+        'world_id': _state.launchV1World(
+          '${body['origin_id'] ?? body['oid'] ?? ''}',
+        ),
+      });
     }
 
     if (method == 'GET' && path == 'origin/versionlist') {
@@ -977,19 +981,47 @@ class _MockState {
   }
 
   Map<String, dynamic> createV1Origin(Map<String, dynamic> body) {
+    final now = DateTime.now().toUtc().toIso8601String();
     final oid = 'o_mock_${DateTime.now().millisecondsSinceEpoch}';
     final created = {
       ..._deepCopyMap(_v1Origin),
       'oid': oid,
-      'name': '${body['name'] ?? _v1Origin['name']}',
-      'world_view': '${body['world_view'] ?? _v1Origin['world_view']}',
-      'world_setting': '${body['world_setting'] ?? _v1Origin['world_setting']}',
+      'name': '${body['origin_name'] ?? _v1Origin['name']}',
+      'display_subtitle': '${body['brief'] ?? _v1Origin['display_subtitle']}',
+      'world_view':
+          '${body['setting'] ?? body['brief'] ?? _v1Origin['world_view']}',
+      'world_setting': '${body['setting'] ?? _v1Origin['world_setting']}',
       'cover': '${body['cover'] ?? _v1Origin['cover']}',
-      'created_at': DateTime.now().toUtc().toIso8601String(),
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
+      'map_url': '${body['map_url'] ?? body['cover'] ?? _v1Origin['map_url']}',
+      'tags': body['tags'] is List ? body['tags'] : const <Object?>[],
+      'start_time': '${body['started_at'] ?? _v1Origin['start_time']}',
+      'tick_duration_days':
+          (body['tick_duration_days'] as num?)?.toInt() ??
+          _v1Origin['tick_duration_days'],
+      'created_at': now,
+      'updated_at': now,
+      'character_cnt': body['characters'] is List
+          ? (body['characters'] as List).length
+          : _v1Origin['character_cnt'],
+      'location_cnt': body['locations'] is List
+          ? (body['locations'] as List).length
+          : _v1Origin['location_cnt'],
     };
     _v1Origins.insert(0, created);
-    return _originDetailPayload(created);
+    return {
+      ..._v1OriginContractItem(created),
+      'characters': body['characters'] is List
+          ? (body['characters'] as List)
+                .map((item) => _contractCharacter(_mapFromObject(item)))
+                .toList(growable: false)
+          : kMockV1Characters.map(_contractCharacter).toList(),
+      'locations': body['locations'] is List
+          ? (body['locations'] as List)
+                .map((item) => _contractLocation(_mapFromObject(item)))
+                .toList(growable: false)
+          : kMockV1Locations.map(_contractLocation).toList(),
+      'ticks': const <Map<String, dynamic>>[],
+    };
   }
 
   Map<String, dynamic> updateV1Origin(Map<String, dynamic> body) {
@@ -2118,6 +2150,8 @@ class _MockState {
         'origin_name': origin['name'],
         'origin_version': '${origin['version_num'] ?? 1}',
         'origin_version_time': origin['updated_at'],
+        'owner_uid': origin['owner_uid'] ?? origin['created_uid'],
+        'owner_name': origin['owner_name'] ?? origin['created_user_name'],
         'brief': origin['display_subtitle'],
         'setting': origin['world_setting'],
         'events': kMockV1Events.map((event) => event['content']).toList(),
@@ -2135,7 +2169,7 @@ class _MockState {
         'character_cnt': origin['character_cnt'],
         'connect_cnt': origin['connect_cnt'],
         'location_cnt': origin['location_cnt'],
-        'tick_cnt': origin['tick_cnt'] ?? 0,
+        'max_tick_cnt': origin['max_tick_cnt'] ?? origin['tick_cnt'] ?? 0,
       },
     };
   }
@@ -2179,34 +2213,42 @@ class _MockState {
 
   Map<String, dynamic> _contractCharacter(Map<String, dynamic> character) {
     return {
-      'char_id': character['character_id'],
-      'type': character['type'],
-      'player_uid': character['player_uid'],
+      'char_id': character['character_id'] ?? character['char_id'],
+      'type': character['type'] ?? 'ai',
+      'player_uid': character['player_uid'] ?? '',
+      'player_username': character['player_username'] ?? '',
       'name': character['name'],
       'identity': character['identity'],
-      'brief': character['tagline'],
-      'description': character['description'],
+      'brief': character['tagline'] ?? character['personality'],
+      'description': character['description'] ?? character['bio'],
       'goal': character['goal'],
       'avatar': character['avatar'],
-      'initial_location_id': character['location_id'],
-      'location_id': character['location_id'],
-      'metric_value': 50,
+      'initial_location_id':
+          character['initial_location_id'] ?? character['location_id'] ?? '',
+      'location_id':
+          character['location_id'] ?? character['initial_location_id'] ?? '',
+      'metric_value': character['metric_value'] ?? 0,
+      'delta': character['delta'] ?? 0,
     };
   }
 
   Map<String, dynamic> _contractLocation(Map<String, dynamic> location) {
     return {
       'location_id': location['location_id'],
+      'level': location['level'] ?? 1,
       'location_pid': location['location_pid'] ?? '',
-      'location_name': location['name'],
+      'location_name': location['location_name'] ?? location['name'],
       'location_description':
           location['location_description'] ?? location['description'],
-      'location_summary': location['description'],
+      'location_paragraph': location['location_paragraph'] ?? '',
+      'location_timestamp': location['location_timestamp'] ?? '',
+      'location_summary':
+          location['location_summary'] ?? location['description'] ?? '',
       'image': location['image'],
       'x_percent': location['x_percent'],
       'y_percent': location['y_percent'],
       'map_url': location['map_url'] ?? location['image'],
-      'initial_dialogue': const <Map<String, dynamic>>[],
+      'dialogue': location['dialogue'] ?? const <Map<String, dynamic>>[],
     };
   }
 
@@ -2273,6 +2315,12 @@ Map<String, dynamic> _deepCopyMap(Map<String, dynamic> source) {
     result[key] = _deepCopyValue(value);
   });
   return result;
+}
+
+Map<String, dynamic> _mapFromObject(Object? source) {
+  if (source is Map<String, dynamic>) return source;
+  if (source is Map) return source.map((key, value) => MapEntry('$key', value));
+  return const <String, dynamic>{};
 }
 
 List<dynamic> _deepCopyList(List<dynamic> source) {

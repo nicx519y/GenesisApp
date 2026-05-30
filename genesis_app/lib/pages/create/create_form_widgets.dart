@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/local_image_crop_page.dart';
 import '../../platform/native_image_picker.dart';
 
@@ -281,13 +283,21 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
 
   void _handleControllerChanged() {
     if (!mounted || _isUploading) return;
-    if (widget.controller.text.trim().isEmpty && _previewBytes != null) {
+    final imageUrl = widget.controller.text.trim();
+    debugPrint(
+      '[CreateUploadBox] controller changed: '
+      'imageUrl="$imageUrl", '
+      'hasPreviewBytes=${_previewBytes != null}',
+    );
+    if (_previewBytes != null) {
       _progressTimer?.cancel();
       setState(() {
         _previewBytes = null;
         _uploadProgress = 0;
       });
+      return;
     }
+    setState(() {});
   }
 
   @override
@@ -364,9 +374,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showGenesisToast(context, message);
   }
 
   Size get _resolvedCropSize {
@@ -397,9 +405,11 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       _progressTimer?.cancel();
       setState(() {
         _uploadProgress = 1;
-        _isUploading = false;
       });
       widget.controller.text = url;
+      setState(() {
+        _isUploading = false;
+      });
       widget.onChanged();
     } catch (_) {
       if (!mounted) return;
@@ -486,24 +496,62 @@ class _Preview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final url = imageUrl.trim();
     final bytes = imageBytes;
-    final image = bytes != null
+    debugPrint(
+      '[CreateUploadBox] preview build: '
+      'imageUrl="$url", '
+      'hasBytes=${bytes != null}, '
+      'isUploading=$isUploading',
+    );
+    final Widget image = bytes != null
         ? Image.memory(
             bytes,
             width: double.infinity,
             height: double.infinity,
             fit: BoxFit.cover,
           )
-        : Image.network(
-            imageUrl,
+        : url.isEmpty
+        ? const _PreviewPlaceholder(showSpinner: false)
+        : url.startsWith('assets/')
+        ? Image.asset(
+            url,
             width: double.infinity,
             height: double.infinity,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => const Icon(
-              Icons.check_circle_outline,
-              color: createFormGreen,
-              size: 34,
-            ),
+            errorBuilder: (_, error, ___) {
+              debugPrint(
+                '[CreateUploadBox] asset image failed: '
+                'url="$url", error="$error"',
+              );
+              return const _PreviewErrorIcon();
+            },
+          )
+        : CachedNetworkImage(
+            imageUrl: url,
+            width: double.infinity,
+            height: double.infinity,
+            fit: BoxFit.cover,
+            imageBuilder: (_, imageProvider) {
+              debugPrint('[CreateUploadBox] cached image ready: "$url"');
+              return Image(
+                image: imageProvider,
+                width: double.infinity,
+                height: double.infinity,
+                fit: BoxFit.cover,
+              );
+            },
+            placeholder: (_, __) {
+              debugPrint('[CreateUploadBox] cached image loading: "$url"');
+              return const _PreviewPlaceholder();
+            },
+            errorWidget: (_, __, error) {
+              debugPrint(
+                '[CreateUploadBox] cached image failed: '
+                'url="$url", error="$error"',
+              );
+              return const _PreviewErrorIcon();
+            },
           );
     return Stack(
       fit: StackFit.expand,
@@ -511,6 +559,49 @@ class _Preview extends StatelessWidget {
         image,
         if (isUploading) _UploadProgressOverlay(progress: progress),
       ],
+    );
+  }
+}
+
+class _PreviewPlaceholder extends StatelessWidget {
+  const _PreviewPlaceholder({this.showSpinner = true});
+
+  final bool showSpinner;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xFFEFEFF2),
+      child: showSpinner
+          ? const Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: createFormGreen,
+                ),
+              ),
+            )
+          : const SizedBox.expand(),
+    );
+  }
+}
+
+class _PreviewErrorIcon extends StatelessWidget {
+  const _PreviewErrorIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Color(0xFFEFEFF2),
+      child: Center(
+        child: Icon(
+          Icons.broken_image_outlined,
+          color: createFormGreen,
+          size: 34,
+        ),
+      ),
     );
   }
 }

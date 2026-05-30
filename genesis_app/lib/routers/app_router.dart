@@ -262,7 +262,7 @@ sealed class AppRouter {
       default:
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => const AppShellPage(initialIndex: 1),
+          builder: (_) => const AppShellPage(initialIndex: 0),
         );
     }
   }

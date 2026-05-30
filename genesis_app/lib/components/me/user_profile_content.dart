@@ -1,7 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../routers/app_router.dart';
 import '../../ui/genesis_ui.dart';
@@ -12,6 +14,10 @@ class UserProfileContent extends StatefulWidget {
   const UserProfileContent({
     super.key,
     required this.data,
+    this.originsListenable,
+    this.worldsListenable,
+    this.originsLoading = false,
+    this.worldsLoading = false,
     this.isUpdatingProfile = false,
     this.onEditAvatar,
     this.onEditDisplayName,
@@ -19,6 +25,12 @@ class UserProfileContent extends StatefulWidget {
   });
 
   final UserProfileData data;
+  final ValueListenable<UserProfileCollectionState<UserProfileOriginItem>>?
+  originsListenable;
+  final ValueListenable<UserProfileCollectionState<UserProfileWorldItem>>?
+  worldsListenable;
+  final bool originsLoading;
+  final bool worldsLoading;
   final bool isUpdatingProfile;
   final VoidCallback? onEditAvatar;
   final VoidCallback? onEditDisplayName;
@@ -173,72 +185,15 @@ class _UserProfileContentState extends State<UserProfileContent>
             child: TabBarView(
               controller: _tabController,
               children: [
-                ProfileCollectionList(
-                  items: data.origins
-                      .map(
-                        (item) => GenesisProfileCollectionItemData(
-                          imageUrl: item.imageUrl,
-                          title: item.title,
-                          subtitle: item.subtitle,
-                          stats: [
-                            GenesisProfileCollectionStat(
-                              icon: MyFlutterApp.save,
-                              value: item.copyCount,
-                            ),
-                            GenesisProfileCollectionStat(
-                              icon: MyFlutterApp.copy,
-                              value: item.interactCount,
-                            ),
-                            GenesisProfileCollectionStat(
-                              icon: MyFlutterApp.userStar,
-                              value: item.characterCount,
-                            ),
-                          ],
-                          onTap: () => Navigator.of(context).pushNamed(
-                            RouteNames.originWorld,
-                            arguments: {
-                              'originId': item.originId,
-                              'oid': item.oid,
-                            },
-                          ),
-                        ),
-                      )
-                      .toList(growable: false),
-                  emptyText: 'No Origins you created yet.',
+                _OriginProfileCollectionList(
+                  items: data.origins,
+                  isLoading: widget.originsLoading,
+                  listenable: widget.originsListenable,
                 ),
-                ProfileCollectionList(
-                  items: data.worlds
-                      .map(
-                        (item) => GenesisProfileCollectionItemData(
-                          imageUrl: item.imageUrl,
-                          title: item.title,
-                          subtitle: item.subtitle,
-                          stats: [
-                            GenesisProfileCollectionStat(
-                              icon: MyFlutterApp.pregress,
-                              value: item.progressCount,
-                            ),
-                            GenesisProfileCollectionStat(
-                              icon: MyFlutterApp.copy,
-                              value: item.interactCount,
-                            ),
-                            GenesisProfileCollectionStat(
-                              icon: MyFlutterApp.userStar,
-                              value: item.characterCount,
-                            ),
-                            GenesisProfileCollectionStat(
-                              icon: MyFlutterApp.user,
-                              value: item.playerCount,
-                            ),
-                          ],
-                          onTap: () => Navigator.of(context).pushNamed(
-                            RouteNames.world,
-                            arguments: {'wid': item.wid},
-                          ),
-                        ),
-                      )
-                      .toList(growable: false),
-                  emptyText: 'No Worlds you created yet.',
+                _WorldProfileCollectionList(
+                  items: data.worlds,
+                  isLoading: widget.worldsLoading,
+                  listenable: widget.worldsListenable,
                 ),
               ],
             ),
@@ -274,9 +229,7 @@ class _UserProfileContentState extends State<UserProfileContent>
     } catch (_) {
       if (!mounted) return;
       setState(() => _followLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Follow update failed')));
+      showGenesisToast(context, 'Follow update failed');
     }
   }
 
@@ -305,6 +258,16 @@ class _UserProfileContentState extends State<UserProfileContent>
   int _decrementCount(int value) {
     return value > 0 ? value - 1 : 0;
   }
+}
+
+class UserProfileCollectionState<T> {
+  const UserProfileCollectionState({
+    required this.items,
+    required this.isLoading,
+  });
+
+  final List<T> items;
+  final bool isLoading;
 }
 
 class UserProfileData {
@@ -338,6 +301,8 @@ class UserProfileData {
     int? followerCount,
     bool? isSelf,
     bool? isFollowed,
+    List<UserProfileOriginItem>? origins,
+    List<UserProfileWorldItem>? worlds,
   }) {
     return UserProfileData(
       avatarUrl: avatarUrl ?? this.avatarUrl,
@@ -347,8 +312,147 @@ class UserProfileData {
       followerCount: followerCount ?? this.followerCount,
       isSelf: isSelf ?? this.isSelf,
       isFollowed: isFollowed ?? this.isFollowed,
-      origins: origins,
-      worlds: worlds,
+      origins: origins ?? this.origins,
+      worlds: worlds ?? this.worlds,
+    );
+  }
+}
+
+class _OriginProfileCollectionList extends StatelessWidget {
+  const _OriginProfileCollectionList({
+    required this.items,
+    required this.isLoading,
+    required this.listenable,
+  });
+
+  final List<UserProfileOriginItem> items;
+  final bool isLoading;
+  final ValueListenable<UserProfileCollectionState<UserProfileOriginItem>>?
+  listenable;
+
+  @override
+  Widget build(BuildContext context) {
+    final listenable = this.listenable;
+    if (listenable == null) {
+      return _buildOriginList(context, items, isLoading);
+    }
+    return ValueListenableBuilder<
+      UserProfileCollectionState<UserProfileOriginItem>
+    >(
+      valueListenable: listenable,
+      builder: (context, state, _) {
+        return _buildOriginList(context, state.items, state.isLoading);
+      },
+    );
+  }
+
+  Widget _buildOriginList(
+    BuildContext context,
+    List<UserProfileOriginItem> items,
+    bool isLoading,
+  ) {
+    return ProfileCollectionList(
+      items: items
+          .map(
+            (item) => GenesisProfileCollectionItemData(
+              imageUrl: item.imageUrl,
+              title: item.title,
+              subtitle: item.subtitle,
+              stats: [
+                GenesisProfileCollectionStat(
+                  icon: MyFlutterApp.save,
+                  value: item.copyCount,
+                ),
+                GenesisProfileCollectionStat(
+                  icon: MyFlutterApp.copy,
+                  value: item.interactCount,
+                ),
+                GenesisProfileCollectionStat(
+                  icon: MyFlutterApp.userStar,
+                  value: item.characterCount,
+                ),
+              ],
+              onTap: () => Navigator.of(context).pushNamed(
+                RouteNames.originWorld,
+                arguments: {'originId': item.originId, 'oid': item.oid},
+              ),
+            ),
+          )
+          .toList(growable: false),
+      emptyText: 'No Origins you created yet.',
+      isLoading: isLoading,
+      loadingKey: const ValueKey('profile-origin-list-loading'),
+    );
+  }
+}
+
+class _WorldProfileCollectionList extends StatelessWidget {
+  const _WorldProfileCollectionList({
+    required this.items,
+    required this.isLoading,
+    required this.listenable,
+  });
+
+  final List<UserProfileWorldItem> items;
+  final bool isLoading;
+  final ValueListenable<UserProfileCollectionState<UserProfileWorldItem>>?
+  listenable;
+
+  @override
+  Widget build(BuildContext context) {
+    final listenable = this.listenable;
+    if (listenable == null) {
+      return _buildWorldList(context, items, isLoading);
+    }
+    return ValueListenableBuilder<
+      UserProfileCollectionState<UserProfileWorldItem>
+    >(
+      valueListenable: listenable,
+      builder: (context, state, _) {
+        return _buildWorldList(context, state.items, state.isLoading);
+      },
+    );
+  }
+
+  Widget _buildWorldList(
+    BuildContext context,
+    List<UserProfileWorldItem> items,
+    bool isLoading,
+  ) {
+    return ProfileCollectionList(
+      items: items
+          .map(
+            (item) => GenesisProfileCollectionItemData(
+              imageUrl: item.imageUrl,
+              title: item.title,
+              subtitle: item.subtitle,
+              stats: [
+                GenesisProfileCollectionStat(
+                  icon: MyFlutterApp.pregress,
+                  value: item.progressCount,
+                ),
+                GenesisProfileCollectionStat(
+                  icon: MyFlutterApp.copy,
+                  value: item.interactCount,
+                ),
+                GenesisProfileCollectionStat(
+                  icon: MyFlutterApp.userStar,
+                  value: item.characterCount,
+                ),
+                GenesisProfileCollectionStat(
+                  icon: MyFlutterApp.user,
+                  value: item.playerCount,
+                ),
+              ],
+              onTap: () => Navigator.of(
+                context,
+              ).pushNamed(RouteNames.world, arguments: {'wid': item.wid}),
+            ),
+          )
+          .toList(growable: false),
+      emptyText: 'No Worlds you created yet.',
+      isLoading: isLoading,
+      loadingKey: const ValueKey('profile-world-list-loading'),
     );
   }
 }

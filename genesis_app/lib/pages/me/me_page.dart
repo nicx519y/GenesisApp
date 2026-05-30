@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/local_image_crop_page.dart';
 import '../../components/me/user_profile_content.dart';
 import '../../network/genesis_api.dart';
@@ -25,6 +27,22 @@ class MePage extends StatefulWidget {
 class _MePageState extends State<MePage> {
   late Future<UserProfileData> _future;
   bool _isUpdatingProfile = false;
+  final ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>
+  _originsState =
+      ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>(
+        const UserProfileCollectionState<UserProfileOriginItem>(
+          items: <UserProfileOriginItem>[],
+          isLoading: false,
+        ),
+      );
+  final ValueNotifier<UserProfileCollectionState<UserProfileWorldItem>>
+  _worldsState =
+      ValueNotifier<UserProfileCollectionState<UserProfileWorldItem>>(
+        const UserProfileCollectionState<UserProfileWorldItem>(
+          items: <UserProfileWorldItem>[],
+          isLoading: false,
+        ),
+      );
   int _loadGeneration = 0;
 
   @override
@@ -33,9 +51,25 @@ class _MePageState extends State<MePage> {
     _future = _loadData();
   }
 
+  @override
+  void dispose() {
+    _originsState.dispose();
+    _worldsState.dispose();
+    super.dispose();
+  }
+
   Future<UserProfileData> _loadData() async {
     final generation = _loadGeneration + 1;
     _loadGeneration = generation;
+    _originsState.value =
+        const UserProfileCollectionState<UserProfileOriginItem>(
+          items: <UserProfileOriginItem>[],
+          isLoading: true,
+        );
+    _worldsState.value = const UserProfileCollectionState<UserProfileWorldItem>(
+      items: <UserProfileWorldItem>[],
+      isLoading: true,
+    );
     final services = AppServicesScope.read(context);
     final api = services.api;
     final profile = services.identityAuth.currentProfile();
@@ -71,44 +105,8 @@ class _MePageState extends State<MePage> {
       fallbackUid: uid,
     );
 
-    List<UserProfileOriginItem> origins = const [];
-    try {
-      final originPage = await api.getMyLaunchedOrigins(limit: 30, offset: 0);
-      origins = originPage.data
-          .map(
-            (item) => UserProfileOriginItem(
-              originId: item.id,
-              oid: item.oid,
-              title: item.name.trim().isEmpty ? item.oid : item.name.trim(),
-              subtitle: _originSubtitle(item),
-              imageUrl: resolveAssetUrl(item.mapImage),
-              copyCount: item.copyCount,
-              interactCount: item.interactCount,
-              characterCount: item.characterCount,
-            ),
-          )
-          .toList(growable: false);
-    } catch (_) {}
-
-    List<UserProfileWorldItem> worldItems = const [];
-    try {
-      final worlds = await api.getMyWorlds(limit: 30, offset: 0);
-      worldItems = worlds
-          .map(
-            (item) => UserProfileWorldItem(
-              wid: item.wid,
-              title: item.name.trim().isEmpty ? item.wid : item.name.trim(),
-              subtitle: _worldSubtitle(item.wid, item.ownerName),
-              imageUrl: resolveAssetUrl(item.snapshotCoverUrl),
-              progressCount: item.progressCount,
-              interactCount: item.interactCount,
-              characterCount: item.characterCount,
-              playerCount: item.playerCount,
-              ownerName: item.ownerName,
-            ),
-          )
-          .toList(growable: false);
-    } catch (_) {}
+    unawaited(_loadOrigins(generation, api, uid));
+    unawaited(_loadWorlds(generation, api, uid));
 
     final data = UserProfileData(
       avatarUrl: resolvedAvatarUrl,
@@ -118,8 +116,8 @@ class _MePageState extends State<MePage> {
       followerCount: resolvedFollowerCount,
       isSelf: true,
       isFollowed: false,
-      origins: origins,
-      worlds: worldItems,
+      origins: const [],
+      worlds: const [],
     );
     unawaited(
       remoteUserFuture.then((remoteUser) {
@@ -127,6 +125,52 @@ class _MePageState extends State<MePage> {
       }),
     );
     return data;
+  }
+
+  Future<void> _loadOrigins(int generation, GenesisApi api, String uid) async {
+    try {
+      final originPage = await api.getMyLaunchedOrigins(
+        uid: uid.trim().isEmpty ? null : uid,
+        limit: 30,
+        offset: 0,
+      );
+      if (!mounted || generation != _loadGeneration) return;
+      _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
+        items: originPage.data
+            .map(_profileOriginItemFromSummary)
+            .toList(growable: false),
+        isLoading: false,
+      );
+    } catch (_) {
+      if (!mounted || generation != _loadGeneration) return;
+      _originsState.value =
+          const UserProfileCollectionState<UserProfileOriginItem>(
+            items: <UserProfileOriginItem>[],
+            isLoading: false,
+          );
+    }
+  }
+
+  Future<void> _loadWorlds(int generation, GenesisApi api, String uid) async {
+    try {
+      final worlds = await api.getMyWorlds(
+        uid: uid.trim().isEmpty ? null : uid,
+        limit: 30,
+        offset: 0,
+      );
+      if (!mounted || generation != _loadGeneration) return;
+      _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
+        items: worlds.map(_profileWorldItemFromSummary).toList(growable: false),
+        isLoading: false,
+      );
+    } catch (_) {
+      if (!mounted || generation != _loadGeneration) return;
+      _worldsState.value =
+          const UserProfileCollectionState<UserProfileWorldItem>(
+            items: <UserProfileWorldItem>[],
+            isLoading: false,
+          );
+    }
   }
 
   Future<Map<String, dynamic>?> _fetchAndCacheUserInfo(
@@ -162,27 +206,10 @@ class _MePageState extends State<MePage> {
     Map<String, dynamic>? remoteUser,
   ) {
     if (remoteUser == null || !mounted || generation != _loadGeneration) return;
-    final backendName = _mapString(remoteUser, 'name');
-    final backendAvatar = _mapString(remoteUser, 'avatar');
-    final backendUid = _mapString(remoteUser, 'uid');
+    final nextData = _mergeRemoteUserInfoForRender(currentData, remoteUser);
+    if (_sameRenderedUserInfo(currentData, nextData)) return;
     setState(() {
-      _future = Future<UserProfileData>.value(
-        currentData.copyWith(
-          avatarUrl: backendAvatar.isEmpty
-              ? currentData.avatarUrl
-              : resolveAssetUrl(backendAvatar),
-          displayName: backendName.isEmpty
-              ? currentData.displayName
-              : backendName,
-          uid: backendUid.isEmpty ? currentData.uid : backendUid,
-          followingCount:
-              _mapIntOrNull(remoteUser, 'following_cnt') ??
-              currentData.followingCount,
-          followerCount:
-              _mapIntOrNull(remoteUser, 'follower_cnt') ??
-              currentData.followerCount,
-        ),
-      );
+      _future = Future<UserProfileData>.value(nextData);
     });
   }
 
@@ -196,9 +223,7 @@ class _MePageState extends State<MePage> {
   Future<void> _copyUid(String uid) async {
     await Clipboard.setData(ClipboardData(text: uid));
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('UID copied')));
+    showGenesisToast(context, 'UID copied');
   }
 
   Future<void> _openSettings() async {
@@ -218,9 +243,7 @@ class _MePageState extends State<MePage> {
       bytes = await image.readAsBytes();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Image pick failed')));
+      showGenesisToast(context, 'Image pick failed');
       return;
     }
     if (!mounted) return;
@@ -306,9 +329,7 @@ class _MePageState extends State<MePage> {
       setState(() {
         _isUpdatingProfile = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Update failed')));
+      showGenesisToast(context, 'Update failed');
     }
   }
 
@@ -371,6 +392,8 @@ class _MePageState extends State<MePage> {
               Expanded(
                 child: UserProfileContent(
                   data: data,
+                  originsListenable: _originsState,
+                  worldsListenable: _worldsState,
                   isUpdatingProfile: _isUpdatingProfile,
                   onEditAvatar: () => _editAvatar(data),
                   onEditDisplayName: () => _editNickName(data),
@@ -383,6 +406,81 @@ class _MePageState extends State<MePage> {
       },
     );
   }
+}
+
+@visibleForTesting
+UserProfileData mergeRemoteUserInfoForRenderForTest(
+  UserProfileData currentData,
+  Map<String, dynamic> remoteUser,
+) {
+  return _mergeRemoteUserInfoForRender(currentData, remoteUser);
+}
+
+@visibleForTesting
+bool sameRenderedUserInfoForTest(
+  UserProfileData currentData,
+  UserProfileData nextData,
+) {
+  return _sameRenderedUserInfo(currentData, nextData);
+}
+
+UserProfileData _mergeRemoteUserInfoForRender(
+  UserProfileData currentData,
+  Map<String, dynamic> remoteUser,
+) {
+  final backendName = _mapString(remoteUser, 'name');
+  final backendAvatar = _mapString(remoteUser, 'avatar');
+  final backendUid = _mapString(remoteUser, 'uid');
+  return currentData.copyWith(
+    avatarUrl: backendAvatar.isEmpty
+        ? currentData.avatarUrl
+        : resolveAssetUrl(backendAvatar),
+    displayName: backendName.isEmpty ? currentData.displayName : backendName,
+    uid: backendUid.isEmpty ? currentData.uid : backendUid,
+    followingCount:
+        _mapIntOrNull(remoteUser, 'following_cnt') ??
+        currentData.followingCount,
+    followerCount:
+        _mapIntOrNull(remoteUser, 'follower_cnt') ?? currentData.followerCount,
+  );
+}
+
+bool _sameRenderedUserInfo(
+  UserProfileData currentData,
+  UserProfileData nextData,
+) {
+  return currentData.avatarUrl == nextData.avatarUrl &&
+      currentData.displayName == nextData.displayName &&
+      currentData.uid == nextData.uid &&
+      currentData.followingCount == nextData.followingCount &&
+      currentData.followerCount == nextData.followerCount;
+}
+
+UserProfileOriginItem _profileOriginItemFromSummary(OriginSummary item) {
+  return UserProfileOriginItem(
+    originId: item.id,
+    oid: item.oid,
+    title: item.name.trim().isEmpty ? item.oid : item.name.trim(),
+    subtitle: _originSubtitle(item),
+    imageUrl: resolveAssetUrl(item.mapImage),
+    copyCount: item.copyCount,
+    interactCount: item.interactCount,
+    characterCount: item.characterCount,
+  );
+}
+
+UserProfileWorldItem _profileWorldItemFromSummary(MyWorldSummary item) {
+  return UserProfileWorldItem(
+    wid: item.wid,
+    title: item.name.trim().isEmpty ? item.wid : item.name.trim(),
+    subtitle: _worldSubtitle(item.wid, item.ownerName),
+    imageUrl: resolveAssetUrl(item.snapshotCoverUrl),
+    progressCount: item.progressCount,
+    interactCount: item.interactCount,
+    characterCount: item.characterCount,
+    playerCount: item.playerCount,
+    ownerName: item.ownerName,
+  );
 }
 
 String _originSubtitle(OriginSummary item) {

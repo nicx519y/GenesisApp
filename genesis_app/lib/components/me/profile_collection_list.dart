@@ -7,13 +7,28 @@ class ProfileCollectionList extends StatelessWidget {
     super.key,
     required this.items,
     required this.emptyText,
+    this.isLoading = false,
+    this.loadingKey,
   });
 
   final List<GenesisProfileCollectionItemData> items;
   final String emptyText;
+  final bool isLoading;
+  final Key? loadingKey;
 
   @override
   Widget build(BuildContext context) {
+    if (items.isEmpty && isLoading) {
+      return Center(
+        child: SizedBox(
+          key: loadingKey,
+          width: 24,
+          height: 24,
+          child: const CircularProgressIndicator(strokeWidth: 2.4),
+        ),
+      );
+    }
+
     if (items.isEmpty) {
       return Center(
         child: Text(

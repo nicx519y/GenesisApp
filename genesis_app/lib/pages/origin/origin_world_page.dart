@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
+import '../../components/common/genesis_center_toast.dart';
+import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/world_map.dart';
 import '../../components/world_map_stage.dart';
@@ -105,19 +107,34 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     );
   }
 
-  Future<void> _launchOrigin(OriginDetail origin) async {
+  Future<void> _showLaunchRoleSheet(OriginDetail origin) async {
+    if (_launching) return;
+    final selection = await showOriginRoleLaunchSheet(
+      context: context,
+      characters: origin.characters,
+      resolveAvatarUrl: _resolveAssetUrl,
+      onFillFromProfile: _customRoleFromProfile,
+    );
+    if (!mounted || selection == null) return;
+    await _launchOrigin(origin, selection);
+  }
+
+  Future<void> _launchOrigin(
+    OriginDetail origin,
+    OriginRoleLaunchSelection roleSelection,
+  ) async {
     if (_launching) return;
     setState(() => _launching = true);
     try {
-      final result = await AppServicesScope.of(
-        context,
-      ).api.v1.origin.launch(oid: origin.oid);
+      final result = await AppServicesScope.of(context).api.v1.origin.launch(
+        oid: origin.oid,
+        presetCharacterId: roleSelection.presetCharacterId,
+        customRole: roleSelection.customRole?.toPayload(),
+      );
       if (!mounted) return;
-      final wid = '${result['wid'] ?? ''}'.trim();
+      final wid = '${result['world_id'] ?? result['wid'] ?? ''}'.trim();
       if (wid.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Launch failed')));
+        showGenesisToast(context, 'Launch failed');
         return;
       }
       Navigator.of(
@@ -125,12 +142,57 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       ).pushNamed(RouteNames.world, arguments: {'wid': wid});
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Launch failed')));
+      showGenesisToast(context, 'Launch failed');
     } finally {
       if (mounted) setState(() => _launching = false);
     }
+  }
+
+  Future<OriginCustomRoleDraft?> _customRoleFromProfile() async {
+    final services = AppServicesScope.read(context);
+    final userInfo = await services.sessionStore.readUserInfo();
+    final profile = services.identityAuth.currentProfile();
+    if ((userInfo == null || userInfo.isEmpty) && profile == null) {
+      if (mounted) {
+        showGenesisToast(context, 'No saved profile found');
+      }
+      return null;
+    }
+    final cachedUser = userInfo ?? const <String, dynamic>{};
+    final cachedAvatar = _mapString(cachedUser, const [
+      'avatar',
+      'avatar_url',
+      'photoUrl',
+      'photo_url',
+      'picture',
+    ]);
+    final profileAvatar = profile?.photoUrl.trim() ?? '';
+    final cachedName = _mapString(cachedUser, const [
+      'name',
+      'nickname',
+      'user_name',
+      'displayName',
+      'display_name',
+    ]);
+    final profileName = (profile?.displayName.trim().isNotEmpty ?? false)
+        ? profile!.displayName.trim()
+        : (profile?.email.trim() ?? '');
+    final resolvedAvatar = _resolveAssetUrl(
+      cachedAvatar.isNotEmpty ? cachedAvatar : profileAvatar,
+    );
+    debugPrint(
+      '[OriginRoleLaunch] Fill from profile avatar: '
+      'cached="$cachedAvatar", '
+      'identity="$profileAvatar", '
+      'resolved="$resolvedAvatar"',
+    );
+
+    return OriginCustomRoleDraft(
+      avatarUrl: resolvedAvatar,
+      name: cachedName.isNotEmpty ? cachedName : profileName,
+      identity: _mapString(cachedUser, const ['identity']),
+      bio: _mapString(cachedUser, const ['bio', 'description']),
+    );
   }
 
   @override
@@ -268,7 +330,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           bottomBar: _OriginBottomLaunchBar(
             origin: origin,
             launching: _launching,
-            onLaunch: () => _launchOrigin(origin),
+            onLaunch: () => _showLaunchRoleSheet(origin),
           ),
         );
       },
@@ -860,12 +922,20 @@ String _resolveAssetUrl(String raw) {
   return resolveAssetUrl(raw);
 }
 
+String _mapString(Map<dynamic, dynamic> map, List<String> keys) {
+  for (final key in keys) {
+    final value = map[key];
+    if (value == null) continue;
+    final text = '$value'.trim();
+    if (text.isNotEmpty) return text;
+  }
+  return '';
+}
+
 Future<void> _copyOid(BuildContext context, String oid) async {
   await Clipboard.setData(ClipboardData(text: oid));
   if (!context.mounted) return;
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(const SnackBar(content: Text('OID copied')));
+  showGenesisToast(context, 'OID copied');
 }
 
 List<OriginEvent> _previewEvents(OriginDetail origin) {

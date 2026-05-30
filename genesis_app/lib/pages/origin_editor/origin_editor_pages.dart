@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../../components/common/genesis_bottom_sheet_panel.dart';
+import '../../components/common/genesis_center_toast.dart';
+import '../../components/origin/origin_character_form.dart';
 import '../../components/page_header.dart';
 import '../../network/api_exception.dart';
 import '../../ui/genesis_ui.dart';
@@ -40,6 +42,7 @@ class OriginDraftFlowPage extends StatefulWidget {
     this.submittingLabel = 'Saving...',
     this.failurePrefix = 'Save failed',
     this.canSubmit,
+    this.popOnSubmitSuccess = false,
   });
 
   final String title;
@@ -54,6 +57,7 @@ class OriginDraftFlowPage extends StatefulWidget {
   final String submittingLabel;
   final String failurePrefix;
   final bool Function(CreateOriginDraft draft)? canSubmit;
+  final bool popOnSubmitSuccess;
 
   @override
   State<OriginDraftFlowPage> createState() => _OriginDraftFlowPageState();
@@ -106,9 +110,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     try {
       final result = await widget.onSubmit(context, widget.repository, latest);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(result.message)));
+      showGenesisToast(context, result.message);
       if (result.draft != null) {
         setState(() {
           _draft = result.draft!;
@@ -117,6 +119,9 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       } else {
         setState(() => _isSubmitting = false);
         await _reloadDraft();
+      }
+      if (widget.popOnSubmitSuccess && mounted) {
+        Navigator.of(context).maybePop();
       }
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -130,9 +135,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showGenesisToast(context, message);
   }
 
   @override
@@ -381,9 +384,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showGenesisToast(context, message);
   }
 
   @override
@@ -543,7 +544,7 @@ class _OriginCharactersEditorPageState
     extends State<OriginCharactersEditorPage> {
   static const int _maxCharacters = 8;
 
-  final List<_CharacterForm> _forms = <_CharacterForm>[];
+  final List<OriginCharacterForm> _forms = <OriginCharacterForm>[];
   Timer? _tempSaveDebounce;
   String _uid = 'anonymous';
   bool _isSaving = false;
@@ -564,7 +565,7 @@ class _OriginCharactersEditorPageState
         : draft.characters;
     final missingIds = source.any((item) => item.charId.trim().isEmpty);
     for (final item in source) {
-      _forms.add(_CharacterForm.fromDraft(item, uid: _uid));
+      _forms.add(_characterFormFromDraft(item, uid: _uid));
     }
     if (!mounted) return;
     _isFinalSynced = draft.charactersSaved && !missingIds;
@@ -578,7 +579,7 @@ class _OriginCharactersEditorPageState
     }
     setState(() {
       _forms.add(
-        _CharacterForm.empty(
+        OriginCharacterForm.empty(
           charId: createUidTimestampHashId(uid: _uid, prefix: 'char'),
         ),
       );
@@ -687,9 +688,24 @@ class _OriginCharactersEditorPageState
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showGenesisToast(context, message);
+  }
+
+  OriginCharacterForm _characterFormFromDraft(
+    CharacterDraft draft, {
+    required String uid,
+  }) {
+    return OriginCharacterForm.fromValues(
+      charId: draft.charId.trim().isEmpty
+          ? createUidTimestampHashId(uid: uid, prefix: 'char')
+          : draft.charId.trim(),
+      avatarUrl: draft.avatarUrl,
+      name: draft.name,
+      identity: draft.identity,
+      personality: draft.personality,
+      bio: draft.bio,
+      goal: draft.goal,
+    );
   }
 
   @override
@@ -1037,9 +1053,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showGenesisToast(context, message);
   }
 
   @override
@@ -1250,9 +1264,7 @@ class _OriginStoryEventsEditorPageState
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showGenesisToast(context, message);
   }
 
   @override
@@ -1457,7 +1469,7 @@ class _CharacterCard extends StatelessWidget {
   });
 
   final int index;
-  final _CharacterForm form;
+  final OriginCharacterForm form;
   final VoidCallback onChanged;
   final VoidCallback onDelete;
 
@@ -1466,159 +1478,8 @@ class _CharacterCard extends StatelessWidget {
     return CreateFormCard(
       title: 'Character $index',
       onDelete: onDelete,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CreateUploadBox(
-                controller: form.avatarUrl,
-                label: 'AVATAR\n(Optional)',
-                width: 104,
-                height: 168,
-                iconSize: 38,
-                cropSize: const Size(416, 672),
-                onChanged: onChanged,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  children: [
-                    CreateTextFieldBlock(
-                      label: 'Name *',
-                      controller: form.name,
-                      hintText: 'Enter name...',
-                      maxLength: 25,
-                      labelSize: 14,
-                      maxLines: 1,
-                      onChanged: (_) => onChanged(),
-                    ),
-                    const SizedBox(height: 18),
-                    CreateTextFieldBlock(
-                      label: 'Identity *',
-                      controller: form.identity,
-                      hintText: 'Who they are in the world',
-                      maxLength: 50,
-                      labelSize: 14,
-                      maxLines: 1,
-                      onChanged: (_) => onChanged(),
-                    ),
-                    const SizedBox(height: 18),
-                    CreateTextFieldBlock(
-                      label: 'Personality *',
-                      controller: form.personality,
-                      hintText: 'How they speak and behave',
-                      maxLength: 50,
-                      labelSize: 14,
-                      maxLines: 1,
-                      onChanged: (_) => onChanged(),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 22),
-          CreateTextFieldBlock(
-            label: 'Bio (Optional)',
-            controller: form.bio,
-            hintText: 'Background and relationships',
-            maxLength: 1000,
-            minLines: 3,
-            onChanged: (_) => onChanged(),
-          ),
-          const SizedBox(height: 22),
-          CreateTextFieldBlock(
-            label: 'Goal (Optional)',
-            controller: form.goal,
-            hintText: 'What they want to achieve',
-            maxLength: 300,
-            minLines: 2,
-            onChanged: (_) => onChanged(),
-          ),
-        ],
-      ),
+      child: OriginCharacterFormFields(form: form, onChanged: onChanged),
     );
-  }
-}
-
-class _CharacterForm {
-  _CharacterForm({
-    required this.charId,
-    required this.avatarUrl,
-    required this.name,
-    required this.identity,
-    required this.personality,
-    required this.bio,
-    required this.goal,
-  });
-
-  factory _CharacterForm.empty({required String charId}) {
-    return _CharacterForm(
-      charId: charId,
-      avatarUrl: TextEditingController(),
-      name: TextEditingController(),
-      identity: TextEditingController(),
-      personality: TextEditingController(),
-      bio: TextEditingController(),
-      goal: TextEditingController(),
-    );
-  }
-
-  factory _CharacterForm.fromDraft(
-    CharacterDraft draft, {
-    required String uid,
-  }) {
-    return _CharacterForm(
-      charId: draft.charId.trim().isEmpty
-          ? createUidTimestampHashId(uid: uid, prefix: 'char')
-          : draft.charId.trim(),
-      avatarUrl: TextEditingController(text: draft.avatarUrl),
-      name: TextEditingController(text: draft.name),
-      identity: TextEditingController(text: draft.identity),
-      personality: TextEditingController(text: draft.personality),
-      bio: TextEditingController(text: draft.bio),
-      goal: TextEditingController(text: draft.goal),
-    );
-  }
-
-  final String charId;
-  final TextEditingController avatarUrl;
-  final TextEditingController name;
-  final TextEditingController identity;
-  final TextEditingController personality;
-  final TextEditingController bio;
-  final TextEditingController goal;
-
-  void dispose() {
-    avatarUrl.dispose();
-    name.dispose();
-    identity.dispose();
-    personality.dispose();
-    bio.dispose();
-    goal.dispose();
-  }
-
-  bool get hasContent {
-    return [
-      avatarUrl,
-      name,
-      identity,
-      personality,
-      bio,
-      goal,
-    ].any((controller) => controller.text.trim().isNotEmpty);
-  }
-
-  void clear() {
-    avatarUrl.clear();
-    name.clear();
-    identity.clear();
-    personality.clear();
-    bio.clear();
-    goal.clear();
   }
 }
 

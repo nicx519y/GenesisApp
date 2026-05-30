@@ -42,6 +42,90 @@ void main() {
     expect(find.text('New post'), findsNothing);
   });
 
+  testWidgets('dismisses composer directly when route back is pressed', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 900);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DiscussPostInput(
+            bizId: 'o_test_1',
+            imagePicker: () async => const <DiscussPickedImage>[],
+            submitter: (content, images) async => <String, dynamic>{},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('discuss-composer-sheet')),
+      findsOneWidget,
+    );
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('discuss-composer-sheet')), findsNothing);
+
+    await tester.pumpAndSettle();
+
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(find.text('New post'), findsNothing);
+  });
+
+  testWidgets('dismisses composer when keyboard back is consumed by IME', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 900);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DiscussPostInput(
+            bizId: 'o_test_1',
+            imagePicker: () async => const <DiscussPickedImage>[],
+            submitter: (content, images) async => <String, dynamic>{},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('discuss-composer-sheet')),
+      findsOneWidget,
+    );
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    tester.binding.handleMetricsChanged();
+    await tester.pump();
+
+    tester.view.viewInsets = FakeViewPadding.zero;
+    tester.binding.handleMetricsChanged();
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('discuss-composer-sheet')), findsNothing);
+
+    await tester.pumpAndSettle();
+
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(find.text('New post'), findsNothing);
+  });
+
   testWidgets('picks up to six images and waits for uploads before posting', (
     WidgetTester tester,
   ) async {

@@ -193,7 +193,7 @@ class _AppShellPageState extends State<AppShellPage>
   int _normalTabIndex(int index) {
     return switch (index) {
       0 || 1 || 3 || 4 => index,
-      _ => 1,
+      _ => 0,
     };
   }
 

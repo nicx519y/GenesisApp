@@ -18,7 +18,7 @@ class GenesisApp extends StatelessWidget {
         title: 'Genesis',
         debugShowCheckedModeBanner: false,
         theme: GenesisTheme.light(),
-        initialRoute: RouteNames.origin,
+        initialRoute: RouteNames.home,
         onGenerateRoute: AppRouter.onGenerateRoute,
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
 import '../../components/me/user_profile_content.dart';
 import '../../network/genesis_api.dart';
@@ -120,9 +121,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
   Future<void> _copyUid(String uid) async {
     await Clipboard.setData(ClipboardData(text: uid));
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('UID copied')));
+    showGenesisToast(context, 'UID copied');
   }
 
   @override

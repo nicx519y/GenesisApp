@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../icons/my_flutter_app_icons.dart';
@@ -108,14 +109,17 @@ class _CharacterTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(6),
             child: url.isEmpty
                 ? fallback
-                : Image.network(
+                : url.startsWith('assets/')
+                ? Image.asset(
                     url,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => fallback,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return fallback;
-                    },
+                  )
+                : CachedNetworkImage(
+                    imageUrl: url,
+                    fit: BoxFit.cover,
+                    placeholder: (context, url) => fallback,
+                    errorWidget: (context, url, error) => fallback,
                   ),
           ),
         ),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/secend_tabs.dart';
 import '../../components/world_details_shell.dart';
@@ -92,16 +93,12 @@ class _WorldPageState extends State<WorldPage>
       ).api.progressWorld(widget.wid);
       if (!mounted) return;
       if (message.trim().isNotEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message)));
+        showGenesisToast(context, message);
       }
       await _fetchWorld();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Progress failed')));
+      showGenesisToast(context, 'Progress failed');
     } finally {
       if (mounted) setState(() => _progressing = false);
     }
@@ -264,28 +261,19 @@ class _WorldFeedContent extends StatefulWidget {
 class _WorldFeedContentState extends State<_WorldFeedContent>
     with SingleTickerProviderStateMixin {
   late final TabController _sectionController;
-  int _selectedSection = 0;
   var _currentUid = '';
   var _currentUidRequested = false;
 
   @override
   void initState() {
     super.initState();
-    _sectionController = TabController(length: 3, vsync: this)
-      ..addListener(_handleSectionChange);
+    _sectionController = TabController(length: 3, vsync: this);
   }
 
   @override
   void dispose() {
-    _sectionController
-      ..removeListener(_handleSectionChange)
-      ..dispose();
+    _sectionController.dispose();
     super.dispose();
-  }
-
-  void _handleSectionChange() {
-    if (_selectedSection == _sectionController.index) return;
-    setState(() => _selectedSection = _sectionController.index);
   }
 
   @override
@@ -328,23 +316,213 @@ class _WorldFeedContentState extends State<_WorldFeedContent>
             ],
           ),
         ),
-        switch (_selectedSection) {
-          0 => _WorldEventsSection(world: widget.world),
-          1 => SliverToBoxAdapter(
-            child: _WorldStatusSection(
-              world: widget.world,
-              currentUid: _currentUid,
-            ),
+        SliverToBoxAdapter(
+          child: _AutoSizedTabBarView(
+            controller: _sectionController,
+            children: [
+              _WorldEventsSection(world: widget.world),
+              _WorldStatusSection(world: widget.world, currentUid: _currentUid),
+              _WorldCharactersSection(
+                world: widget.world,
+                currentUid: _currentUid,
+              ),
+            ],
           ),
-          _ => SliverToBoxAdapter(
-            child: _WorldCharactersSection(
-              world: widget.world,
-              currentUid: _currentUid,
-            ),
-          ),
-        },
+        ),
       ],
     );
+  }
+}
+
+class _AutoSizedTabBarView extends StatefulWidget {
+  const _AutoSizedTabBarView({
+    required this.controller,
+    required this.children,
+  });
+
+  final TabController controller;
+  final List<Widget> children;
+
+  @override
+  State<_AutoSizedTabBarView> createState() => _AutoSizedTabBarViewState();
+}
+
+class _AutoSizedTabBarViewState extends State<_AutoSizedTabBarView> {
+  static const double _tabPageGap = 14;
+
+  final Map<int, double> _childHeights = <int, double>{};
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.animation?.addListener(_handleTabAnimation);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AutoSizedTabBarView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.animation?.removeListener(_handleTabAnimation);
+      widget.controller.animation?.addListener(_handleTabAnimation);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.animation?.removeListener(_handleTabAnimation);
+    super.dispose();
+  }
+
+  void _handleTabAnimation() {
+    if (mounted) setState(() {});
+  }
+
+  void _updateChildHeight(int index, Size size) {
+    final height = size.height;
+    if ((_childHeights[index] ?? -1) == height) return;
+    setState(() => _childHeights[index] = height);
+  }
+
+  double? get _currentHeight {
+    final animationValue =
+        widget.controller.animation?.value ??
+        widget.controller.index.toDouble();
+    final lowerIndex = animationValue.floor().clamp(
+      0,
+      widget.children.length - 1,
+    );
+    final upperIndex = animationValue.ceil().clamp(
+      0,
+      widget.children.length - 1,
+    );
+    final lowerHeight = _childHeights[lowerIndex];
+    final upperHeight = _childHeights[upperIndex] ?? lowerHeight;
+    final selectedHeight = _childHeights[widget.controller.index];
+    if (lowerHeight == null || upperHeight == null) {
+      return selectedHeight ?? lowerHeight ?? upperHeight;
+    }
+    return lowerHeight + (upperHeight - lowerHeight) * animationValue.frac();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentHeight = _currentHeight;
+    final measuringChildren = [
+      for (int index = 0; index < widget.children.length; index++)
+        Offstage(
+          offstage: true,
+          child: _MeasureSize(
+            onChange: (size) => _updateChildHeight(index, size),
+            child: widget.children[index],
+          ),
+        ),
+    ];
+
+    if (currentHeight == null) {
+      return Column(
+        children: [
+          ...measuringChildren,
+          widget.children[widget.controller.index],
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        ...measuringChildren,
+        ClipRect(
+          child: SizedBox(
+            height: currentHeight,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final expandedWidth = constraints.maxWidth + _tabPageGap * 2;
+                return OverflowBox(
+                  minWidth: expandedWidth,
+                  maxWidth: expandedWidth,
+                  alignment: Alignment.center,
+                  child: TabBarView(
+                    controller: widget.controller,
+                    children: [
+                      for (
+                        int index = 0;
+                        index < widget.children.length;
+                        index++
+                      )
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: _tabPageGap,
+                          ),
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child: _UnboundedHeightTabPage(
+                              child: KeyedSubtree(
+                                key: PageStorageKey<String>(
+                                  'world-section-$index',
+                                ),
+                                child: widget.children[index],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _UnboundedHeightTabPage extends StatelessWidget {
+  const _UnboundedHeightTabPage({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return OverflowBox(
+      minHeight: 0,
+      maxHeight: double.infinity,
+      alignment: Alignment.topCenter,
+      child: child,
+    );
+  }
+}
+
+class _MeasureSize extends StatefulWidget {
+  const _MeasureSize({required this.child, required this.onChange});
+
+  final Widget child;
+  final ValueChanged<Size> onChange;
+
+  @override
+  State<_MeasureSize> createState() => _MeasureSizeState();
+}
+
+class _MeasureSizeState extends State<_MeasureSize> {
+  Size? _oldSize;
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final renderObject = context.findRenderObject();
+      if (renderObject is! RenderBox || !renderObject.hasSize) return;
+      final size = renderObject.size;
+      if (_oldSize == size) return;
+      _oldSize = size;
+      widget.onChange(size);
+    });
+    return widget.child;
+  }
+}
+
+extension on double {
+  double frac() {
+    return this - floorToDouble();
   }
 }
 
@@ -603,9 +781,7 @@ IconData _counterIcon(String key) {
 Future<void> _copyWid(BuildContext context, String wid) async {
   await Clipboard.setData(ClipboardData(text: wid));
   if (!context.mounted) return;
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(const SnackBar(content: Text('WID copied')));
+  showGenesisToast(context, 'WID copied');
 }
 
 class _WorldEventsSection extends StatelessWidget {
@@ -617,9 +793,7 @@ class _WorldEventsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final ticks = world.ticks;
     if (ticks.isEmpty) {
-      return const SliverToBoxAdapter(
-        child: _EmptySection(text: 'No events yet.'),
-      );
+      return const _EmptySection(text: 'No events yet.');
     }
 
     final locationsById = <String, Map<String, dynamic>>{
@@ -628,17 +802,17 @@ class _WorldEventsSection extends StatelessWidget {
     }..remove('');
     final fallbackBody = _eventBody(world);
 
-    return SliverList.builder(
-      itemCount: ticks.length,
-      itemBuilder: (context, index) {
-        return WorldTickEventItem(
-          tick: ticks[index],
-          tickNumber: worldTickEventNumber(ticks[index], fallback: index + 1),
-          fallbackBody: fallbackBody,
-          locationsById: locationsById,
-          isLast: index == ticks.length - 1,
-        );
-      },
+    return Column(
+      children: [
+        for (int index = 0; index < ticks.length; index++)
+          WorldTickEventItem(
+            tick: ticks[index],
+            tickNumber: worldTickEventNumber(ticks[index], fallback: index + 1),
+            fallbackBody: fallbackBody,
+            locationsById: locationsById,
+            isLast: index == ticks.length - 1,
+          ),
+      ],
     );
   }
 }

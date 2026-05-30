@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'common/genesis_center_toast.dart';
 import '../platform/auth/auth_cancelled_exception.dart';
 
 class LoginSheet extends StatefulWidget {
@@ -33,9 +34,7 @@ class _LoginSheetState extends State<LoginSheet> {
         Navigator.of(context).pop(true);
       } else {
         debugPrint('[Auth][LoginSheet] login failed: onLogin returned false');
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Sign-in failed')));
+        showGenesisToast(context, 'Sign-in failed');
       }
     } on AuthCancelledException {
       debugPrint('[Auth][LoginSheet] login cancelled');
@@ -44,9 +43,7 @@ class _LoginSheetState extends State<LoginSheet> {
       debugPrint('[Auth][LoginSheet] stacktrace:\n$st');
       if (!mounted) return;
       final message = e.toString().trim();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message.isEmpty ? 'Sign-in failed' : message)),
-      );
+      showGenesisToast(context, message.isEmpty ? 'Sign-in failed' : message);
     } finally {
       debugPrint('[Auth][LoginSheet] submit end');
       if (mounted) setState(() => _submitting = false);

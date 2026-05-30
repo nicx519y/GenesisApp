@@ -19,7 +19,7 @@
 
 ## 总览
 
-本文档当前覆盖 31 个接口，分为 `用户`、`origin`、`world`、`search`、`discuss`、`direct_message`、`notify` 和 `upload` 八组：
+本文档当前覆盖 32 个接口，分为 `用户`、`origin`、`world`、`search`、`discuss`、`direct_message`、`notify` 和 `upload` 八组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -37,6 +37,7 @@
 | search | GET | `/api/v1/search` | 全局搜索 |
 | origin | GET | `/api/v1/origin/list` | Origin 模板列表 |
 | origin | GET | `/api/v1/origin/detail` | Origin 模板详情 |
+| origin | POST | `/api/v1/origin/launch` | 基于 origin 创建 world |
 | discuss | GET | `/api/v1/discuss/list` | 顶级评论分页列表 |
 | discuss | POST | `/api/v1/discuss/post` | 发表评论或回复 |
 | discuss | POST | `/api/v1/discuss/delete` | 删除自己的评论或回复 |
@@ -130,13 +131,15 @@
 - `origin_id*`: string
 - `origin_name*`: string
 - `origin_version*`: string
-- `origin_version_time`: integer
+- `origin_version_time`: string，RFC3339 字符串；未发布时可能省略
+- `owner_uid`: string，创建者 uid，来自登录 session，不接受创建请求覆盖
+- `owner_name`: string，创建者昵称
 - `brief`: string
 - `setting`: string
 - `events`: string[]
 - `tags`: string[]
 - `created_at`: integer，Unix 秒
-- `started_at`: integer，Unix 秒
+- `started_at`: string，故事内起始时间文本
 - `tick_duration_days`: integer
 - `cover`: string
 - `map_url`: string
@@ -149,7 +152,7 @@
 - `character_cnt`: integer
 - `connect_cnt`: integer
 - `location_cnt`: integer
-- `tick_cnt`: integer
+- `max_tick_cnt`: integer
 
 ### WorldInfo
 
@@ -180,8 +183,9 @@
 ### Character
 
 - `char_id*`: string
-- `type*`: string，`npc` 或 `player`
-- `player_uid`: string，`type=player` 时存在；origin 模板中为空
+- `type*`: string，`ai` 或 `custom`；origin 模板中固定为 `ai`
+- `player_uid`: string，`type=custom` 时存在；origin 模板中为空
+- `player_username`: string
 - `name*`: string
 - `identity`: string
 - `brief`: string
@@ -191,19 +195,23 @@
 - `initial_location_id`: string
 - `location_id`: string，当前 location
 - `metric_value`: integer
+- `delta`: integer
 
 ### Location
 
 - `location_id*`: string
+- `level`: integer，顶层为 `1`
 - `location_pid`: string
 - `location_name*`: string
 - `location_description`: string，地点基础描述；当 `location_summary` 为空时，地点列表用它兜底展示
+- `location_paragraph`: string，最新段落，每次 tick P1 后可能变化
+- `location_timestamp`: string，最新故事时间戳，每次 tick P1 后可能变化
 - `location_summary`: string，地点当前摘要，地点列表优先展示
 - `image`: string
 - `x_percent`: integer
 - `y_percent`: integer
 - `map_url`: string，当前 location 的地图图片 URL
-- `initial_dialogue`: `DialogueLine[]`
+- `dialogue`: `DialogueLine[]`
 
 ### Tick
 
@@ -457,6 +465,105 @@ Query：
 - `characters*`: `Character[]`
 - `locations*`: `Location[]`
 - `ticks*`: `Tick[]`
+
+### POST `/api/v1/origin/create`
+
+登录用户基于完整的 `info + characters + locations` 创建新的 origin 模板。服务端生成 `origin_id`（前缀 `o_`），`owner_uid` 取自 session，不接受请求体覆盖；`tags` 会去除首尾空白、过滤空值、去重后写入 `tbl_origin.tags`，并同步 `tbl_tag` / `tbl_origin_tag`。
+
+服务端行为：
+
+- 批量插入 `tbl_world_character(world_id=origin_id)` 与 `tbl_world_location(world_id=origin_id)`。
+- 同步 `character_cnt` / `location_cnt` 初值到主表。
+- 按 `location_pid` 树形重写 location id：一级 `loc_1`，二级 `loc_1_1`，三级 `loc_1_1_1`。
+- 按数组顺序将 `char_id` 重写为 `char_1...`，并同步重写 `character.initial_location_id` 与 `location.location_pid` 中的临时引用。
+- `ticks` 不在 create 范围内。
+
+请求 body（`OriginCreateReq`）：
+
+- `origin_name*`: string
+- `origin_version`: string，create 时服务端默认写 `1`
+- `brief`: string
+- `setting`: string
+- `events`: string[]
+- `tags`: string[]
+- `metric`: `WorldMetric`
+- `started_at`: string，故事内起始时间文本
+- `tick_duration_days`: integer
+- `cover`: string
+- `map_url`: string
+- `characters`: `OriginCharacterUpsert[]`
+- `locations`: `OriginLocationUpsert[]`
+
+`OriginCharacterUpsert`：
+
+- `char_id`: string，请求内临时引用 id；服务端按数组顺序重写
+- `name*`: string
+- `identity`: string
+- `personality`: string，详情接口中以 `character.brief` 返回
+- `bio`: string，详情接口中以 `character.description` 返回
+- `goal`: string
+- `avatar`: string
+- `initial_location_id`: string，角色初始地点 id；`location_id` / `metric_value` 属于 tick 运行态，不在 create 入参中提供
+
+`OriginLocationUpsert`：
+
+- `location_id`: string，请求内临时引用 id
+- `level`: integer，不传时服务端会根据 `location_id` 粗略推断，兜底为 `1`
+- `location_pid`: string，父 location id；顶层为空字符串
+- `location_name*`: string
+- `location_description`: string，固定描述，tick 不会修改
+- `location_summary`: string，兼容旧请求；当 `location_description` 为空时用于回填固定描述
+- `image`: string
+- `x_percent`: integer，`0-100`
+- `y_percent`: integer，`0-100`
+- `map_url`: string
+
+响应 `data`：
+
+- `info*`: `OriginInfo`
+- `stats*`: `OriginStats`
+- `characters*`: `Character[]`
+- `locations*`: `Location[]`
+- `ticks*`: `Tick[]`
+
+错误码：
+
+- `4004`
+- `10001`
+
+### POST `/api/v1/origin/launch`
+
+登录用户基于一个 origin 模板创建新的 world 实例；接口只创建 world，不触发 tick。
+
+请求 body（`OriginLaunchReq`）：
+
+- `origin_id*`: string，待 launch 的 origin 业务 id
+- `preset_character_id`: string，origin 角色列表中的 `char_id`
+- `custom_role`: `WorldCustomRole`
+
+`preset_character_id` 与 `custom_role` 必须二选一；两者都为空或都非空会返回 `4004`。
+
+`WorldCustomRole`：
+
+- `char_id`: string，可空；为空时服务端按 `char_<uid>` 兜底
+- `name*`: string
+- `identity`: string
+- `personality`: string
+- `bio`: string
+- `goal`: string
+- `avatar`: string
+- `initial_location_id`: string，玩家进入 world 时的初始地点；服务端同时作为当前 `location_id` 写入
+
+响应 `data`：
+
+- `world_id*`: string
+
+错误码：
+
+- `4004`
+- `10001`
+- `20101`
+- `20102`
 
 ## Search 接口
 
@@ -882,6 +989,7 @@ query：
 | `GET /api/v1/search` | `SearchV1Api.search` 已改为发送 `keyword/type/pn/rn`；`type` 为空时不随 query 发送，表示全局搜索；`SearchPage` 已消费 `origins/worlds/users` 分类结果块。 |
 | `GET /api/v1/origin/list` | `OriginV1Api.list` query 已使用 `tag_id/keyword/uid/tag_name/pn/rn`；origin 页面和主 `getOrigins/getMyLaunchedOrigins` 可消费 `list[].info + stats`。 |
 | `GET /api/v1/origin/detail` | `OriginV1Api.detail` query 已使用 `origin_id`；详情 mapper 支持 `info/stats/characters/locations/ticks`。 |
+| `POST /api/v1/origin/launch` | `OriginV1Api.launch` body 已使用 `origin_id/preset_character_id/custom_role`；详情页 launch 发送 preset 或 custom 二选一 payload，并消费响应 `world_id`。 |
 | `GET /api/v1/discuss/list` | `DiscussV1Api.list` 已使用 `biz_type=1`、`biz_id/pn/rn`，并消费 `list[].comment/latest_replies/top_total/total_all`；本地 mock 会按业务对象分页并为每条顶级评论返回最新 3 条回复。 |
 | `POST /api/v1/discuss/post` | `DiscussV1Api.post` 已支持顶级评论与回复统一入口，body 使用 `biz_type/biz_id/content/images/root_discuss_id/parent_discuss_id`，响应消费 `discuss_id/root_discuss_id/level`。 |
 | `POST /api/v1/discuss/delete` | `DiscussV1Api.delete` 已改为 `/discuss/delete` + `discuss_id`，响应按空对象处理。 |
@@ -928,7 +1036,6 @@ Origin：
 
 - `POST /api/v1/origin/create`
 - `POST /api/v1/origin/update`
-- `POST /api/v1/origin/launch`
 - `GET /api/v1/origin/versionlist`
 - `POST /api/v1/origin/publish`
 - `POST /api/v1/origin/del`

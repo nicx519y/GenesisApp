@@ -11,6 +11,8 @@ import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
+import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/direct_message_conversation_store.dart';
@@ -225,11 +227,18 @@ class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
 class _RecordingV1ListTransport implements HttpTransport {
   static const total = 100;
 
-  _RecordingV1ListTransport({this.worldTickCompleter, this.userInfoCompleter});
+  _RecordingV1ListTransport({
+    this.worldTickCompleter,
+    this.userInfoCompleter,
+    this.originListCompleter,
+    this.worldListCompleter,
+  });
 
   final requests = <TransportRequest>[];
   final Completer<TransportResponse>? worldTickCompleter;
   final Completer<TransportResponse>? userInfoCompleter;
+  final Completer<TransportResponse>? originListCompleter;
+  final Completer<TransportResponse>? worldListCompleter;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -275,8 +284,8 @@ class _RecordingV1ListTransport implements HttpTransport {
         request.uri.path.endsWith('/origin/launch')) {
       return _jsonResponse({
         'err_no': 0,
-        'err_str': 'success',
-        'data': {'wid': 'w_launched_from_origin'},
+        'err_msg': 'succ',
+        'data': {'world_id': 'w_launched_from_origin'},
       });
     }
     if (request.method == 'POST' &&
@@ -352,6 +361,14 @@ class _RecordingV1ListTransport implements HttpTransport {
 
     final pn = int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1;
     final rn = int.tryParse(request.uri.queryParameters['rn'] ?? '') ?? 20;
+    if (request.uri.path.endsWith('/origin/list') &&
+        originListCompleter != null) {
+      return originListCompleter!.future;
+    }
+    if (request.uri.path.endsWith('/world/list') &&
+        worldListCompleter != null) {
+      return worldListCompleter!.future;
+    }
     final start = ((pn - 1) * rn).clamp(0, total);
     final end = (start + rn).clamp(0, total);
     final list = [
@@ -999,16 +1016,17 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         request.uri.path == '/api/v1/origin/create') {
       final body = decodedBody(request);
       data = {
-        'origin': {
-          'oid': 'o_created_1',
-          'name': body['name'],
+        'info': {
+          'origin_id': 'o_created_1',
+          'origin_name': body['origin_name'],
           'cover': body['cover'],
-          'world_view': body['world_view'],
-          'world_setting': body['world_setting'],
+          'brief': body['brief'],
+          'setting': body['setting'],
         },
-        'character_list': const <Object?>[],
-        'location_list': const <Object?>[],
-        'event_list': const <Object?>[],
+        'stats': const <String, Object?>{},
+        'characters': const <Object?>[],
+        'locations': const <Object?>[],
+        'ticks': const <Object?>[],
       };
     }
     if (request.method == 'GET' &&
@@ -1086,11 +1104,13 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
-  testWidgets('Origin is default tab', (WidgetTester tester) async {
+  testWidgets('Home is default tab', (WidgetTester tester) async {
     await _pumpGenesisApp(tester);
 
-    expect(find.text('Origin'), findsWidgets);
     expect(find.text('Home'), findsOneWidget);
+    expect(find.text('My World'), findsOneWidget);
+    expect(find.text('Popular'), findsOneWidget);
+    expect(find.text('Origin'), findsOneWidget);
     expect(find.text('Create'), findsOneWidget);
     expect(find.text('Messages'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
@@ -1585,17 +1605,20 @@ void main() {
     expect(find.text('Recorded block message'), findsOneWidget);
   });
 
-  testWidgets('tap Home switches to Home page', (WidgetTester tester) async {
+  testWidgets('tap Origin switches to Origin page', (
+    WidgetTester tester,
+  ) async {
     await _pumpGenesisApp(tester);
 
-    expect(find.text('Origin'), findsNWidgets(2));
+    expect(find.text('My World'), findsOneWidget);
+    expect(find.text('Popular'), findsOneWidget);
 
-    await tester.tap(find.text('Home'));
+    await tester.tap(find.text('Origin'));
     await tester.pumpAndSettle();
 
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('My World'), findsOneWidget);
-    expect(find.text('Popular'), findsOneWidget);
+    expect(find.text('Origin'), findsNWidgets(2));
+    expect(find.text('For you'), findsOneWidget);
   });
 
   testWidgets('main tabs keep page state after switching away and back', (
@@ -1824,10 +1847,18 @@ void main() {
     expect(find.text('Launch'), findsOneWidget);
     await tester.tap(find.text('Launch'));
     await tester.pumpAndSettle();
+    expect(find.text('Setup Your Role'), findsOneWidget);
+    expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
+    await tester.pumpAndSettle();
 
     final launchRequests = transport.requestsFor('/api/v1/origin/launch');
     expect(launchRequests, hasLength(1));
-    expect(transport.decodedBody(launchRequests.single)['oid'], 'o_test_1');
+    final launchBody = transport.decodedBody(launchRequests.single);
+    expect(launchBody['origin_id'], 'o_test_1');
+    expect(launchBody.containsKey('oid'), isFalse);
+    expect(launchBody['preset_character_id'], 'c_o_test_1');
     final worldRequests = transport.requestsFor('/api/v1/world/detail');
     expect(worldRequests, isNotEmpty);
     expect(
@@ -1835,6 +1866,147 @@ void main() {
       'w_launched_from_origin',
     );
   });
+
+  testWidgets('Origin detail launch sheet sends custom role payload', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Launch'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Custom'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), 'Custom Hero');
+    await tester.enterText(find.byType(TextField).at(1), 'Time traveler');
+    await tester.enterText(find.byType(TextField).at(2), 'Knows too much.');
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
+    await tester.pumpAndSettle();
+
+    final launchRequests = transport.requestsFor('/api/v1/origin/launch');
+    expect(launchRequests, hasLength(1));
+    final launchBody = transport.decodedBody(launchRequests.single);
+    expect(launchBody['origin_id'], 'o_test_1');
+    expect(launchBody.containsKey('oid'), isFalse);
+    expect(launchBody.containsKey('preset_character_id'), isFalse);
+    expect(launchBody['custom_role'], containsPair('name', 'Custom Hero'));
+    expect(
+      launchBody['custom_role'],
+      containsPair('identity', 'Time traveler'),
+    );
+    expect(launchBody['custom_role'], containsPair('bio', 'Knows too much.'));
+  });
+
+  testWidgets('Origin detail custom role fills avatar from profile', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialUserInfo: {
+            'name': 'Profile Hero',
+            'identity': 'Saved explorer',
+            'avatar_url': 'https://cdn.example.com/profile.png',
+            'bio': 'Profile biography',
+          },
+        ),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Launch'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Custom'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Fill from my profile'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fill from my profile'));
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
+    await tester.pumpAndSettle();
+
+    final launchRequests = transport.requestsFor('/api/v1/origin/launch');
+    expect(launchRequests, hasLength(1));
+    final launchBody = transport.decodedBody(launchRequests.single);
+    expect(
+      launchBody['custom_role'],
+      containsPair('avatar', 'https://cdn.example.com/profile.png'),
+    );
+    expect(launchBody['custom_role'], containsPair('name', 'Profile Hero'));
+    expect(
+      launchBody['custom_role'],
+      containsPair('identity', 'Saved explorer'),
+    );
+    expect(launchBody['custom_role'], containsPair('bio', 'Profile biography'));
+  });
+
+  testWidgets(
+    'Origin detail custom role keeps avatar empty when profile has no avatar',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport();
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUserInfo: {
+              'name': 'Profile Hero',
+              'identity': 'Saved explorer',
+              'bio': 'Profile biography',
+            },
+          ),
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Launch'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Custom'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Fill from my profile'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Fill from my profile'));
+      await tester.pump();
+
+      expect(find.text('AVATAR\n(Optional)'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
+      await tester.pumpAndSettle();
+
+      final launchRequests = transport.requestsFor('/api/v1/origin/launch');
+      expect(launchRequests, hasLength(1));
+      final launchBody = transport.decodedBody(launchRequests.single);
+      expect(launchBody['custom_role'], isNot(contains('avatar')));
+      expect(launchBody['custom_role'], containsPair('name', 'Profile Hero'));
+      expect(
+        launchBody['custom_role'],
+        containsPair('identity', 'Saved explorer'),
+      );
+    },
+  );
 
   testWidgets('World list item opens world detail with current wid', (
     WidgetTester tester,
@@ -2208,6 +2380,210 @@ void main() {
     final cachedUser = await services.sessionStore.readUserInfo();
     expect(cachedUser?['following_cnt'], 13);
     expect(cachedUser?['follower_cnt'], 17);
+  });
+
+  test('remote user info with same rendered fields is ignored', () {
+    const current = UserProfileData(
+      avatarUrl: '',
+      displayName: 'Cached User',
+      uid: 'u_cached',
+      followingCount: 7,
+      followerCount: 11,
+      origins: <UserProfileOriginItem>[],
+      worlds: <UserProfileWorldItem>[],
+    );
+
+    final next = mergeRemoteUserInfoForRenderForTest(current, {
+      'uid': 'u_cached',
+      'name': 'Cached User',
+      'avatar': '',
+      'following_cnt': 7,
+      'follower_cnt': 11,
+    });
+
+    expect(sameRenderedUserInfoForTest(current, next), isTrue);
+  });
+
+  test('remote user info with changed rendered fields is applied', () {
+    const current = UserProfileData(
+      avatarUrl: '',
+      displayName: 'Cached User',
+      uid: 'u_cached',
+      followingCount: 7,
+      followerCount: 11,
+      origins: <UserProfileOriginItem>[],
+      worlds: <UserProfileWorldItem>[],
+    );
+
+    final next = mergeRemoteUserInfoForRenderForTest(current, {
+      'uid': 'u_cached',
+      'name': 'Remote User',
+      'avatar': '',
+      'following_cnt': 13,
+      'follower_cnt': 17,
+    });
+
+    expect(sameRenderedUserInfoForTest(current, next), isFalse);
+    expect(next.displayName, 'Remote User');
+    expect(next.followingCount, 13);
+    expect(next.followerCount, 17);
+  });
+
+  testWidgets('Me page enters before origin and world lists finish', (
+    WidgetTester tester,
+  ) async {
+    final userInfoCompleter = Completer<TransportResponse>();
+    final originListCompleter = Completer<TransportResponse>();
+    final worldListCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      userInfoCompleter: userInfoCompleter,
+      originListCompleter: originListCompleter,
+      worldListCompleter: worldListCompleter,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: 'u_cached',
+            initialAuthToken: 'backend-token',
+            initialUserInfo: {
+              'uid': 'u_cached',
+              'name': 'Cached User',
+              'avatar': '',
+              'following_cnt': 7,
+              'follower_cnt': 11,
+            },
+          ),
+          child: const MePage(),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Cached User'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('profile-origin-list-loading')),
+      findsOneWidget,
+    );
+    expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+
+    await tester.tap(find.text('World'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.byKey(const ValueKey('profile-world-list-loading')),
+      findsOneWidget,
+    );
+
+    userInfoCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'user': {
+            'uid': 'u_cached',
+            'name': 'Remote User',
+            'avatar': '',
+            'following_cnt': 13,
+            'follower_cnt': 17,
+          },
+        },
+      }),
+    );
+    originListCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {'list': const <Object?>[], 'total': 0},
+      }),
+    );
+    worldListCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {'list': const <Object?>[], 'total': 0},
+      }),
+    );
+    await tester.pump();
+  });
+
+  testWidgets('profile list notifier update does not rebuild profile shell', (
+    WidgetTester tester,
+  ) async {
+    final origins =
+        ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>(
+          const UserProfileCollectionState<UserProfileOriginItem>(
+            items: <UserProfileOriginItem>[],
+            isLoading: true,
+          ),
+        );
+    final worlds =
+        ValueNotifier<UserProfileCollectionState<UserProfileWorldItem>>(
+          const UserProfileCollectionState<UserProfileWorldItem>(
+            items: <UserProfileWorldItem>[],
+            isLoading: true,
+          ),
+        );
+    addTearDown(origins.dispose);
+    addTearDown(worlds.dispose);
+    var shellBuilds = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              shellBuilds += 1;
+              return UserProfileContent(
+                data: const UserProfileData(
+                  avatarUrl: '',
+                  displayName: 'Cached User',
+                  uid: 'u_cached',
+                  followingCount: 7,
+                  followerCount: 11,
+                  origins: <UserProfileOriginItem>[],
+                  worlds: <UserProfileWorldItem>[],
+                ),
+                originsListenable: origins,
+                worldsListenable: worlds,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(shellBuilds, 1);
+    expect(
+      find.byKey(const ValueKey('profile-origin-list-loading')),
+      findsOneWidget,
+    );
+
+    origins.value = const UserProfileCollectionState<UserProfileOriginItem>(
+      items: <UserProfileOriginItem>[
+        UserProfileOriginItem(
+          originId: 1,
+          oid: 'o_loaded',
+          title: 'Origin loaded',
+          subtitle: 'OID: o_loaded',
+          imageUrl: '',
+          copyCount: 1,
+          interactCount: 2,
+          characterCount: 3,
+        ),
+      ],
+      isLoading: false,
+    );
+    await tester.pump();
+
+    expect(shellBuilds, 1);
+    expect(find.text('Origin loaded'), findsOneWidget);
   });
 
   testWidgets('login sheet enters Me after backend HTTP login succeeds', (
@@ -2711,9 +3087,27 @@ void main() {
     await tester.pumpWidget(
       AppServicesScope(
         services: await _testServices(transport: transport, useMock: false),
-        child: const MaterialApp(home: CreateOriginPage()),
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: FilledButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const CreateOriginPage(),
+                    ),
+                  );
+                },
+                child: const Text('Open create'),
+              ),
+            ),
+          ),
+        ),
       ),
     );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open create'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
@@ -2722,24 +3116,32 @@ void main() {
     final requests = transport.requestsFor('/api/v1/origin/create');
     expect(requests, hasLength(1));
     final body = transport.decodedBody(requests.single);
-    expect(body['origin_id'], 'origin_local_1');
-    expect(body['name'], 'Crystal City');
+    expect(body.containsKey('origin_id'), isFalse);
+    expect(body['origin_name'], 'Crystal City');
+    expect(body['brief'], 'A public world view.');
+    expect(body['setting'], 'Hidden rules.');
     expect(body['cover'], 'https://example.com/cover.png');
-    expect(body['character_list'], isA<List>());
-    expect((body['character_list'] as List).single['char_id'], 'char_local_1');
-    expect(body['location_list'], isA<List>());
-    final locationList = body['location_list'] as List;
+    expect(body['characters'], isA<List>());
+    final characters = body['characters'] as List;
+    expect(characters.single['char_id'], 'char_local_1');
+    expect(characters.single['personality'], 'Calm');
+    expect(body['locations'], isA<List>());
+    final locationList = body['locations'] as List;
     expect(locationList, hasLength(3));
     expect(locationList[0]['location_id'], 'root_origin_local_1');
     expect(locationList[0]['location_pid'], '');
+    expect(locationList[0]['location_name'], 'Crystal City');
     expect(locationList[1]['location_id'], 'location_local_1');
     expect(locationList[1]['location_pid'], 'root_origin_local_1');
+    expect(locationList[1]['location_name'], 'Gate');
     expect(locationList[2]['location_id'], startsWith('location_'));
     expect(locationList[2]['location_pid'], 'location_local_1');
-    expect(locationList[2]['name'], 'Gate');
+    expect(locationList[2]['location_name'], 'Gate');
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
+    expect(find.text('Open create'), findsOneWidget);
+    expect(find.text('Create Origin'), findsNothing);
     expect(
       find.text('Origin created successfully: o_created_1'),
       findsOneWidget,

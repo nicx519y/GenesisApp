@@ -726,21 +726,34 @@ class GenesisApi {
   Future<CreateOriginResult> createOrigin({
     required Map<String, dynamic> payload,
   }) async {
+    final events = _createOriginEventStrings(payload['event_list']);
     final created = await v1.origin.create(
-      originId: asString(payload['origin_id']),
-      name: asString(payload['name']),
-      worldView: asString(payload['world_view']),
-      worldSetting: asString(payload['world_setting']),
-      cover: asString(payload['cover']),
-      characterList: _payloadMapList(payload['character_list']),
-      locationList: _payloadMapList(payload['location_list']),
-      eventList: _payloadMapList(payload['event_list']),
+      originName: asString(payload['name']),
+      brief: asString(payload['world_view']),
+      setting: asString(payload['world_setting']),
+      events: events.isEmpty ? null : events,
+      tags: _createOriginStringList(payload['tags']),
       metric: payload['metric'] is Map ? asJsonMap(payload['metric']) : null,
+      cover: asString(payload['cover']),
+      mapUrl: asString(
+        payload['map_url'],
+        fallback: asString(payload['cover']),
+      ),
+      characters: _createOriginCharacters(payload),
+      locations: _createOriginLocations(payload),
     );
-    final detail = created['origin'] is Map
+    final detail = created['info'] is Map
+        ? asJsonMap(created['info'])
+        : created['origin'] is Map
         ? asJsonMap(created['origin'])
         : created;
-    final oid = asString(detail['oid'], fallback: asString(created['oid']));
+    final oid = asString(
+      detail['origin_id'],
+      fallback: asString(
+        detail['oid'],
+        fallback: asString(created['origin_id']),
+      ),
+    );
     return CreateOriginResult(worldviewId: oid, oid: oid);
   }
 
@@ -842,6 +855,103 @@ HttpTransport? _resolveTransport({
 List<Map<String, dynamic>> _payloadMapList(Object? raw) {
   if (raw is! List) return const <Map<String, dynamic>>[];
   return raw.map((item) => asJsonMap(item)).toList(growable: false);
+}
+
+List<String>? _createOriginStringList(Object? raw) {
+  if (raw is! List) return null;
+  final values = raw
+      .map((item) => '$item'.trim())
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+  return values.isEmpty ? null : values;
+}
+
+List<String> _createOriginEventStrings(Object? raw) {
+  if (raw is! List) return const <String>[];
+  return raw
+      .map((item) {
+        if (item is Map) {
+          return asString(item['content'], fallback: asString(item['event']));
+        }
+        return '$item';
+      })
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toList(growable: false);
+}
+
+List<Map<String, dynamic>> _createOriginCharacters(
+  Map<String, dynamic> payload,
+) {
+  final locations = _payloadMapList(payload['location_list']);
+  final initialLocationByCharacter = <String, String>{};
+  for (final location in locations) {
+    final locationId = asString(location['location_id']).trim();
+    final characterIds = location['initial_character_ids'];
+    if (locationId.isEmpty || characterIds is! List) continue;
+    for (final charIdRaw in characterIds) {
+      final charId = '$charIdRaw'.trim();
+      if (charId.isNotEmpty) initialLocationByCharacter[charId] = locationId;
+    }
+  }
+
+  return _payloadMapList(payload['character_list'])
+      .map((item) {
+        final charId = asString(item['char_id']).trim();
+        return <String, dynamic>{
+          if (charId.isNotEmpty) 'char_id': charId,
+          'name': asString(item['name']),
+          'identity': asString(item['identity']),
+          'personality': asString(
+            item['personality'],
+            fallback: asString(
+              item['tagline'],
+              fallback: asString(item['brief']),
+            ),
+          ),
+          'bio': asString(item['bio'], fallback: asString(item['description'])),
+          'goal': asString(item['goal']),
+          'avatar': asString(item['avatar']),
+          'initial_location_id': asString(
+            item['initial_location_id'],
+            fallback: initialLocationByCharacter[charId] ?? '',
+          ),
+        };
+      })
+      .toList(growable: false);
+}
+
+List<Map<String, dynamic>> _createOriginLocations(
+  Map<String, dynamic> payload,
+) {
+  final rawLocations = _payloadMapList(payload['location_list']);
+  return rawLocations
+      .map((item) {
+        final parentId = asString(item['location_pid']).trim();
+        return <String, dynamic>{
+          if (asString(item['location_id']).trim().isNotEmpty)
+            'location_id': asString(item['location_id']).trim(),
+          'level': asInt(item['level']),
+          'location_pid': parentId,
+          'location_name': asString(
+            item['location_name'],
+            fallback: asString(item['name']),
+          ),
+          'location_description': asString(
+            item['location_description'],
+            fallback: asString(
+              item['description'],
+              fallback: asString(item['location_summary']),
+            ),
+          ),
+          'location_summary': asString(item['location_summary']),
+          'image': asString(item['image'], fallback: asString(item['icon'])),
+          'x_percent': asInt(item['x_percent']),
+          'y_percent': asInt(item['y_percent']),
+          'map_url': asString(item['map_url']),
+        };
+      })
+      .toList(growable: false);
 }
 
 bool? _mockEnabledByApiEnvironment(String value) {
@@ -1063,6 +1173,7 @@ List<OriginCharacter> _originCharactersFromV5(Object? raw, int originId) {
         final c = asJsonMap(entry.value);
         return OriginCharacter(
           id: asInt(c['id'], fallback: i + 1),
+          characterId: asString(c['character_id'], fallback: asString(c['id'])),
           originId: originId,
           name: asString(c['name']),
           avatar: asString(c['image']),
@@ -1405,6 +1516,7 @@ OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
   final stableLocationId = _stableInt(locationId);
   return OriginCharacter(
     id: asInt(raw['id'], fallback: _stableInt(characterId)),
+    characterId: characterId,
     originId: originId,
     name: asString(raw['name']),
     avatar: resolveAssetUrl(asString(raw['avatar'])),

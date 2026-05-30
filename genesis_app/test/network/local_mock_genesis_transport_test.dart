@@ -216,14 +216,18 @@ void main() {
     expect(((detail['stats'] as Map)['copy_cnt']), greaterThanOrEqualTo(1000));
     expect((detail['characters'] as List).isNotEmpty, true);
     final created = await api.v1.origin.create(
-      name: 'Created Mock Origin',
-      worldView: 'Created from a local mock test.',
+      originName: 'Created Mock Origin',
+      brief: 'Created from a local mock test.',
+      setting: 'Created from a local mock test.',
       cover: '',
-      characterList: const [],
+      characters: const [],
     );
-    final createdOrigin = (created['origin'] as Map)['oid'] as String;
+    final createdOrigin = (created['info'] as Map)['origin_id'] as String;
     await api.v1.origin.update(oid: createdOrigin, name: 'Updated Mock Origin');
-    await api.v1.origin.launch(oid: createdOrigin);
+    await api.v1.origin.launch(
+      oid: createdOrigin,
+      presetCharacterId: 'char_mock_001',
+    );
     await api.v1.origin.versionList(oid: createdOrigin);
     await api.v1.origin.publish(oid: createdOrigin, updateNotes: 'publish');
 
