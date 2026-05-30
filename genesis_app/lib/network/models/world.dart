@@ -45,7 +45,7 @@ class World {
 
 @immutable
 class WorldDetail {
-  const WorldDetail({
+  WorldDetail({
     required this.id,
     required this.wid,
     required this.originId,
@@ -66,9 +66,12 @@ class WorldDetail {
     required this.ticks,
     required this.worldLocations,
     this.worldLocationTree = const <LocationTreeNode<Map<String, dynamic>>>[],
+    ProcessedLocationTree<Map<String, dynamic>>? processedWorldLocationTree,
     required this.characterPositions,
     required this.userPositions,
-  });
+  }) : processedWorldLocationTree =
+           processedWorldLocationTree ??
+           ProcessedLocationTree<Map<String, dynamic>>(worldLocationTree);
 
   final int id;
   final String wid;
@@ -90,15 +93,21 @@ class WorldDetail {
   final List<Map<String, dynamic>> ticks;
   final List<Map<String, dynamic>> worldLocations;
   final List<LocationTreeNode<Map<String, dynamic>>> worldLocationTree;
+  final ProcessedLocationTree<Map<String, dynamic>> processedWorldLocationTree;
   final List<Map<String, dynamic>> characterPositions;
   final List<Map<String, dynamic>> userPositions;
 
   factory WorldDetail.fromJson(Map<String, dynamic> json) {
-    final worldLocations = (json['world_locations'] is List)
+    final rawWorldLocations = (json['world_locations'] is List)
         ? asJsonList(
             json['world_locations'],
           ).map((e) => asJsonMap(e)).toList(growable: false)
         : const <Map<String, dynamic>>[];
+    final worldLocationTree = buildLocationTree(
+      rawWorldLocations,
+      idOf: (location) => asString(location['location_id']),
+      parentIdOf: (location) => asString(location['location_pid']),
+    );
     return WorldDetail(
       id: asInt(json['id']),
       wid: asString(json['wid']),
@@ -143,12 +152,9 @@ class WorldDetail {
               json['ticks'],
             ).map((e) => asJsonMap(e)).toList(growable: false)
           : const [],
-      worldLocations: worldLocations,
-      worldLocationTree: buildLocationTree(
-        worldLocations,
-        idOf: (location) => asString(location['location_id']),
-        parentIdOf: (location) => asString(location['location_pid']),
-      ),
+      worldLocations: rawWorldLocations,
+      worldLocationTree: worldLocationTree,
+      processedWorldLocationTree: processLocationTree(worldLocationTree),
       characterPositions: (json['character_positions'] is List)
           ? asJsonList(
               json['character_positions'],

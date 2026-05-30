@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../ui/components/genesis_character_avatar.dart';
@@ -14,12 +15,16 @@ class WorldMapLocationNode {
     required this.id,
     required this.point,
     this.mapImageUrl = '',
+    this.isRoot = false,
+    this.chatTargetPoint,
     this.children = const <WorldMapLocationNode>[],
   });
 
   final String id;
   final WorldPoint point;
   final String mapImageUrl;
+  final bool isRoot;
+  final WorldPoint? chatTargetPoint;
   final List<WorldMapLocationNode> children;
 }
 
@@ -58,6 +63,9 @@ class WorldMap extends StatefulWidget {
 class _WorldMapState extends State<WorldMap> {
   final List<_WorldMapLocationTrailEntry> _locationTrail =
       <_WorldMapLocationTrailEntry>[];
+  String _lastLoggedLocationTreeSignature = '';
+  WorldPoint? _tapRipplePoint;
+  int _tapRippleGeneration = 0;
   _MapTransitionSpec _mapTransition = const _MapTransitionSpec(
     origin: Alignment.center,
     direction: _MapTransitionDirection.drillIn,
@@ -66,8 +74,15 @@ class _WorldMapState extends State<WorldMap> {
   bool get _hasDrillTree => widget.locationNodes.isNotEmpty;
 
   @override
+  void initState() {
+    super.initState();
+    _debugPrintLocationTree('init');
+  }
+
+  @override
   void didUpdateWidget(covariant WorldMap oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _debugPrintLocationTree('update');
     if (!_hasDrillTree) {
       if (_locationTrail.isNotEmpty) _locationTrail.clear();
       return;
@@ -83,7 +98,7 @@ class _WorldMapState extends State<WorldMap> {
   Widget build(BuildContext context) {
     final currentNode = _currentNode;
     final visibleNodes = _hasDrillTree
-        ? (currentNode == null ? widget.locationNodes : currentNode.children)
+        ? (currentNode == null ? _initialVisibleNodes : currentNode.children)
         : const <WorldMapLocationNode>[];
     final visiblePoints = _hasDrillTree
         ? visibleNodes.map((node) => node.point).toList(growable: false)
@@ -96,7 +111,7 @@ class _WorldMapState extends State<WorldMap> {
     final currentMapImageUrl =
         currentNode?.mapImageUrl.trim().isNotEmpty == true
         ? currentNode!.mapImageUrl
-        : widget.mapImageUrl;
+        : _initialMapImageUrl;
     final preloadMapImageUrls = _hasDrillTree
         ? visibleNodes
               .map((node) => node.mapImageUrl.trim())
@@ -152,6 +167,13 @@ class _WorldMapState extends State<WorldMap> {
                               opacity: widget.showPointsList ? 0.6 : 1,
                               child: Stack(
                                 children: [
+                                  if (_tapRipplePoint != null)
+                                    _WorldLocationTapRipple(
+                                      key: ValueKey<int>(_tapRippleGeneration),
+                                      generation: _tapRippleGeneration,
+                                      point: _tapRipplePoint!,
+                                      onCompleted: _clearTapRipple,
+                                    ),
                                   for (final p in visiblePoints)
                                     _WorldPointPositioned(
                                       point: p,
@@ -180,7 +202,7 @@ class _WorldMapState extends State<WorldMap> {
             ),
             if (widget.showPointsList)
               Positioned.fill(
-                child: ColoredBox(color: Colors.white.withValues(alpha: 0.72)),
+                child: ColoredBox(color: Colors.white.withValues(alpha: 0.82)),
               ),
             if (widget.showPointsList)
               Positioned.fill(
@@ -213,7 +235,11 @@ class _WorldMapState extends State<WorldMap> {
   }
 
   VoidCallback? _pointTapHandler(WorldPoint point) {
-    if (_hasDrillTree && !_isLeafPoint(point)) {
+    if (_hasDrillTree) {
+      final node = _findPointNode(point);
+      if (node == null) return null;
+      final chatTarget = _chatTargetForNode(node);
+      if (chatTarget != null && widget.onPointTap == null) return null;
       return () => _handlePointTap(point);
     }
     if (widget.onPointTap == null) return null;
@@ -221,9 +247,18 @@ class _WorldMapState extends State<WorldMap> {
   }
 
   void _handlePointTap(WorldPoint point) {
-    if (_hasDrillTree && !_isLeafPoint(point)) {
+    if (!widget.showPointsList) {
+      _triggerTapRipple(point);
+    }
+
+    if (_hasDrillTree) {
       final node = _findPointNode(point);
       if (node != null) {
+        final chatTarget = _chatTargetForNode(node);
+        if (chatTarget != null) {
+          widget.onPointTap?.call(chatTarget);
+          return;
+        }
         widget.onDrillIntoLocation?.call();
         final origin = _mapTransitionOrigin(point);
         final path = _nodePath(node.id);
@@ -250,6 +285,20 @@ class _WorldMapState extends State<WorldMap> {
     widget.onPointTap?.call(point);
   }
 
+  void _triggerTapRipple(WorldPoint point) {
+    setState(() {
+      _tapRipplePoint = point;
+      _tapRippleGeneration += 1;
+    });
+  }
+
+  void _clearTapRipple(int generation) {
+    if (!mounted || generation != _tapRippleGeneration) return;
+    setState(() {
+      _tapRipplePoint = null;
+    });
+  }
+
   void _exitLocation() {
     if (_locationTrail.isEmpty) return;
     widget.onDrillIntoLocation?.call();
@@ -263,20 +312,47 @@ class _WorldMapState extends State<WorldMap> {
     });
   }
 
-  bool _isLeafPoint(WorldPoint point) {
-    final node = _findPointNode(point);
-    return node == null || node.children.isEmpty;
-  }
-
   WorldMapLocationNode? get _currentNode {
     if (_locationTrail.isEmpty) return null;
     return _findNode(_locationTrail.last.id);
+  }
+
+  List<WorldMapLocationNode> get _initialVisibleNodes {
+    final explicitRootChildren = widget.locationNodes
+        .where((node) => node.isRoot)
+        .expand((node) => node.children)
+        .toList(growable: false);
+    if (explicitRootChildren.isNotEmpty ||
+        widget.locationNodes.any((node) => node.isRoot)) {
+      return explicitRootChildren;
+    }
+
+    return widget.locationNodes;
+  }
+
+  String get _initialMapImageUrl {
+    for (final node in widget.locationNodes) {
+      if (!node.isRoot) continue;
+      final rootMapImageUrl = node.mapImageUrl.trim();
+      if (rootMapImageUrl.isNotEmpty) return rootMapImageUrl;
+    }
+    return widget.mapImageUrl;
   }
 
   WorldMapLocationNode? _findPointNode(WorldPoint point) {
     final targetId = _pointLocationId(point);
     if (targetId.isEmpty) return null;
     return _findNode(targetId);
+  }
+
+  WorldPoint? _chatTargetForNode(WorldMapLocationNode node) {
+    final explicitTarget = node.chatTargetPoint;
+    if (explicitTarget != null) return explicitTarget;
+    if (node.children.isEmpty) return node.point;
+    if (node.children.length == 1 && node.children.single.children.isEmpty) {
+      return node.children.single.chatTargetPoint ?? node.children.single.point;
+    }
+    return null;
   }
 
   WorldMapLocationNode? _findNode(String nodeId) {
@@ -314,7 +390,16 @@ class _WorldMapState extends State<WorldMap> {
 
     for (final root in widget.locationNodes) {
       final path = visit(root);
-      if (path != null) return path;
+      if (path != null) {
+        final hiddenRootId = root.id.trim();
+        if (root.isRoot &&
+            hiddenRootId.isNotEmpty &&
+            path.isNotEmpty &&
+            path.first == hiddenRootId) {
+          return path.skip(1).toList(growable: false);
+        }
+        return path;
+      }
     }
     return const <String>[];
   }
@@ -323,6 +408,58 @@ class _WorldMapState extends State<WorldMap> {
     return <WorldMapLocationNode>[
       for (final node in nodes) ...[node, ..._flattenNodes(node.children)],
     ];
+  }
+
+  void _debugPrintLocationTree(String reason) {
+    if (!kDebugMode) return;
+
+    final buffer = StringBuffer();
+    for (final node in widget.locationNodes) {
+      _writeLocationNodeDebug(buffer, node, 0);
+    }
+
+    final treeText = buffer.toString();
+    final signature = [
+      widget.mapImageUrl,
+      _initialMapImageUrl,
+      treeText,
+    ].join('\n');
+    if (signature == _lastLoggedLocationTreeSignature) return;
+    _lastLoggedLocationTreeSignature = signature;
+
+    debugPrint(
+      '[WorldMap] location tree $reason: '
+      'roots=${widget.locationNodes.length}, '
+      'widgetMapUrl="${widget.mapImageUrl}", '
+      'initialMapUrl="$_initialMapImageUrl"',
+    );
+    if (widget.locationNodes.isEmpty) {
+      debugPrint('[WorldMap] location tree is empty');
+      return;
+    }
+    debugPrint(treeText);
+  }
+
+  void _writeLocationNodeDebug(
+    StringBuffer buffer,
+    WorldMapLocationNode node,
+    int depth,
+  ) {
+    final indent = '  ' * depth;
+    buffer.writeln(
+      '$indent- id="${node.id}" '
+      'name="${node.point.name}" '
+      'pointId="${node.point.id}" '
+      'sceneId="${node.point.sceneId}" '
+      'isRoot=${node.isRoot} '
+      'pointDepth=${node.point.depth} '
+      'isLeafPoint=${node.point.isLeafLocation} '
+      'children=${node.children.length} '
+      'mapUrl="${node.mapImageUrl}"',
+    );
+    for (final child in node.children) {
+      _writeLocationNodeDebug(buffer, child, depth + 1);
+    }
   }
 }
 
@@ -520,6 +657,160 @@ class _MapTransitionSpec {
 }
 
 enum _MapTransitionDirection { drillIn, drillOut }
+
+class _WorldLocationTapRipple extends StatefulWidget {
+  const _WorldLocationTapRipple({
+    super.key,
+    required this.generation,
+    required this.point,
+    required this.onCompleted,
+  });
+
+  final int generation;
+  final WorldPoint point;
+  final ValueChanged<int> onCompleted;
+
+  @override
+  State<_WorldLocationTapRipple> createState() =>
+      _WorldLocationTapRippleState();
+}
+
+class _WorldLocationTapRippleState extends State<_WorldLocationTapRipple>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..addStatusListener(_handleStatusChange);
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller
+      ..removeStatusListener(_handleStatusChange)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _handleStatusChange(AnimationStatus status) {
+    if (status != AnimationStatus.completed) return;
+    widget.onCompleted(widget.generation);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: CustomPaint(
+        key: const ValueKey<String>('world_map_location_tap_ripple'),
+        painter: _WorldLocationTapRipplePainter(
+          animation: _controller,
+          point: widget.point,
+        ),
+        child: const SizedBox.expand(),
+      ),
+    );
+  }
+}
+
+class _WorldLocationTapRipplePainter extends CustomPainter {
+  _WorldLocationTapRipplePainter({
+    required Animation<double> animation,
+    required this.point,
+  }) : _animation = animation,
+       super(repaint: animation);
+
+  final Animation<double> _animation;
+  final WorldPoint point;
+
+  static const Color _rippleColor = Color(0xFFE53935);
+  static const double _maxRippleRadius = 112;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final progress = _animation.value.clamp(0.0, 1.0);
+    final center = Offset(
+      point.position.dx.clamp(0.0, 1.0).toDouble() * size.width,
+      point.position.dy.clamp(0.0, 1.0).toDouble() * size.height,
+    );
+
+    _paintRings(canvas, center, progress);
+    _paintParticles(canvas, center, progress);
+    _paintPulseCore(canvas, center, progress);
+  }
+
+  void _paintRings(Canvas canvas, Offset center, double progress) {
+    for (var index = 0; index < 3; index += 1) {
+      final delay = index * 0.09;
+      final localProgress = ((progress - delay) / (1 - delay)).clamp(0.0, 1.0);
+      if (localProgress <= 0) continue;
+
+      final radiusProgress = Curves.easeOutQuad.transform(localProgress);
+      final radius = _lerpDouble(
+        7 + index * 4,
+        78 + index * 17,
+        radiusProgress,
+      );
+      final radiusFade = _radiusFade(radius);
+      final launchFade = (localProgress / 0.16).clamp(0.0, 1.0).toDouble();
+      final opacity = (0.36 - index * 0.06) * radiusFade * launchFade;
+      final strokeWidth = _lerpDouble(3.2, 0.6, radiusProgress);
+      final paint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..color = _rippleColor.withValues(alpha: opacity.clamp(0.0, 1.0));
+
+      canvas.drawCircle(center, radius, paint);
+    }
+  }
+
+  void _paintParticles(Canvas canvas, Offset center, double progress) {
+    final radiusProgress = Curves.easeOutQuad.transform(progress);
+    final opacity = math.pow(1 - radiusProgress, 1.7).toDouble() * 0.44;
+    if (opacity <= 0) return;
+
+    final paint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = _rippleColor.withValues(alpha: opacity.clamp(0.0, 1.0));
+
+    for (var index = 0; index < 10; index += 1) {
+      final angle = -math.pi / 2 + math.pi * 2 * index / 10;
+      final distance = _lerpDouble(
+        7,
+        58 + (index.isEven ? 10 : 0),
+        radiusProgress,
+      );
+      final offset = Offset(math.cos(angle), math.sin(angle)) * distance;
+      final radius = _lerpDouble(2.8, 0.5, radiusProgress);
+      canvas.drawCircle(center + offset, radius, paint);
+    }
+  }
+
+  void _paintPulseCore(Canvas canvas, Offset center, double progress) {
+    final radiusProgress = Curves.easeOutQuad.transform(progress);
+    final opacity = _radiusFade(_lerpDouble(4, 24, radiusProgress)) * 0.72;
+    if (opacity <= 0) return;
+
+    final radius = _lerpDouble(4, 12, radiusProgress);
+    final paint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = _rippleColor.withValues(alpha: opacity.clamp(0.0, 1.0));
+    canvas.drawCircle(center, radius, paint);
+  }
+
+  double _radiusFade(double radius) {
+    final radiusProgress = (radius / _maxRippleRadius).clamp(0.0, 1.0);
+    return math.pow(1 - radiusProgress, 2.1).toDouble();
+  }
+
+  @override
+  bool shouldRepaint(covariant _WorldLocationTapRipplePainter oldDelegate) {
+    return oldDelegate.point != point || oldDelegate._animation != _animation;
+  }
+}
 
 String _pointLocationId(WorldPoint point) {
   final sceneId = point.sceneId.trim();

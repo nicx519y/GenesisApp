@@ -385,6 +385,45 @@ void main() {
     expect(tappedIds, ['root', 'leaf']);
   });
 
+  testWidgets('map tap shows a fading ripple at the location', (tester) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [
+        WorldPoint(
+          id: 'ripple',
+          name: 'Ripple Dock',
+          type: WorldPointType.shop,
+          position: Offset(0.5, 0.35),
+          users: [],
+        ),
+      ],
+      onPointTap: (_) {},
+    );
+
+    await tester.tap(find.text('Ripple Dock'));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('world_map_location_tap_ripple')),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(milliseconds: 900));
+
+    expect(
+      find.byKey(const ValueKey('world_map_location_tap_ripple')),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(
+      find.byKey(const ValueKey('world_map_location_tap_ripple')),
+      findsNothing,
+    );
+  });
+
   testWidgets('world map drills into branch locations internally', (
     tester,
   ) async {
@@ -396,7 +435,7 @@ void main() {
       locationNodes: const [
         WorldMapLocationNode(
           id: 'root',
-          mapImageUrl: kMockV1LocationCentralHubMap,
+          isRoot: true,
           point: WorldPoint(
             id: 'root',
             sceneId: 'root',
@@ -408,13 +447,249 @@ void main() {
           ),
           children: [
             WorldMapLocationNode(
-              id: 'leaf',
+              id: 'district',
+              mapImageUrl: kMockV1LocationCentralHubMap,
               point: WorldPoint(
-                id: 'leaf',
-                sceneId: 'leaf',
-                name: 'Leaf Dock',
+                id: 'district',
+                sceneId: 'district',
+                name: 'Rail District',
+                type: WorldPointType.shop,
+                position: Offset(0.5, 0.35),
+                users: [],
+                isLeafLocation: false,
+              ),
+              children: [
+                WorldMapLocationNode(
+                  id: 'leaf',
+                  point: WorldPoint(
+                    id: 'leaf',
+                    sceneId: 'leaf',
+                    name: 'Leaf Dock',
+                    type: WorldPointType.shop,
+                    position: Offset(0.7, 0.35),
+                    users: [],
+                  ),
+                ),
+                WorldMapLocationNode(
+                  id: 'leaf-2',
+                  point: WorldPoint(
+                    id: 'leaf-2',
+                    sceneId: 'leaf-2',
+                    name: 'Signal Room',
+                    type: WorldPointType.camp,
+                    position: Offset(0.45, 0.55),
+                    users: [],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+      onPointTap: (point) => tappedIds.add(point.id),
+    );
+
+    expect(find.text('Root Hub'), findsNothing);
+    expect(find.text('Rail District'), findsOneWidget);
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsNothing);
+
+    await tester.tap(find.text('Rail District'), warnIfMissed: false);
+    await tester.pump();
+    expect(tappedIds, isEmpty);
+    expect(find.text('Leaf Dock'), findsOneWidget);
+    expect(find.text('Signal Room'), findsOneWidget);
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsOneWidget);
+    expect(
+      _assetImageFinder(kMockV1LocationCentralHubMap, skipOffstage: false),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byIcon(Icons.subdirectory_arrow_left));
+    await tester.pumpAndSettle();
+    expect(find.text('Rail District'), findsOneWidget);
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsNothing);
+
+    await tester.tap(find.text('Rail District'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Leaf Dock'));
+    expect(tappedIds, ['leaf']);
+  });
+
+  testWidgets('world map hides root and starts from level two locations', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [],
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'root',
+          isRoot: true,
+          point: WorldPoint(
+            id: 'root',
+            sceneId: 'root',
+            name: 'World Root',
+            type: WorldPointType.portal,
+            position: Offset(0.3, 0.35),
+            users: [],
+            isLeafLocation: false,
+          ),
+          children: [
+            WorldMapLocationNode(
+              id: 'level-2',
+              point: WorldPoint(
+                id: 'level-2',
+                sceneId: 'level-2',
+                name: 'Visible District',
                 type: WorldPointType.shop,
                 position: Offset(0.7, 0.35),
+                users: [],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    expect(find.text('World Root'), findsNothing);
+    expect(find.text('Visible District'), findsOneWidget);
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsNothing);
+  });
+
+  testWidgets('world map uses root location map as initial background', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [],
+      mapImageUrl: kMockV1SteamMapImage,
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'root',
+          isRoot: true,
+          mapImageUrl: kMockV1LocationCentralHubMap,
+          point: WorldPoint(
+            id: 'root',
+            sceneId: 'root',
+            name: 'World Root',
+            type: WorldPointType.portal,
+            position: Offset(0.3, 0.35),
+            users: [],
+            isLeafLocation: false,
+          ),
+          children: [
+            WorldMapLocationNode(
+              id: 'level-2',
+              point: WorldPoint(
+                id: 'level-2',
+                sceneId: 'level-2',
+                name: 'Visible District',
+                type: WorldPointType.shop,
+                position: Offset(0.7, 0.35),
+                users: [],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    expect(find.text('World Root'), findsNothing);
+    expect(find.text('Visible District'), findsOneWidget);
+    expect(_assetImageFinder(kMockV1LocationCentralHubMap), findsOneWidget);
+    expect(_assetImageFinder(kMockV1SteamMapImage), findsNothing);
+  });
+
+  testWidgets('world map opens the only leaf child instead of drilling', (
+    tester,
+  ) async {
+    final tappedIds = <String>[];
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [],
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'root',
+          isRoot: true,
+          point: WorldPoint(
+            id: 'root',
+            sceneId: 'root',
+            name: 'World Root',
+            type: WorldPointType.portal,
+            position: Offset(0.3, 0.35),
+            users: [],
+            isLeafLocation: false,
+          ),
+          children: [
+            WorldMapLocationNode(
+              id: 'district',
+              point: WorldPoint(
+                id: 'district',
+                sceneId: 'district',
+                name: 'District',
+                type: WorldPointType.shop,
+                position: Offset(0.5, 0.35),
+                users: [],
+                isLeafLocation: false,
+              ),
+              children: [
+                WorldMapLocationNode(
+                  id: 'room',
+                  point: WorldPoint(
+                    id: 'room',
+                    sceneId: 'room',
+                    name: 'Only Room',
+                    type: WorldPointType.camp,
+                    position: Offset(0.6, 0.45),
+                    users: [],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+      onPointTap: (point) => tappedIds.add(point.id),
+    );
+
+    await tester.tap(find.text('District'));
+    expect(tappedIds, ['room']);
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsNothing);
+  });
+
+  testWidgets('world map opens level two leaf directly on two-level tree', (
+    tester,
+  ) async {
+    final tappedIds = <String>[];
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [],
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'root',
+          isRoot: true,
+          point: WorldPoint(
+            id: 'root',
+            sceneId: 'root',
+            name: 'World Root',
+            type: WorldPointType.portal,
+            position: Offset(0.3, 0.35),
+            users: [],
+            isLeafLocation: false,
+          ),
+          children: [
+            WorldMapLocationNode(
+              id: 'level-2-leaf',
+              point: WorldPoint(
+                id: 'level-2-leaf',
+                sceneId: 'level-2-leaf',
+                name: 'Leaf District',
+                type: WorldPointType.shop,
+                position: Offset(0.5, 0.35),
                 users: [],
               ),
             ),
@@ -424,18 +699,95 @@ void main() {
       onPointTap: (point) => tappedIds.add(point.id),
     );
 
-    await tester.tap(find.text('Root Hub'), warnIfMissed: false);
-    await tester.pump();
-    expect(tappedIds, isEmpty);
-    expect(find.text('Leaf Dock'), findsOneWidget);
-    expect(find.byIcon(Icons.subdirectory_arrow_left), findsOneWidget);
-    expect(
-      _assetImageFinder(kMockV1LocationCentralHubMap, skipOffstage: false),
-      findsOneWidget,
+    expect(find.text('World Root'), findsNothing);
+    expect(find.text('Leaf District'), findsOneWidget);
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsNothing);
+
+    await tester.tap(find.text('Leaf District'));
+    expect(tappedIds, ['level-2-leaf']);
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsNothing);
+  });
+
+  testWidgets('world map renders already rootless leaf nodes', (tester) async {
+    final tappedIds = <String>[];
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [],
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'level-2-leaf',
+          point: WorldPoint(
+            id: 'level-2-leaf',
+            sceneId: 'level-2-leaf',
+            name: 'Rootless Leaf',
+            type: WorldPointType.shop,
+            position: Offset(0.5, 0.35),
+            users: [],
+          ),
+        ),
+      ],
+      onPointTap: (point) => tappedIds.add(point.id),
     );
 
-    await tester.tap(find.text('Leaf Dock'));
-    expect(tappedIds, ['leaf']);
+    expect(find.text('Rootless Leaf'), findsOneWidget);
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsNothing);
+
+    await tester.tap(find.text('Rootless Leaf'));
+    expect(tappedIds, ['level-2-leaf']);
+  });
+
+  testWidgets('world map does not hide unmarked top-level branch nodes', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [],
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'district',
+          point: WorldPoint(
+            id: 'district',
+            sceneId: 'district',
+            name: 'Top District',
+            type: WorldPointType.shop,
+            position: Offset(0.5, 0.35),
+            users: [],
+            isLeafLocation: false,
+          ),
+          children: [
+            WorldMapLocationNode(
+              id: 'room',
+              point: WorldPoint(
+                id: 'room',
+                sceneId: 'room',
+                name: 'Hidden Room',
+                type: WorldPointType.camp,
+                position: Offset(0.6, 0.45),
+                users: [],
+              ),
+            ),
+          ],
+        ),
+        WorldMapLocationNode(
+          id: 'market',
+          point: WorldPoint(
+            id: 'market',
+            sceneId: 'market',
+            name: 'Top Market',
+            type: WorldPointType.portal,
+            position: Offset(0.3, 0.55),
+            users: [],
+          ),
+        ),
+      ],
+    );
+
+    expect(find.text('Top District'), findsOneWidget);
+    expect(find.text('Top Market'), findsOneWidget);
+    expect(find.text('Hidden Room'), findsNothing);
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsNothing);
   });
 
   testWidgets('points list taps report branch and leaf locations', (
@@ -523,6 +875,54 @@ void main() {
       );
     },
   );
+
+  testWidgets('points list includes root when map uses location tree', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      showPointsList: true,
+      points: const [],
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'root',
+          isRoot: true,
+          point: WorldPoint(
+            id: 'root',
+            name: 'Root Location',
+            type: WorldPointType.portal,
+            position: _pointPosition,
+            users: [],
+            isLeafLocation: false,
+          ),
+          children: [
+            WorldMapLocationNode(
+              id: 'child',
+              point: WorldPoint(
+                id: 'child',
+                name: 'Child Location',
+                type: WorldPointType.shop,
+                position: _pointPosition,
+                users: [],
+                depth: 1,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    final list = find.byType(ListView);
+    expect(
+      find.descendant(of: list, matching: find.text('Root Location')),
+      findsWidgets,
+    );
+    expect(
+      find.descendant(of: list, matching: find.text('Child Location')),
+      findsWidgets,
+    );
+  });
 }
 
 const _mapSize = Size(375, 670);

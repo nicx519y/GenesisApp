@@ -173,44 +173,71 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         final mapImageUrl = _resolveAssetUrl(
           origin.worldMap.isEmpty ? origin.mapImage : origin.worldMap,
         );
-        final rootLocationNodes = origin.locationTree;
-        final allLocationNodes = flattenLocationTree(rootLocationNodes);
+        final processedLocationTree = origin.processedLocationTree;
+        final rootLocationNodes = processedLocationTree.mapRoots;
+        final renderLocationNodes = processedLocationTree.renderRoots;
+        final allLocationNodes = processedLocationTree.flattened;
+        final avatarsByLocation = _originAvatarsByLocation(
+          origin.characters,
+          origin.locations,
+        );
         final locationNodes = _originMapLocationNodes(
           rootLocationNodes,
-          origin.characters,
+          avatarsByLocation,
+          processedLocationTree,
         );
-        final points = rootLocationNodes.isNotEmpty
+        final points = renderLocationNodes.isNotEmpty
             ? _pointsFromLocations(
-                rootLocationNodes
+                renderLocationNodes
                     .map((node) => node.value)
                     .toList(growable: false),
-                origin.characters,
-                depths: rootLocationNodes
+                avatarsByLocation,
+                depths: renderLocationNodes
                     .map((node) => node.depth)
                     .toList(growable: false),
-                isLeafLocations: rootLocationNodes
+                isLeafLocations: renderLocationNodes
                     .map((node) => node.children.isEmpty)
+                    .toList(growable: false),
+                usersByIndex: renderLocationNodes
+                    .map(
+                      (node) =>
+                          processedLocationTree.aggregateValues<UserAvatar>(
+                            node.id,
+                            avatarsByLocation,
+                            idOf: _userAvatarStableId,
+                          ),
+                    )
                     .toList(growable: false),
               )
             : _pointsFromLocations(
                 _rootOriginLocations(origin.locations),
-                origin.characters,
+                avatarsByLocation,
               );
         final listPoints = allLocationNodes.isNotEmpty
             ? _pointsFromLocations(
                 allLocationNodes
                     .map((node) => node.value)
                     .toList(growable: false),
-                origin.characters,
+                avatarsByLocation,
                 depths: allLocationNodes
                     .map((node) => node.depth)
                     .toList(growable: false),
                 isLeafLocations: allLocationNodes
                     .map((node) => node.children.isEmpty)
                     .toList(growable: false),
+                usersByIndex: allLocationNodes
+                    .map(
+                      (node) =>
+                          processedLocationTree.aggregateValues<UserAvatar>(
+                            node.id,
+                            avatarsByLocation,
+                            idOf: _userAvatarStableId,
+                          ),
+                    )
+                    .toList(growable: false),
               )
             : origin.locations.isNotEmpty
-            ? _pointsFromLocations(origin.locations, origin.characters)
+            ? _pointsFromLocations(origin.locations, avatarsByLocation)
             : points;
 
         return WorldDetailsPageScaffold(
@@ -846,8 +873,11 @@ List<OriginEvent> _previewEvents(OriginDetail origin) {
     return origin.events.take(3).toList(growable: false);
   }
 
-  if (origin.locations.isNotEmpty) {
-    return origin.locations
+  final renderLocations = origin.processedLocationTree.flattenedRenderNodes
+      .map((node) => node.value)
+      .toList(growable: false);
+  if (renderLocations.isNotEmpty) {
+    return renderLocations
         .take(3)
         .map(
           (location) => OriginEvent(
@@ -905,20 +935,33 @@ List<OriginLocation> _rootOriginLocations(List<OriginLocation> locations) {
 
 List<WorldMapLocationNode> _originMapLocationNodes(
   List<LocationTreeNode<OriginLocation>> nodes,
-  List<OriginCharacter> characters,
+  Map<String, List<UserAvatar>> avatarsByLocation,
+  ProcessedLocationTree<OriginLocation> processedLocationTree,
 ) {
   return nodes
       .map((node) {
         return WorldMapLocationNode(
           id: node.id,
+          isRoot: node.id == processedLocationTree.root?.id,
           point: _pointsFromLocations(
             [node.value],
-            characters,
+            avatarsByLocation,
             depths: [node.depth],
             isLeafLocations: [node.children.isEmpty],
+            usersByIndex: [
+              processedLocationTree.aggregateValues<UserAvatar>(
+                node.id,
+                avatarsByLocation,
+                idOf: _userAvatarStableId,
+              ),
+            ],
           ).first,
           mapImageUrl: _resolveAssetUrl(node.value.mapUrl),
-          children: _originMapLocationNodes(node.children, characters),
+          children: _originMapLocationNodes(
+            node.children,
+            avatarsByLocation,
+            processedLocationTree,
+          ),
         );
       })
       .toList(growable: false);
@@ -926,27 +969,12 @@ List<WorldMapLocationNode> _originMapLocationNodes(
 
 List<WorldPoint> _pointsFromLocations(
   List<OriginLocation> locations,
-  List<OriginCharacter> characters, {
+  Map<String, List<UserAvatar>> avatarsByLocation, {
   List<int>? depths,
   List<bool>? isLeafLocations,
+  List<List<UserAvatar>>? usersByIndex,
 }) {
   if (locations.isEmpty) return const <WorldPoint>[];
-
-  final avatarsByLocation = <int, List<UserAvatar>>{};
-  for (final c in characters) {
-    final locationId = c.currentLocationId > 0
-        ? c.currentLocationId
-        : c.initialLocationId;
-    if (locationId <= 0) continue;
-    (avatarsByLocation[locationId] ??= <UserAvatar>[]).add(
-      UserAvatar(
-        _initials(c.name),
-        name: c.name,
-        avatarUrl: _resolveAssetUrl(c.avatar),
-        showStar: true,
-      ),
-    );
-  }
 
   return List<WorldPoint>.generate(locations.length, (i) {
     final l = locations[i];
@@ -974,7 +1002,11 @@ List<WorldPoint> _pointsFromLocations(
         dx.clamp(0.0, 1.0).toDouble(),
         dy.clamp(0.0, 1.0).toDouble(),
       ),
-      users: (avatarsByLocation[l.id] ?? const <UserAvatar>[]),
+      users: usersByIndex == null || i >= usersByIndex.length
+          ? (avatarsByLocation[locationId] ??
+                avatarsByLocation['${l.id}'] ??
+                const <UserAvatar>[])
+          : usersByIndex[i],
       sceneId: locationId,
       pointId: locationId,
       iconUrl: _resolveAssetUrl(l.icon),
@@ -985,6 +1017,45 @@ List<WorldPoint> _pointsFromLocations(
           : isLeafLocations[i],
     );
   });
+}
+
+Map<String, List<UserAvatar>> _originAvatarsByLocation(
+  List<OriginCharacter> characters,
+  List<OriginLocation> locations,
+) {
+  final map = <String, List<UserAvatar>>{};
+  final locationIdsByStableId = <int, List<String>>{};
+  for (final location in locations) {
+    locationIdsByStableId
+        .putIfAbsent(location.id, () => <String>[])
+        .add(location.locationId.trim());
+  }
+
+  for (final c in characters) {
+    final locationId = c.currentLocationId > 0
+        ? c.currentLocationId
+        : c.initialLocationId;
+    if (locationId <= 0) continue;
+    final avatar = UserAvatar(
+      _initials(c.name),
+      id: '${c.id}',
+      name: c.name,
+      avatarUrl: _resolveAssetUrl(c.avatar),
+      showStar: true,
+    );
+    final keys = <String>{'$locationId', ...?locationIdsByStableId[locationId]}
+      ..remove('');
+    for (final key in keys) {
+      (map[key] ??= <UserAvatar>[]).add(avatar);
+    }
+  }
+  return map;
+}
+
+String _userAvatarStableId(UserAvatar avatar) {
+  final id = avatar.id.trim();
+  if (id.isNotEmpty) return id;
+  return '${avatar.name ?? ''}|${avatar.avatarUrl}|${avatar.initials}';
 }
 
 String _initials(String name) {

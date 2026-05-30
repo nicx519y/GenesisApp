@@ -33,12 +33,14 @@ class WorldPoint {
 class UserAvatar {
   const UserAvatar(
     this.initials, {
+    this.id = '',
     this.name,
     this.avatarUrl = '',
     this.showStar = false,
   });
 
   final String initials;
+  final String id;
   final String? name;
   final String avatarUrl;
   final bool showStar;

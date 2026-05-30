@@ -2499,6 +2499,57 @@ void main() {
     expect(find.text('There are no characters yet.'), findsOneWidget);
   });
 
+  testWidgets('locations parent picker stores a single parent location', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.saveFinal(
+      const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[CharacterDraft()],
+        locations: <LocationDraft>[
+          LocationDraft(locationId: 'loc_gate', name: 'Gate'),
+          LocationDraft(locationId: 'loc_tower', name: 'Tower'),
+        ],
+        storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        basicsSaved: false,
+        charactersSaved: false,
+        locationsSaved: true,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('location-parent-picker')).first,
+      220,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('location-parent-picker')).first,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Select Parent Location'), findsOneWidget);
+    expect(find.text('World Root'), findsWidgets);
+    expect(find.text('Tower'), findsWidgets);
+
+    await tester.tap(
+      find.byKey(const ValueKey('parent-location-option-loc_tower')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Select'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    final draft = await CreateOriginDraftStore.load();
+    expect(draft.locations.first.parentLocationId, 'loc_tower');
+    expect(draft.locations.last.parentLocationId, isEmpty);
+  });
+
   testWidgets('locations character picker binds available character ids', (
     WidgetTester tester,
   ) async {
@@ -2677,10 +2728,15 @@ void main() {
     expect(body['character_list'], isA<List>());
     expect((body['character_list'] as List).single['char_id'], 'char_local_1');
     expect(body['location_list'], isA<List>());
-    expect(
-      (body['location_list'] as List).single['location_id'],
-      'location_local_1',
-    );
+    final locationList = body['location_list'] as List;
+    expect(locationList, hasLength(3));
+    expect(locationList[0]['location_id'], 'root_origin_local_1');
+    expect(locationList[0]['location_pid'], '');
+    expect(locationList[1]['location_id'], 'location_local_1');
+    expect(locationList[1]['location_pid'], 'root_origin_local_1');
+    expect(locationList[2]['location_id'], startsWith('location_'));
+    expect(locationList[2]['location_pid'], 'location_local_1');
+    expect(locationList[2]['name'], 'Gate');
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
@@ -2738,8 +2794,13 @@ void main() {
     expect(body['name'], 'Edited Origin');
     expect(body['cover'], 'https://example.com/edit-cover.png');
     expect((body['character_list'] as List).single['char_id'], 'char_edit_1');
+    final editedLocations = body['location_list'] as List;
     expect(
-      (body['location_list'] as List).single['initial_character_ids'],
+      editedLocations
+          .where(
+            (item) => item is Map && item['location_id'] == 'location_edit_1',
+          )
+          .single['initial_character_ids'],
       contains('char_edit_1'),
     );
 

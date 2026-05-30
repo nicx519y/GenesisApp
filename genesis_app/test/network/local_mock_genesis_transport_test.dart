@@ -18,18 +18,25 @@ void main() {
     final detail = await api.getOrigin(firstOrigin.oid);
     expect(detail.name.isNotEmpty, true);
     expect(detail.worldMap, kMockV1SteamMapImage);
-    expect(
-      detail.locationTree.first.value.mapUrl,
-      kMockV1LocationCentralHubMap,
-    );
     expect(detail.locationTree.map((node) => node.id), [
       'loc_hub',
       'loc_gate',
       'loc_market',
       'loc_canal',
     ]);
+    expect(
+      detail.processedLocationTree.renderRoots.first.value.mapUrl,
+      kMockV1LocationCentralHubMap,
+    );
+    expect(detail.processedLocationTree.renderRoots.map((node) => node.id), [
+      'loc_hub',
+      'loc_gate',
+      'loc_market',
+      'loc_canal',
+    ]);
     final originRootsById = {
-      for (final node in detail.locationTree) node.id: node,
+      for (final node in detail.processedLocationTree.renderRoots)
+        node.id: node,
     };
     expect(originRootsById['loc_hub']!.children.map((node) => node.id), [
       'loc_clocktower',
@@ -53,13 +60,13 @@ void main() {
     ]);
     expect(
       detail.locationTree
-          .expand((root) => root.children)
+          .expand((node) => node.children)
           .expand((node) => node.children)
           .map((node) => node.depth)
           .toSet(),
       {2},
     );
-    for (final root in detail.locationTree) {
+    for (final root in detail.processedLocationTree.renderRoots) {
       expect(root.children.length, inInclusiveRange(2, 3));
     }
 
@@ -73,18 +80,23 @@ void main() {
     final worldDetail = await api.getWorld(world.wid);
     expect(worldDetail.worldLocations.isNotEmpty, true);
     expect(worldDetail.origin.worldMap, kMockV1SteamMapImage);
-    expect(
-      worldDetail.worldLocationTree.first.value['map_url'],
-      kMockV1LocationCentralHubMap,
-    );
     expect(worldDetail.worldLocationTree.map((node) => node.id), [
       'loc_hub',
       'loc_gate',
       'loc_market',
       'loc_canal',
     ]);
+    expect(
+      worldDetail.processedWorldLocationTree.renderRoots.first.value['map_url'],
+      kMockV1LocationCentralHubMap,
+    );
+    expect(
+      worldDetail.processedWorldLocationTree.renderRoots.map((node) => node.id),
+      ['loc_hub', 'loc_gate', 'loc_market', 'loc_canal'],
+    );
     final worldRootsById = {
-      for (final node in worldDetail.worldLocationTree) node.id: node,
+      for (final node in worldDetail.processedWorldLocationTree.renderRoots)
+        node.id: node,
     };
     expect(worldRootsById['loc_hub']!.children.map((node) => node.id), [
       'loc_clocktower',
@@ -108,13 +120,13 @@ void main() {
     ]);
     expect(
       worldDetail.worldLocationTree
-          .expand((root) => root.children)
+          .expand((node) => node.children)
           .expand((node) => node.children)
           .map((node) => node.depth)
           .toSet(),
       {2},
     );
-    for (final root in worldDetail.worldLocationTree) {
+    for (final root in worldDetail.processedWorldLocationTree.renderRoots) {
       expect(root.children.length, inInclusiveRange(2, 3));
     }
 

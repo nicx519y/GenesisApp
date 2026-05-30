@@ -151,12 +151,18 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
   }
 
   final locationRaw = raw['location_list'] ?? raw['locations'];
+  final rootLocationId = 'root_${originId.isEmpty ? 'origin' : originId}';
   final locations = locationRaw is List
       ? asJsonList(locationRaw)
+            .map((item) => asJsonMap(item))
+            .where(
+              (item) => asString(item['location_id']).trim() != rootLocationId,
+            )
             .map(
               (item) => _locationDraftFromV1(
-                asJsonMap(item),
+                item,
                 characterLocationIds: characterLocationIds,
+                rootLocationId: rootLocationId,
               ),
             )
             .toList(growable: false)
@@ -233,8 +239,10 @@ CharacterDraft _characterDraftFromV1(Map<String, dynamic> raw) {
 LocationDraft _locationDraftFromV1(
   Map<String, dynamic> raw, {
   required Map<String, List<String>> characterLocationIds,
+  required String rootLocationId,
 }) {
   final locationId = asString(raw['location_id']).trim();
+  final parentLocationId = asString(raw['location_pid']).trim();
   final initialCharacterIdsRaw = raw['initial_character_ids'];
   final initialCharacterIds = initialCharacterIdsRaw is List
       ? asJsonList(initialCharacterIdsRaw)
@@ -245,6 +253,9 @@ LocationDraft _locationDraftFromV1(
 
   return LocationDraft(
     locationId: locationId,
+    parentLocationId: parentLocationId == rootLocationId
+        ? ''
+        : parentLocationId,
     imageUrl: asString(raw['image'], fallback: asString(raw['icon'])),
     name: asString(raw['name'], fallback: asString(raw['location_name'])),
     description: asString(

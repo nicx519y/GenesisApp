@@ -179,14 +179,21 @@ class _WorldPageState extends State<WorldPage>
     final avatarsByLocation = _avatarsByLocationFromCharacterPositions(
       world.characterPositions,
     );
-    final rootLocationNodes = world.worldLocationTree;
-    final allLocationNodes = flattenLocationTree(rootLocationNodes);
+    final processedLocationTree = world.processedWorldLocationTree;
+    final rootLocationNodes = processedLocationTree.mapRoots;
+    final renderLocationNodes = processedLocationTree.renderRoots;
+    final allLocationNodes = processedLocationTree.flattened;
     final locationNodes = _worldMapLocationNodes(
       rootLocationNodes,
       avatarsByLocation,
+      processedLocationTree,
     );
-    final points = rootLocationNodes.isNotEmpty
-        ? _pointsFromWorldLocationNodes(rootLocationNodes, avatarsByLocation)
+    final points = renderLocationNodes.isNotEmpty
+        ? _pointsFromWorldLocationNodes(
+            renderLocationNodes,
+            avatarsByLocation,
+            processedLocationTree,
+          )
         : world.worldLocations.isNotEmpty
         ? _pointsFromWorldLocations(
             _rootWorldLocations(world.worldLocations),
@@ -200,7 +207,11 @@ class _WorldPageState extends State<WorldPage>
             avatarsByLocation,
           );
     final listPoints = allLocationNodes.isNotEmpty
-        ? _pointsFromWorldLocationNodes(allLocationNodes, avatarsByLocation)
+        ? _pointsFromWorldLocationNodes(
+            allLocationNodes,
+            avatarsByLocation,
+            processedLocationTree,
+          )
         : world.worldLocations.isNotEmpty
         ? _pointsFromWorldLocations(world.worldLocations, avatarsByLocation)
         : points;
@@ -880,6 +891,7 @@ String _rootWorldMapImageUrl(WorldDetail world) {
 List<WorldPoint> _pointsFromWorldLocationNodes(
   List<LocationTreeNode<Map<String, dynamic>>> nodes,
   Map<String, List<UserAvatar>> avatarsByLocation,
+  ProcessedLocationTree<Map<String, dynamic>> processedLocationTree,
 ) {
   return _pointsFromWorldLocations(
     nodes.map((node) => node.value).toList(growable: false),
@@ -888,20 +900,39 @@ List<WorldPoint> _pointsFromWorldLocationNodes(
     isLeafLocations: nodes
         .map((node) => node.children.isEmpty)
         .toList(growable: false),
+    usersByIndex: nodes
+        .map(
+          (node) => processedLocationTree.aggregateValues<UserAvatar>(
+            node.id,
+            avatarsByLocation,
+            idOf: _userAvatarStableId,
+          ),
+        )
+        .toList(growable: false),
   );
 }
 
 List<WorldMapLocationNode> _worldMapLocationNodes(
   List<LocationTreeNode<Map<String, dynamic>>> nodes,
   Map<String, List<UserAvatar>> avatarsByLocation,
+  ProcessedLocationTree<Map<String, dynamic>> processedLocationTree,
 ) {
   return nodes
       .map((node) {
         return WorldMapLocationNode(
           id: node.id,
-          point: _pointsFromWorldLocationNodes([node], avatarsByLocation).first,
+          isRoot: node.id == processedLocationTree.root?.id,
+          point: _pointsFromWorldLocationNodes(
+            [node],
+            avatarsByLocation,
+            processedLocationTree,
+          ).first,
           mapImageUrl: _locationMapImageUrl(node.value),
-          children: _worldMapLocationNodes(node.children, avatarsByLocation),
+          children: _worldMapLocationNodes(
+            node.children,
+            avatarsByLocation,
+            processedLocationTree,
+          ),
         );
       })
       .toList(growable: false);
@@ -927,13 +958,21 @@ Map<String, List<UserAvatar>> _avatarsByLocationFromCharacterPositions(
     if (locationId.isEmpty) continue;
     final character = cp['character'];
     if (character is! Map) continue;
-    final c = character;
+    final c = character.map((key, value) => MapEntry('$key', value));
     final name = (c['name'] ?? '').toString();
     final avatar = _resolveAssetUrl((c['avatar'] ?? '').toString());
     final isAi = '${c['type'] ?? ''}'.trim().toLowerCase() == 'ai';
+    final id = _mapString(c, const [
+      'character_id',
+      'char_id',
+      'id',
+      'uid',
+      'player_uid',
+    ]);
     (map[locationId] ??= <UserAvatar>[]).add(
       UserAvatar(
         _initials(name),
+        id: id,
         name: name,
         avatarUrl: avatar,
         showStar: isAi,
@@ -969,6 +1008,7 @@ List<WorldPoint> _pointsFromWorldLocations(
   Map<String, List<UserAvatar>> avatarsByLocation, {
   List<int>? depths,
   List<bool>? isLeafLocations,
+  List<List<UserAvatar>>? usersByIndex,
 }) {
   if (locations.isEmpty) return const <WorldPoint>[];
 
@@ -1040,7 +1080,9 @@ List<WorldPoint> _pointsFromWorldLocations(
         dx.clamp(0.0, 1.0).toDouble(),
         dy.clamp(0.0, 1.0).toDouble(),
       ),
-      users: (avatarsByLocation[locationId] ?? const <UserAvatar>[]),
+      users: usersByIndex == null || i >= usersByIndex.length
+          ? (avatarsByLocation[locationId] ?? const <UserAvatar>[])
+          : usersByIndex[i],
       sceneId: locationId,
       pointId: pointId,
       iconUrl: icon,
@@ -1052,6 +1094,12 @@ List<WorldPoint> _pointsFromWorldLocations(
           : isLeafLocations[i],
     );
   });
+}
+
+String _userAvatarStableId(UserAvatar avatar) {
+  final id = avatar.id.trim();
+  if (id.isNotEmpty) return id;
+  return '${avatar.name ?? ''}|${avatar.avatarUrl}|${avatar.initials}';
 }
 
 List<WorldPoint> _pointsFromLocationIds(

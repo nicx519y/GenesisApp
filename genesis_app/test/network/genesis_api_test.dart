@@ -276,7 +276,9 @@ void main() {
 
     final api = _apiWith(apiTransport, healthTransport);
     final world = await api.getWorld('w_1');
-    final location = world.worldLocations.single;
+    final location = world.worldLocations
+        .where((item) => item['location_id'] == 'loc_1')
+        .single;
     final tickResult = world.ticks.single['tick_result'] as Map;
     final paragraph = (tickResult['paragraphs'] as List).single as Map;
 

@@ -1243,6 +1243,7 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
     characters: characters,
     locations: locations,
     locationTree: locationTree,
+    processedLocationTree: processLocationTree(locationTree),
     events: events,
   );
 }
@@ -1386,6 +1387,7 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
     ticks: ticks,
     worldLocations: locations,
     worldLocationTree: locationTree,
+    processedWorldLocationTree: processLocationTree(locationTree),
     characterPositions: characterPositions,
     userPositions: userPositions,
   );

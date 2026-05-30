@@ -111,7 +111,7 @@ class OriginSummary {
 
 @immutable
 class OriginDetail {
-  const OriginDetail({
+  OriginDetail({
     required this.id,
     required this.oid,
     required this.name,
@@ -133,7 +133,10 @@ class OriginDetail {
     required this.locations,
     this.events = const <OriginEvent>[],
     this.locationTree = const <LocationTreeNode<OriginLocation>>[],
-  });
+    ProcessedLocationTree<OriginLocation>? processedLocationTree,
+  }) : processedLocationTree =
+           processedLocationTree ??
+           ProcessedLocationTree<OriginLocation>(locationTree);
 
   final int id;
   final String oid;
@@ -156,6 +159,7 @@ class OriginDetail {
   final List<OriginLocation> locations;
   final List<OriginEvent> events;
   final List<LocationTreeNode<OriginLocation>> locationTree;
+  final ProcessedLocationTree<OriginLocation> processedLocationTree;
 
   factory OriginDetail.fromJson(Map<String, dynamic> json) {
     final mapImage = asString(json['map_image']);
@@ -164,6 +168,11 @@ class OriginDetail {
               .map((e) => OriginLocation.fromJson(asJsonMap(e)))
               .toList(growable: false)
         : const <OriginLocation>[];
+    final locationTree = buildLocationTree(
+      locations,
+      idOf: (location) => location.locationId,
+      parentIdOf: (location) => location.parentLocationId,
+    );
     return OriginDetail(
       id: asInt(json['id']),
       oid: asString(json['oid']),
@@ -193,11 +202,8 @@ class OriginDetail {
                 .map((e) => OriginEvent.fromJson(asJsonMap(e)))
                 .toList(growable: false)
           : const <OriginEvent>[],
-      locationTree: buildLocationTree(
-        locations,
-        idOf: (location) => location.locationId,
-        parentIdOf: (location) => location.parentLocationId,
-      ),
+      locationTree: locationTree,
+      processedLocationTree: processLocationTree(locationTree),
     );
   }
 }
