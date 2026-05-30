@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -34,6 +35,30 @@ void main() {
 
     expect(store.orderedMessageIds.value, ['m1', 'm2', 'm3']);
     expect(transport.requests.last.uri.queryParameters['pn'], '2');
+  });
+
+  test('stale sync response does not replace the active peer list', () async {
+    final transport = _ControlledDmMessageTransport();
+    final storage = MemoryDirectMessageMessageStorage();
+    final store = await _store(transport, storage: storage);
+    await storage.mergeMessages(
+      ownerUid: 'me',
+      peerUid: 'peer_2',
+      messages: [_message('peer2_cached', minutesAgo: 1)],
+    );
+
+    final firstSync = store.syncLatest('peer_1');
+    await transport.waitForRequest('peer_1');
+    await store.loadFromDb('peer_2');
+
+    expect(store.orderedMessageIds.value, ['peer2_cached']);
+
+    transport.complete('peer_1', [_message('peer1_late', minutesAgo: 0)]);
+    await firstSync;
+
+    expect(store.orderedMessageIds.value, ['peer2_cached']);
+    expect(store.rowListenable('peer2_cached'), isNotNull);
+    expect(store.rowListenable('peer1_late'), isNull);
   });
 
   test(
@@ -110,9 +135,50 @@ void main() {
     expect(store.orderedMessageIds.value, isEmpty);
     expect(store.rowListenable('m1'), isNull);
   });
+
+  test(
+    'drafts are scoped by owner and peer, and empty content clears',
+    () async {
+      final storage = MemoryDirectMessageMessageStorage();
+      final store = await _store(
+        _DmMessageTransport({}, total: 0),
+        storage: storage,
+      );
+
+      await store.saveDraft(peerUid: 'peer_1', content: 'hello draft');
+      await store.saveDraft(peerUid: 'peer_2', content: 'other draft');
+
+      expect(await store.loadDraft('peer_1'), 'hello draft');
+      expect(await store.loadDraft('peer_2'), 'other draft');
+      expect(
+        await storage.loadDraft(ownerUid: 'someone_else', peerUid: 'peer_1'),
+        '',
+      );
+
+      await store.saveDraft(peerUid: 'peer_1', content: '   ');
+
+      expect(await store.loadDraft('peer_1'), '');
+      expect(await store.loadDraft('peer_2'), 'other draft');
+    },
+  );
+
+  test('clear draft removes only the selected conversation draft', () async {
+    final store = await _store(_DmMessageTransport({}, total: 0));
+
+    await store.saveDraft(peerUid: 'peer_1', content: 'first draft');
+    await store.saveDraft(peerUid: 'peer_2', content: 'second draft');
+
+    await store.clearDraft('peer_1');
+
+    expect(await store.loadDraft('peer_1'), '');
+    expect(await store.loadDraft('peer_2'), 'second draft');
+  });
 }
 
-Future<DirectMessageMessageStore> _store(HttpTransport transport) async {
+Future<DirectMessageMessageStore> _store(
+  HttpTransport transport, {
+  DirectMessageMessageStorage? storage,
+}) async {
   final sessionStore = MemoryUserSessionStore();
   await sessionStore.saveUid('me');
   return DirectMessageMessageStore(
@@ -124,7 +190,7 @@ Future<DirectMessageMessageStore> _store(HttpTransport transport) async {
       sessionStore: sessionStore,
     ),
     sessionStore: sessionStore,
-    storage: MemoryDirectMessageMessageStorage(),
+    storage: storage ?? MemoryDirectMessageMessageStorage(),
   );
 }
 
@@ -167,6 +233,41 @@ class _DmMessageTransport implements HttpTransport {
           'pn': page,
           'rn': 20,
         },
+      }),
+    );
+  }
+}
+
+class _ControlledDmMessageTransport implements HttpTransport {
+  final requests = <TransportRequest>[];
+  final Map<String, Completer<List<Map<String, dynamic>>>> _completers = {};
+
+  Future<void> waitForRequest(String peerUid) async {
+    while (!_completers.containsKey(peerUid)) {
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
+  void complete(String peerUid, List<Map<String, dynamic>> messages) {
+    _completers[peerUid]!.complete(messages);
+  }
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    final peerUid = request.uri.queryParameters['peer_uid'] ?? '';
+    final completer = _completers.putIfAbsent(
+      peerUid,
+      () => Completer<List<Map<String, dynamic>>>(),
+    );
+    final messages = await completer.future;
+    return TransportResponse(
+      statusCode: 200,
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {'list': messages, 'total': messages.length, 'pn': 1, 'rn': 20},
       }),
     );
   }

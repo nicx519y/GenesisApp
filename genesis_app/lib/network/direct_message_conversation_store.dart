@@ -79,7 +79,7 @@ class SqfliteDirectMessageConversationStorage
     final databasePath = await getDatabasesPath();
     final db = await openDatabase(
       '$databasePath/genesis_direct_messages.db',
-      version: 2,
+      version: 3,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE dm_conversations (
@@ -99,10 +99,14 @@ class SqfliteDirectMessageConversationStorage
           )
         ''');
         await db.execute(_createDmMessagesSql);
+        await db.execute(_createDmMessageDraftsSql);
       },
       onUpgrade: (db, oldVersion, _) async {
         if (oldVersion < 2) {
           await db.execute(_createDmMessagesSql);
+        }
+        if (oldVersion < 3) {
+          await db.execute(_createDmMessageDraftsSql);
         }
       },
     );
@@ -416,6 +420,16 @@ const _createDmMessagesSql = '''
     created_at INTEGER NOT NULL,
     send_status TEXT NOT NULL,
     PRIMARY KEY(owner_uid, peer_uid, msg_id)
+  )
+''';
+
+const _createDmMessageDraftsSql = '''
+  CREATE TABLE IF NOT EXISTS dm_message_drafts (
+    owner_uid TEXT NOT NULL,
+    peer_uid TEXT NOT NULL,
+    content TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY(owner_uid, peer_uid)
   )
 ''';
 

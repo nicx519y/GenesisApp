@@ -26,16 +26,24 @@ class ChatPage extends StatefulWidget {
   State<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> {
+class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
+  static const _draftSaveDelay = Duration(milliseconds: 250);
+
   late ScrollController _scrollController;
   final _textController = TextEditingController();
   final Map<String, DirectMessageMessageRecord> _failedLocalMessages = {};
+  final Set<String> _readMarkedIncomingMessageIds = {};
+  int _unseenIncomingCount = 0;
   Timer? _pollTimer;
+  Timer? _draftSaveTimer;
   late DirectMessageMessageStore _messageStore;
   bool _loadedLocalMessages = false;
   bool _syncing = false;
   bool _sending = false;
   bool _loadingOlder = false;
+  bool _applyingDraftText = false;
+  String _lastDraftPeerUid = '';
+  String _lastSavedDraft = '';
   String _myUid = '';
 
   String get _peerUid => widget.peerUid.trim();
@@ -43,8 +51,10 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scrollController = _createScrollController();
     _messageStore = AppServicesScope.read(context).directMessageMessages;
+    _textController.addListener(_handleDraftTextChanged);
     unawaited(_bootstrap());
     _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       unawaited(_syncLatest());
@@ -55,12 +65,18 @@ class _ChatPageState extends State<ChatPage> {
   void didUpdateWidget(covariant ChatPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.peerUid.trim() == _peerUid) return;
+    _flushDraft(peerUid: oldWidget.peerUid.trim());
+    _resetDraftTracking();
+    _applyingDraftText = true;
     _textController.clear();
+    _applyingDraftText = false;
     _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
     _scrollController = _createScrollController();
     setState(() {
       _failedLocalMessages.clear();
+      _readMarkedIncomingMessageIds.clear();
+      _unseenIncomingCount = 0;
       _loadedLocalMessages = false;
       _syncing = false;
       _sending = false;
@@ -74,10 +90,18 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   @override
+  void didChangeMetrics() {
+    _revealLatestMessageAfterLayout();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
+    _flushDraft();
     _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
+    _textController.removeListener(_handleDraftTextChanged);
     _textController.dispose();
     super.dispose();
   }
@@ -89,14 +113,17 @@ class _ChatPageState extends State<ChatPage> {
     setState(() {
       _myUid = uid;
       _failedLocalMessages.clear();
+      _readMarkedIncomingMessageIds.clear();
+      _unseenIncomingCount = 0;
     });
     try {
+      await _loadDraft(_peerUid);
       await _messageStore.loadFromDb(_peerUid);
       if (!mounted) return;
       final hasCachedMessages =
           _messageStore.orderedMessageIds.value.isNotEmpty;
       if (hasCachedMessages) setState(() => _loadedLocalMessages = true);
-      await _syncLatest(keepAtBottom: true);
+      await _syncLatest();
       if (!hasCachedMessages && mounted) {
         setState(() => _loadedLocalMessages = true);
       }
@@ -107,20 +134,85 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  Future<void> _syncLatest({bool keepAtBottom = false}) async {
+  Future<void> _syncLatest() async {
     if (_syncing || _peerUid.isEmpty) return;
-    final shouldStickToBottom = keepAtBottom || _isNearBottom();
+    final hasScrollClients = _scrollController.hasClients;
+    final wasNearBottom = hasScrollClients && _isNearBottom();
+    final canShowNewMessageNotice = _loadedLocalMessages && hasScrollClients;
+    final previousIncomingIds = _incomingMessageIds(
+      _messageStore.orderedMessageIds.value,
+    );
     setState(() => _syncing = true);
     try {
       await _messageStore.syncLatest(_peerUid);
-      await _markRead();
-      if (shouldStickToBottom) _scrollToBottom(jump: true);
+      final newIncomingIds = _newIncomingMessageIds(previousIncomingIds);
+      if (newIncomingIds.isNotEmpty) {
+        _handleNewIncomingMessages(
+          newIncomingIds,
+          shouldStickToBottom: wasNearBottom,
+          showNotice: canShowNewMessageNotice && !wasNearBottom,
+        );
+      }
     } catch (error, stackTrace) {
       debugPrint('[ChatPage][DM] sync failed: $error');
       debugPrint('[ChatPage][DM] stacktrace:\n$stackTrace');
     } finally {
       if (mounted) setState(() => _syncing = false);
     }
+  }
+
+  Set<String> _incomingMessageIds(List<String> messageIds) {
+    return messageIds.where((messageId) {
+      final record = _recordForMessageId(messageId);
+      return record != null && _isIncomingMessage(record);
+    }).toSet();
+  }
+
+  List<String> _newIncomingMessageIds(Set<String> previousIncomingIds) {
+    final nextIncomingIds = _incomingMessageIds(
+      _messageStore.orderedMessageIds.value,
+    );
+    return nextIncomingIds
+        .where(
+          (messageId) =>
+              !previousIncomingIds.contains(messageId) &&
+              !_readMarkedIncomingMessageIds.contains(messageId),
+        )
+        .toList(growable: false);
+  }
+
+  bool _isIncomingMessage(DirectMessageMessageRecord record) {
+    final senderUid = record.senderUid.trim();
+    final myUid = _myUid.trim();
+    return senderUid.isNotEmpty &&
+        (myUid.isEmpty || senderUid != myUid) &&
+        record.sendStatus == DirectMessageSendStatus.sent;
+  }
+
+  void _handleNewIncomingMessages(
+    List<String> messageIds, {
+    required bool shouldStickToBottom,
+    required bool showNotice,
+  }) {
+    final pendingIds = messageIds.toSet();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final renderedIds = _renderMessageIds(
+        _messageStore.orderedMessageIds.value,
+      ).toSet();
+      if (!pendingIds.every(renderedIds.contains)) return;
+      _readMarkedIncomingMessageIds.addAll(pendingIds);
+      unawaited(_markRead());
+      if (shouldStickToBottom) {
+        _clearUnseenIncomingCount();
+        _scrollToBottom(jump: true, settleFrames: 4);
+        return;
+      }
+      if (!showNotice) return;
+      setState(() {
+        _unseenIncomingCount += pendingIds.length;
+      });
+    });
   }
 
   Future<void> _markRead() async {
@@ -138,8 +230,11 @@ class _ChatPageState extends State<ChatPage> {
     if (!_scrollController.hasClients || _loadingOlder || _peerUid.isEmpty) {
       return;
     }
+    if (_unseenIncomingCount > 0 && _isNearBottom()) {
+      _clearUnseenIncomingCount();
+    }
     final position = _scrollController.position;
-    if (position.maxScrollExtent - position.pixels > 120) return;
+    if (position.pixels > 120) return;
     if (!_messageStore.hasMoreOlder) return;
     unawaited(_loadOlder());
   }
@@ -147,7 +242,7 @@ class _ChatPageState extends State<ChatPage> {
   bool _isNearBottom() {
     if (!_scrollController.hasClients) return false;
     final position = _scrollController.position;
-    return position.pixels < 80;
+    return position.maxScrollExtent - position.pixels < 80;
   }
 
   Future<void> _loadOlder() async {
@@ -169,6 +264,8 @@ class _ChatPageState extends State<ChatPage> {
     if (content.isEmpty) return;
 
     setState(() => _sending = true);
+    await _clearDraft(_peerUid);
+    if (!mounted) return;
     final senderUid = _myUid.trim().isEmpty ? '__anonymous__' : _myUid.trim();
     final localMessageId = await _messageStore.insertLocalMessage(
       peerUid: _peerUid,
@@ -177,7 +274,10 @@ class _ChatPageState extends State<ChatPage> {
     );
     if (!mounted) return;
     final services = AppServicesScope.read(context);
+    _applyingDraftText = true;
     _textController.clear();
+    _applyingDraftText = false;
+    _clearUnseenIncomingCount();
     _scrollToBottom();
 
     try {
@@ -224,12 +324,15 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  void _scrollToBottom({bool jump = false}) {
+  void _scrollToBottom({bool jump = false, int settleFrames = 2}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      final target = _scrollController.position.minScrollExtent;
+      if (!mounted || !_scrollController.hasClients) return;
+      final target = _scrollController.position.maxScrollExtent;
       if (jump) {
         _scrollController.jumpTo(target);
+        if (settleFrames > 0) {
+          _scrollToBottom(jump: true, settleFrames: settleFrames - 1);
+        }
         return;
       }
       _scrollController.animateTo(
@@ -238,6 +341,105 @@ class _ChatPageState extends State<ChatPage> {
         curve: Curves.easeOut,
       );
     });
+  }
+
+  void _revealLatestMessageAfterLayout() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollToBottom(jump: true, settleFrames: 4);
+    });
+  }
+
+  void _clearUnseenIncomingCount() {
+    if (_unseenIncomingCount == 0 || !mounted) return;
+    setState(() => _unseenIncomingCount = 0);
+  }
+
+  Future<void> _loadDraft(String peerUid) async {
+    final cleanPeerUid = peerUid.trim();
+    if (cleanPeerUid.isEmpty) return;
+    try {
+      final draft = await _messageStore.loadDraft(cleanPeerUid);
+      if (!mounted || _peerUid != cleanPeerUid) return;
+      _lastDraftPeerUid = cleanPeerUid;
+      _lastSavedDraft = draft;
+      if (draft.isEmpty || _textController.text.isNotEmpty) return;
+      _applyingDraftText = true;
+      _textController.value = TextEditingValue(
+        text: draft,
+        selection: TextSelection.collapsed(offset: draft.length),
+      );
+      _applyingDraftText = false;
+    } catch (error) {
+      debugPrint('[ChatPage][DM] load draft failed: $error');
+    } finally {
+      _applyingDraftText = false;
+    }
+  }
+
+  void _handleDraftTextChanged() {
+    if (_applyingDraftText || _peerUid.isEmpty) return;
+    _scheduleDraftSave(_peerUid, _textController.text);
+  }
+
+  void _scheduleDraftSave(String peerUid, String content) {
+    _draftSaveTimer?.cancel();
+    _draftSaveTimer = Timer(_draftSaveDelay, () {
+      _draftSaveTimer = null;
+      _saveDraftNow(peerUid: peerUid, content: content);
+    });
+  }
+
+  void _flushDraft({String? peerUid}) {
+    _draftSaveTimer?.cancel();
+    _draftSaveTimer = null;
+    final cleanPeerUid = (peerUid ?? _peerUid).trim();
+    if (cleanPeerUid.isEmpty) return;
+    _saveDraftNow(peerUid: cleanPeerUid, content: _textController.text);
+  }
+
+  void _saveDraftNow({required String peerUid, required String content}) {
+    final cleanPeerUid = peerUid.trim();
+    if (cleanPeerUid.isEmpty) return;
+    if (_lastDraftPeerUid == cleanPeerUid && _lastSavedDraft == content) {
+      return;
+    }
+    _lastDraftPeerUid = cleanPeerUid;
+    _lastSavedDraft = content;
+    unawaited(
+      _messageStore
+          .saveDraft(peerUid: cleanPeerUid, content: content)
+          .catchError(
+            (Object error) =>
+                debugPrint('[ChatPage][DM] save draft failed: $error'),
+          ),
+    );
+  }
+
+  Future<void> _clearDraft(String peerUid) async {
+    _draftSaveTimer?.cancel();
+    _draftSaveTimer = null;
+    final cleanPeerUid = peerUid.trim();
+    if (cleanPeerUid.isEmpty) return;
+    _lastDraftPeerUid = cleanPeerUid;
+    _lastSavedDraft = '';
+    try {
+      await _messageStore.clearDraft(cleanPeerUid);
+    } catch (error) {
+      debugPrint('[ChatPage][DM] clear draft failed: $error');
+    }
+  }
+
+  void _resetDraftTracking() {
+    _draftSaveTimer?.cancel();
+    _draftSaveTimer = null;
+    _lastDraftPeerUid = '';
+    _lastSavedDraft = '';
+  }
+
+  void _openUnseenIncomingMessages() {
+    _clearUnseenIncomingCount();
+    _scrollToBottom(jump: true, settleFrames: 4);
   }
 
   VoidCallback? _avatarTapFor(DirectMessageMessageRecord record) {
@@ -261,7 +463,7 @@ class _ChatPageState extends State<ChatPage> {
       'Direct message',
     ]);
     return Scaffold(
-      backgroundColor: const Color(0xFFE7E1E5),
+      backgroundColor: ChatUiStyleConfig.standard.conversationBackgroundColor,
       resizeToAvoidBottomInset: true,
       body: Column(
         children: [
@@ -279,7 +481,20 @@ class _ChatPageState extends State<ChatPage> {
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-              child: _buildMessages(),
+              child: Stack(
+                children: [
+                  Positioned.fill(child: _buildMessages()),
+                  if (_unseenIncomingCount > 0)
+                    Positioned(
+                      right: 16,
+                      bottom: 12,
+                      child: _NewIncomingMessageNotice(
+                        count: _unseenIncomingCount,
+                        onTap: _openUnseenIncomingMessages,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
           ChatComposer(
@@ -288,6 +503,7 @@ class _ChatPageState extends State<ChatPage> {
             sendEnabled: _peerUid.isNotEmpty && !_sending,
             sending: _sending,
             onSend: _send,
+            onHeightChanged: (_) => _revealLatestMessageAfterLayout(),
           ),
         ],
       ),
@@ -295,6 +511,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Widget _buildMessages() {
+    const style = ChatUiStyleConfig.standard;
     return ValueListenableBuilder<List<String>>(
       valueListenable: _messageStore.orderedMessageIds,
       builder: (context, messageIds, _) {
@@ -304,63 +521,38 @@ class _ChatPageState extends State<ChatPage> {
         }
         return LayoutBuilder(
           builder: (context, constraints) {
-            final bottomSpacerHeight = _bottomSpacerHeight(
-              viewportHeight: constraints.maxHeight,
-              messageIds: renderIds,
-            );
+            final contentHeight = _estimatedContentHeight(renderIds);
+            final fitsViewport =
+                constraints.maxHeight.isFinite &&
+                contentHeight <= constraints.maxHeight;
+            if (fitsViewport) {
+              return ListView.builder(
+                controller: _scrollController,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: style.messageListPadding,
+                itemCount: renderIds.length,
+                itemBuilder: (context, index) =>
+                    _buildMessageItem(renderIds, index),
+              );
+            }
             return ListView.builder(
-              reverse: true,
               controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
-              itemCount: renderIds.length + 2,
+              padding: style.messageListPadding,
+              itemCount: renderIds.length + 1,
               itemBuilder: (context, index) {
                 if (index == 0) {
-                  return SizedBox(height: bottomSpacerHeight);
-                }
-                if (index == renderIds.length + 1) {
                   return _loadingOlder
-                      ? const Padding(
-                          padding: EdgeInsets.only(top: 12),
-                          child: Center(child: CircularProgressIndicator()),
+                      ? Padding(
+                          padding: EdgeInsets.only(
+                            bottom: style.dateDividerBottomPadding,
+                          ),
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
                         )
                       : const SizedBox.shrink();
                 }
-                final messageIndex = renderIds.length - index;
-                final messageId = renderIds[messageIndex];
-                final failedRecord = _failedLocalMessages[messageId];
-                if (failedRecord != null) {
-                  final previous = messageIndex == 0
-                      ? null
-                      : _recordForMessageId(renderIds[messageIndex - 1]);
-                  return ChatMessageRow(
-                    key: ValueKey(messageId),
-                    message: _messageVm(failedRecord),
-                    onAvatarTap: _avatarTapFor(failedRecord),
-                    showDateDivider: shouldShowChatDateDivider(
-                      previous?.createdAt,
-                      failedRecord.createdAt,
-                    ),
-                  );
-                }
-                final listenable = _messageStore.rowListenable(messageId);
-                if (listenable == null) return const SizedBox.shrink();
-                return ValueListenableBuilder<DirectMessageMessageRecord>(
-                  key: ValueKey(messageId),
-                  valueListenable: listenable,
-                  builder: (context, record, _) {
-                    final previous = messageIndex == 0
-                        ? null
-                        : _recordForMessageId(renderIds[messageIndex - 1]);
-                    return ChatMessageRow(
-                      message: _messageVm(record),
-                      onAvatarTap: _avatarTapFor(record),
-                      showDateDivider: shouldShowChatDateDivider(
-                        previous?.createdAt,
-                        record.createdAt,
-                      ),
-                    );
-                  },
-                );
+                return _buildMessageItem(renderIds, index - 1);
               },
             );
           },
@@ -369,39 +561,87 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  double _bottomSpacerHeight({
-    required double viewportHeight,
-    required List<String> messageIds,
-  }) {
-    if (messageIds.isEmpty || !viewportHeight.isFinite) return 0;
-    var estimatedContentHeight = 30.0;
+  Widget _buildMessageItem(List<String> renderIds, int messageIndex) {
+    final messageId = renderIds[messageIndex];
+    final failedRecord = _failedLocalMessages[messageId];
+    if (failedRecord != null) {
+      final previous = messageIndex == 0
+          ? null
+          : _recordForMessageId(renderIds[messageIndex - 1]);
+      return ChatMessageRow(
+        key: ValueKey(messageId),
+        message: _messageVm(failedRecord),
+        onAvatarTap: _avatarTapFor(failedRecord),
+        showDateDivider: shouldShowChatDateDivider(
+          previous?.createdAt,
+          failedRecord.createdAt,
+        ),
+      );
+    }
+    final listenable = _messageStore.rowListenable(messageId);
+    if (listenable == null) return const SizedBox.shrink();
+    return ValueListenableBuilder<DirectMessageMessageRecord>(
+      key: ValueKey(messageId),
+      valueListenable: listenable,
+      builder: (context, record, _) {
+        final previous = messageIndex == 0
+            ? null
+            : _recordForMessageId(renderIds[messageIndex - 1]);
+        return ChatMessageRow(
+          message: _messageVm(record),
+          onAvatarTap: _avatarTapFor(record),
+          showDateDivider: shouldShowChatDateDivider(
+            previous?.createdAt,
+            record.createdAt,
+          ),
+        );
+      },
+    );
+  }
+
+  double _estimatedContentHeight(List<String> messageIds) {
+    if (messageIds.isEmpty) return 0;
+    const style = ChatUiStyleConfig.standard;
+    var estimatedContentHeight = style.messageListPadding.vertical;
     DirectMessageMessageRecord? previous;
     for (final messageId in messageIds) {
       final record = _recordForMessageId(messageId);
       if (record == null) continue;
       if (shouldShowChatDateDivider(previous?.createdAt, record.createdAt)) {
-        estimatedContentHeight += 22;
+        estimatedContentHeight +=
+            style.dateDividerBottomPadding +
+            (style.dateDividerTextStyle.fontSize ?? 10);
       }
       estimatedContentHeight += _estimatedMessageRowHeight(record);
       previous = record;
     }
-    final spacerHeight = viewportHeight - estimatedContentHeight;
-    return spacerHeight > 0 ? spacerHeight : 0;
+    return estimatedContentHeight;
   }
 
   double _estimatedMessageRowHeight(DirectMessageMessageRecord record) {
+    const style = ChatUiStyleConfig.standard;
     final isMe = _myUid.trim().isNotEmpty && record.senderUid == _myUid.trim();
     final width = MediaQuery.sizeOf(context).width;
-    final maxBubbleWidth = width * (isMe ? 0.68 : 0.72);
+    final maxBubbleWidth =
+        width *
+        (isMe
+            ? style.selfBubbleMaxWidthFactor
+            : style.otherBubbleMaxWidthFactor);
     final charsPerLine = (maxBubbleWidth / 8).floor().clamp(12, 42).toInt();
     final textLength = record.content.trim().isEmpty
         ? 1
         : record.content.trim().length;
     final lineCount = (textLength / charsPerLine).ceil().clamp(1, 8).toInt();
-    final bubbleHeight = 26 + lineCount * 16;
-    final rowBodyHeight = isMe ? bubbleHeight : 22 + bubbleHeight;
-    final rowHeight = rowBodyHeight < 40 ? 40 : rowBodyHeight;
-    return rowHeight + 24;
+    final bubbleHeight =
+        style.bubblePadding.vertical + lineCount * style.bubbleLineHeight;
+    final senderNameHeight = style.showSenderNameAboveOtherBubble && !isMe
+        ? (style.senderNameTextStyle.fontSize ?? 14) + style.senderNameBottomGap
+        : 0;
+    final rowBodyHeight = isMe ? bubbleHeight : senderNameHeight + bubbleHeight;
+    final rowHeight = rowBodyHeight < style.avatarSize
+        ? style.avatarSize
+        : rowBodyHeight;
+    return rowHeight + style.rowBottomPadding;
   }
 
   List<String> _renderMessageIds(List<String> dbMessageIds) {
@@ -439,6 +679,37 @@ class _ChatPageState extends State<ChatPage> {
       isMe: isMe,
       status: record.sendStatus,
       createdAt: record.createdAt,
+    );
+  }
+}
+
+class _NewIncomingMessageNotice extends StatelessWidget {
+  const _NewIncomingMessageNotice({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.72),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        key: const ValueKey('chat-new-message-notice'),
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Text(
+            '$count 条新消息',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -25,7 +25,8 @@ class LocationChatPage extends StatefulWidget {
   State<LocationChatPage> createState() => _LocationChatPageState();
 }
 
-class _LocationChatPageState extends State<LocationChatPage> {
+class _LocationChatPageState extends State<LocationChatPage>
+    with WidgetsBindingObserver {
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
   final _messages = <ChatMessageVm>[];
@@ -46,15 +47,22 @@ class _LocationChatPageState extends State<LocationChatPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_connect());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     unawaited(_closeSession());
     _scrollController.dispose();
     _textController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    _revealLatestMessageAfterLayout();
   }
 
   Future<void> _connect() async {
@@ -308,14 +316,28 @@ class _LocationChatPageState extends State<LocationChatPage> {
     });
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool jump = false, int settleFrames = 2}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
+      if (!mounted || !_scrollController.hasClients) return;
+      if (jump) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        if (settleFrames > 0) {
+          _scrollToBottom(jump: true, settleFrames: settleFrames - 1);
+        }
+        return;
+      }
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
       );
+    });
+  }
+
+  void _revealLatestMessageAfterLayout() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollToBottom(jump: true, settleFrames: 4);
     });
   }
 
@@ -333,7 +355,7 @@ class _LocationChatPageState extends State<LocationChatPage> {
               .join(', ');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE7E1E5),
+      backgroundColor: ChatUiStyleConfig.standard.conversationBackgroundColor,
       resizeToAvoidBottomInset: true,
       body: Column(
         children: [
@@ -357,6 +379,7 @@ class _LocationChatPageState extends State<LocationChatPage> {
             sendEnabled: _session != null && !_sending,
             sending: _sending,
             onSend: _send,
+            onHeightChanged: (_) => _revealLatestMessageAfterLayout(),
           ),
         ],
       ),

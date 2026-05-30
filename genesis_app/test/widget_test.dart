@@ -9,7 +9,6 @@ import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
-import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
@@ -755,20 +754,25 @@ class _RecordingDmDeltaTransport implements HttpTransport {
 }
 
 class _RecordingDmChatTransport implements HttpTransport {
-  _RecordingDmChatTransport({this.failSend = false});
+  _RecordingDmChatTransport({
+    this.failSend = false,
+    List<Map<String, dynamic>>? messages,
+  }) : messages =
+           messages ??
+           [
+             {
+               'msg_id': 'dm_synced_001',
+               'conv_id': 'dm_conv',
+               'sender_uid': 'u_peer_dm',
+               'receiver_uid': 'u_mock',
+               'content': 'Synced direct chat',
+               'created_at': _unixTimestamp(DateTime.now()),
+             },
+           ];
 
   final bool failSend;
   final requests = <TransportRequest>[];
-  final messages = <Map<String, dynamic>>[
-    {
-      'msg_id': 'dm_synced_001',
-      'conv_id': 'dm_conv',
-      'sender_uid': 'u_peer_dm',
-      'receiver_uid': 'u_mock',
-      'content': 'Synced direct chat',
-      'created_at': _unixTimestamp(DateTime.now()),
-    },
-  ];
+  final List<Map<String, dynamic>> messages;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -854,6 +858,27 @@ Map<String, dynamic> _dmConversationJson({
 
 int _unixTimestamp(DateTime value) {
   return value.millisecondsSinceEpoch ~/ 1000;
+}
+
+Future<void> _jumpChatListToBottom(WidgetTester tester) async {
+  final scrollableFinder = find
+      .descendant(of: find.byType(ListView), matching: find.byType(Scrollable))
+      .first;
+  final scrollable = tester.state<ScrollableState>(scrollableFinder);
+  for (var index = 0; index < 4; index += 1) {
+    scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+    await tester.pump();
+  }
+  await tester.pumpAndSettle();
+}
+
+Future<void> _jumpChatListToTop(WidgetTester tester) async {
+  final scrollableFinder = find
+      .descendant(of: find.byType(ListView), matching: find.byType(Scrollable))
+      .first;
+  final scrollable = tester.state<ScrollableState>(scrollableFinder);
+  scrollable.position.jumpTo(scrollable.position.minScrollExtent);
+  await tester.pumpAndSettle();
 }
 
 TransportResponse _v1Response(Object? data) {
@@ -2894,7 +2919,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('peer profile follows and opens messages', (
+  testWidgets('peer profile follows and opens direct chat', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingProfileActionTransport();
@@ -2946,7 +2971,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('user-profile-message-button')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Messages'), findsWidgets);
+    expect(find.byType(ChatPage), findsOneWidget);
+    final chatPage = tester.widget<ChatPage>(find.byType(ChatPage));
+    expect(chatPage.peerUid, 'u_peer');
+    expect(chatPage.peerName, 'Peer User');
   });
 
   testWidgets('follows page loads following and followers lists', (
@@ -3143,7 +3171,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Synced direct chat'), findsOneWidget);
-    expect(tester.widget<ListView>(find.byType(ListView)).reverse, isTrue);
+    expect(tester.widget<ListView>(find.byType(ListView)).reverse, isFalse);
     expect(
       transport.requests
           .where((request) => request.uri.path == '/api/v1/direct_message/list')
@@ -3151,6 +3179,446 @@ void main() {
           .uri
           .queryParameters,
       containsPair('peer_uid', 'u_peer_dm'),
+    );
+    expect(
+      transport.requests.where(
+        (request) => request.uri.path == '/api/v1/direct_message/read',
+      ),
+      hasLength(1),
+    );
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    expect(
+      transport.requests.where(
+        (request) => request.uri.path == '/api/v1/direct_message/read',
+      ),
+      hasLength(1),
+    );
+  });
+
+  testWidgets('chat page restores an unsent draft for the peer conversation', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingDmChatTransport();
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const DefaultPlatformConfig(),
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: const _FakeIdentityAuthService(),
+    );
+    final storage = MemoryDirectMessageMessageStorage();
+
+    DirectMessageMessageStore newStore() {
+      return DirectMessageMessageStore(
+        api: api,
+        sessionStore: sessionStore,
+        storage: storage,
+      );
+    }
+
+    Future<void> pumpChat(DirectMessageMessageStore store) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              directMessageMessages: store,
+            ),
+            child: const ChatPage(
+              peerUid: 'u_peer_dm',
+              peerName: 'Penny Direct',
+            ),
+          ),
+        ),
+      );
+    }
+
+    await pumpChat(newStore());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'unsent local draft');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+
+    expect(
+      await storage.loadDraft(ownerUid: 'u_mock', peerUid: 'u_peer_dm'),
+      'unsent local draft',
+    );
+
+    await pumpChat(newStore());
+    await tester.pumpAndSettle();
+
+    expect(find.text('unsent local draft'), findsOneWidget);
+  });
+
+  testWidgets('chat page clears the peer draft when sending a message', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingDmChatTransport();
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const DefaultPlatformConfig(),
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: const _FakeIdentityAuthService(),
+    );
+    final storage = MemoryDirectMessageMessageStorage();
+    await storage.saveDraft(
+      ownerUid: 'u_mock',
+      peerUid: 'u_peer_dm',
+      content: 'send this draft',
+    );
+    final store = DirectMessageMessageStore(
+      api: api,
+      sessionStore: sessionStore,
+      storage: storage,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            directMessageMessages: store,
+          ),
+          child: const ChatPage(peerUid: 'u_peer_dm', peerName: 'Penny Direct'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('send this draft'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.send));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(
+      await storage.loadDraft(ownerUid: 'u_mock', peerUid: 'u_peer_dm'),
+      '',
+    );
+  });
+
+  testWidgets('chat page keeps short message lists anchored above composer', (
+    WidgetTester tester,
+  ) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+
+    final transport = _RecordingDmChatTransport(
+      messages: [
+        {
+          'msg_id': 'dm_short_001',
+          'conv_id': 'dm_conv',
+          'sender_uid': 'u_peer_dm',
+          'receiver_uid': 'u_mock',
+          'content': 'Short list message',
+          'created_at': _unixTimestamp(DateTime.now()),
+        },
+      ],
+    );
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const DefaultPlatformConfig(),
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: const _FakeIdentityAuthService(),
+    );
+    final store = DirectMessageMessageStore(
+      api: api,
+      sessionStore: sessionStore,
+      storage: MemoryDirectMessageMessageStorage(),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            directMessageMessages: store,
+          ),
+          child: const ChatPage(peerUid: 'u_peer_dm', peerName: 'Penny Direct'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final headerBottom = tester.getBottomLeft(find.byType(ChatHeader)).dy;
+    final composerTop = tester.getTopLeft(find.byType(ChatComposer)).dy;
+    final messageTop = tester.getTopLeft(find.text('Short list message')).dy;
+    final beforeDragTop = tester.getTopLeft(find.text('Short list message')).dy;
+    final listView = tester.widget<ListView>(find.byType(ListView));
+
+    expect(messageTop, greaterThan(headerBottom));
+    expect(
+      messageTop,
+      lessThan(headerBottom + (composerTop - headerBottom) / 2),
+    );
+    expect(listView.physics, isA<NeverScrollableScrollPhysics>());
+
+    await tester.drag(find.byType(ListView), const Offset(0, -80));
+    await tester.pump();
+
+    expect(
+      tester.getTopLeft(find.text('Short list message')).dy,
+      beforeDragTop,
+    );
+  });
+
+  testWidgets(
+    'chat page keeps latest message above keyboard as composer grows',
+    (WidgetTester tester) async {
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        tester.view.resetViewInsets();
+      });
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+
+      final baseTime = DateTime.now().subtract(const Duration(minutes: 40));
+      final messages = List<Map<String, dynamic>>.generate(28, (index) {
+        return <String, dynamic>{
+          'msg_id': 'dm_scroll_${index.toString().padLeft(2, '0')}',
+          'conv_id': 'dm_conv',
+          'sender_uid': index.isEven ? 'u_peer_dm' : 'u_mock',
+          'receiver_uid': index.isEven ? 'u_mock' : 'u_peer_dm',
+          'content': 'Scrollable message $index',
+          'created_at': _unixTimestamp(baseTime.add(Duration(minutes: index))),
+        };
+      });
+      final transport = _RecordingDmChatTransport(messages: messages);
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_mock');
+      final api = GenesisApi(
+        useMock: false,
+        transport: transport,
+        platformConfig: const DefaultPlatformConfig(),
+        deviceIdService: const _FakeDeviceIdService(),
+        sessionStore: sessionStore,
+        identityAuthService: const _FakeIdentityAuthService(),
+      );
+      final store = DirectMessageMessageStore(
+        api: api,
+        sessionStore: sessionStore,
+        storage: MemoryDirectMessageMessageStorage(),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              directMessageMessages: store,
+            ),
+            child: const ChatPage(
+              peerUid: 'u_peer_dm',
+              peerName: 'Penny Direct',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _jumpChatListToBottom(tester);
+
+      await tester.tap(find.byType(TextField));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+      await tester.enterText(
+        find.byType(TextField),
+        List.filled(8, 'expanded composer line').join('\n'),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+
+      final latestMessage = find.text('Scrollable message 27');
+      expect(latestMessage, findsOneWidget);
+      expect(
+        tester.getBottomLeft(latestMessage).dy,
+        lessThanOrEqualTo(tester.getTopLeft(find.byType(ChatComposer)).dy),
+      );
+    },
+  );
+
+  testWidgets(
+    'chat page keeps position and shows notice for incoming messages away from bottom',
+    (WidgetTester tester) async {
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+
+      final baseTime = DateTime.now().subtract(const Duration(hours: 2));
+      final messages = List<Map<String, dynamic>>.generate(60, (index) {
+        return <String, dynamic>{
+          'msg_id': 'dm_notice_${index.toString().padLeft(2, '0')}',
+          'conv_id': 'dm_conv',
+          'sender_uid': index.isEven ? 'u_peer_dm' : 'u_mock',
+          'receiver_uid': index.isEven ? 'u_mock' : 'u_peer_dm',
+          'content': 'Notice base message $index',
+          'created_at': _unixTimestamp(baseTime.add(Duration(minutes: index))),
+        };
+      });
+      final transport = _RecordingDmChatTransport(messages: messages);
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_mock');
+      final api = GenesisApi(
+        useMock: false,
+        transport: transport,
+        platformConfig: const DefaultPlatformConfig(),
+        deviceIdService: const _FakeDeviceIdService(),
+        sessionStore: sessionStore,
+        identityAuthService: const _FakeIdentityAuthService(),
+      );
+      final store = DirectMessageMessageStore(
+        api: api,
+        sessionStore: sessionStore,
+        storage: MemoryDirectMessageMessageStorage(),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              directMessageMessages: store,
+            ),
+            child: const ChatPage(
+              peerUid: 'u_peer_dm',
+              peerName: 'Penny Direct',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await _jumpChatListToTop(tester);
+      final scrollable = tester.state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byType(ListView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      expect(
+        scrollable.position.maxScrollExtent - scrollable.position.pixels,
+        greaterThan(80),
+      );
+
+      final visibleMessage = find.textContaining('Notice base message').first;
+      expect(visibleMessage, findsOneWidget);
+      final visibleMessageTop = tester.getTopLeft(visibleMessage).dy;
+
+      transport.messages.add(<String, dynamic>{
+        'msg_id': 'dm_notice_new_001',
+        'conv_id': 'dm_conv',
+        'sender_uid': 'u_peer_dm',
+        'receiver_uid': 'u_mock',
+        'content': 'Fresh incoming while reading',
+        'created_at': _unixTimestamp(baseTime.add(const Duration(hours: 1))),
+      });
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 条新消息'), findsOneWidget);
+      expect(tester.getTopLeft(visibleMessage).dy, visibleMessageTop);
+    },
+  );
+
+  testWidgets('chat page follows incoming messages while already at bottom', (
+    WidgetTester tester,
+  ) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+
+    final baseTime = DateTime.now().subtract(const Duration(hours: 2));
+    final messages = List<Map<String, dynamic>>.generate(60, (index) {
+      return <String, dynamic>{
+        'msg_id': 'dm_follow_${index.toString().padLeft(2, '0')}',
+        'conv_id': 'dm_conv',
+        'sender_uid': index.isEven ? 'u_peer_dm' : 'u_mock',
+        'receiver_uid': index.isEven ? 'u_mock' : 'u_peer_dm',
+        'content': 'Follow base message $index',
+        'created_at': _unixTimestamp(baseTime.add(Duration(minutes: index))),
+      };
+    });
+    final transport = _RecordingDmChatTransport(messages: messages);
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const DefaultPlatformConfig(),
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: const _FakeIdentityAuthService(),
+    );
+    final store = DirectMessageMessageStore(
+      api: api,
+      sessionStore: sessionStore,
+      storage: MemoryDirectMessageMessageStorage(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            directMessageMessages: store,
+          ),
+          child: const ChatPage(peerUid: 'u_peer_dm', peerName: 'Penny Direct'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _jumpChatListToBottom(tester);
+
+    transport.messages.add(<String, dynamic>{
+      'msg_id': 'dm_follow_new_001',
+      'conv_id': 'dm_conv',
+      'sender_uid': 'u_peer_dm',
+      'receiver_uid': 'u_mock',
+      'content': 'Fresh incoming at bottom',
+      'created_at': _unixTimestamp(baseTime.add(const Duration(hours: 1))),
+    });
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Fresh incoming at bottom'), findsOneWidget);
+    expect(find.text('1 条新消息'), findsNothing);
+    expect(
+      tester.getBottomLeft(find.text('Fresh incoming at bottom')).dy,
+      lessThanOrEqualTo(tester.getTopLeft(find.byType(ChatComposer)).dy),
     );
   });
 
@@ -3190,7 +3658,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'optimistic hello');
-    await tester.tap(find.byIcon(MyFlutterApp.add2));
+    await tester.tap(find.byIcon(Icons.send));
     await tester.pump();
 
     expect(find.text('optimistic hello'), findsOneWidget);
@@ -3309,7 +3777,7 @@ void main() {
       await tester.enterText(find.byType(TextField), 'hello castle');
       await tester.pump();
       final sendButton = find.ancestor(
-        of: find.byIcon(MyFlutterApp.add2),
+        of: find.byIcon(Icons.send),
         matching: find.byType(IconButton),
       );
       for (var i = 0; i < 10; i++) {
@@ -3352,7 +3820,7 @@ void main() {
 
     expect(find.text('draft before connect'), findsOneWidget);
     final sendButton = find.ancestor(
-      of: find.byIcon(MyFlutterApp.add2),
+      of: find.byIcon(Icons.send),
       matching: find.byType(IconButton),
     );
     expect(tester.widget<IconButton>(sendButton).onPressed, isNull);

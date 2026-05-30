@@ -4,6 +4,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../icons/my_flutter_app_icons.dart';
+import 'chat_ui_style_config.dart';
+
+export 'chat_ui_style_config.dart';
 
 class ChatMessageVm {
   ChatMessageVm({
@@ -57,6 +60,7 @@ class ChatHeader extends StatelessWidget {
     this.showTitleIcon = true,
     this.showSubtitle = true,
     this.showMoreButton = true,
+    this.style,
   });
 
   final String title;
@@ -67,21 +71,26 @@ class ChatHeader extends StatelessWidget {
   final bool showTitleIcon;
   final bool showSubtitle;
   final bool showMoreButton;
+  final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
+    final style = this.style ?? ChatUiStyleConfig.standard;
     final topInset = MediaQuery.viewPaddingOf(context).top;
     return Container(
-      height: topInset + 50,
+      height: topInset + style.headerHeight,
       padding: const EdgeInsets.symmetric(horizontal: 0),
-      color: const Color(0xFFF2EFF2).withValues(alpha: 0.96),
+      color: style.headerBackgroundColor,
       child: Padding(
         padding: EdgeInsets.only(top: topInset),
         child: Row(
           children: [
             IconButton(
               onPressed: onBack,
-              icon: const Icon(Icons.arrow_back_ios_new, size: 17),
+              icon: Icon(
+                Icons.arrow_back_ios_new,
+                size: style.headerBackIconSize,
+              ),
             ),
             Expanded(
               child: Column(
@@ -92,29 +101,25 @@ class ChatHeader extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (showTitleIcon) ...[
-                        const Icon(
+                        Icon(
                           Icons.location_on,
-                          size: 16,
-                          color: Color(0xFF526A9F),
+                          size: style.headerTitleIconSize,
+                          color: style.headerTitleIconColor,
                         ),
-                        const SizedBox(width: 4),
+                        SizedBox(width: style.headerTitleIconGap),
                       ],
                       Flexible(
                         child: Text(
                           title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black,
-                          ),
+                          style: style.headerTitleTextStyle,
                         ),
                       ),
                     ],
                   ),
                   if (showSubtitle) ...[
-                    const SizedBox(height: 4),
+                    SizedBox(height: style.headerSubtitleTopGap),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
@@ -125,20 +130,16 @@ class ChatHeader extends StatelessWidget {
                               : connecting
                               ? Icons.sync
                               : Icons.cloud_off,
-                          size: 17,
-                          color: Colors.black87,
+                          size: style.headerStatusIconSize,
+                          color: style.headerStatusIconColor,
                         ),
-                        const SizedBox(width: 5),
+                        SizedBox(width: style.headerStatusIconGap),
                         Flexible(
                           child: Text(
                             subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.black87,
-                            ),
+                            style: style.headerSubtitleTextStyle,
                           ),
                         ),
                       ],
@@ -150,10 +151,10 @@ class ChatHeader extends StatelessWidget {
             if (showMoreButton)
               IconButton(
                 onPressed: () {},
-                icon: const Icon(Icons.more_horiz, size: 17),
+                icon: Icon(Icons.more_horiz, size: style.headerMoreIconSize),
               )
             else
-              const SizedBox(width: 48),
+              SizedBox(width: style.headerTrailingPlaceholderWidth),
           ],
         ),
       ),
@@ -169,6 +170,8 @@ class ChatComposer extends StatelessWidget {
     required this.sendEnabled,
     required this.sending,
     required this.onSend,
+    this.onHeightChanged,
+    this.style,
   });
 
   final TextEditingController controller;
@@ -176,79 +179,236 @@ class ChatComposer extends StatelessWidget {
   final bool sendEnabled;
   final bool sending;
   final Future<void> Function() onSend;
+  final ValueChanged<double>? onHeightChanged;
+  final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
+    final style = this.style ?? ChatUiStyleConfig.standard;
+    final submitFromKeyboard = !style.showComposerSendButton;
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
-    return Container(
-      padding: EdgeInsets.fromLTRB(10, 8, 10, 16 + bottomInset),
-      color: const Color(0xFFF1EFF1).withValues(alpha: 0.98),
-      child: Row(
-        children: [
-          _ComposerIconButton(
-            icon: MyFlutterApp.voice,
-            onPressed: inputEnabled ? () {} : null,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Container(
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(7),
+    return _ChatComposerHeightObserver(
+      onHeightChanged: onHeightChanged,
+      child: Container(
+        padding: style.composerPadding.copyWith(
+          bottom: style.composerPadding.bottom + bottomInset,
+        ),
+        color: style.composerBackgroundColor,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (style.showComposerVoiceButton) ...[
+              _ComposerIconButton(
+                icon: MyFlutterApp.voice,
+                onPressed: inputEnabled ? () {} : null,
+                style: style,
               ),
-              child: TextField(
-                controller: controller,
-                enabled: inputEnabled,
-                maxLines: 1,
-                textInputAction: TextInputAction.send,
-                onTapOutside: (_) =>
-                    FocusManager.instance.primaryFocus?.unfocus(),
-                onSubmitted: (_) {
-                  if (sendEnabled) unawaited(onSend());
-                },
-                style: const TextStyle(fontSize: 18),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 15,
+              SizedBox(width: style.composerLeadingGap),
+            ],
+            Expanded(
+              child: Container(
+                constraints: BoxConstraints(
+                  minHeight: style.inputMinHeight,
+                  maxHeight: style.inputMaxHeight,
+                ),
+                decoration: BoxDecoration(
+                  color: style.inputBackgroundColor,
+                  borderRadius: BorderRadius.circular(style.inputBorderRadius),
+                ),
+                child: TextField(
+                  controller: controller,
+                  enabled: inputEnabled,
+                  minLines: style.inputMinLines,
+                  maxLines: style.inputMaxLines,
+                  keyboardType: submitFromKeyboard
+                      ? TextInputType.text
+                      : TextInputType.multiline,
+                  textInputAction: submitFromKeyboard
+                      ? TextInputAction.send
+                      : TextInputAction.newline,
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
+                  onSubmitted: submitFromKeyboard
+                      ? (_) {
+                          if (sendEnabled) unawaited(onSend());
+                        }
+                      : null,
+                  style: style.inputTextStyle,
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: style.inputHorizontalPadding,
+                      vertical: style.inputVerticalPadding,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          _ComposerIconButton(
-            icon: MyFlutterApp.sticker,
-            onPressed: inputEnabled ? () {} : null,
-          ),
-          const SizedBox(width: 10),
-          _ComposerIconButton(
-            icon: sending ? Icons.hourglass_top : MyFlutterApp.add2,
-            onPressed: sendEnabled ? onSend : null,
-          ),
-        ],
+            if (style.showComposerStickerButton) ...[
+              SizedBox(width: style.composerActionGap),
+              _ComposerIconButton(
+                icon: MyFlutterApp.sticker,
+                onPressed: inputEnabled ? () {} : null,
+                style: style,
+              ),
+            ],
+            if (style.showComposerAddButton) ...[
+              SizedBox(width: style.composerActionGap),
+              _ComposerIconButton(
+                icon: MyFlutterApp.add2,
+                onPressed: inputEnabled ? () {} : null,
+                style: style,
+              ),
+            ],
+            if (style.showComposerSendButton) ...[
+              SizedBox(width: style.composerActionGap),
+              _ComposerSendButton(
+                sending: sending,
+                onPressed: sendEnabled ? onSend : null,
+                style: style,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 }
 
+class _ChatComposerHeightObserver extends StatefulWidget {
+  const _ChatComposerHeightObserver({
+    required this.child,
+    required this.onHeightChanged,
+  });
+
+  final Widget child;
+  final ValueChanged<double>? onHeightChanged;
+
+  @override
+  State<_ChatComposerHeightObserver> createState() =>
+      _ChatComposerHeightObserverState();
+}
+
+class _ChatComposerHeightObserverState
+    extends State<_ChatComposerHeightObserver> {
+  double? _lastHeight;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleReportHeight();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ChatComposerHeightObserver oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _scheduleReportHeight();
+  }
+
+  void _scheduleReportHeight() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final height = context.size?.height;
+      if (height == null || height == _lastHeight) return;
+      _lastHeight = height;
+      widget.onHeightChanged?.call(height);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _scheduleReportHeight();
+    return NotificationListener<SizeChangedLayoutNotification>(
+      onNotification: (_) {
+        _scheduleReportHeight();
+        return false;
+      },
+      child: SizeChangedLayoutNotifier(child: widget.child),
+    );
+  }
+}
+
 class _ComposerIconButton extends StatelessWidget {
-  const _ComposerIconButton({required this.icon, required this.onPressed});
+  const _ComposerIconButton({
+    required this.icon,
+    required this.onPressed,
+    required this.style,
+  });
 
   final IconData icon;
   final VoidCallback? onPressed;
+  final ChatUiStyleConfig style;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 32,
-      height: 32,
+      width: style.composerIconButtonSize,
+      height: style.composerIconButtonSize,
       child: IconButton(
         padding: EdgeInsets.zero,
         onPressed: onPressed,
-        icon: Icon(icon, color: Colors.black, size: 30),
+        icon: Icon(
+          icon,
+          color: style.composerIconColor,
+          size: style.composerIconSize,
+        ),
+      ),
+    );
+  }
+}
+
+class _ComposerSendButton extends StatelessWidget {
+  const _ComposerSendButton({
+    required this.sending,
+    required this.onPressed,
+    required this.style,
+  });
+
+  final bool sending;
+  final VoidCallback? onPressed;
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null && !sending;
+    final background = enabled || sending
+        ? style.composerSendButtonColor
+        : style.composerSendButtonDisabledColor;
+    return SizedBox(
+      key: const ValueKey('chat-composer-send-button'),
+      width: style.composerSendButtonWidth,
+      height: style.composerSendButtonHeight,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(
+            style.composerSendButtonBorderRadius,
+          ),
+        ),
+        child: IconButton(
+          padding: EdgeInsets.zero,
+          constraints: BoxConstraints.tightFor(
+            width: style.composerSendButtonWidth,
+            height: style.composerSendButtonHeight,
+          ),
+          onPressed: enabled ? onPressed : null,
+          icon: sending
+              ? SizedBox(
+                  width: style.composerSendButtonLoadingSize,
+                  height: style.composerSendButtonLoadingSize,
+                  child: CircularProgressIndicator(
+                    strokeWidth: style.composerSendButtonLoadingStrokeWidth,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      style.composerSendButtonIconColor,
+                    ),
+                  ),
+                )
+              : Icon(
+                  Icons.send,
+                  color: style.composerSendButtonIconColor,
+                  size: style.composerSendButtonIconSize,
+                ),
+        ),
       ),
     );
   }
@@ -260,20 +420,23 @@ class ChatMessageList extends StatelessWidget {
     required this.controller,
     required this.messages,
     required this.topTitle,
+    this.style,
   });
 
   final ScrollController controller;
   final List<ChatMessageVm> messages;
   final String topTitle;
+  final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
+    final style = this.style ?? ChatUiStyleConfig.standard;
     return ListView.builder(
       controller: controller,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+      padding: style.messageListPadding,
       itemCount: messages.length + 1,
       itemBuilder: (context, index) {
-        if (index == 0) return _ChatTopTitle(name: topTitle);
+        if (index == 0) return _ChatTopTitle(name: topTitle, style: style);
 
         final messageIndex = index - 1;
         final current = messages[messageIndex];
@@ -281,6 +444,7 @@ class ChatMessageList extends StatelessWidget {
         return ChatMessageRow(
           key: ValueKey(current.localId),
           message: current,
+          style: style,
           showDateDivider: shouldShowChatDateDivider(
             previous?.createdAt,
             current.createdAt,
@@ -292,26 +456,22 @@ class ChatMessageList extends StatelessWidget {
 }
 
 class _ChatTopTitle extends StatelessWidget {
-  const _ChatTopTitle({required this.name});
+  const _ChatTopTitle({required this.name, required this.style});
 
   final String name;
+  final ChatUiStyleConfig style;
 
   @override
   Widget build(BuildContext context) {
-    if (name.trim().isEmpty) return const SizedBox(height: 16);
+    if (name.trim().isEmpty) return SizedBox(height: style.topTitleEmptyHeight);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.only(bottom: style.topTitleBottomPadding),
       child: Center(
         child: Text(
           name,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 14,
-            height: 1.2,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
-          ),
+          style: style.topTitleTextStyle,
         ),
       ),
     );
@@ -324,73 +484,96 @@ class ChatMessageRow extends StatelessWidget {
     required this.message,
     required this.showDateDivider,
     this.onAvatarTap,
+    this.style,
   });
 
   final ChatMessageVm message;
   final bool showDateDivider;
   final VoidCallback? onAvatarTap;
+  final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
+    final style = this.style ?? ChatUiStyleConfig.standard;
     if (message.isSystem) {
-      return ChatSystemMessage(text: message.text);
+      return ChatSystemMessage(text: message.text, style: style);
     }
 
-    final row = message.isMe ? _buildMe(context) : _buildOther(context);
+    final row = message.isMe
+        ? _buildMe(context, style)
+        : _buildOther(context, style);
     if (!showDateDivider) return row;
 
     return Column(
       children: [
-        ChatDateDivider(time: message.createdAt),
+        ChatDateDivider(time: message.createdAt, style: style),
         row,
       ],
     );
   }
 
-  Widget _buildMe(BuildContext context) {
-    final maxBubbleWidth = MediaQuery.sizeOf(context).width * 0.68;
+  Widget _buildMe(BuildContext context, ChatUiStyleConfig style) {
+    final maxBubbleWidth =
+        MediaQuery.sizeOf(context).width * style.selfBubbleMaxWidthFactor;
+    final showFailedBadge = message.status == 'failed';
+    final showSendingBadge = message.status == 'sending';
+    final showStatusText =
+        message.status != 'sent' && !showFailedBadge && !showSendingBadge;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: EdgeInsets.only(bottom: style.rowBottomPadding),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (message.status == 'failed') ...[
-            const ChatFailedBadge(),
-            const SizedBox(width: 8),
-          ],
           Flexible(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxBubbleWidth),
-                  child: ChatMessageBubble(message: message),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (showFailedBadge) ...[
+                      ChatFailedBadge(style: style),
+                      SizedBox(width: style.badgeBubbleGap),
+                    ] else if (showSendingBadge) ...[
+                      ChatSendingBadge(style: style),
+                      SizedBox(width: style.badgeBubbleGap),
+                    ],
+                    Flexible(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+                        child: ChatMessageBubble(
+                          message: message,
+                          style: style,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                if (message.status != 'sent' && message.status != 'failed') ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    message.status,
-                    style: const TextStyle(color: Colors.white70, fontSize: 11),
-                  ),
+                if (showStatusText) ...[
+                  SizedBox(height: style.statusTextTopGap),
+                  Text(message.status, style: style.statusTextStyle),
                 ],
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: style.avatarBubbleGap),
           ChatAvatar(
             label: chatInitials(message.senderName),
-            colors: const [Color(0xFFFFE7B0), Color(0xFF9ED7FF)],
+            colors: style.selfAvatarColors,
+            style: style,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildOther(BuildContext context) {
-    final maxBubbleWidth = MediaQuery.sizeOf(context).width * 0.72;
+  Widget _buildOther(BuildContext context, ChatUiStyleConfig style) {
+    final maxBubbleWidth =
+        MediaQuery.sizeOf(context).width * style.otherBubbleMaxWidthFactor;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: EdgeInsets.only(bottom: style.rowBottomPadding),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -402,32 +585,35 @@ class ChatMessageRow extends StatelessWidget {
                 onTap: onAvatarTap,
                 child: ChatAvatar(
                   label: chatInitials(message.senderName),
-                  colors: const [Color(0xFFBFD7F2), Color(0xFF4F6D94)],
+                  colors: style.otherAvatarColors,
+                  style: style,
                 ),
               ),
               if (message.senderType == 'character')
-                const Positioned(right: -5, top: -7, child: ChatAiBadge()),
+                Positioned(
+                  right: -5,
+                  top: -7,
+                  child: ChatAiBadge(style: style),
+                ),
             ],
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: style.avatarBubbleGap),
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  message.senderName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF222222),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
+                if (style.showSenderNameAboveOtherBubble) ...[
+                  Text(
+                    message.senderName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: style.senderNameTextStyle,
                   ),
-                ),
-                const SizedBox(height: 4),
+                  SizedBox(height: style.senderNameBottomGap),
+                ],
                 ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxBubbleWidth),
-                  child: ChatMessageBubble(message: message),
+                  child: ChatMessageBubble(message: message, style: style),
                 ),
               ],
             ),
@@ -439,48 +625,51 @@ class ChatMessageRow extends StatelessWidget {
 }
 
 class ChatMessageBubble extends StatelessWidget {
-  const ChatMessageBubble({super.key, required this.message});
+  const ChatMessageBubble({super.key, required this.message, this.style});
 
   final ChatMessageVm message;
+  final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
-    final background = message.isMe ? const Color(0xFF26F24C) : Colors.white;
+    final style = this.style ?? ChatUiStyleConfig.standard;
+    final background = message.isMe
+        ? style.selfBubbleColor
+        : style.otherBubbleColor;
     final text = message.error == null
         ? message.text
         : '${message.text}\n${message.error}';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+      padding: style.bubblePadding,
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(style.bubbleBorderRadius),
       ),
-      child: Text(
-        text.isEmpty ? '...' : text,
-        style: const TextStyle(
-          color: Colors.black,
-          fontSize: 14,
-          height: 16 / 14,
-          fontWeight: FontWeight.w400,
-        ),
-      ),
+      child: Text(text.isEmpty ? '...' : text, style: style.bubbleTextStyle),
     );
   }
 }
 
 class ChatAvatar extends StatelessWidget {
-  const ChatAvatar({super.key, required this.label, required this.colors});
+  const ChatAvatar({
+    super.key,
+    required this.label,
+    required this.colors,
+    this.style,
+  });
 
   final String label;
   final List<Color> colors;
+  final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
+    final style = this.style ?? ChatUiStyleConfig.standard;
     return Container(
-      width: 40,
-      height: 40,
+      width: style.avatarSize,
+      height: style.avatarSize,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(style.avatarBorderRadius),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -492,11 +681,7 @@ class ChatAvatar extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.clip,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-          ),
+          style: style.avatarTextStyle,
         ),
       ),
     );
@@ -504,54 +689,85 @@ class ChatAvatar extends StatelessWidget {
 }
 
 class ChatAiBadge extends StatelessWidget {
-  const ChatAiBadge({super.key});
+  const ChatAiBadge({super.key, this.style});
+
+  final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
+    final style = this.style ?? ChatUiStyleConfig.standard;
     return Transform.rotate(
       angle: math.pi / 4,
-      child: Container(width: 16, height: 16, color: Colors.red),
+      child: Container(
+        width: style.aiBadgeSize,
+        height: style.aiBadgeSize,
+        color: style.aiBadgeColor,
+      ),
+    );
+  }
+}
+
+class ChatSendingBadge extends StatelessWidget {
+  const ChatSendingBadge({super.key, this.style});
+
+  final ChatUiStyleConfig? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = this.style ?? ChatUiStyleConfig.standard;
+    return SizedBox.square(
+      dimension: style.sendingBadgeSize,
+      child: Padding(
+        padding: EdgeInsets.all(style.sendingBadgePadding),
+        child: CircularProgressIndicator(
+          strokeWidth: style.sendingBadgeStrokeWidth,
+          color: style.sendingBadgeColor,
+        ),
+      ),
     );
   }
 }
 
 class ChatFailedBadge extends StatelessWidget {
-  const ChatFailedBadge({super.key});
+  const ChatFailedBadge({super.key, this.style});
+
+  final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
+    final style = this.style ?? ChatUiStyleConfig.standard;
     return Container(
-      width: 22,
-      height: 22,
-      decoration: const BoxDecoration(
-        color: Color(0xFFE53935),
+      width: style.failedBadgeSize,
+      height: style.failedBadgeSize,
+      decoration: BoxDecoration(
+        color: style.failedBadgeColor,
         shape: BoxShape.circle,
       ),
-      child: const Center(
-        child: Icon(Icons.priority_high, size: 17, color: Colors.white),
+      child: Center(
+        child: Icon(
+          Icons.priority_high,
+          size: style.failedBadgeIconSize,
+          color: style.failedBadgeIconColor,
+        ),
       ),
     );
   }
 }
 
 class ChatDateDivider extends StatelessWidget {
-  ChatDateDivider({super.key, DateTime? time}) : time = time ?? DateTime.now();
+  ChatDateDivider({super.key, DateTime? time, this.style})
+    : time = time ?? DateTime.now();
 
   final DateTime time;
+  final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
+    final style = this.style ?? ChatUiStyleConfig.standard;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: style.dateDividerBottomPadding),
       child: Center(
-        child: Text(
-          _dateLabel(time),
-          style: const TextStyle(
-            color: Color(0xFF777777),
-            fontSize: 10,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
+        child: Text(_dateLabel(time), style: style.dateDividerTextStyle),
       ),
     );
   }
@@ -563,24 +779,23 @@ bool shouldShowChatDateDivider(DateTime? previous, DateTime current) {
 }
 
 class ChatSystemMessage extends StatelessWidget {
-  const ChatSystemMessage({super.key, required this.text});
+  const ChatSystemMessage({super.key, required this.text, this.style});
 
   final String text;
+  final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
+    final style = this.style ?? ChatUiStyleConfig.standard;
     return Center(
       child: Container(
-        margin: const EdgeInsets.only(bottom: 18),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        margin: style.systemMessageMargin,
+        padding: style.systemMessagePadding,
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.42),
-          borderRadius: BorderRadius.circular(8),
+          color: style.systemMessageBackgroundColor,
+          borderRadius: BorderRadius.circular(style.systemMessageBorderRadius),
         ),
-        child: Text(
-          text,
-          style: const TextStyle(color: Colors.white, fontSize: 13),
-        ),
+        child: Text(text, style: style.systemMessageTextStyle),
       ),
     );
   }

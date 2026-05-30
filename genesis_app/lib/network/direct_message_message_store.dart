@@ -72,6 +72,8 @@ abstract class DirectMessageMessageStorage {
     required String peerUid,
   });
 
+  Future<String> loadDraft({required String ownerUid, required String peerUid});
+
   Future<void> mergeMessages({
     required String ownerUid,
     required String peerUid,
@@ -97,6 +99,14 @@ abstract class DirectMessageMessageStorage {
     required String messageId,
   });
 
+  Future<void> saveDraft({
+    required String ownerUid,
+    required String peerUid,
+    required String content,
+  });
+
+  Future<void> clearDraft({required String ownerUid, required String peerUid});
+
   Future<void> clearCache(String ownerUid);
 }
 
@@ -110,7 +120,7 @@ class SqfliteDirectMessageMessageStorage
     final databasePath = await getDatabasesPath();
     final db = await openDatabase(
       '$databasePath/genesis_direct_messages.db',
-      version: 2,
+      version: 3,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE IF NOT EXISTS dm_conversations (
@@ -130,10 +140,14 @@ class SqfliteDirectMessageMessageStorage
           )
         ''');
         await db.execute(_createDmMessagesSql);
+        await db.execute(_createDmMessageDraftsSql);
       },
       onUpgrade: (db, oldVersion, _) async {
         if (oldVersion < 2) {
           await db.execute(_createDmMessagesSql);
+        }
+        if (oldVersion < 3) {
+          await db.execute(_createDmMessageDraftsSql);
         }
       },
     );
@@ -157,6 +171,23 @@ class SqfliteDirectMessageMessageStorage
         .map(_recordFromRow)
         .whereType<DirectMessageMessageRecord>()
         .toList(growable: false);
+  }
+
+  @override
+  Future<String> loadDraft({
+    required String ownerUid,
+    required String peerUid,
+  }) async {
+    final db = await _db;
+    final rows = await db.query(
+      'dm_message_drafts',
+      columns: const ['content'],
+      where: 'owner_uid = ? AND peer_uid = ?',
+      whereArgs: [ownerUid, peerUid],
+      limit: 1,
+    );
+    if (rows.isEmpty) return '';
+    return '${rows.first['content'] ?? ''}';
   }
 
   @override
@@ -234,13 +265,52 @@ class SqfliteDirectMessageMessageStorage
   }
 
   @override
-  Future<void> clearCache(String ownerUid) async {
+  Future<void> saveDraft({
+    required String ownerUid,
+    required String peerUid,
+    required String content,
+  }) async {
+    if (content.trim().isEmpty) {
+      await clearDraft(ownerUid: ownerUid, peerUid: peerUid);
+      return;
+    }
+    final db = await _db;
+    await db.insert('dm_message_drafts', {
+      'owner_uid': ownerUid,
+      'peer_uid': peerUid,
+      'content': content,
+      'updated_at': DateTime.now().millisecondsSinceEpoch,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  @override
+  Future<void> clearDraft({
+    required String ownerUid,
+    required String peerUid,
+  }) async {
     final db = await _db;
     await db.delete(
-      'dm_messages',
-      where: 'owner_uid = ?',
-      whereArgs: [ownerUid],
+      'dm_message_drafts',
+      where: 'owner_uid = ? AND peer_uid = ?',
+      whereArgs: [ownerUid, peerUid],
     );
+  }
+
+  @override
+  Future<void> clearCache(String ownerUid) async {
+    final db = await _db;
+    await db.transaction((txn) async {
+      await txn.delete(
+        'dm_messages',
+        where: 'owner_uid = ?',
+        whereArgs: [ownerUid],
+      );
+      await txn.delete(
+        'dm_message_drafts',
+        where: 'owner_uid = ?',
+        whereArgs: [ownerUid],
+      );
+    });
   }
 
   Future<void> _insertRecord(
@@ -263,6 +333,7 @@ class SqfliteDirectMessageMessageStorage
 
 class MemoryDirectMessageMessageStorage implements DirectMessageMessageStorage {
   final Map<String, Map<String, DirectMessageMessageRecord>> _records = {};
+  final Map<String, String> _drafts = {};
 
   @override
   Future<List<DirectMessageMessageRecord>> loadMessages({
@@ -284,6 +355,14 @@ class MemoryDirectMessageMessageStorage implements DirectMessageMessageStorage {
       if (record.messageId.isEmpty) continue;
       bucket[record.messageId] = record;
     }
+  }
+
+  @override
+  Future<String> loadDraft({
+    required String ownerUid,
+    required String peerUid,
+  }) async {
+    return _drafts[_key(ownerUid, peerUid)] ?? '';
   }
 
   @override
@@ -324,8 +403,31 @@ class MemoryDirectMessageMessageStorage implements DirectMessageMessageStorage {
   }
 
   @override
+  Future<void> saveDraft({
+    required String ownerUid,
+    required String peerUid,
+    required String content,
+  }) async {
+    final key = _key(ownerUid, peerUid);
+    if (content.trim().isEmpty) {
+      _drafts.remove(key);
+      return;
+    }
+    _drafts[key] = content;
+  }
+
+  @override
+  Future<void> clearDraft({
+    required String ownerUid,
+    required String peerUid,
+  }) async {
+    _drafts.remove(_key(ownerUid, peerUid));
+  }
+
+  @override
   Future<void> clearCache(String ownerUid) async {
     _records.removeWhere((key, _) => key.startsWith('$ownerUid\u001F'));
+    _drafts.removeWhere((key, _) => key.startsWith('$ownerUid\u001F'));
   }
 
   Map<String, DirectMessageMessageRecord> _bucket(
@@ -333,10 +435,12 @@ class MemoryDirectMessageMessageStorage implements DirectMessageMessageStorage {
     String peerUid,
   ) {
     return _records.putIfAbsent(
-      '$ownerUid\u001F$peerUid',
+      _key(ownerUid, peerUid),
       () => <String, DirectMessageMessageRecord>{},
     );
   }
+
+  String _key(String ownerUid, String peerUid) => '$ownerUid\u001F$peerUid';
 }
 
 class DirectMessageMessageStore {
@@ -364,6 +468,8 @@ class DirectMessageMessageStore {
   bool _hasMoreOlder = true;
   bool _loadingOlder = false;
   Future<void>? _syncFuture;
+  String? _syncFutureOwnerUid;
+  String? _syncFuturePeerUid;
 
   bool get hasMoreOlder => _hasMoreOlder;
 
@@ -380,12 +486,55 @@ class DirectMessageMessageStore {
     );
   }
 
-  Future<void> syncLatest(String peerUid) {
+  Future<String> loadDraft(String peerUid) async {
+    final ownerUid = await _ownerUid();
+    final cleanPeerUid = peerUid.trim();
+    return _storage.loadDraft(ownerUid: ownerUid, peerUid: cleanPeerUid);
+  }
+
+  Future<void> saveDraft({
+    required String peerUid,
+    required String content,
+  }) async {
+    final ownerUid = await _ownerUid();
+    final cleanPeerUid = peerUid.trim();
+    if (cleanPeerUid.isEmpty) return;
+    await _storage.saveDraft(
+      ownerUid: ownerUid,
+      peerUid: cleanPeerUid,
+      content: content,
+    );
+  }
+
+  Future<void> clearDraft(String peerUid) async {
+    final ownerUid = await _ownerUid();
+    final cleanPeerUid = peerUid.trim();
+    if (cleanPeerUid.isEmpty) return;
+    await _storage.clearDraft(ownerUid: ownerUid, peerUid: cleanPeerUid);
+  }
+
+  Future<void> syncLatest(String peerUid) async {
+    final ownerUid = await _ownerUid();
+    final cleanPeerUid = peerUid.trim();
     final inFlight = _syncFuture;
-    if (inFlight != null) return inFlight;
-    final future = _syncLatest(peerUid);
-    _syncFuture = future.whenComplete(() => _syncFuture = null);
-    return _syncFuture!;
+    if (inFlight != null &&
+        _syncFutureOwnerUid == ownerUid &&
+        _syncFuturePeerUid == cleanPeerUid) {
+      return inFlight;
+    }
+    _syncFutureOwnerUid = ownerUid;
+    _syncFuturePeerUid = cleanPeerUid;
+    late final Future<void> trackedFuture;
+    trackedFuture = _syncLatest(ownerUid: ownerUid, peerUid: cleanPeerUid)
+        .whenComplete(() {
+          if (identical(_syncFuture, trackedFuture)) {
+            _syncFuture = null;
+            _syncFutureOwnerUid = null;
+            _syncFuturePeerUid = null;
+          }
+        });
+    _syncFuture = trackedFuture;
+    return trackedFuture;
   }
 
   Future<void> loadOlder(String peerUid) async {
@@ -407,6 +556,7 @@ class DirectMessageMessageStore {
         peerUid: cleanPeerUid,
         messages: messages,
       );
+      if (!_isActiveTarget(ownerUid, cleanPeerUid)) return;
       _nextOlderPage = page + 1;
       _hasMoreOlder = _hasNextPage(data, page, messages.length);
       _applyRecords(
@@ -502,25 +652,23 @@ class DirectMessageMessageStore {
     }
   }
 
-  Future<void> _syncLatest(String peerUid) async {
-    final ownerUid = await _ownerUid();
-    final cleanPeerUid = peerUid.trim();
-    _resetIfTargetChanged(ownerUid, cleanPeerUid);
-    final data = await _api.v1.dm.list(
-      peerUid: cleanPeerUid,
-      pn: 1,
-      rn: pageSize,
-    );
+  Future<void> _syncLatest({
+    required String ownerUid,
+    required String peerUid,
+  }) async {
+    _resetIfTargetChanged(ownerUid, peerUid);
+    final data = await _api.v1.dm.list(peerUid: peerUid, pn: 1, rn: pageSize);
     final messages = _messageItems(data);
     await _storage.mergeMessages(
       ownerUid: ownerUid,
-      peerUid: cleanPeerUid,
+      peerUid: peerUid,
       messages: messages,
     );
+    if (!_isActiveTarget(ownerUid, peerUid)) return;
     _hasMoreOlder = _hasNextPage(data, 1, messages.length);
     _nextOlderPage = 2;
     _applyRecords(
-      await _storage.loadMessages(ownerUid: ownerUid, peerUid: cleanPeerUid),
+      await _storage.loadMessages(ownerUid: ownerUid, peerUid: peerUid),
     );
   }
 
@@ -557,6 +705,10 @@ class DirectMessageMessageStore {
     _rowNotifiers.clear();
     orderedMessageIds.value = const [];
   }
+
+  bool _isActiveTarget(String ownerUid, String peerUid) {
+    return _activeOwnerUid == ownerUid && _activePeerUid == peerUid;
+  }
 }
 
 const _createDmMessagesSql = '''
@@ -569,6 +721,16 @@ const _createDmMessagesSql = '''
     created_at INTEGER NOT NULL,
     send_status TEXT NOT NULL,
     PRIMARY KEY(owner_uid, peer_uid, msg_id)
+  )
+''';
+
+const _createDmMessageDraftsSql = '''
+  CREATE TABLE IF NOT EXISTS dm_message_drafts (
+    owner_uid TEXT NOT NULL,
+    peer_uid TEXT NOT NULL,
+    content TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY(owner_uid, peer_uid)
   )
 ''';
 

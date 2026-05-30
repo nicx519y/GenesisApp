@@ -281,7 +281,14 @@ class _UserProfileContentState extends State<UserProfileContent>
   }
 
   void _openMessages() {
-    Navigator.of(context).pushNamed(RouteNames.messages);
+    Navigator.of(context).pushNamed(
+      RouteNames.chat,
+      arguments: {
+        'peer_uid': widget.data.uid,
+        'peer_name': widget.data.displayName,
+        'peer_avatar': widget.data.avatarUrl,
+      },
+    );
   }
 
   void _openFollows(int initialIndex) {
