@@ -61,6 +61,83 @@ void main() {
     expect(store.rowListenable('peer1_late'), isNull);
   });
 
+  test('load from db keeps only the latest local page visible', () async {
+    final storage = MemoryDirectMessageMessageStorage();
+    await storage.mergeMessages(
+      ownerUid: 'me',
+      peerUid: 'peer_1',
+      messages: _cachedMessages(25),
+    );
+    final store = await _store(
+      _DmMessageTransport({}, total: 0),
+      storage: storage,
+    );
+
+    await store.loadFromDb('peer_1');
+
+    expect(
+      store.orderedMessageIds.value,
+      List.generate(
+        20,
+        (index) => 'cached_${(index + 5).toString().padLeft(2, '0')}',
+      ),
+    );
+    expect(store.rowListenable('cached_00'), isNull);
+    expect(store.hasMoreOlder, isTrue);
+  });
+
+  test(
+    'load older reads previous local page before requesting network',
+    () async {
+      final storage = MemoryDirectMessageMessageStorage();
+      await storage.mergeMessages(
+        ownerUid: 'me',
+        peerUid: 'peer_1',
+        messages: _cachedMessages(25),
+      );
+      final transport = _DmMessageTransport({}, total: 0);
+      final store = await _store(transport, storage: storage);
+
+      await store.loadFromDb('peer_1');
+      await store.loadOlder('peer_1');
+
+      expect(
+        store.orderedMessageIds.value,
+        List.generate(
+          25,
+          (index) => 'cached_${index.toString().padLeft(2, '0')}',
+        ),
+      );
+      expect(transport.requests, isEmpty);
+      expect(store.hasMoreOlder, isFalse);
+    },
+  );
+
+  test('cached full pages advance the remote older cursor', () async {
+    final storage = MemoryDirectMessageMessageStorage();
+    final cachedMessages = _cachedMessages(60);
+    await storage.mergeMessages(
+      ownerUid: 'me',
+      peerUid: 'peer_1',
+      messages: cachedMessages,
+    );
+    final transport = _DmMessageTransport({
+      1: cachedMessages.skip(40).toList(growable: false),
+    }, total: 60);
+    final store = await _store(transport, storage: storage);
+
+    await store.loadFromDb('peer_1');
+    await store.syncLatest('peer_1');
+    await store.loadOlder('peer_1');
+    await store.loadOlder('peer_1');
+    await store.loadOlder('peer_1');
+
+    expect(store.orderedMessageIds.value, hasLength(60));
+    expect(transport.requests, hasLength(1));
+    expect(transport.requests.single.uri.queryParameters['pn'], '1');
+    expect(store.hasMoreOlder, isFalse);
+  });
+
   test(
     'optimistic local message can be replaced or deleted after failure',
     () async {
@@ -172,6 +249,21 @@ void main() {
 
     expect(await store.loadDraft('peer_1'), '');
     expect(await store.loadDraft('peer_2'), 'second draft');
+  });
+}
+
+List<Map<String, dynamic>> _cachedMessages(int count) {
+  final baseTime = DateTime.utc(2026, 5, 30, 12);
+  return List.generate(count, (index) {
+    return {
+      'msg_id': 'cached_${index.toString().padLeft(2, '0')}',
+      'conv_id': 'conv_1',
+      'sender_uid': 'peer_1',
+      'receiver_uid': 'me',
+      'content': 'cached $index',
+      'created_at':
+          baseTime.add(Duration(minutes: index)).millisecondsSinceEpoch ~/ 1000,
+    };
   });
 }
 

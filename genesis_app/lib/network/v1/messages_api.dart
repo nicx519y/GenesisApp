@@ -16,7 +16,7 @@ class MessagesV1Api extends V1ApiResource {
     return UnreadSummary.fromJson(await getMap('message/unread'));
   }
 
-  /// GET /api/v1/messages/notifications
+  /// GET /api/v1/message/notifications
   ///
   /// 提交参数:
   /// ```json
@@ -34,12 +34,12 @@ class MessagesV1Api extends V1ApiResource {
     int? rn,
   }) {
     return getMap(
-      'messages/notifications',
+      'message/notifications',
       v1Query({'category': category, 'kind': kind, 'pn': pn, 'rn': rn}),
     );
   }
 
-  /// POST /api/v1/messages/notifications/read
+  /// POST /api/v1/message/notifications/read
   ///
   /// 提交参数:
   /// ```json
@@ -55,7 +55,7 @@ class MessagesV1Api extends V1ApiResource {
     List<String>? notificationIds,
   }) {
     return postVoid(
-      'messages/notifications/read',
+      'message/notifications/read',
       v1Body({'category': category, 'notification_ids': notificationIds}),
     );
   }

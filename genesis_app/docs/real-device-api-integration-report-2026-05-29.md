@@ -6,7 +6,7 @@
 - 抓包方式：Flutter VM Service / DevTools Network，`ext.dart.io.getHttpProfile` 可读取真机 Dart `HttpClient` 请求。
 - UI 自动点击未完整执行：测试中设备进入安全锁屏，ADB 无法越过指纹/PIN；后续真机 UI 路径需要先保持屏幕解锁。
 - 服务端核心阻塞：`origin` 和 `world` 相关接口大面积返回 `err_no=3103`，错误为 MySQL 表不存在：`aitown_dev.tbl_origins`、`aitown_dev.tbl_worlds`。这是服务端库表/迁移问题，不是客户端字段问题。
-- 客户端明确契约问题：当前 App 代码仍调用复数路径 `GET /api/v1/messages/notifications`、`POST /api/v1/messages/notifications/read`、`GET /api/v1/messages/followers`，但 Apifox 当前文档和服务端可用接口是单数路径 `GET /api/v1/message/notifications`、`POST /api/v1/message/read`，并且查询字段从 `category` 变为 `block`。复数路径实测 404。
+- 客户端明确契约问题：当前 App 代码仍调用复数路径 `GET /api/v1/message/notifications`、`POST /api/v1/message/notifications/read`、`GET /api/v1/messages/followers`，但 Apifox 当前文档和服务端可用接口是单数路径 `GET /api/v1/message/notifications`、`POST /api/v1/message/read`，并且查询字段从 `category` 变为 `block`。复数路径实测 404。
 - 真机运行时抓包发现：App 后台轮询 `GET /api/v1/direct_message/conversations?after_message_id=0` 时，Dart `HttpClient` 报 `SocketException: Failed host lookup: 'dev.hushie.ai'`；但同设备 Wi-Fi 在 ADB shell 可 ping 通该域名，Mac 端用同一 session 直连该接口返回成功。因此这更像 App 进程/锁屏后台状态下的解析或网络状态问题，而不是接口本身不可用。
 
 ## 验证方法
@@ -69,15 +69,15 @@
 
 | App 当前调用 | 服务端结果 | Apifox 当前接口 | 判断 |
 | --- | --- | --- | --- |
-| `GET /api/v1/messages/notifications?category=system` | HTTP 404 | `GET /api/v1/message/notifications?block=world_apply|follow|interaction` | 客户端路径和字段都旧 |
-| `POST /api/v1/messages/notifications/read` | 未直接破坏性验证；代码仍使用该路径 | `POST /api/v1/message/read` | 客户端路径旧 |
+| `GET /api/v1/message/notifications?category=system` | HTTP 404 | `GET /api/v1/message/notifications?block=world_apply|follow|interaction` | 客户端路径和字段都旧 |
+| `POST /api/v1/message/notifications/read` | 未直接破坏性验证；代码仍使用该路径 | `POST /api/v1/message/read` | 客户端路径旧 |
 | `GET /api/v1/messages/followers` | HTTP 404 | 当前 Apifox 无此接口；关注列表使用 `GET /api/v1/user/followers` | 客户端保留了旧消息页 follower 接口 |
 
 相关代码位置：
 
 - `genesis_app/lib/network/v1/messages_api.dart`
-  - `notifications()` 走 `messages/notifications`
-  - `markNotificationsRead()` 走 `messages/notifications/read`
+  - `notifications()` 走 `message/notifications`
+  - `markNotificationsRead()` 走 `message/notifications/read`
   - `followers()` 走 `messages/followers`
 - `genesis_app/lib/pages/messages/message_category_list_page.dart`
   - 页面入口按 `category=system/follower/comment` 拉取通知；需要映射为 Apifox 的 `block=world_apply/follow/interaction`。
@@ -121,8 +121,8 @@
 
 1. 后端先补齐或迁移 `aitown_dev.tbl_origins`、`aitown_dev.tbl_worlds`。这会解除 `origin/list`、`world/list`、`world/tick`、`world/apply`、`discuss/post` 的主阻塞。
 2. 客户端把消息通知接口从旧复数契约改到 Apifox 当前契约：
-   - `messages/notifications` -> `message/notifications`
-   - `messages/notifications/read` -> `message/read`
+   - `message/notifications` -> `message/notifications`
+   - `message/notifications/read` -> `message/read`
    - `category=system/follower/comment` -> `block=world_apply/follow/interaction`
    - 移除或重映射 `messages/followers`
 3. 排查 `POST /api/v1/user/update` 空 patch 超时；至少应快速返回成功或明确 `4004`。

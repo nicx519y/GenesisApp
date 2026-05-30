@@ -610,7 +610,7 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
     final path = request.uri.path;
     Object? data = <String, Object?>{};
     if (request.method == 'POST' &&
-        path == '/api/v1/messages/notifications/read') {
+        path == '/api/v1/message/notifications/read') {
       final body = decodedBody(request);
       if (body['category'] == 'comment') commentRead = true;
     } else if (request.method == 'GET' && path == '/api/v1/message/unread') {
@@ -622,7 +622,7 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
         'total_unread': commentRead ? 2 : 3,
       };
     } else if (request.method == 'GET' &&
-        path == '/api/v1/messages/notifications') {
+        path == '/api/v1/message/notifications') {
       data = {
         'list': [
           {
@@ -1452,7 +1452,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(
-          const ValueKey('message-menu-/messages/notifications-unread-badge'),
+          const ValueKey('message-menu-/message/notifications-unread-badge'),
         ),
         matching: find.text('1'),
       ),
@@ -1553,10 +1553,10 @@ void main() {
     await tester.pumpAndSettle();
 
     final readRequest = transport.requests.firstWhere(
-      (request) => request.uri.path == '/api/v1/messages/notifications/read',
+      (request) => request.uri.path == '/api/v1/message/notifications/read',
     );
     final listRequest = transport.requests.firstWhere(
-      (request) => request.uri.path == '/api/v1/messages/notifications',
+      (request) => request.uri.path == '/api/v1/message/notifications',
     );
     final unreadRequest = transport.requests.firstWhere(
       (request) => request.uri.path == '/api/v1/message/unread',
@@ -3477,7 +3477,9 @@ void main() {
           'conv_id': 'dm_conv',
           'sender_uid': index.isEven ? 'u_peer_dm' : 'u_mock',
           'receiver_uid': index.isEven ? 'u_mock' : 'u_peer_dm',
-          'content': 'Notice base message $index',
+          'content':
+              'Notice base message $index with enough text to keep the '
+              'loaded window scrollable after paging is capped',
           'created_at': _unixTimestamp(baseTime.add(Duration(minutes: index))),
         };
       });

@@ -349,7 +349,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_state.v1UnreadSummary());
     }
 
-    if (method == 'GET' && path == 'messages/notifications') {
+    if (method == 'GET' && path == 'message/notifications') {
       final category = query['category']?.trim();
       final items = _state.v1Notifications().where((item) {
         return category == null ||
@@ -359,7 +359,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_paged(items, query));
     }
 
-    if (method == 'POST' && path == 'messages/notifications/read') {
+    if (method == 'POST' && path == 'message/notifications/read') {
       final notificationIds = body['notification_ids'] is List
           ? body['notification_ids'] as List
           : const <Object?>[];

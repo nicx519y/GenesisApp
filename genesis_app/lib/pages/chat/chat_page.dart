@@ -247,15 +247,43 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   Future<void> _loadOlder() async {
     if (_loadingOlder) return;
+    final hadScrollClients = _scrollController.hasClients;
+    final previousMaxScrollExtent = hadScrollClients
+        ? _scrollController.position.maxScrollExtent
+        : 0.0;
+    final previousPixels = hadScrollClients
+        ? _scrollController.position.pixels
+        : 0.0;
     setState(() => _loadingOlder = true);
     try {
       await _messageStore.loadOlder(_peerUid);
+      _restoreScrollPositionAfterOlderMessages(
+        previousMaxScrollExtent: previousMaxScrollExtent,
+        previousPixels: previousPixels,
+      );
     } catch (error, stackTrace) {
       debugPrint('[ChatPage][DM] load older failed: $error');
       debugPrint('[ChatPage][DM] stacktrace:\n$stackTrace');
     } finally {
       if (mounted) setState(() => _loadingOlder = false);
     }
+  }
+
+  void _restoreScrollPositionAfterOlderMessages({
+    required double previousMaxScrollExtent,
+    required double previousPixels,
+  }) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final position = _scrollController.position;
+      final delta = position.maxScrollExtent - previousMaxScrollExtent;
+      if (delta <= 0) return;
+      final target = (previousPixels + delta).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      position.jumpTo(target);
+    });
   }
 
   Future<void> _send() async {

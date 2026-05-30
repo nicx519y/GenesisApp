@@ -865,8 +865,8 @@ World：
 
 消息、首页、通用：
 
-- `GET /api/v1/messages/notifications`
-- `POST /api/v1/messages/notifications/read`
+- `GET /api/v1/message/notifications`
+- `POST /api/v1/message/notifications/read`
 - `GET /api/v1/messages/followers`
 - `GET /api/v1/search/suggest`
 - `GET /api/v1/home`

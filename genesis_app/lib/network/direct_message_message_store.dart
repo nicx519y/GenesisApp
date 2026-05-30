@@ -66,10 +66,34 @@ class DirectMessageMessageRecord {
   Map<String, dynamic> toJson() => asJsonMap(jsonDecode(rawJson));
 }
 
+class DirectMessageMessagePage {
+  const DirectMessageMessagePage({
+    required this.records,
+    required this.hasMoreBefore,
+  });
+
+  final List<DirectMessageMessageRecord> records;
+  final bool hasMoreBefore;
+}
+
 abstract class DirectMessageMessageStorage {
   Future<List<DirectMessageMessageRecord>> loadMessages({
     required String ownerUid,
     required String peerUid,
+  });
+
+  Future<DirectMessageMessagePage> loadLatestMessages({
+    required String ownerUid,
+    required String peerUid,
+    required int limit,
+  });
+
+  Future<DirectMessageMessagePage> loadMessagesBefore({
+    required String ownerUid,
+    required String peerUid,
+    required int beforeSortValue,
+    required String beforeMessageId,
+    required int limit,
   });
 
   Future<String> loadDraft({required String ownerUid, required String peerUid});
@@ -120,7 +144,7 @@ class SqfliteDirectMessageMessageStorage
     final databasePath = await getDatabasesPath();
     final db = await openDatabase(
       '$databasePath/genesis_direct_messages.db',
-      version: 3,
+      version: 4,
       onCreate: (db, _) async {
         await db.execute('''
           CREATE TABLE IF NOT EXISTS dm_conversations (
@@ -140,12 +164,14 @@ class SqfliteDirectMessageMessageStorage
           )
         ''');
         await db.execute(_createDmMessagesSql);
+        await db.execute(_createDmMessagesIndexSql);
         await db.execute(_createDmMessageDraftsSql);
       },
       onUpgrade: (db, oldVersion, _) async {
         if (oldVersion < 2) {
           await db.execute(_createDmMessagesSql);
         }
+        await db.execute(_createDmMessagesIndexSql);
         if (oldVersion < 3) {
           await db.execute(_createDmMessageDraftsSql);
         }
@@ -171,6 +197,50 @@ class SqfliteDirectMessageMessageStorage
         .map(_recordFromRow)
         .whereType<DirectMessageMessageRecord>()
         .toList(growable: false);
+  }
+
+  @override
+  Future<DirectMessageMessagePage> loadLatestMessages({
+    required String ownerUid,
+    required String peerUid,
+    required int limit,
+  }) async {
+    final db = await _db;
+    final rows = await db.query(
+      'dm_messages',
+      where: 'owner_uid = ? AND peer_uid = ?',
+      whereArgs: [ownerUid, peerUid],
+      orderBy: 'created_at DESC, msg_id DESC',
+      limit: limit + 1,
+    );
+    return _pageFromRows(rows, limit);
+  }
+
+  @override
+  Future<DirectMessageMessagePage> loadMessagesBefore({
+    required String ownerUid,
+    required String peerUid,
+    required int beforeSortValue,
+    required String beforeMessageId,
+    required int limit,
+  }) async {
+    final db = await _db;
+    final rows = await db.query(
+      'dm_messages',
+      where:
+          'owner_uid = ? AND peer_uid = ? AND '
+          '(created_at < ? OR (created_at = ? AND msg_id < ?))',
+      whereArgs: [
+        ownerUid,
+        peerUid,
+        beforeSortValue,
+        beforeSortValue,
+        beforeMessageId,
+      ],
+      orderBy: 'created_at DESC, msg_id DESC',
+      limit: limit + 1,
+    );
+    return _pageFromRows(rows, limit);
   }
 
   @override
@@ -329,6 +399,21 @@ class SqfliteDirectMessageMessageStorage
       'send_status': record.sendStatus,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
+
+  DirectMessageMessagePage _pageFromRows(
+    List<Map<String, Object?>> rows,
+    int limit,
+  ) {
+    final records = rows
+        .map(_recordFromRow)
+        .whereType<DirectMessageMessageRecord>()
+        .toList(growable: false);
+    final pageRecords = records.take(limit).toList(growable: false);
+    return DirectMessageMessagePage(
+      records: _sorted(pageRecords),
+      hasMoreBefore: records.length > limit,
+    );
+  }
 }
 
 class MemoryDirectMessageMessageStorage implements DirectMessageMessageStorage {
@@ -341,6 +426,39 @@ class MemoryDirectMessageMessageStorage implements DirectMessageMessageStorage {
     required String peerUid,
   }) async {
     return _sorted(_bucket(ownerUid, peerUid).values);
+  }
+
+  @override
+  Future<DirectMessageMessagePage> loadLatestMessages({
+    required String ownerUid,
+    required String peerUid,
+    required int limit,
+  }) async {
+    final descending = _sorted(
+      _bucket(ownerUid, peerUid).values,
+    ).reversed.toList(growable: false);
+    return _pageFromDescendingRecords(descending, limit);
+  }
+
+  @override
+  Future<DirectMessageMessagePage> loadMessagesBefore({
+    required String ownerUid,
+    required String peerUid,
+    required int beforeSortValue,
+    required String beforeMessageId,
+    required int limit,
+  }) async {
+    final descending = _sorted(_bucket(ownerUid, peerUid).values)
+        .where(
+          (record) =>
+              record.sortValue < beforeSortValue ||
+              (record.sortValue == beforeSortValue &&
+                  record.messageId.compareTo(beforeMessageId) < 0),
+        )
+        .toList(growable: false)
+        .reversed
+        .toList(growable: false);
+    return _pageFromDescendingRecords(descending, limit);
   }
 
   @override
@@ -441,6 +559,17 @@ class MemoryDirectMessageMessageStorage implements DirectMessageMessageStorage {
   }
 
   String _key(String ownerUid, String peerUid) => '$ownerUid\u001F$peerUid';
+
+  DirectMessageMessagePage _pageFromDescendingRecords(
+    List<DirectMessageMessageRecord> records,
+    int limit,
+  ) {
+    final pageRecords = records.take(limit).toList(growable: false);
+    return DirectMessageMessagePage(
+      records: _sorted(pageRecords),
+      hasMoreBefore: records.length > limit,
+    );
+  }
 }
 
 class DirectMessageMessageStore {
@@ -465,13 +594,15 @@ class DirectMessageMessageStore {
   String? _activeOwnerUid;
   String? _activePeerUid;
   int _nextOlderPage = 2;
-  bool _hasMoreOlder = true;
+  int _knownRemoteTotal = -1;
+  bool _hasMoreLocalOlder = true;
+  bool _hasMoreRemoteOlder = true;
   bool _loadingOlder = false;
   Future<void>? _syncFuture;
   String? _syncFutureOwnerUid;
   String? _syncFuturePeerUid;
 
-  bool get hasMoreOlder => _hasMoreOlder;
+  bool get hasMoreOlder => _hasMoreLocalOlder || _hasMoreRemoteOlder;
 
   ValueListenable<DirectMessageMessageRecord>? rowListenable(String messageId) {
     return _rowNotifiers[messageId];
@@ -481,9 +612,17 @@ class DirectMessageMessageStore {
     final ownerUid = await _ownerUid();
     final cleanPeerUid = peerUid.trim();
     _resetIfTargetChanged(ownerUid, cleanPeerUid);
-    _applyRecords(
-      await _storage.loadMessages(ownerUid: ownerUid, peerUid: cleanPeerUid),
+    final page = await _storage.loadLatestMessages(
+      ownerUid: ownerUid,
+      peerUid: cleanPeerUid,
+      limit: pageSize,
     );
+    if (!_isActiveTarget(ownerUid, cleanPeerUid)) return;
+    _hasMoreLocalOlder = page.hasMoreBefore;
+    _hasMoreRemoteOlder = false;
+    _nextOlderPage = 2;
+    _knownRemoteTotal = -1;
+    _applyRecords(page.records);
   }
 
   Future<String> loadDraft(String peerUid) async {
@@ -538,30 +677,55 @@ class DirectMessageMessageStore {
   }
 
   Future<void> loadOlder(String peerUid) async {
-    if (_loadingOlder || !_hasMoreOlder) return;
+    if (_loadingOlder || !hasMoreOlder) return;
     _loadingOlder = true;
     try {
       final ownerUid = await _ownerUid();
       final cleanPeerUid = peerUid.trim();
       _resetIfTargetChanged(ownerUid, cleanPeerUid);
+      if (_hasMoreLocalOlder) {
+        final earliest = _earliestVisibleRecord;
+        if (earliest != null) {
+          final page = await _storage.loadMessagesBefore(
+            ownerUid: ownerUid,
+            peerUid: cleanPeerUid,
+            beforeSortValue: earliest.sortValue,
+            beforeMessageId: earliest.messageId,
+            limit: pageSize,
+          );
+          if (!_isActiveTarget(ownerUid, cleanPeerUid)) return;
+          _hasMoreLocalOlder = page.hasMoreBefore;
+          if (page.records.length >= pageSize) {
+            _nextOlderPage += 1;
+            _hasMoreRemoteOlder = _hasRemotePage(_nextOlderPage);
+          }
+          if (page.records.isNotEmpty) {
+            _mergeVisibleRecords(page.records);
+            return;
+          }
+        }
+        _hasMoreLocalOlder = false;
+      }
+      if (!_hasMoreRemoteOlder) return;
       final page = _nextOlderPage;
       final data = await _api.v1.dm.list(
         peerUid: cleanPeerUid,
         pn: page,
         rn: pageSize,
       );
-      final messages = _messageItems(data);
+      final messages = _messageItems(
+        data,
+      ).take(pageSize).toList(growable: false);
       await _storage.mergeMessages(
         ownerUid: ownerUid,
         peerUid: cleanPeerUid,
         messages: messages,
       );
       if (!_isActiveTarget(ownerUid, cleanPeerUid)) return;
+      _knownRemoteTotal = asInt(data['total'], fallback: -1);
       _nextOlderPage = page + 1;
-      _hasMoreOlder = _hasNextPage(data, page, messages.length);
-      _applyRecords(
-        await _storage.loadMessages(ownerUid: ownerUid, peerUid: cleanPeerUid),
-      );
+      _hasMoreRemoteOlder = _hasNextPage(data, page, messages.length);
+      _mergeVisibleRecords(_recordsFromMessages(messages));
     } finally {
       _loadingOlder = false;
     }
@@ -595,9 +759,9 @@ class DirectMessageMessageStore {
       peerUid: cleanPeerUid,
       record: record,
     );
-    _applyRecords(
-      await _storage.loadMessages(ownerUid: ownerUid, peerUid: cleanPeerUid),
-    );
+    if (_isActiveTarget(ownerUid, cleanPeerUid)) {
+      _mergeVisibleRecords([record]);
+    }
     return localId;
   }
 
@@ -615,9 +779,16 @@ class DirectMessageMessageStore {
       localMessageId: localMessageId,
       serverMessage: serverMessage,
     );
-    _applyRecords(
-      await _storage.loadMessages(ownerUid: ownerUid, peerUid: cleanPeerUid),
+    final record = DirectMessageMessageRecord.fromJson(
+      serverMessage,
+      localId: localMessageId,
+      sendStatus: DirectMessageSendStatus.sent,
     );
+    if (_isActiveTarget(ownerUid, cleanPeerUid) &&
+        record.messageId.isNotEmpty) {
+      _removeVisibleRecord(localMessageId);
+      _mergeVisibleRecords([record]);
+    }
   }
 
   Future<void> deleteMessage({
@@ -632,9 +803,9 @@ class DirectMessageMessageStore {
       peerUid: cleanPeerUid,
       messageId: messageId,
     );
-    _applyRecords(
-      await _storage.loadMessages(ownerUid: ownerUid, peerUid: cleanPeerUid),
-    );
+    if (_isActiveTarget(ownerUid, cleanPeerUid)) {
+      _removeVisibleRecord(messageId);
+    }
   }
 
   Future<void> clearCache() async {
@@ -644,7 +815,9 @@ class DirectMessageMessageStore {
       _activeOwnerUid = ownerUid;
       _activePeerUid = null;
       _nextOlderPage = 2;
-      _hasMoreOlder = true;
+      _knownRemoteTotal = -1;
+      _hasMoreLocalOlder = true;
+      _hasMoreRemoteOlder = true;
       _rowNotifiers.clear();
       if (orderedMessageIds.value.isNotEmpty) {
         orderedMessageIds.value = const [];
@@ -658,18 +831,28 @@ class DirectMessageMessageStore {
   }) async {
     _resetIfTargetChanged(ownerUid, peerUid);
     final data = await _api.v1.dm.list(peerUid: peerUid, pn: 1, rn: pageSize);
-    final messages = _messageItems(data);
+    final messages = _messageItems(data).take(pageSize).toList(growable: false);
     await _storage.mergeMessages(
       ownerUid: ownerUid,
       peerUid: peerUid,
       messages: messages,
     );
     if (!_isActiveTarget(ownerUid, peerUid)) return;
-    _hasMoreOlder = _hasNextPage(data, 1, messages.length);
-    _nextOlderPage = 2;
-    _applyRecords(
-      await _storage.loadMessages(ownerUid: ownerUid, peerUid: peerUid),
-    );
+    _knownRemoteTotal = asInt(data['total'], fallback: -1);
+    _hasMoreRemoteOlder = _hasNextPage(data, 1, messages.length);
+    final records = _recordsFromMessages(messages);
+    if (orderedMessageIds.value.isEmpty) {
+      final page = await _storage.loadLatestMessages(
+        ownerUid: ownerUid,
+        peerUid: peerUid,
+        limit: pageSize,
+      );
+      if (!_isActiveTarget(ownerUid, peerUid)) return;
+      _hasMoreLocalOlder = page.hasMoreBefore;
+      _applyRecords(page.records);
+      return;
+    }
+    _mergeVisibleRecords(records);
   }
 
   void _applyRecords(List<DirectMessageMessageRecord> records) {
@@ -691,6 +874,37 @@ class DirectMessageMessageStore {
     }
   }
 
+  void _mergeVisibleRecords(List<DirectMessageMessageRecord> records) {
+    if (records.isEmpty) return;
+    final byId = <String, DirectMessageMessageRecord>{};
+    for (final messageId in orderedMessageIds.value) {
+      final record = _rowNotifiers[messageId]?.value;
+      if (record != null) byId[messageId] = record;
+    }
+    for (final record in records) {
+      if (record.messageId.isNotEmpty) byId[record.messageId] = record;
+    }
+    _applyRecords(byId.values.toList(growable: false));
+  }
+
+  void _removeVisibleRecord(String messageId) {
+    final nextRecords = <DirectMessageMessageRecord>[];
+    for (final id in orderedMessageIds.value) {
+      if (id == messageId) continue;
+      final record = _rowNotifiers[id]?.value;
+      if (record != null) nextRecords.add(record);
+    }
+    _applyRecords(nextRecords);
+  }
+
+  DirectMessageMessageRecord? get _earliestVisibleRecord {
+    for (final messageId in orderedMessageIds.value) {
+      final record = _rowNotifiers[messageId]?.value;
+      if (record != null) return record;
+    }
+    return null;
+  }
+
   Future<String> _ownerUid() async {
     final uid = (await _sessionStore.readUid())?.trim();
     return uid == null || uid.isEmpty ? '__anonymous__' : uid;
@@ -701,13 +915,20 @@ class DirectMessageMessageStore {
     _activeOwnerUid = ownerUid;
     _activePeerUid = peerUid;
     _nextOlderPage = 2;
-    _hasMoreOlder = true;
+    _knownRemoteTotal = -1;
+    _hasMoreLocalOlder = true;
+    _hasMoreRemoteOlder = true;
     _rowNotifiers.clear();
     orderedMessageIds.value = const [];
   }
 
   bool _isActiveTarget(String ownerUid, String peerUid) {
     return _activeOwnerUid == ownerUid && _activePeerUid == peerUid;
+  }
+
+  bool _hasRemotePage(int page) {
+    if (_knownRemoteTotal < 0) return _hasMoreRemoteOlder;
+    return (page - 1) * pageSize < _knownRemoteTotal;
   }
 }
 
@@ -722,6 +943,11 @@ const _createDmMessagesSql = '''
     send_status TEXT NOT NULL,
     PRIMARY KEY(owner_uid, peer_uid, msg_id)
   )
+''';
+
+const _createDmMessagesIndexSql = '''
+  CREATE INDEX IF NOT EXISTS idx_dm_messages_conversation_created
+  ON dm_messages(owner_uid, peer_uid, created_at, msg_id)
 ''';
 
 const _createDmMessageDraftsSql = '''
@@ -751,6 +977,15 @@ List<Map<String, dynamic>> _messageItems(Map<String, dynamic> data) {
       ? asJsonList(data['list'])
       : const <Object?>[];
   return rawItems.map((item) => asJsonMap(item)).toList(growable: false);
+}
+
+List<DirectMessageMessageRecord> _recordsFromMessages(
+  List<Map<String, dynamic>> messages,
+) {
+  return messages
+      .map(DirectMessageMessageRecord.fromJson)
+      .where((record) => record.messageId.isNotEmpty)
+      .toList(growable: false);
 }
 
 bool _hasNextPage(Map<String, dynamic> data, int page, int itemCount) {

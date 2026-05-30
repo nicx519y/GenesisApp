@@ -25,7 +25,7 @@ sealed class RouteNames {
   static const edit = '/edit';
   static const messages = '/messages';
   static const me = '/me';
-  static const notifications = '/messages/notifications';
+  static const notifications = '/message/notifications';
   static const newFollowers = '/messages/new_followers';
   static const comments = '/messages/comments';
   static const userInfo = '/user_info';
