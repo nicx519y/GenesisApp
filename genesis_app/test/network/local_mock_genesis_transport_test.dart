@@ -266,34 +266,34 @@ void main() {
     var unreadSummary = await api.v1.messages.unreadSummary();
     expect(unreadSummary.systemUnread, 1);
     final systemMessages = await api.v1.messages.notifications(
-      category: 'system',
+      block: 'world_apply',
       pn: 1,
       rn: 20,
     );
     expect(systemMessages['total'], 1);
     expect(
-      ((systemMessages['list'] as List).single as Map)['category'],
-      'system',
+      ((systemMessages['list'] as List).single as Map)['notice_block'],
+      'world_apply',
     );
     final followerMessages = await api.v1.messages.notifications(
-      category: 'follower',
+      block: 'follow',
       pn: 1,
       rn: 20,
     );
     expect(
-      ((followerMessages['list'] as List).single as Map)['category'],
-      'follower',
+      ((followerMessages['list'] as List).single as Map)['notice_block'],
+      'follow',
     );
     final commentMessages = await api.v1.messages.notifications(
-      category: 'comment',
+      block: 'interaction',
       pn: 1,
       rn: 20,
     );
     expect(
-      ((commentMessages['list'] as List).single as Map)['category'],
-      'comment',
+      ((commentMessages['list'] as List).single as Map)['notice_block'],
+      'interaction',
     );
-    await api.v1.messages.markNotificationsRead(category: 'system');
+    await api.v1.messages.markNotificationsRead(block: 'world_apply');
     unreadSummary = await api.v1.messages.unreadSummary();
     expect(unreadSummary.systemUnread, 0);
     expect(unreadSummary.followerUnread, 1);

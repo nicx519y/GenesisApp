@@ -609,10 +609,9 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
     requests.add(request);
     final path = request.uri.path;
     Object? data = <String, Object?>{};
-    if (request.method == 'POST' &&
-        path == '/api/v1/message/notifications/read') {
+    if (request.method == 'POST' && path == '/api/v1/message/read') {
       final body = decodedBody(request);
-      if (body['category'] == 'comment') commentRead = true;
+      if (body['block'] == 'interaction') commentRead = true;
     } else if (request.method == 'GET' && path == '/api/v1/message/unread') {
       data = {
         'world_apply_unread': 1,
@@ -627,8 +626,14 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
         'list': [
           {
             'id': 99,
-            'category': request.uri.queryParameters['category'],
-            'message': 'Recorded category message',
+            'notification_id': 'ntf_recorded_001',
+            'notice_block': request.uri.queryParameters['block'],
+            'notice_type': 'discuss_comment',
+            'sender': const <String, Object?>{},
+            'biz_type': 1,
+            'biz_id': 'o_recorded_001',
+            'obj_id': 'd_recorded_001',
+            'content': 'Recorded block message',
             'is_read': true,
             'created_at': '2026-05-20T10:00:00Z',
           },
@@ -1503,7 +1508,7 @@ void main() {
     );
   });
 
-  testWidgets('message category pages request matching notification category', (
+  testWidgets('message category pages request matching notification block', (
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
@@ -1530,7 +1535,7 @@ void main() {
     );
   });
 
-  testWidgets('message category page marks category read before loading list', (
+  testWidgets('message category page marks block read before loading list', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingMessageCategoryTransport();
@@ -1541,7 +1546,7 @@ void main() {
           services: services,
           child: MessageCategoryListPage(
             title: 'Comments',
-            category: 'comment',
+            block: 'interaction',
             emptyText: 'No comments yet.',
             onNotificationsRead: () async {
               await services.api.v1.messages.unreadSummary();
@@ -1553,7 +1558,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final readRequest = transport.requests.firstWhere(
-      (request) => request.uri.path == '/api/v1/message/notifications/read',
+      (request) => request.uri.path == '/api/v1/message/read',
     );
     final listRequest = transport.requests.firstWhere(
       (request) => request.uri.path == '/api/v1/message/notifications',
@@ -1563,10 +1568,10 @@ void main() {
     );
 
     expect(readRequest.method, 'POST');
-    expect(transport.decodedBody(readRequest)['category'], 'comment');
+    expect(transport.decodedBody(readRequest)['block'], 'interaction');
     expect(unreadRequest.method, 'GET');
     expect(listRequest.method, 'GET');
-    expect(listRequest.uri.queryParameters['category'], 'comment');
+    expect(listRequest.uri.queryParameters['block'], 'interaction');
     expect(listRequest.uri.queryParameters['pn'], '1');
     expect(listRequest.uri.queryParameters['rn'], '20');
     expect(
@@ -1577,7 +1582,7 @@ void main() {
       transport.requests.indexOf(unreadRequest),
       lessThan(transport.requests.indexOf(listRequest)),
     );
-    expect(find.text('Recorded category message'), findsOneWidget);
+    expect(find.text('Recorded block message'), findsOneWidget);
   });
 
   testWidgets('tap Home switches to Home page', (WidgetTester tester) async {

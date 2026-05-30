@@ -7,16 +7,19 @@
 - Apifox direct_message 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462474827e0
 - Apifox direct_message 会话列表页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462474828e0
 - Apifox upload 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463764231e0
+- Apifox notify 未读数页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463874827e0
+- Apifox notify 通知列表页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463874828e0
+- Apifox notify 标记已读页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463874829e0
 - Apifox search 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/465724653e0
 - Apifox LLM 索引：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/llms.txt
 
-提取时间：2026-05-29
+提取时间：2026-05-30
 
 本文档记录 Flutter 项目当前对齐或待替换的 Apifox HTTP 接口，并对比当前 Flutter 项目中的 `lib/network` HTTP 设计。字段后带 `*` 表示 Apifox 标记为必填。
 
 ## 总览
 
-本文档当前覆盖 28 个接口，分为 `用户`、`origin`、`world`、`search`、`discuss`、`direct_message` 和 `upload` 七组：
+本文档当前覆盖 31 个接口，分为 `用户`、`origin`、`world`、`search`、`discuss`、`direct_message`、`notify` 和 `upload` 八组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -47,6 +50,9 @@
 | direct_message | POST | `/api/v1/direct_message/block` | 拉黑指定用户 |
 | direct_message | POST | `/api/v1/direct_message/unblock` | 取消拉黑 |
 | direct_message | GET | `/api/v1/direct_message/blocks` | 拉取我的拉黑列表 |
+| notify | GET | `/api/v1/message/unread` | 获取消息页未读数 |
+| notify | GET | `/api/v1/message/notifications` | 按消息块拉取通知列表 |
+| notify | POST | `/api/v1/message/read` | 标记非私信通知已读 |
 | upload | POST | `/api/v1/upload/image` | 上传图片到阿里云 OSS |
 
 所有 Apifox 200 响应都使用 envelope：
@@ -105,6 +111,19 @@
 - `i_blocked_peer*`: boolean，当前用户是否已拉黑 peer
 - `peer_blocked_me*`: boolean，peer 是否已拉黑当前用户
 - `can_send_next_message*`: boolean，是否允许当前用户继续发送下一条私信
+
+### MessageNotificationItem
+
+- `notification_id*`: string
+- `notice_block*`: string，`world_apply`、`follow` 或 `interaction`
+- `notice_type*`: string，`world_apply`、`world_apply_review`、`follow`、`discuss_comment`、`discuss_reply` 或 `discuss_like`
+- `sender*`: `UserInfo`
+- `biz_type*`: integer
+- `biz_id*`: string
+- `obj_id*`: string
+- `content*`: string
+- `is_read*`: boolean
+- `created_at*`: integer，Unix 秒时间戳
 
 ### OriginInfo
 
@@ -745,6 +764,64 @@ query：
 
 实现状态：已封装在 `DmV1Api.blocks`。
 
+## Notify 接口
+
+### GET `/api/v1/message/unread`
+
+获取消息页未读统计。需登录态，Apifox 安全定义为 cookie `AIUSS`。
+
+响应 `data`：
+
+- `total_unread*`: integer
+- `world_apply_unread*`: integer
+- `follow_unread*`: integer
+- `interaction_unread*`: integer
+- `direct_message_unread*`: integer
+
+实现状态：已封装在 `MessagesV1Api.unreadSummary()`。
+
+### GET `/api/v1/message/notifications`
+
+按消息块拉取非私信通知列表。需登录态，Apifox 安全定义为 cookie `AIUSS`。私信列表继续使用 `/api/v1/direct_message/conversations`。
+
+请求 query：
+
+- `block*`: string，枚举 `world_apply`、`follow`、`interaction`
+- `pn`: integer，最小 `1`，默认 `1`
+- `rn`: integer，最小 `1`，最大 `100`，默认 `20`
+
+响应 `data`：
+
+- `list*`: `MessageNotificationItem[]`
+- `total*`: integer
+- `pn*`: integer
+- `rn*`: integer
+
+错误码：
+
+- `4004`：`block` 非法
+- `10001`：用户未登录
+
+实现状态：已封装在 `MessagesV1Api.notifications(block,pn,rn)`；消息页三个入口分别传 `world_apply`、`follow`、`interaction`，不再发送旧的 `category=system/follower/comment`。
+
+### POST `/api/v1/message/read`
+
+标记消息中心中的非私信通知已读。需登录态，Apifox 安全定义为 cookie `AIUSS`。传 `notification_id` 时只标记单条；否则按 `block` 标记。私信会话已读继续使用 `/api/v1/direct_message/read`。
+
+请求 body：
+
+- `notification_id`: string，单条通知 id；传入后优先按单条标记已读
+- `block`: string，未传 `notification_id` 时生效，枚举 `world_apply`、`follow`、`interaction`、`all`
+
+响应 `data`：空对象。
+
+错误码：
+
+- `4004`：`block` 非法
+- `10001`：用户未登录
+
+实现状态：已封装在 `MessagesV1Api.markNotificationsRead(block,notificationId)`；页面进入通知分组时按对应 `block` 标记已读，不再调用旧的 `/api/v1/message/notifications/read`。
+
 ## Upload 接口
 
 ### POST `/api/v1/upload/image`
@@ -787,7 +864,7 @@ query：
 
 ## 当前代码对齐状态
 
-截至 2026-05-29，本文档覆盖的 28 个接口已完成主要 HTTP 契约对齐；本次新增记录的 search 接口已按 Apifox 新契约调整当前封装与本地 mock：
+截至 2026-05-30，本文档覆盖的 31 个接口已完成主要 HTTP 契约对齐；本次新增记录的 notify 通知列表与标记已读接口已按 Apifox 新契约调整当前封装、消息页入口、本地 mock 与测试：
 
 | Apifox 接口 | 当前实现状态 |
 | --- | --- |
@@ -816,6 +893,8 @@ query：
 | `POST /api/v1/direct_message/read` | `DmV1Api.markRead` 已改为使用 `peer_uid`，不再提交 `conversation_id/last_read_seq`。 |
 | `GET /api/v1/direct_message/unread` | 已新增 `DmV1Api.unread`，响应消费 `unread_cnt`。 |
 | `GET /api/v1/message/unread` | `MessagesV1Api.unreadSummary` 已改用消息页未读统计接口，响应消费 `world_apply_unread/follow_unread/interaction_unread/direct_message_unread/total_unread`。 |
+| `GET /api/v1/message/notifications` | `MessagesV1Api.notifications` 已改为必传 `block` query，枚举 `world_apply/follow/interaction`；页面入口已从旧 `system/follower/comment` 映射为 Apifox 的三个 block。 |
+| `POST /api/v1/message/read` | `MessagesV1Api.markNotificationsRead` 已改为 `/message/read`，body 使用 `block` 或 `notification_id`，不再提交旧 `category/notification_ids`。 |
 | `POST /api/v1/direct_message/block` | 已新增 `DmV1Api.block`，body 使用 `target_uid`。 |
 | `POST /api/v1/direct_message/unblock` | 已新增 `DmV1Api.unblock`，body 使用 `target_uid`。 |
 | `GET /api/v1/direct_message/blocks` | 已新增 `DmV1Api.blocks`，响应消费拉黑用户分页列表。 |
@@ -865,8 +944,6 @@ World：
 
 消息、首页、通用：
 
-- `GET /api/v1/message/notifications`
-- `POST /api/v1/message/notifications/read`
 - `GET /api/v1/messages/followers`
 - `GET /api/v1/search/suggest`
 - `GET /api/v1/home`

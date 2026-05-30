@@ -204,37 +204,33 @@ class _WorldPageState extends State<WorldPage>
         : world.worldLocations.isNotEmpty
         ? _pointsFromWorldLocations(world.worldLocations, avatarsByLocation)
         : points;
-    return Scaffold(
-      body: Stack(
-        children: [
-          WorldMapStage(
-            controller: _tabController,
-            pointsCount: listPoints.length,
-            top: topPadding + 20,
-            mapBuilder: (context, pointMode) => WorldMap(
-              points: points,
-              listPoints: listPoints,
-              locationNodes: locationNodes,
-              mapImageUrl: rootMapImageUrl,
-              dimmed: pointMode,
-              showPointsList: pointMode,
-              overlayTop: topPadding + 8 + 48,
-              drillExitTop: topPadding + 68,
-              onDrillIntoLocation: _showMapTab,
-              onPointTap: (point) => unawaited(_openChatForPoint(point)),
-            ),
-          ),
-          WorldDetailsPanel(
-            slivers: [
-              _WorldFeedContent(
-                world: world,
-                progressing: _progressing,
-                onProgress: _progress,
-              ),
-            ],
-          ),
-        ],
+    return WorldDetailsPageScaffold(
+      panelTopGap: 50,
+      panelCollapsedHeightOffset: 100,
+      map: WorldMapStage(
+        controller: _tabController,
+        pointsCount: listPoints.length,
+        top: topPadding + 20,
+        mapBuilder: (context, pointMode) => WorldMap(
+          points: points,
+          listPoints: listPoints,
+          locationNodes: locationNodes,
+          mapImageUrl: rootMapImageUrl,
+          dimmed: pointMode,
+          showPointsList: pointMode,
+          overlayTop: topPadding + 8 + 48,
+          drillExitTop: topPadding + 68,
+          onDrillIntoLocation: _showMapTab,
+          onPointTap: (point) => unawaited(_openChatForPoint(point)),
+        ),
       ),
+      slivers: [
+        _WorldFeedContent(
+          world: world,
+          progressing: _progressing,
+          onProgress: _progress,
+        ),
+      ],
     );
   }
 }
@@ -299,31 +295,26 @@ class _WorldFeedContentState extends State<_WorldFeedContent>
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
-
     return SliverMainAxisGroup(
       slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.only(top: 12),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              children: [
-                _WorldInfoHeader(
-                  world: widget.world,
-                  progressing: widget.progressing,
-                  onProgress: widget.onProgress,
-                ),
-                const SizedBox(height: 4),
-                SecendTabs(
-                  controller: _sectionController,
-                  labels: const ['Events', 'Status', 'Characters'],
-                  horizontalPadding: 0,
-                  labelPadding: EdgeInsets.zero,
-                  expanded: true,
-                ),
-                const SizedBox(height: 8),
-              ],
-            ),
+        SliverToBoxAdapter(
+          child: Column(
+            children: [
+              _WorldInfoHeader(
+                world: widget.world,
+                progressing: widget.progressing,
+                onProgress: widget.onProgress,
+              ),
+              const SizedBox(height: 4),
+              SecendTabs(
+                controller: _sectionController,
+                labels: const ['Events', 'Status', 'Characters'],
+                horizontalPadding: 0,
+                labelPadding: EdgeInsets.zero,
+                expanded: true,
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
         ),
         switch (_selectedSection) {
@@ -341,7 +332,6 @@ class _WorldFeedContentState extends State<_WorldFeedContent>
             ),
           ),
         },
-        SliverToBoxAdapter(child: SizedBox(height: 20 + bottomPadding)),
       ],
     );
   }

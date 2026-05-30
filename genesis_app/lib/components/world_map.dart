@@ -110,8 +110,14 @@ class _WorldMapState extends State<WorldMap> {
       builder: (context, constraints) {
         const designWidth = 375.0;
         const designHeight = 670.0;
-        final width = constraints.maxWidth;
-        final height = width * designHeight / designWidth;
+        final viewport = _MapViewport.cover(
+          viewportWidth: constraints.maxWidth,
+          viewportHeight: constraints.hasBoundedHeight
+              ? constraints.maxHeight
+              : constraints.maxWidth * designHeight / designWidth,
+          designWidth: designWidth,
+          designHeight: designHeight,
+        );
         final backgroundUrl = currentMapImageUrl.trim();
         final hasBackground = backgroundUrl.isNotEmpty;
         final mapKey = ValueKey<String>(
@@ -125,60 +131,47 @@ class _WorldMapState extends State<WorldMap> {
                 transition: _mapTransition,
                 child: Stack(
                   children: [
-                    if (hasBackground)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        top: 0,
-                        height: height,
-                        child: _MapBackgroundDeck(
-                          currentUrl: backgroundUrl,
-                          preloadUrls: preloadMapImageUrls,
-                        ),
-                      )
-                    else
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        top: 0,
-                        height: height,
-                        child: const ColoredBox(color: Color(0xFFF3F4F6)),
-                      ),
                     Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 0,
-                      height: height,
-                      child: IgnorePointer(
-                        ignoring: widget.showPointsList,
-                        child: Opacity(
-                          opacity: widget.showPointsList ? 0.6 : 1,
-                          child: Stack(
-                            children: [
-                              for (final p in visiblePoints)
-                                _WorldPointPositioned(
-                                  point: p,
-                                  width: width,
-                                  height: height,
-                                  onTap: _pointTapHandler(p),
-                                ),
-                            ],
+                      left: viewport.left,
+                      top: viewport.top,
+                      width: viewport.width,
+                      height: viewport.height,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (hasBackground)
+                            _MapBackgroundDeck(
+                              currentUrl: backgroundUrl,
+                              preloadUrls: preloadMapImageUrls,
+                            )
+                          else
+                            const ColoredBox(color: Color(0xFFF3F4F6)),
+                          IgnorePointer(
+                            ignoring: widget.showPointsList,
+                            child: Opacity(
+                              opacity: widget.showPointsList ? 0.6 : 1,
+                              child: Stack(
+                                children: [
+                                  for (final p in visiblePoints)
+                                    _WorldPointPositioned(
+                                      point: p,
+                                      width: viewport.width,
+                                      height: viewport.height,
+                                      onTap: _pointTapHandler(p),
+                                    ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 0,
-                      height: height,
-                      child: IgnorePointer(
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 220),
-                          color: widget.dimmed
-                              ? Colors.black.withValues(alpha: 0.08)
-                              : Colors.transparent,
-                        ),
+                          IgnorePointer(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              color: widget.dimmed
+                                  ? Colors.black.withValues(alpha: 0.08)
+                                  : Colors.transparent,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -330,6 +323,40 @@ class _WorldMapState extends State<WorldMap> {
     return <WorldMapLocationNode>[
       for (final node in nodes) ...[node, ..._flattenNodes(node.children)],
     ];
+  }
+}
+
+class _MapViewport {
+  const _MapViewport({
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+  });
+
+  final double left;
+  final double top;
+  final double width;
+  final double height;
+
+  factory _MapViewport.cover({
+    required double viewportWidth,
+    required double viewportHeight,
+    required double designWidth,
+    required double designHeight,
+  }) {
+    final viewportAspect = viewportWidth / viewportHeight;
+    final designAspect = designWidth / designHeight;
+    final coverByWidth = viewportAspect >= designAspect;
+    final width = coverByWidth ? viewportWidth : viewportHeight * designAspect;
+    final height = coverByWidth ? viewportWidth / designAspect : viewportHeight;
+
+    return _MapViewport(
+      left: (viewportWidth - width) / 2,
+      top: (viewportHeight - height) / 2,
+      width: width,
+      height: height,
+    );
   }
 }
 

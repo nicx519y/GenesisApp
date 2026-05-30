@@ -20,43 +20,40 @@ class MessagesV1Api extends V1ApiResource {
   ///
   /// 提交参数:
   /// ```json
-  /// {"category":"system","kind":"world_join_request","pn":1,"rn":10}
+  /// {"block":"world_apply","pn":1,"rn":20}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"list":[{"id":12,"category":"system","kind":"world_join_request","wid":"string","owner_uid":"string","apply_uid":"string","apply_user_name":"string","apply_user_avatar":"string","message":"string","status":"pending","is_read":false,"created_at":"string"}],"total":0}}
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"notification_id":"ntf_AB12CD34","notice_block":"world_apply","notice_type":"world_apply","sender":{},"biz_type":2,"biz_id":"w_a1b2c3","obj_id":"apl_a1b2c3","content":"string","is_read":true,"created_at":0}],"total":0,"pn":1,"rn":20}}
   /// ```
   Future<Map<String, dynamic>> notifications({
-    required String category,
-    String? kind,
+    required String block,
     int? pn,
     int? rn,
   }) {
     return getMap(
       'message/notifications',
-      v1Query({'category': category, 'kind': kind, 'pn': pn, 'rn': rn}),
+      v1Query({'block': block, 'pn': pn, 'rn': rn}),
     );
   }
 
-  /// POST /api/v1/message/notifications/read
+  /// POST /api/v1/message/read
   ///
   /// 提交参数:
   /// ```json
-  /// {"category":"system","notification_ids":["12"]}
+  /// {"block":"world_apply"}
+  /// {"notification_id":"ntf_AB12CD34"}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{}}
+  /// {"err_no":0,"err_msg":"succ","data":{}}
   /// ```
-  Future<void> markNotificationsRead({
-    String? category,
-    List<String>? notificationIds,
-  }) {
+  Future<void> markNotificationsRead({String? block, String? notificationId}) {
     return postVoid(
-      'message/notifications/read',
-      v1Body({'category': category, 'notification_ids': notificationIds}),
+      'message/read',
+      v1Body({'notification_id': notificationId, 'block': block}),
     );
   }
 

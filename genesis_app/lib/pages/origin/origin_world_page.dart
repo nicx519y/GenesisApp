@@ -213,44 +213,35 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             ? _pointsFromLocations(origin.locations, origin.characters)
             : points;
 
-        return Scaffold(
-          body: Stack(
-            children: [
-              WorldMapStage(
-                controller: _tabController,
-                pointsCount: listPoints.length,
-                top: topPadding + 8,
-                mapBuilder: (context, pointMode) => WorldMap(
-                  points: points,
-                  listPoints: listPoints,
-                  locationNodes: locationNodes,
-                  mapImageUrl: mapImageUrl,
-                  dimmed: pointMode,
-                  showPointsList: pointMode,
-                  overlayTop: topPadding + 8 + 48,
-                  drillExitTop: topPadding + 68,
-                  onDrillIntoLocation: _showMapTab,
-                ),
-              ),
-              WorldDetailsPanel(
-                slivers: [
-                  _WorldDetailsContent(
-                    origin: origin,
-                    discussController: _discussController,
-                  ),
-                ],
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _OriginBottomLaunchBar(
-                  origin: origin,
-                  launching: _launching,
-                  onLaunch: () => _launchOrigin(origin),
-                ),
-              ),
-            ],
+        return WorldDetailsPageScaffold(
+          panelTopGap: 50,
+          panelCollapsedHeightOffset: 45,
+          map: WorldMapStage(
+            controller: _tabController,
+            pointsCount: listPoints.length,
+            top: topPadding + 8,
+            mapBuilder: (context, pointMode) => WorldMap(
+              points: points,
+              listPoints: listPoints,
+              locationNodes: locationNodes,
+              mapImageUrl: mapImageUrl,
+              dimmed: pointMode,
+              showPointsList: pointMode,
+              overlayTop: topPadding + 8 + 48,
+              drillExitTop: topPadding + 68,
+              onDrillIntoLocation: _showMapTab,
+            ),
+          ),
+          slivers: [
+            _WorldDetailsContent(
+              origin: origin,
+              discussController: _discussController,
+            ),
+          ],
+          bottomBar: _OriginBottomLaunchBar(
+            origin: origin,
+            launching: _launching,
+            onLaunch: () => _launchOrigin(origin),
           ),
         );
       },
@@ -269,32 +260,22 @@ class _WorldDetailsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
-
-    return SliverPadding(
-      padding: EdgeInsets.only(
-        bottom: 126 + bottomPadding,
-        top: 12,
-        right: 0,
-        left: 0,
-      ),
-      sliver: SliverList.list(
-        children: [
-          _OriginHeader(origin: origin),
-          const SizedBox(height: 22),
-          _WorldViewSection(origin: origin),
-          const SizedBox(height: 26),
-          _LaunchPreviewSection(origin: origin),
-          const SizedBox(height: 28),
-          const _CopyWorldProgressSection(),
-          const SizedBox(height: 18),
-          _DiscussSection(origin: origin, controller: discussController),
-          const SizedBox(height: 24),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
-          const SizedBox(height: 24),
-          _OriginCharactersSection(characters: origin.characters),
-        ],
-      ),
+    return SliverList.list(
+      children: [
+        _OriginHeader(origin: origin),
+        const SizedBox(height: 22),
+        _WorldViewSection(origin: origin),
+        const SizedBox(height: 26),
+        _LaunchPreviewSection(origin: origin),
+        const SizedBox(height: 28),
+        const _CopyWorldProgressSection(),
+        const SizedBox(height: 18),
+        _DiscussSection(origin: origin, controller: discussController),
+        const SizedBox(height: 24),
+        const Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
+        const SizedBox(height: 24),
+        _OriginCharactersSection(characters: origin.characters),
+      ],
     );
   }
 }
@@ -316,7 +297,7 @@ class _OriginBottomLaunchBar extends StatelessWidget {
       decoration: BoxDecoration(color: const Color(0xFFF9F9F9)),
       child: SafeArea(
         top: false,
-        minimum: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+        minimum: const EdgeInsets.fromLTRB(13, 0, 13, 0),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final buttonWidth = (constraints.maxWidth * 0.38)

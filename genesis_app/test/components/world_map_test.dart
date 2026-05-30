@@ -125,6 +125,29 @@ void main() {
     );
   });
 
+  testWidgets('world map cover scales to fill tall screens', (tester) async {
+    const viewportSize = Size(375, 812);
+    await _pumpWorldMap(
+      tester,
+      size: viewportSize,
+      mapImageUrl: kMockV1SteamMapImage,
+      users: const [],
+    );
+
+    final image = _assetImageFinder(kMockV1SteamMapImage);
+    final imageSize = tester.getSize(image);
+    final imageTopLeft = tester.getTopLeft(image);
+
+    expect(imageSize.height, viewportSize.height);
+    expect(imageSize.width, closeTo(viewportSize.height * 375 / 670, 0.01));
+    expect(imageSize.width, greaterThan(viewportSize.width));
+    expect(
+      imageTopLeft.dx,
+      closeTo((viewportSize.width - imageSize.width) / 2, 0.01),
+    );
+    expect(imageTopLeft.dy, 0);
+  });
+
   testWidgets('world map lays out four avatars in a two by two grid', (
     tester,
   ) async {
@@ -508,6 +531,7 @@ const _pointPosition = Offset(0.5, 0.35);
 Future<void> _pumpWorldMap(
   WidgetTester tester, {
   required List<UserAvatar> users,
+  Size size = _mapSize,
   String mapImageUrl = '',
   List<String> preloadMapImageUrls = const <String>[],
   bool showPointsList = false,
@@ -527,8 +551,8 @@ Future<void> _pumpWorldMap(
         body: Align(
           alignment: Alignment.topLeft,
           child: SizedBox(
-            width: _mapSize.width,
-            height: _mapSize.height,
+            width: size.width,
+            height: size.height,
             child: WorldMap(
               mapImageUrl: mapImageUrl,
               preloadMapImageUrls: preloadMapImageUrls,

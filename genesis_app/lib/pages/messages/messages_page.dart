@@ -119,7 +119,7 @@ class _MessagesPageState extends State<MessagesPage> {
                   icon: Icons.notifications_active_rounded,
                   label: 'Notifications',
                   routeName: RouteNames.notifications,
-                  category: 'system',
+                  block: 'world_apply',
                   emptyText: 'No notifications yet.',
                   unreadCount: unreadSummary.systemUnread,
                   onUnreadSummaryRefresh: widget.onUnreadSummaryRefresh,
@@ -128,7 +128,7 @@ class _MessagesPageState extends State<MessagesPage> {
                   icon: Icons.person_add_alt_1_rounded,
                   label: 'New followers',
                   routeName: RouteNames.newFollowers,
-                  category: 'follower',
+                  block: 'follow',
                   emptyText: 'No new followers yet.',
                   unreadCount: unreadSummary.followerUnread,
                   onUnreadSummaryRefresh: widget.onUnreadSummaryRefresh,
@@ -137,7 +137,7 @@ class _MessagesPageState extends State<MessagesPage> {
                   icon: Icons.mode_comment_outlined,
                   label: 'Comments',
                   routeName: RouteNames.comments,
-                  category: 'comment',
+                  block: 'interaction',
                   emptyText: 'No comments yet.',
                   unreadCount: unreadSummary.commentUnread,
                   onUnreadSummaryRefresh: widget.onUnreadSummaryRefresh,
@@ -192,7 +192,7 @@ class _MessageMenuButton extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.routeName,
-    required this.category,
+    required this.block,
     required this.emptyText,
     required this.unreadCount,
     required this.onUnreadSummaryRefresh,
@@ -201,7 +201,7 @@ class _MessageMenuButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final String routeName;
-  final String category;
+  final String block;
   final String emptyText;
   final int unreadCount;
   final Future<void> Function()? onUnreadSummaryRefresh;
@@ -217,7 +217,7 @@ class _MessageMenuButton extends StatelessWidget {
             settings: RouteSettings(name: routeName),
             builder: (_) => MessageCategoryListPage(
               title: label,
-              category: category,
+              block: block,
               emptyText: emptyText,
               onNotificationsRead: onUnreadSummaryRefresh,
             ),

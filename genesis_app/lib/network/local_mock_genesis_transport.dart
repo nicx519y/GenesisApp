@@ -350,22 +350,19 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (method == 'GET' && path == 'message/notifications') {
-      final category = query['category']?.trim();
+      final block = query['block']?.trim();
       final items = _state.v1Notifications().where((item) {
-        return category == null ||
-            category.isEmpty ||
-            item['category']?.toString() == category;
+        return block == null ||
+            block.isEmpty ||
+            item['notice_block']?.toString() == block;
       }).toList();
       return _v1Ok(_paged(items, query));
     }
 
-    if (method == 'POST' && path == 'message/notifications/read') {
-      final notificationIds = body['notification_ids'] is List
-          ? body['notification_ids'] as List
-          : const <Object?>[];
+    if (method == 'POST' && path == 'message/read') {
       _state.markV1NotificationsRead(
-        category: body['category']?.toString(),
-        notificationIds: notificationIds.map((id) => '$id').toList(),
+        block: body['block']?.toString(),
+        notificationId: body['notification_id']?.toString(),
       );
       return _v1Ok(<String, dynamic>{});
     }
@@ -1103,9 +1100,9 @@ class _MockState {
   }
 
   Map<String, dynamic> v1UnreadSummary() {
-    final worldApplyUnread = _v1UnreadCount('system');
-    final followUnread = _v1UnreadCount('follower');
-    final interactionUnread = _v1UnreadCount('comment');
+    final worldApplyUnread = _v1UnreadCount('world_apply');
+    final followUnread = _v1UnreadCount('follow');
+    final interactionUnread = _v1UnreadCount('interaction');
     final directMessageUnread = v1DirectMessageUnreadCount();
     return {
       'world_apply_unread': worldApplyUnread,
@@ -1121,25 +1118,28 @@ class _MockState {
   }
 
   void markV1NotificationsRead({
-    required String? category,
-    required List<String> notificationIds,
+    required String? block,
+    required String? notificationId,
   }) {
     for (final notification in _v1Notifications) {
-      final matchesCategory =
-          category == null ||
-          category.isEmpty ||
-          notification['category']?.toString() == category;
-      final id = notification['id']?.toString();
-      final matchesId = notificationIds.isEmpty || notificationIds.contains(id);
-      if (matchesCategory && matchesId) {
+      final id = notification['notification_id']?.toString();
+      final matchesId =
+          notificationId != null &&
+          notificationId.isNotEmpty &&
+          id == notificationId;
+      final matchesBlock =
+          (block == null || block.isEmpty || block == 'all') ||
+          notification['notice_block']?.toString() == block;
+      if (matchesId ||
+          (notificationId == null || notificationId.isEmpty) && matchesBlock) {
         notification['is_read'] = true;
       }
     }
   }
 
-  int _v1UnreadCount(String category) {
+  int _v1UnreadCount(String block) {
     return _v1Notifications.where((notification) {
-      return notification['category']?.toString() == category &&
+      return notification['notice_block']?.toString() == block &&
           notification['is_read'] != true;
     }).length;
   }

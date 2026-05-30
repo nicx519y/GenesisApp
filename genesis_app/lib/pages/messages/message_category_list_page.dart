@@ -10,13 +10,13 @@ class MessageCategoryListPage extends StatefulWidget {
   const MessageCategoryListPage({
     super.key,
     required this.title,
-    required this.category,
+    required this.block,
     required this.emptyText,
     this.onNotificationsRead,
   });
 
   final String title;
-  final String category;
+  final String block;
   final String emptyText;
   final Future<void> Function()? onNotificationsRead;
 
@@ -65,11 +65,11 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
     try {
       await AppServicesScope.read(
         context,
-      ).api.v1.messages.markNotificationsRead(category: widget.category);
+      ).api.v1.messages.markNotificationsRead(block: widget.block);
       await widget.onNotificationsRead?.call();
     } catch (error, stackTrace) {
       debugPrint(
-        '[Messages] markNotificationsRead failed category=${widget.category}: $error',
+        '[Messages] markNotificationsRead failed block=${widget.block}: $error',
       );
       debugPrint('[Messages] markNotificationsRead stacktrace:\n$stackTrace');
     }
@@ -98,7 +98,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   Future<void> _loadPage(int page, {required bool replace}) async {
     try {
       final data = await AppServicesScope.read(context).api.v1.messages
-          .notifications(category: widget.category, pn: page, rn: _pageSize);
+          .notifications(block: widget.block, pn: page, rn: _pageSize);
       final rawItems = asJsonList(data['list']);
       final items = rawItems
           .map((item) => _NotificationItem.fromJson(asJsonMap(item)))
@@ -281,8 +281,11 @@ class _NotificationItem {
 
   factory _NotificationItem.fromJson(Map<String, dynamic> json) {
     return _NotificationItem(
-      id: asString(json['id']),
-      message: asString(json['message'], fallback: 'New message'),
+      id: asString(json['notification_id'], fallback: asString(json['id'])),
+      message: asString(
+        json['content'],
+        fallback: asString(json['message'], fallback: 'New message'),
+      ),
       isRead: asBool(json['is_read']),
       createdAt: asDateTime(json['created_at']),
     );

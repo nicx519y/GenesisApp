@@ -824,6 +824,67 @@ void main() {
     expect(body.containsKey('client_msg_id'), isFalse);
   });
 
+  test('v1 message notifications uses Apifox block query', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0,"pn":1,"rn":20}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    await api.v1.messages.notifications(block: 'interaction', pn: 1, rn: 20);
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/message/notifications');
+    expect(
+      apiTransport.lastRequest!.uri.queryParameters['block'],
+      'interaction',
+    );
+    expect(apiTransport.lastRequest!.uri.queryParameters['pn'], '1');
+    expect(apiTransport.lastRequest!.uri.queryParameters['rn'], '20');
+    expect(
+      apiTransport.lastRequest!.uri.queryParameters.containsKey('category'),
+      isFalse,
+    );
+  });
+
+  test('v1 mark notifications read posts Apifox block body', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":0,"err_msg":"succ","data":{}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    await api.v1.messages.markNotificationsRead(block: 'world_apply');
+
+    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/message/read');
+    final body = jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!));
+    expect(body['block'], 'world_apply');
+    expect(body.containsKey('category'), isFalse);
+    expect(body.containsKey('notification_ids'), isFalse);
+  });
+
   test(
     'v1 direct message conversations supports after_message_id cursor',
     () async {

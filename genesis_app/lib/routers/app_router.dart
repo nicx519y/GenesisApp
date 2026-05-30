@@ -188,7 +188,7 @@ sealed class AppRouter {
           settings: settings,
           builder: (_) => const MessageCategoryListPage(
             title: 'Notifications',
-            category: 'system',
+            block: 'world_apply',
             emptyText: 'No notifications yet.',
           ),
         );
@@ -197,7 +197,7 @@ sealed class AppRouter {
           settings: settings,
           builder: (_) => const MessageCategoryListPage(
             title: 'New followers',
-            category: 'follower',
+            block: 'follow',
             emptyText: 'No new followers yet.',
           ),
         );
@@ -206,7 +206,7 @@ sealed class AppRouter {
           settings: settings,
           builder: (_) => const MessageCategoryListPage(
             title: 'Comments',
-            category: 'comment',
+            block: 'interaction',
             emptyText: 'No comments yet.',
           ),
         );
