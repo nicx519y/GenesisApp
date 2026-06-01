@@ -1,32 +1,29 @@
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'common/genesis_center_toast.dart';
+import 'login_provider_button.dart';
 import '../platform/auth/auth_cancelled_exception.dart';
+import '../platform/auth/auth_session.dart';
 
 class LoginSheet extends StatefulWidget {
   const LoginSheet({super.key, required this.onLogin});
 
-  final Future<bool> Function() onLogin;
+  final Future<bool> Function(IdentityProvider provider) onLogin;
 
   @override
   State<LoginSheet> createState() => _LoginSheetState();
 }
 
 class _LoginSheetState extends State<LoginSheet> {
-  bool _submitting = false;
+  IdentityProvider? _submittingProvider;
 
-  bool get _usesApple => !kIsWeb && Platform.isIOS;
-
-  Future<void> _submit() async {
-    if (_submitting) return;
-    setState(() => _submitting = true);
+  Future<void> _submit(IdentityProvider provider) async {
+    if (_submittingProvider != null) return;
+    setState(() => _submittingProvider = provider);
     debugPrint('[Auth][LoginSheet] submit start');
     try {
       debugPrint('[Auth][LoginSheet] requesting sign-in');
-      final ok = await widget.onLogin();
+      final ok = await widget.onLogin(provider);
       debugPrint('[Auth][LoginSheet] login result: $ok');
       if (!mounted) return;
       if (ok) {
@@ -46,7 +43,7 @@ class _LoginSheetState extends State<LoginSheet> {
       showGenesisToast(context, message.isEmpty ? 'Sign-in failed' : message);
     } finally {
       debugPrint('[Auth][LoginSheet] submit end');
-      if (mounted) setState(() => _submitting = false);
+      if (mounted) setState(() => _submittingProvider = null);
     }
   }
 
@@ -66,10 +63,8 @@ class _LoginSheetState extends State<LoginSheet> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            Text(
-              _usesApple
-                  ? 'Use your Apple account to continue.'
-                  : 'Use your Google account to continue. Tapping the button will open account selection.',
+            const Text(
+              'Use your Google or Apple account to continue.',
               style: TextStyle(
                 fontSize: 13,
                 color: Color(0xFF666666),
@@ -77,33 +72,30 @@ class _LoginSheetState extends State<LoginSheet> {
               ),
             ),
             const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _submitting ? null : _submit,
-                icon: _submitting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Icon(
-                        _usesApple ? Icons.apple : Icons.g_mobiledata,
-                        size: 22,
-                      ),
-                label: Text(
-                  _usesApple ? 'Sign In With Apple' : 'Sign In With Google',
-                ),
-              ),
+            LoginProviderButton(
+              provider: IdentityProvider.google,
+              label: 'Sign In With Google',
+              height: 50,
+              onPressed: _submittingProvider == null
+                  ? () => _submit(IdentityProvider.google)
+                  : null,
+              isLoading: _submittingProvider == IdentityProvider.google,
+            ),
+            const SizedBox(height: 10),
+            LoginProviderButton(
+              provider: IdentityProvider.apple,
+              label: 'Sign In With Apple',
+              height: 50,
+              onPressed: _submittingProvider == null
+                  ? () => _submit(IdentityProvider.apple)
+                  : null,
+              isLoading: _submittingProvider == IdentityProvider.apple,
             ),
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: TextButton(
-                onPressed: _submitting
+                onPressed: _submittingProvider != null
                     ? null
                     : () => Navigator.of(context).pop(false),
                 child: const Text('Cancel'),

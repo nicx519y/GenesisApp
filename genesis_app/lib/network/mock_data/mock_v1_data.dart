@@ -780,7 +780,7 @@ const List<Map<String, dynamic>> kMockV1Worlds = [
 
 const List<Map<String, dynamic>> kMockV1Ticks = [
   {
-    'tick_index': 1,
+    'tick_no': 1,
     'created_at': '2026-05-24T09:00:00Z',
     'summary': 'The Central Hub wakes under a low copper fog.',
     'paragraphs': [
@@ -796,7 +796,7 @@ const List<Map<String, dynamic>> kMockV1Ticks = [
     ],
   },
   {
-    'tick_index': 2,
+    'tick_no': 2,
     'created_at': '2026-05-24T09:10:00Z',
     'summary': 'Rumors gather at the Rail Gate as inspectors delay departures.',
     'paragraphs': [
@@ -816,7 +816,7 @@ const List<Map<String, dynamic>> kMockV1Ticks = [
     ],
   },
   {
-    'tick_index': 3,
+    'tick_no': 3,
     'created_at': '2026-05-24T09:20:00Z',
     'summary':
         'A brass relay fails and forces both factions into the same repair queue.',
@@ -850,7 +850,7 @@ const List<Map<String, dynamic>> kMockV1Ticks = [
     ],
   },
   {
-    'tick_index': 4,
+    'tick_no': 4,
     'created_at': kMockV1Now,
     'summary':
         'The city stabilizes, but the gauges now point toward an unseen source below the platform.',

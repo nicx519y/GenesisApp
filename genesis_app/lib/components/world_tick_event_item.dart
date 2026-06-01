@@ -23,15 +23,12 @@ class WorldTickEventItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tickResult = _tickResult(tick);
-    final hasTickResult = tick['tick_result'] is Map;
-    final createdAt = _tickDateTime(
-      tickResult['created_at'] ?? tick['created_at'],
-    );
+    final createdAt = _tickDateTime(tick['created_at']);
     final date = dateLabel ?? _formatShortDate(createdAt);
     final timeAgo = timeAgoLabel ?? _relativeTime(createdAt);
     final body = _mapString(tickResult, const [
       'narrator',
-    ], fallback: hasTickResult ? '' : fallbackBody);
+    ], fallback: fallbackBody);
     final paragraphs = _tickParagraphs(tickResult);
 
     return Padding(
@@ -57,7 +54,7 @@ class WorldTickEventItem extends StatelessWidget {
 }
 
 int worldTickEventNumber(Map<String, dynamic> tick, {int fallback = 0}) {
-  return _mapInt(tick, const ['tick_index'], fallback: fallback);
+  return _mapInt(tick, const ['tick_no'], fallback: fallback);
 }
 
 class _TickHeader extends StatelessWidget {
@@ -271,7 +268,7 @@ List<Map<String, dynamic>> _tickParagraphs(Map<String, dynamic> tick) {
 Map<String, dynamic> _tickResult(Map<String, dynamic> tick) {
   final raw = tick['tick_result'];
   if (raw is Map) return raw.cast<String, dynamic>();
-  return tick;
+  return const <String, dynamic>{};
 }
 
 String _locationName(
@@ -284,7 +281,7 @@ String _locationName(
 }
 
 String _characterDetails(Map<String, dynamic> paragraph) {
-  final raw = paragraph['character_details'] ?? paragraph['character_deltas'];
+  final raw = paragraph['character_deltas'];
   if (raw is! List) return '';
   final lines = raw
       .whereType<Map>()

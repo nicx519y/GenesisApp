@@ -11,7 +11,17 @@ import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 class AppleSignInService {
   AppleSignInService._();
 
-  static bool get isSupportedPlatform => !kIsWeb && Platform.isIOS;
+  static const String _webClientId = String.fromEnvironment(
+    'APPLE_WEB_CLIENT_ID',
+    defaultValue: '',
+  );
+  static const String _webRedirectUri = String.fromEnvironment(
+    'APPLE_WEB_REDIRECT_URI',
+    defaultValue: '',
+  );
+
+  static bool get isSupportedPlatform =>
+      !kIsWeb && (Platform.isIOS || Platform.isAndroid);
 
   static Future<AppleFirebaseSession> signInToFirebase() async {
     debugPrint('[Auth][AppleSignInService] signInToFirebase start');
@@ -21,6 +31,7 @@ class AppleSignInService {
     if (Firebase.apps.isEmpty) {
       throw const _AppleSignInFailure('Firebase 尚未初始化');
     }
+    final webAuthenticationOptions = _webAuthenticationOptions();
 
     final rawNonce = _generateNonce();
     final credential = await SignInWithApple.getAppleIDCredential(
@@ -29,19 +40,16 @@ class AppleSignInService {
         AppleIDAuthorizationScopes.fullName,
       ],
       nonce: _sha256ofString(rawNonce),
+      webAuthenticationOptions: webAuthenticationOptions,
     );
     final identityToken = credential.identityToken?.trim() ?? '';
     if (identityToken.isEmpty) {
       throw const _AppleSignInFailure('Apple 未返回 identityToken，请稍后重试');
     }
 
-    final oauthCredential = AppleAuthProvider.credentialWithIDToken(
-      identityToken,
-      rawNonce,
-      AppleFullPersonName(
-        givenName: credential.givenName,
-        familyName: credential.familyName,
-      ),
+    final oauthCredential = OAuthProvider('apple.com').credential(
+      idToken: identityToken,
+      rawNonce: rawNonce,
     );
     final UserCredential userCredential;
     try {
@@ -85,6 +93,7 @@ class AppleSignInService {
 
   static Future<AppleFirebaseSession?> refreshFirebaseSession() async {
     debugPrint('[Auth][AppleSignInService] silent refresh start');
+    if (!kIsWeb && Platform.isAndroid) return null;
     if (!isSupportedPlatform || Firebase.apps.isEmpty) return null;
     final current = FirebaseAuth.instance.currentUser;
     if (current == null) return null;
@@ -123,6 +132,20 @@ class AppleSignInService {
     ].where((part) => part.isNotEmpty).join(' ').trim();
     if (appleName.isNotEmpty) return appleName;
     return firebaseUser.displayName?.trim() ?? '';
+  }
+
+  static WebAuthenticationOptions? _webAuthenticationOptions() {
+    if (!Platform.isAndroid) return null;
+    final clientId = _webClientId.trim();
+    final redirectUri = _webRedirectUri.trim();
+    if (clientId.isEmpty || redirectUri.isEmpty) {
+      throw const _AppleSignInFailure('Android Apple 登录暂未配置');
+    }
+    final uri = Uri.tryParse(redirectUri);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      throw const _AppleSignInFailure('Android Apple 登录回调地址配置无效');
+    }
+    return WebAuthenticationOptions(clientId: clientId, redirectUri: uri);
   }
 
   static String _generateNonce([int length = 32]) {

@@ -6,6 +6,7 @@ import '../app/bootstrap/app_services_scope.dart';
 import '../components/bottom_tabs.dart';
 import '../components/login_sheet.dart';
 import '../network/models/unread_summary.dart';
+import '../platform/auth/auth_session.dart';
 import 'create/create_origin_page.dart';
 import 'home/home_page.dart';
 import 'me/me_page.dart';
@@ -41,11 +42,6 @@ class _AppShellPageState extends State<AppShellPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startUnreadPolling();
     });
-    if (_selectedIndex == 4) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        unawaited(_ensureMeTabWithAuth());
-      });
-    }
   }
 
   @override
@@ -111,6 +107,8 @@ class _AppShellPageState extends State<AppShellPage>
     }
 
     if (index == 2) {
+      if (!await _ensureMainTabLogin()) return;
+      if (!mounted) return;
       await Navigator.of(
         context,
       ).push(MaterialPageRoute<void>(builder: (_) => const CreateOriginPage()));
@@ -118,68 +116,30 @@ class _AppShellPageState extends State<AppShellPage>
     }
 
     if (index == 3) {
+      if (!await _ensureMainTabLogin()) return;
+      if (!mounted) return;
       if (_selectedIndex == 3) return;
       _selectTab(3);
       return;
     }
 
     if (index == 4) {
-      await _ensureMeTabWithAuth();
+      if (_selectedIndex == 4) return;
+      _selectTab(4);
       return;
     }
   }
 
-  Future<void> _ensureMeTabWithAuth() async {
-    debugPrint('[Auth][AppShell] checking auth before entering Me');
-    final locallyAuthed = await _hasLocalLoginSession();
-    debugPrint('[Auth][AppShell] locallyAuthed=$locallyAuthed');
-    if (!mounted) return;
-    if (locallyAuthed) {
-      _selectTab(4);
-      return;
-    }
-
-    final loginOk = await showModalBottomSheet<bool>(
+  Future<bool> _ensureMainTabLogin() async {
+    if (await _hasLocalLoginSession()) return true;
+    if (!mounted) return false;
+    final loggedIn = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
-      builder: (context) {
-        return LoginSheet(
-          onLogin: () async {
-            debugPrint('[Auth][AppShell] onLogin start');
-            final services = AppServicesScope.read(context);
-            final session = await services.identityAuth.signIn();
-            final user = await services.backendAuth.loginWithIdentity(session);
-            if (user.uid.trim().isNotEmpty) {
-              await services.sessionStore.saveUid(user.uid);
-            }
-            final cachedUserInfo = await services.sessionStore.readUserInfo();
-            final loginUserInfo = <String, dynamic>{
-              if (cachedUserInfo != null) ...cachedUserInfo,
-              'uid': user.uid,
-            };
-            if (user.nickname.trim().isNotEmpty) {
-              loginUserInfo['name'] = user.nickname;
-            }
-            if (user.avatar.trim().isNotEmpty) {
-              loginUserInfo['avatar'] = user.avatar;
-            }
-            await services.sessionStore.saveUserInfo(loginUserInfo);
-            debugPrint(
-              '[Auth][AppShell] backend login success uid=${user.uid}',
-            );
-            return true;
-          },
-        );
-      },
+      builder: (context) => LoginSheet(onLogin: _loginWithProvider),
     );
-    debugPrint('[Auth][AppShell] login sheet closed result=$loginOk');
-    if (!mounted) return;
-    if (loginOk == true) {
-      _selectTab(4);
-    } else if (_selectedIndex == 4) {
-      _selectTab(1);
-    }
+    if (!mounted || loggedIn != true) return false;
+    return _hasLocalLoginSession();
   }
 
   Future<bool> _hasLocalLoginSession() async {
@@ -188,6 +148,30 @@ class _AppShellPageState extends State<AppShellPage>
     final authToken =
         (await services.sessionStore.readAuthToken())?.trim() ?? '';
     return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
+  }
+
+  Future<bool> _loginWithProvider(IdentityProvider provider) async {
+    debugPrint('[Auth][AppShell] onLogin start provider=$provider');
+    final services = AppServicesScope.read(context);
+    final session = await services.identityAuth.signIn(provider);
+    final user = await services.backendAuth.loginWithIdentity(session);
+    if (user.uid.trim().isNotEmpty) {
+      await services.sessionStore.saveUid(user.uid);
+    }
+    final cachedUserInfo = await services.sessionStore.readUserInfo();
+    final loginUserInfo = <String, dynamic>{
+      if (cachedUserInfo != null) ...cachedUserInfo,
+      'uid': user.uid,
+    };
+    if (user.nickname.trim().isNotEmpty) {
+      loginUserInfo['name'] = user.nickname;
+    }
+    if (user.avatar.trim().isNotEmpty) {
+      loginUserInfo['avatar'] = user.avatar;
+    }
+    await services.sessionStore.saveUserInfo(loginUserInfo);
+    debugPrint('[Auth][AppShell] backend login success uid=${user.uid}');
+    return true;
   }
 
   int _normalTabIndex(int index) {
@@ -208,7 +192,12 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   void _handleMeLoggedOut() {
-    _selectTab(1);
+    setState(() {
+      _tabPageCache.remove(4);
+      _visitedTabIndexes.remove(4);
+      _selectedIndex = 1;
+      _visitedTabIndexes.add(1);
+    });
   }
 
   Widget _cachedTabPage(int index) {
@@ -225,7 +214,10 @@ class _AppShellPageState extends State<AppShellPage>
             );
           },
         ),
-        4 => MePage(onLoggedOut: _handleMeLoggedOut),
+        4 => MePage(
+          onLoggedOut: _handleMeLoggedOut,
+          onLogin: _loginWithProvider,
+        ),
         _ => const SizedBox.shrink(),
       };
     });

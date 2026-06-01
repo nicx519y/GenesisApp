@@ -158,10 +158,10 @@ void main() {
   test('world detail does not create synthetic root when api omits root', () {
     final detail = WorldDetail.fromJson({
       'id': 5011605,
-      'wid': 'w_5011605',
+      'world_id': 'w_5011605',
       'name': 'One Bed in Okinawa',
       'map_image': 'cover.webp',
-      'world_locations': [
+      'locations': [
         {
           'location_id': 'loc_1',
           'location_pid': '',
@@ -176,16 +176,15 @@ void main() {
       ],
     });
 
-    expect(detail.worldLocations.map((location) => location['location_id']), [
+    expect(detail.locations.map((location) => location['location_id']), [
       'loc_1',
       'loc_1_1',
     ]);
-    expect(detail.worldLocationTree.map((node) => node.id), ['loc_1']);
-    expect(detail.processedWorldLocationTree.root?.id, 'loc_1');
-    expect(
-      detail.processedWorldLocationTree.renderRoots.map((node) => node.id),
-      ['loc_1_1'],
-    );
+    expect(detail.locationTree.map((node) => node.id), ['loc_1']);
+    expect(detail.processedLocationTree.root?.id, 'loc_1');
+    expect(detail.processedLocationTree.renderRoots.map((node) => node.id), [
+      'loc_1_1',
+    ]);
   });
 
   test('origin detail uses existing root location instead of map root', () {
@@ -269,10 +268,10 @@ void main() {
   test('world detail uses existing root location instead of map root', () {
     final detail = WorldDetail.fromJson({
       'id': 9,
-      'wid': 'world_live',
+      'world_id': 'world_live',
       'name': 'World Root',
       'map_image': 'map.png',
-      'world_locations': [
+      'locations': [
         {
           'location_id': 'root_old',
           'location_pid': '',
@@ -291,15 +290,12 @@ void main() {
       ],
     });
 
-    expect(detail.processedWorldLocationTree.root?.id, 'root_old');
+    expect(detail.processedLocationTree.root?.id, 'root_old');
+    expect(detail.processedLocationTree.renderRoots.map((node) => node.id), [
+      'district',
+    ]);
     expect(
-      detail.processedWorldLocationTree.renderRoots.map((node) => node.id),
-      ['district'],
-    );
-    expect(
-      detail.processedWorldLocationTree.flattenedRenderNodes.map(
-        (node) => node.id,
-      ),
+      detail.processedLocationTree.flattenedRenderNodes.map((node) => node.id),
       ['district', 'room'],
     );
   });
@@ -309,10 +305,10 @@ void main() {
     () {
       final detail = WorldDetail.fromJson({
         'id': 10,
-        'wid': 'world_two_level',
+        'world_id': 'world_two_level',
         'name': 'World Root',
         'map_image': 'map.png',
-        'world_locations': [
+        'locations': [
           {
             'location_id': 'root_old',
             'location_pid': '',
@@ -326,13 +322,12 @@ void main() {
         ],
       });
 
-      expect(detail.processedWorldLocationTree.root?.id, 'root_old');
+      expect(detail.processedLocationTree.root?.id, 'root_old');
+      expect(detail.processedLocationTree.renderRoots.map((node) => node.id), [
+        'district',
+      ]);
       expect(
-        detail.processedWorldLocationTree.renderRoots.map((node) => node.id),
-        ['district'],
-      );
-      expect(
-        detail.processedWorldLocationTree.chatTargetFor('district')?.id,
+        detail.processedLocationTree.chatTargetFor('district')?.id,
         'district',
       );
     },

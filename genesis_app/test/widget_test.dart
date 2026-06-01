@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +13,7 @@ import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
+import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
@@ -58,13 +60,14 @@ Future<AppServices> _testServices({
   String? initialUid = 'u_mock',
   String? initialAuthToken,
   Map<String, dynamic>? initialUserInfo,
+  MemoryUserSessionStore? sessionStoreOverride,
   DirectMessageConversationStore? directMessageConversations,
   DirectMessageMessageStore? directMessageMessages,
 }) async {
   const config = AppConfig(useMock: true);
   final platformConfig = DefaultPlatformConfig(appConfig: config);
   const deviceId = _FakeDeviceIdService();
-  final sessionStore = MemoryUserSessionStore();
+  final sessionStore = sessionStoreOverride ?? MemoryUserSessionStore();
   if (initialUid != null) {
     await sessionStore.saveUid(initialUid);
   }
@@ -120,8 +123,15 @@ Future<AppServices> _testServices({
   );
 }
 
-Future<void> _pumpGenesisApp(WidgetTester tester) async {
-  await tester.pumpWidget(GenesisApp(services: await _testServices()));
+Future<void> _pumpGenesisApp(
+  WidgetTester tester, {
+  String? initialAuthToken,
+}) async {
+  await tester.pumpWidget(
+    GenesisApp(
+      services: await _testServices(initialAuthToken: initialAuthToken),
+    ),
+  );
 }
 
 class _FakeDeviceIdService implements DeviceIdService {
@@ -158,9 +168,19 @@ class _FakeIdentityAuthService implements IdentityAuthService {
   Future<AuthSession?> refreshSilently() async => null;
 
   @override
-  Future<AuthSession> signIn() async {
+  Future<AuthSession> signIn(IdentityProvider provider) async {
     final session = signInSession;
-    if (session != null) return session;
+    if (session != null) {
+      return AuthSession(
+        provider: provider,
+        providerIdToken: session.providerIdToken,
+        firebaseIdToken: session.firebaseIdToken,
+        identityUid: session.identityUid,
+        email: session.email,
+        displayName: session.displayName,
+        photoUrl: session.photoUrl,
+      );
+    }
     throw UnimplementedError(
       'Widget tests should not launch identity sign-in.',
     );
@@ -187,6 +207,7 @@ class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
   final Object? _loginError;
   int loginCount = 0;
   int sessionCheckCount = 0;
+  IdentityProvider? lastLoginProvider;
 
   @override
   Future<bool> hasAuthenticatedBackendSession({
@@ -199,6 +220,7 @@ class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
   @override
   Future<User> loginWithIdentity(AuthSession session) async {
     loginCount += 1;
+    lastLoginProvider = session.provider;
     final error = _loginError;
     if (error != null) throw error;
     final user =
@@ -214,6 +236,7 @@ class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
     if (user.uid.trim().isNotEmpty) {
       await _sessionStore.saveUid(user.uid);
     }
+    await _sessionStore.saveAuthToken('backend-token');
     _authenticated = true;
     return user;
   }
@@ -228,6 +251,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   static const total = 100;
 
   _RecordingV1ListTransport({
+    this.worldRelationStatus = 'owner',
     this.worldTickCompleter,
     this.userInfoCompleter,
     this.originListCompleter,
@@ -235,6 +259,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   });
 
   final requests = <TransportRequest>[];
+  final String worldRelationStatus;
   final Completer<TransportResponse>? worldTickCompleter;
   final Completer<TransportResponse>? userInfoCompleter;
   final Completer<TransportResponse>? originListCompleter;
@@ -278,6 +303,22 @@ class _RecordingV1ListTransport implements HttpTransport {
           'tick_cnt': 4,
           'last_tick': <String, Object?>{},
         },
+      });
+    }
+    if (request.method == 'POST' && request.uri.path.endsWith('/world/apply')) {
+      final body = decodedBody(request);
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {'apply_id': 'apl_${body['world_id']}', 'status': 10},
+      });
+    }
+    if (request.method == 'POST' && request.uri.path.endsWith('/world/join')) {
+      final body = decodedBody(request);
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {'world_id': body['world_id'], 'char_id': 'char_1'},
       });
     }
     if (request.method == 'POST' &&
@@ -444,7 +485,7 @@ class _RecordingV1ListTransport implements HttpTransport {
       'last_progress_at': '2026-05-02T00:00:00Z',
       'last_progress_summary': 'Legacy world progress summary $seq',
       'last_tick': {
-        'tick_index': seq,
+        'tick_no': seq,
         'created_at': '2026-05-02T00:00:00Z',
         'narrator': 'World tick narrator $seq',
         'paragraphs': const <Map<String, Object?>>[],
@@ -461,49 +502,69 @@ class _RecordingV1ListTransport implements HttpTransport {
   Map<String, Object?> _originDetail(String oid) {
     final fallback = oid.isEmpty ? 'o_test_1' : oid;
     return {
-      'origin': {
-        'oid': fallback,
-        'status': 2,
-        'version_num': 1,
-        'name': 'Origin detail $fallback',
-        'cover': '',
-        'display_subtitle': 'Origin detail subtitle',
-        'world_view': 'Origin detail world view',
-        'world_setting': 'Origin detail setting',
-        'created_uid': 'u_test',
-        'created_user_name': 'Tester',
-        'created_at': '2026-05-01T00:00:00Z',
-        'updated_at': '2026-05-02T00:00:00Z',
+      'info': {
+        'origin_id': fallback,
+        'origin_name': 'Origin detail $fallback',
+        'origin_version': '1',
+        'origin_version_time': '2026-05-02T00:00:00Z',
+        'owner_uid': 'u_test',
+        'owner_name': 'Tester',
+        'brief': 'Origin detail subtitle',
+        'setting': 'Origin detail setting',
+        'events': const <String>[],
         'tags': ['detail'],
+        'metric': <String, Object?>{},
+        'created_at': 1777593600,
+        'started_at': 'Day 1',
+        'tick_duration_days': 30,
+        'cover': '',
+        'map_url': '',
+        'status': 10,
+      },
+      'stats': {
         'copy_cnt': 7,
-        'connect_cnt': 8,
         'discuss_cnt': 9,
         'character_cnt': 1,
+        'connect_cnt': 8,
         'location_cnt': 1,
+        'max_tick_cnt': 0,
       },
-      'character_list': [
+      'characters': [
         {
-          'character_id': 'c_$fallback',
+          'char_id': 'c_$fallback',
+          'type': 'ai',
+          'player_uid': '',
+          'player_username': '',
           'name': 'Detail Character',
           'identity': 'Guide',
-          'tagline': 'Knows the path',
+          'brief': 'Knows the path',
           'description': 'A character from detail.',
+          'goal': '',
           'avatar': '',
+          'initial_location_id': 'l_$fallback',
           'location_id': 'l_$fallback',
+          'metric_value': 0,
+          'delta': 0,
         },
       ],
-      'metric': <String, Object?>{},
-      'location_list': [
+      'locations': [
         {
           'location_id': 'l_$fallback',
-          'name': 'Detail Location',
-          'description': 'A location from detail.',
+          'level': 1,
+          'location_pid': '',
+          'location_name': 'Detail Location',
+          'location_description': 'A location from detail.',
+          'location_paragraph': '',
+          'location_timestamp': '',
+          'location_summary': '',
           'image': '',
           'x_percent': 30,
           'y_percent': 40,
+          'map_url': '',
+          'dialogue': const <Object?>[],
         },
       ],
-      'event_list': const [],
+      'ticks': const <Object?>[],
     };
   }
 
@@ -519,22 +580,23 @@ class _RecordingV1ListTransport implements HttpTransport {
         'brief': 'World detail subtitle',
         'setting': 'World detail setting',
         'events': ['World detail loaded.'],
-        'tags': ['world-detail'],
         'created_at': '2026-05-01T00:00:00Z',
-        'created_uid': 'u_test',
-        'created_user_name': 'Tester',
         'owner_uid': 'u_test',
         'owner_name': 'Tester',
-        'updated_at': '2026-05-02T00:00:00Z',
-        'last_progress_at': '2026-05-02T00:00:00Z',
-        'last_progress_summary': 'World detail loaded.',
-        'preview_images': <String>[],
+        'metric': {
+          'mode': 'qualitative',
+          'label': 'Goal Progress',
+          'unit': '%',
+          'range': [0, 100],
+          'default': 0,
+        },
         'started_at': '2026-05-01T00:00:00Z',
         'tick_duration_days': 30,
         'cover': '',
         'map_url': '',
         'status': 1,
       },
+      'relation_status': worldRelationStatus,
       'stats': {
         'tick_cnt': 3,
         'connect_cnt': 4,
@@ -545,7 +607,7 @@ class _RecordingV1ListTransport implements HttpTransport {
       'characters': [
         {
           'type': 'ai',
-          'player_uid': 'u_mock',
+          'player_uid': worldRelationStatus == 'approved' ? '' : 'u_mock',
           'char_id': 'c_$fallback',
           'name': 'World Character',
           'identity': 'Guide',
@@ -581,7 +643,7 @@ class _RecordingV1ListTransport implements HttpTransport {
       ],
       'ticks': [
         {
-          'tick_index': 1,
+          'tick_no': 1,
           'created_at': '2026-05-02T00:00:00Z',
           'tick_result': {
             'narrator': 'World detail loaded.',
@@ -589,7 +651,7 @@ class _RecordingV1ListTransport implements HttpTransport {
               {
                 'location_id': 'l_$fallback',
                 'text': 'The first test tick wakes the location.',
-                'character_details': [
+                'character_deltas': [
                   {'name': 'World Character', 'delta': '+3 focus'},
                 ],
               },
@@ -597,7 +659,7 @@ class _RecordingV1ListTransport implements HttpTransport {
           },
         },
         {
-          'tick_index': 2,
+          'tick_no': 2,
           'created_at': '2026-05-03T00:00:00Z',
           'tick_result': {
             'narrator': 'World detail changed again.',
@@ -605,7 +667,7 @@ class _RecordingV1ListTransport implements HttpTransport {
               {
                 'location_id': 'l_$fallback',
                 'text': 'The second test tick moves the story forward.',
-                'character_details': [
+                'character_deltas': [
                   {'name': 'World Character', 'delta': '-1 stamina'},
                 ],
               },
@@ -1033,37 +1095,69 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         request.uri.path == '/api/v1/origin/detail') {
       final oid = request.uri.queryParameters['origin_id'] ?? '';
       data = {
-        'origin': {
-          'oid': oid,
-          'name': 'Editable Origin',
-          'cover': 'https://example.com/edit-cover.png',
-          'world_view': 'Editable public view.',
-          'world_setting': 'Editable hidden rules.',
+        'info': {
+          'origin_id': oid,
+          'origin_name': 'Editable Origin',
+          'origin_version': '1',
+          'origin_version_time': '2026-05-02T00:00:00Z',
+          'owner_uid': 'u_test',
+          'owner_name': 'Tester',
+          'brief': 'Editable public view.',
+          'setting': 'Editable hidden rules.',
+          'events': ['The archive opens.'],
+          'tags': const <String>[],
+          'metric': {'mode': 'quantitative', 'label': 'Influence'},
+          'created_at': 1777593600,
+          'started_at': 'Day 1',
+          'tick_duration_days': 30,
+          'cover': 'assets/images/mock_maps/steam_kingdom_isometric.png',
+          'map_url': 'assets/images/mock_maps/steam_kingdom_isometric.png',
+          'status': 10,
         },
-        'character_list': [
+        'stats': const <String, Object?>{
+          'copy_cnt': 0,
+          'discuss_cnt': 0,
+          'character_cnt': 1,
+          'connect_cnt': 0,
+          'location_cnt': 1,
+          'max_tick_cnt': 0,
+        },
+        'characters': [
           {
-            'character_id': 'char_edit_1',
+            'char_id': 'char_edit_1',
+            'type': 'ai',
+            'player_uid': '',
+            'player_username': '',
             'name': 'Mira',
             'identity': 'Archivist',
-            'tagline': 'Patient',
+            'brief': 'Patient',
             'description': 'Keeps the records.',
             'goal': 'Find the first page.',
             'avatar': '',
+            'initial_location_id': 'location_edit_1',
             'location_id': 'location_edit_1',
+            'metric_value': 0,
+            'delta': 0,
           },
         ],
-        'location_list': [
+        'locations': [
           {
             'location_id': 'location_edit_1',
-            'name': 'Archive',
-            'description': 'A quiet tower.',
+            'level': 1,
+            'location_pid': '',
+            'location_name': 'Archive',
+            'location_description': 'A quiet tower.',
+            'location_paragraph': '',
+            'location_timestamp': '',
+            'location_summary': '',
             'image': '',
+            'x_percent': 0,
+            'y_percent': 0,
+            'map_url': '',
+            'dialogue': const <Object?>[],
           },
         ],
-        'event_list': [
-          {'content': 'The archive opens.'},
-        ],
-        'metric': {'mode': 'quantitative', 'label': 'Influence'},
+        'ticks': const <Object?>[],
       };
     }
     if (request.method == 'POST' &&
@@ -1272,7 +1366,7 @@ void main() {
     expect(find.text('No results.'), findsOneWidget);
   });
 
-  testWidgets('tap Messages does not show login sheet', (
+  testWidgets('tap Messages while signed out shows login sheet', (
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
@@ -1281,13 +1375,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('登录后可使用该功能'), findsNothing);
-    expect(find.text('Sign In With Google'), findsNothing);
+    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Sign In With Google'), findsOneWidget);
+    expect(find.text('Sign In With Apple'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsNothing);
+    expect(find.text('Private chats'), findsNothing);
   });
 
   testWidgets('messages tab shows action buttons and section title', (
     WidgetTester tester,
   ) async {
-    await _pumpGenesisApp(tester);
+    await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
 
     await tester.tap(find.text('Messages'));
     await tester.pumpAndSettle();
@@ -1295,7 +1393,19 @@ void main() {
     expect(find.text('Notifications'), findsOneWidget);
     expect(find.text('New followers'), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
-    expect(find.text('Direct messages'), findsOneWidget);
+    expect(find.text('Private chats'), findsOneWidget);
+    expect(
+      find.image(const AssetImage('assets/custom-icons/png/notification.png')),
+      findsOneWidget,
+    );
+    expect(
+      find.image(const AssetImage('assets/custom-icons/png/following.png')),
+      findsOneWidget,
+    );
+    expect(
+      find.image(const AssetImage('assets/custom-icons/png/comment.png')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('direct messages list uses conversations endpoint and polls', (
@@ -1460,7 +1570,7 @@ void main() {
   testWidgets('unread summary renders messages badges', (
     WidgetTester tester,
   ) async {
-    await _pumpGenesisApp(tester);
+    await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
     await tester.pumpAndSettle();
 
     expect(
@@ -1513,7 +1623,7 @@ void main() {
   testWidgets('messages action button navigates to list page', (
     WidgetTester tester,
   ) async {
-    await _pumpGenesisApp(tester);
+    await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
 
     await tester.tap(find.text('Messages'));
     await tester.pumpAndSettle();
@@ -1531,7 +1641,7 @@ void main() {
   testWidgets('message category pages request matching notification block', (
     WidgetTester tester,
   ) async {
-    await _pumpGenesisApp(tester);
+    await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
 
     await tester.tap(find.text('Messages'));
     await tester.pumpAndSettle();
@@ -2140,6 +2250,104 @@ void main() {
     expect(find.text('#World 1'), findsOneWidget);
   });
 
+  testWidgets('World Request button calls v1 apply for requestable statuses', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldRelationStatus: 'none');
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('#World 1'));
+    await tester.pumpAndSettle();
+
+    final buttonFinder = find.widgetWithText(FilledButton, 'Request');
+    await tester.ensureVisible(buttonFinder);
+    await tester.pumpAndSettle();
+    await tester.tap(buttonFinder);
+    await tester.pumpAndSettle();
+
+    final applyRequests = transport.requestsFor('/api/v1/world/apply');
+    expect(applyRequests, hasLength(1));
+    expect(transport.decodedBody(applyRequests.single)['world_id'], 'w_test_1');
+  });
+
+  testWidgets('World pending button is disabled', (WidgetTester tester) async {
+    final transport = _RecordingV1ListTransport(worldRelationStatus: 'pending');
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('#World 1'));
+    await tester.pumpAndSettle();
+
+    final buttonFinder = find.widgetWithText(FilledButton, 'pending');
+    await tester.ensureVisible(buttonFinder);
+    await tester.pumpAndSettle();
+    expect(buttonFinder, findsOneWidget);
+    expect(tester.widget<FilledButton>(buttonFinder).onPressed, isNull);
+
+    await tester.tap(buttonFinder);
+    await tester.pump();
+    expect(transport.requestsFor('/api/v1/world/apply'), isEmpty);
+    expect(transport.requestsFor('/api/v1/world/join'), isEmpty);
+    expect(transport.requestsFor('/api/v1/world/tick'), isEmpty);
+  });
+
+  testWidgets('World Launch button shows role sheet before v1 join', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('#World 1'));
+    await tester.pumpAndSettle();
+
+    final buttonFinder = find.widgetWithText(FilledButton, 'Launch');
+    await tester.ensureVisible(buttonFinder);
+    await tester.pumpAndSettle();
+    await tester.tap(buttonFinder);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Setup Your Role'), findsOneWidget);
+    expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
+    await tester.pumpAndSettle();
+
+    final joinRequests = transport.requestsFor('/api/v1/world/join');
+    expect(joinRequests, hasLength(1));
+    final body = transport.decodedBody(joinRequests.single);
+    expect(body['world_id'], 'w_test_1');
+    expect(body['preset_character_id'], 'c_w_test_1');
+    expect(body.containsKey('apply_id'), isFalse);
+  });
+
   testWidgets(
     'World progress button calls v1 tick and disables while pending',
     (WidgetTester tester) async {
@@ -2161,7 +2369,10 @@ void main() {
       await tester.tap(find.text('#World 1'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Progress'));
+      final buttonFinder = find.widgetWithText(FilledButton, 'Progress');
+      await tester.ensureVisible(buttonFinder);
+      await tester.pumpAndSettle();
+      await tester.tap(buttonFinder);
       await tester.pump();
 
       var tickRequests = transport.requestsFor('/api/v1/world/tick');
@@ -2193,6 +2404,7 @@ void main() {
         }),
       );
       await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 3));
 
       expect(find.widgetWithText(FilledButton, 'Progress'), findsOneWidget);
     },
@@ -2281,7 +2493,7 @@ void main() {
     expect(find.text('#Origin 1'), findsOneWidget);
   });
 
-  testWidgets('tap Me shows login sheet when not logged in', (
+  testWidgets('tap Me shows signed-out Me view when not logged in', (
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
@@ -2289,32 +2501,63 @@ void main() {
     await tester.tap(find.text('Me'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sign in to continue'), findsOneWidget);
-    expect(find.text('Sign In With Google'), findsOneWidget);
+    expect(find.text('LIVE YOUR WORLD'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with Apple'), findsOneWidget);
   });
 
-  testWidgets('tap Me shows login sheet without local backend login state', (
+  testWidgets(
+    'tap Me shows signed-out view without local backend login state',
+    (WidgetTester tester) async {
+      final backendAuth = _FakeBackendAuthCoordinator(
+        authenticated: true,
+        sessionStore: MemoryUserSessionStore(),
+      );
+      await tester.pumpWidget(
+        GenesisApp(
+          services: await _testServices(
+            identityAuth: const _FakeIdentityAuthService(hasLocalSession: true),
+            backendAuth: backendAuth,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Me'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Continue with Google'), findsOneWidget);
+      expect(find.text('Continue with Apple'), findsOneWidget);
+      expect(backendAuth.sessionCheckCount, 0);
+    },
+  );
+
+  testWidgets('login sheet shows both provider options', (
     WidgetTester tester,
   ) async {
-    final backendAuth = _FakeBackendAuthCoordinator(
-      authenticated: true,
-      sessionStore: MemoryUserSessionStore(),
-    );
+    IdentityProvider? tappedProvider;
     await tester.pumpWidget(
-      GenesisApp(
-        services: await _testServices(
-          identityAuth: const _FakeIdentityAuthService(hasLocalSession: true),
-          backendAuth: backendAuth,
+      MaterialApp(
+        home: Scaffold(
+          body: LoginSheet(
+            onLogin: (provider) async {
+              tappedProvider = provider;
+              return false;
+            },
+          ),
         ),
       ),
     );
 
-    await tester.tap(find.text('Me'));
+    expect(find.text('Sign In With Google'), findsOneWidget);
+    expect(find.text('Sign In With Apple'), findsOneWidget);
+
+    await tester.tap(find.text('Sign In With Apple'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sign in to continue'), findsOneWidget);
-    expect(find.text('Sign In With Google'), findsOneWidget);
-    expect(backendAuth.sessionCheckCount, 0);
+    expect(tappedProvider, IdentityProvider.apple);
+    expect(find.text('Sign In With Apple'), findsOneWidget);
   });
 
   testWidgets('tap Me renders cached profile then refreshes user info', (
@@ -2586,12 +2829,142 @@ void main() {
     expect(find.text('Origin loaded'), findsOneWidget);
   });
 
-  testWidgets('login sheet enters Me after backend HTTP login succeeds', (
+  testWidgets('profile avatar notifier update does not rebuild profile shell', (
     WidgetTester tester,
   ) async {
+    final avatarUrl = ValueNotifier<String>('https://cdn.example.com/old.png');
+    addTearDown(avatarUrl.dispose);
+    var shellBuilds = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              shellBuilds += 1;
+              return UserProfileContent(
+                data: const UserProfileData(
+                  avatarUrl: 'https://cdn.example.com/old.png',
+                  displayName: 'Cached User',
+                  uid: 'u_cached',
+                  followingCount: 7,
+                  followerCount: 11,
+                  origins: <UserProfileOriginItem>[],
+                  worlds: <UserProfileWorldItem>[],
+                ),
+                avatarUrlListenable: avatarUrl,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(shellBuilds, 1);
+    expect(
+      tester
+          .widget<CachedNetworkImage>(
+            find.byKey(const ValueKey('user-profile-avatar-image')),
+          )
+          .imageUrl,
+      'https://cdn.example.com/old.png',
+    );
+
+    avatarUrl.value = 'https://cdn.example.com/new.png';
+    await tester.pump();
+
+    expect(shellBuilds, 1);
+    expect(find.text('Cached User'), findsOneWidget);
+    expect(
+      tester
+          .widget<CachedNetworkImage>(
+            find.byKey(const ValueKey('user-profile-avatar-image')),
+          )
+          .imageUrl,
+      'https://cdn.example.com/new.png',
+    );
+  });
+
+  testWidgets(
+    'profile display name notifier update does not rebuild profile shell',
+    (WidgetTester tester) async {
+      final displayName = ValueNotifier<String>('');
+      addTearDown(displayName.dispose);
+      var shellBuilds = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) {
+                shellBuilds += 1;
+                return UserProfileContent(
+                  data: const UserProfileData(
+                    avatarUrl: '',
+                    displayName: 'Cached User',
+                    uid: 'u_cached',
+                    followingCount: 7,
+                    followerCount: 11,
+                    origins: <UserProfileOriginItem>[],
+                    worlds: <UserProfileWorldItem>[],
+                  ),
+                  displayNameListenable: displayName,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(shellBuilds, 1);
+      expect(find.text('Cached User'), findsOneWidget);
+
+      displayName.value = 'Updated Nick';
+      await tester.pump();
+
+      expect(shellBuilds, 1);
+      expect(find.text('Updated Nick'), findsOneWidget);
+      expect(find.text('Cached User'), findsNothing);
+    },
+  );
+
+  testWidgets('profile display name edit icon stays next to text', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: UserProfileContent(
+            data: const UserProfileData(
+              avatarUrl: '',
+              displayName: 'Short',
+              uid: 'u_cached',
+              followingCount: 7,
+              followerCount: 11,
+              origins: <UserProfileOriginItem>[],
+              worlds: <UserProfileWorldItem>[],
+            ),
+            onEditDisplayName: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final textRight = tester.getTopRight(find.text('Short')).dx;
+    final iconLeft = tester.getTopLeft(find.byIcon(Icons.edit)).dx;
+    expect(iconLeft - textRight, lessThan(16));
+  });
+
+  testWidgets('signed-out Me view enters Me after Google login succeeds', (
+    WidgetTester tester,
+  ) async {
+    final sessionStore = MemoryUserSessionStore();
     final backendAuth = _FakeBackendAuthCoordinator(
       authenticated: false,
-      sessionStore: MemoryUserSessionStore(),
+      sessionStore: sessionStore,
       loginUser: const User(
         id: 42,
         uid: 'backend_uid',
@@ -2605,6 +2978,7 @@ void main() {
     await tester.pumpWidget(
       GenesisApp(
         services: await _testServices(
+          sessionStoreOverride: sessionStore,
           identityAuth: const _FakeIdentityAuthService(
             signInSession: AuthSession(
               provider: IdentityProvider.google,
@@ -2623,26 +2997,77 @@ void main() {
 
     await tester.tap(find.text('Me'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Sign In With Google'));
+    await tester.ensureVisible(find.text('Continue with Google'));
+    await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
 
     expect(backendAuth.loginCount, 1);
-    expect(find.text('Sign in to continue'), findsNothing);
-    expect(find.text('Sign In With Google'), findsNothing);
+    expect(backendAuth.lastLoginProvider, IdentityProvider.google);
+    expect(find.text('Continue with Google'), findsNothing);
   });
 
-  testWidgets('login sheet stays open when backend HTTP login fails', (
+  testWidgets('signed-out Me view can start Apple login', (
     WidgetTester tester,
   ) async {
+    final sessionStore = MemoryUserSessionStore();
     final backendAuth = _FakeBackendAuthCoordinator(
       authenticated: false,
-      sessionStore: MemoryUserSessionStore(),
+      sessionStore: sessionStore,
+      loginUser: const User(
+        id: 42,
+        uid: 'backend_uid',
+        did: '',
+        nickname: 'Backend User',
+        avatar: '',
+        createdAt: null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      GenesisApp(
+        services: await _testServices(
+          sessionStoreOverride: sessionStore,
+          identityAuth: const _FakeIdentityAuthService(
+            signInSession: AuthSession(
+              provider: IdentityProvider.apple,
+              providerIdToken: 'apple-token',
+              firebaseIdToken: 'firebase-token',
+              identityUid: 'identity_uid',
+              email: 'identity@example.com',
+              displayName: 'Identity User',
+              photoUrl: '',
+            ),
+          ),
+          backendAuth: backendAuth,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Continue with Apple'));
+    await tester.tap(find.text('Continue with Apple'));
+    await tester.pumpAndSettle();
+
+    expect(backendAuth.loginCount, 1);
+    expect(backendAuth.lastLoginProvider, IdentityProvider.apple);
+    expect(find.text('Continue with Apple'), findsNothing);
+  });
+
+  testWidgets('signed-out Me view stays open when backend HTTP login fails', (
+    WidgetTester tester,
+  ) async {
+    final sessionStore = MemoryUserSessionStore();
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: false,
+      sessionStore: sessionStore,
       loginError: Exception('backend login failed'),
     );
 
     await tester.pumpWidget(
       GenesisApp(
         services: await _testServices(
+          sessionStoreOverride: sessionStore,
           identityAuth: const _FakeIdentityAuthService(
             signInSession: AuthSession(
               provider: IdentityProvider.google,
@@ -2661,18 +3086,34 @@ void main() {
 
     await tester.tap(find.text('Me'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Sign In With Google'));
+    await tester.ensureVisible(find.text('Continue with Google'));
+    await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
 
     expect(backendAuth.loginCount, 1);
-    expect(find.text('Sign in to continue'), findsOneWidget);
-    expect(find.text('Sign In With Google'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
   });
 
-  testWidgets('tap Create opens create origin page directly', (
+  testWidgets('tap Create while signed out shows login sheet', (
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
+    await tester.tap(find.text('Create'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Sign In With Google'), findsOneWidget);
+    expect(find.text('Sign In With Apple'), findsOneWidget);
+    expect(find.text('Create Origin'), findsNothing);
+    expect(find.text('Basics'), findsNothing);
+  });
+
+  testWidgets('tap Create while signed in opens create origin page directly', (
+    WidgetTester tester,
+  ) async {
+    await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
     await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
 
@@ -3194,7 +3635,10 @@ void main() {
     final body = transport.decodedBody(updateRequests.single);
     expect(body['oid'], 'o_edit_1');
     expect(body['name'], 'Edited Origin');
-    expect(body['cover'], 'https://example.com/edit-cover.png');
+    expect(
+      body['cover'],
+      'assets/images/mock_maps/steam_kingdom_isometric.png',
+    );
     expect((body['character_list'] as List).single['char_id'], 'char_edit_1');
     final editedLocations = body['location_list'] as List;
     expect(
@@ -3209,6 +3653,8 @@ void main() {
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
     expect(find.text('Origin saved successfully: o_edit_1'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('settings opens about us page', (WidgetTester tester) async {
@@ -3333,6 +3779,39 @@ void main() {
       ),
       isEmpty,
     );
+  });
+
+  testWidgets('settings logout clears local login session cache', (
+    WidgetTester tester,
+  ) async {
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_cached');
+    await sessionStore.saveAuthToken('backend-token');
+    await sessionStore.saveUserInfo({'uid': 'u_cached', 'name': 'Cached User'});
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: true,
+      sessionStore: sessionStore,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            sessionStoreOverride: sessionStore,
+            backendAuth: backendAuth,
+          ),
+          child: const SettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Log out'));
+    await tester.pumpAndSettle();
+
+    expect(await sessionStore.readUid(), isNull);
+    expect(await sessionStore.readAuthToken(), isNull);
+    expect(await sessionStore.readUserInfo(), isNull);
   });
 
   testWidgets(

@@ -11,7 +11,7 @@ void main() {
         home: Scaffold(
           body: WorldTickEventItem(
             tick: {
-              'tick_index': 7,
+              'tick_no': 7,
               'created_at': '2026-05-02T00:00:00Z',
               'tick_result': {
                 'narrator': 'A signal reaches the harbor.',
@@ -19,7 +19,7 @@ void main() {
                   {
                     'location_id': 'loc_harbor',
                     'text': 'The harbor lights answer in sequence.',
-                    'character_details': [
+                    'character_deltas': [
                       {'name': 'Iris Vale', 'delta': '+3 focus'},
                     ],
                   },

@@ -108,15 +108,20 @@ class _MessagesPageState extends State<MessagesPage> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const PageHeader(pageName: 'Messages', showSearchBar: false),
-          const SizedBox(height: 16),
+          const PageHeader(
+            pageName: 'Messages',
+            showSearchBar: false,
+            topPadding: 18,
+          ),
+          const SizedBox(height: 28),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _MessageMenuButton(
-                  icon: Icons.notifications_active_rounded,
+                  iconAsset: 'assets/custom-icons/png/notification.png',
+                  backgroundColor: Color(0xFFDDF2EF),
                   label: 'Notifications',
                   routeName: RouteNames.notifications,
                   block: 'world_apply',
@@ -125,7 +130,8 @@ class _MessagesPageState extends State<MessagesPage> {
                   onUnreadSummaryRefresh: widget.onUnreadSummaryRefresh,
                 ),
                 _MessageMenuButton(
-                  icon: Icons.person_add_alt_1_rounded,
+                  iconAsset: 'assets/custom-icons/png/following.png',
+                  backgroundColor: Color(0xFFFFF0D8),
                   label: 'New followers',
                   routeName: RouteNames.newFollowers,
                   block: 'follow',
@@ -134,7 +140,8 @@ class _MessagesPageState extends State<MessagesPage> {
                   onUnreadSummaryRefresh: widget.onUnreadSummaryRefresh,
                 ),
                 _MessageMenuButton(
-                  icon: Icons.mode_comment_outlined,
+                  iconAsset: 'assets/custom-icons/png/comment.png',
+                  backgroundColor: Color(0xFFE9F0FF),
                   label: 'Comments',
                   routeName: RouteNames.comments,
                   block: 'interaction',
@@ -145,13 +152,13 @@ class _MessagesPageState extends State<MessagesPage> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 34),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18),
             child: Row(
               children: [
                 const Text(
-                  'Direct messages',
+                  'Private chats',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(width: 6),
@@ -189,7 +196,8 @@ class _MessagesPageState extends State<MessagesPage> {
 
 class _MessageMenuButton extends StatelessWidget {
   const _MessageMenuButton({
-    required this.icon,
+    required this.iconAsset,
+    required this.backgroundColor,
     required this.label,
     required this.routeName,
     required this.block,
@@ -198,7 +206,8 @@ class _MessageMenuButton extends StatelessWidget {
     required this.onUnreadSummaryRefresh,
   });
 
-  final IconData icon;
+  final String iconAsset;
+  final Color backgroundColor;
   final String label;
   final String routeName;
   final String block;
@@ -228,16 +237,31 @@ class _MessageMenuButton extends StatelessWidget {
           child: Column(
             children: [
               SizedBox(
-                width: 44,
-                height: 34,
+                width: 62,
+                height: 62,
                 child: Stack(
                   clipBehavior: Clip.none,
                   alignment: Alignment.center,
                   children: [
-                    Icon(icon, size: 30, color: Colors.black87),
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: backgroundColor,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      alignment: Alignment.center,
+                      child: Image.asset(
+                        iconAsset,
+                        width: 31,
+                        height: 31,
+                        fit: BoxFit.contain,
+                        filterQuality: FilterQuality.high,
+                      ),
+                    ),
                     Positioned(
-                      top: 0,
-                      right: 0,
+                      top: 1,
+                      right: 1,
                       child: _UnreadBadge(
                         key: ValueKey('message-menu-$routeName-unread-badge'),
                         count: unreadCount,
@@ -246,7 +270,7 @@ class _MessageMenuButton extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 9),
               Text(
                 label,
                 textAlign: TextAlign.center,
@@ -313,13 +337,13 @@ class _ConversationList extends StatelessWidget {
     return ListView.separated(
       controller: controller,
       padding: EdgeInsets.only(
-        left: 14,
-        right: 14,
-        top: 4,
+        left: 18,
+        right: 18,
+        top: 0,
         bottom: 18 + MediaQuery.paddingOf(context).bottom,
       ),
       itemCount: conversationIds.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => const SizedBox(height: 0),
       itemBuilder: (context, index) {
         final conversationId = conversationIds[index];
         final listenable = conversationStore.rowListenable(conversationId);
@@ -344,13 +368,11 @@ class _ConversationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFFF6F7F8),
-      borderRadius: BorderRadius.circular(10),
+      color: Colors.white,
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
         onTap: () => unawaited(onTap(item)),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
           child: Row(
             children: [
               _Avatar(
@@ -361,48 +383,57 @@ class _ConversationTile extends StatelessWidget {
                   'dm-avatar-${item.conversationId}-unread-badge',
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 13),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      item.peerName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.peerName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 112),
+                          child: Text(
+                            item.lastMessageAt,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF9CA0A8),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      item.lastMessage,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF80848D),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 60),
+                      child: Text(
+                        item.lastMessage,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF80848D),
+                        ),
                       ),
                     ),
                   ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 112),
-                child: Text(
-                  item.lastMessageAt,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF9CA0A8),
-                    fontWeight: FontWeight.w600,
-                  ),
                 ),
               ),
             ],
@@ -434,7 +465,7 @@ class _Avatar extends StatelessWidget {
         : trimmed.substring(0, trimmed.length >= 2 ? 2 : 1).toUpperCase();
     final fallback = Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF262A33),
+        color: const Color(0xFF0E97D3),
         borderRadius: BorderRadius.circular(8),
       ),
       alignment: Alignment.center,
@@ -454,30 +485,30 @@ class _Avatar extends StatelessWidget {
             child: avatarUrl.startsWith('assets/')
                 ? Image.asset(
                     avatarUrl,
-                    width: 44,
-                    height: 44,
+                    width: 56,
+                    height: 56,
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => fallback,
                   )
                 : Image.network(
                     avatarUrl,
-                    width: 44,
-                    height: 44,
+                    width: 56,
+                    height: 56,
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => fallback,
                   ),
           );
 
     return SizedBox(
-      width: 48,
-      height: 48,
+      width: 60,
+      height: 60,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned(
             left: 0,
             bottom: 0,
-            child: SizedBox(width: 44, height: 44, child: avatar),
+            child: SizedBox(width: 56, height: 56, child: avatar),
           ),
           Positioned(
             top: 0,

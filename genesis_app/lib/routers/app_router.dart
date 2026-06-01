@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../pages/app_shell_page.dart';
 import '../pages/create/create_origin_page.dart';
+import '../pages/discuss/discuss_page.dart';
 import '../pages/edit/edit_origin_page.dart';
 import '../pages/search/search_page.dart';
 import '../pages/origin/origin_world_page.dart';
@@ -17,6 +18,7 @@ sealed class RouteNames {
   static const home = '/home';
   static const origin = '/origin';
   static const originWorld = '/origin_world';
+  static const discuss = '/discuss';
   static const world = '/world';
   static const chat = '/chat';
   static const locationChat = '/location_chat';
@@ -64,6 +66,26 @@ sealed class AppRouter {
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => OriginWorldPage(oid: oid, originId: originId),
+        );
+      case RouteNames.discuss:
+        final args = settings.arguments;
+        var oid = '';
+        var originId = 0;
+        if (args is String) {
+          oid = args;
+        } else if (args is Map) {
+          final rawOid = args['oid'] ?? args['origin_id'] ?? args['originId'];
+          if (rawOid != null) oid = rawOid.toString();
+          final rawOriginId = args['originId'] ?? args['origin_id'];
+          if (rawOriginId is int) {
+            originId = rawOriginId;
+          } else if (rawOriginId != null) {
+            originId = int.tryParse(rawOriginId.toString()) ?? 0;
+          }
+        }
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => DiscussPage(oid: oid, originId: originId),
         );
       case RouteNames.world:
         final args = settings.arguments;

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'http_transport.dart';
+import 'json_utils.dart';
 import 'mock_data/mock_message_data.dart';
 import 'mock_data/mock_origin_data.dart';
 import 'mock_data/mock_profile_data.dart';
@@ -30,7 +31,13 @@ class LocalMockGenesisTransport implements HttpTransport {
 
     final apiPath = path.startsWith('/api/')
         ? path.substring('/api/'.length)
+        : path.startsWith('/')
+        ? path.substring(1)
         : path;
+
+    if (apiPath.startsWith('aitown-chat/')) {
+      return _handleChatroomHttp(method, apiPath, query, body);
+    }
 
     if (apiPath.startsWith('v1/')) {
       return _handleV1(method, apiPath.substring('v1/'.length), query, body);
@@ -212,6 +219,47 @@ class LocalMockGenesisTransport implements HttpTransport {
     return _error(404, 'mock route not found: $method $path');
   }
 
+  Future<TransportResponse> _handleChatroomHttp(
+    String method,
+    String path,
+    Map<String, String> query,
+    Map<String, dynamic> body,
+  ) async {
+    if (method == 'GET' && path == 'aitown-chat/internal/world/messages') {
+      return _v1Ok(_state.chatroomWorldMessages(query['world_id'] ?? ''));
+    }
+
+    if (method == 'GET' && path == 'aitown-chat/api/messages') {
+      return _v1Ok(
+        _state.chatroomHistoryMessages(
+          worldId: query['world_instance_id'] ?? '',
+          locationId: query['location_id'] ?? '',
+          since: int.tryParse(query['since'] ?? ''),
+          limit: int.tryParse(query['limit'] ?? ''),
+        ),
+      );
+    }
+
+    if (method == 'POST' && path == 'aitown-chat/internal/tick/lock') {
+      final worldId = '${query['world_id'] ?? body['world_id'] ?? ''}';
+      return _v1Ok(_state.lockChatroomWorld(worldId));
+    }
+
+    if (method == 'GET' && path == 'aitown-chat/internal/tick/progress') {
+      return _v1Ok(_state.chatroomTickProgress(query['world_id'] ?? ''));
+    }
+
+    if (method == 'POST' && path == 'aitown-chat/internal/tick/unlock') {
+      return _v1Ok(_state.unlockChatroomWorld('${body['world_id'] ?? ''}'));
+    }
+
+    if (method == 'POST' && path == 'aitown-chat/internal/narrator/write') {
+      return _v1Ok(_state.writeChatroomNarrator(body));
+    }
+
+    return _v1Error(404, 'mock chatroom route not found: $method /$path');
+  }
+
   Future<TransportResponse> _handleV1(
     String method,
     String path,
@@ -325,16 +373,48 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_state.v1WorldContractDetail(query['world_id']));
     }
 
-    if (method == 'POST' && path == 'world/request') {
-      return _v1Ok(<String, dynamic>{});
+    if (method == 'GET' && path == 'world/origin_progress') {
+      return _v1Ok(
+        _state.v1WorldOriginProgress(
+          uid: query['uid'] ?? '',
+          originId: query['origin_id'] ?? '',
+        ),
+      );
     }
 
-    if (method == 'POST' && path == 'world/request/audit') {
-      return _v1Ok(<String, dynamic>{});
+    if (method == 'POST' && path == 'world/apply') {
+      return _v1Ok(
+        _state.applyToV1World(
+          worldId: '${body['world_id'] ?? ''}',
+          message: body['message']?.toString(),
+        ),
+      );
+    }
+
+    if (method == 'GET' && path == 'world/apply/list') {
+      return _v1Ok(_state.v1WorldApplyList(query));
+    }
+
+    if (method == 'POST' && path == 'world/apply/review') {
+      return _v1Ok(
+        _state.reviewV1WorldApply(
+          applyId: '${body['apply_id'] ?? ''}',
+          action: '${body['action'] ?? ''}',
+          reviewMsg: body['review_msg']?.toString(),
+        ),
+      );
     }
 
     if (method == 'POST' && path == 'world/join') {
-      return _v1Ok(_state.v1WorldDetail('${body['wid'] ?? ''}'));
+      return _v1Ok(
+        _state.joinV1World(
+          worldId: '${body['world_id'] ?? ''}',
+          presetCharacterId: body['preset_character_id']?.toString(),
+          customRole: body['custom_role'] is Map
+              ? Map<String, dynamic>.from(body['custom_role'] as Map)
+              : null,
+        ),
+      );
     }
 
     if (method == 'POST' && path == 'world/tick') {
@@ -426,6 +506,10 @@ class LocalMockGenesisTransport implements HttpTransport {
 
     if (method == 'GET' && path == 'discuss/list') {
       return _v1Ok(_state.v1DiscussList(query));
+    }
+
+    if (method == 'GET' && path == 'discuss/replies') {
+      return _v1Ok(_state.v1DiscussReplies(query));
     }
 
     if (method == 'POST' && path == 'discuss/post') {
@@ -579,6 +663,9 @@ class LocalMockGenesisTransport implements HttpTransport {
     try {
       decoded = jsonDecode(decodedText);
     } catch (_) {
+      if (decodedText.contains('Content-Disposition: form-data')) {
+        return _decodeMultipartFields(decodedText);
+      }
       return const <String, dynamic>{};
     }
     if (decoded is Map<String, dynamic>) return decoded;
@@ -586,6 +673,20 @@ class LocalMockGenesisTransport implements HttpTransport {
       return decoded.map((k, v) => MapEntry('$k', v));
     }
     return const <String, dynamic>{};
+  }
+
+  Map<String, dynamic> _decodeMultipartFields(String input) {
+    final fields = <String, dynamic>{};
+    final pattern = RegExp(
+      r'name="([^"]+)"(?:\r?\n)+\r?\n([\s\S]*?)(?=\r?\n--)',
+      multiLine: true,
+    );
+    for (final match in pattern.allMatches(input)) {
+      final name = match.group(1)?.trim() ?? '';
+      if (name.isEmpty) continue;
+      fields[name] = match.group(2)?.trim() ?? '';
+    }
+    return fields;
   }
 }
 
@@ -622,6 +723,7 @@ class _MockState {
   final List<Map<String, dynamic>> _v1Worlds = _expandMockV1Worlds()
       .map((item) => _deepCopyMap(item))
       .toList(growable: true);
+  final List<Map<String, dynamic>> _v1WorldApplies = <Map<String, dynamic>>[];
   final List<Map<String, dynamic>> _v1SearchUsers = _expandMockV1SearchUsers()
       .map((item) => _deepCopyMap(item))
       .toList(growable: true);
@@ -642,9 +744,15 @@ class _MockState {
       .toList(growable: true);
   final Map<String, Map<String, dynamic>> _v1Drafts =
       <String, Map<String, dynamic>>{};
+  int _v1WorldApplySeq = 0;
+  final List<Map<String, dynamic>> _chatroomMessages = <Map<String, dynamic>>[];
+  final Map<String, bool> _chatroomWorldLocks = <String, bool>{};
+  int _chatroomMessageSeq = 1000;
+  int _chatroomRoundSeq = 100;
 
   _MockState() {
     _ensureV1DiscussCoverage();
+    _ensureChatroomMessages();
   }
 
   Map<String, dynamic> get _v1Origin => _v1Origins.first;
@@ -826,7 +934,166 @@ class _MockState {
       'created_at': DateTime.now().toUtc().toIso8601String(),
     };
     queue.add(msg);
+    _chatroomMessages.add(
+      _newChatroomMessage(
+        worldId: wid,
+        locationId: locationId,
+        conversationRoundId: ++_chatroomRoundSeq,
+        roundOrder: 1,
+        senderType: 'user',
+        senderId: 'player1',
+        senderName: '${me['display_name']}',
+        userId: userId,
+        content: text,
+      ),
+    );
     return _deepCopyMap(msg);
+  }
+
+  Map<String, dynamic> chatroomWorldMessages(String worldId) {
+    final messages = _chatroomMessagesForWorld(worldId);
+    messages.sort((a, b) {
+      final roundCompare = ((b['conversation_round_id'] as int?) ?? 0)
+          .compareTo((a['conversation_round_id'] as int?) ?? 0);
+      if (roundCompare != 0) return roundCompare;
+      return ((a['round_order'] as int?) ?? 0).compareTo(
+        (b['round_order'] as int?) ?? 0,
+      );
+    });
+    final latest = messages.take(50).toList(growable: false);
+    final byLocation = <String, List<Map<String, dynamic>>>{};
+    for (final message in latest) {
+      final locationId = '${message['location_id']}';
+      byLocation
+          .putIfAbsent(locationId, () => <Map<String, dynamic>>[])
+          .add(_chatroomResponseMessage(message));
+    }
+    return {
+      'locations': [
+        for (final entry in byLocation.entries)
+          {'location_id': entry.key, 'messages': entry.value},
+      ],
+    };
+  }
+
+  Map<String, dynamic> chatroomHistoryMessages({
+    required String worldId,
+    required String locationId,
+    int? since,
+    int? limit,
+  }) {
+    final size = limit == null || limit <= 0 ? 20 : limit;
+    final messages =
+        _chatroomMessagesForWorld(worldId)
+            .where((message) {
+              final sameLocation =
+                  locationId.trim().isEmpty ||
+                  message['location_id'] == locationId;
+              final id = (message['message_id'] as int?) ?? 0;
+              final beforeCursor = since == null || since <= 0 || id < since;
+              return sameLocation && beforeCursor;
+            })
+            .toList(growable: false)
+          ..sort((a, b) {
+            return ((b['message_id'] as int?) ?? 0).compareTo(
+              (a['message_id'] as int?) ?? 0,
+            );
+          });
+    final page = messages.take(size).map(_chatroomResponseMessage).toList();
+    final newestId = _chatroomMessagesForWorld(worldId).fold<int>(0, (
+      maxId,
+      message,
+    ) {
+      final id = (message['message_id'] as int?) ?? 0;
+      return id > maxId ? id : maxId;
+    });
+    return {
+      'messages': page,
+      'has_more': messages.length > page.length,
+      'newest_message_id': newestId,
+    };
+  }
+
+  Map<String, dynamic> lockChatroomWorld(String worldId) {
+    final resolved = _resolveChatroomWorldId(worldId);
+    _chatroomWorldLocks[resolved] = true;
+    return {'locked': true};
+  }
+
+  Map<String, dynamic> unlockChatroomWorld(String worldId) {
+    final resolved = _resolveChatroomWorldId(worldId);
+    _chatroomWorldLocks[resolved] = false;
+    return {'unlocked': true};
+  }
+
+  Map<String, dynamic> chatroomTickProgress(String worldId) {
+    final resolved = _resolveChatroomWorldId(worldId);
+    final locked = _chatroomWorldLocks[resolved] ?? false;
+    return {
+      'progress': locked ? 0 : 1,
+      'pending_messages': locked ? 1 : 0,
+      'active_llm_calls': locked ? 1 : 0,
+    };
+  }
+
+  Map<String, dynamic> writeChatroomNarrator(Map<String, dynamic> body) {
+    final worldId = _resolveChatroomWorldId('${body['world_id'] ?? ''}');
+    final groups = body['location_groups'] is List
+        ? body['location_groups'] as List
+        : const <Object?>[];
+    var firstMessageId = 0;
+    for (final rawGroup in groups) {
+      if (rawGroup is! Map) continue;
+      final group = asJsonMap(rawGroup);
+      final locationId = asString(group['location_id'], fallback: 'loc_hub');
+      final dialogues = group['initial_dialogue'] is List
+          ? group['initial_dialogue'] as List
+          : const <Object?>[];
+      if (dialogues.isEmpty) {
+        final message = _newChatroomMessage(
+          worldId: worldId,
+          locationId: locationId,
+          conversationRoundId: ++_chatroomRoundSeq,
+          roundOrder: 1,
+          senderType: 'narrator',
+          senderId: '',
+          senderName: '旁白',
+          userId: '',
+          content: asString(group['location_summary']),
+        );
+        _chatroomMessages.add(message);
+        firstMessageId = firstMessageId == 0
+            ? message['message_id'] as int
+            : firstMessageId;
+        continue;
+      }
+      final roundId = ++_chatroomRoundSeq;
+      var order = 1;
+      for (final rawLine in dialogues) {
+        if (rawLine is! Map) continue;
+        final line = asJsonMap(rawLine);
+        final message = _newChatroomMessage(
+          worldId: worldId,
+          locationId: locationId,
+          conversationRoundId: roundId,
+          roundOrder: order++,
+          senderType: 'narrator',
+          senderId: asString(line['char_id']),
+          senderName: asString(line['char_name'], fallback: '旁白'),
+          userId: '',
+          content: asString(line['content']),
+        );
+        _chatroomMessages.add(message);
+        firstMessageId = firstMessageId == 0
+            ? message['message_id'] as int
+            : firstMessageId;
+      }
+    }
+    return {
+      'message_id': firstMessageId == 0
+          ? ++_chatroomMessageSeq
+          : firstMessageId,
+    };
   }
 
   List<Map<String, dynamic>> worldsForUser(String userId) {
@@ -1085,6 +1352,46 @@ class _MockState {
     return _v1Paged(worlds.map(_v1WorldContractItem).toList(), query);
   }
 
+  Map<String, dynamic> v1WorldOriginProgress({
+    required String uid,
+    required String originId,
+  }) {
+    final normalizedUid = uid.trim();
+    final normalizedOriginId = originId.trim();
+    if (normalizedUid.isEmpty || normalizedOriginId.isEmpty) {
+      return {'world_id': '', 'tick_cnt': 0};
+    }
+
+    Map<String, dynamic>? bestWorld;
+    for (final world in _v1Worlds) {
+      if ('${world['oid'] ?? ''}'.trim() != normalizedOriginId) continue;
+      if (!_v1WorldBelongsToUser(world, normalizedUid)) continue;
+      final tickCnt = ((world['tick_cnt'] as num?)?.toInt() ?? 0);
+      final bestTickCnt = ((bestWorld?['tick_cnt'] as num?)?.toInt() ?? -1);
+      if (bestWorld == null || tickCnt > bestTickCnt) bestWorld = world;
+    }
+
+    if (bestWorld == null) return {'world_id': '', 'tick_cnt': 0};
+    return {
+      'world_id': '${bestWorld['wid'] ?? ''}',
+      'tick_cnt': ((bestWorld['tick_cnt'] as num?)?.toInt() ?? 0),
+    };
+  }
+
+  bool _v1WorldBelongsToUser(Map<String, dynamic> world, String uid) {
+    final ownerUid = '${world['owner_uid'] ?? world['created_uid'] ?? ''}'
+        .trim();
+    if (ownerUid == uid) return true;
+    final worldId = '${world['wid'] ?? ''}'.trim();
+    if (worldId.isEmpty) return false;
+    return _v1WorldApplies.any(
+      (apply) =>
+          '${apply['world_id'] ?? ''}'.trim() == worldId &&
+          '${apply['applicant_uid'] ?? ''}'.trim() == uid &&
+          apply['status'] == 40,
+    );
+  }
+
   Map<String, dynamic> v1WorldDetail(String? wid) {
     final world = _findV1World(wid);
     return {
@@ -1101,10 +1408,128 @@ class _MockState {
     final world = _findV1World(worldId);
     return {
       ..._v1WorldContractItem(world),
+      'relation_status': _v1WorldRelationStatus(world),
       'characters': kMockV1Characters.map(_contractCharacter).toList(),
       'locations': kMockV1Locations.map(_contractLocation).toList(),
       'ticks': kMockV1Ticks.map(_contractTick).toList(),
     };
+  }
+
+  Map<String, dynamic> applyToV1World({
+    required String worldId,
+    String? message,
+  }) {
+    final world = _findV1World(worldId.trim());
+    final applicantUid = '${_v1User['uid']}';
+    for (final apply in _v1WorldApplies) {
+      if (apply['world_id'] == world['wid'] &&
+          apply['applicant_uid'] == applicantUid &&
+          (apply['status'] == 10 || apply['status'] == 20)) {
+        return {'apply_id': apply['apply_id'], 'status': apply['status']};
+      }
+    }
+    final apply = _newV1WorldApply(
+      applyId: 'apl_mock_${(++_v1WorldApplySeq).toString().padLeft(3, '0')}',
+      worldId: '${world['wid']}',
+      message: message,
+    );
+    _v1WorldApplies.add(apply);
+    return {'apply_id': apply['apply_id'], 'status': apply['status']};
+  }
+
+  Map<String, dynamic> v1WorldApplyList(Map<String, String> query) {
+    final worldId = (query['world_id'] ?? '').trim();
+    final status = int.tryParse((query['status'] ?? '').trim());
+    final applies = _v1WorldApplies
+        .where((apply) {
+          final matchesWorld = worldId.isEmpty || apply['world_id'] == worldId;
+          final matchesStatus = status == null || apply['status'] == status;
+          return matchesWorld && matchesStatus;
+        })
+        .toList(growable: false);
+    return _v1Paged(applies, query);
+  }
+
+  Map<String, dynamic> reviewV1WorldApply({
+    required String applyId,
+    required String action,
+    String? reviewMsg,
+  }) {
+    final apply = _findV1WorldApply(applyId);
+    final normalizedAction = action.trim().toLowerCase();
+    final status = normalizedAction == 'reject' ? 30 : 20;
+    apply['status'] = status;
+    apply['reviewer_uid'] = _v1User['uid'];
+    apply['review_msg'] = reviewMsg ?? '';
+    apply['reviewed_at'] = _unixSeconds();
+    return {'apply_id': apply['apply_id'], 'status': status};
+  }
+
+  Map<String, dynamic> joinV1World({
+    required String worldId,
+    String? presetCharacterId,
+    Map<String, dynamic>? customRole,
+  }) {
+    final world = _findV1World(worldId.trim());
+    final applicantUid = '${_v1User['uid']}';
+    Map<String, dynamic>? apply;
+    for (final item in _v1WorldApplies) {
+      if (item['world_id'] == world['wid'] &&
+          item['applicant_uid'] == applicantUid) {
+        apply = item;
+      }
+    }
+    if (apply == null) {
+      apply = _newV1WorldApply(
+        applyId: 'apl_mock_${(++_v1WorldApplySeq).toString().padLeft(3, '0')}',
+        worldId: '${world['wid']}',
+      );
+      apply['status'] = 20;
+      _v1WorldApplies.add(apply);
+    }
+    final wasJoined = apply['status'] == 40;
+    apply['status'] = 40;
+    apply['joined_at'] = _unixSeconds();
+
+    final presetId = (presetCharacterId ?? '').trim();
+    final customCharId = (customRole?['char_id'] ?? '').toString().trim();
+    final charId = presetId.isNotEmpty
+        ? presetId
+        : customCharId.isNotEmpty
+        ? customCharId
+        : 'char_U_MOCK';
+    if (!wasJoined) {
+      world['player_cnt'] = ((world['player_cnt'] as num?)?.toInt() ?? 0) + 1;
+      if (presetId.isEmpty) {
+        world['ai_character_cnt'] =
+            ((world['ai_character_cnt'] as num?)?.toInt() ?? 0) + 1;
+      }
+    }
+    return {'world_id': world['wid'], 'char_id': charId};
+  }
+
+  String _v1WorldRelationStatus(Map<String, dynamic> world) {
+    final applicantUid = '${_v1User['uid']}';
+    if ('${world['owner_uid']}' == applicantUid) return 'owner';
+    Map<String, dynamic>? currentApply;
+    for (final apply in _v1WorldApplies) {
+      if (apply['world_id'] == world['wid'] &&
+          apply['applicant_uid'] == applicantUid) {
+        currentApply = apply;
+      }
+    }
+    switch (currentApply?['status']) {
+      case 10:
+        return 'pending';
+      case 20:
+        return 'approved';
+      case 30:
+        return 'rejected';
+      case 40:
+        return 'joined';
+      default:
+        return 'none';
+    }
   }
 
   Map<String, dynamic> tickV1World(String worldId) {
@@ -1119,10 +1544,15 @@ class _MockState {
       'world_id': world['wid'],
       'tick_cnt': tickCount,
       'last_tick': {
-        'tick_index': tickCount,
+        'tick_id': 'tick_${world['wid']}_$tickCount',
+        'tick_no': tickCount,
+        'status': 10,
         'created_at': now,
-        'narrator': world['last_progress_summary'],
-        'paragraphs': const <Map<String, dynamic>>[],
+        'tick_result': {
+          'narrator': world['last_progress_summary'],
+          'paragraphs': const <Map<String, dynamic>>[],
+          'location_groups': const <Map<String, dynamic>>[],
+        },
       },
     };
   }
@@ -1638,6 +2068,7 @@ class _MockState {
       'discuss_id': 'dis_mock_auto_${idPart}_$slot',
       'biz_type': 1,
       'biz_id': oid,
+      'world_id': _worldIdForOrigin(oid),
       'author': _deepCopyMap(author),
       'content': slot.isEven
           ? '$title 的最新分支很适合继续推进角色关系。'
@@ -1715,18 +2146,40 @@ class _MockState {
     final end = rawEnd > topComments.length ? topComments.length : rawEnd;
     final pageItems = topComments.sublist(start, end);
     return {
-      'list': pageItems
-          .map(
-            (comment) => {
-              'comment': _deepCopyMap(comment),
-              'latest_replies': _latestV1DiscussReplies(
-                '${comment['discuss_id']}',
-              ),
-            },
-          )
-          .toList(),
+      'list': pageItems.map((comment) {
+        final enrichedComment = _deepCopyMap(comment);
+        enrichedComment.putIfAbsent(
+          'world_id',
+          () => _worldIdForOrigin('${comment['biz_id'] ?? ''}'),
+        );
+        return {
+          'comment': enrichedComment,
+          'latest_replies': _latestV1DiscussReplies('${comment['discuss_id']}'),
+        };
+      }).toList(),
       'top_total': topComments.length,
       'total_all': topComments.length + replies.length,
+      'pn': page,
+      'rn': pageSize,
+    };
+  }
+
+  Map<String, dynamic> v1DiscussReplies(Map<String, String> query) {
+    final rootDiscussId = (query['root_discuss_id'] ?? '').trim();
+    final page = _positiveInt(query['pn'], fallback: 1);
+    final pageSize = _positiveInt(query['rn'], fallback: 20);
+    final replies =
+        _v1DiscussReplies
+            .where((item) => item['root_discuss_id'] == rootDiscussId)
+            .toList()
+          ..sort(_compareDiscussCreatedDesc);
+    final rawStart = (page - 1) * pageSize;
+    final start = rawStart > replies.length ? replies.length : rawStart;
+    final rawEnd = start + pageSize;
+    final end = rawEnd > replies.length ? replies.length : rawEnd;
+    return {
+      'list': replies.sublist(start, end).map(_deepCopyMap).toList(),
+      'total': replies.length,
       'pn': page,
       'rn': pageSize,
     };
@@ -1745,6 +2198,7 @@ class _MockState {
       'discuss_id': discussId,
       'biz_type': _positiveInt('${body['biz_type'] ?? ''}', fallback: 1),
       'biz_id': '${body['biz_id'] ?? _v1Origin['oid']}',
+      'world_id': _worldIdForOrigin('${body['biz_id'] ?? _v1Origin['oid']}'),
       'author': _deepCopyMap(_v1User),
       'content': '${body['content'] ?? ''}',
       'images': body['images'] is List ? body['images'] : <String>[],
@@ -1827,6 +2281,14 @@ class _MockState {
     return null;
   }
 
+  String _worldIdForOrigin(String oid) {
+    final world = _v1Worlds.cast<Map<String, dynamic>?>().firstWhere(
+      (item) => '${item?['oid'] ?? ''}' == oid,
+      orElse: () => null,
+    );
+    return '${world?['wid'] ?? ''}'.trim();
+  }
+
   int _compareDiscussCreatedDesc(
     Map<String, dynamic> a,
     Map<String, dynamic> b,
@@ -1840,6 +2302,13 @@ class _MockState {
 
   int _mockUnixTimestamp(DateTime value) {
     return value.millisecondsSinceEpoch ~/ 1000;
+  }
+
+  int _mockEpoch(Object? value) {
+    if (value is num) return value.toInt();
+    final parsed = DateTime.tryParse('$value');
+    if (parsed == null) return kMockV1NowEpoch;
+    return parsed.toUtc().millisecondsSinceEpoch ~/ 1000;
   }
 
   String _formatMockDateTime(DateTime value) {
@@ -2156,7 +2625,8 @@ class _MockState {
         'setting': origin['world_setting'],
         'events': kMockV1Events.map((event) => event['content']).toList(),
         'tags': origin['tags'],
-        'created_at': origin['created_at'],
+        'metric': _deepCopyMap(kMockV1Metric),
+        'created_at': _mockEpoch(origin['created_at']),
         'started_at': origin['start_time'],
         'tick_duration_days': origin['tick_duration_days'],
         'cover': origin['cover'],
@@ -2182,20 +2652,14 @@ class _MockState {
         'origin_id': world['oid'],
         'origin_version': '${world['origin_version_num'] ?? 1}',
         'origin_version_time': world['origin_version_create_at'],
+        'owner_uid': world['owner_uid'],
+        'owner_name': world['owner_name'],
         'brief': world['display_subtitle'],
         'setting': world['world_setting'],
         'events': kMockV1Events.map((event) => event['content']).toList(),
-        'tags': world['tags'],
-        'created_at': world['created_at'],
-        'created_uid': world['created_uid'],
-        'created_user_name': world['created_user_name'],
-        'owner_uid': world['owner_uid'],
-        'owner_name': world['owner_name'],
-        'updated_at': world['updated_at'],
-        'last_progress_at': world['last_progress_at'],
-        'last_progress_summary': world['last_progress_summary'],
-        'preview_images': [world['cover'], world['cover']],
-        'started_at': world['created_at'],
+        'metric': _deepCopyMap(kMockV1Metric),
+        'created_at': _mockEpoch(world['created_at']),
+        'started_at': '${world['created_at']}',
         'tick_duration_days': 30,
         'cover': world['cover'],
         'map_url': world['map_url'] ?? world['cover'],
@@ -2266,8 +2730,7 @@ class _MockState {
                       tick['created_at'] ??
                       kMockV1Now,
                   'text': paragraph['text'] ?? tick['summary'] ?? '',
-                  'character_details':
-                      paragraph['character_details'] ??
+                  'character_deltas':
                       paragraph['character_deltas'] ??
                       const <Map<String, dynamic>>[],
                 };
@@ -2278,16 +2741,18 @@ class _MockState {
               'location_id': 'loc_hub',
               'timestamp': tick['created_at'] ?? kMockV1Now,
               'text': tick['summary'] ?? '',
-              'character_details': const <Map<String, dynamic>>[],
+              'character_deltas': const <Map<String, dynamic>>[],
             },
           ];
     return {
-      'tick_index': tick['tick_index'] ?? 1,
-      'created_at': tick['created_at'] ?? kMockV1Now,
+      'tick_id': 'tick_mock_${tick['tick_no'] ?? 1}',
+      'tick_no': tick['tick_no'] ?? 1,
+      'status': tick['status'] ?? 10,
+      'created_at': _mockEpoch(tick['created_at']),
       'tick_result': {
-        'created_at': tick['created_at'] ?? kMockV1Now,
         'narrator': tick['summary'] ?? '',
         'paragraphs': paragraphs,
+        'location_groups': const <Map<String, dynamic>>[],
       },
     };
   }
@@ -2307,6 +2772,146 @@ class _MockState {
       orElse: () => {..._v1World, 'wid': wid},
     );
   }
+
+  void _ensureChatroomMessages() {
+    if (_chatroomMessages.isNotEmpty) return;
+    final worldId = _resolveChatroomWorldId('');
+    final seed = <Map<String, Object?>>[
+      {
+        'location_id': 'loc_hub',
+        'conversation_round_id': 100,
+        'round_order': 1,
+        'sender_type': 'user',
+        'sender_id': 'player1',
+        'sender_name': 'Mock User',
+        'user_id': 'u_mock_001',
+        'content': '大家好',
+        'created_at': '2026-05-29 10:00:00',
+      },
+      {
+        'location_id': 'loc_hub',
+        'conversation_round_id': 100,
+        'round_order': 2,
+        'sender_type': 'character',
+        'sender_id': 'c_mock_iris',
+        'sender_name': 'Iris Vale',
+        'user_id': '',
+        'content': '你好呀',
+        'created_at': '2026-05-29 10:00:05',
+      },
+      {
+        'location_id': 'loc_gate',
+        'conversation_round_id': 101,
+        'round_order': 1,
+        'sender_type': 'narrator',
+        'sender_id': '',
+        'sender_name': '旁白',
+        'user_id': '',
+        'content': '夜幕降临...',
+        'created_at': '2026-05-29 11:00:00',
+      },
+    ];
+    for (final item in seed) {
+      _chatroomMessages.add(
+        _newChatroomMessage(
+          worldId: worldId,
+          locationId: '${item['location_id']}',
+          conversationRoundId: item['conversation_round_id'] as int,
+          roundOrder: item['round_order'] as int,
+          senderType: '${item['sender_type']}',
+          senderId: '${item['sender_id']}',
+          senderName: '${item['sender_name']}',
+          userId: '${item['user_id']}',
+          content: '${item['content']}',
+          createdAt: '${item['created_at']}',
+        ),
+      );
+    }
+  }
+
+  String _resolveChatroomWorldId(String worldId) {
+    final trimmed = worldId.trim();
+    if (trimmed.isNotEmpty) return trimmed;
+    return '${_v1World['wid']}';
+  }
+
+  List<Map<String, dynamic>> _chatroomMessagesForWorld(String worldId) {
+    _ensureChatroomMessages();
+    final resolved = _resolveChatroomWorldId(worldId);
+    return _chatroomMessages
+        .where((message) => message['world_id'] == resolved)
+        .map(_deepCopyMap)
+        .toList(growable: false);
+  }
+
+  Map<String, dynamic> _newChatroomMessage({
+    required String worldId,
+    required String locationId,
+    required int conversationRoundId,
+    required int roundOrder,
+    required String senderType,
+    required String senderId,
+    required String senderName,
+    required String userId,
+    required String content,
+    String? createdAt,
+  }) {
+    return {
+      'message_id': ++_chatroomMessageSeq,
+      'world_id': _resolveChatroomWorldId(worldId),
+      'location_id': locationId,
+      'conversation_round_id': conversationRoundId,
+      'round_order': roundOrder,
+      'sender_type': senderType,
+      'sender_id': senderId,
+      'sender_name': senderName,
+      'user_id': userId,
+      'content': content,
+      'created_at': createdAt ?? DateTime.now().toUtc().toIso8601String(),
+    };
+  }
+
+  Map<String, dynamic> _chatroomResponseMessage(Map<String, dynamic> message) {
+    final copy = _deepCopyMap(message);
+    copy.remove('world_id');
+    return copy;
+  }
+
+  Map<String, dynamic> _findV1WorldApply(String? applyId) {
+    final id = (applyId ?? '').trim();
+    for (final apply in _v1WorldApplies) {
+      if (id.isEmpty || apply['apply_id'] == id) return apply;
+    }
+    final apply = _newV1WorldApply(
+      applyId: id.isEmpty
+          ? 'apl_mock_${(++_v1WorldApplySeq).toString().padLeft(3, '0')}'
+          : id,
+      worldId: '${_v1World['wid']}',
+    );
+    _v1WorldApplies.add(apply);
+    return apply;
+  }
+
+  Map<String, dynamic> _newV1WorldApply({
+    required String applyId,
+    required String worldId,
+    String? message,
+  }) {
+    return {
+      'apply_id': applyId,
+      'world_id': worldId,
+      'applicant_uid': _v1User['uid'],
+      'message': message ?? '',
+      'status': 10,
+      'reviewer_uid': '',
+      'review_msg': '',
+      'reviewed_at': 0,
+      'joined_at': 0,
+      'created_at': _unixSeconds(),
+    };
+  }
+
+  int _unixSeconds() => DateTime.now().millisecondsSinceEpoch ~/ 1000;
 }
 
 Map<String, dynamic> _deepCopyMap(Map<String, dynamic> source) {

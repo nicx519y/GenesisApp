@@ -9,7 +9,7 @@ class GenesisLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Image.asset(
-      'assets/images/Genesis.png',
+      'assets/images/worldo_logo.png',
       height: height,
       width: width,
       fit: BoxFit.contain,

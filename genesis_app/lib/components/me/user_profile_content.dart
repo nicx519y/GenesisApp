@@ -19,6 +19,9 @@ class UserProfileContent extends StatefulWidget {
     this.originsLoading = false,
     this.worldsLoading = false,
     this.isUpdatingProfile = false,
+    this.avatarUrlListenable,
+    this.displayNameListenable,
+    this.isUpdatingProfileListenable,
     this.onEditAvatar,
     this.onEditDisplayName,
     this.onCopyUid,
@@ -32,6 +35,9 @@ class UserProfileContent extends StatefulWidget {
   final bool originsLoading;
   final bool worldsLoading;
   final bool isUpdatingProfile;
+  final ValueListenable<String>? avatarUrlListenable;
+  final ValueListenable<String>? displayNameListenable;
+  final ValueListenable<bool>? isUpdatingProfileListenable;
   final VoidCallback? onEditAvatar;
   final VoidCallback? onEditDisplayName;
   final ValueChanged<String>? onCopyUid;
@@ -84,7 +90,10 @@ class _UserProfileContentState extends State<UserProfileContent>
             children: [
               _Avatar(
                 url: data.avatarUrl,
-                onEdit: widget.isUpdatingProfile ? null : widget.onEditAvatar,
+                urlListenable: widget.avatarUrlListenable,
+                isUpdating: widget.isUpdatingProfile,
+                updatingListenable: widget.isUpdatingProfileListenable,
+                onEdit: widget.onEditAvatar,
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -93,28 +102,20 @@ class _UserProfileContentState extends State<UserProfileContent>
                   children: [
                     Row(
                       children: [
-                        Text(
-                          data.displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            height: 1,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
+                        Flexible(
+                          fit: FlexFit.loose,
+                          child: _DisplayNameText(
+                            displayName: data.displayName,
+                            displayNameListenable: widget.displayNameListenable,
                           ),
                         ),
                         if (widget.onEditDisplayName != null) ...[
                           const SizedBox(width: 4),
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: widget.isUpdatingProfile
-                                ? null
-                                : widget.onEditDisplayName,
-                            child: const Padding(
-                              padding: EdgeInsets.all(5),
-                              child: Icon(Icons.edit, size: 14),
-                            ),
+                          _ProfileEditButton(
+                            isUpdating: widget.isUpdatingProfile,
+                            updatingListenable:
+                                widget.isUpdatingProfileListenable,
+                            onTap: widget.onEditDisplayName!,
                           ),
                         ],
                       ],
@@ -238,7 +239,7 @@ class _UserProfileContentState extends State<UserProfileContent>
       RouteNames.chat,
       arguments: {
         'peer_uid': widget.data.uid,
-        'peer_name': widget.data.displayName,
+        'peer_name': _currentDisplayName,
         'peer_avatar': widget.data.avatarUrl,
       },
     );
@@ -249,10 +250,16 @@ class _UserProfileContentState extends State<UserProfileContent>
       RouteNames.follows,
       arguments: {
         'uid': widget.data.uid,
-        'title': widget.data.displayName,
+        'title': _currentDisplayName,
         'initialIndex': initialIndex,
       },
     );
+  }
+
+  String get _currentDisplayName {
+    final listenableName = widget.displayNameListenable?.value.trim() ?? '';
+    if (listenableName.isNotEmpty) return listenableName;
+    return widget.data.displayName;
   }
 
   int _decrementCount(int value) {
@@ -667,16 +674,45 @@ class _ProfileActionButtons extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({required this.url, required this.onEdit});
+  const _Avatar({
+    required this.url,
+    required this.urlListenable,
+    required this.isUpdating,
+    required this.updatingListenable,
+    required this.onEdit,
+  });
 
   static const double _size = 80;
   static const double _radius = 8;
 
   final String url;
+  final ValueListenable<String>? urlListenable;
+  final bool isUpdating;
+  final ValueListenable<bool>? updatingListenable;
   final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
+    final avatarListenable = urlListenable;
+    if (avatarListenable == null) {
+      return _buildAvatar(url, isUpdating);
+    }
+    return ValueListenableBuilder<String>(
+      valueListenable: avatarListenable,
+      builder: (context, avatarUrl, _) {
+        final loadingListenable = updatingListenable;
+        if (loadingListenable == null) {
+          return _buildAvatar(avatarUrl, isUpdating);
+        }
+        return ValueListenableBuilder<bool>(
+          valueListenable: loadingListenable,
+          builder: (context, updating, _) => _buildAvatar(avatarUrl, updating),
+        );
+      },
+    );
+  }
+
+  Widget _buildAvatar(String avatarUrl, bool updating) {
     return SizedBox(
       width: _size,
       height: _size,
@@ -685,7 +721,7 @@ class _Avatar extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(_radius),
-            child: _AvatarImage(url: url, size: _size),
+            child: _AvatarImage(url: avatarUrl, size: _size),
           ),
           if (onEdit != null)
             Positioned(
@@ -696,7 +732,7 @@ class _Avatar extends StatelessWidget {
                 shape: const CircleBorder(),
                 child: InkWell(
                   customBorder: const CircleBorder(),
-                  onTap: onEdit,
+                  onTap: updating ? null : onEdit,
                   child: const Padding(
                     padding: EdgeInsets.all(4),
                     child: Icon(
@@ -714,6 +750,80 @@ class _Avatar extends StatelessWidget {
   }
 }
 
+class _DisplayNameText extends StatelessWidget {
+  const _DisplayNameText({
+    required this.displayName,
+    required this.displayNameListenable,
+  });
+
+  final String displayName;
+  final ValueListenable<String>? displayNameListenable;
+
+  @override
+  Widget build(BuildContext context) {
+    final listenable = displayNameListenable;
+    if (listenable == null) {
+      return _buildName(displayName);
+    }
+    return ValueListenableBuilder<String>(
+      valueListenable: listenable,
+      builder: (context, name, _) {
+        final resolvedName = name.trim().isEmpty ? displayName : name;
+        return _buildName(resolvedName);
+      },
+    );
+  }
+
+  Widget _buildName(String name) {
+    return Text(
+      name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontSize: 18,
+        height: 1,
+        fontWeight: FontWeight.w700,
+        color: Colors.black,
+      ),
+    );
+  }
+}
+
+class _ProfileEditButton extends StatelessWidget {
+  const _ProfileEditButton({
+    required this.isUpdating,
+    required this.updatingListenable,
+    required this.onTap,
+  });
+
+  final bool isUpdating;
+  final ValueListenable<bool>? updatingListenable;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final listenable = updatingListenable;
+    if (listenable == null) {
+      return _buildButton(isUpdating);
+    }
+    return ValueListenableBuilder<bool>(
+      valueListenable: listenable,
+      builder: (context, updating, _) => _buildButton(updating),
+    );
+  }
+
+  Widget _buildButton(bool updating) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: updating ? null : onTap,
+      child: const Padding(
+        padding: EdgeInsets.all(5),
+        child: Icon(Icons.edit, size: 14),
+      ),
+    );
+  }
+}
+
 class _AvatarImage extends StatelessWidget {
   const _AvatarImage({required this.url, required this.size});
 
@@ -724,6 +834,7 @@ class _AvatarImage extends StatelessWidget {
   Widget build(BuildContext context) {
     if (url.trim().isNotEmpty) {
       return CachedNetworkImage(
+        key: const ValueKey('user-profile-avatar-image'),
         imageUrl: url,
         width: size,
         height: size,

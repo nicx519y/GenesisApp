@@ -122,7 +122,7 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
     origin['oid'],
     fallback: asString(origin['origin_id']),
   );
-  final metric = raw['metric'];
+  final metric = raw['metric'] ?? origin['metric'];
 
   final characterRaw = raw['character_list'] ?? raw['characters'];
   final characters = characterRaw is List
@@ -168,10 +168,11 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
             .toList(growable: false)
       : const <LocationDraft>[];
 
-  final eventRaw = raw['event_list'] ?? raw['events'] ?? raw['ticks'];
+  final eventRaw =
+      raw['event_list'] ?? raw['events'] ?? origin['events'] ?? raw['ticks'];
   final events = eventRaw is List
       ? asJsonList(eventRaw)
-            .map((item) => _storyEventDraftFromV1(asJsonMap(item)))
+            .map(_storyEventDraftFromV1)
             .where((item) => item.event.trim().isNotEmpty)
             .toList(growable: false)
       : const <StoryEventDraft>[];
@@ -260,23 +261,36 @@ LocationDraft _locationDraftFromV1(
     name: asString(raw['name'], fallback: asString(raw['location_name'])),
     description: asString(
       raw['description'],
-      fallback: asString(raw['location_summary']),
+      fallback: asString(
+        raw['location_description'],
+        fallback: asString(raw['location_summary']),
+      ),
     ),
     initialCharacterIds: initialCharacterIds,
   );
 }
 
-StoryEventDraft _storyEventDraftFromV1(Map<String, dynamic> raw) {
+StoryEventDraft _storyEventDraftFromV1(Object? raw) {
+  if (raw is! Map) {
+    return StoryEventDraft(event: asString(raw));
+  }
+  final map = asJsonMap(raw);
+  final tickResult = map['tick_result'] is Map
+      ? asJsonMap(map['tick_result'])
+      : const <String, dynamic>{};
   return StoryEventDraft(
     event: asString(
-      raw['content'],
+      map['content'],
       fallback: asString(
-        raw['event'],
+        map['event'],
         fallback: asString(
-          raw['text'],
+          map['text'],
           fallback: asString(
-            raw['summary'],
-            fallback: asString(raw['narrator']),
+            map['summary'],
+            fallback: asString(
+              map['narrator'],
+              fallback: asString(tickResult['narrator']),
+            ),
           ),
         ),
       ),

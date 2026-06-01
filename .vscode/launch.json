@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Genesis Android - Apple Sign In",
+      "request": "launch",
+      "type": "dart",
+      "cwd": "${workspaceFolder}/genesis_app",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "toolArgs": [
+        "--dart-define-from-file=config/apple_sign_in.env"
+      ]
+    }
+  ]
+}

@@ -225,6 +225,13 @@ void main() {
               'origin_id': 'o_1',
               'owner_uid': 'u_1',
               'owner_name': 'Tester',
+              'metric': const <String, Object?>{
+                'mode': 'qualitative',
+                'label': 'Goal Progress',
+                'unit': '%',
+                'range': <int>[0, 100],
+                'default': 0,
+              },
               'created_at': '2026-05-01T00:00:00Z',
               'updated_at': '2026-05-02T00:00:00Z',
               'status': 1,
@@ -236,6 +243,7 @@ void main() {
               'player_cnt': 0,
             },
             'characters': const <Object?>[],
+            'relation_status': 'owner',
             'locations': [
               {
                 'location_id': 'loc_1',
@@ -246,7 +254,7 @@ void main() {
             ],
             'ticks': [
               {
-                'tick_index': 1,
+                'tick_no': 1,
                 'created_at': '2026-05-02T00:00:00Z',
                 'tick_result': {
                   'narrator': 'Narrator from tick result.',
@@ -254,7 +262,7 @@ void main() {
                     {
                       'location_id': 'loc_1',
                       'text': 'Location paragraph text.',
-                      'character_details': [
+                      'character_deltas': [
                         {'name': 'Iris Vale', 'delta': '+3 focus'},
                       ],
                     },
@@ -276,7 +284,7 @@ void main() {
 
     final api = _apiWith(apiTransport, healthTransport);
     final world = await api.getWorld('w_1');
-    final location = world.worldLocations
+    final location = world.locations
         .where((item) => item['location_id'] == 'loc_1')
         .single;
     final tickResult = world.ticks.single['tick_result'] as Map;
@@ -286,12 +294,13 @@ void main() {
     expect(apiTransport.lastRequest!.uri.queryParameters['world_id'], 'w_1');
     expect(location['location_summary'], '');
     expect(location['location_description'], 'Gate fallback description.');
-    expect(location['description'], '');
-    expect(world.lastProgressUpdate, 'Narrator from tick result.');
+    expect(world.relationStatus, 'owner');
+    expect(world.metric['label'], 'Goal Progress');
+    expect(world.latestNarrator, 'Narrator from tick result.');
     expect(tickResult['narrator'], 'Narrator from tick result.');
     expect(paragraph['location_id'], 'loc_1');
     expect(paragraph['text'], 'Location paragraph text.');
-    expect((paragraph['character_details'] as List).single, {
+    expect((paragraph['character_deltas'] as List).single, {
       'name': 'Iris Vale',
       'delta': '+3 focus',
     });
@@ -1004,6 +1013,101 @@ void main() {
     },
   );
 
+  test(
+    'v1 discuss replies uses Apifox root query and normalizes response keys',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"errNo":0,"errStr":"success","data":{"list":[{"discussId":"dis_reply_001","rootDiscussId":"dis_root","parentDiscussId":"dis_parent","isLiked":false,"likeCnt":3}],"total":1,"pn":2,"rn":20}}',
+        ),
+      );
+      final healthTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      );
+
+      final api = _apiWith(apiTransport, healthTransport);
+      final result = await api.v1.discuss.replies(
+        rootDiscussId: 'dis_root',
+        pn: 2,
+        rn: 20,
+      );
+
+      expect(apiTransport.lastRequest!.method, 'GET');
+      expect(apiTransport.lastRequest!.uri.path, '/api/v1/discuss/replies');
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters['root_discuss_id'],
+        'dis_root',
+      );
+      expect(apiTransport.lastRequest!.uri.queryParameters['pn'], '2');
+      expect(apiTransport.lastRequest!.uri.queryParameters['rn'], '20');
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters.containsKey(
+          'rootDiscussId',
+        ),
+        isFalse,
+      );
+      final reply = (result['list'] as List).first as Map<String, dynamic>;
+      expect(reply['discuss_id'], 'dis_reply_001');
+      expect(reply['root_discuss_id'], 'dis_root');
+      expect(reply['parent_discuss_id'], 'dis_parent');
+      expect(reply['is_liked'], isFalse);
+      expect(reply['like_cnt'], 3);
+      expect(result['total'], 1);
+    },
+  );
+
+  test(
+    'v1 world origin progress uses Apifox query and normalizes response',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"errNo":0,"errStr":"success","data":{"worldId":"w_a1b2c3","tickCnt":12}}',
+        ),
+      );
+      final healthTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      );
+
+      final api = _apiWith(apiTransport, healthTransport);
+      final result = await api.v1.world.originProgress(
+        uid: 'u_a1b2c3',
+        originId: 'ori_a1b2c3',
+      );
+
+      expect(apiTransport.lastRequest!.method, 'GET');
+      expect(
+        apiTransport.lastRequest!.uri.path,
+        '/api/v1/world/origin_progress',
+      );
+      expect(apiTransport.lastRequest!.uri.queryParameters['uid'], 'u_a1b2c3');
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters['origin_id'],
+        'ori_a1b2c3',
+      );
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters.containsKey('originId'),
+        isFalse,
+      );
+      expect(result['world_id'], 'w_a1b2c3');
+      expect(result['tick_cnt'], 12);
+      expect(result.containsKey('worldId'), isFalse);
+    },
+  );
+
   test('v1 discuss write APIs use Apifox paths and body fields', () async {
     final apiTransport = _FakeTransport(
       handler: (request) {
@@ -1181,7 +1285,7 @@ class _FakeIdentityAuthService implements IdentityAuthService {
   Future<AuthSession?> refreshSilently() async => null;
 
   @override
-  Future<AuthSession> signIn() {
+  Future<AuthSession> signIn(IdentityProvider provider) {
     throw UnimplementedError();
   }
 

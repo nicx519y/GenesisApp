@@ -13,6 +13,8 @@ export '../../platform/native_image_picker.dart' show DiscussPickedImage;
 
 typedef DiscussPostSubmitter =
     Future<Map<String, dynamic>> Function(String content, List<String> images);
+typedef DiscussComposerSubmitter =
+    Future<void> Function(String content, List<String> images);
 typedef DiscussImagePicker = Future<List<DiscussPickedImage>> Function();
 typedef DiscussImageUploader =
     Future<String> Function(DiscussPickedImage image);
@@ -45,6 +47,53 @@ class DiscussPostInput extends StatefulWidget {
   State<DiscussPostInput> createState() => _DiscussPostInputState();
 }
 
+Future<bool> showDiscussPostComposer({
+  required BuildContext context,
+  required String title,
+  required String placeholder,
+  required DiscussComposerSubmitter submitter,
+  DiscussImagePicker? imagePicker,
+  DiscussImageUploader? imageUploader,
+}) async {
+  final submitted = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    isDismissible: false,
+    useSafeArea: false,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.38),
+    constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height),
+    builder: (sheetContext) {
+      return _DiscussComposerSheet(
+        title: title,
+        placeholder: placeholder,
+        pickImages:
+            imagePicker ?? () => pickGenesisImages(limit: discussPostMaxImages),
+        uploadImage:
+            imageUploader ??
+            (image) async {
+              final uploaded = await AppServicesScope.read(sheetContext)
+                  .api
+                  .v1
+                  .upload
+                  .image(
+                    bytes: image.bytes,
+                    filename: image.filename,
+                    contentType: image.contentType,
+                  );
+              final url = '${uploaded['url'] ?? ''}'.trim();
+              if (url.isEmpty) throw StateError('Upload returned an empty URL');
+              return url;
+            },
+        onSubmit: (content, images) async {
+          await submitter(content, images);
+        },
+      );
+    },
+  );
+  return submitted == true;
+}
+
 class _DiscussPostInputState extends State<DiscussPostInput> {
   final FocusNode _focusNode = FocusNode();
   bool _composerOpen = false;
@@ -71,27 +120,17 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
     _composerOpen = true;
     _focusNode.unfocus();
 
-    final submitted = await showModalBottomSheet<bool>(
+    final submitted = await showDiscussPostComposer(
       context: context,
-      isScrollControlled: true,
-      isDismissible: false,
-      useSafeArea: false,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.38),
-      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height),
-      builder: (sheetContext) {
-        return _DiscussComposerSheet(
-          title: widget.title,
-          placeholder: widget.placeholder,
-          pickImages: widget.imagePicker ?? _pickImages,
-          uploadImage: widget.imageUploader ?? _uploadImage,
-          onSubmit: _submit,
-        );
-      },
+      title: widget.title,
+      placeholder: widget.placeholder,
+      imagePicker: widget.imagePicker ?? _pickImages,
+      imageUploader: widget.imageUploader ?? _uploadImage,
+      submitter: _submit,
     );
 
     _composerOpen = false;
-    if (!mounted || submitted != true) return;
+    if (!mounted || !submitted) return;
     widget.onSubmitted?.call();
   }
 
@@ -187,13 +226,16 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
   final TextEditingController _controller = TextEditingController();
   final List<_DiscussImageAttachment> _images = <_DiscussImageAttachment>[];
   final List<Timer> _metricsSyncTimers = <Timer>[];
+  Timer? _pickerReturnScrimGuardTimer;
   bool _submitting = false;
   bool _pickerOpen = false;
   bool _closing = false;
   bool _keyboardWasVisible = false;
   bool _ignoreKeyboardHideUntilVisible = false;
+  bool _waitingForKeyboardRestoreAfterPicker = false;
+  bool _ignoreKeyboardDismissAfterPicker = false;
+  bool _ignoreScrimDismissAfterPicker = false;
   bool _keyboardHideDismissQueued = false;
-  double _keyboardInsetFloor = 0;
   int _nextImageId = 0;
   int _metricsSyncToken = 0;
 
@@ -216,6 +258,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _metricsSyncToken += 1;
+    _pickerReturnScrimGuardTimer?.cancel();
     for (final timer in _metricsSyncTimers) {
       timer.cancel();
     }
@@ -266,17 +309,16 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
       unawaited(_dismiss());
       return;
     }
-    // Image picker return can report a partial IME inset before the keyboard
-    // finishes rising, so keep the last full positive inset as the floor.
-    if (measuredInset > _keyboardInsetFloor) {
-      _keyboardInsetFloor = measuredInset;
-    }
     setState(() {});
   }
 
   void _trackVisibleKeyboard(double measuredInset) {
     if (measuredInset <= 0) return;
     _keyboardWasVisible = true;
+    if (_waitingForKeyboardRestoreAfterPicker) {
+      _waitingForKeyboardRestoreAfterPicker = false;
+      _ignoreKeyboardDismissAfterPicker = false;
+    }
     _ignoreKeyboardHideUntilVisible = false;
     _keyboardHideDismissQueued = false;
   }
@@ -294,9 +336,20 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
   bool get _shouldDismissForHiddenKeyboard {
     return _keyboardWasVisible &&
         !_ignoreKeyboardHideUntilVisible &&
+        !_waitingForKeyboardRestoreAfterPicker &&
+        !_ignoreKeyboardDismissAfterPicker &&
         !_pickerOpen &&
+        _images.isEmpty &&
         !_closing &&
         !_submitting;
+  }
+
+  void _startPickerReturnScrimGuardTimer() {
+    _pickerReturnScrimGuardTimer?.cancel();
+    _pickerReturnScrimGuardTimer = Timer(const Duration(milliseconds: 900), () {
+      if (!mounted) return;
+      setState(() => _ignoreScrimDismissAfterPicker = false);
+    });
   }
 
   Future<void> _send() async {
@@ -326,6 +379,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     setState(() {
       _pickerOpen = true;
       _ignoreKeyboardHideUntilVisible = true;
+      _waitingForKeyboardRestoreAfterPicker = true;
     });
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
@@ -336,7 +390,12 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
       debugPrint('Discuss image selection failed: $error\n$stackTrace');
     } finally {
       if (mounted) {
-        setState(() => _pickerOpen = false);
+        setState(() {
+          _pickerOpen = false;
+          _ignoreScrimDismissAfterPicker = true;
+          _ignoreKeyboardDismissAfterPicker = true;
+        });
+        _startPickerReturnScrimGuardTimer();
         _scheduleKeyboardMetricsSync();
       }
     }
@@ -384,6 +443,17 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     setState(() => _images.remove(image));
   }
 
+  void _handleScrimTap() {
+    if (_pickerOpen) return;
+    if (_ignoreScrimDismissAfterPicker) {
+      _pickerReturnScrimGuardTimer?.cancel();
+      _pickerReturnScrimGuardTimer = null;
+      setState(() => _ignoreScrimDismissAfterPicker = false);
+      return;
+    }
+    unawaited(_dismiss());
+  }
+
   Future<void> _dismiss() async {
     if (_submitting || _closing) return;
     setState(() => _closing = true);
@@ -401,7 +471,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     if (measuredKeyboardInset <= 0 && _shouldDismissForHiddenKeyboard) {
       _queueDismissForHiddenKeyboard();
     }
-    final keyboardInset = math.max(measuredKeyboardInset, _keyboardInsetFloor);
+    final keyboardInset = measuredKeyboardInset;
     final maxSheetHeight = math.max(
       0.0,
       media.size.height - keyboardInset - media.padding.top - 12,
@@ -414,128 +484,125 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
         if (didPop) return;
         unawaited(_dismiss());
       },
-      child: Offstage(
-        offstage: _pickerOpen,
-        child: SizedBox.expand(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: GestureDetector(
-                  key: const ValueKey('discuss-composer-scrim-dismiss'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _dismiss,
-                ),
+      child: SizedBox.expand(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                key: const ValueKey('discuss-composer-scrim-dismiss'),
+                behavior: HitTestBehavior.opaque,
+                onTap: _handleScrimTap,
               ),
-              AnimatedPadding(
-                duration: const Duration(milliseconds: 180),
-                curve: Curves.easeOutCubic,
-                padding: EdgeInsets.only(bottom: keyboardInset),
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {},
-                    child: GenesisBottomSheetPanel(
-                      key: const ValueKey('discuss-composer-sheet'),
-                      title: widget.title,
-                      height: sheetHeight,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _controller,
-                              autofocus: true,
-                              keyboardType: TextInputType.multiline,
-                              textInputAction: TextInputAction.newline,
-                              minLines: null,
-                              maxLines: null,
-                              expands: true,
-                              cursorColor: const Color(0xFF6C657A),
-                              style: const TextStyle(
+            ),
+            AnimatedPadding(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              padding: EdgeInsets.only(bottom: keyboardInset),
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {},
+                  child: GenesisBottomSheetPanel(
+                    key: const ValueKey('discuss-composer-sheet'),
+                    title: widget.title,
+                    height: sheetHeight,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _controller,
+                            autofocus: true,
+                            keyboardType: TextInputType.multiline,
+                            textInputAction: TextInputAction.newline,
+                            minLines: null,
+                            maxLines: null,
+                            expands: true,
+                            cursorColor: const Color(0xFF6C657A),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              height: 1.25,
+                              fontWeight: FontWeight.w400,
+                              color: Color(0xFF111111),
+                            ),
+                            decoration: InputDecoration(
+                              hintText: widget.placeholder,
+                              hintStyle: const TextStyle(
                                 fontSize: 14,
                                 height: 1.25,
                                 fontWeight: FontWeight.w400,
-                                color: Color(0xFF111111),
+                                color: Color(0xFFB8B8B8),
                               ),
-                              decoration: InputDecoration(
-                                hintText: widget.placeholder,
-                                hintStyle: const TextStyle(
-                                  fontSize: 14,
-                                  height: 1.25,
-                                  fontWeight: FontWeight.w400,
-                                  color: Color(0xFFB8B8B8),
-                                ),
-                                border: InputBorder.none,
-                                isCollapsed: true,
-                                contentPadding: EdgeInsets.zero,
-                              ),
+                              border: InputBorder.none,
+                              isCollapsed: true,
+                              contentPadding: EdgeInsets.zero,
                             ),
                           ),
-                          const SizedBox(height: 14),
-                          _DiscussImageStrip(
-                            images: _images,
-                            showAddButton:
-                                _images.isNotEmpty &&
-                                _images.length < discussPostMaxImages,
-                            submitting: _submitting,
-                            onAdd: _pickAndUploadImages,
-                            onRemove: _removeImage,
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              IconButton(
-                                key: const ValueKey(
-                                  'discuss-image-picker-button',
+                        ),
+                        const SizedBox(height: 14),
+                        _DiscussImageStrip(
+                          images: _images,
+                          showAddButton:
+                              _images.isNotEmpty &&
+                              _images.length < discussPostMaxImages,
+                          submitting: _submitting,
+                          onAdd: _pickAndUploadImages,
+                          onRemove: _removeImage,
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            IconButton(
+                              key: const ValueKey(
+                                'discuss-image-picker-button',
+                              ),
+                              onPressed: _submitting
+                                  ? null
+                                  : _pickAndUploadImages,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 36,
+                                height: 36,
+                              ),
+                              icon: const Icon(
+                                Icons.add_photo_alternate_outlined,
+                                size: 30,
+                                color: Color(0xFF00834C),
+                              ),
+                            ),
+                            const Spacer(),
+                            TextButton(
+                              onPressed: _canSend ? _send : null,
+                              style: TextButton.styleFrom(
+                                foregroundColor: const Color(0xFF4B5F8E),
+                                disabledForegroundColor: const Color(
+                                  0xFF9BA4B8,
                                 ),
-                                onPressed: _submitting
-                                    ? null
-                                    : _pickAndUploadImages,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints.tightFor(
-                                  width: 36,
-                                  height: 36,
-                                ),
-                                icon: const Icon(
-                                  Icons.add_photo_alternate_outlined,
-                                  size: 30,
-                                  color: Color(0xFF00834C),
+                                textStyle: const TextStyle(
+                                  fontSize: 16,
+                                  height: 1.1,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              const Spacer(),
-                              TextButton(
-                                onPressed: _canSend ? _send : null,
-                                style: TextButton.styleFrom(
-                                  foregroundColor: const Color(0xFF4B5F8E),
-                                  disabledForegroundColor: const Color(
-                                    0xFF9BA4B8,
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontSize: 16,
-                                    height: 1.1,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                child: _submitting
-                                    ? const SizedBox.square(
-                                        dimension: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Text('Send'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                              child: _submitting
+                                  ? const SizedBox.square(
+                                      dimension: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('Send'),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

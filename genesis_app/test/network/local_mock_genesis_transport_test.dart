@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 
@@ -78,24 +79,24 @@ void main() {
     expect(world.wid.isNotEmpty, true);
 
     final worldDetail = await api.getWorld(world.wid);
-    expect(worldDetail.worldLocations.isNotEmpty, true);
+    expect(worldDetail.locations.isNotEmpty, true);
     expect(worldDetail.origin.worldMap, kMockV1SteamMapImage);
-    expect(worldDetail.worldLocationTree.map((node) => node.id), [
+    expect(worldDetail.locationTree.map((node) => node.id), [
       'loc_hub',
       'loc_gate',
       'loc_market',
       'loc_canal',
     ]);
     expect(
-      worldDetail.processedWorldLocationTree.renderRoots.first.value['map_url'],
+      worldDetail.processedLocationTree.renderRoots.first.value['map_url'],
       kMockV1LocationCentralHubMap,
     );
     expect(
-      worldDetail.processedWorldLocationTree.renderRoots.map((node) => node.id),
+      worldDetail.processedLocationTree.renderRoots.map((node) => node.id),
       ['loc_hub', 'loc_gate', 'loc_market', 'loc_canal'],
     );
     final worldRootsById = {
-      for (final node in worldDetail.processedWorldLocationTree.renderRoots)
+      for (final node in worldDetail.processedLocationTree.renderRoots)
         node.id: node,
     };
     expect(worldRootsById['loc_hub']!.children.map((node) => node.id), [
@@ -119,14 +120,14 @@ void main() {
       'loc_water_basin',
     ]);
     expect(
-      worldDetail.worldLocationTree
+      worldDetail.locationTree
           .expand((node) => node.children)
           .expand((node) => node.children)
           .map((node) => node.depth)
           .toSet(),
       {2},
     );
-    for (final root in worldDetail.processedWorldLocationTree.renderRoots) {
+    for (final root in worldDetail.processedLocationTree.renderRoots) {
       expect(root.children.length, inInclusiveRange(2, 3));
     }
 
@@ -205,6 +206,10 @@ void main() {
       laterOriginId,
     );
     expect(
+      ((laterDiscussionItems.first as Map)['comment'] as Map)['world_id'],
+      isNotEmpty,
+    );
+    expect(
       ((laterDiscussionItems.first as Map)['latest_replies'] as List),
       isNotEmpty,
     );
@@ -213,8 +218,17 @@ void main() {
         (((origins['list'] as List).first as Map)['info'] as Map)['origin_id']
             as String;
     final detail = await api.v1.origin.detail(oid: origin);
+    final detailInfo = detail['info'] as Map;
+    expect(detailInfo['origin_id'], origin);
+    expect(detailInfo['metric'], isA<Map>());
+    expect(detailInfo['created_at'], isA<int>());
     expect(((detail['stats'] as Map)['copy_cnt']), greaterThanOrEqualTo(1000));
     expect((detail['characters'] as List).isNotEmpty, true);
+    expect(
+      ((detail['locations'] as List).first as Map),
+      contains('location_description'),
+    );
+    expect(((detail['ticks'] as List).first as Map), contains('tick_result'));
     final created = await api.v1.origin.create(
       originName: 'Created Mock Origin',
       brief: 'Created from a local mock test.',
@@ -255,11 +269,23 @@ void main() {
     final world =
         (((worlds['list'] as List).first as Map)['info'] as Map)['world_id']
             as String;
-    final worldDetail = await api.v1.world.detail(wid: world);
+    final worldDetail = await api.v1.world.detail(worldId: world);
     expect(
       ((worldDetail['stats'] as Map)['tick_cnt']),
       greaterThanOrEqualTo(1000),
     );
+    final worldOrigin = ((worldDetail['info'] as Map)['origin_id']) as String;
+    final originProgress = await api.v1.world.originProgress(
+      uid: 'u_mock_001',
+      originId: worldOrigin,
+    );
+    expect(originProgress['world_id'], isNotEmpty);
+    expect(originProgress['tick_cnt'], greaterThanOrEqualTo(1000));
+    final missingOriginProgress = await api.v1.world.originProgress(
+      uid: 'u_missing',
+      originId: worldOrigin,
+    );
+    expect(missingOriginProgress, {'world_id': '', 'tick_cnt': 0});
     final detailTicks = worldDetail['ticks'] as List;
     expect(detailTicks.length, greaterThanOrEqualTo(4));
     final detailLocations = worldDetail['locations'] as List;
@@ -267,17 +293,73 @@ void main() {
     expect(firstDetailLocation['map_url'], kMockV1LocationCentralHubMap);
     expect(firstDetailLocation.containsKey('map'), isFalse);
     expect([
-      for (final tick in detailTicks)
-        ((tick as Map)['tick_index'] as num).toInt(),
+      for (final tick in detailTicks) ((tick as Map)['tick_no'] as num).toInt(),
     ], List<int>.generate(detailTicks.length, (index) => index + 1));
-    await api.v1.world.requestJoin(wid: world);
-    await api.v1.world.auditRequest(
-      requestId: 'request_mock_1',
-      action: 'approve',
+    final apply = await api.v1.world.apply(worldId: world, message: '想加入这个世界');
+    expect(apply['status'], 10);
+    final applyId = apply['apply_id'] as String;
+    final applyList = await api.v1.world.applyList(
+      worldId: world,
+      status: 10,
+      pn: 1,
+      rn: 20,
     );
-    await api.v1.world.join(wid: world);
+    expect(applyList['total'], 1);
+    expect(((applyList['list'] as List).single as Map)['apply_id'], applyId);
+    final review = await api.v1.world.reviewApply(
+      applyId: applyId,
+      action: 'approve',
+      reviewMsg: 'Welcome',
+    );
+    expect(review['status'], 20);
+    final join = await api.v1.world.join(
+      worldId: world,
+      presetCharacterId: 'char_1',
+    );
+    expect(join, containsPair('world_id', world));
+    expect(join, containsPair('char_id', 'char_1'));
     await api.v1.world.tick(worldId: world);
     await api.v1.world.syncLatestOrigin(wid: world);
+
+    final worldMessages = await api.chatroomHttp.getWorldMessages(
+      worldId: world,
+    );
+    expect(worldMessages.locations, isNotEmpty);
+    final history = await api.chatroomHttp.getMessages(
+      worldInstanceId: world,
+      locationId: worldMessages.locations.first.locationId,
+      since: 0,
+      limit: 20,
+    );
+    expect(history.messages, isNotEmpty);
+    expect(await api.chatroomHttp.lockWorld(worldId: world), true);
+    var tickProgress = await api.chatroomHttp.tickProgress(worldId: world);
+    expect(tickProgress.progress, 0);
+    expect(await api.chatroomHttp.unlockWorld(worldId: world), true);
+    tickProgress = await api.chatroomHttp.tickProgress(worldId: world);
+    expect(tickProgress.progress, 1);
+    final narratorMessageId = await api.chatroomHttp.writeNarrator(
+      worldId: world,
+      tickId: 'tick_mock_001',
+      locationGroups: const [
+        ChatroomNarratorLocationGroup(
+          locationId: 'loc_hub',
+          locationName: 'Central Hub',
+          locationSummary: 'The hub quiets down.',
+          characters: [
+            ChatroomNarratorCharacter(charId: 'c_mock_iris', name: 'Iris Vale'),
+          ],
+          initialDialogue: [
+            ChatroomNarratorDialogueLine(
+              charId: 'c_mock_iris',
+              charName: 'Iris Vale',
+              content: 'The gears settle into a slower rhythm.',
+            ),
+          ],
+        ),
+      ],
+    );
+    expect(narratorMessageId, greaterThan(0));
 
     var unreadSummary = await api.v1.messages.unreadSummary();
     expect(unreadSummary.systemUnread, 1);
@@ -440,6 +522,17 @@ void main() {
     expect((firstDiscussion['latest_replies'] as List).length, 1);
     expect(discussions['top_total'], 1);
     expect(discussions['total_all'], 2);
+    final replies = await api.v1.discuss.replies(
+      rootDiscussId: postId,
+      pn: 1,
+      rn: 20,
+    );
+    final replyItems = replies['list'] as List;
+    expect(replyItems.length, 1);
+    expect((replyItems.first as Map)['root_discuss_id'], postId);
+    expect(replies['total'], 1);
+    expect(replies['pn'], 1);
+    expect(replies['rn'], 20);
     await api.v1.discuss.like(discussId: postId);
     await api.v1.discuss.unlike(discussId: postId);
     await api.v1.discuss.delete(discussId: postId);

@@ -30,12 +30,16 @@ class FirebaseIdentityAuthService implements IdentityAuthService {
   }
 
   @override
-  Future<AuthSession> signIn() async {
+  Future<AuthSession> signIn(IdentityProvider provider) async {
     try {
-      if (!kIsWeb && Platform.isIOS) {
-        return _fromAppleSession(await AppleSignInService.signInToFirebase());
+      switch (provider) {
+        case IdentityProvider.google:
+          return _fromGoogleSession(
+            await GoogleSignInService.signInToFirebase(),
+          );
+        case IdentityProvider.apple:
+          return _fromAppleSession(await AppleSignInService.signInToFirebase());
       }
-      return _fromGoogleSession(await GoogleSignInService.signInToFirebase());
     } on GoogleSignInException catch (e) {
       if (e.code == GoogleSignInExceptionCode.canceled) {
         throw const AuthCancelledException();
@@ -54,7 +58,6 @@ class FirebaseIdentityAuthService implements IdentityAuthService {
     if (!kIsWeb && Platform.isIOS) {
       final appleSession = await AppleSignInService.refreshFirebaseSession();
       if (appleSession != null) return _fromAppleSession(appleSession);
-      return null;
     }
 
     final session = await GoogleSignInService.refreshTokenOrSignInSilently();
@@ -64,17 +67,6 @@ class FirebaseIdentityAuthService implements IdentityAuthService {
 
   @override
   Future<void> signOutIdentity() async {
-    if (!kIsWeb && Platform.isIOS) {
-      try {
-        await fb.FirebaseAuth.instance.signOut();
-      } catch (e) {
-        debugPrint(
-          '[Auth][FirebaseIdentityAuthService] apple signOut failed: $e',
-        );
-      }
-      return;
-    }
-
     await GoogleSignInService.signOutFirebase();
   }
 }

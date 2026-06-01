@@ -26,6 +26,28 @@ class DiscussV1Api extends V1ApiResource {
     );
   }
 
+  /// GET /api/v1/discuss/replies
+  ///
+  /// 提交参数:
+  /// ```json
+  /// {"root_discuss_id":"dis_X9KQ4M2A1B2C","pn":1,"rn":20}
+  /// ```
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"discuss_id":"dis_reply_001"}],"total":35,"pn":1,"rn":20}}
+  /// ```
+  Future<Map<String, dynamic>> replies({
+    required String rootDiscussId,
+    int? pn,
+    int? rn,
+  }) {
+    return getMap(
+      'discuss/replies',
+      v1Query({'root_discuss_id': rootDiscussId, 'pn': pn, 'rn': rn}),
+    );
+  }
+
   /// POST /api/v1/discuss/post
   ///
   /// 提交参数:

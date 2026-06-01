@@ -4,6 +4,7 @@
 - Apifox 分享页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/460308499e0
 - Apifox world tick 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462798656e0
 - Apifox discuss 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462474822e0
+- Apifox discuss 回复分页页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/466619391e0
 - Apifox direct_message 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462474827e0
 - Apifox direct_message 会话列表页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462474828e0
 - Apifox upload 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463764231e0
@@ -11,15 +12,21 @@
 - Apifox notify 通知列表页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463874828e0
 - Apifox notify 标记已读页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463874829e0
 - Apifox search 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/465724653e0
+- Apifox chatroom 世界最近消息页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/465850374e0
+- Apifox chatroom 历史消息页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446394e0
+- Apifox chatroom tick lock 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446395e0
+- Apifox chatroom tick progress 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446396e0
+- Apifox chatroom tick unlock 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446397e0
+- Apifox chatroom narrator write 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446399e0
 - Apifox LLM 索引：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/llms.txt
 
-提取时间：2026-05-30
+提取时间：2026-06-01
 
 本文档记录 Flutter 项目当前对齐或待替换的 Apifox HTTP 接口，并对比当前 Flutter 项目中的 `lib/network` HTTP 设计。字段后带 `*` 表示 Apifox 标记为必填。
 
 ## 总览
 
-本文档当前覆盖 32 个接口，分为 `用户`、`origin`、`world`、`search`、`discuss`、`direct_message`、`notify` 和 `upload` 八组：
+本文档当前覆盖 40 个接口，分为 `用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify` 和 `upload` 九组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -33,12 +40,20 @@
 | 用户 | POST | `/api/v1/user/oauth/apple` | Apple login |
 | world | GET | `/api/v1/world/list` | World 列表 |
 | world | GET | `/api/v1/world/detail` | World 详情 |
+| world | GET | `/api/v1/world/origin_progress` | 用户在某 origin 下的最大 world tick 进度 |
 | world | POST | `/api/v1/world/tick` | world owner 触发一次 tick |
+| chatroom | GET | `/aitown-chat/internal/world/messages` | 获取世界最近消息 |
+| chatroom | GET | `/aitown-chat/api/messages` | 获取历史消息 |
+| chatroom | POST | `/aitown-chat/internal/tick/lock` | 锁定 World |
+| chatroom | GET | `/aitown-chat/internal/tick/progress` | 轮询 Tick 进度 |
+| chatroom | POST | `/aitown-chat/internal/tick/unlock` | 解锁 World |
+| chatroom | POST | `/aitown-chat/internal/narrator/write` | 写入旁白消息 |
 | search | GET | `/api/v1/search` | 全局搜索 |
 | origin | GET | `/api/v1/origin/list` | Origin 模板列表 |
 | origin | GET | `/api/v1/origin/detail` | Origin 模板详情 |
 | origin | POST | `/api/v1/origin/launch` | 基于 origin 创建 world |
 | discuss | GET | `/api/v1/discuss/list` | 顶级评论分页列表 |
+| discuss | GET | `/api/v1/discuss/replies` | 顶级评论下的回复分页列表 |
 | discuss | POST | `/api/v1/discuss/post` | 发表评论或回复 |
 | discuss | POST | `/api/v1/discuss/delete` | 删除自己的评论或回复 |
 | discuss | POST | `/api/v1/discuss/like` | 点赞评论或回复 |
@@ -138,6 +153,7 @@
 - `setting`: string
 - `events`: string[]
 - `tags`: string[]
+- `metric*`: `WorldMetric`
 - `created_at`: integer，Unix 秒
 - `started_at`: string，故事内起始时间文本
 - `tick_duration_days`: integer
@@ -161,12 +177,14 @@
 - `origin_id`: string
 - `origin_version`: string
 - `origin_version_time`: string
+- `owner_uid`: string，创建者 uid，来自 `tbl_world.owner_uid`
+- `owner_name`: string，创建者姓名；用户不存在时为空串
 - `brief`: string
 - `setting`: string
 - `events`: string[]
-- `tags`: string[]
+- `metric`: `WorldMetric`
 - `created_at`: integer，Unix 秒
-- `started_at`: integer，Unix 秒
+- `started_at`: string，故事内起始时间文本
 - `tick_duration_days`: integer
 - `cover`: string
 - `map_url`: string
@@ -179,6 +197,11 @@
 - `location_cnt`: integer
 - `tick_cnt`: integer
 - `player_cnt`: integer
+
+### WorldOriginProgressResp
+
+- `world_id*`: string，tick 数最大的 world_id；无匹配时为空字符串
+- `tick_cnt*`: integer，该 world 的 `current_tick_no`；无匹配时为 0
 
 ### Character
 
@@ -215,10 +238,17 @@
 
 ### Tick
 
+- `tick_id`: string
 - `tick_no`: integer
-- `narrator*`: string
+- `status`: integer
+- `tick_result*`: `WorldTickResult`
 - `created_at`: integer，Unix 秒
+
+`WorldTickResult`：
+
+- `narrator*`: string
 - `paragraphs*`: `TickParagraph[]`
+- `location_groups*`: `LocationGroup[]`
 
 `TickParagraph`：
 
@@ -226,6 +256,27 @@
 - `timestamp`: string
 - `text*`: string
 - `character_deltas`: `{ char_id, name, delta }[]`
+
+### ChatroomMessageDTO
+
+- `message_id`: integer，全局递增消息 ID
+- `location_id`: string，地点 ID；`/aitown-chat/api/messages` 的 `MessageDTO` 不带该字段，调用方已知 location
+- `conversation_round_id`: integer，对话轮次 ID
+- `round_order`: integer，轮次内序号
+- `sender_type`: string，`user`、`character` 或 `narrator`
+- `sender_id`: string，发送者 ID
+- `sender_name`: string，发送者名称
+- `user_id`: string，用户消息时非空
+- `content`: string，消息内容
+- `created_at`: string，创建时间
+
+### ChatroomNarratorLocationGroup
+
+- `location_id*`: string
+- `location_name*`: string
+- `location_summary*`: string
+- `characters*`: `{ char_id, name }[]`
+- `initial_dialogue*`: `{ char_id, char_name, content }[]`
 
 ### DiscussItem
 
@@ -394,9 +445,136 @@ Query：
 
 - `info*`: `WorldInfo`
 - `stats*`: `WorldStats`
+- `relation_status*`: string，当前登录用户与该 world 的关系状态；可为 `anonymous` / `owner` / `joined` / `pending` / `approved` / `rejected`
 - `characters*`: `Character[]`
 - `locations*`: `Location[]`
 - `ticks*`: `Tick[]`
+
+### GET `/api/v1/world/origin_progress`
+
+根据 `uid + origin_id` 查询该用户创建或加入过的 active world 成员关系，返回 `current_tick_no` 最大的一条 world 及 tick 数。无匹配时返回 `world_id=""`、`tick_cnt=0`。
+
+Query：
+
+- `uid*`: string，用户 uid
+- `origin_id*`: string，origin 业务 id
+
+响应 `data`：
+
+- `world_id*`: string
+- `tick_cnt*`: integer
+
+错误码：
+
+- `4004`
+
+### POST `/api/v1/world/apply`
+
+玩家发起加入 world 的申请；同一 `(world_id, applicant_uid)` 不能存在 pending/approved 的活跃申请。
+
+请求 body：
+
+- `world_id*`: string
+- `message`: string
+
+响应 `data`：
+
+- `apply_id*`: string
+- `status*`: integer，`10` 表示 pending
+
+错误码：
+
+- `20101`：`origin_id` 不存在或已软删除
+- `20201`
+- `20203`
+- `20204`
+- `20205`
+
+### GET `/api/v1/world/apply/list`
+
+查询 world 加入申请列表。`world_id` 为空时表示申请人视角，仅列出当前登录用户发起过的申请；传入 `world_id` 时用于 owner 审批列表。
+
+Query：
+
+- `pn`: integer
+- `rn`: integer
+- `world_id`: string
+- `status`: integer
+
+响应 `data`：
+
+- `total*`: integer
+- `pn*`: integer
+- `rn*`: integer
+- `list*`: `WorldApply[]`
+
+`WorldApply`：
+
+- `apply_id*`: string
+- `world_id*`: string
+- `applicant_uid*`: string
+- `message`: string
+- `status*`: integer
+- `reviewer_uid`: string
+- `review_msg`: string
+- `reviewed_at`: integer
+- `joined_at`: integer
+- `created_at`: integer
+
+错误码：
+
+- `10001`
+- `10003`
+- `20201`
+
+### POST `/api/v1/world/apply/review`
+
+world owner 审批一条 pending 申请。`action=approve` 流转到 approved；`action=reject` 流转到 rejected（终态）。被拒绝的申请允许同一申请人重新发起新的 apply。
+
+请求 body：
+
+- `apply_id*`: string
+- `action*`: string，`approve` 或 `reject`
+- `review_msg`: string
+
+响应 `data`：
+
+- `apply_id*`: string
+- `status*`: integer，`20` 表示 approved
+
+错误码：
+
+- `4004`
+- `10001`
+- `10003`
+- `20202`
+- `20206`
+
+### POST `/api/v1/world/join`
+
+申请通过后玩家正式加入 world。语义与 `origin/launch` 一致：`preset_character_id` 与 `custom_role` 二选一互斥。
+
+请求 body：
+
+- `world_id*`: string
+- `preset_character_id`: string，必须命中该 world 中 `type=ai` 且 `player_uid` 为空的角色
+- `custom_role`: `WorldCustomRole`
+
+响应 `data`：
+
+- `world_id*`: string
+- `char_id*`: string
+
+错误码：
+
+- `4004`
+- `10001`
+- `10003`
+- `20201`
+- `20202`
+- `20204`
+- `20206`
+- `20207`
 
 ### POST `/api/v1/world/tick`
 
@@ -452,7 +630,7 @@ Query：
 
 ### GET `/api/v1/origin/detail`
 
-返回单个 origin 模板的完整详情：基本信息、统计信息、初始角色、初始 location、ticks。
+返回单个 origin 模板的完整详情：基本信息、统计信息、初始角色、初始 location、ticks。匿名可访问，不需要登录。
 
 Query：
 
@@ -565,6 +743,97 @@ Query：
 - `20101`
 - `20102`
 
+## Chatroom HTTP 接口
+
+这些接口不在 `/api/v1` 下，而在 chatroom 服务前缀 `/aitown-chat` 下。当前 Flutter 侧通过 `GenesisApi.chatroomHttp` 使用独立 base URL，默认 `GENESIS_CHATROOM_HTTP_URL=http://47.77.195.140:5002/`；本地 mock 已覆盖这些路由。
+
+### GET `/aitown-chat/internal/world/messages`
+
+获取指定世界最近 50 条消息，按 `conversation_round_id` 倒排、`round_order` 正排，并按 `location_id` 分组返回。
+
+Query：
+
+- `world_id*`: string，世界实例 ID
+
+响应 `data`：
+
+- `locations`: `{ location_id, messages: ChatroomMessageDTO[] }[]`
+
+错误响应示例：
+
+```json
+{ "err_no": 1001, "err_msg": "参数错误: world_id is required" }
+```
+
+### GET `/aitown-chat/api/messages`
+
+分页获取指定 location 的历史消息。
+
+Query：
+
+- `world_instance_id*`: string，世界实例 ID
+- `location_id*`: string，地点 ID
+- `since`: integer，起始消息 ID；`0` 表示获取最新
+- `limit`: integer，默认 `20`
+
+响应 `data`：
+
+- `messages`: `ChatroomMessageDTO[]`
+- `has_more`: boolean，是否有更多消息
+- `newest_message_id`: integer，最新消息 ID
+
+### POST `/aitown-chat/internal/tick/lock`
+
+Tick 服务锁定 world，chat 服务广播 `input_blocked`，阻止用户继续发送消息。
+
+Query / multipart form：
+
+- `world_id*`: string，世界实例 ID；Apifox 同时声明 query 与 `multipart/form-data` body
+
+响应 `data`：
+
+- `locked`: boolean
+
+### GET `/aitown-chat/internal/tick/progress`
+
+Tick 服务轮询 world 处理进度。
+
+Query：
+
+- `world_id*`: string，世界实例 ID
+
+响应 `data`：
+
+- `progress`: integer，`1` 表示完成，`0` 表示进行中
+- `pending_messages`: integer，待消费消息数
+- `active_llm_calls`: integer，活跃 LLM 调用数
+
+### POST `/aitown-chat/internal/tick/unlock`
+
+Tick 服务解锁 world，chat 服务广播 `input_ready`，用户可以继续发送消息。
+
+multipart form：
+
+- `world_id`: string，世界实例 ID
+
+响应 `data`：
+
+- `unlocked`: boolean
+
+### POST `/aitown-chat/internal/narrator/write`
+
+旁白服务写入旁白消息，并广播 `narrator_message` 给对应 location 用户。
+
+JSON body：
+
+- `world_id*`: string
+- `tick_id*`: string
+- `location_groups*`: `ChatroomNarratorLocationGroup[]`
+
+响应 `data`：
+
+- `message_id`: integer，写入消息 ID
+
 ## Search 接口
 
 ### GET `/api/v1/search`
@@ -611,7 +880,7 @@ Query：
 
 ## Discuss 接口
 
-Apifox 当前定义的 discuss 业务类型只覆盖 origin：`biz_type=1`。列表接口无需登录；其余写操作需要登录态，Apifox 安全定义为 cookie `AIUSS`。
+Apifox 当前定义的 discuss 业务类型只覆盖 origin：`biz_type=1`。列表和回复分页接口无需登录；其余写操作需要登录态，Apifox 安全定义为 cookie `AIUSS`。
 
 ### GET `/api/v1/discuss/list`
 
@@ -644,6 +913,36 @@ Query：
 - `4004`
 - `20401`
 - `20402`
+
+### GET `/api/v1/discuss/replies`
+
+顶级评论下的回复分页列表。无需登录可访问；登录态下会回填 `is_liked`。
+
+服务端行为：
+
+- 加载 `root_discuss_id` 对应的未删除 discuss 行。
+- root 不存在返回 `ErrorDiscussNotExist`；root 不是 `level=1` 顶级评论返回 `ErrorDiscussRootNotTop`。
+- 按 `(root_discuss_id, level=2, deleted_at IS NULL)` 过滤，按 `created_at DESC, id DESC` 分页。
+- 批量加载作者用户信息与当前 viewer 的点赞集合，避免 N+1。
+
+Query：
+
+- `root_discuss_id*`: string
+- `pn`: integer，默认 1
+- `rn`: integer，默认 20
+
+响应 `data`：
+
+- `list*`: `DiscussItem[]`
+- `total*`: integer，回复数量
+- `pn*`: integer
+- `rn*`: integer
+
+错误码：
+
+- `4004`
+- `20403`
+- `20404`
 
 ### POST `/api/v1/discuss/post`
 
@@ -971,7 +1270,7 @@ query：
 
 ## 当前代码对齐状态
 
-截至 2026-05-30，本文档覆盖的 31 个接口已完成主要 HTTP 契约对齐；本次新增记录的 notify 通知列表与标记已读接口已按 Apifox 新契约调整当前封装、消息页入口、本地 mock 与测试：
+截至 2026-06-01，本文档覆盖的 40 个接口已完成主要 HTTP 契约对齐；本次新增记录的 chatroom HTTP 接口已按 Apifox 新契约补齐当前封装、本地 mock 与测试：
 
 | Apifox 接口 | 当前实现状态 |
 | --- | --- |
@@ -984,13 +1283,21 @@ query：
 | `GET /api/v1/user/following` | 已新增 `FollowV1Api.following(uid,pn,rn)`。 |
 | `GET /api/v1/user/followers` | 已新增 `FollowV1Api.followers(uid,pn,rn)`。 |
 | `GET /api/v1/world/list` | `WorldV1Api.list` query 已使用 `origin_id/owner_uid/keyword/pn/rn`；首页和个人 world 列表可消费 `list[].info + stats`。 |
-| `GET /api/v1/world/detail` | `WorldV1Api.detail` query 已使用 `world_id`；详情 mapper 支持 `info/stats/characters/locations/ticks`，并保留 `locations[].location_description` 供 `location_summary` 为空时展示。 |
+| `GET /api/v1/world/detail` | `WorldV1Api.detail` query 只使用 `world_id`；详情 mapper 支持 `info.metric`、`relation_status`、`locations[].location_description/location_paragraph/location_timestamp/dialogue` 与 `ticks[].tick_no/tick_result.paragraphs/location_groups`，不再消费旧 `wid` / `tick_index` / 顶层 `narrator` / `character_details` 别名。 |
+| `GET /api/v1/world/origin_progress` | 已新增 `WorldV1Api.originProgress(uid,originId)`，query 使用 `uid/origin_id`，响应消费 `world_id/tick_cnt`；origin discuss loader 会用该接口补齐每条评论作者在当前 origin 下的 world 与 tick 进度。 |
 | `POST /api/v1/world/tick` | 新契约替代旧 progress 触发接口；客户端应提交 `{ "world_id": "<world_id>" }` 并消费 `world_id/tick_cnt/last_tick`。 |
+| `GET /aitown-chat/internal/world/messages` | 已新增 `ChatroomHttpApi.getWorldMessages(worldId)`，query 使用 `world_id`，响应消费 `locations[].location_id/messages[]`；本地 mock 按 location 分组返回最近消息。 |
+| `GET /aitown-chat/api/messages` | 已新增 `ChatroomHttpApi.getMessages(worldInstanceId,locationId,since,limit)`，query 使用 `world_instance_id/location_id/since/limit`，响应消费 `messages/has_more/newest_message_id`。 |
+| `POST /aitown-chat/internal/tick/lock` | 已新增 `ChatroomHttpApi.lockWorld(worldId)`，按 Apifox 同时发送 query `world_id` 与 multipart form `world_id`，响应消费 `locked`。 |
+| `GET /aitown-chat/internal/tick/progress` | 已新增 `ChatroomHttpApi.tickProgress(worldId)`，响应消费 `progress/pending_messages/active_llm_calls`。 |
+| `POST /aitown-chat/internal/tick/unlock` | 已新增 `ChatroomHttpApi.unlockWorld(worldId)`，multipart form 发送 `world_id`，响应消费 `unlocked`。 |
+| `POST /aitown-chat/internal/narrator/write` | 已新增 `ChatroomHttpApi.writeNarrator(worldId,tickId,locationGroups)`，body 使用 `world_id/tick_id/location_groups`，响应消费 `message_id`；本地 mock 会写入 narrator 消息。 |
 | `GET /api/v1/search` | `SearchV1Api.search` 已改为发送 `keyword/type/pn/rn`；`type` 为空时不随 query 发送，表示全局搜索；`SearchPage` 已消费 `origins/worlds/users` 分类结果块。 |
 | `GET /api/v1/origin/list` | `OriginV1Api.list` query 已使用 `tag_id/keyword/uid/tag_name/pn/rn`；origin 页面和主 `getOrigins/getMyLaunchedOrigins` 可消费 `list[].info + stats`。 |
-| `GET /api/v1/origin/detail` | `OriginV1Api.detail` query 已使用 `origin_id`；详情 mapper 支持 `info/stats/characters/locations/ticks`。 |
+| `GET /api/v1/origin/detail` | `OriginV1Api.detail` query 已使用必填 `origin_id`；详情 mapper 支持 `info.metric`、`info.events`、`info.started_at`、`locations[].location_description` 与 `ticks[].tick_result`，local mock 返回 `info/stats/characters/locations/ticks`。 |
 | `POST /api/v1/origin/launch` | `OriginV1Api.launch` body 已使用 `origin_id/preset_character_id/custom_role`；详情页 launch 发送 preset 或 custom 二选一 payload，并消费响应 `world_id`。 |
 | `GET /api/v1/discuss/list` | `DiscussV1Api.list` 已使用 `biz_type=1`、`biz_id/pn/rn`，并消费 `list[].comment/latest_replies/top_total/total_all`；本地 mock 会按业务对象分页并为每条顶级评论返回最新 3 条回复。 |
+| `GET /api/v1/discuss/replies` | 已新增 `DiscussV1Api.replies(rootDiscussId,pn,rn)`，query 使用 `root_discuss_id/pn/rn`，响应消费 `list/total/pn/rn`；本地 mock 会按 `root_discuss_id` 过滤并按创建时间倒序分页。 |
 | `POST /api/v1/discuss/post` | `DiscussV1Api.post` 已支持顶级评论与回复统一入口，body 使用 `biz_type/biz_id/content/images/root_discuss_id/parent_discuss_id`，响应消费 `discuss_id/root_discuss_id/level`。 |
 | `POST /api/v1/discuss/delete` | `DiscussV1Api.delete` 已改为 `/discuss/delete` + `discuss_id`，响应按空对象处理。 |
 | `POST /api/v1/discuss/like` | `DiscussV1Api.like` 已改为 `discuss_id`，响应按空对象处理；本地 mock 幂等维护 `is_liked/like_cnt`。 |
@@ -1042,8 +1349,9 @@ Origin：
 
 World：
 
-- `POST /api/v1/world/request`
-- `POST /api/v1/world/request/audit`
+- `POST /api/v1/world/apply`
+- `GET /api/v1/world/apply/list`
+- `POST /api/v1/world/apply/review`
 - `POST /api/v1/world/join`
 - `POST /api/v1/world/synclastorigin`
 - `POST /api/v1/world/close`

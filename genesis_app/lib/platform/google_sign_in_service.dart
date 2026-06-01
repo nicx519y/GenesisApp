@@ -27,7 +27,7 @@ class GoogleSignInService {
     }
     _initializedServerClientId = serverClientId;
     final init = GoogleSignIn.instance.initialize(
-      serverClientId: serverClientId,
+      serverClientId: serverClientId.trim().isEmpty ? null : serverClientId,
     );
     _initializeFuture = init;
     return init;
@@ -53,9 +53,9 @@ class GoogleSignInService {
         'Firebase 尚未初始化，请先在 Firebase 控制台下载并放置 google-services.json。',
       );
     }
-    final diagnostics = await _fetchAndroidSignInDiagnostics();
+    final diagnostics = await _fetchSignInDiagnostics();
     final serverClientId = _resolveServerClientId(diagnostics);
-    if (serverClientId.isEmpty) {
+    if (!kIsWeb && Platform.isAndroid && serverClientId.isEmpty) {
       throw const _GoogleSignInFailure(
         '未找到 Web Client ID。请在 Firebase 启用 Google 登录、补齐 SHA-1 后重新下载 google-services.json。',
       );
@@ -114,9 +114,9 @@ class GoogleSignInService {
     }
 
     try {
-      final diagnostics = await _fetchAndroidSignInDiagnostics();
+      final diagnostics = await _fetchSignInDiagnostics();
       final serverClientId = _resolveServerClientId(diagnostics);
-      if (serverClientId.isEmpty) {
+      if (!kIsWeb && Platform.isAndroid && serverClientId.isEmpty) {
         debugPrint(
           '[Auth][GoogleSignInService] silent refresh skipped: missing web client id',
         );
@@ -175,8 +175,10 @@ class GoogleSignInService {
     }
   }
 
-  static Future<Map<String, Object?>> _fetchAndroidSignInDiagnostics() async {
-    if (kIsWeb || !Platform.isAndroid) return const <String, Object?>{};
+  static Future<Map<String, Object?>> _fetchSignInDiagnostics() async {
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) {
+      return const <String, Object?>{};
+    }
     try {
       final raw = await _deviceChannel.invokeMethod<Object>(
         'getSignInDiagnostics',
@@ -184,9 +186,7 @@ class GoogleSignInService {
       final map = raw is Map
           ? raw.map((key, value) => MapEntry(key.toString(), value))
           : const <String, Object?>{};
-      debugPrint(
-        '[Auth][GoogleSignInService] android signIn diagnostics: $map',
-      );
+      debugPrint('[Auth][GoogleSignInService] signIn diagnostics: $map');
       return map;
     } catch (e) {
       debugPrint('[Auth][GoogleSignInService] diagnostics unavailable: $e');
@@ -243,6 +243,13 @@ class GoogleSignInService {
         .toString()
         .trim();
     if (fromGoogleServices.isNotEmpty) return fromGoogleServices;
+    final fromIosInfoPlist = (diagnostics['gidServerClientId'] ?? '')
+        .toString()
+        .trim();
+    if (fromIosInfoPlist.isNotEmpty) return fromIosInfoPlist;
+    final fromIosGoogleServices =
+        (diagnostics['googleServiceServerClientId'] ?? '').toString().trim();
+    if (fromIosGoogleServices.isNotEmpty) return fromIosGoogleServices;
     return '';
   }
 }

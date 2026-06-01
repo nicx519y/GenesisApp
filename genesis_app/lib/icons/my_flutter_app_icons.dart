@@ -106,6 +106,36 @@ class MyFlutterApp {
     fontFamily: _kFontFam,
     fontPackage: _kFontPkg,
   );
+  static const IconData discussLikeFilled = IconData(
+    0xe814,
+    fontFamily: _kFontFam,
+    fontPackage: _kFontPkg,
+  );
+  static const IconData discussLikeOutline = IconData(
+    0xe815,
+    fontFamily: _kFontFam,
+    fontPackage: _kFontPkg,
+  );
+  static const IconData discussReply = IconData(
+    0xe816,
+    fontFamily: _kFontFam,
+    fontPackage: _kFontPkg,
+  );
+  static const IconData comment = IconData(
+    0xe817,
+    fontFamily: _kFontFam,
+    fontPackage: _kFontPkg,
+  );
+  static const IconData following = IconData(
+    0xe818,
+    fontFamily: _kFontFam,
+    fontPackage: _kFontPkg,
+  );
+  static const IconData notification = IconData(
+    0xe819,
+    fontFamily: _kFontFam,
+    fontPackage: _kFontPkg,
+  );
   static const IconData check = IconData(
     0xf00c,
     fontFamily: _kFontFam,

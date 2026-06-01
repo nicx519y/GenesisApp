@@ -342,10 +342,28 @@ import UniformTypeIdentifiers
   }
 
   private func signInDiagnostics() -> [String: Any] {
+    let info = Bundle.main.infoDictionary ?? [:]
+    let googleServiceInfo = googleServiceInfoPlist()
     return [
       "platform": "ios",
       "bundleIdentifier": Bundle.main.bundleIdentifier ?? "",
       "systemVersion": UIDevice.current.systemVersion,
+      "gidClientId": normalizedString(info["GIDClientID"]),
+      "gidServerClientId": normalizedString(info["GIDServerClientID"]),
+      "googleServiceClientId": normalizedString(googleServiceInfo["CLIENT_ID"]),
+      "googleServiceServerClientId": normalizedString(googleServiceInfo["SERVER_CLIENT_ID"]),
     ]
+  }
+
+  private func googleServiceInfoPlist() -> [String: Any] {
+    guard let url = Bundle.main.url(forResource: "GoogleService-Info", withExtension: "plist"),
+          let data = NSDictionary(contentsOf: url) as? [String: Any] else {
+      return [:]
+    }
+    return data
+  }
+
+  private func normalizedString(_ value: Any?) -> String {
+    return (value as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
   }
 }

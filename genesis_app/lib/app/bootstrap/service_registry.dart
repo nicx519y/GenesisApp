@@ -43,6 +43,7 @@ class ServiceRegistry {
     final api = GenesisApi(
       useMock: config.useMock,
       platformConfig: platformConfig,
+      chatroomHttpBaseUrl: config.chatroomHttpBaseUrl,
       deviceIdService: deviceId,
       sessionStore: sessionStore,
       identityAuthService: identityAuth,

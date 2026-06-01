@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/secend_tabs.dart';
 import '../../components/world_details_shell.dart';
@@ -13,6 +14,7 @@ import '../../components/world_map_stage.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/location_tree.dart';
+import '../../network/models/origin.dart';
 import '../../network/models/world.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
@@ -35,7 +37,7 @@ class _WorldPageState extends State<WorldPage>
   Object? _initialLoadError;
   Timer? _pollTimer;
   bool _pollInFlight = false;
-  bool _progressing = false;
+  bool _worldActionRunning = false;
 
   @override
   void initState() {
@@ -84,13 +86,22 @@ class _WorldPageState extends State<WorldPage>
     }
   }
 
-  Future<void> _progress() async {
-    if (_progressing) return;
-    setState(() => _progressing = true);
+  Future<void> _runWorldAction(_WorldHeaderActionKind action) async {
+    if (_worldActionRunning) return;
+    if (action == _WorldHeaderActionKind.launch) {
+      final world = _world;
+      if (world == null) return;
+      await _showLaunchRoleSheet(world);
+      return;
+    }
+    setState(() => _worldActionRunning = true);
     try {
-      final message = await AppServicesScope.of(
-        context,
-      ).api.progressWorld(widget.wid);
+      final api = AppServicesScope.of(context).api;
+      final message = switch (action) {
+        _WorldHeaderActionKind.request => await api.requestWorld(widget.wid),
+        _WorldHeaderActionKind.progress => await api.progressWorld(widget.wid),
+        _ => '',
+      };
       if (!mounted) return;
       if (message.trim().isNotEmpty) {
         showGenesisToast(context, message);
@@ -98,10 +109,86 @@ class _WorldPageState extends State<WorldPage>
       await _fetchWorld();
     } catch (_) {
       if (!mounted) return;
-      showGenesisToast(context, 'Progress failed');
+      showGenesisToast(context, '${_worldHeaderActionLabel(action)} failed');
     } finally {
-      if (mounted) setState(() => _progressing = false);
+      if (mounted) setState(() => _worldActionRunning = false);
     }
+  }
+
+  Future<void> _showLaunchRoleSheet(WorldDetail world) async {
+    if (_worldActionRunning) return;
+    final selection = await showOriginRoleLaunchSheet(
+      context: context,
+      characters: _worldPresetRoleCharacters(world),
+      resolveAvatarUrl: _resolveAssetUrl,
+      onFillFromProfile: _customRoleFromProfile,
+    );
+    if (!mounted || selection == null) return;
+    await _joinApprovedWorld(world, selection);
+  }
+
+  Future<void> _joinApprovedWorld(
+    WorldDetail world,
+    OriginRoleLaunchSelection roleSelection,
+  ) async {
+    if (_worldActionRunning) return;
+    setState(() => _worldActionRunning = true);
+    try {
+      final message = await AppServicesScope.of(context).api.joinApprovedWorld(
+        world.worldId,
+        presetCharacterId: roleSelection.presetCharacterId,
+        customRole: roleSelection.customRole?.toPayload(),
+      );
+      if (!mounted) return;
+      if (message.trim().isNotEmpty) {
+        showGenesisToast(context, message);
+      }
+      await _fetchWorld();
+    } catch (_) {
+      if (!mounted) return;
+      showGenesisToast(context, 'Launch failed');
+    } finally {
+      if (mounted) setState(() => _worldActionRunning = false);
+    }
+  }
+
+  Future<OriginCustomRoleDraft?> _customRoleFromProfile() async {
+    final services = AppServicesScope.read(context);
+    final userInfo = await services.sessionStore.readUserInfo();
+    final profile = services.identityAuth.currentProfile();
+    if ((userInfo == null || userInfo.isEmpty) && profile == null) {
+      if (mounted) {
+        showGenesisToast(context, 'No saved profile found');
+      }
+      return null;
+    }
+    final cachedUser = userInfo ?? const <String, dynamic>{};
+    final cachedAvatar = _mapString(cachedUser, const [
+      'avatar',
+      'avatar_url',
+      'photoUrl',
+      'photo_url',
+      'picture',
+    ]);
+    final profileAvatar = profile?.photoUrl.trim() ?? '';
+    final cachedName = _mapString(cachedUser, const [
+      'name',
+      'nickname',
+      'user_name',
+      'displayName',
+      'display_name',
+    ]);
+    final profileName = (profile?.displayName.trim().isNotEmpty ?? false)
+        ? profile!.displayName.trim()
+        : (profile?.email.trim() ?? '');
+    return OriginCustomRoleDraft(
+      avatarUrl: _resolveAssetUrl(
+        cachedAvatar.isNotEmpty ? cachedAvatar : profileAvatar,
+      ),
+      name: cachedName.isNotEmpty ? cachedName : profileName,
+      identity: _mapString(cachedUser, const ['identity']),
+      bio: _mapString(cachedUser, const ['bio', 'description']),
+    );
   }
 
   Future<void> _openChatForPoint(WorldPoint point) async {
@@ -176,7 +263,7 @@ class _WorldPageState extends State<WorldPage>
     final avatarsByLocation = _avatarsByLocationFromCharacterPositions(
       world.characterPositions,
     );
-    final processedLocationTree = world.processedWorldLocationTree;
+    final processedLocationTree = world.processedLocationTree;
     final rootLocationNodes = processedLocationTree.mapRoots;
     final renderLocationNodes = processedLocationTree.renderRoots;
     final allLocationNodes = processedLocationTree.flattened;
@@ -191,9 +278,9 @@ class _WorldPageState extends State<WorldPage>
             avatarsByLocation,
             processedLocationTree,
           )
-        : world.worldLocations.isNotEmpty
+        : world.locations.isNotEmpty
         ? _pointsFromWorldLocations(
-            _rootWorldLocations(world.worldLocations),
+            _rootWorldLocations(world.locations),
             avatarsByLocation,
           )
         : _pointsFromLocationIds(
@@ -209,8 +296,8 @@ class _WorldPageState extends State<WorldPage>
             avatarsByLocation,
             processedLocationTree,
           )
-        : world.worldLocations.isNotEmpty
-        ? _pointsFromWorldLocations(world.worldLocations, avatarsByLocation)
+        : world.locations.isNotEmpty
+        ? _pointsFromWorldLocations(world.locations, avatarsByLocation)
         : points;
     return WorldDetailsPageScaffold(
       panelTopGap: 50,
@@ -235,8 +322,8 @@ class _WorldPageState extends State<WorldPage>
       slivers: [
         _WorldFeedContent(
           world: world,
-          progressing: _progressing,
-          onProgress: _progress,
+          worldActionRunning: _worldActionRunning,
+          onWorldAction: _runWorldAction,
         ),
       ],
     );
@@ -246,13 +333,13 @@ class _WorldPageState extends State<WorldPage>
 class _WorldFeedContent extends StatefulWidget {
   const _WorldFeedContent({
     required this.world,
-    required this.progressing,
-    required this.onProgress,
+    required this.worldActionRunning,
+    required this.onWorldAction,
   });
 
   final WorldDetail world;
-  final bool progressing;
-  final Future<void> Function() onProgress;
+  final bool worldActionRunning;
+  final Future<void> Function(_WorldHeaderActionKind action) onWorldAction;
 
   @override
   State<_WorldFeedContent> createState() => _WorldFeedContentState();
@@ -301,8 +388,8 @@ class _WorldFeedContentState extends State<_WorldFeedContent>
             children: [
               _WorldInfoHeader(
                 world: widget.world,
-                progressing: widget.progressing,
-                onProgress: widget.onProgress,
+                worldActionRunning: widget.worldActionRunning,
+                onWorldAction: widget.onWorldAction,
               ),
               const SizedBox(height: 4),
               SecendTabs(
@@ -529,25 +616,27 @@ extension on double {
 class _WorldInfoHeader extends StatelessWidget {
   const _WorldInfoHeader({
     required this.world,
-    required this.progressing,
-    required this.onProgress,
+    required this.worldActionRunning,
+    required this.onWorldAction,
   });
 
   final WorldDetail world;
-  final bool progressing;
-  final Future<void> Function() onProgress;
+  final bool worldActionRunning;
+  final Future<void> Function(_WorldHeaderActionKind action) onWorldAction;
 
   @override
   Widget build(BuildContext context) {
     final title = world.origin.name.isEmpty ? world.name : world.origin.name;
-    final wid = world.wid;
+    final wid = world.worldId;
     final owner = world.origin.originator.trim().isNotEmpty
         ? world.origin.originator.trim()
         : world.ownerUid;
     final ownerUid = world.ownerUid.trim();
+    final action = _worldHeaderActionFor(world.relationStatus);
+    final actionEnabled = !worldActionRunning && action.isClickable;
     final counters = <Map<String, dynamic>>[
-      {'icon': 'tick', 'value': world.progressCount},
-      {'icon': 'connect', 'value': world.interactCount},
+      {'icon': 'tick', 'value': world.tickCount},
+      {'icon': 'connect', 'value': world.connectCount},
       {'icon': 'character', 'value': world.characterCount},
       {'icon': 'player', 'value': world.playerCount},
     ];
@@ -636,7 +725,9 @@ class _WorldInfoHeader extends StatelessWidget {
               width: 120,
               height: 28,
               child: FilledButton(
-                onPressed: progressing ? null : onProgress,
+                onPressed: actionEnabled
+                    ? () => onWorldAction(action.kind)
+                    : null,
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF2F9663),
                   disabledBackgroundColor: const Color(
@@ -650,7 +741,7 @@ class _WorldInfoHeader extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: progressing
+                child: worldActionRunning
                     ? const SizedBox(
                         width: 18,
                         height: 18,
@@ -659,15 +750,15 @@ class _WorldInfoHeader extends StatelessWidget {
                           color: Colors.white,
                         ),
                       )
-                    : const Center(
+                    : Center(
                         child: Text(
-                          'Progress',
-                          strutStyle: StrutStyle(
+                          action.label,
+                          strutStyle: const StrutStyle(
                             fontSize: 14,
                             height: 1,
                             forceStrutHeight: true,
                           ),
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 14,
                             height: 1,
                             fontWeight: FontWeight.w500,
@@ -681,6 +772,69 @@ class _WorldInfoHeader extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+enum _WorldHeaderActionKind { request, pending, launch, progress, unavailable }
+
+class _WorldHeaderAction {
+  const _WorldHeaderAction(this.kind, this.label, this.isClickable);
+
+  final _WorldHeaderActionKind kind;
+  final String label;
+  final bool isClickable;
+}
+
+_WorldHeaderAction _worldHeaderActionFor(String relationStatus) {
+  switch (relationStatus.trim().toLowerCase()) {
+    case 'anonymous':
+    case 'rejected':
+    case 'none':
+      return const _WorldHeaderAction(
+        _WorldHeaderActionKind.request,
+        'Request',
+        true,
+      );
+    case 'pending':
+      return const _WorldHeaderAction(
+        _WorldHeaderActionKind.pending,
+        'pending',
+        false,
+      );
+    case 'approved':
+      return const _WorldHeaderAction(
+        _WorldHeaderActionKind.launch,
+        'Launch',
+        true,
+      );
+    case 'owner':
+    case 'joined':
+      return const _WorldHeaderAction(
+        _WorldHeaderActionKind.progress,
+        'Progress',
+        true,
+      );
+    default:
+      return const _WorldHeaderAction(
+        _WorldHeaderActionKind.unavailable,
+        'Unavailable',
+        false,
+      );
+  }
+}
+
+String _worldHeaderActionLabel(_WorldHeaderActionKind action) {
+  switch (action) {
+    case _WorldHeaderActionKind.request:
+      return 'Request';
+    case _WorldHeaderActionKind.launch:
+      return 'Launch';
+    case _WorldHeaderActionKind.progress:
+      return 'Progress';
+    case _WorldHeaderActionKind.pending:
+      return 'pending';
+    case _WorldHeaderActionKind.unavailable:
+      return 'Unavailable';
   }
 }
 
@@ -797,7 +951,7 @@ class _WorldEventsSection extends StatelessWidget {
     }
 
     final locationsById = <String, Map<String, dynamic>>{
-      for (final location in world.worldLocations)
+      for (final location in world.locations)
         _mapString(location, const ['location_id', 'id']): location,
     }..remove('');
     final fallbackBody = _eventBody(world);
@@ -1004,7 +1158,7 @@ class _EmptySection extends StatelessWidget {
 
 String _eventBody(WorldDetail world) {
   final candidates = [
-    world.lastProgressUpdate,
+    world.latestNarrator,
     world.origin.worldView,
     world.origin.description,
     world.name,
@@ -1052,6 +1206,47 @@ String _mapString(
 
 String _resolveAssetUrl(String raw) {
   return resolveAssetUrl(raw);
+}
+
+List<OriginCharacter> _worldPresetRoleCharacters(WorldDetail world) {
+  return world.characters
+      .where(_isAvailablePresetWorldRole)
+      .map((character) {
+        final charId = _mapString(character, const [
+          'char_id',
+          'character_id',
+          'id',
+        ]);
+        final locationId = _mapString(character, const [
+          'location_id',
+          'initial_location_id',
+        ]);
+        final locationInt = int.tryParse(locationId) ?? 0;
+        return OriginCharacter(
+          id: int.tryParse(charId) ?? 0,
+          characterId: charId,
+          originId: world.originId,
+          name: _mapString(character, const ['name'], fallback: 'Character'),
+          avatar: _mapString(character, const ['avatar']),
+          tags: _mapString(character, const ['identity']),
+          tagline: _mapString(character, const ['brief']),
+          description: _mapString(character, const ['description', 'brief']),
+          goal: _mapString(character, const ['goal']),
+          currentLocationId: locationInt,
+          initialLocationId: locationInt,
+          createdAt: null,
+          updatedAt: null,
+        );
+      })
+      .toList(growable: false);
+}
+
+bool _isAvailablePresetWorldRole(Map<String, dynamic> character) {
+  final charId = _mapString(character, const ['char_id', 'character_id', 'id']);
+  if (charId.isEmpty) return false;
+  final type = _mapString(character, const ['type']).toLowerCase();
+  final playerUid = _mapString(character, const ['player_uid']);
+  return playerUid.isEmpty && (type.isEmpty || type == 'ai');
 }
 
 String _rootWorldMapImageUrl(WorldDetail world) {
@@ -1188,25 +1383,20 @@ List<WorldPoint> _pointsFromWorldLocations(
 
   return List<WorldPoint>.generate(locations.length, (i) {
     final l = locations[i];
-    final locationId = '${l['location_id'] ?? l['id'] ?? ''}'.trim();
-    final pointId = '${l['point_id'] ?? l['id'] ?? locationId}'.trim();
+    final locationId = '${l['location_id'] ?? ''}'.trim();
+    final pointId = '${l['point_id'] ?? locationId}'.trim();
     final id = pointId.isNotEmpty
         ? pointId
         : (locationId.isNotEmpty ? locationId : '$i');
-    final name = (l['name'] ?? '').toString();
+    final name = (l['location_name'] ?? '').toString();
     final locationSummary = _mapString(l, const ['location_summary']);
-    final legacyDescription = _mapString(l, const ['description']);
     final locationDescription = _mapString(l, const ['location_description']);
-    final description = locationSummary.isNotEmpty
-        ? locationSummary
-        : (locationDescription.isEmpty ? legacyDescription : '');
-    final descriptionFallback = locationDescription.isNotEmpty
-        ? locationDescription
-        : legacyDescription;
+    final description = locationSummary.isNotEmpty ? locationSummary : '';
+    final descriptionFallback = locationDescription;
     final icon = _resolveAssetUrl((l['icon'] ?? '').toString());
 
-    final rawXP = l['x_percent'] ?? l['xPercent'];
-    final rawYP = l['y_percent'] ?? l['yPercent'];
+    final rawXP = l['x_percent'];
+    final rawYP = l['y_percent'];
     final xPercent = rawXP is num
         ? rawXP.toDouble()
         : double.tryParse('$rawXP') ?? 0;

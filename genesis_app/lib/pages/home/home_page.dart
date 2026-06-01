@@ -47,7 +47,7 @@ class _HomeHeader extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
         child: Row(
           children: [
-            const GenesisLogo(height: 26.2, width: 97.2),
+            const GenesisLogo(height: 26.2),
             const SizedBox(width: 12),
             Expanded(
               child: SearchBarPlaceholder(

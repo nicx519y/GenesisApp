@@ -8,25 +8,32 @@ import 'package:image_picker/image_picker.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/local_image_crop_page.dart';
+import '../../components/me/signed_out_me_view.dart';
 import '../../components/me/user_profile_content.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/origin.dart';
+import '../../platform/auth/auth_cancelled_exception.dart';
+import '../../platform/auth/auth_session.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../utils/relative_time_formatter.dart';
 import 'settings_page.dart';
 
 class MePage extends StatefulWidget {
-  const MePage({super.key, this.onLoggedOut});
+  const MePage({super.key, this.onLoggedOut, this.onLogin});
 
   final VoidCallback? onLoggedOut;
+  final Future<bool> Function(IdentityProvider provider)? onLogin;
 
   @override
   State<MePage> createState() => _MePageState();
 }
 
 class _MePageState extends State<MePage> {
-  late Future<UserProfileData> _future;
-  bool _isUpdatingProfile = false;
+  late Future<_MePageContent> _future;
+  final ValueNotifier<bool> _isUpdatingProfile = ValueNotifier<bool>(false);
+  final ValueNotifier<String> _avatarUrl = ValueNotifier<String>('');
+  final ValueNotifier<String> _displayName = ValueNotifier<String>('');
+  IdentityProvider? _loggingInProvider;
   final ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>
   _originsState =
       ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>(
@@ -53,12 +60,33 @@ class _MePageState extends State<MePage> {
 
   @override
   void dispose() {
+    _isUpdatingProfile.dispose();
+    _avatarUrl.dispose();
+    _displayName.dispose();
     _originsState.dispose();
     _worldsState.dispose();
     super.dispose();
   }
 
-  Future<UserProfileData> _loadData() async {
+  Future<_MePageContent> _loadData() async {
+    if (!await _hasLocalLoginSession()) {
+      _loadGeneration += 1;
+      _originsState.value =
+          const UserProfileCollectionState<UserProfileOriginItem>(
+            items: <UserProfileOriginItem>[],
+            isLoading: false,
+          );
+      _worldsState.value =
+          const UserProfileCollectionState<UserProfileWorldItem>(
+            items: <UserProfileWorldItem>[],
+            isLoading: false,
+          );
+      return const _MePageContent.signedOut();
+    }
+    return _MePageContent.signedIn(await _loadProfileData());
+  }
+
+  Future<UserProfileData> _loadProfileData() async {
     final generation = _loadGeneration + 1;
     _loadGeneration = generation;
     _originsState.value =
@@ -119,12 +147,22 @@ class _MePageState extends State<MePage> {
       origins: const [],
       worlds: const [],
     );
+    _avatarUrl.value = data.avatarUrl;
+    _displayName.value = data.displayName;
     unawaited(
       remoteUserFuture.then((remoteUser) {
         _applyRemoteUserInfo(generation, data, remoteUser);
       }),
     );
     return data;
+  }
+
+  Future<bool> _hasLocalLoginSession() async {
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
   }
 
   Future<void> _loadOrigins(int generation, GenesisApi api, String uid) async {
@@ -207,9 +245,21 @@ class _MePageState extends State<MePage> {
   ) {
     if (remoteUser == null || !mounted || generation != _loadGeneration) return;
     final nextData = _mergeRemoteUserInfoForRender(currentData, remoteUser);
+    if (currentData.avatarUrl != nextData.avatarUrl) {
+      _avatarUrl.value = nextData.avatarUrl;
+    }
+    if (currentData.displayName != nextData.displayName) {
+      _displayName.value = nextData.displayName;
+    }
     if (_sameRenderedUserInfo(currentData, nextData)) return;
+    if (_sameRenderedUserInfoExceptAvatarAndDisplayName(
+      currentData,
+      nextData,
+    )) {
+      return;
+    }
     setState(() {
-      _future = Future<UserProfileData>.value(nextData);
+      _future = Future<_MePageContent>.value(_MePageContent.signedIn(nextData));
     });
   }
 
@@ -218,6 +268,37 @@ class _MePageState extends State<MePage> {
       _future = _loadData();
     });
     await _future;
+  }
+
+  Future<void> _login(IdentityProvider provider) async {
+    if (_loggingInProvider != null) return;
+    final login = widget.onLogin;
+    if (login == null) {
+      showGenesisToast(context, 'Sign-in unavailable');
+      return;
+    }
+    setState(() => _loggingInProvider = provider);
+    try {
+      final ok = await login(provider);
+      if (!mounted) return;
+      if (ok) {
+        setState(() {
+          _future = _loadData();
+        });
+      } else {
+        showGenesisToast(context, 'Sign-in failed');
+      }
+    } on AuthCancelledException {
+      // User cancelled provider UI.
+    } catch (e, st) {
+      debugPrint('[Auth][MePage] login failed: $e');
+      debugPrint('[Auth][MePage] stacktrace:\n$st');
+      if (!mounted) return;
+      final message = e.toString().trim();
+      showGenesisToast(context, message.isEmpty ? 'Sign-in failed' : message);
+    } finally {
+      if (mounted) setState(() => _loggingInProvider = null);
+    }
   }
 
   Future<void> _copyUid(String uid) async {
@@ -235,7 +316,7 @@ class _MePageState extends State<MePage> {
     }
   }
 
-  Future<void> _editAvatar(UserProfileData data) async {
+  Future<void> _editAvatar() async {
     final Uint8List bytes;
     try {
       final image = await ImagePicker().pickImage(source: ImageSource.gallery);
@@ -268,7 +349,7 @@ class _MePageState extends State<MePage> {
     );
     if (avatarUrl == null || avatarUrl.trim().isEmpty || !mounted) return;
 
-    await _updateProfile(
+    await _updateAvatar(
       update: () => services.api.v1.user.update(avatar: avatarUrl),
       apply: (updatedUser) {
         final updatedAvatar = _mapString(
@@ -276,23 +357,24 @@ class _MePageState extends State<MePage> {
           'avatar',
           fallback: avatarUrl,
         );
-        return data.copyWith(avatarUrl: resolveAssetUrl(updatedAvatar));
+        return resolveAssetUrl(updatedAvatar);
       },
     );
   }
 
-  Future<void> _editNickName(UserProfileData data) async {
+  Future<void> _editNickName() async {
+    final currentDisplayName = _displayName.value.trim();
     final nickName = await showDialog<String>(
       context: context,
-      builder: (_) => _NickNameDialog(initialValue: data.displayName),
+      builder: (_) => _NickNameDialog(initialValue: currentDisplayName),
     );
 
     final trimmedName = nickName?.trim() ?? '';
-    if (trimmedName.isEmpty || trimmedName == data.displayName) return;
+    if (trimmedName.isEmpty || trimmedName == currentDisplayName) return;
     if (!mounted) return;
 
     final services = AppServicesScope.read(context);
-    await _updateProfile(
+    await _updateDisplayName(
       update: () => services.api.v1.user.update(name: trimmedName),
       apply: (updatedUser) {
         final updatedName = _mapString(
@@ -300,36 +382,52 @@ class _MePageState extends State<MePage> {
           'name',
           fallback: trimmedName,
         );
-        return data.copyWith(displayName: updatedName);
+        return updatedName;
       },
     );
   }
 
-  Future<void> _updateProfile({
+  Future<void> _updateDisplayName({
     required Future<Map<String, dynamic>> Function() update,
-    required UserProfileData Function(Map<dynamic, dynamic> updatedUser) apply,
+    required String Function(Map<dynamic, dynamic> updatedUser) apply,
   }) async {
-    setState(() {
-      _isUpdatingProfile = true;
-    });
+    _isUpdatingProfile.value = true;
     try {
       final response = await update();
       final updatedUser = response['user'] is Map
           ? response['user'] as Map
           : response;
       await _cacheUpdatedUserInfo(updatedUser);
-      final updatedData = apply(updatedUser);
+      final updatedDisplayName = apply(updatedUser);
       if (!mounted) return;
-      setState(() {
-        _future = Future<UserProfileData>.value(updatedData);
-        _isUpdatingProfile = false;
-      });
+      _displayName.value = updatedDisplayName;
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _isUpdatingProfile = false;
-      });
       showGenesisToast(context, 'Update failed');
+    } finally {
+      if (mounted) _isUpdatingProfile.value = false;
+    }
+  }
+
+  Future<void> _updateAvatar({
+    required Future<Map<String, dynamic>> Function() update,
+    required String Function(Map<dynamic, dynamic> updatedUser) apply,
+  }) async {
+    _isUpdatingProfile.value = true;
+    try {
+      final response = await update();
+      final updatedUser = response['user'] is Map
+          ? response['user'] as Map
+          : response;
+      await _cacheUpdatedUserInfo(updatedUser);
+      final updatedAvatarUrl = apply(updatedUser);
+      if (!mounted) return;
+      _avatarUrl.value = updatedAvatarUrl;
+    } catch (_) {
+      if (!mounted) return;
+      showGenesisToast(context, 'Update failed');
+    } finally {
+      if (mounted) _isUpdatingProfile.value = false;
     }
   }
 
@@ -350,7 +448,7 @@ class _MePageState extends State<MePage> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<UserProfileData>(
+    return FutureBuilder<_MePageContent>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -369,10 +467,17 @@ class _MePageState extends State<MePage> {
           );
         }
 
-        final data = snapshot.data;
-        if (data == null) {
+        final content = snapshot.data;
+        if (content == null) {
           return const SizedBox.shrink();
         }
+        if (!content.isSignedIn) {
+          return SignedOutMeView(
+            loggingInProvider: _loggingInProvider,
+            onLogin: _login,
+          );
+        }
+        final data = content.data!;
 
         return SafeArea(
           bottom: false,
@@ -394,9 +499,11 @@ class _MePageState extends State<MePage> {
                   data: data,
                   originsListenable: _originsState,
                   worldsListenable: _worldsState,
-                  isUpdatingProfile: _isUpdatingProfile,
-                  onEditAvatar: () => _editAvatar(data),
-                  onEditDisplayName: () => _editNickName(data),
+                  avatarUrlListenable: _avatarUrl,
+                  displayNameListenable: _displayName,
+                  isUpdatingProfileListenable: _isUpdatingProfile,
+                  onEditAvatar: _editAvatar,
+                  onEditDisplayName: _editNickName,
                   onCopyUid: _copyUid,
                 ),
               ),
@@ -406,6 +513,15 @@ class _MePageState extends State<MePage> {
       },
     );
   }
+}
+
+class _MePageContent {
+  const _MePageContent.signedOut() : data = null;
+  const _MePageContent.signedIn(this.data);
+
+  final UserProfileData? data;
+
+  bool get isSignedIn => data != null;
 }
 
 @visibleForTesting
@@ -450,8 +566,22 @@ bool _sameRenderedUserInfo(
   UserProfileData nextData,
 ) {
   return currentData.avatarUrl == nextData.avatarUrl &&
-      currentData.displayName == nextData.displayName &&
-      currentData.uid == nextData.uid &&
+      _sameRenderedUserInfoExceptAvatar(currentData, nextData);
+}
+
+bool _sameRenderedUserInfoExceptAvatar(
+  UserProfileData currentData,
+  UserProfileData nextData,
+) {
+  return currentData.displayName == nextData.displayName &&
+      _sameRenderedUserInfoExceptAvatarAndDisplayName(currentData, nextData);
+}
+
+bool _sameRenderedUserInfoExceptAvatarAndDisplayName(
+  UserProfileData currentData,
+  UserProfileData nextData,
+) {
+  return currentData.uid == nextData.uid &&
       currentData.followingCount == nextData.followingCount &&
       currentData.followerCount == nextData.followerCount;
 }

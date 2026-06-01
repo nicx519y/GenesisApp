@@ -181,7 +181,7 @@ class OriginDetail {
       mapImage: mapImage,
       worldMap: asString(json['world_map'], fallback: mapImage),
       worldView: asString(json['world_view']),
-      originator: asString(json['originator']),
+      originator: asString(json['owner_name']),
       versionNum: asInt(json['version_num']),
       startTime: asString(json['start_time']),
       copyCount: asInt(json['copy_count']),

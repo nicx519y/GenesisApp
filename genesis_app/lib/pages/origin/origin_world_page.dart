@@ -88,12 +88,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 
   void _configureDiscuss(String oid) {
-    final api = AppServicesScope.read(context).api;
     _discussController.configure(
       oid: oid,
       loader: ({required String oid, required int pn, required int rn}) async {
-        final data = await api.v1.discuss.list(bizId: oid, pn: pn, rn: rn);
-        return OriginDiscussPage.fromJson(data);
+        return loadOriginDiscussPage(context, oid, pn: pn, rn: rn);
       },
     );
   }
@@ -738,21 +736,44 @@ class _DiscussSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionTitle(
-          icon: MyFlutterApp.discuss,
-          iconColor: const Color(0xFF111111),
-          title: 'Discuss (${origin.discussCount})',
-        ),
-        const SizedBox(height: 14),
-        DiscussPostInput(
-          bizId: origin.oid,
-          onSubmitted: () => unawaited(controller.refreshFirstPage()),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.of(context).pushNamed(
+            RouteNames.discuss,
+            arguments: {'oid': origin.oid, 'originId': origin.id},
+          ),
+          child: Row(
+            children: [
+              _SectionTitle(
+                icon: MyFlutterApp.discuss,
+                iconColor: const Color(0xFF111111),
+                title: 'Discuss (${origin.discussCount})',
+              ),
+              const Spacer(),
+              const Icon(
+                Icons.chevron_right,
+                size: 20,
+                color: Color(0xFF8B8B8B),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 14),
         OriginDiscussList(
           controller: controller,
           count: origin.discussCount,
           showHeader: false,
+          onViewMoreTap: () async {
+            await Navigator.of(context).pushNamed(
+              RouteNames.discuss,
+              arguments: {'oid': origin.oid, 'originId': origin.id},
+            );
+          },
+        ),
+        const SizedBox(height: 14),
+        DiscussPostInput(
+          bizId: origin.oid,
+          onSubmitted: () => unawaited(controller.refreshFirstPage()),
         ),
       ],
     );

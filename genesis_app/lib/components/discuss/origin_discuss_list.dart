@@ -1,10 +1,18 @@
+import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/json_utils.dart';
+import '../../routers/app_router.dart';
 import '../../utils/stat_count_formatter.dart';
+import '../common/genesis_center_toast.dart';
 import '../common/genesis_image_viewer_overlay.dart';
+import 'discuss_post_input.dart';
+import 'origin_discuss_replies_list.dart';
 
 typedef OriginDiscussPageLoader =
     Future<OriginDiscussPage> Function({
@@ -14,6 +22,12 @@ typedef OriginDiscussPageLoader =
     });
 
 const int originDiscussPageSize = 20;
+const int originDiscussRepliesPageSize = 20;
+const String _discussLikeFilledAsset =
+    'assets/custom-icons/png/discuss_like_filled.png';
+const String _discussLikeOutlineAsset =
+    'assets/custom-icons/png/discuss_like_outline.png';
+const String _discussReplyAsset = 'assets/custom-icons/png/discuss_reply.png';
 
 Future<OriginDiscussPage> loadOriginDiscussPage(
   BuildContext context,
@@ -24,10 +38,44 @@ Future<OriginDiscussPage> loadOriginDiscussPage(
   final resolvedOid = oid.trim();
   if (resolvedOid.isEmpty) return OriginDiscussPage.empty(pn: pn, rn: rn);
 
-  final data = await AppServicesScope.read(
-    context,
-  ).api.v1.discuss.list(bizId: resolvedOid, pn: pn, rn: rn);
+  final api = AppServicesScope.read(context).api.v1;
+  final data = await api.discuss.list(bizId: resolvedOid, pn: pn, rn: rn);
   return OriginDiscussPage.fromJson(data);
+}
+
+class OriginDiscussRepliesPage {
+  const OriginDiscussRepliesPage({
+    required this.items,
+    required this.total,
+    required this.pn,
+    required this.rn,
+  });
+
+  factory OriginDiscussRepliesPage.fromJson(Map<String, dynamic> json) {
+    final rawList = json['list'];
+    final items = rawList is List
+        ? rawList
+              .whereType<Map>()
+              .map((raw) => asJsonMap(raw))
+              .where((item) {
+                final content = asString(item['content']).trim();
+                final images = _imageUrlsFrom(item['images']);
+                return content.isNotEmpty || images.isNotEmpty;
+              })
+              .toList(growable: false)
+        : const <Map<String, dynamic>>[];
+    return OriginDiscussRepliesPage(
+      items: items,
+      total: asInt(json['total'], fallback: items.length),
+      pn: asInt(json['pn'], fallback: 1),
+      rn: asInt(json['rn'], fallback: originDiscussRepliesPageSize),
+    );
+  }
+
+  final List<Map<String, dynamic>> items;
+  final int total;
+  final int pn;
+  final int rn;
 }
 
 class OriginDiscussPage {
@@ -81,11 +129,18 @@ class OriginDiscussPage {
 class OriginDiscussListItem {
   const OriginDiscussListItem({
     required this.discussId,
+    this.bizId = '',
+    this.worldId = '',
+    this.authorUid = '',
     required this.authorName,
     required this.avatar,
     required this.content,
     this.imageUrls = const <String>[],
+    this.storyCount = 0,
     required this.replyCount,
+    this.likeCount = 0,
+    this.isLiked = false,
+    this.level = 1,
     required this.createdAt,
     required this.seed,
     required this.latestReplies,
@@ -122,11 +177,27 @@ class OriginDiscussListItem {
     );
     return OriginDiscussListItem(
       discussId: asString(json['discuss_id']),
+      bizId: asString(json['biz_id']),
+      worldId: asString(
+        json['world_id'],
+        fallback: asString(
+          json['wid'],
+          fallback: asString(json['display_wid_str']),
+        ),
+      ),
+      authorUid: uid,
       authorName: name,
       avatar: asString(author?['avatar'] ?? author?['avatar_url']),
       content: asString(json['content']),
       imageUrls: _imageUrlsFrom(json['images'] ?? json['image_urls']),
+      storyCount: asInt(
+        json['story_cnt'],
+        fallback: asInt(json['tick_cnt'], fallback: asInt(json['connect_cnt'])),
+      ),
       replyCount: asInt(json['reply_cnt']),
+      likeCount: asInt(json['like_cnt'], fallback: asInt(json['like_count'])),
+      isLiked: asBool(json['is_liked']),
+      level: asInt(json['level'], fallback: 1),
       createdAt: _parseDateTime(json['created_at']),
       seed: uid.isEmpty ? name : uid,
       latestReplies: latestReplies,
@@ -134,14 +205,49 @@ class OriginDiscussListItem {
   }
 
   final String discussId;
+  final String bizId;
+  final String worldId;
+  final String authorUid;
   final String authorName;
   final String avatar;
   final String content;
   final List<String> imageUrls;
+  final int storyCount;
   final int replyCount;
+  final int likeCount;
+  final bool isLiked;
+  final int level;
   final DateTime? createdAt;
   final String seed;
   final List<Map<String, dynamic>> latestReplies;
+
+  OriginDiscussListItem copyWith({
+    String? worldId,
+    int? storyCount,
+    int? replyCount,
+    int? likeCount,
+    bool? isLiked,
+    List<Map<String, dynamic>>? latestReplies,
+  }) {
+    return OriginDiscussListItem(
+      discussId: discussId,
+      bizId: bizId,
+      worldId: worldId ?? this.worldId,
+      authorUid: authorUid,
+      authorName: authorName,
+      avatar: avatar,
+      content: content,
+      imageUrls: imageUrls,
+      storyCount: storyCount ?? this.storyCount,
+      replyCount: replyCount ?? this.replyCount,
+      likeCount: likeCount ?? this.likeCount,
+      isLiked: isLiked ?? this.isLiked,
+      level: level,
+      createdAt: createdAt,
+      seed: seed,
+      latestReplies: latestReplies ?? this.latestReplies,
+    );
+  }
 }
 
 class OriginDiscussListController extends ChangeNotifier {
@@ -158,6 +264,15 @@ class OriginDiscussListController extends ChangeNotifier {
   bool _isRefreshing = false;
   bool _expanded = false;
   Object? _error;
+  final Set<String> _likePendingIds = <String>{};
+  final Set<String> _replyLoadingIds = <String>{};
+  final Set<String> _progressLoadingKeys = <String>{};
+  final Set<String> _progressCompletedKeys = <String>{};
+  final Map<String, _OriginDiscussProgress> _progressResults =
+      <String, _OriginDiscussProgress>{};
+  final Map<String, int> _replyCurrentPages = <String, int>{};
+  final Map<String, int> _replyTotals = <String, int>{};
+  final Map<String, int> _replyRequestSerials = <String, int>{};
 
   List<OriginDiscussListItem> get items => List.unmodifiable(_items);
   int get totalAll => _totalAll;
@@ -168,6 +283,8 @@ class OriginDiscussListController extends ChangeNotifier {
   bool get isRefreshing => _isRefreshing;
   bool get expanded => _expanded;
   Object? get error => _error;
+  bool isLikePending(String discussId) => _likePendingIds.contains(discussId);
+  bool isReplyLoading(String discussId) => _replyLoadingIds.contains(discussId);
 
   bool get hasMore => _totalAll > _items.length;
   bool get shouldShowViewMore =>
@@ -176,6 +293,11 @@ class OriginDiscussListController extends ChangeNotifier {
   List<OriginDiscussListItem> get visibleItems {
     if (_expanded) return items;
     return _items.take(2).toList(growable: false);
+  }
+
+  bool hasProgressTarget(OriginDiscussListItem item) {
+    return item.authorUid.trim().isNotEmpty &&
+        _progressOriginId(item).isNotEmpty;
   }
 
   void configure({
@@ -197,6 +319,271 @@ class OriginDiscussListController extends ChangeNotifier {
     _isRefreshing = false;
     _expanded = false;
     _error = null;
+    _likePendingIds.clear();
+    _replyLoadingIds.clear();
+    _progressLoadingKeys.clear();
+    _progressCompletedKeys.clear();
+    _progressResults.clear();
+    _replyCurrentPages.clear();
+    _replyTotals.clear();
+    _replyRequestSerials.clear();
+    notifyListeners();
+  }
+
+  void setLikePending(String discussId, bool pending) {
+    if (discussId.isEmpty) return;
+    final changed = pending
+        ? _likePendingIds.add(discussId)
+        : _likePendingIds.remove(discussId);
+    if (changed) notifyListeners();
+  }
+
+  void applyLikeState({
+    required String discussId,
+    required bool isLiked,
+    required int likeCount,
+  }) {
+    _replaceItem(
+      discussId,
+      (item) => item.copyWith(
+        isLiked: isLiked,
+        likeCount: likeCount < 0 ? 0 : likeCount,
+      ),
+    );
+  }
+
+  Future<void> loadProgressForItem({
+    required OriginDiscussListItem item,
+    required Future<Map<String, dynamic>> Function({
+      required String uid,
+      required String originId,
+    })
+    loader,
+  }) async {
+    final uid = item.authorUid.trim();
+    final originId = _progressOriginId(item);
+    if (uid.isEmpty || originId.isEmpty) return;
+
+    final key = _progressKey(uid: uid, originId: originId);
+    final cached = _progressResults[key];
+    if (cached != null) {
+      _applyProgress(uid: uid, originId: originId, progress: cached);
+      return;
+    }
+    if (_progressCompletedKeys.contains(key) ||
+        _progressLoadingKeys.contains(key)) {
+      return;
+    }
+
+    final serial = _requestSerial;
+    _progressLoadingKeys.add(key);
+    try {
+      final progress = await loader(uid: uid, originId: originId);
+      if (serial != _requestSerial) return;
+      final worldId = asString(progress['world_id']);
+      final storyCount = asInt(progress['tick_cnt'], fallback: item.storyCount);
+      final snapshot = _OriginDiscussProgress(
+        worldId: worldId,
+        storyCount: storyCount,
+      );
+      _progressResults[key] = snapshot;
+      _applyProgress(uid: uid, originId: originId, progress: snapshot);
+      _progressCompletedKeys.add(key);
+    } catch (_) {
+      if (serial == _requestSerial) _progressCompletedKeys.remove(key);
+    } finally {
+      _progressLoadingKeys.remove(key);
+    }
+  }
+
+  void _applyProgress({
+    required String uid,
+    required String originId,
+    required _OriginDiscussProgress progress,
+    bool notify = true,
+  }) {
+    var changed = false;
+    for (var index = 0; index < _items.length; index += 1) {
+      final item = _items[index];
+      if (item.authorUid.trim() != uid) continue;
+      if (_progressOriginId(item) != originId) continue;
+      if (item.worldId == progress.worldId &&
+          item.storyCount == progress.storyCount) {
+        continue;
+      }
+      _items[index] = item.copyWith(
+        worldId: progress.worldId,
+        storyCount: progress.storyCount,
+      );
+      changed = true;
+    }
+    if (changed && notify) notifyListeners();
+  }
+
+  void _applyCachedProgress({bool notify = true}) {
+    var changed = false;
+    for (var index = 0; index < _items.length; index += 1) {
+      final item = _items[index];
+      final uid = item.authorUid.trim();
+      final originId = _progressOriginId(item);
+      if (uid.isEmpty || originId.isEmpty) continue;
+      final progress =
+          _progressResults[_progressKey(uid: uid, originId: originId)];
+      if (progress == null) continue;
+      if (item.worldId == progress.worldId &&
+          item.storyCount == progress.storyCount) {
+        continue;
+      }
+      _items[index] = item.copyWith(
+        worldId: progress.worldId,
+        storyCount: progress.storyCount,
+      );
+      changed = true;
+    }
+    if (changed && notify) notifyListeners();
+  }
+
+  String _progressOriginId(OriginDiscussListItem item) {
+    final bizId = item.bizId.trim();
+    return bizId.isEmpty ? _oid : bizId;
+  }
+
+  String _progressKey({required String uid, required String originId}) {
+    return '$uid\u0001$originId';
+  }
+
+  void adjustReplyCount(String discussId, int delta) {
+    _replaceItem(
+      discussId,
+      (item) => item.copyWith(
+        replyCount: (item.replyCount + delta) < 0 ? 0 : item.replyCount + delta,
+      ),
+    );
+  }
+
+  void insertReply(String discussId, Map<String, dynamic> reply) {
+    final normalizedDiscussId = discussId.trim();
+    if (normalizedDiscussId.isEmpty) return;
+    final normalizedReply = Map<String, dynamic>.from(reply);
+    _replaceItem(normalizedDiscussId, (item) {
+      final replyId = asString(normalizedReply['discuss_id']);
+      final existing = item.latestReplies
+          .where((current) {
+            if (replyId.isEmpty) return true;
+            return asString(current['discuss_id']) != replyId;
+          })
+          .map((current) => Map<String, dynamic>.from(current))
+          .toList(growable: true);
+      return item.copyWith(
+        replyCount: item.replyCount + 1,
+        latestReplies: [normalizedReply, ...existing],
+      );
+    });
+    final currentTotal = _replyTotals[normalizedDiscussId];
+    if (currentTotal != null) {
+      _replyTotals[normalizedDiscussId] = currentTotal + 1;
+    }
+  }
+
+  bool hasLoadedReplies(String discussId) {
+    return _replyCurrentPages.containsKey(discussId);
+  }
+
+  int replyButtonCount(OriginDiscussListItem item) {
+    final discussId = item.discussId;
+    if (!hasLoadedReplies(discussId)) {
+      if (item.latestReplies.isEmpty) return item.replyCount;
+      final visibleCount = math.min(item.latestReplies.length, 2);
+      return item.replyCount > visibleCount ? item.replyCount : 0;
+    }
+    final total = _replyTotals[discussId] ?? item.replyCount;
+    return math.max(0, total - item.latestReplies.length);
+  }
+
+  bool hasMoreReplies(OriginDiscussListItem item) {
+    return replyButtonCount(item) > 0;
+  }
+
+  Future<void> loadMoreReplies({
+    required String rootDiscussId,
+    required Future<OriginDiscussRepliesPage> Function({
+      required String rootDiscussId,
+      required int pn,
+      required int rn,
+    })
+    loader,
+  }) async {
+    final normalizedRootId = rootDiscussId.trim();
+    if (normalizedRootId.isEmpty ||
+        _replyLoadingIds.contains(normalizedRootId)) {
+      return;
+    }
+    final nextPage = (_replyCurrentPages[normalizedRootId] ?? 0) + 1;
+    final serial = (_replyRequestSerials[normalizedRootId] ?? 0) + 1;
+    _replyRequestSerials[normalizedRootId] = serial;
+    _replyLoadingIds.add(normalizedRootId);
+    notifyListeners();
+
+    try {
+      final page = await loader(
+        rootDiscussId: normalizedRootId,
+        pn: nextPage,
+        rn: originDiscussRepliesPageSize,
+      );
+      if (_replyRequestSerials[normalizedRootId] != serial) return;
+      _applyRepliesPage(normalizedRootId, page);
+    } finally {
+      if (_replyRequestSerials[normalizedRootId] == serial) {
+        _replyLoadingIds.remove(normalizedRootId);
+        notifyListeners();
+      }
+    }
+  }
+
+  void _applyRepliesPage(String rootDiscussId, OriginDiscussRepliesPage page) {
+    final index = _items.indexWhere((item) => item.discussId == rootDiscussId);
+    if (index < 0) return;
+    final item = _items[index];
+    final nextReplies = page.pn <= 1
+        ? page.items
+        : _mergeReplyAppend(item.latestReplies, page.items);
+    _items[index] = item.copyWith(
+      replyCount: page.total,
+      latestReplies: nextReplies,
+    );
+    _replyCurrentPages[rootDiscussId] = page.pn;
+    _replyTotals[rootDiscussId] = page.total;
+  }
+
+  List<Map<String, dynamic>> _mergeReplyAppend(
+    List<Map<String, dynamic>> existing,
+    List<Map<String, dynamic>> incoming,
+  ) {
+    final existingIds = existing
+        .map((item) => asString(item['discuss_id']))
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final appendedIds = <String>{};
+    return [
+      ...existing.map((item) => Map<String, dynamic>.from(item)),
+      ...incoming
+          .where((item) {
+            final id = asString(item['discuss_id']);
+            if (id.isEmpty) return true;
+            return !existingIds.contains(id) && appendedIds.add(id);
+          })
+          .map((item) => Map<String, dynamic>.from(item)),
+    ];
+  }
+
+  void _replaceItem(
+    String discussId,
+    OriginDiscussListItem Function(OriginDiscussListItem item) update,
+  ) {
+    if (discussId.isEmpty) return;
+    final index = _items.indexWhere((item) => item.discussId == discussId);
+    if (index < 0) return;
+    _items[index] = update(_items[index]);
     notifyListeners();
   }
 
@@ -286,6 +673,7 @@ class OriginDiscussListController extends ChangeNotifier {
         _mergeFirstPage(page.items);
         break;
     }
+    _applyCachedProgress(notify: false);
   }
 
   void _mergeAppend(List<OriginDiscussListItem> incoming) {
@@ -328,6 +716,16 @@ class OriginDiscussListController extends ChangeNotifier {
 
 enum _LoadMode { initial, append, refresh }
 
+class _OriginDiscussProgress {
+  const _OriginDiscussProgress({
+    required this.worldId,
+    required this.storyCount,
+  });
+
+  final String worldId;
+  final int storyCount;
+}
+
 class OriginDiscussList extends StatelessWidget {
   const OriginDiscussList({
     super.key,
@@ -335,19 +733,28 @@ class OriginDiscussList extends StatelessWidget {
     this.count,
     this.showHeader = true,
     this.enableViewMore = true,
+    this.collapseInitialItems = true,
+    this.onViewMoreTap,
   });
 
   final OriginDiscussListController controller;
   final int? count;
   final bool showHeader;
   final bool enableViewMore;
+  final bool collapseInitialItems;
+  final Future<void> Function()? onViewMoreTap;
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
-        final comments = controller.visibleItems;
+        final comments = collapseInitialItems
+            ? controller.visibleItems
+            : controller.items;
+        final shouldShowViewMore = collapseInitialItems
+            ? controller.shouldShowViewMore
+            : controller.hasMore;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -376,16 +783,23 @@ class OriginDiscussList extends StatelessWidget {
                 child: Column(
                   children: [
                     for (final entry in comments.indexed) ...[
-                      _DiscussPreviewRow(item: entry.$2),
-                      if (entry.$1 != comments.length - 1)
-                        const SizedBox(height: 12),
+                      _DiscussPreviewRow(
+                        controller: controller,
+                        item: entry.$2,
+                      ),
+                      if (entry.$1 != comments.length - 1) const _ListDivider(),
                     ],
                   ],
                 ),
               ),
-            if (enableViewMore && controller.shouldShowViewMore) ...[
+            if (enableViewMore && shouldShowViewMore) ...[
               const SizedBox(height: 12),
-              _ViewMoreButton(controller: controller),
+              _ViewMoreButton(
+                controller: controller,
+                onTap: collapseInitialItems
+                    ? onViewMoreTap ?? controller.viewMore
+                    : controller.loadNextPage,
+              ),
             ],
           ],
         );
@@ -395,9 +809,10 @@ class OriginDiscussList extends StatelessWidget {
 }
 
 class _ViewMoreButton extends StatelessWidget {
-  const _ViewMoreButton({required this.controller});
+  const _ViewMoreButton({required this.controller, required this.onTap});
 
   final OriginDiscussListController controller;
+  final Future<void> Function() onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -406,7 +821,7 @@ class _ViewMoreButton extends StatelessWidget {
       child: GestureDetector(
         key: const ValueKey('origin-discuss-view-more'),
         behavior: HitTestBehavior.opaque,
-        onTap: controller.isLoadingMore ? null : controller.viewMore,
+        onTap: controller.isLoadingMore ? null : onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: controller.isLoadingMore
@@ -426,6 +841,18 @@ class _ViewMoreButton extends StatelessWidget {
                 ),
         ),
       ),
+    );
+  }
+}
+
+class _ListDivider extends StatelessWidget {
+  const _ListDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 16),
+      child: Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
     );
   }
 }
@@ -455,38 +882,152 @@ class _DiscussHeader extends StatelessWidget {
   }
 }
 
-class _DiscussPreviewRow extends StatelessWidget {
-  const _DiscussPreviewRow({required this.item});
+class _DiscussPreviewRow extends StatefulWidget {
+  const _DiscussPreviewRow({required this.controller, required this.item});
 
+  final OriginDiscussListController controller;
   final OriginDiscussListItem item;
+
+  @override
+  State<_DiscussPreviewRow> createState() => _DiscussPreviewRowState();
+}
+
+class _DiscussPreviewRowState extends State<_DiscussPreviewRow> {
+  static const double _progressPrefetchExtent = 600;
+
+  ScrollPosition? _scrollPosition;
+  bool _viewportCheckScheduled = false;
+  bool _progressRequested = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _attachScrollPosition();
+      _scheduleViewportCheck();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _attachScrollPosition();
+    _scheduleViewportCheck();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DiscussPreviewRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.discussId != widget.item.discussId ||
+        oldWidget.item.authorUid != widget.item.authorUid ||
+        oldWidget.item.bizId != widget.item.bizId) {
+      _progressRequested = false;
+    }
+    _attachScrollPosition();
+    _scheduleViewportCheck();
+  }
+
+  @override
+  void dispose() {
+    _scrollPosition?.removeListener(_handleScroll);
+    super.dispose();
+  }
+
+  void _attachScrollPosition() {
+    final position = Scrollable.maybeOf(context)?.position;
+    if (identical(position, _scrollPosition)) return;
+    _scrollPosition?.removeListener(_handleScroll);
+    _scrollPosition = position;
+    _scrollPosition?.addListener(_handleScroll);
+  }
+
+  void _handleScroll() {
+    _scheduleViewportCheck();
+  }
+
+  void _scheduleViewportCheck() {
+    if (_progressRequested || _viewportCheckScheduled) return;
+    _viewportCheckScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _viewportCheckScheduled = false;
+      _maybeLoadProgress();
+    });
+  }
+
+  void _maybeLoadProgress() {
+    if (_progressRequested) return;
+    if (!_isInOrNearViewport()) return;
+    if (!widget.controller.hasProgressTarget(widget.item)) return;
+    _progressRequested = true;
+    final api = AppServicesScope.read(context).api.v1.world;
+    unawaited(
+      widget.controller.loadProgressForItem(
+        item: widget.item,
+        loader: ({required uid, required originId}) {
+          return api.originProgress(uid: uid, originId: originId);
+        },
+      ),
+    );
+  }
+
+  bool _isInOrNearViewport() {
+    final scrollable = Scrollable.maybeOf(context);
+    if (scrollable == null) return true;
+
+    final rowRenderObject = context.findRenderObject();
+    final viewportRenderObject = scrollable.context.findRenderObject();
+    if (rowRenderObject is! RenderBox ||
+        viewportRenderObject is! RenderBox ||
+        !rowRenderObject.hasSize ||
+        !viewportRenderObject.hasSize) {
+      return false;
+    }
+
+    final rowTop = rowRenderObject
+        .localToGlobal(Offset.zero, ancestor: viewportRenderObject)
+        .dy;
+    final rowBottom = rowTop + rowRenderObject.size.height;
+    return rowBottom >= -_progressPrefetchExtent &&
+        rowTop <= viewportRenderObject.size.height + _progressPrefetchExtent;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _DiscussAvatar(item: item),
-        const SizedBox(width: 10),
+        _DiscussAvatarLink(item: widget.item),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _DiscussPreviewMeta(item: item),
-              const SizedBox(height: 5),
+              _DiscussPreviewMeta(item: widget.item),
+              const SizedBox(height: 12),
               Text(
-                item.content,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+                widget.item.content,
                 style: const TextStyle(
                   color: Color(0xFF1D1D1D),
                   fontSize: 12,
-                  height: 1.38,
+                  height: 1.45,
                   fontWeight: FontWeight.w400,
                 ),
               ),
-              if (item.imageUrls.isNotEmpty) ...[
+              if (widget.item.imageUrls.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                _DiscussImageThumbnails(urls: item.imageUrls),
+                _DiscussImageThumbnails(urls: widget.item.imageUrls),
+              ],
+              const SizedBox(height: 12),
+              _DiscussActions(controller: widget.controller, item: widget.item),
+              if (widget.item.latestReplies.isNotEmpty ||
+                  widget.controller.hasMoreReplies(widget.item)) ...[
+                const SizedBox(height: 12),
+                _DiscussReplyPreview(
+                  controller: widget.controller,
+                  item: widget.item,
+                ),
               ],
             ],
           ),
@@ -503,28 +1044,312 @@ class _DiscussImageThumbnails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    final visibleUrls = urls.take(6).toList(growable: false);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : 288.0;
+        final resolvedTileSize = ((maxWidth - 16) / 3).clamp(72.0, 96.0);
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final entry in visibleUrls.indexed)
+              _DiscussImageThumbnail(
+                url: entry.$2,
+                size: resolvedTileSize,
+                onTap: () => showGenesisImageViewer(
+                  context,
+                  imageUrls: urls,
+                  initialIndex: entry.$1,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _DiscussActions extends StatelessWidget {
+  const _DiscussActions({required this.controller, required this.item});
+
+  final OriginDiscussListController controller;
+  final OriginDiscussListItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final likePending = controller.isLikePending(item.discussId);
+    final activeColor = item.isLiked
+        ? const Color(0xFFFF3030)
+        : const Color(0xFF7D8178);
+    return Row(
       children: [
-        for (final entry in urls.indexed)
-          _DiscussImageThumbnail(
-            url: entry.$2,
-            onTap: () => showGenesisImageViewer(
-              context,
-              imageUrls: urls,
-              initialIndex: entry.$1,
+        GestureDetector(
+          key: ValueKey('origin-discuss-like-${item.discussId}'),
+          behavior: HitTestBehavior.opaque,
+          onTap: likePending ? null : () => _toggleLike(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Image.asset(
+              item.isLiked ? _discussLikeFilledAsset : _discussLikeOutlineAsset,
+              width: 21,
+              height: 21,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+              opacity: likePending
+                  ? const AlwaysStoppedAnimation<double>(0.55)
+                  : null,
             ),
           ),
+        ),
+        const SizedBox(width: 7),
+        Text(
+          '${item.likeCount}',
+          style: TextStyle(
+            fontSize: 12,
+            height: 1.2,
+            fontWeight: FontWeight.w500,
+            color: activeColor,
+          ),
+        ),
+        const SizedBox(width: 28),
+        GestureDetector(
+          key: ValueKey('origin-discuss-reply-${item.discussId}'),
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _showReplyComposer(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Image.asset(
+              _discussReplyAsset,
+              width: 20,
+              height: 20,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
+        ),
+        const SizedBox(width: 7),
+        Text(
+          '${item.replyCount}',
+          style: _subtleStyle.copyWith(fontWeight: FontWeight.w500),
+        ),
       ],
+    );
+  }
+
+  Future<void> _toggleLike(BuildContext context) async {
+    final discussId = item.discussId.trim();
+    if (discussId.isEmpty || controller.isLikePending(discussId)) return;
+
+    final previousLiked = item.isLiked;
+    final previousCount = item.likeCount;
+    final nextLiked = !previousLiked;
+    final nextCount = previousLiked ? previousCount - 1 : previousCount + 1;
+
+    controller.setLikePending(discussId, true);
+    controller.applyLikeState(
+      discussId: discussId,
+      isLiked: nextLiked,
+      likeCount: nextCount,
+    );
+    try {
+      final api = AppServicesScope.read(context).api.v1.discuss;
+      if (nextLiked) {
+        await api.like(discussId: discussId);
+      } else {
+        await api.unlike(discussId: discussId);
+      }
+    } catch (_) {
+      controller.applyLikeState(
+        discussId: discussId,
+        isLiked: previousLiked,
+        likeCount: previousCount,
+      );
+      if (context.mounted) showGenesisToast(context, 'Like failed');
+    } finally {
+      controller.setLikePending(discussId, false);
+    }
+  }
+
+  Future<void> _showReplyComposer(BuildContext context) async {
+    final discussId = item.discussId.trim();
+    final bizId = item.bizId.trim();
+    if (discussId.isEmpty || bizId.isEmpty) return;
+
+    await showDiscussPostComposer(
+      context: context,
+      title: 'Reply',
+      placeholder: 'Write a reply',
+      submitter: (content, images) {
+        return _submitReply(
+          context: context,
+          content: content,
+          images: images,
+          bizId: bizId,
+          discussId: discussId,
+        );
+      },
+    );
+  }
+
+  Future<void> _submitReply({
+    required BuildContext context,
+    required String content,
+    required List<String> images,
+    required String bizId,
+    required String discussId,
+  }) async {
+    final services = AppServicesScope.read(context);
+    final created = await services.api.v1.discuss.post(
+      bizId: bizId,
+      content: content,
+      images: images,
+      rootDiscussId: discussId,
+      parentDiscussId: discussId,
+    );
+    final userInfo = await services.sessionStore.readUserInfo();
+    controller.insertReply(
+      discussId,
+      _localReplyJson(
+        created: created,
+        content: content,
+        images: images,
+        bizId: bizId,
+        rootDiscussId: discussId,
+        parentDiscussId: discussId,
+        replyToUid: item.authorUid,
+        userInfo: userInfo,
+      ),
+    );
+  }
+}
+
+class _DiscussReplyPreview extends StatelessWidget {
+  const _DiscussReplyPreview({required this.controller, required this.item});
+
+  final OriginDiscussListController controller;
+  final OriginDiscussListItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasLoadedReplies = controller.hasLoadedReplies(item.discussId);
+    final replies = hasLoadedReplies
+        ? item.latestReplies
+        : item.latestReplies.take(2).toList(growable: false);
+    return OriginDiscussRepliesList(
+      discussId: item.discussId,
+      replies: replies,
+      remainingReplyCount: controller.replyButtonCount(item),
+      isLoading: controller.isReplyLoading(item.discussId),
+      onLoadMore: () => _loadMoreReplies(context),
+    );
+  }
+
+  Future<void> _loadMoreReplies(BuildContext context) async {
+    try {
+      await controller.loadMoreReplies(
+        rootDiscussId: item.discussId,
+        loader: ({required rootDiscussId, required pn, required rn}) async {
+          final data = await AppServicesScope.read(context).api.v1.discuss
+              .replies(rootDiscussId: rootDiscussId, pn: pn, rn: rn);
+          return OriginDiscussRepliesPage.fromJson(data);
+        },
+      );
+    } catch (_) {
+      if (context.mounted) showGenesisToast(context, 'Load replies failed');
+    }
+  }
+}
+
+Map<String, dynamic> _localReplyJson({
+  required Map<String, dynamic> created,
+  required String content,
+  required List<String> images,
+  required String bizId,
+  required String rootDiscussId,
+  required String parentDiscussId,
+  required String replyToUid,
+  required Map<String, dynamic>? userInfo,
+}) {
+  final user = userInfo == null
+      ? const <String, dynamic>{}
+      : asJsonMap(userInfo);
+  final userMap = user['user'] is Map ? asJsonMap(user['user']) : user;
+  final uid = asString(userMap['uid']);
+  final name = asString(
+    userMap['name'] ??
+        userMap['user_name'] ??
+        userMap['nickname'] ??
+        userMap['display_name'],
+    fallback: 'User',
+  );
+  return {
+    'discuss_id': asString(created['discuss_id']),
+    'biz_type': 1,
+    'biz_id': bizId,
+    'author': {
+      'uid': uid,
+      'name': name,
+      'avatar': asString(userMap['avatar'] ?? userMap['avatar_url']),
+    },
+    'content': content,
+    'images': images,
+    'root_discuss_id': rootDiscussId,
+    'parent_discuss_id': parentDiscussId,
+    'reply_to_uid': replyToUid,
+    'level': asInt(created['level'], fallback: 2),
+    'reply_cnt': 0,
+    'like_cnt': 0,
+    'is_liked': false,
+    'created_at': DateTime.now().toIso8601String(),
+  };
+}
+
+class _StoryBadge extends StatelessWidget {
+  const _StoryBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 22,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF6CF),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(MyFlutterApp.pregress, size: 14, color: Color(0xFF9B3A09)),
+          const SizedBox(width: 4),
+          Text(
+            '$count',
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF9B3A09),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _DiscussImageThumbnail extends StatelessWidget {
-  const _DiscussImageThumbnail({required this.url, required this.onTap});
+  const _DiscussImageThumbnail({
+    required this.url,
+    required this.size,
+    required this.onTap,
+  });
 
   final String url;
+  final double size;
   final VoidCallback onTap;
 
   @override
@@ -544,15 +1369,15 @@ class _DiscussImageThumbnail extends StatelessWidget {
         : imageUrl.startsWith('assets/')
         ? Image.asset(
             imageUrl,
-            width: 80,
-            height: 80,
+            width: size,
+            height: size,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) => fallback,
           )
         : Image.network(
             imageUrl,
-            width: 80,
-            height: 80,
+            width: size,
+            height: size,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) => fallback,
             loadingBuilder: (context, child, loadingProgress) {
@@ -567,7 +1392,7 @@ class _DiscussImageThumbnail extends StatelessWidget {
       onTap: onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(4),
-        child: SizedBox(width: 80, height: 80, child: image),
+        child: SizedBox(width: size, height: size, child: image),
       ),
     );
   }
@@ -581,35 +1406,73 @@ class _DiscussPreviewMeta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final date = _dateLabel(item.createdAt);
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Row(
-            children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                item.authorName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF111111),
+                  fontSize: 14,
+                  height: 1.18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            if (date.isNotEmpty) Text(date, style: _subtleStyle),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _StoryBadge(count: item.storyCount),
+            if (item.worldId.isNotEmpty) ...[
+              const SizedBox(width: 10),
               Flexible(
-                child: Text(
-                  item.authorName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _metaStyle.copyWith(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                child: GestureDetector(
+                  key: ValueKey('origin-discuss-world-${item.worldId}'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).pushNamed(
+                    RouteNames.world,
+                    arguments: {'wid': item.worldId},
+                  ),
+                  child: Text(
+                    'WID: ${item.worldId}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _subtleStyle,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              const Icon(
-                MyFlutterApp.skipNext,
-                size: 15,
-                color: Color(0xFF8B8B8B),
-              ),
-              const SizedBox(width: 4),
-              Text('${item.replyCount}', style: _metaStyle),
             ],
-          ),
+          ],
         ),
-        if (date.isNotEmpty) ...[const Spacer(), Text(date, style: _metaStyle)],
       ],
+    );
+  }
+}
+
+class _DiscussAvatarLink extends StatelessWidget {
+  const _DiscussAvatarLink({required this.item});
+
+  final OriginDiscussListItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatar = _DiscussAvatar(item: item);
+    if (item.authorUid.trim().isEmpty) return avatar;
+    return GestureDetector(
+      key: ValueKey('origin-discuss-avatar-${item.authorUid}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(
+        context,
+      ).pushNamed(RouteNames.userInfo, arguments: {'uid': item.authorUid}),
+      child: avatar,
     );
   }
 }
@@ -634,19 +1497,16 @@ class _DiscussAvatar extends StatelessWidget {
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) => fallback,
           )
-        : Image.network(
-            avatar,
+        : CachedNetworkImage(
+            imageUrl: avatar,
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => fallback,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return fallback;
-            },
+            placeholder: (context, url) => fallback,
+            errorWidget: (context, url, error) => fallback,
           );
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(5),
-      child: SizedBox(width: 30, height: 30, child: image),
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(width: 50, height: 50, child: image),
     );
   }
 }
@@ -663,8 +1523,8 @@ class _DiscussAvatarFallback extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(5),
       child: Container(
-        width: 30,
-        height: 30,
+        width: 50,
+        height: 50,
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: _gradientFor(seed)),
         ),
@@ -673,7 +1533,7 @@ class _DiscussAvatarFallback extends StatelessWidget {
           initial.toUpperCase(),
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 14,
+            fontSize: 18,
             height: 1,
             fontWeight: FontWeight.w700,
           ),
@@ -683,10 +1543,10 @@ class _DiscussAvatarFallback extends StatelessWidget {
   }
 }
 
-const _metaStyle = TextStyle(
+const _subtleStyle = TextStyle(
   color: Color(0xFF8B8B8B),
   fontSize: 12,
-  height: 1.1,
+  height: 1.2,
   fontWeight: FontWeight.w400,
 );
 
@@ -701,7 +1561,9 @@ DateTime? _parseDateTime(Object? value) {
 
 String _dateLabel(DateTime? value) {
   if (value == null) return '';
-  return '${value.year}/${value.month}/${value.day}';
+  final hour = value.hour.toString().padLeft(2, '0');
+  final minute = value.minute.toString().padLeft(2, '0');
+  return '${value.month}-${value.day} $hour:$minute';
 }
 
 List<String> _imageUrlsFrom(Object? value) {

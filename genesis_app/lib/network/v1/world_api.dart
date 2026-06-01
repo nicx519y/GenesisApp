@@ -44,49 +44,101 @@ class WorldV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"info":{"world_id":"string","world_name":"string","origin_id":"string","origin_version":"1","origin_version_time":"string","brief":"string","setting":"string","events":[],"tags":[],"created_at":"string","created_uid":"string","created_user_name":"string","owner_uid":"string","owner_name":"string","updated_at":"string","last_progress_at":"string","last_progress_summary":"string","preview_images":[],"started_at":"string","tick_duration_days":30,"cover":"string","map_url":"string","status":1},"stats":{"character_cnt":0,"connect_cnt":0,"location_cnt":0,"tick_cnt":0,"player_cnt":0},"characters":[{"char_id":"string","type":"ai","player_uid":"string","name":"string","identity":"string","brief":"string","description":"string","goal":"string","avatar":"string","initial_location_id":"string","location_id":"string","metric_value":50}],"locations":[{"location_id":"string","location_pid":"string","location_name":"string","location_description":"string","location_summary":"string","image":"string","map_url":"string","x_percent":0,"y_percent":0}],"ticks":[{"tick_index":1,"created_at":"string","tick_result":{"narrator":"string","paragraphs":[{"location_id":"string","text":"string","character_details":[{"name":"string","delta":"string"}]}]}}]}}
+  /// {"err_no":0,"err_msg":"succ","data":{"info":{"world_id":"string","world_name":"string","origin_id":"string","origin_version":"1","origin_version_time":"string","owner_uid":"string","owner_name":"string","brief":"string","setting":"string","events":[],"metric":{},"created_at":0,"started_at":"string","tick_duration_days":30,"cover":"string","map_url":"string","status":10},"stats":{"character_cnt":0,"connect_cnt":0,"location_cnt":0,"tick_cnt":0,"player_cnt":0},"relation_status":"owner","characters":[],"locations":[],"ticks":[{"tick_id":"string","tick_no":1,"status":10,"tick_result":{"narrator":"string","paragraphs":[],"location_groups":[]},"created_at":0}]}}
   /// ```
-  Future<Map<String, dynamic>> detail({String? worldId, String? wid}) {
-    final resolvedWorldId = (worldId ?? wid ?? '').trim();
+  Future<Map<String, dynamic>> detail({required String worldId}) {
+    final resolvedWorldId = worldId.trim();
     if (resolvedWorldId.isEmpty) {
-      throw ArgumentError.value(worldId ?? wid, 'worldId', 'must not be empty');
+      throw ArgumentError.value(worldId, 'worldId', 'must not be empty');
     }
     return getMap('world/detail', {'world_id': resolvedWorldId});
   }
 
-  /// POST /api/v1/world/request
+  /// GET /api/v1/world/origin_progress
   ///
   /// 提交参数:
   /// ```json
-  /// {"wid":"string"}
+  /// {"uid":"u_a1b2c3","origin_id":"ori_a1b2c3"}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{}}
+  /// {"err_no":0,"err_msg":"succ","data":{"world_id":"w_a1b2c3","tick_cnt":12}}
   /// ```
-  Future<void> requestJoin({required String wid}) {
-    return postVoid('world/request', {'wid': wid});
+  Future<Map<String, dynamic>> originProgress({
+    required String uid,
+    required String originId,
+  }) {
+    return getMap(
+      'world/origin_progress',
+      v1Query({'uid': uid.trim(), 'origin_id': originId.trim()}),
+    );
   }
 
-  /// POST /api/v1/world/request/audit
+  /// POST /api/v1/world/apply
   ///
   /// 提交参数:
   /// ```json
-  /// {"request_id":"string","action":"approve"}
+  /// {"world_id":"string","message":"想加入这个世界"}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{}}
+  /// {"err_no":0,"err_msg":"succ","data":{"apply_id":"apl_a1b2c3","status":10}}
   /// ```
-  Future<void> auditRequest({
-    required String requestId,
-    required String action,
+  Future<Map<String, dynamic>> apply({
+    required String worldId,
+    String? message,
   }) {
-    return postVoid('world/request/audit', {
-      'request_id': requestId,
+    return postMap(
+      'world/apply',
+      v1Body({'world_id': worldId, 'message': message}),
+    );
+  }
+
+  /// GET /api/v1/world/apply/list
+  ///
+  /// 提交参数:
+  /// ```json
+  /// {"pn":1,"rn":20,"world_id":"string","status":10}
+  /// ```
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"apply_id":"string","world_id":"string","applicant_uid":"string","message":"string","status":10,"reviewer_uid":"string","review_msg":"string","reviewed_at":0,"joined_at":0,"created_at":0}],"total":0,"pn":1,"rn":20}}
+  /// ```
+  Future<Map<String, dynamic>> applyList({
+    int? pn,
+    int? rn,
+    String? worldId,
+    int? status,
+  }) {
+    return getMap(
+      'world/apply/list',
+      v1Query({'pn': pn, 'rn': rn, 'world_id': worldId, 'status': status}),
+    );
+  }
+
+  /// POST /api/v1/world/apply/review
+  ///
+  /// 提交参数:
+  /// ```json
+  /// {"apply_id":"apl_a1b2c3","action":"approve","review_msg":"string"}
+  /// ```
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":{"apply_id":"string","status":20}}
+  /// ```
+  Future<Map<String, dynamic>> reviewApply({
+    required String applyId,
+    required String action,
+    String? reviewMsg,
+  }) {
+    return postMap('world/apply/review', {
+      'apply_id': applyId,
       'action': action,
+      if (reviewMsg != null) 'review_msg': reviewMsg,
     });
   }
 
@@ -94,22 +146,22 @@ class WorldV1Api extends V1ApiResource {
   ///
   /// 提交参数:
   /// ```json
-  /// {"wid":"string","preset_character_id":"string","custom_role":{}}
+  /// {"world_id":"string","preset_character_id":"char_1","custom_role":{}}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"world":{"oid":"string","origin_version_num":1,"origin_version_create_at":"string","wid":"string","status":1,"is_join":1,"apply_status":"success","name":"string","cover":"string","display_subtitle":"string","world_view":"string","world_setting":"string","created_uid":"string","created_user_name":"string","created_at":"string","updated_at":"string","tags":[],"tick_cnt":0,"connect_cnt":0,"ai_character_cnt":0,"player_cnt":0,"location_cnt":0},"character_list":[{"type":"ai","status":10,"player_uid":"string","character_id":"string","name":"string","identity":"string","tagline":"string","description":"string","goal":"string","avatar":"string","location_id":"string"}],"metric":{"mode":"quantitative","label":"string","unit":"string","range":[0,100],"default":50},"location_list":[{"location_id":"string","name":"string","description":"string","image":"string","x_percent":0,"y_percent":0}],"tick_list":[],"action_button_state":"progress"}}
+  /// {"err_no":0,"err_msg":"succ","data":{"world_id":"w_a1b2c3","char_id":"char_U_KALFO"}}
   /// ```
   Future<Map<String, dynamic>> join({
-    required String wid,
+    required String worldId,
     String? presetCharacterId,
     Map<String, dynamic>? customRole,
   }) {
     return postMap(
       'world/join',
       v1Body({
-        'wid': wid,
+        'world_id': worldId,
         'preset_character_id': presetCharacterId,
         'custom_role': customRole,
       }),

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
 import 'api_exception.dart';
+import 'chatroom/chatroom_http_api.dart';
 import 'json_utils.dart';
 import 'local_mock_genesis_transport.dart';
 import 'models/location_tree.dart';
@@ -29,13 +30,16 @@ class GenesisApi {
   static const String defaultAssetBaseUrl = 'https://af.hushie.ai/html/';
   static const String defaultChatroomWsBaseUrl =
       'ws://47.77.195.140:5002/aitown-chat/ws';
+  static const String defaultChatroomHttpBaseUrl = 'http://47.77.195.140:5002/';
 
   GenesisApi({
     ApiClient? apiClient,
     ApiClient? healthClient,
+    ApiClient? chatroomHttpClient,
     HttpTransport? transport,
     bool? useMock,
     PlatformConfig? platformConfig,
+    String? chatroomHttpBaseUrl,
     DeviceIdService? deviceIdService,
     UserSessionStore? sessionStore,
     IdentityAuthService? identityAuthService,
@@ -73,12 +77,29 @@ class GenesisApi {
           transport: resolvedTransport,
           responseProcessor: _defaultGenesisProcessor,
         );
+    _chatroomHttpClient =
+        chatroomHttpClient ??
+        ApiClient(
+          baseUrl: _normalizeBaseUrl(
+            chatroomHttpBaseUrl ?? defaultChatroomHttpBaseUrl,
+          ),
+          defaultHeaders: const {
+            'content-type': 'application/json',
+            'accept': 'application/json',
+          },
+          requestHeaderProvider: _runtimeRequestHeaders,
+          transport: resolvedTransport,
+          responseProcessor: _defaultGenesisProcessor,
+        );
     v1 = GenesisV1Api(_apiClient);
+    chatroomHttp = ChatroomHttpApi(_chatroomHttpClient);
   }
 
   late final ApiClient _apiClient;
   late final ApiClient _healthClient;
+  late final ApiClient _chatroomHttpClient;
   late final GenesisV1Api v1;
+  late final ChatroomHttpApi chatroomHttp;
   late final DeviceIdService _deviceIdService;
   late final UserSessionStore _sessionStore;
   late final IdentityAuthService _identityAuthService;
@@ -544,7 +565,25 @@ class GenesisApi {
   }
 
   Future<WorldDetail> getWorld(String wid) async {
-    return _worldDetailFromV1(await v1.world.detail(wid: wid));
+    return _worldDetailFromV1(await v1.world.detail(worldId: wid));
+  }
+
+  Future<String> requestWorld(String wid) async {
+    await v1.world.apply(worldId: wid);
+    return '';
+  }
+
+  Future<String> joinApprovedWorld(
+    String wid, {
+    String? presetCharacterId,
+    Map<String, dynamic>? customRole,
+  }) async {
+    await v1.world.join(
+      worldId: wid,
+      presetCharacterId: presetCharacterId,
+      customRole: customRole,
+    );
+    return '';
   }
 
   Future<String> progressWorld(String wid) async {
@@ -1262,14 +1301,18 @@ Map<String, dynamic> _normalizeWorldLocation(Map<String, dynamic> location) {
     'location_id': locationId,
     'location_pid': parentLocationId,
     'point_id': pointId,
-    'id': pointId,
     'location_name': locationName,
-    'name': locationName,
     'location_summary': locationSummary,
     'location_description': locationDescription,
-    'description': locationSummary,
+    'location_paragraph': asString(location['location_paragraph']),
+    'location_timestamp': asString(location['location_timestamp']),
     'icon': asString(location['image']),
     'map_url': asString(location['map_url']),
+    'dialogue': location['dialogue'] is List
+        ? asJsonList(
+            location['dialogue'],
+          ).map((e) => asJsonMap(e)).toList(growable: false)
+        : const <Map<String, dynamic>>[],
     'x_percent': xPercent,
     'y_percent': yPercent,
   };
@@ -1331,14 +1374,23 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
       fallback: asString(origin['setting']),
     ),
     originator: asString(
-      origin['created_user_name'],
-      fallback: asString(origin['originator']),
+      origin['owner_name'],
+      fallback: asString(
+        origin['created_user_name'],
+        fallback: asString(origin['originator']),
+      ),
     ),
     versionNum: asInt(
       origin['version_num'],
-      fallback: asInt(origin['origin_version_num']),
+      fallback: asInt(
+        origin['origin_version'],
+        fallback: asInt(origin['origin_version_num']),
+      ),
     ),
-    startTime: asString(origin['start_time']),
+    startTime: asString(
+      origin['started_at'],
+      fallback: asString(origin['start_time']),
+    ),
     copyCount: asInt(stats['copy_cnt']),
     interactCount: asInt(stats['connect_cnt']),
     discussCount: asInt(stats['discuss_cnt']),
@@ -1360,10 +1412,11 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
 }
 
 List<OriginEvent> _originEventsFromV1(Map<String, dynamic> raw) {
-  final eventsRaw = raw['event_list'] ?? raw['events'];
+  final info = raw['info'] is Map ? asJsonMap(raw['info']) : const {};
+  final eventsRaw = raw['event_list'] ?? raw['events'] ?? info['events'];
   if (eventsRaw is List) {
     return asJsonList(eventsRaw)
-        .map((e) => OriginEvent.fromJson(asJsonMap(e)))
+        .map(_originEventFromV1)
         .where((event) => event.content.trim().isNotEmpty)
         .toList(growable: false);
   }
@@ -1374,9 +1427,15 @@ List<OriginEvent> _originEventsFromV1(Map<String, dynamic> raw) {
   final events = <OriginEvent>[];
   for (final tick in asJsonList(ticksRaw)) {
     final tickMap = asJsonMap(tick);
+    final tickResult = tickMap['tick_result'] is Map
+        ? asJsonMap(tickMap['tick_result'])
+        : tickMap;
     final narrator = asString(
-      tickMap['narrator'],
-      fallback: asString(tickMap['summary']),
+      tickResult['narrator'],
+      fallback: asString(
+        tickMap['narrator'],
+        fallback: asString(tickMap['summary']),
+      ),
     );
     if (narrator.trim().isNotEmpty) {
       events.add(
@@ -1388,7 +1447,7 @@ List<OriginEvent> _originEventsFromV1(Map<String, dynamic> raw) {
       );
     }
 
-    final paragraphs = tickMap['paragraphs'];
+    final paragraphs = tickResult['paragraphs'];
     if (paragraphs is List) {
       for (final paragraph in asJsonList(paragraphs)) {
         final event = OriginEvent.fromJson(asJsonMap(paragraph));
@@ -1397,6 +1456,11 @@ List<OriginEvent> _originEventsFromV1(Map<String, dynamic> raw) {
     }
   }
   return events;
+}
+
+OriginEvent _originEventFromV1(Object? raw) {
+  if (raw is Map) return OriginEvent.fromJson(asJsonMap(raw));
+  return OriginEvent(label: '', timestamp: '', content: asString(raw));
 }
 
 WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
@@ -1450,25 +1514,19 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
 
   return WorldDetail(
     id: worldId,
-    wid: wid,
+    worldId: wid,
     originId: originId,
     ownerUid: asString(world['owner_uid']),
     name: asString(world['world_name']),
-    progressCount: asInt(stats['tick_cnt']),
-    interactCount: asInt(stats['connect_cnt']),
+    tickCount: asInt(stats['tick_cnt']),
+    connectCount: asInt(stats['connect_cnt']),
     characterCount: asInt(stats['character_cnt']),
     playerCount: asInt(stats['player_cnt']),
-    lastProgressAt: _apiDateTime(
-      lastTickResult['created_at'] ??
-          lastTick['created_at'] ??
-          world['last_progress_at'] ??
-          world['updated_at'],
-    ),
-    lastProgressUpdate: asString(
-      lastTickResult['narrator'],
-      fallback: asString(world['last_progress_summary']),
-    ),
+    latestTickAt: _apiDateTime(lastTick['created_at'] ?? world['created_at']),
+    latestNarrator: asString(lastTickResult['narrator']),
     isProgressing: asInt(world['status']) == 20,
+    relationStatus: asString(raw['relation_status']),
+    metric: asJsonMap(world['metric']),
     inviteToken: wid,
     createdAt: _apiDateTime(world['created_at']),
     updatedAt: _apiDateTime(world['updated_at']),
@@ -1496,9 +1554,9 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
     ),
     characters: characters,
     ticks: ticks,
-    worldLocations: locations,
-    worldLocationTree: locationTree,
-    processedWorldLocationTree: processLocationTree(locationTree),
+    locations: locations,
+    locationTree: locationTree,
+    processedLocationTree: processLocationTree(locationTree),
     characterPositions: characterPositions,
     userPositions: userPositions,
   );
@@ -1545,7 +1603,10 @@ OriginLocation _originLocationFromV1(Map<String, dynamic> raw, int originId) {
     mapUrl: resolveAssetUrl(asString(raw['map_url'])),
     description: asString(
       raw['description'],
-      fallback: asString(raw['location_summary']),
+      fallback: asString(
+        raw['location_description'],
+        fallback: asString(raw['location_summary']),
+      ),
     ),
     position: asInt(raw['position']),
     isActive: true,
@@ -1595,22 +1656,29 @@ Map<String, dynamic> _worldCharacterFromV1(Map<String, dynamic> raw) {
 Map<String, dynamic> _worldTickFromV1(Map<String, dynamic> raw, int index) {
   final result = raw['tick_result'] is Map
       ? asJsonMap(raw['tick_result'])
-      : raw;
+      : const <String, dynamic>{};
   final paragraphsRaw = result['paragraphs'];
   final paragraphs = paragraphsRaw is List
       ? asJsonList(
           paragraphsRaw,
         ).map((e) => asJsonMap(e)).toList(growable: false)
       : const <Map<String, dynamic>>[];
-  final createdAt =
-      result['created_at'] ?? raw['created_at'] ?? raw['timestamp'];
+  final locationGroupsRaw = result['location_groups'];
+  final locationGroups = locationGroupsRaw is List
+      ? asJsonList(
+          locationGroupsRaw,
+        ).map((e) => asJsonMap(e)).toList(growable: false)
+      : const <Map<String, dynamic>>[];
+  final createdAt = raw['created_at'];
   return {
-    'tick_index': asInt(raw['tick_index'], fallback: index + 1),
+    'tick_id': asString(raw['tick_id']),
+    'tick_no': asInt(raw['tick_no'], fallback: index + 1),
+    'status': asInt(raw['status']),
     'created_at': createdAt,
     'tick_result': {
-      'created_at': createdAt,
       'narrator': asString(result['narrator']),
       'paragraphs': paragraphs,
+      'location_groups': locationGroups,
     },
   };
 }

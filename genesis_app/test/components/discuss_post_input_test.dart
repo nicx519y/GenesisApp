@@ -313,7 +313,7 @@ void main() {
     );
   });
 
-  testWidgets('hides composer while image picker is open and restores it', (
+  testWidgets('keeps composer visible while image picker is open', (
     WidgetTester tester,
   ) async {
     final pickerCompleter = Completer<List<DiscussPickedImage>>();
@@ -347,9 +347,8 @@ void main() {
     await tester.pump();
 
     expect(pickerStarted, isTrue);
-    expect(find.byKey(const ValueKey('discuss-composer-sheet')), findsNothing);
     expect(
-      find.byKey(const ValueKey('discuss-composer-sheet'), skipOffstage: false),
+      find.byKey(const ValueKey('discuss-composer-sheet')),
       findsOneWidget,
     );
 
@@ -447,6 +446,89 @@ void main() {
     );
     expect(sheetRectAfterKeyboardSettles.size, sheetSizeBeforePicker);
   });
+
+  testWidgets(
+    'keeps selected images in composer when picker returns before keyboard',
+    (WidgetTester tester) async {
+      final uploadCompleter = Completer<String>();
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(800, 900);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: DiscussPostInput(
+              bizId: 'o_test_1',
+              imagePicker: () async {
+                tester.view.viewInsets = const FakeViewPadding(bottom: 80);
+                tester.binding.handleMetricsChanged();
+                return <DiscussPickedImage>[_pickedImage(0)];
+              },
+              imageUploader: (image) => uploadCompleter.future,
+              submitter: (content, images) async => <String, dynamic>{},
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const ValueKey('discuss-image-picker-button')),
+      );
+      await tester.pump();
+
+      tester.view.viewInsets = FakeViewPadding.zero;
+      tester.binding.handleMetricsChanged();
+      await tester.pump(const Duration(milliseconds: 360));
+
+      expect(
+        find.byKey(const ValueKey('discuss-composer-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('discuss-image-thumb-0')),
+        findsOneWidget,
+      );
+
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('discuss-composer-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('discuss-image-thumb-0')),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(milliseconds: 1500));
+      uploadCompleter.complete('https://cdn.example.com/0.jpg');
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('discuss-composer-sheet')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('discuss-image-thumb-0')),
+        findsOneWidget,
+      );
+
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('discuss-composer-sheet')),
+        findsNothing,
+      );
+    },
+  );
 }
 
 DiscussPickedImage _pickedImage(int index) {

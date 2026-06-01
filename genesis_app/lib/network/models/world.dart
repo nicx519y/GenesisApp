@@ -47,60 +47,64 @@ class World {
 class WorldDetail {
   WorldDetail({
     required this.id,
-    required this.wid,
+    required this.worldId,
     required this.originId,
     required this.ownerUid,
     required this.name,
-    required this.progressCount,
-    required this.interactCount,
+    required this.tickCount,
+    required this.connectCount,
     required this.characterCount,
     required this.playerCount,
-    required this.lastProgressAt,
-    required this.lastProgressUpdate,
+    required this.latestTickAt,
+    required this.latestNarrator,
     required this.isProgressing,
+    required this.relationStatus,
+    required this.metric,
     required this.inviteToken,
     required this.createdAt,
     required this.updatedAt,
     required this.origin,
     required this.characters,
     required this.ticks,
-    required this.worldLocations,
-    this.worldLocationTree = const <LocationTreeNode<Map<String, dynamic>>>[],
-    ProcessedLocationTree<Map<String, dynamic>>? processedWorldLocationTree,
+    required this.locations,
+    this.locationTree = const <LocationTreeNode<Map<String, dynamic>>>[],
+    ProcessedLocationTree<Map<String, dynamic>>? processedLocationTree,
     required this.characterPositions,
     required this.userPositions,
-  }) : processedWorldLocationTree =
-           processedWorldLocationTree ??
-           ProcessedLocationTree<Map<String, dynamic>>(worldLocationTree);
+  }) : processedLocationTree =
+           processedLocationTree ??
+           ProcessedLocationTree<Map<String, dynamic>>(locationTree);
 
   final int id;
-  final String wid;
+  final String worldId;
   final int originId;
   final String ownerUid;
   final String name;
-  final int progressCount;
-  final int interactCount;
+  final int tickCount;
+  final int connectCount;
   final int characterCount;
   final int playerCount;
-  final DateTime? lastProgressAt;
-  final String lastProgressUpdate;
+  final DateTime? latestTickAt;
+  final String latestNarrator;
   final bool isProgressing;
+  final String relationStatus;
+  final Map<String, dynamic> metric;
   final String inviteToken;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final OriginSummary origin;
   final List<Map<String, dynamic>> characters;
   final List<Map<String, dynamic>> ticks;
-  final List<Map<String, dynamic>> worldLocations;
-  final List<LocationTreeNode<Map<String, dynamic>>> worldLocationTree;
-  final ProcessedLocationTree<Map<String, dynamic>> processedWorldLocationTree;
+  final List<Map<String, dynamic>> locations;
+  final List<LocationTreeNode<Map<String, dynamic>>> locationTree;
+  final ProcessedLocationTree<Map<String, dynamic>> processedLocationTree;
   final List<Map<String, dynamic>> characterPositions;
   final List<Map<String, dynamic>> userPositions;
 
   factory WorldDetail.fromJson(Map<String, dynamic> json) {
-    final rawWorldLocations = (json['world_locations'] is List)
+    final rawWorldLocations = (json['locations'] is List)
         ? asJsonList(
-            json['world_locations'],
+            json['locations'],
           ).map((e) => asJsonMap(e)).toList(growable: false)
         : const <Map<String, dynamic>>[];
     final worldLocationTree = buildLocationTree(
@@ -110,17 +114,19 @@ class WorldDetail {
     );
     return WorldDetail(
       id: asInt(json['id']),
-      wid: asString(json['wid']),
+      worldId: asString(json['world_id']),
       originId: asInt(json['origin_id']),
       ownerUid: asString(json['owner_uid']),
       name: asString(json['name']),
-      progressCount: asInt(json['progress_count']),
-      interactCount: asInt(json['interact_count']),
+      tickCount: asInt(json['tick_count']),
+      connectCount: asInt(json['connect_count']),
       characterCount: asInt(json['character_count']),
       playerCount: asInt(json['player_count']),
-      lastProgressAt: asDateTime(json['last_progress_at']),
-      lastProgressUpdate: asString(json['last_progress_update']),
+      latestTickAt: asDateTime(json['latest_tick_at']),
+      latestNarrator: asString(json['latest_narrator']),
       isProgressing: asBool(json['is_progressing']),
+      relationStatus: asString(json['relation_status']),
+      metric: asJsonMap(json['metric']),
       inviteToken: asString(json['invite_token']),
       createdAt: asDateTime(json['created_at']),
       updatedAt: asDateTime(json['updated_at']),
@@ -152,9 +158,9 @@ class WorldDetail {
               json['ticks'],
             ).map((e) => asJsonMap(e)).toList(growable: false)
           : const [],
-      worldLocations: rawWorldLocations,
-      worldLocationTree: worldLocationTree,
-      processedWorldLocationTree: processLocationTree(worldLocationTree),
+      locations: rawWorldLocations,
+      locationTree: worldLocationTree,
+      processedLocationTree: processLocationTree(worldLocationTree),
       characterPositions: (json['character_positions'] is List)
           ? asJsonList(
               json['character_positions'],

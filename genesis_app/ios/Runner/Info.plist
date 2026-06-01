@@ -14,6 +14,10 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>GIDClientID</key>
+	<string>447881000582-7s1pvlnjdaiomb2gr65qc2err5n7om6t.apps.googleusercontent.com</string>
+	<key>GIDServerClientID</key>
+	<string>447881000582-ug07i6tuh1c9jge45ije0ml162po9bgf.apps.googleusercontent.com</string>
 	<key>CFBundleName</key>
 	<string>Genesis</string>
 	<key>CFBundlePackageType</key>

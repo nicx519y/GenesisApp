@@ -12,7 +12,9 @@ class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
   Future<void> _logout(BuildContext context) async {
-    await AppServicesScope.read(context).backendAuth.signOut();
+    final services = AppServicesScope.read(context);
+    await services.backendAuth.signOut();
+    await services.sessionStore.clearUid();
     if (!context.mounted) return;
     Navigator.of(context).pop(true);
   }
