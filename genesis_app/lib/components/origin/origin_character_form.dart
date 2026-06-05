@@ -104,6 +104,7 @@ class OriginCharacterFormFields extends StatelessWidget {
     this.avatarHeight = 168,
     this.avatarIconSize = 38,
     this.avatarCropSize = const Size(416, 672),
+    this.showAvatarRemoveLink = false,
     this.topSpacing = 12,
     this.horizontalGap = 14,
     this.fieldGap = 18,
@@ -120,6 +121,7 @@ class OriginCharacterFormFields extends StatelessWidget {
   final double avatarHeight;
   final double avatarIconSize;
   final Size avatarCropSize;
+  final bool showAvatarRemoveLink;
   final double topSpacing;
   final double horizontalGap;
   final double fieldGap;
@@ -143,6 +145,7 @@ class OriginCharacterFormFields extends StatelessWidget {
               height: avatarHeight,
               iconSize: avatarIconSize,
               cropSize: avatarCropSize,
+              showRemoveLinkWhenFilled: showAvatarRemoveLink,
               onChanged: onChanged,
             ),
             SizedBox(width: horizontalGap),

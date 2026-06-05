@@ -87,7 +87,13 @@ class OriginSummary {
       mapImage: mapImage,
       worldMap: asString(json['world_map'], fallback: mapImage),
       worldView: asString(json['world_view']),
-      originator: asString(json['originator']),
+      originator: asString(
+        json['owner_name'],
+        fallback: asString(
+          json['created_user_name'],
+          fallback: asString(json['originator']),
+        ),
+      ),
       versionNum: asInt(json['version_num']),
       copyCount: asInt(json['copy_count']),
       interactCount: asInt(json['interact_count']),
@@ -119,6 +125,7 @@ class OriginDetail {
     required this.mapImage,
     required this.worldMap,
     required this.worldView,
+    this.ownerUid = '',
     this.originator = '',
     this.versionNum = 0,
     this.startTime = '',
@@ -132,6 +139,7 @@ class OriginDetail {
     required this.characters,
     required this.locations,
     this.events = const <OriginEvent>[],
+    this.ticks = const <Map<String, dynamic>>[],
     this.locationTree = const <LocationTreeNode<OriginLocation>>[],
     ProcessedLocationTree<OriginLocation>? processedLocationTree,
   }) : processedLocationTree =
@@ -145,6 +153,7 @@ class OriginDetail {
   final String mapImage;
   final String worldMap;
   final String worldView;
+  final String ownerUid;
   final String originator;
   final int versionNum;
   final String startTime;
@@ -158,6 +167,7 @@ class OriginDetail {
   final List<OriginCharacter> characters;
   final List<OriginLocation> locations;
   final List<OriginEvent> events;
+  final List<Map<String, dynamic>> ticks;
   final List<LocationTreeNode<OriginLocation>> locationTree;
   final ProcessedLocationTree<OriginLocation> processedLocationTree;
 
@@ -181,6 +191,7 @@ class OriginDetail {
       mapImage: mapImage,
       worldMap: asString(json['world_map'], fallback: mapImage),
       worldView: asString(json['world_view']),
+      ownerUid: asString(json['owner_uid']),
       originator: asString(json['owner_name']),
       versionNum: asInt(json['version_num']),
       startTime: asString(json['start_time']),
@@ -202,6 +213,7 @@ class OriginDetail {
                 .map((e) => OriginEvent.fromJson(asJsonMap(e)))
                 .toList(growable: false)
           : const <OriginEvent>[],
+      ticks: _originTicksFromJson(json['ticks'] ?? json['tick_list']),
       locationTree: locationTree,
       processedLocationTree: processLocationTree(locationTree),
     );
@@ -339,6 +351,7 @@ class OriginLocation {
     required this.icon,
     required this.mapUrl,
     required this.description,
+    this.locationParagraph = '',
     required this.position,
     required this.isActive,
     required this.xPercent,
@@ -355,6 +368,7 @@ class OriginLocation {
   final String icon;
   final String mapUrl;
   final String description;
+  final String locationParagraph;
   final int position;
   final bool isActive;
   final double xPercent;
@@ -377,7 +391,14 @@ class OriginLocation {
       mapUrl: asString(json['map_url']),
       description: asString(
         json['description'],
-        fallback: asString(json['location_summary']),
+        fallback: asString(
+          json['location_description'],
+          fallback: asString(json['location_summary']),
+        ),
+      ),
+      locationParagraph: asString(
+        json['location_paragraph'],
+        fallback: asString(json['location_garagraph']),
       ),
       position: asInt(json['position']),
       isActive: asBool(json['is_active']),
@@ -389,6 +410,49 @@ class OriginLocation {
       parentLocationId: asString(json['location_pid']),
     );
   }
+}
+
+List<Map<String, dynamic>> _originTicksFromJson(Object? raw) {
+  if (raw is! List) return const <Map<String, dynamic>>[];
+  return asJsonList(raw).indexed
+      .map((entry) {
+        final index = entry.$1;
+        final tick = asJsonMap(entry.$2);
+        final result = tick['tick_result'] is Map
+            ? asJsonMap(tick['tick_result'])
+            : tick;
+        final paragraphsRaw = result['paragraphs'];
+        final paragraphs = paragraphsRaw is List
+            ? asJsonList(
+                paragraphsRaw,
+              ).map((item) => asJsonMap(item)).toList(growable: false)
+            : const <Map<String, dynamic>>[];
+        final locationGroupsRaw = result['location_groups'];
+        final locationGroups = locationGroupsRaw is List
+            ? asJsonList(
+                locationGroupsRaw,
+              ).map((item) => asJsonMap(item)).toList(growable: false)
+            : const <Map<String, dynamic>>[];
+
+        return <String, dynamic>{
+          'tick_id': asString(tick['tick_id']),
+          'tick_no': asInt(tick['tick_no'], fallback: index + 1),
+          'status': asInt(tick['status']),
+          'created_at': tick['created_at'],
+          'tick_result': <String, dynamic>{
+            'narrator': asString(
+              result['narrator'],
+              fallback: asString(
+                tick['narrator'],
+                fallback: asString(tick['summary']),
+              ),
+            ),
+            'paragraphs': paragraphs,
+            'location_groups': locationGroups,
+          },
+        };
+      })
+      .toList(growable: false);
 }
 
 List<String> _splitTags(String tags) {

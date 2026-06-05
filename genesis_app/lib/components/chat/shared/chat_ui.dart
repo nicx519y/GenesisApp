@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../../../icons/my_flutter_app_icons.dart';
+import '../../../ui/components/genesis_avatar.dart';
 import 'chat_ui_style_config.dart';
 
 export 'chat_ui_style_config.dart';
@@ -171,6 +170,7 @@ class ChatComposer extends StatelessWidget {
     required this.sending,
     required this.onSend,
     this.onHeightChanged,
+    this.sendLabel,
     this.style,
   });
 
@@ -180,6 +180,7 @@ class ChatComposer extends StatelessWidget {
   final bool sending;
   final Future<void> Function() onSend;
   final ValueChanged<double>? onHeightChanged;
+  final String? sendLabel;
   final ChatUiStyleConfig? style;
 
   @override
@@ -265,6 +266,7 @@ class ChatComposer extends StatelessWidget {
               _ComposerSendButton(
                 sending: sending,
                 onPressed: sendEnabled ? onSend : null,
+                label: sendLabel,
                 style: style,
               ),
             ],
@@ -362,11 +364,13 @@ class _ComposerSendButton extends StatelessWidget {
     required this.sending,
     required this.onPressed,
     required this.style,
+    this.label,
   });
 
   final bool sending;
   final VoidCallback? onPressed;
   final ChatUiStyleConfig style;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -385,14 +389,27 @@ class _ComposerSendButton extends StatelessWidget {
             style.composerSendButtonBorderRadius,
           ),
         ),
-        child: IconButton(
-          padding: EdgeInsets.zero,
-          constraints: BoxConstraints.tightFor(
-            width: style.composerSendButtonWidth,
-            height: style.composerSendButtonHeight,
+        child: TextButton(
+          style: TextButton.styleFrom(
+            fixedSize: Size(
+              style.composerSendButtonWidth,
+              style.composerSendButtonHeight,
+            ),
+            minimumSize: Size(
+              style.composerSendButtonWidth,
+              style.composerSendButtonHeight,
+            ),
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            foregroundColor: style.composerSendButtonIconColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(
+                style.composerSendButtonBorderRadius,
+              ),
+            ),
           ),
           onPressed: enabled ? onPressed : null,
-          icon: sending
+          child: sending
               ? SizedBox(
                   width: style.composerSendButtonLoadingSize,
                   height: style.composerSendButtonLoadingSize,
@@ -403,10 +420,20 @@ class _ComposerSendButton extends StatelessWidget {
                     ),
                   ),
                 )
-              : Icon(
+              : label == null
+              ? Icon(
                   Icons.send,
                   color: style.composerSendButtonIconColor,
                   size: style.composerSendButtonIconSize,
+                )
+              : Text(
+                  label!,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: TextStyle(
+                    color: style.composerSendButtonIconColor,
+                    fontSize: 16,
+                  ),
                 ),
         ),
       ),
@@ -562,6 +589,7 @@ class ChatMessageRow extends StatelessWidget {
           ChatAvatar(
             label: chatInitials(message.senderName),
             colors: style.selfAvatarColors,
+            seed: message.senderName,
             style: style,
           ),
         ],
@@ -586,13 +614,14 @@ class ChatMessageRow extends StatelessWidget {
                 child: ChatAvatar(
                   label: chatInitials(message.senderName),
                   colors: style.otherAvatarColors,
+                  seed: message.senderName,
                   style: style,
                 ),
               ),
               if (message.senderType == 'character')
                 Positioned(
-                  right: -5,
-                  top: -7,
+                  right: -8,
+                  top: -9,
                   child: ChatAiBadge(style: style),
                 ),
             ],
@@ -655,26 +684,32 @@ class ChatAvatar extends StatelessWidget {
     super.key,
     required this.label,
     required this.colors,
+    this.seed,
     this.style,
   });
 
   final String label;
   final List<Color> colors;
+  final String? seed;
   final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
+    final seed = this.seed?.trim();
     return Container(
       width: style.avatarSize,
       height: style.avatarSize,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(style.avatarBorderRadius),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
-        ),
+        color: seed == null || seed.isEmpty ? null : avatarColorForName(seed),
+        gradient: seed == null || seed.isEmpty
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: colors,
+              )
+            : null,
       ),
       child: Center(
         child: Text(
@@ -696,13 +731,10 @@ class ChatAiBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
-    return Transform.rotate(
-      angle: math.pi / 4,
-      child: Container(
-        width: style.aiBadgeSize,
-        height: style.aiBadgeSize,
-        color: style.aiBadgeColor,
-      ),
+    return Icon(
+      MyFlutterApp.redstarCharIcon,
+      size: style.aiBadgeSize,
+      color: style.aiBadgeColor,
     );
   }
 }
@@ -802,10 +834,7 @@ class ChatSystemMessage extends StatelessWidget {
 }
 
 String chatInitials(String value) {
-  final clean = value.trim();
-  if (clean.isEmpty) return '?';
-  final chars = clean.characters.take(2).toList(growable: false);
-  return chars.join().toUpperCase();
+  return initialsForAvatarName(value);
 }
 
 String firstNonEmpty(List<String?> values) {

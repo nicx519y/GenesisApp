@@ -40,10 +40,12 @@ void showGenesisToast(
                     trimmedMessage,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
+                      inherit: false,
                       color: Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
                       height: 1.35,
+                      decoration: TextDecoration.none,
                     ),
                   ),
                 ),

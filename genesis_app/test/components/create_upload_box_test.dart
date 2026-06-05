@@ -41,4 +41,39 @@ void main() {
       expect(find.text('AVATAR\n(Optional)'), findsOneWidget);
     },
   );
+
+  testWidgets('CreateUploadBox optional remove link clears avatar', (
+    WidgetTester tester,
+  ) async {
+    final controller = TextEditingController(
+      text: 'assets/images/mock_avatars/avatar_iris.png',
+    );
+    var changedCount = 0;
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CreateUploadBox(
+            controller: controller,
+            label: 'AVATAR\n(Optional)',
+            showRemoveLinkWhenFilled: true,
+            onChanged: () => changedCount += 1,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('AVATAR\n(Optional)'), findsNothing);
+    expect(find.text('Remove'), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('create-upload-remove')));
+    await tester.pump();
+
+    expect(controller.text, isEmpty);
+    expect(changedCount, 1);
+    expect(find.text('Remove'), findsNothing);
+    expect(find.text('AVATAR\n(Optional)'), findsOneWidget);
+  });
 }

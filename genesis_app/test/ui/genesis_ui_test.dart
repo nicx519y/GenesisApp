@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/search_bar.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
@@ -159,6 +160,100 @@ void main() {
 
     await tester.tap(find.text('Continue'));
     expect(tapped, isTrue);
+  });
+
+  testWidgets('GenesisActionBox attaches cancel for a single action', (
+    tester,
+  ) async {
+    bool? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return FilledButton(
+                onPressed: () async {
+                  result = await showGenesisActionBox<bool>(
+                    context: context,
+                    title: 'Log out of your account?',
+                    actions: const [
+                      GenesisActionBoxAction<bool>(
+                        label: 'Log out',
+                        value: true,
+                      ),
+                    ],
+                  );
+                },
+                child: const Text('Open'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
+      findsOneWidget,
+    );
+    expect(find.text('Log out of your account?'), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(result, isNull);
+  });
+
+  testWidgets('GenesisActionBox detaches cancel for multiple actions', (
+    tester,
+  ) async {
+    String? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return FilledButton(
+                onPressed: () async {
+                  result = await showGenesisActionBox<String>(
+                    context: context,
+                    title: 'Save the draft before leaving?',
+                    actions: const [
+                      GenesisActionBoxAction<String>(
+                        label: 'Save',
+                        value: 'save',
+                      ),
+                      GenesisActionBoxAction<String>(
+                        label: 'Discard',
+                        value: 'discard',
+                      ),
+                    ],
+                  );
+                },
+                child: const Text('Open'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('genesis-action-box-detached-cancel')),
+      findsOneWidget,
+    );
+    expect(find.text('Save the draft before leaving?'), findsOneWidget);
+
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(result, 'save');
   });
 
   testWidgets('GenesisPrimaryButton supports action-specific styling', (

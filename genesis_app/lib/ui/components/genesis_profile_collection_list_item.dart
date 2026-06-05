@@ -19,9 +19,16 @@ class GenesisProfileCollectionItemData {
 }
 
 class GenesisProfileCollectionStat {
-  const GenesisProfileCollectionStat({required this.icon, required this.value});
+  const GenesisProfileCollectionStat({
+    this.icon,
+    this.iconAsset,
+    this.preserveIconAssetColor = false,
+    required this.value,
+  }) : assert(icon != null || iconAsset != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final String? iconAsset;
+  final bool preserveIconAssetColor;
   final int value;
 }
 
@@ -86,8 +93,6 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 6),
-            const Icon(Icons.chevron_right, color: Color(0xFFB5B5B5)),
           ],
         ),
       ),
@@ -107,16 +112,30 @@ class _StatsRow extends StatelessWidget {
       runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: stats
-          .map((stat) => _Stat(icon: stat.icon, value: stat.value))
+          .map(
+            (stat) => _Stat(
+              icon: stat.icon,
+              iconAsset: stat.iconAsset,
+              preserveIconAssetColor: stat.preserveIconAssetColor,
+              value: stat.value,
+            ),
+          )
           .toList(growable: false),
     );
   }
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.icon, required this.value});
+  const _Stat({
+    this.icon,
+    this.iconAsset,
+    this.preserveIconAssetColor = false,
+    required this.value,
+  }) : assert(icon != null || iconAsset != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final String? iconAsset;
+  final bool preserveIconAssetColor;
   final int value;
 
   @override
@@ -124,7 +143,21 @@ class _Stat extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 11, color: Colors.black),
+        if (iconAsset case final asset?)
+          preserveIconAssetColor
+              ? Transform.translate(
+                  offset: const Offset(0, -0.8),
+                  child: Image.asset(
+                    asset,
+                    width: 13.75,
+                    height: 13.75,
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  ),
+                )
+              : ImageIcon(AssetImage(asset), size: 11, color: Colors.black)
+        else
+          Icon(icon, size: 11, color: Colors.black),
         const SizedBox(width: 4),
         Text(
           formatStatCount(value),

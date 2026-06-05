@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import '../../platform/device/device_id_service.dart';
 import '../../platform/session/user_session_store.dart';
 import 'chatroom_models.dart';
 import 'chatroom_socket_transport.dart';
@@ -9,17 +10,20 @@ class ChatroomClient {
   ChatroomClient({
     required String wsBaseUrl,
     required UserSessionStore sessionStore,
+    DeviceIdService? deviceIdService,
     ChatroomSocketTransport? transport,
-    Duration heartbeatInterval = const Duration(seconds: 5),
+    Duration heartbeatInterval = const Duration(seconds: 2),
     Duration ackTimeout = const Duration(seconds: 12),
   }) : _wsBaseUri = Uri.parse(wsBaseUrl),
        _sessionStore = sessionStore,
-       _transport = transport ?? const IoChatroomSocketTransport(),
+       _deviceIdService = deviceIdService,
+       _transport = transport ?? IoChatroomSocketTransport(),
        _heartbeatInterval = heartbeatInterval,
        _ackTimeout = ackTimeout;
 
   final Uri _wsBaseUri;
   final UserSessionStore _sessionStore;
+  final DeviceIdService? _deviceIdService;
   final ChatroomSocketTransport _transport;
   final Duration _heartbeatInterval;
   final Duration _ackTimeout;
@@ -27,7 +31,7 @@ class ChatroomClient {
   Future<ChatroomSession> connect({
     String? worldId,
     String? worldInstanceId,
-    required String locationId,
+    String? locationId,
     String? userId,
     String? senderId,
     String? senderName,
@@ -37,48 +41,87 @@ class ChatroomClient {
       throw const ChatroomProtocolException('worldId is required');
     }
     final resolvedUserId = (userId ?? await _sessionStore.readUid())?.trim();
-    if (resolvedUserId == null || resolvedUserId.isEmpty) {
-      throw const ChatroomProtocolException('userId is required');
-    }
 
     final authToken = (await _sessionStore.readAuthToken())?.trim();
-    final uri = _resolveUri(worldId: resolvedWorldId);
+    if (authToken == null || authToken.isEmpty) {
+      throw const ChatroomProtocolException('authToken is required');
+    }
+    final deviceId = (await _deviceIdService?.getDeviceId())?.trim();
+    final resolvedSenderId = senderId?.trim().isNotEmpty == true
+        ? senderId!.trim()
+        : resolvedUserId ?? '';
+    final resolvedSenderName = senderName?.trim().isNotEmpty == true
+        ? senderName!.trim()
+        : resolvedSenderId;
+    final uri = _resolveUri(worldInstanceId: resolvedWorldId);
+    final headers = <String, String>{
+      if (deviceId != null && deviceId.isNotEmpty) 'device-id': deviceId,
+      'Authorization': authToken.toLowerCase().startsWith('bearer ')
+          ? authToken
+          : 'Bearer $authToken',
+    };
     final socket = await _transport.connect(
       uri,
-      headers: authToken == null || authToken.isEmpty
-          ? null
-          : <String, String>{
-              'Authorization': authToken.toLowerCase().startsWith('bearer ')
-                  ? authToken
-                  : 'Bearer $authToken',
-            },
+      headers: headers.isEmpty ? null : headers,
     );
     final session = ChatroomSession._(
       socket: socket,
       worldInstanceId: resolvedWorldId,
-      locationId: locationId,
+      locationId: locationId?.trim() ?? '',
+      userId: resolvedUserId ?? '',
+      senderId: resolvedSenderId,
+      senderName: resolvedSenderName,
       heartbeatInterval: _heartbeatInterval,
       ackTimeout: _ackTimeout,
     );
+    return session;
+  }
+
+  Future<ChatroomSession> connectAndJoin({
+    String? worldId,
+    String? worldInstanceId,
+    String? locationId,
+    String? userId,
+    String? senderId,
+    String? senderName,
+  }) async {
+    final session = await connect(
+      worldId: worldId,
+      worldInstanceId: worldInstanceId,
+      locationId: locationId,
+      userId: userId,
+      senderId: senderId,
+      senderName: senderName,
+    );
     try {
-      await session._join();
+      await session.join();
     } catch (_) {
-      await session.close();
+      await session.disconnect();
       rethrow;
     }
     return session;
   }
 
-  Uri _resolveUri({required String worldId}) {
-    final base = _wsBaseUri;
-    final path = base.path.trim().isEmpty ? '/aitown-chat/ws' : base.path;
+  Uri _resolveUri({required String worldInstanceId}) {
+    final base = _withDefaultWebSocketPort(_wsBaseUri);
+    final basePath = base.path.trim();
+    final path = basePath.isEmpty ? '/' : basePath;
     return base.replace(
       path: path,
       queryParameters: <String, String>{
         ...base.queryParameters,
-        'world_id': worldId,
+        'world_id': worldInstanceId,
       },
     );
+  }
+
+  Uri _withDefaultWebSocketPort(Uri uri) {
+    if (uri.hasPort) return uri;
+    return switch (uri.scheme.toLowerCase()) {
+      'ws' => uri.replace(port: 80),
+      'wss' => uri.replace(port: 443),
+      _ => uri,
+    };
   }
 }
 
@@ -87,6 +130,9 @@ class ChatroomSession {
     required ChatroomSocket socket,
     required this.worldInstanceId,
     required this.locationId,
+    required this.userId,
+    required this.senderId,
+    required this.senderName,
     required Duration heartbeatInterval,
     required Duration ackTimeout,
   }) : _socket = socket,
@@ -98,6 +144,7 @@ class ChatroomSession {
       onDone: () => _handleSocketDone(),
       cancelOnError: false,
     );
+    _startHeartbeat();
   }
 
   final ChatroomSocket _socket;
@@ -105,11 +152,17 @@ class ChatroomSession {
   final Duration _ackTimeout;
   final String worldInstanceId;
   final String locationId;
+  final String userId;
+  final String senderId;
+  final String senderName;
   final _events = StreamController<ChatroomEvent>.broadcast();
   final _errors = StreamController<ChatroomErrorEvent>.broadcast();
+  final _failures = StreamController<ChatroomFailureEvent>.broadcast();
   final _streams = StreamController<ChatroomAiMessageStream>.broadcast();
   final _pendingAcks = <String, _PendingAck>{};
+  final _pendingHeartbeats = <_PendingHeartbeat>[];
   final _activeStreams = <int, ChatroomAiMessageStream>{};
+  _PendingJoin? _pendingJoin;
   late final StreamSubscription<String> _subscription;
   Timer? _heartbeatTimer;
   bool _closed = false;
@@ -120,9 +173,112 @@ class ChatroomSession {
 
   Stream<ChatroomErrorEvent> get errors => _errors.stream;
 
+  Stream<ChatroomFailureEvent> get failures => _failures.stream;
+
   Stream<ChatroomAiMessageStream> get streams => _streams.stream;
 
   ChatroomJoined? get joined => _joined;
+
+  StreamSubscription<ChatroomEvent> listenMessages(
+    ChatroomMessageHandlers handlers, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    return events.listen(
+      handlers.handle,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
+  }
+
+  Future<ChatroomJoined> join({String? locationId}) async {
+    _throwIfClosed();
+    if (_joined != null) return _joined!;
+    if (_pendingJoin != null) return _pendingJoin!.completer.future;
+
+    final completer = Completer<ChatroomJoined>();
+    final timer = Timer(_ackTimeout, () {
+      final pending = _pendingJoin;
+      if (pending == null || pending.completer.isCompleted) return;
+      _pendingJoin = null;
+      final failure = ChatroomFailureEvent(
+        code: 'join_timeout',
+        message: 'Timed out waiting for joined message',
+        sourceType: 'joined',
+        requestType: 'join',
+      );
+      _emitFailure(failure);
+      pending.completeError(failure);
+    });
+    _pendingJoin = _PendingJoin(completer, timer);
+
+    try {
+      final requestedLocationId = locationId?.trim();
+      final resolvedLocationId =
+          requestedLocationId != null && requestedLocationId.isNotEmpty
+          ? requestedLocationId
+          : this.locationId.trim();
+      if (resolvedLocationId.isEmpty) {
+        throw const ChatroomProtocolException('locationId is required');
+      }
+      await _sendEnvelope('join', <String, Object?>{
+        'location_id': resolvedLocationId,
+      });
+    } catch (e) {
+      final pending = _pendingJoin;
+      _pendingJoin = null;
+      pending?.cancel();
+      final failure = ChatroomFailureEvent(
+        code: 'join_send_failed',
+        message: 'Failed to send join message',
+        sourceType: 'join',
+        requestType: 'join',
+        cause: e,
+      );
+      _emitFailure(failure);
+      pending?.completeError(failure);
+    }
+
+    return completer.future;
+  }
+
+  Future<void> heartbeat() async {
+    _throwIfClosed();
+    final completer = Completer<void>();
+    final pending = _PendingHeartbeat(completer);
+    pending.timer = Timer(_ackTimeout, () {
+      if (!_pendingHeartbeats.remove(pending)) return;
+      final failure = ChatroomFailureEvent(
+        code: 'heartbeat_timeout',
+        message: 'Timed out waiting for heartbeat response',
+        sourceType: 'heartbeat',
+        requestType: 'heartbeat',
+      );
+      _emitFailure(failure);
+      pending.completeError(failure);
+    });
+    _pendingHeartbeats.add(pending);
+
+    try {
+      await _sendEnvelope('heartbeat', const <String, Object?>{});
+    } catch (e) {
+      _pendingHeartbeats.remove(pending);
+      pending.cancel();
+      final failure = ChatroomFailureEvent(
+        code: 'heartbeat_failed',
+        message: 'Failed to send heartbeat message',
+        sourceType: 'heartbeat',
+        requestType: 'heartbeat',
+        cause: e,
+      );
+      _emitFailure(failure);
+      pending.completeError(failure);
+    }
+
+    return completer.future;
+  }
 
   Future<ChatroomAck> sendMessage(
     String text, {
@@ -140,16 +296,22 @@ class ChatroomSession {
     final timer = Timer(_ackTimeout, () {
       final pending = _pendingAcks.remove(resolvedClientUuid);
       if (pending != null && !pending.completer.isCompleted) {
-        final error = ChatroomErrorEvent(
+        final failure = ChatroomFailureEvent(
           code: 'ack_timeout',
           message: 'Timed out waiting for message ack',
+          sourceType: 'ack',
+          requestType: 'send_message',
           cause: resolvedClientUuid,
         );
-        _emitError(error);
-        pending.completer.completeError(error);
+        _emitFailure(failure);
+        pending.completeError(failure);
       }
     });
-    _pendingAcks[resolvedClientUuid] = _PendingAck(completer, timer);
+    _pendingAcks[resolvedClientUuid] = _PendingAck(
+      completer,
+      timer,
+      requestType: 'send_message',
+    );
 
     try {
       await _sendEnvelope('send_message', <String, Object?>{
@@ -159,7 +321,15 @@ class ChatroomSession {
     } catch (e) {
       final pending = _pendingAcks.remove(resolvedClientUuid);
       pending?.cancel();
-      rethrow;
+      final failure = ChatroomFailureEvent(
+        code: 'send_message_failed',
+        message: 'Failed to send chatroom message',
+        sourceType: 'send_message',
+        requestType: 'send_message',
+        cause: e,
+      );
+      _emitFailure(failure);
+      pending?.completeError(failure);
     }
 
     return completer.future;
@@ -171,38 +341,44 @@ class ChatroomSession {
 
   Future<void> close() async {
     if (_closed) return;
-    _closed = true;
-    await _sendLeaveIfPossible();
-    await _disposeState(
-      ChatroomErrorEvent(code: 'closed', message: 'Chatroom session closed'),
-    );
-    await _socket.close();
+    if (_joined != null || _pendingJoin != null) {
+      try {
+        await leave();
+      } catch (_) {
+        // close() preserves the old best-effort shutdown behavior.
+      }
+    }
+    await disconnect();
   }
 
-  Future<void> _join() async {
-    final joinedCompleter = Completer<ChatroomJoined>();
-    late final StreamSubscription<ChatroomEvent> joinedSubscription;
-    joinedSubscription = events.listen((event) {
-      if (event is ChatroomJoined && !joinedCompleter.isCompleted) {
-        joinedCompleter.complete(event);
-      }
-    });
-
-    await _sendEnvelope('join', <String, Object?>{'location_id': locationId});
-
+  Future<void> leave() async {
+    _throwIfClosed();
     try {
-      final joined = await joinedCompleter.future.timeout(_ackTimeout);
-      _joined = joined;
-      _startHeartbeat();
-    } on TimeoutException catch (e) {
-      throw ChatroomErrorEvent(
-        code: 'join_timeout',
-        message: 'Timed out waiting for joined message',
+      await _sendEnvelope('leave', const <String, Object?>{});
+      _joined = null;
+    } catch (e) {
+      final failure = ChatroomFailureEvent(
+        code: 'leave_failed',
+        message: 'Failed to send leave message',
+        sourceType: 'leave',
+        requestType: 'leave',
         cause: e,
       );
-    } finally {
-      await joinedSubscription.cancel();
+      _emitFailure(failure);
+      throw failure;
     }
+  }
+
+  Future<void> disconnect() async {
+    if (_closed) return;
+    final reason = ChatroomFailureEvent(
+      code: 'closed',
+      message: 'Chatroom session closed',
+      sourceType: 'disconnect',
+      requestType: 'disconnect',
+    );
+    await _disposeState(reason);
+    await _socket.close(1000, 'client_disconnect');
   }
 
   Future<void> _sendEnvelope(String type, Map<String, Object?> payload) {
@@ -218,10 +394,11 @@ class ChatroomSession {
       final event = chatroomEventFromEnvelope(envelope);
       _dispatchEvent(event);
     } catch (e) {
-      _emitError(
-        ChatroomErrorEvent(
+      _emitFailure(
+        ChatroomFailureEvent(
           code: 'protocol_error',
           message: 'Failed to parse chatroom message',
+          sourceType: 'protocol_error',
           cause: e,
         ),
       );
@@ -229,11 +406,47 @@ class ChatroomSession {
   }
 
   void _dispatchEvent(ChatroomEvent event) {
-    if (event is ChatroomAck) {
+    if (event is ChatroomJoined) {
+      final pending = _pendingJoin;
+      _pendingJoin = null;
+      pending?.cancel();
+      if (event.ok) {
+        _joined = event;
+        pending?.complete(event);
+      } else {
+        final failure = ChatroomFailureEvent.fromPayloadEvent(
+          event,
+          requestType: 'join',
+        );
+        _emitFailure(failure);
+        pending?.completeError(failure);
+      }
+    } else if (event is ChatroomAck) {
       final pending = event.clientUuid.isEmpty
           ? _removeOldestPendingAck()
           : _pendingAcks.remove(event.clientUuid);
-      pending?.complete(event);
+      if (event.ok) {
+        pending?.complete(event);
+      } else {
+        final failure = ChatroomFailureEvent.fromPayloadEvent(
+          event,
+          requestType: pending?.requestType ?? 'send_message',
+        );
+        _emitFailure(failure);
+        pending?.completeError(failure);
+      }
+    } else if (event is ChatroomHeartbeat) {
+      final pending = _removeOldestPendingHeartbeat();
+      if (event.ok) {
+        pending?.complete();
+      } else {
+        final failure = ChatroomFailureEvent.fromPayloadEvent(
+          event,
+          requestType: 'heartbeat',
+        );
+        _emitFailure(failure);
+        pending?.completeError(failure);
+      }
     } else if (event is ChatroomAiStreamStart) {
       final stream = ChatroomAiMessageStream._(event);
       _activeStreams[event.messageId] = stream;
@@ -253,7 +466,10 @@ class ChatroomSession {
       stream?.complete(event);
     } else if (event is ChatroomErrorEvent) {
       _emitError(event);
+      _emitFailure(ChatroomFailureEvent.fromError(event));
       _failMatchingStream(event);
+    } else if (event is ChatroomPayloadEvent && !event.ok) {
+      _emitFailure(ChatroomFailureEvent.fromPayloadEvent(event));
     }
 
     if (!_events.isClosed) {
@@ -262,61 +478,55 @@ class ChatroomSession {
   }
 
   void _handleSocketError(Object error) {
-    _emitError(
-      ChatroomErrorEvent(
-        code: 'socket_error',
-        message: 'Chatroom socket error',
-        cause: error,
-      ),
+    final event = ChatroomErrorEvent(
+      code: 'socket_error',
+      message: 'Chatroom socket error',
+      cause: error,
     );
+    _emitError(event);
+    _emitFailure(ChatroomFailureEvent.fromError(event, requestType: 'socket'));
+  }
+
+  void _stopHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
   }
 
   void _handleSocketDone() {
-    final reason = ChatroomErrorEvent(
+    final reason = ChatroomFailureEvent(
       code: 'socket_closed',
       message: 'Chatroom socket closed',
+      sourceType: 'socket_closed',
     );
-    _emitError(reason);
+    _emitFailure(reason);
     unawaited(_disposeState(reason));
   }
 
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) {
-      unawaited(
-        _sendEnvelope('heartbeat', const <String, Object?>{}).catchError((
-          Object error,
-        ) {
-          _handleSocketError(error);
-        }),
-      );
+      unawaited(heartbeat().catchError((Object error) {}));
     });
   }
 
-  Future<void> _sendLeaveIfPossible() async {
-    try {
-      await _socket.send(
-        const ChatroomEnvelope(
-          type: 'leave',
-          payload: <String, dynamic>{},
-        ).encode(),
-      );
-    } catch (_) {
-      // Closing is best effort.
-    }
-  }
-
-  Future<void> _disposeState(ChatroomErrorEvent reason) async {
+  Future<void> _disposeState(ChatroomFailureEvent reason) async {
     if (_disposed) return;
     _disposed = true;
     _closed = true;
-    _heartbeatTimer?.cancel();
-    _heartbeatTimer = null;
+    _stopHeartbeat();
+
+    _pendingJoin?.completeError(reason);
+    _pendingJoin = null;
 
     for (final pending in _pendingAcks.values) {
       pending.completeError(reason);
     }
     _pendingAcks.clear();
+
+    for (final pending in _pendingHeartbeats) {
+      pending.completeError(reason);
+    }
+    _pendingHeartbeats.clear();
 
     for (final stream in _activeStreams.values) {
       stream.fail(reason);
@@ -326,12 +536,22 @@ class ChatroomSession {
     await _subscription.cancel();
     await _events.close();
     await _errors.close();
+    await _failures.close();
     await _streams.close();
   }
 
   void _emitError(ChatroomErrorEvent error) {
     if (!_errors.isClosed) {
       _errors.add(error);
+    }
+  }
+
+  void _emitFailure(ChatroomFailureEvent failure) {
+    if (!_failures.isClosed) {
+      _failures.add(failure);
+    }
+    if (!_events.isClosed) {
+      _events.add(failure);
     }
   }
 
@@ -428,6 +648,11 @@ class ChatroomSession {
     final key = _pendingAcks.keys.first;
     return _pendingAcks.remove(key);
   }
+
+  _PendingHeartbeat? _removeOldestPendingHeartbeat() {
+    if (_pendingHeartbeats.isEmpty) return null;
+    return _pendingHeartbeats.removeAt(0);
+  }
 }
 
 class ChatroomAiMessageStream {
@@ -470,10 +695,11 @@ class ChatroomAiMessageStream {
 }
 
 class _PendingAck {
-  _PendingAck(this.completer, this.timer);
+  _PendingAck(this.completer, this.timer, {required this.requestType});
 
   final Completer<ChatroomAck> completer;
   final Timer timer;
+  final String requestType;
 
   void complete(ChatroomAck ack) {
     cancel();
@@ -491,5 +717,55 @@ class _PendingAck {
 
   void cancel() {
     timer.cancel();
+  }
+}
+
+class _PendingJoin {
+  _PendingJoin(this.completer, this.timer);
+
+  final Completer<ChatroomJoined> completer;
+  final Timer timer;
+
+  void complete(ChatroomJoined joined) {
+    cancel();
+    if (!completer.isCompleted) {
+      completer.complete(joined);
+    }
+  }
+
+  void completeError(Object error) {
+    cancel();
+    if (!completer.isCompleted) {
+      completer.completeError(error);
+    }
+  }
+
+  void cancel() {
+    timer.cancel();
+  }
+}
+
+class _PendingHeartbeat {
+  _PendingHeartbeat(this.completer);
+
+  final Completer<void> completer;
+  Timer? timer;
+
+  void complete() {
+    cancel();
+    if (!completer.isCompleted) {
+      completer.complete();
+    }
+  }
+
+  void completeError(Object error) {
+    cancel();
+    if (!completer.isCompleted) {
+      completer.completeError(error);
+    }
+  }
+
+  void cancel() {
+    timer?.cancel();
   }
 }

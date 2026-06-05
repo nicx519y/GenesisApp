@@ -1,13 +1,15 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_avatar.dart';
+import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_image_viewer_overlay.dart';
@@ -28,6 +30,7 @@ const String _discussLikeFilledAsset =
 const String _discussLikeOutlineAsset =
     'assets/custom-icons/png/discuss_like_outline.png';
 const String _discussReplyAsset = 'assets/custom-icons/png/discuss_reply.png';
+const double _discussAvatarSize = 30;
 
 Future<OriginDiscussPage> loadOriginDiscussPage(
   BuildContext context,
@@ -173,7 +176,7 @@ class OriginDiscussListItem {
           author?['display_name'] ??
           json['author_name'] ??
           json['user_name'],
-      fallback: 'User',
+      fallback: formatUidForDisplay(uid, fallback: 'User'),
     );
     return OriginDiscussListItem(
       discussId: asString(json['discuss_id']),
@@ -186,7 +189,7 @@ class OriginDiscussListItem {
         ),
       ),
       authorUid: uid,
-      authorName: name,
+      authorName: formatUidForDisplay(name, fallback: 'User'),
       avatar: asString(author?['avatar'] ?? author?['avatar_url']),
       content: asString(json['content']),
       imageUrls: _imageUrlsFrom(json['images'] ?? json['image_urls']),
@@ -734,6 +737,8 @@ class OriginDiscussList extends StatelessWidget {
     this.showHeader = true,
     this.enableViewMore = true,
     this.collapseInitialItems = true,
+    this.showActions = false,
+    this.showReplies = false,
     this.onViewMoreTap,
   });
 
@@ -742,6 +747,8 @@ class OriginDiscussList extends StatelessWidget {
   final bool showHeader;
   final bool enableViewMore;
   final bool collapseInitialItems;
+  final bool showActions;
+  final bool showReplies;
   final Future<void> Function()? onViewMoreTap;
 
   @override
@@ -786,8 +793,11 @@ class OriginDiscussList extends StatelessWidget {
                       _DiscussPreviewRow(
                         controller: controller,
                         item: entry.$2,
+                        showActions: showActions,
+                        showReplies: showReplies,
                       ),
-                      if (entry.$1 != comments.length - 1) const _ListDivider(),
+                      if (entry.$1 != comments.length - 1)
+                        const SizedBox(height: 32),
                     ],
                   ],
                 ),
@@ -845,18 +855,6 @@ class _ViewMoreButton extends StatelessWidget {
   }
 }
 
-class _ListDivider extends StatelessWidget {
-  const _ListDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 16),
-      child: Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
-    );
-  }
-}
-
 class _DiscussHeader extends StatelessWidget {
   const _DiscussHeader({required this.count});
 
@@ -866,7 +864,13 @@ class _DiscussHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Icon(MyFlutterApp.discuss, size: 14, color: Color(0xFF1D1D1D)),
+        Image.asset(
+          discussIconAsset,
+          width: 16,
+          height: 16,
+          fit: BoxFit.contain,
+          excludeFromSemantics: true,
+        ),
         const SizedBox(width: 6),
         Text(
           'Discuss (${formatStatCount(count)})',
@@ -883,10 +887,17 @@ class _DiscussHeader extends StatelessWidget {
 }
 
 class _DiscussPreviewRow extends StatefulWidget {
-  const _DiscussPreviewRow({required this.controller, required this.item});
+  const _DiscussPreviewRow({
+    required this.controller,
+    required this.item,
+    required this.showActions,
+    required this.showReplies,
+  });
 
   final OriginDiscussListController controller;
   final OriginDiscussListItem item;
+  final bool showActions;
+  final bool showReplies;
 
   @override
   State<_DiscussPreviewRow> createState() => _DiscussPreviewRowState();
@@ -1019,10 +1030,16 @@ class _DiscussPreviewRowState extends State<_DiscussPreviewRow> {
                 const SizedBox(height: 8),
                 _DiscussImageThumbnails(urls: widget.item.imageUrls),
               ],
-              const SizedBox(height: 12),
-              _DiscussActions(controller: widget.controller, item: widget.item),
-              if (widget.item.latestReplies.isNotEmpty ||
-                  widget.controller.hasMoreReplies(widget.item)) ...[
+              if (widget.showActions) ...[
+                const SizedBox(height: 12),
+                _DiscussActions(
+                  controller: widget.controller,
+                  item: widget.item,
+                ),
+              ],
+              if (widget.showReplies &&
+                  (widget.item.latestReplies.isNotEmpty ||
+                      widget.controller.hasMoreReplies(widget.item))) ...[
                 const SizedBox(height: 12),
                 _DiscussReplyPreview(
                   controller: widget.controller,
@@ -1082,7 +1099,7 @@ class _DiscussActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final likePending = controller.isLikePending(item.discussId);
     final activeColor = item.isLiked
-        ? const Color(0xFFFF3030)
+        ? const Color(0xFFF42C47)
         : const Color(0xFF7D8178);
     return Row(
       children: [
@@ -1324,7 +1341,7 @@ class _StoryBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(MyFlutterApp.pregress, size: 14, color: Color(0xFF9B3A09)),
+          const Icon(MyFlutterApp.pregress, size: 14, color: Color(0xFFF42C47)),
           const SizedBox(width: 4),
           Text(
             '$count',
@@ -1332,7 +1349,7 @@ class _StoryBadge extends StatelessWidget {
               fontSize: 12,
               height: 1,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF9B3A09),
+              color: Color(0xFFF42C47),
             ),
           ),
         ],
@@ -1417,10 +1434,10 @@ class _DiscussPreviewMeta extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF111111),
-                  fontSize: 14,
+                  color: Color(0xFF888888),
+                  fontSize: 12,
                   height: 1.18,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
@@ -1485,60 +1502,11 @@ class _DiscussAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final avatar = item.avatar.trim();
-    final fallback = _DiscussAvatarFallback(
-      seed: item.seed,
-      label: item.authorName,
-    );
-    if (avatar.isEmpty) return fallback;
-
-    final image = avatar.startsWith('assets/')
-        ? Image.asset(
-            avatar,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => fallback,
-          )
-        : CachedNetworkImage(
-            imageUrl: avatar,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => fallback,
-            errorWidget: (context, url, error) => fallback,
-          );
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(width: 50, height: 50, child: image),
-    );
-  }
-}
-
-class _DiscussAvatarFallback extends StatelessWidget {
-  const _DiscussAvatarFallback({required this.seed, required this.label});
-
-  final String seed;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final initial = label.trim().isEmpty ? '?' : label.trim().characters.first;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(5),
-      child: Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(colors: _gradientFor(seed)),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          initial.toUpperCase(),
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            height: 1,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
+    return GenesisAvatar(
+      url: avatar,
+      name: item.authorName,
+      size: _discussAvatarSize,
+      borderRadius: 8,
     );
   }
 }
@@ -1561,9 +1529,17 @@ DateTime? _parseDateTime(Object? value) {
 
 String _dateLabel(DateTime? value) {
   if (value == null) return '';
-  final hour = value.hour.toString().padLeft(2, '0');
-  final minute = value.minute.toString().padLeft(2, '0');
-  return '${value.month}-${value.day} $hour:$minute';
+  final local = value.toLocal();
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  final time = '$hour:$minute';
+  final now = DateTime.now();
+  if (local.year == now.year &&
+      local.month == now.month &&
+      local.day == now.day) {
+    return time;
+  }
+  return '${local.month}-${local.day} $time';
 }
 
 List<String> _imageUrlsFrom(Object? value) {
@@ -1583,13 +1559,4 @@ List<String> _imageUrlsFrom(Object? value) {
       .map((url) => url.trim())
       .where((url) => url.isNotEmpty)
       .toList(growable: false);
-}
-
-List<Color> _gradientFor(String seed) {
-  final hash = seed.codeUnits.fold<int>(
-    0,
-    (a, b) => (a * 131 + b) & 0x7fffffff,
-  );
-  int tint(int v) => 0xFF000000 | (v & 0x00FFFFFF) | 0x00303030;
-  return [Color(tint(hash)), Color(tint(hash * 17))];
 }

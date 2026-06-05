@@ -1,14 +1,16 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
-import '../../components/secend_tabs.dart';
 import '../../network/genesis_api.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_avatar.dart';
+import '../../ui/components/secend_tabs.dart';
+import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
 class FollowsPage extends StatefulWidget {
@@ -250,10 +252,12 @@ class _FollowUsersPane extends StatelessWidget {
     return FutureBuilder<List<_FollowUserItem>>(
       future: future,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        final items = snapshot.data ?? const <_FollowUserItem>[];
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            items.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (snapshot.hasError) {
+        if (snapshot.hasError && items.isEmpty) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -265,16 +269,26 @@ class _FollowUsersPane extends StatelessWidget {
             ),
           );
         }
-        final items = snapshot.data ?? const <_FollowUserItem>[];
         if (items.isEmpty) {
-          return Center(
-            child: Text(
-              emptyText,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF8A8A8A),
-                fontWeight: FontWeight.w400,
-              ),
+          return RefreshIndicator(
+            onRefresh: onRefresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: MediaQuery.sizeOf(context).height * 0.45,
+                  child: Center(
+                    child: Text(
+                      emptyText,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF8A8A8A),
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         }
@@ -313,6 +327,7 @@ class _FollowUserTile extends StatelessWidget {
     required this.onToggleFollow,
   });
 
+  static const double _avatarSize = 48;
   static const double _actionWidth = 86;
   static const double _actionHeight = 28;
 
@@ -329,64 +344,86 @@ class _FollowUserTile extends StatelessWidget {
         context,
       ).pushNamed(RouteNames.userInfo, arguments: {'uid': item.uid}),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _FollowAvatar(url: item.avatarUrl),
+            _FollowAvatar(
+              key: ValueKey('follows-avatar-${item.uid}'),
+              url: item.avatarUrl,
+              name: item.displayName,
+            ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                item.displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 1.2,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.black,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.2,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
+                    ),
+                  ),
+                  SizedBox(
+                    key: ValueKey('follows-name-uid-gap-${item.uid}'),
+                    height: 4,
+                  ),
+                  CopyableIdLabel(label: 'UID', value: item.uid),
+                ],
               ),
             ),
             const SizedBox(width: 12),
             SizedBox(
               width: _actionWidth,
-              height: _actionHeight,
-              child: FilledButton(
-                key: ValueKey('follows-action-${item.uid}'),
-                onPressed: isLoading ? null : onToggleFollow,
-                style: FilledButton.styleFrom(
-                  fixedSize: const Size(_actionWidth, _actionHeight),
-                  minimumSize: const Size(_actionWidth, _actionHeight),
-                  backgroundColor: isFollowed
-                      ? const Color(0xFFE5E5E5)
-                      : const Color(0xFFE85050),
-                  disabledBackgroundColor: isFollowed
-                      ? const Color(0xFFE5E5E5)
-                      : const Color(0xFFE85050).withValues(alpha: 0.55),
-                  foregroundColor: isFollowed ? Colors.black : Colors.white,
-                  disabledForegroundColor: isFollowed
-                      ? Colors.black54
-                      : Colors.white,
-                  alignment: Alignment.center,
-                  padding: EdgeInsets.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
+              height: _avatarSize,
+              child: Center(
+                child: SizedBox(
+                  width: _actionWidth,
+                  height: _actionHeight,
+                  child: FilledButton(
+                    key: ValueKey('follows-action-${item.uid}'),
+                    onPressed: isLoading ? null : onToggleFollow,
+                    style: FilledButton.styleFrom(
+                      fixedSize: const Size(_actionWidth, _actionHeight),
+                      minimumSize: const Size(_actionWidth, _actionHeight),
+                      backgroundColor: isFollowed
+                          ? const Color(0xFFE5E5E5)
+                          : const Color(0xFFF42C47),
+                      disabledBackgroundColor: isFollowed
+                          ? const Color(0xFFE5E5E5)
+                          : const Color(0xFFF42C47).withValues(alpha: 0.55),
+                      foregroundColor: isFollowed ? Colors.black : Colors.white,
+                      disabledForegroundColor: isFollowed
+                          ? Colors.black54
+                          : Colors.white,
+                      alignment: Alignment.center,
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    child: isLoading
+                        ? SizedBox(
+                            width: 15,
+                            height: 15,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: isFollowed ? Colors.black54 : Colors.white,
+                            ),
+                          )
+                        : Text(
+                            isFollowed ? 'Unfollow' : 'Follow',
+                            style: const TextStyle(fontSize: 12),
+                          ),
                   ),
                 ),
-                child: isLoading
-                    ? SizedBox(
-                        width: 15,
-                        height: 15,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: isFollowed ? Colors.black54 : Colors.white,
-                        ),
-                      )
-                    : Text(
-                        isFollowed ? 'Unfollow' : 'Follow',
-                        style: const TextStyle(fontSize: 12),
-                      ),
               ),
             ),
           ],
@@ -397,34 +434,16 @@ class _FollowUserTile extends StatelessWidget {
 }
 
 class _FollowAvatar extends StatelessWidget {
-  const _FollowAvatar({required this.url});
+  const _FollowAvatar({super.key, required this.url, required this.name});
 
-  static const double _size = 44;
+  static const double _size = 48;
 
   final String url;
+  final String name;
 
   @override
   Widget build(BuildContext context) {
-    final placeholder = Container(
-      width: _size,
-      height: _size,
-      decoration: BoxDecoration(
-        color: const Color(0xFFEDEDED),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: const Icon(Icons.person, color: Color(0xFF9A9A9A), size: 24),
-    );
-    if (url.trim().isEmpty) return placeholder;
-    return ClipOval(
-      child: CachedNetworkImage(
-        imageUrl: url,
-        width: _size,
-        height: _size,
-        fit: BoxFit.cover,
-        placeholder: (_, _) => placeholder,
-        errorWidget: (_, _, _) => placeholder,
-      ),
-    );
+    return GenesisAvatar(url: url, name: name, size: _size, borderRadius: 5);
   }
 }
 
@@ -458,7 +477,7 @@ class _FollowUserItem {
         _mapString(user, 'name') ??
         _mapString(user, 'display_name') ??
         _mapString(user, 'nickname') ??
-        uid;
+        formatUidForDisplay(uid);
     final avatar =
         _mapString(user, 'avatar') ?? _mapString(user, 'avatar_url') ?? '';
     final isFollowed =
@@ -469,7 +488,7 @@ class _FollowUserItem {
         _mapBool(user, 'is_followed');
     return _FollowUserItem(
       uid: uid,
-      displayName: displayName.trim().isEmpty ? 'User' : displayName,
+      displayName: formatUidForDisplay(displayName, fallback: 'User'),
       avatarUrl: resolveAssetUrl(avatar),
       isFollowed: isFollowed,
     );

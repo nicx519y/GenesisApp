@@ -1,8 +1,12 @@
 import '../network/json_utils.dart';
 
-String formatRelativeTime(DateTime? time, {String fallback = '-'}) {
+String formatRelativeTime(
+  DateTime? time, {
+  String fallback = '-',
+  DateTime? now,
+}) {
   if (time == null) return fallback;
-  final diff = DateTime.now().difference(time.toLocal());
+  final diff = (now ?? DateTime.now()).difference(time.toLocal());
   if (diff.isNegative || diff.inMinutes < 1) return 'just now';
   if (diff.inHours < 1) return _plural(diff.inMinutes, 'minute');
   if (diff.inDays < 1) return _plural(diff.inHours, 'hour');
@@ -16,13 +20,17 @@ String formatRelativeTime(DateTime? time, {String fallback = '-'}) {
   return _plural(diff.inDays ~/ 365, 'year');
 }
 
-String formatRelativeTimestamp(Object? raw, {String fallback = ''}) {
+String formatRelativeTimestamp(
+  Object? raw, {
+  String fallback = '',
+  DateTime? now,
+}) {
   final time = parseFlexibleTimestamp(raw);
   if (time == null) {
     final text = asString(raw).trim();
     return text.isEmpty || text == 'null' ? fallback : text;
   }
-  return formatRelativeTime(time, fallback: fallback);
+  return formatRelativeTime(time, fallback: fallback, now: now);
 }
 
 DateTime? parseFlexibleTimestamp(Object? raw) {

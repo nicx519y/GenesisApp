@@ -11,11 +11,15 @@
 ///      fonts:
 ///       - asset: fonts/MyFlutterApp.ttf
 ///
-///
+/// 
 /// * Material Design Icons, Copyright (C) Google, Inc
 ///         Author:    Google
 ///         License:   Apache 2.0 (https://www.apache.org/licenses/LICENSE-2.0)
 ///         Homepage:  https://design.google.com/icons/
+/// * Font Awesome 4, Copyright (C) 2016 by Dave Gandy
+///         Author:    Dave Gandy
+///         License:   SIL ()
+///         Homepage:  http://fortawesome.github.com/Font-Awesome/
 /// * Font Awesome 5, Copyright (C) 2016 by Dave Gandy
 ///         Author:    Dave Gandy
 ///         License:   SIL (https://github.com/FortAwesome/Font-Awesome/blob/master/LICENSE.txt)
@@ -29,139 +33,35 @@ class MyFlutterApp {
   static const _kFontFam = 'MyFlutterApp';
   static const String? _kFontPkg = null;
 
-  static const IconData copy = IconData(
-    0xe800,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData create = IconData(
-    0xe801,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData create_small = IconData(
-    0xe802,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData discuss = IconData(
-    0xe803,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData gas = IconData(
-    0xe804,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData home = IconData(
-    0xe805,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData map_fill = IconData(
-    0xe806,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData me = IconData(
-    0xe807,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData messages = IconData(
-    0xe808,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData origin = IconData(
-    0xe809,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData skip_next = IconData(
-    0xe80a,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData position = IconData(
-    0xe80b,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData pregress = IconData(
-    0xe80c,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData save = IconData(
-    0xe80d,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData user = IconData(
-    0xe80e,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData user_star = IconData(
-    0xe80f,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData eye = IconData(
-    0xe810,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData add2 = IconData(
-    0xe811,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData sticker = IconData(
-    0xe812,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData voice = IconData(
-    0xe813,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData discuss_like_filled = IconData(
-    0xe814,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData discuss_like_outline = IconData(
-    0xe815,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData discuss_reply = IconData(
-    0xe816,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData comment = IconData(
-    0xe817,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData following = IconData(
-    0xe818,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData notification = IconData(
-    0xe819,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
-  static const IconData check = IconData(
-    0xf00c,
-    fontFamily: _kFontFam,
-    fontPackage: _kFontPkg,
-  );
+  static const IconData copy = IconData(0xe800, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData create = IconData(0xe801, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData create_small = IconData(0xe802, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData discuss = IconData(0xe803, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData gas = IconData(0xe804, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData home = IconData(0xe805, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData map_fill = IconData(0xe806, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData me = IconData(0xe807, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData messages = IconData(0xe808, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData origin = IconData(0xe809, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData skip_next = IconData(0xe80a, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData position = IconData(0xe80b, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData pregress = IconData(0xe80c, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData save = IconData(0xe80d, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData user = IconData(0xe80e, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData user_star = IconData(0xe80f, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData eye = IconData(0xe810, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData add2 = IconData(0xe811, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData sticker = IconData(0xe812, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData voice = IconData(0xe813, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData discuss_like_filled = IconData(0xe814, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData discuss_like_outline = IconData(0xe815, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData discuss_reply = IconData(0xe816, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData comment = IconData(0xe817, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData following = IconData(0xe818, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData notification = IconData(0xe819, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData connect = IconData(0xe81a, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData last_progress = IconData(0xe81b, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData redstar_char_icon = IconData(0xe81c, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData edit_image = IconData(0xe81d, fontFamily: _kFontFam, fontPackage: _kFontPkg);
+  static const IconData check = IconData(0xf00c, fontFamily: _kFontFam, fontPackage: _kFontPkg);
 }

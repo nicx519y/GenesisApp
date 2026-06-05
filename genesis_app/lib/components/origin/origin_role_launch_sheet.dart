@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../common/genesis_center_toast.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
 import 'origin_character_form.dart';
 import '../../network/models/origin.dart';
@@ -104,7 +105,6 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
   @override
   void initState() {
     super.initState();
-    _selectedPresetId = _firstPresetId(widget.characters);
     _customForm.addListener(_handleTextChanged);
   }
 
@@ -113,7 +113,7 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.characters != widget.characters &&
         !_hasCharacterId(widget.characters, _selectedPresetId)) {
-      _selectedPresetId = _firstPresetId(widget.characters);
+      _selectedPresetId = '';
     }
   }
 
@@ -172,7 +172,10 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
   }
 
   void _submit() {
-    if (!_canLaunch) return;
+    if (!_canLaunch) {
+      showGenesisToast(context, _launchValidationMessage);
+      return;
+    }
     if (_tabIndex == 0) {
       Navigator.of(
         context,
@@ -192,6 +195,15 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
     );
   }
 
+  String get _launchValidationMessage {
+    if (_tabIndex == 0) return 'Please select a preset role';
+    if (_customForm.name.text.trim().isEmpty) return 'Please enter name';
+    if (_customForm.identity.text.trim().isEmpty) {
+      return 'Please enter identity';
+    }
+    return 'Please wait for profile fill';
+  }
+
   void _dismiss() {
     FocusScope.of(context).unfocus();
     Navigator.of(context).pop();
@@ -201,7 +213,7 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final maxHeight = media.size.height - media.padding.top - 18;
-    final targetHeight = math.min(media.size.height * 0.7, maxHeight);
+    final targetHeight = math.min(media.size.height * 0.78, maxHeight);
 
     return SizedBox.expand(
       child: Stack(
@@ -382,6 +394,9 @@ class _SegmentButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          highlightColor: Colors.transparent,
           onTap: onTap,
           child: Center(
             child: Text(
@@ -436,9 +451,9 @@ class _PresetRoleGrid extends StatelessWidget {
       itemCount: characters.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        mainAxisExtent: 128,
+        mainAxisExtent: 116,
         crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
+        mainAxisSpacing: 2,
       ),
       itemBuilder: (context, index) {
         final character = characters[index];
@@ -500,7 +515,7 @@ class _PresetRoleTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 7),
             Text(
               character.name,
               maxLines: 1,
@@ -586,6 +601,7 @@ class _CustomRoleForm extends StatelessWidget {
               avatarWidth: 96,
               avatarHeight: 142,
               avatarCropSize: const Size(512, 512),
+              showAvatarRemoveLink: true,
               topSpacing: 0,
               fieldGap: 22,
               sectionGap: 28,
@@ -667,12 +683,12 @@ class _SheetActions extends StatelessWidget {
             height: 32,
             child: FilledButton(
               key: const ValueKey('origin-role-launch'),
-              onPressed: canLaunch ? onLaunch : null,
+              onPressed: onLaunch,
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF198B64),
-                disabledBackgroundColor: const Color(0xFFC8D9D1),
+                backgroundColor: canLaunch
+                    ? const Color(0xFF198B64)
+                    : const Color(0xFFC8D9D1),
                 foregroundColor: Colors.white,
-                disabledForegroundColor: Colors.white,
                 textStyle: const TextStyle(
                   fontSize: 14,
                   height: 1,
@@ -689,11 +705,6 @@ class _SheetActions extends StatelessWidget {
       ],
     );
   }
-}
-
-String _firstPresetId(List<OriginCharacter> characters) {
-  if (characters.isEmpty) return '';
-  return _characterRoleId(characters.first);
 }
 
 bool _hasCharacterId(List<OriginCharacter> characters, String id) {

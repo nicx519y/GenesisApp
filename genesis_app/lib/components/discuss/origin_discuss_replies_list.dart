@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../network/json_utils.dart';
+import '../../utils/display_name_formatter.dart';
 import '../common/genesis_image_viewer_overlay.dart';
 
 class OriginDiscussRepliesList extends StatelessWidget {
@@ -184,6 +185,7 @@ class _OriginDiscussReplyImageThumbnail extends StatelessWidget {
 
 String _replyLine(Map<String, dynamic> json) {
   final author = json['author'] is Map ? asJsonMap(json['author']) : null;
+  final uid = asString(author?['uid'], fallback: asString(json['uid']));
   final name = asString(
     author?['name'] ??
         author?['user_name'] ??
@@ -191,10 +193,10 @@ String _replyLine(Map<String, dynamic> json) {
         author?['display_name'] ??
         json['author_name'] ??
         json['user_name'],
-    fallback: 'User',
+    fallback: formatUidForDisplay(uid, fallback: 'User'),
   );
   final content = asString(json['content']);
-  return '$name: $content';
+  return '${formatUidForDisplay(name, fallback: 'User')}: $content';
 }
 
 List<String> _imageUrlsFrom(Object? value) {

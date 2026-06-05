@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
@@ -7,17 +8,25 @@ import '../../components/page_header.dart';
 import '../../network/direct_message_conversation_store.dart';
 import '../../network/models/unread_summary.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_avatar.dart';
+import '../../utils/display_name_formatter.dart';
+import '../../utils/relative_time_formatter.dart';
 import 'message_category_list_page.dart';
 
 class MessagesPage extends StatefulWidget {
   const MessagesPage({
     super.key,
     this.unreadSummary = UnreadSummary.zero,
-    this.onUnreadSummaryRefresh,
+    this.onMessagesDataRefresh,
+    this.isActiveListenable,
+    this.nowProvider,
   });
 
   final UnreadSummary unreadSummary;
-  final Future<void> Function()? onUnreadSummaryRefresh;
+  final Future<void> Function()? onMessagesDataRefresh;
+  final ValueListenable<bool>? isActiveListenable;
+  @visibleForTesting
+  final DateTime Function()? nowProvider;
 
   @override
   State<MessagesPage> createState() => _MessagesPageState();
@@ -26,7 +35,9 @@ class MessagesPage extends StatefulWidget {
 class _MessagesPageState extends State<MessagesPage> {
   final _scrollController = ScrollController();
   Timer? _conversationPollTimer;
+  Timer? _timeRefreshTimer;
   late final DirectMessageConversationStore _conversationStore;
+  late DateTime _timeLabelNow;
   bool _loadedLocalConversations = false;
   bool _syncingConversations = false;
 
@@ -36,25 +47,58 @@ class _MessagesPageState extends State<MessagesPage> {
     _conversationStore = AppServicesScope.read(
       context,
     ).directMessageConversations;
-    unawaited(_bootstrapConversations());
-    _conversationPollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      unawaited(_syncConversations());
+    _timeLabelNow = _now();
+    widget.isActiveListenable?.addListener(_handleActiveChanged);
+    _timeRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      _refreshTimeLabels();
     });
+    unawaited(_bootstrapConversations());
+    if (widget.onMessagesDataRefresh == null) {
+      _conversationPollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+        unawaited(_syncConversations());
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant MessagesPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActiveListenable == widget.isActiveListenable) return;
+    oldWidget.isActiveListenable?.removeListener(_handleActiveChanged);
+    widget.isActiveListenable?.addListener(_handleActiveChanged);
+    if (_isActive) _refreshTimeLabels();
   }
 
   @override
   void dispose() {
+    widget.isActiveListenable?.removeListener(_handleActiveChanged);
     _conversationPollTimer?.cancel();
+    _timeRefreshTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
+
+  bool get _isActive => widget.isActiveListenable?.value ?? true;
+
+  void _handleActiveChanged() {
+    if (_isActive) _refreshTimeLabels();
+  }
+
+  void _refreshTimeLabels() {
+    if (!mounted || !_isActive) return;
+    setState(() => _timeLabelNow = _now());
+  }
+
+  DateTime _now() => widget.nowProvider?.call() ?? DateTime.now();
 
   Future<void> _bootstrapConversations() async {
     try {
       await _conversationStore.loadFromDb();
       if (!mounted) return;
       setState(() => _loadedLocalConversations = true);
-      await _syncConversations();
+      if (widget.onMessagesDataRefresh == null) {
+        await _syncConversations();
+      }
     } catch (error, stackTrace) {
       debugPrint('[Messages][DM] bootstrap failed: $error');
       debugPrint('[Messages][DM] stacktrace:\n$stackTrace');
@@ -78,6 +122,12 @@ class _MessagesPageState extends State<MessagesPage> {
     }
   }
 
+  Future<void> _refreshMessagesData() {
+    final refresh = widget.onMessagesDataRefresh;
+    if (refresh != null) return refresh();
+    return _syncConversations();
+  }
+
   Future<void> _openConversation(DirectMessageConversationRecord item) async {
     final peerUid = item.peerUid.trim();
     if (peerUid.isEmpty) {
@@ -97,7 +147,7 @@ class _MessagesPageState extends State<MessagesPage> {
       },
     );
     if (!mounted) return;
-    unawaited(_syncConversations());
+    unawaited(_refreshMessagesData());
   }
 
   @override
@@ -127,7 +177,7 @@ class _MessagesPageState extends State<MessagesPage> {
                   block: 'world_apply',
                   emptyText: 'No notifications yet.',
                   unreadCount: unreadSummary.systemUnread,
-                  onUnreadSummaryRefresh: widget.onUnreadSummaryRefresh,
+                  onMessagesDataRefresh: widget.onMessagesDataRefresh,
                 ),
                 _MessageMenuButton(
                   iconAsset: 'assets/custom-icons/png/following.png',
@@ -137,7 +187,7 @@ class _MessagesPageState extends State<MessagesPage> {
                   block: 'follow',
                   emptyText: 'No new followers yet.',
                   unreadCount: unreadSummary.followerUnread,
-                  onUnreadSummaryRefresh: widget.onUnreadSummaryRefresh,
+                  onMessagesDataRefresh: widget.onMessagesDataRefresh,
                 ),
                 _MessageMenuButton(
                   iconAsset: 'assets/custom-icons/png/comment.png',
@@ -147,7 +197,7 @@ class _MessagesPageState extends State<MessagesPage> {
                   block: 'interaction',
                   emptyText: 'No comments yet.',
                   unreadCount: unreadSummary.commentUnread,
-                  onUnreadSummaryRefresh: widget.onUnreadSummaryRefresh,
+                  onMessagesDataRefresh: widget.onMessagesDataRefresh,
                 ),
               ],
             ),
@@ -174,8 +224,7 @@ class _MessagesPageState extends State<MessagesPage> {
             child: ValueListenableBuilder<List<String>>(
               valueListenable: _conversationStore.orderedConversationIds,
               builder: (context, conversationIds, _) {
-                if (!_loadedLocalConversations ||
-                    (conversationIds.isEmpty && _syncingConversations)) {
+                if (!_loadedLocalConversations) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (conversationIds.isEmpty) return const _NoMessagesFooter();
@@ -184,6 +233,7 @@ class _MessagesPageState extends State<MessagesPage> {
                   conversationIds: conversationIds,
                   conversationStore: _conversationStore,
                   onTap: _openConversation,
+                  timeLabelNow: _timeLabelNow,
                 );
               },
             ),
@@ -203,7 +253,7 @@ class _MessageMenuButton extends StatelessWidget {
     required this.block,
     required this.emptyText,
     required this.unreadCount,
-    required this.onUnreadSummaryRefresh,
+    required this.onMessagesDataRefresh,
   });
 
   final String iconAsset;
@@ -213,7 +263,7 @@ class _MessageMenuButton extends StatelessWidget {
   final String block;
   final String emptyText;
   final int unreadCount;
-  final Future<void> Function()? onUnreadSummaryRefresh;
+  final Future<void> Function()? onMessagesDataRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -228,7 +278,7 @@ class _MessageMenuButton extends StatelessWidget {
               title: label,
               block: block,
               emptyText: emptyText,
-              onNotificationsRead: onUnreadSummaryRefresh,
+              onNotificationsRead: onMessagesDataRefresh,
             ),
           ),
         ),
@@ -302,7 +352,7 @@ class _UnreadBadge extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFE02424),
+        color: const Color(0xFFF42C47),
         borderRadius: BorderRadius.circular(999),
       ),
       alignment: Alignment.center,
@@ -325,12 +375,14 @@ class _ConversationList extends StatelessWidget {
     required this.conversationIds,
     required this.conversationStore,
     required this.onTap,
+    required this.timeLabelNow,
   });
 
   final ScrollController controller;
   final List<String> conversationIds;
   final DirectMessageConversationStore conversationStore;
   final Future<void> Function(DirectMessageConversationRecord item) onTap;
+  final DateTime timeLabelNow;
 
   @override
   Widget build(BuildContext context) {
@@ -351,8 +403,15 @@ class _ConversationList extends StatelessWidget {
         return ValueListenableBuilder<DirectMessageConversationRecord>(
           key: ValueKey(conversationId),
           valueListenable: listenable,
-          builder: (context, item, _) =>
-              _ConversationTile(item: item, onTap: onTap),
+          builder: (context, item, _) => _ConversationTile(
+            item: item,
+            onTap: onTap,
+            displayTime: formatRelativeTime(
+              item.lastMessageAtTime,
+              fallback: item.lastMessageAt,
+              now: timeLabelNow,
+            ),
+          ),
         );
       },
     );
@@ -360,13 +419,25 @@ class _ConversationList extends StatelessWidget {
 }
 
 class _ConversationTile extends StatelessWidget {
-  const _ConversationTile({required this.item, required this.onTap});
+  const _ConversationTile({
+    required this.item,
+    required this.onTap,
+    required this.displayTime,
+  });
+
+  static const double _avatarSize = 48;
+  static const double _avatarBorderRadius = 5;
 
   final DirectMessageConversationRecord item;
   final Future<void> Function(DirectMessageConversationRecord item) onTap;
+  final String displayTime;
 
   @override
   Widget build(BuildContext context) {
+    final displayPeerName = formatUidForDisplay(
+      item.peerName,
+      fallback: 'Unknown user',
+    );
     return Material(
       color: Colors.white,
       child: InkWell(
@@ -374,10 +445,14 @@ class _ConversationTile extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _Avatar(
                 avatarUrl: item.avatarUrl,
-                title: item.peerName,
+                title: displayPeerName,
+                size: _avatarSize,
+                borderRadius: _avatarBorderRadius,
+                avatarKey: ValueKey('dm-avatar-${item.conversationId}'),
                 unreadCount: item.unreadCount,
                 unreadBadgeKey: ValueKey(
                   'dm-avatar-${item.conversationId}-unread-badge',
@@ -392,7 +467,7 @@ class _ConversationTile extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            item.peerName,
+                            displayPeerName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -406,7 +481,7 @@ class _ConversationTile extends StatelessWidget {
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 112),
                           child: Text(
-                            item.lastMessageAt,
+                            displayTime,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.right,
@@ -448,67 +523,35 @@ class _Avatar extends StatelessWidget {
   const _Avatar({
     required this.avatarUrl,
     required this.title,
+    required this.size,
+    required this.borderRadius,
+    required this.avatarKey,
     required this.unreadCount,
     required this.unreadBadgeKey,
   });
 
   final String avatarUrl;
   final String title;
+  final double size;
+  final double borderRadius;
+  final Key avatarKey;
   final int unreadCount;
   final Key unreadBadgeKey;
 
   @override
   Widget build(BuildContext context) {
-    final trimmed = title.trim();
-    final initials = trimmed.isEmpty
-        ? 'DM'
-        : trimmed.substring(0, trimmed.length >= 2 ? 2 : 1).toUpperCase();
-    final fallback = Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0E97D3),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        initials,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-    final avatar = avatarUrl.trim().isEmpty
-        ? fallback
-        : ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: avatarUrl.startsWith('assets/')
-                ? Image.asset(
-                    avatarUrl,
-                    width: 56,
-                    height: 56,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => fallback,
-                  )
-                : Image.network(
-                    avatarUrl,
-                    width: 56,
-                    height: 56,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => fallback,
-                  ),
-          );
-
     return SizedBox(
-      width: 60,
-      height: 60,
+      width: size,
+      height: size,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Positioned(
-            left: 0,
-            bottom: 0,
-            child: SizedBox(width: 56, height: 56, child: avatar),
+          GenesisAvatar(
+            key: avatarKey,
+            url: avatarUrl,
+            name: title,
+            size: size,
+            borderRadius: borderRadius,
           ),
           Positioned(
             top: 0,
@@ -526,13 +569,10 @@ class _NoMessagesFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: 56 + MediaQuery.paddingOf(context).bottom,
-        ),
-        child: const Text(
+    return const SizedBox.expand(
+      child: Center(
+        key: ValueKey('direct-messages-empty-state'),
+        child: Text(
           'no private messages yet.',
           style: TextStyle(
             fontSize: 14,

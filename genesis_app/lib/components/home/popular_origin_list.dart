@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../discuss/origin_discuss_preview_list.dart';
+import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
+import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../origin/origin_item_card.dart';
+
+const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
 
 class PopularOriginList extends StatefulWidget {
   const PopularOriginList({
@@ -14,6 +18,7 @@ class PopularOriginList extends StatefulWidget {
     this.storageKey,
     this.isLoadingMore = false,
     this.discussLoader,
+    this.thumbnailBorderRadius = 8,
   });
 
   final List<OriginListItem> items;
@@ -22,6 +27,7 @@ class PopularOriginList extends StatefulWidget {
   final PageStorageKey<String>? storageKey;
   final bool isLoadingMore;
   final OriginDiscussPreviewLoader? discussLoader;
+  final double thumbnailBorderRadius;
 
   @override
   State<PopularOriginList> createState() => _PopularOriginListState();
@@ -94,6 +100,7 @@ class _PopularOriginListState extends State<PopularOriginList> {
             child: PopularOriginListItem(
               item: item,
               discussLoader: _loadDiscuss,
+              thumbnailBorderRadius: widget.thumbnailBorderRadius,
             ),
           ),
         );
@@ -107,10 +114,12 @@ class PopularOriginListItem extends StatelessWidget {
     super.key,
     required this.item,
     this.discussLoader,
+    this.thumbnailBorderRadius = 8,
   });
 
   final OriginListItem item;
   final OriginDiscussPreviewLoader? discussLoader;
+  final double thumbnailBorderRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +135,7 @@ class PopularOriginListItem extends StatelessWidget {
           label: _badgeText(title),
           width: 48,
           height: 48,
-          borderRadius: 8,
+          borderRadius: thumbnailBorderRadius,
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -134,7 +143,7 @@ class PopularOriginListItem extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '#$title',
+                originDisplayName(title),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -205,20 +214,20 @@ class _OriginHeroImage extends StatelessWidget {
               right: 0,
               bottom: 0,
               child: Container(
-                height: 30,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                color: Colors.black.withValues(alpha: 0.34),
+                height: 26,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                color: Colors.black.withValues(alpha: 0.3),
                 child: Row(
                   children: [
                     _OverlayStat(icon: MyFlutterApp.save, value: item.copyCnt),
                     const SizedBox(width: 10),
                     _OverlayStat(
-                      icon: MyFlutterApp.copy,
+                      iconAsset: _connectIconAsset,
                       value: item.connectCnt,
                     ),
                     const SizedBox(width: 10),
                     _OverlayStat(
-                      icon: MyFlutterApp.userStar,
+                      iconAsset: aiCharacterIconAsset,
                       value: item.characterCnt,
                     ),
                     const SizedBox(width: 10),
@@ -284,9 +293,11 @@ class _OriginImage extends StatelessWidget {
 }
 
 class _OverlayStat extends StatelessWidget {
-  const _OverlayStat({required this.icon, required this.value});
+  const _OverlayStat({this.icon, this.iconAsset, required this.value})
+    : assert(icon != null || iconAsset != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final String? iconAsset;
   final int value;
 
   @override
@@ -295,7 +306,10 @@ class _OverlayStat extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15, color: Colors.white),
+          if (iconAsset case final asset?)
+            ImageIcon(AssetImage(asset), size: 11, color: Colors.white)
+          else
+            Icon(icon, size: 11, color: Colors.white),
           const SizedBox(width: 4),
           Flexible(
             child: Text(
@@ -304,9 +318,9 @@ class _OverlayStat extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 15,
+                fontSize: 12,
                 height: 1,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
@@ -321,7 +335,7 @@ class _ProgressHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Row(
       children: [
-        Icon(MyFlutterApp.pregress, color: Color(0xFFFF2344), size: 14),
+        Icon(MyFlutterApp.lastProgress, color: Color(0xFFF42C47), size: 14),
         SizedBox(width: 4),
         Expanded(
           child: Text(
@@ -401,11 +415,7 @@ class _MetaRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 9),
-              const Icon(
-                MyFlutterApp.skipNext,
-                size: 15,
-                color: Color(0xFF8B8B8B),
-              ),
+              const Icon(Icons.skip_next, size: 15, color: Color(0xFF8B8B8B)),
               const SizedBox(width: 4),
               Text('v${item.versionNum}', style: _metaStyle),
             ],
@@ -435,7 +445,7 @@ class _EnterOriginRow extends StatelessWidget {
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 170),
               child: Text(
-                '#$title',
+                originDisplayName(title),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(

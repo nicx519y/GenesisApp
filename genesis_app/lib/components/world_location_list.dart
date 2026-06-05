@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../icons/custom_icon_assets.dart';
 import '../icons/my_flutter_app_icons.dart';
 import 'world_point.dart';
 
@@ -69,7 +70,6 @@ class _PointListItem extends StatelessWidget {
                     _PointCharacterGroups(users: point.users),
                   const SizedBox(height: 4),
                   _PointSummaryRow(
-                    summary: point.description,
                     description: point.locationDescription,
                   ),
                 ],
@@ -104,7 +104,10 @@ class _PointCharacterGroups extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (aiNames.isNotEmpty)
-          _PointCharacterGroupRow(icon: MyFlutterApp.userStar, names: aiNames),
+          _PointCharacterGroupRow(
+            iconAsset: aiCharacterIconAsset,
+            names: aiNames,
+          ),
         if (aiNames.isNotEmpty && nonAiNames.isNotEmpty)
           const SizedBox(height: 2),
         if (nonAiNames.isNotEmpty)
@@ -119,9 +122,14 @@ class _PointCharacterGroups extends StatelessWidget {
 }
 
 class _PointCharacterGroupRow extends StatelessWidget {
-  const _PointCharacterGroupRow({required this.icon, required this.names});
+  const _PointCharacterGroupRow({
+    this.icon,
+    this.iconAsset,
+    required this.names,
+  }) : assert(icon != null || iconAsset != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final String? iconAsset;
   final List<String> names;
 
   @override
@@ -129,7 +137,19 @@ class _PointCharacterGroupRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 12, color: Colors.black),
+        if (iconAsset == null)
+          Icon(icon, size: 12, color: Colors.black)
+        else
+          Transform.translate(
+            offset: const Offset(0, -0.8),
+            child: Image.asset(
+              iconAsset!,
+              width: 14,
+              height: 15,
+              fit: BoxFit.contain,
+              excludeFromSemantics: true,
+            ),
+          ),
         const SizedBox(width: 4),
         Expanded(
           child: Text(
@@ -150,17 +170,12 @@ class _PointCharacterGroupRow extends StatelessWidget {
 }
 
 class _PointSummaryRow extends StatelessWidget {
-  const _PointSummaryRow({required this.summary, required this.description});
+  const _PointSummaryRow({required this.description});
 
-  final String summary;
   final String description;
 
   @override
   Widget build(BuildContext context) {
-    final displayText = summary.isEmpty ? description : summary;
-    final text = displayText.isEmpty
-        ? 'Explore this location and its stories.'
-        : displayText;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -171,7 +186,7 @@ class _PointSummaryRow extends StatelessWidget {
         const SizedBox(width: 4),
         Expanded(
           child: Text(
-            text,
+            description,
             style: const TextStyle(
               fontSize: 12,
               height: 1.25,

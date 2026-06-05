@@ -29,8 +29,8 @@ class GenesisApi {
   static const String defaultApiBaseUrl = '$defaultBaseHost/api/';
   static const String defaultAssetBaseUrl = 'https://af.hushie.ai/html/';
   static const String defaultChatroomWsBaseUrl =
-      'ws://47.77.195.140:5002/aitown-chat/ws';
-  static const String defaultChatroomHttpBaseUrl = 'http://47.77.195.140:5002/';
+      'ws://dev.hushie.ai/aitown-chat/ws';
+  static const String defaultChatroomHttpBaseUrl = 'https://dev.hushie.ai/';
 
   GenesisApi({
     ApiClient? apiClient,
@@ -568,6 +568,25 @@ class GenesisApi {
     return _worldDetailFromV1(await v1.world.detail(worldId: wid));
   }
 
+  Future<PagedResponse<Map<String, dynamic>>> getWorldTicks({
+    required String wid,
+    int limit = 10,
+    int offset = 0,
+  }) async {
+    final page = _pageFromOffset(limit: limit, offset: offset);
+    final map = await v1.world.tickList(worldId: wid, pn: page, rn: limit);
+    final ticksRaw = map['list'];
+    final ticks = (ticksRaw is List ? asJsonList(ticksRaw) : const []).indexed
+        .map((entry) => _worldTickFromV1(asJsonMap(entry.$2), entry.$1))
+        .toList(growable: false);
+    return PagedResponse(
+      data: ticks,
+      total: asInt(map['total'], fallback: ticks.length),
+      limit: limit,
+      offset: offset,
+    );
+  }
+
   Future<String> requestWorld(String wid) async {
     await v1.world.apply(worldId: wid);
     return '';
@@ -1100,10 +1119,7 @@ OriginSummary _originSummaryFromV1ListItem(Map<String, dynamic> raw) {
       origin['world_view'],
       fallback: asString(origin['setting']),
     ),
-    originator: asString(
-      origin['created_user_name'],
-      fallback: asString(origin['originator']),
-    ),
+    originator: _originatorFromOriginMap(origin),
     versionNum: asInt(
       origin['version_num'],
       fallback: asInt(origin['origin_version']),
@@ -1158,6 +1174,16 @@ MyWorldSummary _myWorldSummaryFromV1ListItem(Map<String, dynamic> raw) {
       fallback: asInt(stats['character_cnt']),
     ),
     playerCount: asInt(stats['player_cnt']),
+  );
+}
+
+String _originatorFromOriginMap(Map<String, dynamic> origin) {
+  return asString(
+    origin['owner_name'],
+    fallback: asString(
+      origin['created_user_name'],
+      fallback: asString(origin['originator']),
+    ),
   );
 }
 
@@ -1349,6 +1375,7 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
     parentIdOf: (location) => location.parentLocationId,
   );
   final events = _originEventsFromV1(raw);
+  final ticks = _originTicksFromV1(raw);
 
   return OriginDetail(
     id: id,
@@ -1370,8 +1397,15 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
     mapImage: cover,
     worldMap: mapUrl,
     worldView: asString(
-      origin['world_view'],
-      fallback: asString(origin['setting']),
+      origin['brief'],
+      fallback: asString(
+        origin['world_view'],
+        fallback: asString(origin['setting']),
+      ),
+    ),
+    ownerUid: asString(
+      origin['owner_uid'],
+      fallback: asString(origin['created_uid']),
     ),
     originator: asString(
       origin['owner_name'],
@@ -1408,7 +1442,52 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
     locationTree: locationTree,
     processedLocationTree: processLocationTree(locationTree),
     events: events,
+    ticks: ticks,
   );
+}
+
+List<Map<String, dynamic>> _originTicksFromV1(Map<String, dynamic> raw) {
+  final ticksRaw = raw['tick_list'] ?? raw['ticks'];
+  if (ticksRaw is! List) return const <Map<String, dynamic>>[];
+  return asJsonList(ticksRaw).indexed
+      .map((entry) {
+        final index = entry.$1;
+        final tick = asJsonMap(entry.$2);
+        final result = tick['tick_result'] is Map
+            ? asJsonMap(tick['tick_result'])
+            : tick;
+        final paragraphsRaw = result['paragraphs'];
+        final paragraphs = paragraphsRaw is List
+            ? asJsonList(
+                paragraphsRaw,
+              ).map((e) => asJsonMap(e)).toList(growable: false)
+            : const <Map<String, dynamic>>[];
+        final locationGroupsRaw = result['location_groups'];
+        final locationGroups = locationGroupsRaw is List
+            ? asJsonList(
+                locationGroupsRaw,
+              ).map((e) => asJsonMap(e)).toList(growable: false)
+            : const <Map<String, dynamic>>[];
+
+        return <String, dynamic>{
+          'tick_id': asString(tick['tick_id']),
+          'tick_no': asInt(tick['tick_no'], fallback: index + 1),
+          'status': asInt(tick['status']),
+          'created_at': tick['created_at'],
+          'tick_result': <String, dynamic>{
+            'narrator': asString(
+              result['narrator'],
+              fallback: asString(
+                tick['narrator'],
+                fallback: asString(tick['summary']),
+              ),
+            ),
+            'paragraphs': paragraphs,
+            'location_groups': locationGroups,
+          },
+        };
+      })
+      .toList(growable: false);
 }
 
 List<OriginEvent> _originEventsFromV1(Map<String, dynamic> raw) {
@@ -1608,6 +1687,10 @@ OriginLocation _originLocationFromV1(Map<String, dynamic> raw, int originId) {
         fallback: asString(raw['location_summary']),
       ),
     ),
+    locationParagraph: asString(
+      raw['location_paragraph'],
+      fallback: asString(raw['location_garagraph']),
+    ),
     position: asInt(raw['position']),
     isActive: true,
     xPercent: _asDouble(raw['x_percent']),
@@ -1641,6 +1724,7 @@ Map<String, dynamic> _worldCharacterFromV1(Map<String, dynamic> raw) {
     'char_id': asString(raw['char_id']),
     'type': asString(raw['type']),
     'player_uid': asString(raw['player_uid']),
+    'player_username': asString(raw['player_username']),
     'name': asString(raw['name']),
     'identity': asString(raw['identity']),
     'brief': asString(raw['brief']),
@@ -1792,10 +1876,7 @@ OriginSummary _originSummaryFromSearchItem(Map<String, dynamic> raw) {
     mapImage: mapImage,
     worldMap: asString(raw['world_map'], fallback: mapImage),
     worldView: asString(raw['world_view']),
-    originator: asString(
-      raw['created_user_name'],
-      fallback: asString(raw['originator']),
-    ),
+    originator: _originatorFromOriginMap(raw),
     versionNum: asInt(raw['version_num']),
     copyCount: asInt(raw['copy_count'], fallback: asInt(raw['copyCount'])),
     interactCount: asInt(

@@ -373,6 +373,12 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_state.v1WorldContractDetail(query['world_id']));
     }
 
+    if (method == 'GET' && path == 'world/tick/list') {
+      return _v1Ok(
+        _state.v1WorldTickList(worldId: query['world_id'] ?? '', query: query),
+      );
+    }
+
     if (method == 'GET' && path == 'world/origin_progress') {
       return _v1Ok(
         _state.v1WorldOriginProgress(
@@ -723,6 +729,8 @@ class _MockState {
   final List<Map<String, dynamic>> _v1Worlds = _expandMockV1Worlds()
       .map((item) => _deepCopyMap(item))
       .toList(growable: true);
+  final Map<String, List<Map<String, dynamic>>> _v1TicksByWorld =
+      <String, List<Map<String, dynamic>>>{};
   final List<Map<String, dynamic>> _v1WorldApplies = <Map<String, dynamic>>[];
   final List<Map<String, dynamic>> _v1SearchUsers = _expandMockV1SearchUsers()
       .map((item) => _deepCopyMap(item))
@@ -1411,8 +1419,24 @@ class _MockState {
       'relation_status': _v1WorldRelationStatus(world),
       'characters': kMockV1Characters.map(_contractCharacter).toList(),
       'locations': kMockV1Locations.map(_contractLocation).toList(),
-      'ticks': kMockV1Ticks.map(_contractTick).toList(),
+      'ticks': _v1WorldTicks(world).map(_deepCopyMap).toList(),
     };
+  }
+
+  Map<String, dynamic> v1WorldTickList({
+    required String worldId,
+    required Map<String, String> query,
+  }) {
+    final world = _findV1World(worldId.trim());
+    final ticks = _v1WorldTicks(world).map(_deepCopyMap).toList()
+      ..sort((a, b) {
+        final aTickNo = (a['tick_no'] as num?)?.toInt() ?? 0;
+        final bTickNo = (b['tick_no'] as num?)?.toInt() ?? 0;
+        final tickNoCompare = bTickNo.compareTo(aTickNo);
+        if (tickNoCompare != 0) return tickNoCompare;
+        return '${b['tick_id'] ?? ''}'.compareTo('${a['tick_id'] ?? ''}');
+      });
+    return _v1Paged(ticks, query);
   }
 
   Map<String, dynamic> applyToV1World({
@@ -1535,25 +1559,29 @@ class _MockState {
   Map<String, dynamic> tickV1World(String worldId) {
     final world = _findV1World(worldId);
     final tickCount = ((world['tick_cnt'] as num?)?.toInt() ?? 0) + 1;
-    final now = DateTime.now().toUtc().toIso8601String();
+    final now = DateTime.now().toUtc();
+    final nowIso = now.toIso8601String();
+    final nowEpoch = _mockUnixTimestamp(now);
     world['tick_cnt'] = tickCount;
-    world['last_progress_at'] = now;
+    world['last_progress_at'] = nowIso;
     world['last_progress_summary'] = 'Mock tick $tickCount completed.';
-    world['updated_at'] = now;
+    world['updated_at'] = nowIso;
+    final lastTick = {
+      'tick_id': 'tick_${world['wid']}_$tickCount',
+      'tick_no': tickCount,
+      'status': 10,
+      'created_at': nowEpoch,
+      'tick_result': {
+        'narrator': world['last_progress_summary'],
+        'paragraphs': const <Map<String, dynamic>>[],
+        'location_groups': const <Map<String, dynamic>>[],
+      },
+    };
+    _v1WorldTicks(world).add(lastTick);
     return {
       'world_id': world['wid'],
       'tick_cnt': tickCount,
-      'last_tick': {
-        'tick_id': 'tick_${world['wid']}_$tickCount',
-        'tick_no': tickCount,
-        'status': 10,
-        'created_at': now,
-        'tick_result': {
-          'narrator': world['last_progress_summary'],
-          'paragraphs': const <Map<String, dynamic>>[],
-          'location_groups': const <Map<String, dynamic>>[],
-        },
-      },
+      'last_tick': _deepCopyMap(lastTick),
     };
   }
 
@@ -2618,7 +2646,7 @@ class _MockState {
         'origin_id': origin['oid'],
         'origin_name': origin['name'],
         'origin_version': '${origin['version_num'] ?? 1}',
-        'origin_version_time': origin['updated_at'],
+        'origin_version_time': _mockEpoch(origin['updated_at']),
         'owner_uid': origin['owner_uid'] ?? origin['created_uid'],
         'owner_name': origin['owner_name'] ?? origin['created_user_name'],
         'brief': origin['display_subtitle'],
@@ -2714,6 +2742,14 @@ class _MockState {
       'map_url': location['map_url'] ?? location['image'],
       'dialogue': location['dialogue'] ?? const <Map<String, dynamic>>[],
     };
+  }
+
+  List<Map<String, dynamic>> _v1WorldTicks(Map<String, dynamic> world) {
+    final worldId = '${world['wid'] ?? ''}'.trim();
+    return _v1TicksByWorld.putIfAbsent(
+      worldId,
+      () => kMockV1Ticks.map(_contractTick).toList(growable: true),
+    );
   }
 
   Map<String, dynamic> _contractTick(Map<String, dynamic> tick) {

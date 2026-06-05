@@ -28,6 +28,8 @@ class CreateOriginPage extends StatelessWidget {
       failurePrefix: 'Create failed',
       onSubmit: _onCreate,
       popOnSubmitSuccess: true,
+      confirmLeaveWithDraftOptions: true,
+      onDiscardDraft: (_) => CreateOriginDraftStore.clear(),
     );
   }
 

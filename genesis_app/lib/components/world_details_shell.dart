@@ -95,6 +95,29 @@ class WorldDetailsPanel extends StatelessWidget {
   }
 }
 
+class WorldDetailsPanelScrollControllerScope extends InheritedWidget {
+  const WorldDetailsPanelScrollControllerScope({
+    super.key,
+    required this.controller,
+    required super.child,
+  });
+
+  final ScrollController controller;
+
+  static ScrollController? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<
+          WorldDetailsPanelScrollControllerScope
+        >()
+        ?.controller;
+  }
+
+  @override
+  bool updateShouldNotify(WorldDetailsPanelScrollControllerScope oldWidget) {
+    return oldWidget.controller != controller;
+  }
+}
+
 class WorldDetailsShell extends StatelessWidget {
   const WorldDetailsShell({
     super.key,
@@ -106,6 +129,10 @@ class WorldDetailsShell extends StatelessWidget {
     this.contentPadding = const EdgeInsets.only(top: 8, left: 16, right: 16),
   });
 
+  static const double dragHandleTitleGap = 10;
+  static const double dragHandleWidth = 55;
+  static const double dragHandleHeight = 4;
+
   final Widget Function(ScrollController) contentBuilder;
   final double minChildSize;
   final double initialChildSize;
@@ -115,6 +142,7 @@ class WorldDetailsShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final resolvedPadding = contentPadding.resolve(Directionality.of(context));
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxChildSize =
@@ -134,13 +162,32 @@ class WorldDetailsShell extends StatelessWidget {
             return Material(
               color: Colors.transparent,
               child: Container(
-                padding: contentPadding,
+                padding: EdgeInsets.fromLTRB(
+                  resolvedPadding.left,
+                  0,
+                  resolvedPadding.right,
+                  resolvedPadding.bottom,
+                ),
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                 ),
                 child: Column(
-                  children: [Expanded(child: contentBuilder(scrollController))],
+                  children: [
+                    SizedBox(
+                      height: resolvedPadding.top,
+                      child: const Center(child: WorldDetailsDragHandle()),
+                    ),
+                    const SizedBox(
+                      height: WorldDetailsShell.dragHandleTitleGap,
+                    ),
+                    Expanded(
+                      child: WorldDetailsPanelScrollControllerScope(
+                        controller: scrollController,
+                        child: contentBuilder(scrollController),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -154,6 +201,24 @@ class WorldDetailsShell extends StatelessWidget {
     if (collapsedHeightOffset <= 0 || height <= 0) return size;
     final adjustedHeight = size * height - collapsedHeightOffset;
     return (adjustedHeight / height).clamp(0.0, 1.0).toDouble();
+  }
+}
+
+class WorldDetailsDragHandle extends StatelessWidget {
+  const WorldDetailsDragHandle({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: WorldDetailsShell.dragHandleWidth,
+      height: WorldDetailsShell.dragHandleHeight,
+      decoration: const BoxDecoration(
+        color: Color(0xFFD9D9D9),
+        borderRadius: BorderRadius.all(
+          Radius.circular(WorldDetailsShell.dragHandleHeight / 2),
+        ),
+      ),
+    );
   }
 }
 

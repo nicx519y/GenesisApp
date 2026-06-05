@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
@@ -96,7 +97,7 @@ void main() {
       tester.widget<GenesisCharacterAvatar>(avatars.first).boxShadow,
       isNotEmpty,
     );
-    expect(find.byIcon(Icons.auto_awesome), findsOneWidget);
+    expect(find.byIcon(MyFlutterApp.redstarCharIcon), findsOneWidget);
 
     final first = tester.getTopLeft(avatars.at(0));
     final second = tester.getTopLeft(avatars.at(1));
@@ -123,6 +124,27 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('world map uses fallback background when map URL is empty', (
+    tester,
+  ) async {
+    await _pumpWorldMap(tester, users: const []);
+
+    expect(_assetImageFinder(kWorldMapFallbackBackgroundAsset), findsOneWidget);
+  });
+
+  testWidgets('world map uses fallback background when map asset fails', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      mapImageUrl: 'assets/images/mock_maps/missing_map.png',
+      users: const [],
+    );
+    await tester.pump();
+
+    expect(_assetImageFinder(kWorldMapFallbackBackgroundAsset), findsOneWidget);
   });
 
   testWidgets('world map cover scales to fill tall screens', (tester) async {
@@ -247,6 +269,7 @@ void main() {
           ],
           iconUrl: kMockV1SteamMapImage,
           description: 'Gate checkpoint summary.',
+          locationDescription: 'Gate checkpoint description.',
           depth: 1,
         ),
         WorldPoint(
@@ -281,12 +304,13 @@ void main() {
     expect(levelTwoTitle, findsOneWidget);
     expect(find.byType(Divider), findsNWidgets(2));
     expect(find.byIcon(Icons.place), findsNWidgets(3));
-    expect(find.byIcon(MyFlutterApp.userStar), findsOneWidget);
+    expect(_assetImageFinder(aiCharacterIconAsset), findsOneWidget);
     expect(find.byIcon(MyFlutterApp.user), findsOneWidget);
     expect(find.byIcon(Icons.schedule), findsNWidgets(3));
     expect(find.text('Ada, Bert'), findsOneWidget);
     expect(find.text('Cara, Drew'), findsOneWidget);
-    expect(find.text('Gate checkpoint summary.'), findsOneWidget);
+    expect(find.text('Gate checkpoint description.'), findsOneWidget);
+    expect(find.text('Gate checkpoint summary.'), findsNothing);
     expect(
       tester.getTopLeft(levelOneTitle).dx - tester.getTopLeft(rootTitle).dx,
       closeTo(15, 0.01),
@@ -297,7 +321,7 @@ void main() {
     );
   });
 
-  testWidgets('points list falls back to location description', (tester) async {
+  testWidgets('points list uses location description', (tester) async {
     await _pumpWorldMap(
       tester,
       users: const [],
@@ -323,9 +347,9 @@ void main() {
       ],
     );
 
-    expect(find.text('Preferred current summary.'), findsOneWidget);
+    expect(find.text('Older location description.'), findsOneWidget);
     expect(find.text('Fallback location description.'), findsOneWidget);
-    expect(find.text('Older location description.'), findsNothing);
+    expect(find.text('Preferred current summary.'), findsNothing);
   });
 
   testWidgets('world map preloads next-level location maps', (tester) async {
@@ -385,39 +409,59 @@ void main() {
     expect(tappedIds, ['root', 'leaf']);
   });
 
-  testWidgets('map tap shows a fading ripple at the location', (tester) async {
+  testWidgets('drillable map tap does not show a location ripple', (
+    tester,
+  ) async {
     await _pumpWorldMap(
       tester,
       users: const [],
-      points: const [
-        WorldPoint(
-          id: 'ripple',
-          name: 'Ripple Dock',
-          type: WorldPointType.shop,
-          position: Offset(0.5, 0.35),
-          users: [],
+      points: const [],
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'district',
+          point: WorldPoint(
+            id: 'district',
+            sceneId: 'district',
+            name: 'Rail District',
+            type: WorldPointType.shop,
+            position: Offset(0.5, 0.35),
+            users: [],
+            isLeafLocation: false,
+          ),
+          children: [
+            WorldMapLocationNode(
+              id: 'leaf',
+              point: WorldPoint(
+                id: 'leaf',
+                sceneId: 'leaf',
+                name: 'Leaf Dock',
+                type: WorldPointType.shop,
+                position: Offset(0.7, 0.35),
+                users: [],
+              ),
+            ),
+            WorldMapLocationNode(
+              id: 'leaf-2',
+              point: WorldPoint(
+                id: 'leaf-2',
+                sceneId: 'leaf-2',
+                name: 'Signal Room',
+                type: WorldPointType.camp,
+                position: Offset(0.45, 0.55),
+                users: [],
+              ),
+            ),
+          ],
         ),
       ],
       onPointTap: (_) {},
     );
 
-    await tester.tap(find.text('Ripple Dock'));
+    await tester.tap(find.text('Rail District'), warnIfMissed: false);
     await tester.pump();
 
-    expect(
-      find.byKey(const ValueKey('world_map_location_tap_ripple')),
-      findsOneWidget,
-    );
-
-    await tester.pump(const Duration(milliseconds: 900));
-
-    expect(
-      find.byKey(const ValueKey('world_map_location_tap_ripple')),
-      findsOneWidget,
-    );
-
-    await tester.pump(const Duration(milliseconds: 400));
-
+    expect(find.text('Leaf Dock'), findsOneWidget);
+    expect(find.text('Signal Room'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('world_map_location_tap_ripple')),
       findsNothing,
@@ -501,7 +545,7 @@ void main() {
     expect(find.byIcon(Icons.subdirectory_arrow_left), findsOneWidget);
     expect(
       _assetImageFinder(kMockV1LocationCentralHubMap, skipOffstage: false),
-      findsOneWidget,
+      findsWidgets,
     );
 
     await tester.tap(find.byIcon(Icons.subdirectory_arrow_left));
@@ -513,6 +557,100 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Leaf Dock'));
     expect(tappedIds, ['leaf']);
+  });
+
+  testWidgets('world map hides drill exit when showing location list', (
+    tester,
+  ) async {
+    var showPointsList = false;
+    late StateSetter setHarnessState;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              setHarnessState = setState;
+              return SizedBox(
+                width: _mapSize.width,
+                height: _mapSize.height,
+                child: WorldMap(
+                  showPointsList: showPointsList,
+                  points: const [],
+                  locationNodes: const [
+                    WorldMapLocationNode(
+                      id: 'root',
+                      isRoot: true,
+                      point: WorldPoint(
+                        id: 'root',
+                        sceneId: 'root',
+                        name: 'Root Hub',
+                        type: WorldPointType.portal,
+                        position: Offset(0.3, 0.35),
+                        users: [],
+                        isLeafLocation: false,
+                      ),
+                      children: [
+                        WorldMapLocationNode(
+                          id: 'district',
+                          point: WorldPoint(
+                            id: 'district',
+                            sceneId: 'district',
+                            name: 'Rail District',
+                            type: WorldPointType.shop,
+                            position: Offset(0.5, 0.35),
+                            users: [],
+                            isLeafLocation: false,
+                          ),
+                          children: [
+                            WorldMapLocationNode(
+                              id: 'leaf',
+                              point: WorldPoint(
+                                id: 'leaf',
+                                sceneId: 'leaf',
+                                name: 'Leaf Dock',
+                                type: WorldPointType.shop,
+                                position: Offset(0.7, 0.35),
+                                users: [],
+                              ),
+                            ),
+                            WorldMapLocationNode(
+                              id: 'leaf-2',
+                              point: WorldPoint(
+                                id: 'leaf-2',
+                                sceneId: 'leaf-2',
+                                name: 'Signal Room',
+                                type: WorldPointType.camp,
+                                position: Offset(0.45, 0.55),
+                                users: [],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                  onPointTap: (_) {},
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Rail District'), warnIfMissed: false);
+    await tester.pump();
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsOneWidget);
+
+    setHarnessState(() {
+      showPointsList = true;
+    });
+    await tester.pump();
+
+    expect(find.byIcon(Icons.subdirectory_arrow_left), findsNothing);
+    expect(find.text('Leaf Dock'), findsWidgets);
+    expect(find.text('Signal Room'), findsWidgets);
   });
 
   testWidgets('world map hides root and starts from level two locations', (
@@ -557,7 +695,7 @@ void main() {
     expect(find.byIcon(Icons.subdirectory_arrow_left), findsNothing);
   });
 
-  testWidgets('world map uses root location map as initial background', (
+  testWidgets('world map uses detail map as initial background', (
     tester,
   ) async {
     await _pumpWorldMap(
@@ -598,8 +736,8 @@ void main() {
 
     expect(find.text('World Root'), findsNothing);
     expect(find.text('Visible District'), findsOneWidget);
-    expect(_assetImageFinder(kMockV1LocationCentralHubMap), findsOneWidget);
-    expect(_assetImageFinder(kMockV1SteamMapImage), findsNothing);
+    expect(_assetImageFinder(kMockV1SteamMapImage), findsOneWidget);
+    expect(_assetImageFinder(kMockV1LocationCentralHubMap), findsNothing);
   });
 
   testWidgets('world map opens the only leaf child instead of drilling', (

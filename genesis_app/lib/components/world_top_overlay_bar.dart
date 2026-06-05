@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../ui/components/genesis_fixed_underline_indicator.dart';
+import '../ui/theme/genesis_ui_theme.dart';
+
 class WorldTopOverlayBar extends StatelessWidget {
   const WorldTopOverlayBar({
     super.key,
@@ -14,13 +17,14 @@ class WorldTopOverlayBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final uiTheme = GenesisUiTheme.of(context);
     return Row(
       children: [
         Container(
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.75),
+            color: Colors.white.withValues(alpha: 0.82),
             borderRadius: BorderRadius.circular(12),
           ),
           child: IconButton(
@@ -33,29 +37,29 @@ class WorldTopOverlayBar extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Container(
-            height: 40,
+            height: kTextTabBarHeight,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.75),
+              color: Colors.white.withValues(alpha: 0.82),
               borderRadius: BorderRadius.circular(16),
             ),
             child: TabBar(
               controller: controller,
               dividerColor: Colors.transparent,
-              indicatorSize: TabBarIndicatorSize.tab,
-              indicator: const UnderlineTabIndicator(
-                borderSide: BorderSide(color: Color(0xFFFF4D58), width: 1.5),
-                insets: EdgeInsets.symmetric(horizontal: 28),
+              padding: EdgeInsets.zero,
+              labelPadding: EdgeInsets.zero,
+              splashFactory: NoSplash.splashFactory,
+              overlayColor: WidgetStateProperty.all(Colors.transparent),
+              indicatorSize: TabBarIndicatorSize.label,
+              indicator: GenesisFixedUnderlineIndicator(
+                color: uiTheme.tabIndicatorColor,
+                width: uiTheme.tabIndicatorWidth,
+                height: uiTheme.tabIndicatorHeight,
+                bottomPadding: 7.5,
               ),
-              labelColor: Colors.black,
-              unselectedLabelColor: Colors.black.withValues(alpha: 0.7),
-              labelStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              labelColor: uiTheme.tabSelectedColor,
+              unselectedLabelColor: uiTheme.tabUnselectedColor,
+              labelStyle: uiTheme.bodyStrongStyle,
+              unselectedLabelStyle: uiTheme.bodyStyle,
               tabs: [
                 const Tab(
                   child: Row(

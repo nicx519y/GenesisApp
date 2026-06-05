@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
+
+const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
 
 @immutable
 class OriginListItem {
@@ -148,7 +151,7 @@ class OriginItemCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         _ImageStat(
-                          icon: MyFlutterApp.copy,
+                          iconAsset: _connectIconAsset,
                           value: item.connectCnt,
                         ),
                       ],
@@ -161,10 +164,10 @@ class OriginItemCard extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          '#${item.title}',
+          originDisplayName(item.title),
           style: const TextStyle(
             color: Color(0xFF4B6192),
-            fontSize: 12,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
             height: 1.3,
           ),
@@ -191,9 +194,11 @@ class OriginItemCard extends StatelessWidget {
 }
 
 class _ImageStat extends StatelessWidget {
-  const _ImageStat({required this.icon, required this.value});
+  const _ImageStat({this.icon, this.iconAsset, required this.value})
+    : assert(icon != null || iconAsset != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final String? iconAsset;
   final int value;
 
   @override
@@ -202,7 +207,10 @@ class _ImageStat extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 10, color: Colors.white),
+          if (iconAsset case final asset?)
+            ImageIcon(AssetImage(asset), size: 11, color: Colors.white)
+          else
+            Icon(icon, size: 11, color: Colors.white),
           const SizedBox(width: 4),
           Flexible(
             child: Text(
@@ -211,7 +219,7 @@ class _ImageStat extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 10,
+                fontSize: 12,
                 height: 1,
                 fontWeight: FontWeight.w400,
               ),

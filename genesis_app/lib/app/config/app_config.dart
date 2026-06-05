@@ -16,7 +16,15 @@ class AppConfig {
       'GENESIS_CHATROOM_HTTP_URL',
       defaultValue: GenesisApi.defaultChatroomHttpBaseUrl,
     ),
-    this.chatroomHeartbeatInterval = const Duration(seconds: 5),
+    this.debugProxy = const String.fromEnvironment(
+      'GENESIS_DEBUG_PROXY',
+      defaultValue: '',
+    ),
+    this.debugWsLog = const bool.fromEnvironment(
+      'GENESIS_DEBUG_WS_LOG',
+      defaultValue: false,
+    ),
+    this.chatroomHeartbeatInterval = const Duration(seconds: 2),
     this.chatroomAckTimeout = const Duration(seconds: 12),
     bool? useMock,
   }) : _useMockOverride = useMock;
@@ -26,6 +34,8 @@ class AppConfig {
   final String apiEnvironment;
   final String chatroomWsBaseUrl;
   final String chatroomHttpBaseUrl;
+  final String debugProxy;
+  final bool debugWsLog;
   final Duration chatroomHeartbeatInterval;
   final Duration chatroomAckTimeout;
   final bool? _useMockOverride;

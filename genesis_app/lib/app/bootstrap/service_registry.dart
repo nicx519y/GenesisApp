@@ -1,7 +1,9 @@
 import '../../network/genesis_api.dart';
 import '../../network/chatroom/chatroom_client.dart';
+import '../../network/chatroom/chatroom_socket_transport.dart';
 import '../../network/direct_message_conversation_store.dart';
 import '../../network/direct_message_message_store.dart';
+import '../../network/io_http_transport.dart';
 import '../../platform/platform_services.dart';
 import '../config/app_config.dart';
 import '../config/platform_config.dart';
@@ -40,8 +42,22 @@ class ServiceRegistry {
     const deviceId = NativeDeviceIdService();
     final sessionStore = NativeUserSessionStore();
     const identityAuth = FirebaseIdentityAuthService();
+    final debugProxy = config.debugProxy.trim();
+    final useMock = config.useMock;
+    final httpTransport = debugProxy.isEmpty || useMock == true
+        ? null
+        : IoHttpTransport(proxy: debugProxy);
+    final socketTransport = debugProxy.isEmpty && !config.debugWsLog
+        ? null
+        : IoChatroomSocketTransport(
+            proxy: debugProxy.isEmpty ? null : debugProxy,
+            logFrames:
+                config.debugWsLog ||
+                !const bool.fromEnvironment('dart.vm.product'),
+          );
     final api = GenesisApi(
-      useMock: config.useMock,
+      useMock: useMock,
+      transport: httpTransport,
       platformConfig: platformConfig,
       chatroomHttpBaseUrl: config.chatroomHttpBaseUrl,
       deviceIdService: deviceId,
@@ -51,6 +67,8 @@ class ServiceRegistry {
     final chatroom = ChatroomClient(
       wsBaseUrl: config.chatroomWsBaseUrl,
       sessionStore: sessionStore,
+      deviceIdService: deviceId,
+      transport: socketTransport,
       heartbeatInterval: config.chatroomHeartbeatInterval,
       ackTimeout: config.chatroomAckTimeout,
     );

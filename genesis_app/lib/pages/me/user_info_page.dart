@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
-import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
 import '../../components/me/user_profile_content.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/origin.dart';
+import '../../utils/display_name_formatter.dart';
 import '../../utils/relative_time_formatter.dart';
 
 class UserInfoPage extends StatefulWidget {
@@ -118,16 +117,10 @@ class _UserInfoPageState extends State<UserInfoPage> {
     await _future;
   }
 
-  Future<void> _copyUid(String uid) async {
-    await Clipboard.setData(ClipboardData(text: uid));
-    if (!mounted) return;
-    showGenesisToast(context, 'UID copied');
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const GenesisBackAppBar(pageName: 'User Info'),
+      appBar: const GenesisBackAppBar(pageName: ''),
       body: SafeArea(
         bottom: false,
         child: FutureBuilder<UserProfileData>(
@@ -154,7 +147,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
 
             final data = snapshot.data;
             if (data == null) return const SizedBox.shrink();
-            return UserProfileContent(data: data, onCopyUid: _copyUid);
+            return UserProfileContent(data: data);
           },
         ),
       ),
@@ -166,7 +159,7 @@ String _originSubtitle(OriginSummary item) {
   final oid = item.oid.trim().isEmpty ? '-' : item.oid.trim();
   final originator = item.originator.trim().isEmpty
       ? '-'
-      : item.originator.trim();
+      : formatUidForDisplay(item.originator);
   final version = item.versionNum <= 0 ? '-' : 'V${item.versionNum}';
   final updated = formatRelativeTime(item.updatedAt);
   return 'OID: $oid  Originator: $originator\n'
@@ -175,7 +168,7 @@ String _originSubtitle(OriginSummary item) {
 
 String _worldSubtitle(String wid, String ownerName) {
   final displayWid = wid.trim().isEmpty ? '-' : wid.trim();
-  final owner = ownerName.trim().isEmpty ? '-' : ownerName.trim();
+  final owner = formatUidForDisplay(ownerName, fallback: '-');
   return 'WID: $displayWid  Owner: $owner';
 }
 

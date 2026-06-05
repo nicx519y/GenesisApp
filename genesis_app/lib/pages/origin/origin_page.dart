@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/list_loading_skeleton.dart';
 import '../../components/page_header.dart';
 import '../../components/origin/origin_item_card.dart';
-import '../../components/secend_tabs.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/secend_tabs.dart';
 
 class OriginPage extends StatelessWidget {
   const OriginPage({super.key});
@@ -28,7 +29,7 @@ class OriginPage extends StatelessWidget {
           const PageHeader(pageName: 'Origin'),
           const SizedBox(height: 4),
           SecendTabs(labels: categories),
-          const SizedBox(height: 10),
+          const SizedBox(height: 4),
           Expanded(
             child: TabBarView(
               children: [
@@ -68,6 +69,7 @@ class _OriginFeedState extends State<_OriginFeed>
   var _scrollListenerAttached = false;
   var _isInitialLoading = false;
   var _isLoadingMore = false;
+  var _isRefreshing = false;
   Object? _error;
 
   @override
@@ -115,6 +117,7 @@ class _OriginFeedState extends State<_OriginFeed>
     _hasRequested = false;
     _isInitialLoading = false;
     _isLoadingMore = false;
+    _isRefreshing = false;
     _error = null;
   }
 
@@ -159,35 +162,38 @@ class _OriginFeedState extends State<_OriginFeed>
 
   Future<void> _refreshItems() async {
     setState(() {
-      _items.clear();
-      _nextPage = 1;
-      _total = 0;
-      _hasMore = true;
       _error = null;
-      _isInitialLoading = true;
+      _isInitialLoading = _items.isEmpty;
+      _isRefreshing = true;
     });
 
     try {
       final page = await _fetchPage(1);
       if (!mounted) return;
       setState(() {
-        _items.addAll(page.items);
+        _items
+          ..clear()
+          ..addAll(page.items);
         _total = page.total;
         _nextPage = 2;
         _hasMore = _items.length < _total && page.items.isNotEmpty;
         _isInitialLoading = false;
+        _isRefreshing = false;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error;
         _isInitialLoading = false;
+        _isRefreshing = false;
       });
     }
   }
 
   Future<void> _loadNextPage() async {
-    if (!_hasMore || _isInitialLoading || _isLoadingMore) return;
+    if (!_hasMore || _isInitialLoading || _isLoadingMore || _isRefreshing) {
+      return;
+    }
     setState(() {
       _isLoadingMore = true;
       _error = null;
@@ -219,9 +225,8 @@ class _OriginFeedState extends State<_OriginFeed>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (!_hasRequested) return const SizedBox.shrink();
-    if (_isInitialLoading) {
-      return const Center(child: CircularProgressIndicator());
+    if (!_hasRequested || _isInitialLoading) {
+      return const GenesisListLoadingSkeleton.originGrid();
     }
 
     if (_error != null && _items.isEmpty) {

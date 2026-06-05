@@ -9,6 +9,7 @@ class SecendTabs extends StatelessWidget {
     this.controller,
     this.horizontalPadding = 8,
     this.labelPadding = const EdgeInsets.symmetric(horizontal: 8),
+    this.labelFontSize,
     this.expanded = false,
   });
 
@@ -16,6 +17,7 @@ class SecendTabs extends StatelessWidget {
   final TabController? controller;
   final double horizontalPadding;
   final EdgeInsets labelPadding;
+  final double? labelFontSize;
   final bool expanded;
 
   @override
@@ -25,6 +27,7 @@ class SecendTabs extends StatelessWidget {
       controller: controller,
       horizontalPadding: horizontalPadding,
       labelPadding: labelPadding,
+      labelFontSize: labelFontSize,
       expanded: expanded,
     );
   }

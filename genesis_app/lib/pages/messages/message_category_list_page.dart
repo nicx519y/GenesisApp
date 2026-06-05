@@ -34,6 +34,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   var _total = 0;
   var _loading = true;
   var _loadingMore = false;
+  var _refreshing = false;
   Object? _error;
 
   bool get _hasMore => _items.length < _total;
@@ -42,7 +43,8 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    unawaited(_enterCategory());
+    unawaited(_loadFirstPage());
+    unawaited(_markCategoryRead());
   }
 
   @override
@@ -61,11 +63,19 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
     }
   }
 
-  Future<void> _enterCategory() async {
+  Future<void> _markCategoryRead() async {
     try {
       await AppServicesScope.read(
         context,
       ).api.v1.messages.markNotificationsRead(block: widget.block);
+      if (!mounted) return;
+      if (_items.any((item) => !item.isRead)) {
+        setState(() {
+          for (var index = 0; index < _items.length; index += 1) {
+            _items[index] = _items[index].copyWith(isRead: true);
+          }
+        });
+      }
       await widget.onNotificationsRead?.call();
     } catch (error, stackTrace) {
       debugPrint(
@@ -73,24 +83,20 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
       );
       debugPrint('[Messages] markNotificationsRead stacktrace:\n$stackTrace');
     }
-    if (!mounted) return;
-    await _loadFirstPage();
   }
 
   Future<void> _loadFirstPage() async {
     setState(() {
-      _loading = true;
+      _loading = _items.isEmpty;
+      _refreshing = true;
       _loadingMore = false;
       _error = null;
-      _page = 1;
-      _total = 0;
-      _items.clear();
     });
     await _loadPage(1, replace: true);
   }
 
   Future<void> _loadNextPage() async {
-    if (!_hasMore) return;
+    if (!_hasMore || _refreshing) return;
     setState(() => _loadingMore = true);
     await _loadPage(_page + 1, replace: false);
   }
@@ -116,6 +122,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
         _total = asInt(data['total'], fallback: _items.length);
         _loading = false;
         _loadingMore = false;
+        _refreshing = false;
         _error = null;
       });
     } catch (error) {
@@ -123,6 +130,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
       setState(() {
         _loading = false;
         _loadingMore = false;
+        _refreshing = false;
         _error = error;
       });
     }
@@ -232,7 +240,7 @@ class _NotificationCard extends StatelessWidget {
               height: 8,
               margin: const EdgeInsets.only(top: 5, right: 8),
               decoration: const BoxDecoration(
-                color: Color(0xFFE02424),
+                color: Color(0xFFF42C47),
                 shape: BoxShape.circle,
               ),
             )
@@ -295,6 +303,15 @@ class _NotificationItem {
   final String message;
   final bool isRead;
   final DateTime? createdAt;
+
+  _NotificationItem copyWith({bool? isRead}) {
+    return _NotificationItem(
+      id: id,
+      message: message,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt,
+    );
+  }
 
   String get createdAtText {
     final value = createdAt;

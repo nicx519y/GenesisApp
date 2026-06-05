@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/origin_item.dart';
+import '../../utils/display_name_formatter.dart';
 
 class OriginCard extends StatelessWidget {
   const OriginCard({super.key, required this.item});
@@ -77,7 +78,7 @@ class OriginCard extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          item.title,
+          originDisplayName(item.title),
           style: const TextStyle(
             color: Color(0xFF4B6192),
             fontSize: 12,

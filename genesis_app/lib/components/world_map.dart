@@ -10,6 +10,9 @@ import 'world_point.dart';
 export 'world_location_list.dart';
 export 'world_point.dart';
 
+const String kWorldMapFallbackBackgroundAsset =
+    'assets/images/mock_maps/map_background.png';
+
 class WorldMapLocationNode {
   const WorldMapLocationNode({
     required this.id,
@@ -64,8 +67,6 @@ class _WorldMapState extends State<WorldMap> {
   final List<_WorldMapLocationTrailEntry> _locationTrail =
       <_WorldMapLocationTrailEntry>[];
   String _lastLoggedLocationTreeSignature = '';
-  WorldPoint? _tapRipplePoint;
-  int _tapRippleGeneration = 0;
   _MapTransitionSpec _mapTransition = const _MapTransitionSpec(
     origin: Alignment.center,
     direction: _MapTransitionDirection.drillIn,
@@ -134,7 +135,6 @@ class _WorldMapState extends State<WorldMap> {
           designHeight: designHeight,
         );
         final backgroundUrl = currentMapImageUrl.trim();
-        final hasBackground = backgroundUrl.isNotEmpty;
         final mapKey = ValueKey<String>(
           _locationTrail.isEmpty ? '__world_root__' : _locationTrail.last.id,
         );
@@ -154,26 +154,16 @@ class _WorldMapState extends State<WorldMap> {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          if (hasBackground)
-                            _MapBackgroundDeck(
-                              currentUrl: backgroundUrl,
-                              preloadUrls: preloadMapImageUrls,
-                            )
-                          else
-                            const ColoredBox(color: Color(0xFFF3F4F6)),
+                          _MapBackgroundDeck(
+                            currentUrl: backgroundUrl,
+                            preloadUrls: preloadMapImageUrls,
+                          ),
                           IgnorePointer(
                             ignoring: widget.showPointsList,
                             child: Opacity(
                               opacity: widget.showPointsList ? 0.6 : 1,
                               child: Stack(
                                 children: [
-                                  if (_tapRipplePoint != null)
-                                    _WorldLocationTapRipple(
-                                      key: ValueKey<int>(_tapRippleGeneration),
-                                      generation: _tapRippleGeneration,
-                                      point: _tapRipplePoint!,
-                                      onCompleted: _clearTapRipple,
-                                    ),
                                   for (final p in visiblePoints)
                                     _WorldPointPositioned(
                                       point: p,
@@ -201,9 +191,7 @@ class _WorldMapState extends State<WorldMap> {
               ),
             ),
             if (widget.showPointsList)
-              Positioned.fill(
-                child: ColoredBox(color: Colors.white.withValues(alpha: 0.82)),
-              ),
+              Positioned.fill(child: ColoredBox(color: Colors.white)),
             if (widget.showPointsList)
               Positioned.fill(
                 top: widget.overlayTop,
@@ -219,7 +207,7 @@ class _WorldMapState extends State<WorldMap> {
                   ],
                 ),
               ),
-            if (_locationTrail.isNotEmpty)
+            if (_locationTrail.isNotEmpty && !widget.showPointsList)
               Positioned(
                 left: 12,
                 top: widget.drillExitTop,
@@ -247,10 +235,6 @@ class _WorldMapState extends State<WorldMap> {
   }
 
   void _handlePointTap(WorldPoint point) {
-    if (!widget.showPointsList) {
-      _triggerTapRipple(point);
-    }
-
     if (_hasDrillTree) {
       final node = _findPointNode(point);
       if (node != null) {
@@ -285,20 +269,6 @@ class _WorldMapState extends State<WorldMap> {
     widget.onPointTap?.call(point);
   }
 
-  void _triggerTapRipple(WorldPoint point) {
-    setState(() {
-      _tapRipplePoint = point;
-      _tapRippleGeneration += 1;
-    });
-  }
-
-  void _clearTapRipple(int generation) {
-    if (!mounted || generation != _tapRippleGeneration) return;
-    setState(() {
-      _tapRipplePoint = null;
-    });
-  }
-
   void _exitLocation() {
     if (_locationTrail.isEmpty) return;
     widget.onDrillIntoLocation?.call();
@@ -331,6 +301,9 @@ class _WorldMapState extends State<WorldMap> {
   }
 
   String get _initialMapImageUrl {
+    final detailMapImageUrl = widget.mapImageUrl.trim();
+    if (detailMapImageUrl.isNotEmpty) return widget.mapImageUrl;
+
     for (final node in widget.locationNodes) {
       if (!node.isRoot) continue;
       final rootMapImageUrl = node.mapImageUrl.trim();
@@ -512,7 +485,7 @@ class _ExitLocationButton extends StatelessWidget {
         height: 36,
         padding: EdgeInsets.only(left: 0, right: displayLabel.isEmpty ? 0 : 12),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.75),
+          color: Colors.white.withValues(alpha: 0.82),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Material(
@@ -658,160 +631,6 @@ class _MapTransitionSpec {
 
 enum _MapTransitionDirection { drillIn, drillOut }
 
-class _WorldLocationTapRipple extends StatefulWidget {
-  const _WorldLocationTapRipple({
-    super.key,
-    required this.generation,
-    required this.point,
-    required this.onCompleted,
-  });
-
-  final int generation;
-  final WorldPoint point;
-  final ValueChanged<int> onCompleted;
-
-  @override
-  State<_WorldLocationTapRipple> createState() =>
-      _WorldLocationTapRippleState();
-}
-
-class _WorldLocationTapRippleState extends State<_WorldLocationTapRipple>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1200),
-  )..addStatusListener(_handleStatusChange);
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller
-      ..removeStatusListener(_handleStatusChange)
-      ..dispose();
-    super.dispose();
-  }
-
-  void _handleStatusChange(AnimationStatus status) {
-    if (status != AnimationStatus.completed) return;
-    widget.onCompleted(widget.generation);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: CustomPaint(
-        key: const ValueKey<String>('world_map_location_tap_ripple'),
-        painter: _WorldLocationTapRipplePainter(
-          animation: _controller,
-          point: widget.point,
-        ),
-        child: const SizedBox.expand(),
-      ),
-    );
-  }
-}
-
-class _WorldLocationTapRipplePainter extends CustomPainter {
-  _WorldLocationTapRipplePainter({
-    required Animation<double> animation,
-    required this.point,
-  }) : _animation = animation,
-       super(repaint: animation);
-
-  final Animation<double> _animation;
-  final WorldPoint point;
-
-  static const Color _rippleColor = Color(0xFFE53935);
-  static const double _maxRippleRadius = 112;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final progress = _animation.value.clamp(0.0, 1.0);
-    final center = Offset(
-      point.position.dx.clamp(0.0, 1.0).toDouble() * size.width,
-      point.position.dy.clamp(0.0, 1.0).toDouble() * size.height,
-    );
-
-    _paintRings(canvas, center, progress);
-    _paintParticles(canvas, center, progress);
-    _paintPulseCore(canvas, center, progress);
-  }
-
-  void _paintRings(Canvas canvas, Offset center, double progress) {
-    for (var index = 0; index < 3; index += 1) {
-      final delay = index * 0.09;
-      final localProgress = ((progress - delay) / (1 - delay)).clamp(0.0, 1.0);
-      if (localProgress <= 0) continue;
-
-      final radiusProgress = Curves.easeOutQuad.transform(localProgress);
-      final radius = _lerpDouble(
-        7 + index * 4,
-        78 + index * 17,
-        radiusProgress,
-      );
-      final radiusFade = _radiusFade(radius);
-      final launchFade = (localProgress / 0.16).clamp(0.0, 1.0).toDouble();
-      final opacity = (0.36 - index * 0.06) * radiusFade * launchFade;
-      final strokeWidth = _lerpDouble(3.2, 0.6, radiusProgress);
-      final paint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..color = _rippleColor.withValues(alpha: opacity.clamp(0.0, 1.0));
-
-      canvas.drawCircle(center, radius, paint);
-    }
-  }
-
-  void _paintParticles(Canvas canvas, Offset center, double progress) {
-    final radiusProgress = Curves.easeOutQuad.transform(progress);
-    final opacity = math.pow(1 - radiusProgress, 1.7).toDouble() * 0.44;
-    if (opacity <= 0) return;
-
-    final paint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = _rippleColor.withValues(alpha: opacity.clamp(0.0, 1.0));
-
-    for (var index = 0; index < 10; index += 1) {
-      final angle = -math.pi / 2 + math.pi * 2 * index / 10;
-      final distance = _lerpDouble(
-        7,
-        58 + (index.isEven ? 10 : 0),
-        radiusProgress,
-      );
-      final offset = Offset(math.cos(angle), math.sin(angle)) * distance;
-      final radius = _lerpDouble(2.8, 0.5, radiusProgress);
-      canvas.drawCircle(center + offset, radius, paint);
-    }
-  }
-
-  void _paintPulseCore(Canvas canvas, Offset center, double progress) {
-    final radiusProgress = Curves.easeOutQuad.transform(progress);
-    final opacity = _radiusFade(_lerpDouble(4, 24, radiusProgress)) * 0.72;
-    if (opacity <= 0) return;
-
-    final radius = _lerpDouble(4, 12, radiusProgress);
-    final paint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = _rippleColor.withValues(alpha: opacity.clamp(0.0, 1.0));
-    canvas.drawCircle(center, radius, paint);
-  }
-
-  double _radiusFade(double radius) {
-    final radiusProgress = (radius / _maxRippleRadius).clamp(0.0, 1.0);
-    return math.pow(1 - radiusProgress, 2.1).toDouble();
-  }
-
-  @override
-  bool shouldRepaint(covariant _WorldLocationTapRipplePainter oldDelegate) {
-    return oldDelegate.point != point || oldDelegate._animation != _animation;
-  }
-}
-
 String _pointLocationId(WorldPoint point) {
   final sceneId = point.sceneId.trim();
   if (sceneId.isNotEmpty) return sceneId;
@@ -841,16 +660,17 @@ class _MapBackgroundDeck extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final current = currentUrl.trim();
     final urls = preloadUrls
         .map((url) => url.trim())
-        .where((url) => url.isNotEmpty && url != currentUrl)
+        .where((url) => url.isNotEmpty && url != current)
         .toSet()
         .toList(growable: false);
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        _MapBackground(url: currentUrl),
+        _MapBackground(url: current),
         for (final url in urls)
           Offstage(offstage: true, child: _MapBackground(url: url)),
       ],
@@ -865,24 +685,41 @@ class _MapBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (url.startsWith('assets/')) {
+    final trimmedUrl = url.trim();
+    if (trimmedUrl.isEmpty) return const _FallbackMapBackground();
+
+    if (trimmedUrl.startsWith('assets/')) {
       return Image.asset(
-        url,
+        trimmedUrl,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) =>
-            const ColoredBox(color: Color(0xFFF3F4F6)),
+            const _FallbackMapBackground(),
       );
     }
 
     return Image.network(
-      url,
+      trimmedUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) =>
+          const _FallbackMapBackground(),
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return const _FallbackMapBackground();
+      },
+    );
+  }
+}
+
+class _FallbackMapBackground extends StatelessWidget {
+  const _FallbackMapBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      kWorldMapFallbackBackgroundAsset,
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) =>
           const ColoredBox(color: Color(0xFFF3F4F6)),
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return const ColoredBox(color: Color(0xFFF3F4F6));
-      },
     );
   }
 }

@@ -160,7 +160,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3}}],"total":1}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","owner_name":"Origin Owner","brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3}}],"total":1}}',
           );
         }
         if (request.uri.path.endsWith('/v1/world/list')) {
@@ -195,6 +195,7 @@ void main() {
     final worlds = await api.getMyWorlds(uid: 'u_2', limit: 10, offset: 10);
 
     expect(origins.data.single.oid, 'o_1');
+    expect(origins.data.single.originator, 'Origin Owner');
     expect(worlds.single.wid, 'w_1');
     expect(apiTransport.requests[0].uri.path, '/api/v1/origin/list');
     expect(apiTransport.requests[0].uri.queryParameters['uid'], 'u_2');
@@ -208,6 +209,80 @@ void main() {
     );
     expect(apiTransport.requests[1].uri.queryParameters['pn'], '2');
     expect(apiTransport.requests[1].uri.queryParameters['rn'], '10');
+  });
+
+  test('getOrigin maps detail preview fields from v1 detail', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'info': {
+              'origin_id': 'o_1',
+              'origin_name': 'Origin One',
+              'origin_version': '1',
+              'owner_uid': 'u_1',
+              'owner_name': 'Tester',
+              'brief': 'Brief shown in World View.',
+              'setting': 'Internal setting text.',
+              'events': const <Object?>[],
+              'tags': const <Object?>[],
+              'metric': const <String, Object?>{},
+              'created_at': 1716000000,
+              'started_at': 'Day 1',
+              'tick_duration_days': 30,
+              'cover': '',
+              'map_url': '',
+              'status': 10,
+            },
+            'stats': const <String, Object?>{},
+            'characters': const <Object?>[],
+            'locations': const [
+              {
+                'location_id': 'loc_1',
+                'location_name': 'Gate',
+                'location_description': 'Gate fallback description.',
+                'location_paragraph': 'Gate launch paragraph.',
+              },
+            ],
+            'ticks': const [
+              {
+                'tick_no': 1,
+                'created_at': 1716000000,
+                'tick_result': {
+                  'narrator': 'Narrator from origin tick result.',
+                  'paragraphs': <Object?>[],
+                },
+              },
+            ],
+          },
+        }),
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    final origin = await api.getOrigin('o_1');
+
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/detail');
+    expect(apiTransport.lastRequest!.uri.queryParameters['origin_id'], 'o_1');
+    expect(origin.worldView, 'Brief shown in World View.');
+    expect(origin.worldView, isNot('Internal setting text.'));
+    expect(origin.ticks.single['tick_result'], isA<Map>());
+    expect(
+      (origin.ticks.single['tick_result'] as Map)['narrator'],
+      'Narrator from origin tick result.',
+    );
+    expect(origin.locations.single.locationParagraph, 'Gate launch paragraph.');
   });
 
   test('getWorld maps tick_result narrator paragraphs from detail', () async {
@@ -1105,6 +1180,50 @@ void main() {
       expect(result['world_id'], 'w_a1b2c3');
       expect(result['tick_cnt'], 12);
       expect(result.containsKey('worldId'), isFalse);
+    },
+  );
+
+  test(
+    'getWorldTicks uses Apifox tick list query and normalizes ticks',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"errNo":0,"errStr":"success","data":{"list":[{"tickId":"tick_2","tickNo":2,"status":10,"tickResult":{"narrator":"latest","paragraphs":[{"locationId":"loc_1","text":"paragraph"}],"locationGroups":[]},"createdAt":1779271200}],"total":3,"pn":1,"rn":2}}',
+        ),
+      );
+      final healthTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      );
+
+      final api = _apiWith(apiTransport, healthTransport);
+      final result = await api.getWorldTicks(wid: 'w_a1b2c3', limit: 2);
+
+      expect(apiTransport.lastRequest!.method, 'GET');
+      expect(apiTransport.lastRequest!.uri.path, '/api/v1/world/tick/list');
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters['world_id'],
+        'w_a1b2c3',
+      );
+      expect(apiTransport.lastRequest!.uri.queryParameters['pn'], '1');
+      expect(apiTransport.lastRequest!.uri.queryParameters['rn'], '2');
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters.containsKey('worldId'),
+        isFalse,
+      );
+      expect(result.total, 3);
+      expect(result.data.single['tick_id'], 'tick_2');
+      expect(result.data.single['tick_no'], 2);
+      final tickResult = result.data.single['tick_result'] as Map;
+      expect(tickResult['narrator'], 'latest');
+      final paragraphs = tickResult['paragraphs'] as List;
+      expect((paragraphs.single as Map)['location_id'], 'loc_1');
     },
   );
 

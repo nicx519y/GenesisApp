@@ -1,25 +1,32 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
+import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
-import '../../components/secend_tabs.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
 import '../../components/world_map_stage.dart';
 import '../../components/world_tick_event_item.dart';
+import '../../icons/custom_icon_assets.dart';
+import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/origin.dart';
 import '../../network/models/world.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/components/secend_tabs.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/bootstrap/service_registry.dart';
+import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
+
+const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
 
 class WorldPage extends StatefulWidget {
   const WorldPage({super.key, required this.wid});
@@ -31,17 +38,20 @@ class WorldPage extends StatefulWidget {
 }
 
 class _WorldPageState extends State<WorldPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final TabController _tabController;
   WorldDetail? _world;
   Object? _initialLoadError;
   Timer? _pollTimer;
+  ChatroomConnectionController? _chatroomConnection;
+  StreamSubscription<ChatroomConnectionSnapshot>? _chatroomConnectionSub;
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 2, vsync: this);
     unawaited(_fetchWorld(isInitial: true));
     _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
@@ -57,9 +67,125 @@ class _WorldPageState extends State<WorldPage>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
+    unawaited(_chatroomConnectionSub?.cancel());
+    final chatroomConnection = _chatroomConnection;
+    _chatroomConnection = null;
+    if (chatroomConnection != null) {
+      unawaited(_disposeChatroomConnection(chatroomConnection));
+    }
     _tabController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final chatroomConnection = _chatroomConnection;
+    if (chatroomConnection == null) return;
+    switch (state) {
+      case AppLifecycleState.resumed:
+        unawaited(
+          chatroomConnection.handleAppForeground().catchError((Object _) {}),
+        );
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+        unawaited(
+          chatroomConnection.handleAppBackground().catchError((Object _) {}),
+        );
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+        break;
+    }
+  }
+
+  void _startChatroomConnection() {
+    if (_chatroomConnection != null) return;
+    final services = AppServicesScope.read(context);
+    final controller = ChatroomConnectionController(client: services.chatroom);
+    _chatroomConnection = controller;
+    _chatroomConnectionSub = controller.states.listen((_) {
+      if (mounted) setState(() {});
+    });
+    unawaited(_connectChatroom(controller, services));
+  }
+
+  Future<void> _stopChatroomConnection() async {
+    final chatroomConnection = _chatroomConnection;
+    _chatroomConnection = null;
+    final subscription = _chatroomConnectionSub;
+    _chatroomConnectionSub = null;
+    final disconnectFuture = chatroomConnection?.disconnect();
+    await subscription?.cancel();
+    if (chatroomConnection != null) {
+      try {
+        await disconnectFuture;
+      } catch (_) {
+        // Relation changes should not be blocked by socket shutdown errors.
+      }
+      await chatroomConnection.dispose();
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _syncChatroomConnectionForWorld(WorldDetail world) {
+    if (_shouldMaintainChatroomConnection(world)) {
+      _startChatroomConnection();
+      return;
+    }
+    if (_chatroomConnection != null) {
+      unawaited(_stopChatroomConnection());
+    }
+  }
+
+  bool _shouldMaintainChatroomConnection(WorldDetail world) {
+    final relationStatus = world.relationStatus.trim().toLowerCase();
+    return relationStatus == 'owner' || relationStatus == 'joined';
+  }
+
+  Future<void> _connectChatroom(
+    ChatroomConnectionController controller,
+    AppServices services,
+  ) async {
+    try {
+      final identity = await _chatroomIdentity(services);
+      if (!mounted || !identical(_chatroomConnection, controller)) return;
+      await controller.connect(worldId: widget.wid, identity: identity);
+    } catch (_) {
+      // The controller emits state/failure and keeps retrying while desired.
+    }
+  }
+
+  Future<ChatroomConnectionIdentity> _chatroomIdentity(
+    AppServices services,
+  ) async {
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final profile = services.identityAuth.currentProfile();
+    final senderId = _firstNonEmpty([profile?.uid, uid, 'local-user']);
+    final senderName = _firstNonEmpty([
+      profile?.displayName,
+      profile?.email,
+      formatUidForDisplay(uid),
+      'Me',
+    ]);
+    return ChatroomConnectionIdentity(
+      userId: senderId,
+      senderId: senderId,
+      senderName: senderName,
+    );
+  }
+
+  Future<void> _disposeChatroomConnection(
+    ChatroomConnectionController controller,
+  ) async {
+    try {
+      await controller.disconnect();
+    } catch (_) {
+      // Leaving the page should not be blocked by socket shutdown errors.
+    }
+    await controller.dispose();
   }
 
   Future<void> _fetchWorld({bool isInitial = false}) async {
@@ -74,6 +200,7 @@ class _WorldPageState extends State<WorldPage>
         _world = world;
         if (isInitial) _initialLoadError = null;
       });
+      _syncChatroomConnectionForWorld(world);
     } catch (e) {
       if (!mounted) return;
       if (isInitial) {
@@ -192,13 +319,27 @@ class _WorldPageState extends State<WorldPage>
   }
 
   Future<void> _openChatForPoint(WorldPoint point) async {
+    final chatroomConnection = _chatroomConnection;
+    if (!_canOpenLocationChat(chatroomConnection)) {
+      if (mounted) {
+        showGenesisToast(
+          context,
+          _chatroomStatusLabel(chatroomConnection?.status),
+        );
+      }
+      return;
+    }
     final pointId = point.pointId.trim().isNotEmpty
         ? point.pointId.trim()
         : point.id.trim();
     if (pointId.isEmpty) {
       Navigator.of(context).pushNamed(
         RouteNames.locationChat,
-        arguments: {'world_id': widget.wid, 'world_name': _world?.name ?? ''},
+        arguments: {
+          'world_id': widget.wid,
+          'world_name': _world?.name ?? '',
+          'chatroom_connection': chatroomConnection,
+        },
       );
       return;
     }
@@ -221,8 +362,24 @@ class _WorldPageState extends State<WorldPage>
         'location_id': locationId,
         'pointId': pointId,
         'location_name': point.name,
+        'chatroom_connection': chatroomConnection,
       },
     );
+  }
+
+  bool _canOpenLocationChat(ChatroomConnectionController? controller) {
+    return controller?.status == ChatroomConnectionStatus.connected ||
+        controller?.status == ChatroomConnectionStatus.joined;
+  }
+
+  String _chatroomStatusLabel(ChatroomConnectionStatus? status) {
+    return switch (status) {
+      ChatroomConnectionStatus.connected => 'Connecting',
+      ChatroomConnectionStatus.connecting => 'Connecting',
+      ChatroomConnectionStatus.joining => 'Joining',
+      ChatroomConnectionStatus.joined => 'Joined',
+      ChatroomConnectionStatus.disconnected || null => 'Disconnect',
+    };
   }
 
   void _showMapTab() {
@@ -256,7 +413,25 @@ class _WorldPageState extends State<WorldPage>
           ),
         );
       }
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return WorldDetailsPageScaffold(
+        panelTopGap: 50,
+        panelCollapsedHeightOffset: 100,
+        map: WorldMapStage(
+          controller: _tabController,
+          pointsCount: 0,
+          top: topPadding + 20,
+          mapBuilder: (context, pointMode) => WorldMap(
+            points: const <WorldPoint>[],
+            listPoints: const <WorldPoint>[],
+            locationNodes: const <WorldMapLocationNode>[],
+            dimmed: pointMode,
+            showPointsList: pointMode,
+            overlayTop: topPadding + 8 + 48,
+            drillExitTop: topPadding + 68,
+          ),
+        ),
+        slivers: const [_WorldDetailsLoadingContent()],
+      );
     }
 
     final rootMapImageUrl = _rootWorldMapImageUrl(world);
@@ -330,6 +505,148 @@ class _WorldPageState extends State<WorldPage>
   }
 }
 
+class _WorldDetailsLoadingContent extends StatelessWidget {
+  const _WorldDetailsLoadingContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverList.list(
+      children: const [
+        _WorldHeaderLoadingSkeleton(),
+        SizedBox(height: 4),
+        _WorldTabsLoadingSkeleton(),
+        SizedBox(height: 8),
+        _WorldEventLoadingSkeleton(),
+      ],
+    );
+  }
+}
+
+class _WorldHeaderLoadingSkeleton extends StatelessWidget {
+  const _WorldHeaderLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            SizedBox(width: 38),
+            Expanded(
+              child: Align(
+                alignment: Alignment.center,
+                child: _WorldLoadingBone(width: 168, height: 18),
+              ),
+            ),
+            SizedBox(width: 38),
+          ],
+        ),
+        SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(child: _WorldLoadingBone(width: 128, height: 12)),
+            SizedBox(width: 18),
+            _WorldLoadingBone(width: 112, height: 12),
+          ],
+        ),
+        SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _WorldLoadingBone(width: 42, height: 12),
+                  _WorldLoadingBone(width: 46, height: 12),
+                  _WorldLoadingBone(width: 40, height: 12),
+                  _WorldLoadingBone(width: 44, height: 12),
+                ],
+              ),
+            ),
+            SizedBox(width: 14),
+            _WorldLoadingBone(width: 120, height: 28, radius: 8),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _WorldTabsLoadingSkeleton extends StatelessWidget {
+  const _WorldTabsLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        Expanded(child: _WorldLoadingBone(height: 32, radius: 16)),
+        SizedBox(width: 8),
+        Expanded(child: _WorldLoadingBone(height: 32, radius: 16)),
+        SizedBox(width: 8),
+        Expanded(child: _WorldLoadingBone(height: 32, radius: 16)),
+      ],
+    );
+  }
+}
+
+class _WorldEventLoadingSkeleton extends StatelessWidget {
+  const _WorldEventLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _WorldLoadingBone(width: 96, height: 14),
+        SizedBox(height: 14),
+        _WorldLoadingBone(widthFactor: 0.92, height: 12),
+        SizedBox(height: 8),
+        _WorldLoadingBone(widthFactor: 0.78, height: 12),
+        SizedBox(height: 8),
+        _WorldLoadingBone(widthFactor: 0.86, height: 12),
+        SizedBox(height: 18),
+        _WorldLoadingBone(widthFactor: 0.48, height: 12),
+        SizedBox(height: 14),
+        _WorldLoadingBone(widthFactor: 0.96, height: 92, radius: 6),
+      ],
+    );
+  }
+}
+
+class _WorldLoadingBone extends StatelessWidget {
+  const _WorldLoadingBone({
+    this.width,
+    this.widthFactor,
+    required this.height,
+    this.radius = 4,
+  });
+
+  final double? width;
+  final double? widthFactor;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFE9EDF2),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: SizedBox(width: width, height: height),
+    );
+    final widthFactor = this.widthFactor;
+    if (widthFactor == null) return child;
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      alignment: Alignment.centerLeft,
+      child: child,
+    );
+  }
+}
+
 class _WorldFeedContent extends StatefulWidget {
   const _WorldFeedContent({
     required this.world,
@@ -347,18 +664,32 @@ class _WorldFeedContent extends StatefulWidget {
 
 class _WorldFeedContentState extends State<_WorldFeedContent>
     with SingleTickerProviderStateMixin {
+  static const int _eventsPageSize = 20;
+  static const double _eventsLoadMoreExtent = 160;
+
   late final TabController _sectionController;
+  ScrollController? _panelScrollController;
   var _currentUid = '';
   var _currentUidRequested = false;
+  var _eventsWorldId = '';
+  var _eventTicks = const <Map<String, dynamic>>[];
+  var _eventsTotal = 0;
+  var _eventsPage = 0;
+  var _eventsInitialLoading = false;
+  var _eventsLoadingMore = false;
+  Object? _eventsError;
 
   @override
   void initState() {
     super.initState();
     _sectionController = TabController(length: 3, vsync: this);
+    _sectionController.addListener(_handleSectionTabChanged);
   }
 
   @override
   void dispose() {
+    _panelScrollController?.removeListener(_handlePanelScroll);
+    _sectionController.removeListener(_handleSectionTabChanged);
     _sectionController.dispose();
     super.dispose();
   }
@@ -369,6 +700,24 @@ class _WorldFeedContentState extends State<_WorldFeedContent>
     if (_currentUidRequested) return;
     _currentUidRequested = true;
     unawaited(_loadCurrentUid());
+    _bindPanelScrollPosition();
+    if (_eventsWorldId != widget.world.worldId) {
+      _resetEvents(widget.world.worldId);
+      unawaited(_loadEventsPage(1));
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _WorldFeedContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.world.worldId != widget.world.worldId) {
+      _resetEvents(widget.world.worldId);
+      unawaited(_loadEventsPage(1));
+      return;
+    }
+    if (oldWidget.world.tickCount != widget.world.tickCount) {
+      unawaited(_loadEventsPage(1));
+    }
   }
 
   Future<void> _loadCurrentUid() async {
@@ -377,6 +726,96 @@ class _WorldFeedContentState extends State<_WorldFeedContent>
         '';
     if (!mounted || uid == _currentUid) return;
     setState(() => _currentUid = uid);
+  }
+
+  void _resetEvents(String worldId) {
+    setState(() {
+      _eventsWorldId = worldId;
+      _eventTicks = const <Map<String, dynamic>>[];
+      _eventsTotal = 0;
+      _eventsPage = 0;
+      _eventsInitialLoading = false;
+      _eventsLoadingMore = false;
+      _eventsError = null;
+    });
+  }
+
+  void _bindPanelScrollPosition() {
+    final controller = WorldDetailsPanelScrollControllerScope.maybeOf(context);
+    if (controller == null || identical(controller, _panelScrollController)) {
+      return;
+    }
+    _panelScrollController?.removeListener(_handlePanelScroll);
+    _panelScrollController = controller;
+    controller.addListener(_handlePanelScroll);
+  }
+
+  void _handleSectionTabChanged() {
+    if (_sectionController.index == 0) _handlePanelScroll();
+  }
+
+  void _handlePanelScroll() {
+    if (_sectionController.index != 0) return;
+    final controller = _panelScrollController;
+    if (controller == null || !controller.hasClients) return;
+    final position = controller.position;
+    if (!position.hasContentDimensions) return;
+    if (position.extentAfter > _eventsLoadMoreExtent) return;
+    _loadNextEventsPage();
+  }
+
+  bool get _eventsHasMore {
+    return _eventsTotal > 0 && _eventTicks.length < _eventsTotal;
+  }
+
+  void _loadNextEventsPage() {
+    if (!_eventsHasMore || _eventsLoadingMore || _eventsInitialLoading) return;
+    unawaited(_loadEventsPage(_eventsPage + 1));
+  }
+
+  Future<void> _loadEventsPage(int page) async {
+    if (page <= 0) return;
+    if (page == 1) {
+      if (_eventsInitialLoading) return;
+      setState(() {
+        _eventsInitialLoading = true;
+        _eventsError = null;
+      });
+    } else {
+      if (_eventsLoadingMore || !_eventsHasMore) return;
+      setState(() => _eventsLoadingMore = true);
+    }
+
+    final worldId = widget.world.worldId;
+    try {
+      final response = await AppServicesScope.of(context).api.getWorldTicks(
+        wid: worldId,
+        limit: _eventsPageSize,
+        offset: (page - 1) * _eventsPageSize,
+      );
+      if (!mounted || worldId != widget.world.worldId) return;
+      setState(() {
+        _eventTicks = page == 1
+            ? response.data
+            : [..._eventTicks, ...response.data];
+        _eventsTotal = response.total;
+        _eventsPage = page;
+        _eventsError = null;
+      });
+    } catch (e) {
+      if (!mounted || worldId != widget.world.worldId) return;
+      setState(() => _eventsError = e);
+    } finally {
+      if (mounted && worldId == widget.world.worldId) {
+        setState(() {
+          if (page == 1) {
+            _eventsInitialLoading = false;
+          } else {
+            _eventsLoadingMore = false;
+          }
+        });
+      }
+    }
   }
 
   @override
@@ -407,7 +846,13 @@ class _WorldFeedContentState extends State<_WorldFeedContent>
           child: _AutoSizedTabBarView(
             controller: _sectionController,
             children: [
-              _WorldEventsSection(world: widget.world),
+              _WorldEventsSection(
+                world: widget.world,
+                ticks: _eventTicks,
+                initialLoading: _eventsInitialLoading,
+                loadingMore: _eventsLoadingMore,
+                error: _eventsError,
+              ),
               _WorldStatusSection(world: widget.world, currentUid: _currentUid),
               _WorldCharactersSection(
                 world: widget.world,
@@ -626,11 +1071,11 @@ class _WorldInfoHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = world.origin.name.isEmpty ? world.name : world.origin.name;
+    final title = world.name.trim().isEmpty ? world.worldId : world.name.trim();
     final wid = world.worldId;
     final owner = world.origin.originator.trim().isNotEmpty
         ? world.origin.originator.trim()
-        : world.ownerUid;
+        : formatUidForDisplay(world.ownerUid);
     final ownerUid = world.ownerUid.trim();
     final action = _worldHeaderActionFor(world.relationStatus);
     final actionEnabled = !worldActionRunning && action.isClickable;
@@ -649,7 +1094,7 @@ class _WorldInfoHeader extends StatelessWidget {
             const SizedBox(width: 38),
             Expanded(
               child: Text(
-                '#$title',
+                title,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 16,
@@ -675,10 +1120,7 @@ class _WorldInfoHeader extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _WidMetaText(
-                wid: wid,
-                onCopy: () => _copyWid(context, wid),
-              ),
+              child: CopyableIdLabel(label: 'WID', value: wid),
             ),
             _OwnerMetaLink(
               owner: owner,
@@ -704,14 +1146,20 @@ class _WorldInfoHeader extends StatelessWidget {
                   for (final data in counters)
                     StatItem(
                       icon: _counterIcon(data['icon'] as String? ?? ''),
-                      iconSize: 11,
+                      iconAsset: _counterIconAsset(
+                        data['icon'] as String? ?? '',
+                      ),
+                      preserveIconAssetColor: _counterIconAssetPreservesColor(
+                        data['icon'] as String? ?? '',
+                      ),
+                      iconSize: 14,
                       iconColor: Colors.black,
                       text: formatStatCount(
                         data['value'] is num ? data['value'] as num : 0,
                       ),
                       gap: 4,
                       textStyle: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 14,
                         height: 1,
                         fontWeight: FontWeight.w500,
                         color: Colors.black,
@@ -722,8 +1170,7 @@ class _WorldInfoHeader extends StatelessWidget {
             ),
             // const Spacer(),
             SizedBox(
-              width: 120,
-              height: 28,
+              height: 32,
               child: FilledButton(
                 onPressed: actionEnabled
                     ? () => onWorldAction(action.kind)
@@ -734,7 +1181,7 @@ class _WorldInfoHeader extends StatelessWidget {
                     0xFF2F9663,
                   ).withValues(alpha: 0.62),
                   foregroundColor: Colors.white,
-                  padding: EdgeInsets.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: 35),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   shape: RoundedRectangleBorder(
@@ -838,45 +1285,6 @@ String _worldHeaderActionLabel(_WorldHeaderActionKind action) {
   }
 }
 
-class _WidMetaText extends StatelessWidget {
-  const _WidMetaText({required this.wid, required this.onCopy});
-
-  final String wid;
-  final VoidCallback onCopy;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Flexible(
-          child: Text(
-            'WID: $wid',
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1.1,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF8A8A8A),
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        const SizedBox(width: 6),
-        InkResponse(
-          onTap: onCopy,
-          radius: 18,
-          child: const Icon(
-            Icons.copy_outlined,
-            size: 16,
-            color: Color(0xFF8A8A8A),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _OwnerMetaLink extends StatelessWidget {
   const _OwnerMetaLink({required this.owner, required this.onTap});
 
@@ -896,12 +1304,12 @@ class _OwnerMetaLink extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                'Owner: $owner',
+                'Owner: ${formatUidForDisplay(owner)}',
                 textAlign: TextAlign.right,
                 style: const TextStyle(
                   fontSize: 12,
                   height: 1.1,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w400,
                   color: Color(0xFF8A8A8A),
                 ),
                 maxLines: 1,
@@ -917,14 +1325,14 @@ class _OwnerMetaLink extends StatelessWidget {
   }
 }
 
-IconData _counterIcon(String key) {
+IconData? _counterIcon(String key) {
   switch (key) {
     case 'tick':
       return MyFlutterApp.pregress;
     case 'connect':
-      return MyFlutterApp.copy;
+      return null;
     case 'character':
-      return MyFlutterApp.userStar;
+      return null;
     case 'player':
       return MyFlutterApp.user;
     default:
@@ -932,22 +1340,42 @@ IconData _counterIcon(String key) {
   }
 }
 
-Future<void> _copyWid(BuildContext context, String wid) async {
-  await Clipboard.setData(ClipboardData(text: wid));
-  if (!context.mounted) return;
-  showGenesisToast(context, 'WID copied');
+String? _counterIconAsset(String key) {
+  return switch (key) {
+    'connect' => _connectIconAsset,
+    'character' => aiCharacterIconAsset,
+    _ => null,
+  };
+}
+
+bool _counterIconAssetPreservesColor(String key) {
+  return key == 'character';
 }
 
 class _WorldEventsSection extends StatelessWidget {
-  const _WorldEventsSection({required this.world});
+  const _WorldEventsSection({
+    required this.world,
+    required this.ticks,
+    required this.initialLoading,
+    required this.loadingMore,
+    required this.error,
+  });
 
   final WorldDetail world;
+  final List<Map<String, dynamic>> ticks;
+  final bool initialLoading;
+  final bool loadingMore;
+  final Object? error;
 
   @override
   Widget build(BuildContext context) {
-    final ticks = world.ticks;
+    if (ticks.isEmpty && initialLoading) {
+      return const _WorldEventLoadingSkeleton();
+    }
     if (ticks.isEmpty) {
-      return const _EmptySection(text: 'No events yet.');
+      return _EmptySection(
+        text: error == null ? 'No events yet.' : 'Load events failed.',
+      );
     }
 
     final locationsById = <String, Map<String, dynamic>>{
@@ -964,9 +1392,42 @@ class _WorldEventsSection extends StatelessWidget {
             tickNumber: worldTickEventNumber(ticks[index], fallback: index + 1),
             fallbackBody: fallbackBody,
             locationsById: locationsById,
-            isLast: index == ticks.length - 1,
+            dateLabel: _tickParagraphTimestamp(ticks[index]),
+            isLast: index == ticks.length - 1 && !loadingMore,
           ),
+        if (loadingMore) const _WorldEventsLoadingMoreIndicator(),
       ],
+    );
+  }
+}
+
+String? _tickParagraphTimestamp(Map<String, dynamic> tick) {
+  final result = tick['tick_result'];
+  if (result is! Map) return null;
+  final paragraphs = result['paragraphs'];
+  if (paragraphs is! List) return null;
+  for (final paragraph in paragraphs) {
+    if (paragraph is! Map) continue;
+    final timestamp = '${paragraph['timestamp'] ?? ''}'.trim();
+    if (timestamp.isNotEmpty) return timestamp;
+  }
+  return null;
+}
+
+class _WorldEventsLoadingMoreIndicator extends StatelessWidget {
+  const _WorldEventsLoadingMoreIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 18),
+      child: Center(
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
     );
   }
 }
@@ -983,7 +1444,8 @@ class _WorldStatusSection extends StatelessWidget {
       characters: world.characters,
       currentUid: currentUid,
       emptyText: 'No character status yet.',
-      subtitleBuilder: _metricPercentText,
+      subtitleBuilder: (character) =>
+          _metricStatusText(world.metric, character),
     );
   }
 }
@@ -1026,19 +1488,27 @@ class _CharacterList extends StatelessWidget {
     if (characters.isEmpty) {
       return _EmptySection(text: emptyText);
     }
+    final hasAiCharacter = characters.any(
+      (character) =>
+          _mapString(character, const ['type']).toLowerCase() == 'ai',
+    );
+    final sortedCharacters = _sortedCharacters(characters, currentUid);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (int i = 0; i < characters.length; i++) ...[
-          _CharacterRow(
-            character: characters[i],
-            currentUid: currentUid,
-            subtitle: subtitleBuilder(characters[i]),
-          ),
-          if (i != characters.length - 1) const SizedBox(height: 22),
+    return Padding(
+      padding: EdgeInsets.only(top: hasAiCharacter ? 5 : 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (int i = 0; i < sortedCharacters.length; i++) ...[
+            _CharacterRow(
+              character: sortedCharacters[i],
+              currentUid: currentUid,
+              subtitle: subtitleBuilder(sortedCharacters[i]),
+            ),
+            if (i != sortedCharacters.length - 1) const SizedBox(height: 22),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -1058,10 +1528,12 @@ class _CharacterRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = _mapString(character, const ['name'], fallback: 'Character');
     final playerUid = _mapString(character, const ['player_uid']);
-    final displayName =
-        currentUid.isNotEmpty && playerUid.isNotEmpty && playerUid == currentUid
-        ? '$name (Me)'
-        : name;
+    final username = _mapString(character, const ['player_username']);
+    final suffix = _characterNameSuffix(
+      currentUid: currentUid,
+      playerUid: playerUid,
+      username: username,
+    );
     final type = _mapString(character, const ['type']).toLowerCase();
     final isAi = type == 'ai';
     final roleLabel = isAi ? 'Character' : 'Player';
@@ -1069,10 +1541,13 @@ class _CharacterRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GenesisCharacterAvatar(
-          url: _mapString(character, const ['avatar']),
-          name: name,
-          showStar: isAi,
+        Padding(
+          padding: EdgeInsets.only(right: isAi ? 6 : 0),
+          child: GenesisCharacterAvatar(
+            url: _mapString(character, const ['avatar']),
+            name: name,
+            showStar: isAi,
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -1085,8 +1560,19 @@ class _CharacterRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Text(
-                        displayName,
+                      child: Text.rich(
+                        TextSpan(
+                          text: name,
+                          children: [
+                            if (suffix.isNotEmpty)
+                              TextSpan(
+                                text: ' $suffix',
+                                style: const TextStyle(
+                                  color: Color(0xFF888888),
+                                ),
+                              ),
+                          ],
+                        ),
                         style: const TextStyle(
                           fontSize: 14,
                           height: 1.15,
@@ -1133,6 +1619,55 @@ class _CharacterRow extends StatelessWidget {
   }
 }
 
+List<Map<String, dynamic>> _sortedCharacters(
+  List<Map<String, dynamic>> characters,
+  String currentUid,
+) {
+  final indexed = characters.indexed.toList(growable: false);
+  indexed.sort((a, b) {
+    final rankCompare = _characterSortRank(
+      a.$2,
+      currentUid,
+    ).compareTo(_characterSortRank(b.$2, currentUid));
+    if (rankCompare != 0) return rankCompare;
+    return a.$1.compareTo(b.$1);
+  });
+  return indexed.map((entry) => entry.$2).toList(growable: false);
+}
+
+int _characterSortRank(Map<String, dynamic> character, String currentUid) {
+  if (_isCurrentUserCharacter(character, currentUid)) return 0;
+  return _isAiCharacter(character) ? 2 : 1;
+}
+
+bool _isCurrentUserCharacter(
+  Map<String, dynamic> character,
+  String currentUid,
+) {
+  final playerUid = _mapString(character, const ['player_uid']);
+  return currentUid.isNotEmpty &&
+      playerUid.isNotEmpty &&
+      playerUid == currentUid;
+}
+
+bool _isAiCharacter(Map<String, dynamic> character) {
+  return _mapString(character, const ['type']).toLowerCase() == 'ai';
+}
+
+String _characterNameSuffix({
+  required String currentUid,
+  required String playerUid,
+  required String username,
+}) {
+  if (currentUid.isNotEmpty &&
+      playerUid.isNotEmpty &&
+      playerUid == currentUid) {
+    return '(Me)';
+  }
+  if (playerUid.isNotEmpty && username.isNotEmpty) return '($username)';
+  return '';
+}
+
 class _EmptySection extends StatelessWidget {
   const _EmptySection({required this.text});
 
@@ -1173,21 +1708,44 @@ String _eventBody(WorldDetail world) {
 String _characterDescriptionText(Map<String, dynamic> character) {
   return _mapString(character, const [
     'brief',
-    'description',
-    'identity',
   ], fallback: 'No character details yet.');
 }
 
-String _metricPercentText(Map<String, dynamic> character) {
-  final value = character['metric_value'];
-  if (value is num) {
-    final text = value % 1 == 0 ? value.toInt().toString() : value.toString();
-    return '$text%';
-  }
+String _metricStatusText(
+  Map<String, dynamic> metric,
+  Map<String, dynamic> character,
+) {
+  final label = _mapString(metric, const ['label']);
+  final unit = _mapString(metric, const ['unit']);
+  final value = _resolvedMetricValueText(
+    character['metric_value'],
+    metric['default'],
+  );
+  return '$label: $value$unit';
+}
 
+String _resolvedMetricValueText(Object? metricValue, Object? defaultValue) {
+  final parsedMetricValue = _metricNumber(metricValue);
+  final resolved = parsedMetricValue == null || parsedMetricValue == 0
+      ? defaultValue
+      : metricValue;
+  return _metricDisplayValue(resolved);
+}
+
+num? _metricNumber(Object? value) {
+  if (value is num) return value;
   final text = '$value'.trim();
-  if (text.isEmpty || text == 'null') return '0%';
-  return text.endsWith('%') ? text : '$text%';
+  if (text.isEmpty || text == 'null') return null;
+  return num.tryParse(text);
+}
+
+String _metricDisplayValue(Object? value) {
+  if (value is num) {
+    return value % 1 == 0 ? value.toInt().toString() : value.toString();
+  }
+  final text = '$value'.trim();
+  if (text.isEmpty || text == 'null') return '0';
+  return text;
 }
 
 String _mapString(
@@ -1352,16 +1910,7 @@ Map<String, List<UserAvatar>> _avatarsByLocationFromCharacterPositions(
 }
 
 String _initials(String name) {
-  final cleaned = name.trim();
-  if (cleaned.isEmpty) return '?';
-  final parts = cleaned
-      .split(RegExp(r'\s+'))
-      .where((e) => e.isNotEmpty)
-      .toList();
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return cleaned.substring(0, cleaned.length >= 2 ? 2 : 1).toUpperCase();
+  return initialsForAvatarName(name);
 }
 
 List<Map<String, dynamic>> _rootWorldLocations(
@@ -1508,4 +2057,12 @@ List<WorldPoint> _pointsFromLocationIds(
       description: '',
     );
   });
+}
+
+String _firstNonEmpty(List<String?> values) {
+  for (final value in values) {
+    final trimmed = value?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) return trimmed;
+  }
+  return '';
 }

@@ -7,6 +7,7 @@ import '../../components/chat/shared/chat_ui.dart';
 import '../../network/direct_message_message_store.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
+import '../../utils/display_name_formatter.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -486,8 +487,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final peerTitle = firstNonEmpty([
-      widget.peerName,
-      _peerUid,
+      formatUidForDisplay(widget.peerName),
+      formatUidForDisplay(_peerUid),
       'Direct message',
     ]);
     return Scaffold(
@@ -696,7 +697,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     final isMe = _myUid.trim().isNotEmpty && record.senderUid == _myUid.trim();
     final senderName = isMe
         ? 'Me'
-        : firstNonEmpty([widget.peerName, record.senderUid, _peerUid]);
+        : firstNonEmpty([
+            formatUidForDisplay(widget.peerName),
+            formatUidForDisplay(record.senderUid),
+            formatUidForDisplay(_peerUid),
+          ]);
     final messageId = int.tryParse(record.messageId);
     return ChatMessageVm(
       localId: record.messageId,

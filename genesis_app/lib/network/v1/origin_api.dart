@@ -47,7 +47,7 @@ class OriginV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"info":{"origin_id":"string","origin_name":"string","origin_version":"1","origin_version_time":"2026-05-19T10:00:00Z","owner_uid":"string","owner_name":"string","brief":"string","setting":"string","events":[],"tags":[],"metric":{},"created_at":0,"started_at":"string","tick_duration_days":30,"cover":"string","map_url":"string","status":10},"stats":{"copy_cnt":0,"discuss_cnt":0,"character_cnt":0,"connect_cnt":0,"location_cnt":0,"max_tick_cnt":0},"characters":[],"locations":[],"ticks":[]}}
+  /// {"err_no":0,"err_msg":"succ","data":{"info":{"origin_id":"string","origin_name":"string","origin_version":"1","origin_version_time":1779184800,"owner_uid":"string","owner_name":"string","brief":"string","setting":"string","events":[],"tags":[],"metric":{},"created_at":0,"started_at":"string","tick_duration_days":30,"cover":"string","map_url":"string","status":10},"stats":{"copy_cnt":0,"discuss_cnt":0,"character_cnt":0,"connect_cnt":0,"location_cnt":0,"max_tick_cnt":0},"characters":[],"locations":[],"ticks":[]}}
   /// ```
   Future<Map<String, dynamic>> detail({String? originId, String? oid}) {
     final resolvedOriginId = (originId ?? oid ?? '').trim();

@@ -1,15 +1,27 @@
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
-import '../../components/common/genesis_center_toast.dart';
+import '../../components/common/genesis_action_box.dart';
 import '../../components/page_header.dart';
-import '../../routers/app_router.dart';
 import '../../ui/genesis_ui.dart';
 import 'about_us_page.dart';
-import 'chatroom_test_page.dart';
+import 'developer_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    final confirmed = await showGenesisActionBox<bool>(
+      context: context,
+      title: 'Log out of your account?',
+      actions: const [
+        GenesisActionBoxAction<bool>(label: 'Log out', value: true),
+      ],
+    );
+    if (confirmed == true && context.mounted) {
+      await _logout(context);
+    }
+  }
 
   Future<void> _logout(BuildContext context) async {
     final services = AppServicesScope.read(context);
@@ -17,42 +29,6 @@ class SettingsPage extends StatelessWidget {
     await services.sessionStore.clearUid();
     if (!context.mounted) return;
     Navigator.of(context).pop(true);
-  }
-
-  Future<void> _clearDirectMessageCache(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Clear direct message cache?'),
-          content: const Text(
-            'This only removes cached conversations and messages from this device.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Clear'),
-            ),
-          ],
-        );
-      },
-    );
-    if (confirmed != true || !context.mounted) return;
-
-    final services = AppServicesScope.read(context);
-    try {
-      await services.directMessageConversations.clearCache();
-      await services.directMessageMessages.clearCache();
-      if (!context.mounted) return;
-      showGenesisToast(context, 'Direct message cache cleared');
-    } catch (error) {
-      if (!context.mounted) return;
-      showGenesisToast(context, 'Clear failed: $error');
-    }
   }
 
   @override
@@ -97,69 +73,12 @@ class SettingsPage extends StatelessWidget {
               ),
               const Divider(height: 1, color: Color(0xFFE7E7E7)),
               InkWell(
-                onTap: () => Navigator.of(context).pushNamed(
-                  RouteNames.locationChat,
-                  arguments: const {
-                    'world_id': 'world-1',
-                    'world_name': 'World 1',
-                    'location_id': 'castle',
-                    'location_name': 'Castle',
-                  },
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Location chat test',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.black,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right,
-                        color: Color(0xFFB5B5B5),
-                        size: 30,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const Divider(height: 1, color: Color(0xFFE7E7E7)),
-              InkWell(
-                onTap: () => _clearDirectMessageCache(context),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Clear direct message cache',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.black,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right,
-                        color: Color(0xFFB5B5B5),
-                        size: 30,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const Divider(height: 1, color: Color(0xFFE7E7E7)),
-              InkWell(
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => const ChatroomTestPage(),
+                    builder: (_) => AppServicesScope(
+                      services: AppServicesScope.read(context),
+                      child: const DeveloperPage(),
+                    ),
                   ),
                 ),
                 child: const Padding(
@@ -168,7 +87,7 @@ class SettingsPage extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          'WebSocket test',
+                          'Developer page',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.black,
@@ -189,7 +108,7 @@ class SettingsPage extends StatelessWidget {
               const Spacer(),
               GenesisPrimaryButton(
                 label: 'Log out',
-                onPressed: () => _logout(context),
+                onPressed: () => _confirmLogout(context),
                 backgroundColor: const Color(0xFFE1E1E3),
                 foregroundColor: Colors.black,
               ),

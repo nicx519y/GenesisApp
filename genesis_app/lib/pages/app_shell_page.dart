@@ -26,28 +26,32 @@ class _AppShellPageState extends State<AppShellPage>
     with WidgetsBindingObserver {
   late int _selectedIndex;
   late final Set<int> _visitedTabIndexes;
+  late final ValueNotifier<bool> _messagesTabActiveNotifier;
   final Map<int, Widget> _tabPageCache = <int, Widget>{};
   final ValueNotifier<UnreadSummary> _unreadSummaryNotifier =
       ValueNotifier<UnreadSummary>(UnreadSummary.zero);
-  Timer? _unreadPollTimer;
-  bool _unreadPollInFlight = false;
-  bool _unreadPollingActive = false;
+  static const _messagesPollInterval = Duration(seconds: 5);
+  Timer? _messagesPollTimer;
+  bool _messagesPollingActive = false;
+  int _messagesPollInFlightCount = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _selectedIndex = _normalTabIndex(widget.initialIndex);
+    _messagesTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 3);
     _visitedTabIndexes = <int>{_selectedIndex};
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startUnreadPolling();
+      _startMessagesPolling();
     });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _stopUnreadPolling();
+    _stopMessagesPolling();
+    _messagesTabActiveNotifier.dispose();
     _unreadSummaryNotifier.dispose();
     super.dispose();
   }
@@ -55,30 +59,58 @@ class _AppShellPageState extends State<AppShellPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _startUnreadPolling();
+      _startMessagesPolling();
     } else {
-      _stopUnreadPolling();
+      _stopMessagesPolling();
     }
   }
 
-  void _startUnreadPolling() {
-    if (!mounted || _unreadPollingActive) return;
-    _unreadPollingActive = true;
-    unawaited(_refreshUnreadSummary());
-    _unreadPollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-      unawaited(_refreshUnreadSummary());
+  void _startMessagesPolling() {
+    if (!mounted || _messagesPollingActive) return;
+    _messagesPollingActive = true;
+    unawaited(_refreshMessagesData(force: true));
+  }
+
+  void _stopMessagesPolling() {
+    _messagesPollingActive = false;
+    _messagesPollTimer?.cancel();
+    _messagesPollTimer = null;
+  }
+
+  void _scheduleNextMessagesPoll() {
+    if (!_messagesPollingActive || !mounted) return;
+    _messagesPollTimer?.cancel();
+    _messagesPollTimer = Timer(_messagesPollInterval, () {
+      unawaited(_refreshMessagesData());
     });
   }
 
-  void _stopUnreadPolling() {
-    _unreadPollingActive = false;
-    _unreadPollTimer?.cancel();
-    _unreadPollTimer = null;
+  Future<void> _refreshMessagesData({bool force = false}) async {
+    if (_messagesPollInFlightCount > 0) {
+      _scheduleNextMessagesPoll();
+      return;
+    }
+    _messagesPollTimer?.cancel();
+    _messagesPollTimer = null;
+    _messagesPollInFlightCount += 1;
+    try {
+      final services = AppServicesScope.read(context);
+      final requests = <Future<void>>[
+        _refreshUnreadSummary(),
+        if (await _hasLocalLoginSession())
+          services.directMessageConversations.syncConversations(),
+      ];
+      await Future.wait(requests);
+    } catch (e, st) {
+      debugPrint('[Messages][Poll] refresh failed: $e');
+      debugPrint('[Messages][Poll] stacktrace:\n$st');
+    } finally {
+      _messagesPollInFlightCount -= 1;
+      _scheduleNextMessagesPoll();
+    }
   }
 
-  Future<void> _refreshUnreadSummary({bool force = false}) async {
-    if (_unreadPollInFlight && !force) return;
-    _unreadPollInFlight = true;
+  Future<void> _refreshUnreadSummary() async {
     try {
       final summary = await AppServicesScope.read(
         context,
@@ -88,8 +120,6 @@ class _AppShellPageState extends State<AppShellPage>
     } catch (e, st) {
       debugPrint('[Messages][Unread] unreadSummary polling failed: $e');
       debugPrint('[Messages][Unread] stacktrace:\n$st');
-    } finally {
-      _unreadPollInFlight = false;
     }
   }
 
@@ -120,6 +150,7 @@ class _AppShellPageState extends State<AppShellPage>
       if (!mounted) return;
       if (_selectedIndex == 3) return;
       _selectTab(3);
+      unawaited(_refreshMessagesData(force: true));
       return;
     }
 
@@ -136,6 +167,7 @@ class _AppShellPageState extends State<AppShellPage>
     final loggedIn = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => LoginSheet(onLogin: _loginWithProvider),
     );
     if (!mounted || loggedIn != true) return false;
@@ -189,6 +221,7 @@ class _AppShellPageState extends State<AppShellPage>
       _selectedIndex = index;
       _visitedTabIndexes.add(index);
     });
+    _messagesTabActiveNotifier.value = _selectedIndex == 3;
   }
 
   void _handleMeLoggedOut() {
@@ -198,6 +231,7 @@ class _AppShellPageState extends State<AppShellPage>
       _selectedIndex = 1;
       _visitedTabIndexes.add(1);
     });
+    _messagesTabActiveNotifier.value = false;
   }
 
   Widget _cachedTabPage(int index) {
@@ -210,7 +244,8 @@ class _AppShellPageState extends State<AppShellPage>
           builder: (context, unreadSummary, _) {
             return MessagesPage(
               unreadSummary: unreadSummary,
-              onUnreadSummaryRefresh: () => _refreshUnreadSummary(force: true),
+              onMessagesDataRefresh: () => _refreshMessagesData(force: true),
+              isActiveListenable: _messagesTabActiveNotifier,
             );
           },
         ),

@@ -125,6 +125,7 @@ void main() {
       'oid': 'o_5011605',
       'name': 'One Bed in Okinawa',
       'map_image': 'cover.webp',
+      'owner_uid': 'u_origin_owner',
       'locations': [
         {
           'id': 103145202,
@@ -148,6 +149,7 @@ void main() {
       'loc_1',
       'loc_1_1',
     ]);
+    expect(detail.ownerUid, 'u_origin_owner');
     expect(detail.locationTree.map((node) => node.id), ['loc_1']);
     expect(detail.processedLocationTree.root?.id, 'loc_1');
     expect(detail.processedLocationTree.renderRoots.map((node) => node.id), [

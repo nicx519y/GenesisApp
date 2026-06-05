@@ -235,6 +235,7 @@ class CreateUploadBox extends StatefulWidget {
     this.height = 176,
     this.iconSize = 38,
     this.cropSize,
+    this.showRemoveLinkWhenFilled = false,
   });
 
   final TextEditingController controller;
@@ -244,6 +245,7 @@ class CreateUploadBox extends StatefulWidget {
   final double height;
   final double iconSize;
   final Size? cropSize;
+  final bool showRemoveLinkWhenFilled;
 
   @override
   State<CreateUploadBox> createState() => _CreateUploadBoxState();
@@ -303,7 +305,8 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
   @override
   Widget build(BuildContext context) {
     final imageUrl = widget.controller.text.trim();
-    return Material(
+    final hasImage = _previewBytes != null || imageUrl.isNotEmpty;
+    final uploadBox = Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -323,7 +326,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
               borderRadius: BorderRadius.circular(14),
             ),
             clipBehavior: Clip.antiAlias,
-            child: _previewBytes == null && imageUrl.isEmpty
+            child: !hasImage
                 ? _EmptyUpload(widget.label, widget.iconSize)
                 : _Preview(
                     imageUrl: imageUrl,
@@ -335,6 +338,42 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
         ),
       ),
     );
+    if (!widget.showRemoveLinkWhenFilled || !hasImage) return uploadBox;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        uploadBox,
+        const SizedBox(height: 6),
+        TextButton(
+          key: const ValueKey('create-upload-remove'),
+          onPressed: _isUploading ? null : _removeImage,
+          style: TextButton.styleFrom(
+            foregroundColor: createFormGreen,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            textStyle: const TextStyle(
+              fontSize: 12,
+              height: 1,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          child: const Text('Remove'),
+        ),
+      ],
+    );
+  }
+
+  void _removeImage() {
+    _progressTimer?.cancel();
+    setState(() {
+      _previewBytes = null;
+      _isUploading = false;
+      _uploadProgress = 0;
+    });
+    widget.controller.clear();
+    widget.onChanged();
   }
 
   Future<void> _pickCropAndUpload(BuildContext context) async {

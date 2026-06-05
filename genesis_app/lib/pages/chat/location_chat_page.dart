@@ -3,9 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/bootstrap/service_registry.dart';
+import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../network/chatroom/chatroom_client.dart';
+import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
+import '../../utils/display_name_formatter.dart';
 
 class LocationChatPage extends StatefulWidget {
   const LocationChatPage({
@@ -14,12 +18,14 @@ class LocationChatPage extends StatefulWidget {
     required this.locationId,
     this.worldName,
     this.locationName,
+    this.connection,
   });
 
   final String worldId;
   final String locationId;
   final String? worldName;
   final String? locationName;
+  final ChatroomConnectionController? connection;
 
   @override
   State<LocationChatPage> createState() => _LocationChatPageState();
@@ -34,27 +40,35 @@ class _LocationChatPageState extends State<LocationChatPage>
   final _activeStreams = <int, ChatMessageVm>{};
 
   ChatroomSession? _session;
+  ChatroomSession? _attachedSession;
+  ChatroomConnectionController? _connection;
+  StreamSubscription<ChatroomConnectionSnapshot>? _connectionSubscription;
   StreamSubscription<ChatroomEvent>? _eventsSubscription;
-  StreamSubscription<ChatroomErrorEvent>? _errorsSubscription;
+  StreamSubscription<ChatroomFailureEvent>? _failuresSubscription;
   StreamSubscription<ChatroomAiMessageStream>? _streamsSubscription;
   String _mySenderId = '';
   String _mySenderName = '';
-  String _status = 'Connecting...';
+  ChatroomConnectionStatus _connectionStatus =
+      ChatroomConnectionStatus.disconnected;
   List<ChatroomOnlineUser> _onlineUsers = const <ChatroomOnlineUser>[];
-  bool _connecting = true;
+  bool _ownsConnection = false;
   bool _sending = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_connect());
+    _startConnection();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    unawaited(_closeSession());
+    final connection = _connection;
+    if (_ownsConnection && connection != null) {
+      unawaited(connection.disconnect().catchError((Object _) {}));
+    }
+    unawaited(_closeConnection());
     _scrollController.dispose();
     _textController.dispose();
     super.dispose();
@@ -65,83 +79,153 @@ class _LocationChatPageState extends State<LocationChatPage>
     _revealLatestMessageAfterLayout();
   }
 
-  Future<void> _connect() async {
-    setState(() {
-      _connecting = true;
-      _status = 'Connecting...';
-    });
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_ownsConnection) return;
+    final connection = _connection;
+    if (connection == null) return;
+    switch (state) {
+      case AppLifecycleState.resumed:
+        unawaited(connection.handleAppForeground().catchError((Object _) {}));
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+        unawaited(connection.handleAppBackground().catchError((Object _) {}));
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+        break;
+    }
+  }
 
+  void _startConnection() {
+    final provided = widget.connection;
+    if (provided != null) {
+      _connection = provided;
+      _ownsConnection = false;
+      _attachConnection(provided);
+      unawaited(_joinLocation(provided));
+      return;
+    }
+
+    final services = AppServicesScope.read(context);
+    final connection = ChatroomConnectionController(client: services.chatroom);
+    _connection = connection;
+    _ownsConnection = true;
+    _attachConnection(connection);
+    unawaited(_connectFallbackAndJoin(connection, services));
+  }
+
+  Future<void> _connectFallbackAndJoin(
+    ChatroomConnectionController connection,
+    AppServices services,
+  ) async {
     try {
-      final services = AppServicesScope.read(context);
       final uid = (await services.sessionStore.readUid())?.trim() ?? '';
       final profile = services.identityAuth.currentProfile();
       final senderId = firstNonEmpty([profile?.uid, uid, 'local-user']);
       final senderName = firstNonEmpty([
         profile?.displayName,
         profile?.email,
-        uid,
+        formatUidForDisplay(uid),
         'Me',
       ]);
-
-      final session = await services.chatroom.connect(
-        worldInstanceId: widget.worldId,
-        locationId: widget.locationId,
-        userId: senderId,
-        senderId: senderId,
-        senderName: senderName,
+      _mySenderId = senderId;
+      _mySenderName = senderName;
+      await connection.connect(
+        worldId: widget.worldId,
+        identity: ChatroomConnectionIdentity(
+          userId: senderId,
+          senderId: senderId,
+          senderName: senderName,
+        ),
       );
-
-      if (!mounted) {
-        await session.close();
-        return;
-      }
-
-      _attachSession(session);
-      setState(() {
-        _session = session;
-        _mySenderId = senderId;
-        _mySenderName = senderName;
-        _onlineUsers = session.joined?.onlineUsers ?? const [];
-        _status = 'Connected';
-        _connecting = false;
-      });
+      await _joinLocation(connection);
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _status = 'Connection failed';
-        _connecting = false;
         _messages.add(ChatMessageVm.system('WebSocket connection failed: $e'));
       });
       _scrollToBottom();
     }
   }
 
-  void _attachSession(ChatroomSession session) {
-    _eventsSubscription = session.events.listen((event) {
+  Future<void> _joinLocation(ChatroomConnectionController connection) async {
+    try {
+      if (_mySenderId.isEmpty || _mySenderName.isEmpty) {
+        final session = connection.session;
+        _mySenderId = firstNonEmpty([session?.senderId, 'local-user']);
+        _mySenderName = firstNonEmpty([
+          formatUidForDisplay(session?.senderName ?? ''),
+          'Me',
+        ]);
+      }
+      await connection.join(locationId: widget.locationId);
+    } catch (e) {
       if (!mounted) return;
-      switch (event) {
-        case ChatroomJoined e:
+      setState(() {
+        _messages.add(ChatMessageVm.system('Join failed: $e'));
+      });
+      _scrollToBottom();
+    }
+  }
+
+  void _attachConnection(ChatroomConnectionController connection) {
+    _failuresSubscription = bindChatroomFailureToast(
+      context,
+      connection.failures,
+      onFailure: _handleFailure,
+    );
+    _connectionSubscription = connection.states.listen(_handleConnectionState);
+    _handleConnectionState(connection.snapshot);
+  }
+
+  void _handleConnectionState(ChatroomConnectionSnapshot snapshot) {
+    final session = snapshot.session;
+    if (session != null && !identical(session, _attachedSession)) {
+      _attachSession(session);
+    }
+    if (!mounted) return;
+    setState(() {
+      _session = session;
+      _connectionStatus = snapshot.status;
+      _onlineUsers = snapshot.joined?.onlineUsers ?? _onlineUsers;
+      _mySenderId = firstNonEmpty([session?.senderId, _mySenderId]);
+      _mySenderName = firstNonEmpty([
+        formatUidForDisplay(session?.senderName ?? ''),
+        _mySenderName,
+      ]);
+    });
+  }
+
+  void _attachSession(ChatroomSession session) {
+    unawaited(_eventsSubscription?.cancel());
+    unawaited(_streamsSubscription?.cancel());
+    _attachedSession = session;
+    _eventsSubscription = session.listenMessages(
+      ChatroomMessageHandlers(
+        onJoined: (e) {
+          if (!mounted) return;
           setState(() {
             _onlineUsers = e.onlineUsers;
-            _status = 'Connected';
           });
-        case ChatroomUserMessage e:
+        },
+        onUserMessage: (e) {
+          if (!mounted) return;
           _handleUserMessage(e);
-        case ChatroomQueuePosition e:
+        },
+        onQueuePosition: (e) {
+          if (!mounted) return;
           setState(() {
             _messages.add(
               ChatMessageVm.system('Queue position: ${e.position}'),
             );
           });
           _scrollToBottom();
-        case ChatroomErrorEvent e:
-          _handleError(e);
-        default:
-          break;
-      }
-    }, onDone: _markDisconnected);
-
-    _errorsSubscription = session.errors.listen(_handleError);
+        },
+      ),
+      onDone: _markDisconnected,
+    );
     _streamsSubscription = session.streams.listen(_handleAiStream);
   }
 
@@ -233,17 +317,23 @@ class _LocationChatPageState extends State<LocationChatPage>
     _streamSubscriptions.add(doneSubscription);
   }
 
-  void _handleError(ChatroomErrorEvent error) {
+  void _handleFailure(ChatroomFailureEvent failure) {
     if (!mounted) return;
     setState(() {
-      _messages.add(ChatMessageVm.system('${error.code}: ${error.message}'));
+      _messages.add(
+        ChatMessageVm.system('${failure.code}: ${failure.message}'),
+      );
     });
     _scrollToBottom();
   }
 
   Future<void> _send() async {
     final session = _session;
-    if (session == null || _sending) return;
+    if (session == null ||
+        _connectionStatus != ChatroomConnectionStatus.joined ||
+        _sending) {
+      return;
+    }
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
@@ -284,17 +374,21 @@ class _LocationChatPageState extends State<LocationChatPage>
     }
   }
 
-  Future<void> _closeSession() async {
-    final session = _session;
+  Future<void> _closeConnection() async {
+    final connection = _connection;
+    final ownsConnection = _ownsConnection;
+    _connection = null;
     _session = null;
-    _connecting = false;
+    _attachedSession = null;
     _sending = false;
 
+    await _connectionSubscription?.cancel();
     await _eventsSubscription?.cancel();
-    await _errorsSubscription?.cancel();
+    await _failuresSubscription?.cancel();
     await _streamsSubscription?.cancel();
+    _connectionSubscription = null;
     _eventsSubscription = null;
-    _errorsSubscription = null;
+    _failuresSubscription = null;
     _streamsSubscription = null;
 
     for (final subscription in _streamSubscriptions) {
@@ -303,8 +397,18 @@ class _LocationChatPageState extends State<LocationChatPage>
     _streamSubscriptions.clear();
     _activeStreams.clear();
 
-    if (session != null) {
-      await session.close();
+    if (connection != null) {
+      try {
+        await connection.leave();
+      } catch (_) {
+        // Route disposal must not wait on or surface leave failures.
+      }
+      if (ownsConnection) {
+        try {
+          await connection.disconnect();
+        } catch (_) {}
+        await connection.dispose();
+      }
     }
   }
 
@@ -312,7 +416,7 @@ class _LocationChatPageState extends State<LocationChatPage>
     if (!mounted) return;
     setState(() {
       _session = null;
-      _status = 'Disconnected';
+      _connectionStatus = ChatroomConnectionStatus.disconnected;
     });
   }
 
@@ -346,13 +450,12 @@ class _LocationChatPageState extends State<LocationChatPage>
     final titleCount = _onlineUsers.isEmpty ? 1 : _onlineUsers.length;
     final title = firstNonEmpty([widget.locationName, widget.locationId]);
     final worldName = firstNonEmpty([widget.worldName, widget.worldId]);
-    final subtitle = _onlineUsers.isEmpty
-        ? _status
-        : _onlineUsers
-              .map((user) => user.senderName)
-              .where((name) => name.trim().isNotEmpty)
-              .take(3)
-              .join(', ');
+    final subtitle = _chatroomStatusLabel(_connectionStatus);
+    final joined = _connectionStatus == ChatroomConnectionStatus.joined;
+    final connecting =
+        _connectionStatus == ChatroomConnectionStatus.connecting ||
+        _connectionStatus == ChatroomConnectionStatus.connected ||
+        _connectionStatus == ChatroomConnectionStatus.joining;
 
     return Scaffold(
       backgroundColor: ChatUiStyleConfig.standard.conversationBackgroundColor,
@@ -361,9 +464,9 @@ class _LocationChatPageState extends State<LocationChatPage>
         children: [
           ChatHeader(
             title: '$title ($titleCount)',
-            subtitle: subtitle.isEmpty ? _status : subtitle,
-            connected: _session != null,
-            connecting: _connecting,
+            subtitle: subtitle,
+            connected: joined,
+            connecting: connecting,
             onBack: () => Navigator.of(context).maybePop(),
           ),
           Expanded(
@@ -376,13 +479,24 @@ class _LocationChatPageState extends State<LocationChatPage>
           ChatComposer(
             controller: _textController,
             inputEnabled: !_sending,
-            sendEnabled: _session != null && !_sending,
+            sendEnabled: joined && _session != null && !_sending,
             sending: _sending,
             onSend: _send,
+            sendLabel: 'Send',
             onHeightChanged: (_) => _revealLatestMessageAfterLayout(),
           ),
         ],
       ),
     );
+  }
+
+  String _chatroomStatusLabel(ChatroomConnectionStatus status) {
+    return switch (status) {
+      ChatroomConnectionStatus.disconnected => 'Disconnect',
+      ChatroomConnectionStatus.connecting => 'Connecting',
+      ChatroomConnectionStatus.connected => 'Connecting',
+      ChatroomConnectionStatus.joining => 'Joining',
+      ChatroomConnectionStatus.joined => 'Joined',
+    };
   }
 }

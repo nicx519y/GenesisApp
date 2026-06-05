@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/list_loading_skeleton.dart';
 import '../../components/genesis_logo.dart';
 import '../../components/home/popular_origin_list.dart';
 import '../../components/home/world_item_card.dart';
 import '../../components/origin/origin_item_card.dart';
-import '../../components/secend_tabs.dart';
 import '../../components/search_bar.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/secend_tabs.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -24,7 +25,7 @@ class HomePage extends StatelessWidget {
           const _HomeHeader(),
           const SizedBox(height: 4),
           SecendTabs(labels: tabs),
-          const SizedBox(height: 10),
+          const SizedBox(height: 4),
           const Expanded(
             child: TabBarView(
               children: [_MyWorldFeed(index: 0), _PopularOriginFeed(index: 1)],
@@ -88,6 +89,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   var _scrollListenerAttached = false;
   var _isInitialLoading = false;
   var _isLoadingMore = false;
+  var _isRefreshing = false;
   Object? _error;
 
   @override
@@ -134,6 +136,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _hasRequested = false;
     _isInitialLoading = false;
     _isLoadingMore = false;
+    _isRefreshing = false;
     _error = null;
   }
 
@@ -183,35 +186,38 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   Future<void> _refreshItems() async {
     setState(() {
-      _items.clear();
-      _nextPage = 1;
-      _total = 0;
-      _hasMore = true;
       _error = null;
-      _isInitialLoading = true;
+      _isInitialLoading = _items.isEmpty;
+      _isRefreshing = true;
     });
 
     try {
       final page = await _fetchPage(1);
       if (!mounted) return;
       setState(() {
-        _items.addAll(page.items);
+        _items
+          ..clear()
+          ..addAll(page.items);
         _total = page.total;
         _nextPage = 2;
         _hasMore = _items.length < _total && page.items.isNotEmpty;
         _isInitialLoading = false;
+        _isRefreshing = false;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error;
         _isInitialLoading = false;
+        _isRefreshing = false;
       });
     }
   }
 
   Future<void> _loadNextPage() async {
-    if (!_hasMore || _isInitialLoading || _isLoadingMore) return;
+    if (!_hasMore || _isInitialLoading || _isLoadingMore || _isRefreshing) {
+      return;
+    }
     setState(() {
       _isLoadingMore = true;
       _error = null;
@@ -239,9 +245,8 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (!_hasRequested) return const SizedBox.shrink();
-    if (_isInitialLoading) {
-      return const Center(child: CircularProgressIndicator());
+    if (!_hasRequested || _isInitialLoading) {
+      return const GenesisListLoadingSkeleton.worldList();
     }
 
     if (_error != null && _items.isEmpty) {
@@ -305,7 +310,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                   ).pushNamed(RouteNames.world, arguments: {'wid': vm.wid}),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: WorldItemCard(item: vm),
+                    child: WorldItemCard(item: vm, thumbnailBorderRadius: 0),
                   ),
                 );
               },
@@ -345,6 +350,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   var _scrollListenerAttached = false;
   var _isInitialLoading = false;
   var _isLoadingMore = false;
+  var _isRefreshing = false;
   Object? _error;
 
   @override
@@ -391,6 +397,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
     _hasRequested = false;
     _isInitialLoading = false;
     _isLoadingMore = false;
+    _isRefreshing = false;
     _error = null;
   }
 
@@ -433,35 +440,38 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
 
   Future<void> _refreshItems() async {
     setState(() {
-      _items.clear();
-      _nextPage = 1;
-      _total = 0;
-      _hasMore = true;
       _error = null;
-      _isInitialLoading = true;
+      _isInitialLoading = _items.isEmpty;
+      _isRefreshing = true;
     });
 
     try {
       final page = await _fetchPage(1);
       if (!mounted) return;
       setState(() {
-        _items.addAll(page.items);
+        _items
+          ..clear()
+          ..addAll(page.items);
         _total = page.total;
         _nextPage = 2;
         _hasMore = _items.length < _total && page.items.isNotEmpty;
         _isInitialLoading = false;
+        _isRefreshing = false;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _error = error;
         _isInitialLoading = false;
+        _isRefreshing = false;
       });
     }
   }
 
   Future<void> _loadNextPage() async {
-    if (!_hasMore || _isInitialLoading || _isLoadingMore) return;
+    if (!_hasMore || _isInitialLoading || _isLoadingMore || _isRefreshing) {
+      return;
+    }
     setState(() {
       _isLoadingMore = true;
       _error = null;
@@ -489,9 +499,8 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (!_hasRequested) return const SizedBox.shrink();
-    if (_isInitialLoading) {
-      return const Center(child: CircularProgressIndicator());
+    if (!_hasRequested || _isInitialLoading) {
+      return const GenesisListLoadingSkeleton.popularOriginList();
     }
 
     if (_error != null && _items.isEmpty) {
@@ -525,6 +534,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
               items: _items,
               controller: _scrollController,
               isLoadingMore: _isLoadingMore,
+              thumbnailBorderRadius: 0,
               onItemTap: (item) {
                 Navigator.of(context).pushNamed(
                   RouteNames.originWorld,

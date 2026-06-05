@@ -59,6 +59,7 @@ class LocationChatMessageRow extends StatelessWidget {
           LocationChatAvatar(
             label: locationChatInitials(message.senderName),
             colors: const [Color(0xFFFFE7B0), Color(0xFF9ED7FF)],
+            seed: message.senderName,
           ),
         ],
       ),
@@ -78,11 +79,12 @@ class LocationChatMessageRow extends StatelessWidget {
               LocationChatAvatar(
                 label: locationChatInitials(message.senderName),
                 colors: const [Color(0xFFBFD7F2), Color(0xFF4F6D94)],
+                seed: message.senderName,
               ),
               if (message.senderType == 'character')
                 const Positioned(
-                  right: -5,
-                  top: -7,
+                  right: -8,
+                  top: -9,
                   child: LocationChatAiBadge(),
                 ),
             ],

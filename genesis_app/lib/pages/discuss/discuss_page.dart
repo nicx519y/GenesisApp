@@ -9,6 +9,7 @@ import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/page_header.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/origin.dart';
+import '../../utils/display_name_formatter.dart';
 
 class DiscussPage extends StatefulWidget {
   const DiscussPage({super.key, required this.oid, this.originId = 0});
@@ -141,6 +142,8 @@ class _DiscussPageState extends State<DiscussPage> {
                   showHeader: false,
                   collapseInitialItems: false,
                   enableViewMore: false,
+                  showActions: true,
+                  showReplies: true,
                 ),
                 AnimatedBuilder(
                   animation: _discussController,
@@ -188,7 +191,7 @@ class _DiscussOriginSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final originator = origin.originator.trim();
+    final originator = formatUidForDisplay(origin.originator);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -199,7 +202,7 @@ class _DiscussOriginSummary extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                origin.name,
+                originDisplayName(origin.name, fallback: origin.oid),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(

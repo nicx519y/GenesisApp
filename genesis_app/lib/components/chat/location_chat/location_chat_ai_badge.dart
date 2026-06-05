@@ -1,15 +1,16 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
+
+import '../../../icons/my_flutter_app_icons.dart';
 
 class LocationChatAiBadge extends StatelessWidget {
   const LocationChatAiBadge({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Transform.rotate(
-      angle: math.pi / 4,
-      child: Container(width: 16, height: 16, color: Colors.red),
+    return const Icon(
+      MyFlutterApp.redstarCharIcon,
+      size: 16,
+      color: Color(0xFFF42C47),
     );
   }
 }

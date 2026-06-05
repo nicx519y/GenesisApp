@@ -5,7 +5,8 @@ import 'dart:io';
 import 'http_transport.dart';
 
 class IoHttpTransport implements HttpTransport {
-  IoHttpTransport({HttpClient? client}) : _client = client ?? HttpClient();
+  IoHttpTransport({HttpClient? client, String? proxy})
+    : _client = client ?? createProxyAwareHttpClient(proxy);
 
   final HttpClient _client;
 
@@ -42,4 +43,23 @@ class IoHttpTransport implements HttpTransport {
       body: body,
     );
   }
+}
+
+HttpClient createProxyAwareHttpClient(String? proxy) {
+  final client = HttpClient();
+  final proxyAddress = _normalizeProxyAddress(proxy);
+  if (proxyAddress != null) {
+    client.findProxy = (_) => 'PROXY $proxyAddress; DIRECT';
+  }
+  return client;
+}
+
+String? _normalizeProxyAddress(String? proxy) {
+  final raw = proxy?.trim();
+  if (raw == null || raw.isEmpty) return null;
+  final parsed = Uri.tryParse(raw.contains('://') ? raw : 'http://$raw');
+  if (parsed == null || parsed.host.trim().isEmpty || !parsed.hasPort) {
+    return raw;
+  }
+  return '${parsed.host}:${parsed.port}';
 }

@@ -295,6 +295,23 @@ void main() {
     expect([
       for (final tick in detailTicks) ((tick as Map)['tick_no'] as num).toInt(),
     ], List<int>.generate(detailTicks.length, (index) => index + 1));
+    final tickList = await api.v1.world.tickList(worldId: world, pn: 1, rn: 2);
+    expect(tickList['total'], detailTicks.length);
+    expect(tickList['pn'], 1);
+    expect(tickList['rn'], 2);
+    final tickListItems = tickList['list'] as List;
+    expect(tickListItems, hasLength(2));
+    expect(
+      [
+        for (final tick in tickListItems)
+          ((tick as Map)['tick_no'] as num).toInt(),
+      ],
+      [4, 3],
+    );
+    expect(
+      ((tickListItems.first as Map)['tick_result'] as Map)['narrator'],
+      isNotEmpty,
+    );
     final apply = await api.v1.world.apply(worldId: world, message: '想加入这个世界');
     expect(apply['status'], 10);
     final applyId = apply['apply_id'] as String;

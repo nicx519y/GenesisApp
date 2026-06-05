@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/origin/origin_character_form.dart';
@@ -28,6 +29,8 @@ typedef OriginSubmitHandler =
       CreateOriginDraft draft,
     );
 
+enum _DraftLeaveAction { save, discard }
+
 class OriginDraftFlowPage extends StatefulWidget {
   const OriginDraftFlowPage({
     super.key,
@@ -43,6 +46,8 @@ class OriginDraftFlowPage extends StatefulWidget {
     this.failurePrefix = 'Save failed',
     this.canSubmit,
     this.popOnSubmitSuccess = false,
+    this.confirmLeaveWithDraftOptions = false,
+    this.onDiscardDraft,
   });
 
   final String title;
@@ -58,6 +63,8 @@ class OriginDraftFlowPage extends StatefulWidget {
   final String failurePrefix;
   final bool Function(CreateOriginDraft draft)? canSubmit;
   final bool popOnSubmitSuccess;
+  final bool confirmLeaveWithDraftOptions;
+  final Future<void> Function(OriginDraftRepository repository)? onDiscardDraft;
 
   @override
   State<OriginDraftFlowPage> createState() => _OriginDraftFlowPageState();
@@ -67,6 +74,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
   CreateOriginDraft _draft = CreateOriginDraft.empty();
   bool _isLoading = true;
   bool _isSubmitting = false;
+  bool _isHandlingLeave = false;
 
   @override
   void initState() {
@@ -138,6 +146,79 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     showGenesisToast(context, message);
   }
 
+  Future<void> _handleLeaveRequest() async {
+    if (_isHandlingLeave) return;
+    _isHandlingLeave = true;
+    try {
+      final latest = await widget.repository.loadSummaryDraft();
+      if (!mounted) return;
+      if (!widget.confirmLeaveWithDraftOptions || !_hasDraftContent(latest)) {
+        Navigator.of(context).pop();
+        return;
+      }
+
+      final action = await showGenesisActionBox<_DraftLeaveAction>(
+        context: context,
+        title: 'Save the draft before leaving?',
+        actions: const [
+          GenesisActionBoxAction<_DraftLeaveAction>(
+            label: 'Save',
+            value: _DraftLeaveAction.save,
+          ),
+          GenesisActionBoxAction<_DraftLeaveAction>(
+            label: 'Discard',
+            value: _DraftLeaveAction.discard,
+            color: createFormText,
+          ),
+        ],
+      );
+      if (!mounted || action == null) return;
+      if (action == _DraftLeaveAction.save) {
+        await widget.repository.saveFinalDraft(latest);
+      } else {
+        await widget.onDiscardDraft?.call(widget.repository);
+      }
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } finally {
+      _isHandlingLeave = false;
+    }
+  }
+
+  bool _hasDraftContent(CreateOriginDraft draft) {
+    return draft.basicsSaved ||
+        draft.charactersSaved ||
+        draft.locationsSaved ||
+        draft.storyEventsSaved ||
+        draft.basics.originName.trim().isNotEmpty ||
+        draft.basics.worldView.trim().isNotEmpty ||
+        draft.basics.worldLogic.trim().isNotEmpty ||
+        draft.basics.metricJson.trim().isNotEmpty ||
+        draft.basics.coverImageUrl.trim().isNotEmpty ||
+        draft.characters.any(_characterHasContent) ||
+        draft.locations.any(_locationHasContent) ||
+        draft.storyEvents.any((item) => item.event.trim().isNotEmpty);
+  }
+
+  bool _characterHasContent(CharacterDraft item) {
+    return item.charId.trim().isNotEmpty ||
+        item.avatarUrl.trim().isNotEmpty ||
+        item.name.trim().isNotEmpty ||
+        item.identity.trim().isNotEmpty ||
+        item.personality.trim().isNotEmpty ||
+        item.bio.trim().isNotEmpty ||
+        item.goal.trim().isNotEmpty;
+  }
+
+  bool _locationHasContent(LocationDraft item) {
+    return item.locationId.trim().isNotEmpty ||
+        item.parentLocationId.trim().isNotEmpty ||
+        item.imageUrl.trim().isNotEmpty ||
+        item.name.trim().isNotEmpty ||
+        item.description.trim().isNotEmpty ||
+        item.initialCharacterIds.isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -147,72 +228,82 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     final submitEnabled =
         !_isSubmitting && (widget.canSubmit?.call(_draft) ?? true);
 
-    return Scaffold(
-      appBar: GenesisBackAppBar(pageName: widget.title),
-      body: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            children: [
-              const SizedBox(height: 14),
-              Expanded(
-                child: ListView(
-                  children: [
-                    _SectionRow(
-                      icon: '🌐',
-                      title: 'Basics',
-                      summary: _basicsSummary(_draft),
-                      completed: _draft.basicsSaved,
-                      onTap: () => _openSection(
-                        widget.basicsPageBuilder(widget.repository),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        unawaited(_handleLeaveRequest());
+      },
+      child: Scaffold(
+        appBar: GenesisBackAppBar(
+          pageName: widget.title,
+          onBack: () => unawaited(_handleLeaveRequest()),
+        ),
+        body: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: [
+                const SizedBox(height: 14),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      _SectionRow(
+                        icon: '🌐',
+                        title: 'Basics',
+                        summary: _basicsSummary(_draft),
+                        completed: _draft.basicsSaved,
+                        onTap: () => _openSection(
+                          widget.basicsPageBuilder(widget.repository),
+                        ),
                       ),
-                    ),
-                    _SectionRow(
-                      icon: '👤',
-                      title: 'Characters',
-                      summary: _charactersSummary(_draft),
-                      completed: _draft.charactersSaved,
-                      onTap: () => _openSection(
-                        widget.charactersPageBuilder(widget.repository),
+                      _SectionRow(
+                        icon: '👤',
+                        title: 'Characters',
+                        summary: _charactersSummary(_draft),
+                        completed: _draft.charactersSaved,
+                        onTap: () => _openSection(
+                          widget.charactersPageBuilder(widget.repository),
+                        ),
                       ),
-                    ),
-                    _SectionRow(
-                      icon: '📍',
-                      title: 'Locations',
-                      summary: _locationsSummary(_draft),
-                      completed: _draft.locationsSaved,
-                      onTap: () => _openSection(
-                        widget.locationsPageBuilder(widget.repository),
+                      _SectionRow(
+                        icon: '📍',
+                        title: 'Locations',
+                        summary: _locationsSummary(_draft),
+                        completed: _draft.locationsSaved,
+                        onTap: () => _openSection(
+                          widget.locationsPageBuilder(widget.repository),
+                        ),
                       ),
-                    ),
-                    _SectionRow(
-                      icon: '📜',
-                      title: 'Story Events (Optional)',
-                      summary: _storyEventsSummary(_draft),
-                      completed: _draft.storyEventsSaved,
-                      showDivider: false,
-                      onTap: () => _openSection(
-                        widget.storyEventsPageBuilder(widget.repository),
+                      _SectionRow(
+                        icon: '📜',
+                        title: 'Story Events (Optional)',
+                        summary: _storyEventsSummary(_draft),
+                        completed: _draft.storyEventsSaved,
+                        showDivider: false,
+                        onTap: () => _openSection(
+                          widget.storyEventsPageBuilder(widget.repository),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.fromLTRB(20, 8, 20, 14),
-        child: GenesisPrimaryButton(
-          label: _isSubmitting ? widget.submittingLabel : widget.submitLabel,
-          onPressed: submitEnabled ? _submit : null,
-          backgroundColor: const Color(0xFF198B64),
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: const Color(0xFFE3E3E3),
-          disabledForegroundColor: const Color(0xFF6F6F6F),
+        bottomNavigationBar: SafeArea(
+          top: false,
+          minimum: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+          child: GenesisPrimaryButton(
+            label: _isSubmitting ? widget.submittingLabel : widget.submitLabel,
+            onPressed: submitEnabled ? _submit : null,
+            backgroundColor: const Color(0xFF198B64),
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: const Color(0xFFE3E3E3),
+            disabledForegroundColor: const Color(0xFF6F6F6F),
+          ),
         ),
       ),
     );
@@ -1940,12 +2031,18 @@ class _CharacterPickerTile extends StatelessWidget {
                     height: double.infinity,
                     color: createFormFieldFill,
                     child: character.avatarUrl.trim().isEmpty
-                        ? const SizedBox.shrink()
-                        : Image.network(
-                            character.avatarUrl.trim(),
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                const SizedBox.shrink(),
+                        ? GenesisAvatarFallback(
+                            name: character.name,
+                            width: double.infinity,
+                            height: double.infinity,
+                            borderRadius: 8,
+                          )
+                        : GenesisAvatar(
+                            url: character.avatarUrl.trim(),
+                            name: character.name,
+                            width: double.infinity,
+                            height: double.infinity,
+                            borderRadius: 8,
                           ),
                   ),
                 ),

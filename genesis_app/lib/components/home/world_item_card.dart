@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../utils/display_name_formatter.dart';
+import '../../utils/relative_time_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
+
+const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
 
 @immutable
 class WorldListItem {
@@ -76,10 +81,7 @@ class WorldListItem {
       ),
       createdAt: asString(info['created_at']),
       updatedAt: asString(info['updated_at']),
-      lastProgressAt: asString(
-        info['last_progress_at'],
-        fallback: asString(info['updated_at']),
-      ),
+      lastProgressAt: asString(lastTick['created_at']),
       lastProgressSummary: asString(lastTick['narrator']),
       previewImages: _previewImagesFromJson(info),
       tags: _tagsFromJson(info['tags']),
@@ -123,10 +125,10 @@ class WorldListItem {
   String get title => name.trim().isEmpty ? wid : name.trim();
   String get ownerLabel {
     final owner = ownerName.trim();
-    if (owner.isNotEmpty) return owner;
+    if (owner.isNotEmpty) return formatUidForDisplay(owner);
     final creator = createdUserName.trim();
-    if (creator.isNotEmpty) return creator;
-    return ownerUid.trim().isEmpty ? '-' : ownerUid.trim();
+    if (creator.isNotEmpty) return formatUidForDisplay(creator);
+    return formatUidForDisplay(ownerUid, fallback: '-');
   }
 
   String get subtitle => displaySubtitle.trim().isEmpty
@@ -144,9 +146,14 @@ class WorldListItem {
 }
 
 class WorldItemCard extends StatelessWidget {
-  const WorldItemCard({super.key, required this.item});
+  const WorldItemCard({
+    super.key,
+    required this.item,
+    this.thumbnailBorderRadius = 8,
+  });
 
   final WorldListItem item;
+  final double thumbnailBorderRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -159,7 +166,7 @@ class WorldItemCard extends StatelessWidget {
           label: _badgeText(item.title),
           width: 48,
           height: 48,
-          borderRadius: 8,
+          borderRadius: thumbnailBorderRadius,
         ),
         const SizedBox(width: 14),
         Expanded(child: _WorldItemBody(item: item)),
@@ -180,7 +187,7 @@ class _WorldItemBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '#${item.title}',
+          item.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
@@ -205,7 +212,7 @@ class _WorldItemBody extends StatelessWidget {
         const SizedBox(height: 10),
         _WorldStatsRow(item: item),
         const SizedBox(height: 12),
-        _ProgressHeader(timeText: _relativeTime(item.lastProgressAt)),
+        _ProgressHeader(timeText: formatRelativeTimestamp(item.lastProgressAt)),
         const SizedBox(height: 10),
         Text(
           item.progressSummary,
@@ -256,8 +263,12 @@ class _WorldStatsRow extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         _Stat(icon: MyFlutterApp.pregress, value: item.tickCnt),
-        _Stat(icon: MyFlutterApp.copy, value: item.connectCnt),
-        _Stat(icon: MyFlutterApp.userStar, value: item.aiCharacterCnt),
+        _Stat(iconAsset: _connectIconAsset, value: item.connectCnt),
+        _Stat(
+          iconAsset: aiCharacterIconAsset,
+          preserveIconAssetColor: true,
+          value: item.aiCharacterCnt,
+        ),
         _Stat(icon: MyFlutterApp.user, value: item.playerCnt),
       ],
     );
@@ -265,9 +276,16 @@ class _WorldStatsRow extends StatelessWidget {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.icon, required this.value});
+  const _Stat({
+    this.icon,
+    this.iconAsset,
+    this.preserveIconAssetColor = false,
+    required this.value,
+  }) : assert(icon != null || iconAsset != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final String? iconAsset;
+  final bool preserveIconAssetColor;
   final int value;
 
   @override
@@ -275,7 +293,21 @@ class _Stat extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 11, color: Colors.black),
+        if (iconAsset case final asset?)
+          preserveIconAssetColor
+              ? Transform.translate(
+                  offset: const Offset(0, -0.8),
+                  child: Image.asset(
+                    asset,
+                    width: 13.75,
+                    height: 13.75,
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  ),
+                )
+              : ImageIcon(AssetImage(asset), size: 11, color: Colors.black)
+        else
+          Icon(icon, size: 11, color: Colors.black),
         const SizedBox(width: 4),
         Text(
           formatStatCount(value),
@@ -300,7 +332,11 @@ class _ProgressHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Icon(MyFlutterApp.pregress, color: Color(0xFFFF2344), size: 11),
+        const Icon(
+          MyFlutterApp.lastProgress,
+          color: Color(0xFFF42C47),
+          size: 14,
+        ),
         const SizedBox(width: 5),
         const Text(
           'Last Progress',
@@ -455,18 +491,4 @@ String _badgeText(String name) {
       .toList();
   if (words.isEmpty) return 'ENTER\nWORLD';
   return words.take(4).map((e) => e.toUpperCase()).join('\n');
-}
-
-String _relativeTime(String raw) {
-  final value = raw.trim();
-  if (value.isEmpty) return '';
-  final parsed = DateTime.tryParse(value);
-  if (parsed == null) return value;
-  final diff = DateTime.now().difference(parsed.toLocal());
-  if (diff.inMinutes < 1) return 'just now';
-  if (diff.inHours < 1) return '${diff.inMinutes} mins ago';
-  if (diff.inDays < 1) return '${diff.inHours} hrs ago';
-  if (diff.inDays < 30) return '${diff.inDays} days ago';
-  if (diff.inDays < 365) return '${(diff.inDays / 30).floor()} mos ago';
-  return '${(diff.inDays / 365).floor()} yrs ago';
 }

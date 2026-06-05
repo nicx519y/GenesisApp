@@ -18,5 +18,5 @@ abstract final class GenesisColors {
 
   static const Color border = Color(0xFFE6E6E8);
   static const Color borderStrong = Color(0xFFDCDCDC);
-  static const Color danger = Color(0xFFFF3B30);
+  static const Color danger = Color(0xFFF42C47);
 }

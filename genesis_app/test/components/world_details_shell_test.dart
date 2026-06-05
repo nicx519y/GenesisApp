@@ -17,7 +17,15 @@ void main() {
       const MaterialApp(
         home: WorldDetailsPageScaffold(
           map: ColoredBox(key: ValueKey('map'), color: Colors.green),
-          slivers: [SliverToBoxAdapter(child: Text('Details'))],
+          slivers: [
+            SliverToBoxAdapter(
+              child: SizedBox(
+                key: ValueKey('details-title'),
+                height: 18,
+                child: Text('Details'),
+              ),
+            ),
+          ],
           bottomBar: SizedBox(
             key: ValueKey('bottom-bar'),
             height: 56,
@@ -28,6 +36,7 @@ void main() {
     );
 
     expect(find.byKey(const ValueKey('map')), findsOneWidget);
+    expect(find.byType(WorldDetailsDragHandle), findsOneWidget);
     expect(find.text('Details'), findsOneWidget);
     expect(find.byKey(const ValueKey('bottom-bar')), findsOneWidget);
 
@@ -48,13 +57,30 @@ void main() {
         (widget) =>
             widget is Container &&
             widget.padding ==
-                const EdgeInsets.only(
-                  top: WorldDetailsPanel.contentTopPadding,
-                  left: WorldDetailsPageScaffold.contentHorizontalPadding,
-                  right: WorldDetailsPageScaffold.contentHorizontalPadding,
+                const EdgeInsets.fromLTRB(
+                  WorldDetailsPageScaffold.contentHorizontalPadding,
+                  0,
+                  WorldDetailsPageScaffold.contentHorizontalPadding,
+                  0,
                 ),
       ),
       findsOneWidget,
+    );
+    final handleRect = tester.getRect(find.byType(WorldDetailsDragHandle));
+    final titleRect = tester.getRect(
+      find.byKey(const ValueKey('details-title')),
+    );
+    expect(handleRect.width, WorldDetailsShell.dragHandleWidth);
+    expect(handleRect.height, WorldDetailsShell.dragHandleHeight);
+    expect(
+      titleRect.top - handleRect.bottom,
+      closeTo(
+        (WorldDetailsPanel.contentTopPadding -
+                    WorldDetailsShell.dragHandleHeight) /
+                2 +
+            WorldDetailsShell.dragHandleTitleGap,
+        0.01,
+      ),
     );
     expect(
       tester
@@ -110,11 +136,6 @@ void main() {
     tester,
   ) async {
     const viewportSize = Size(400, 800);
-    const expectedPadding = EdgeInsets.only(
-      top: WorldDetailsPanel.contentTopPadding,
-      left: 12,
-      right: 12,
-    );
 
     tester.view.physicalSize = viewportSize;
     tester.view.devicePixelRatio = 1;
@@ -128,7 +149,11 @@ void main() {
             child: WorldDetailsPanel(
               topGap: 30,
               horizontalPadding: 12,
-              slivers: [SliverToBoxAdapter(child: SizedBox(height: 24))],
+              slivers: [
+                SliverToBoxAdapter(
+                  child: SizedBox(key: ValueKey('panel-title'), height: 24),
+                ),
+              ],
             ),
           ),
         ),
@@ -142,9 +167,23 @@ void main() {
 
     expect(
       find.byWidgetPredicate(
-        (widget) => widget is Container && widget.padding == expectedPadding,
+        (widget) =>
+            widget is Container &&
+            widget.padding == const EdgeInsets.fromLTRB(12, 0, 12, 0),
       ),
       findsOneWidget,
+    );
+    final handleRect = tester.getRect(find.byType(WorldDetailsDragHandle));
+    final titleRect = tester.getRect(find.byKey(const ValueKey('panel-title')));
+    expect(
+      titleRect.top - handleRect.bottom,
+      closeTo(
+        (WorldDetailsPanel.contentTopPadding -
+                    WorldDetailsShell.dragHandleHeight) /
+                2 +
+            WorldDetailsShell.dragHandleTitleGap,
+        0.01,
+      ),
     );
   });
 }

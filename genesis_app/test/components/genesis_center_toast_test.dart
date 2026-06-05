@@ -26,8 +26,10 @@ void main() {
     expect(toastText, findsOneWidget);
 
     final text = tester.widget<Text>(toastText);
+    expect(text.style?.inherit, isFalse);
     expect(text.style?.fontSize, 12);
     expect(text.style?.color, Colors.white);
+    expect(text.style?.decoration, TextDecoration.none);
 
     final decoratedBox = tester.widget<DecoratedBox>(
       find.ancestor(of: toastText, matching: find.byType(DecoratedBox)).first,

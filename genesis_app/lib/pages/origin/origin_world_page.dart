@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../../components/common/copyable_id_label.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -12,16 +12,21 @@ import '../../components/world_map.dart';
 import '../../components/world_map_stage.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_tick_event_item.dart';
+import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../utils/display_name_formatter.dart';
 import '../../utils/relative_time_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
+
+const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
 
 class OriginWorldPage extends StatefulWidget {
   const OriginWorldPage({super.key, required this.oid, required this.originId});
@@ -39,6 +44,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   late final OriginDiscussListController _discussController;
   Future<OriginDetail>? _future;
   bool _launching = false;
+  var _currentUid = '';
+  var _currentUidRequested = false;
 
   @override
   void initState() {
@@ -51,6 +58,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _future ??= _loadOriginDetail();
+    if (!_currentUidRequested) {
+      _currentUidRequested = true;
+      unawaited(_loadCurrentUid());
+    }
   }
 
   @override
@@ -85,6 +96,14 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       unawaited(_discussController.loadInitialIfNeeded());
     }, onError: (_) {});
     return future;
+  }
+
+  Future<void> _loadCurrentUid() async {
+    final uid =
+        (await AppServicesScope.of(context).sessionStore.readUid())?.trim() ??
+        '';
+    if (!mounted || uid == _currentUid) return;
+    setState(() => _currentUid = uid);
   }
 
   void _configureDiscuss(String oid) {
@@ -200,8 +219,25 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+          return WorldDetailsPageScaffold(
+            panelTopGap: 50,
+            panelCollapsedHeightOffset: 100,
+            map: WorldMapStage(
+              controller: _tabController,
+              pointsCount: 0,
+              top: topPadding + 8,
+              mapBuilder: (context, pointMode) => WorldMap(
+                points: const <WorldPoint>[],
+                listPoints: const <WorldPoint>[],
+                locationNodes: const <WorldMapLocationNode>[],
+                dimmed: pointMode,
+                showPointsList: pointMode,
+                overlayTop: topPadding + 8 + 48,
+                drillExitTop: topPadding + 68,
+              ),
+            ),
+            slivers: const [_OriginDetailsLoadingContent()],
+            bottomBar: const _OriginBottomLaunchBarSkeleton(),
           );
         }
 
@@ -302,7 +338,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
         return WorldDetailsPageScaffold(
           panelTopGap: 50,
-          panelCollapsedHeightOffset: 45,
+          panelCollapsedHeightOffset: 100,
           map: WorldMapStage(
             controller: _tabController,
             pointsCount: listPoints.length,
@@ -322,6 +358,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           slivers: [
             _WorldDetailsContent(
               origin: origin,
+              currentUid: _currentUid,
               discussController: _discussController,
             ),
           ],
@@ -336,20 +373,246 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 }
 
+class _OriginDetailsLoadingContent extends StatelessWidget {
+  const _OriginDetailsLoadingContent();
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverList.list(
+      children: const [
+        _OriginHeaderLoadingSkeleton(),
+        SizedBox(height: 22),
+        _OriginSectionLoadingSkeleton(
+          titleWidth: 96,
+          imageAspectRatio: 2 / 3,
+          lineWidths: [0.94, 0.82, 0.68],
+        ),
+        SizedBox(height: 26),
+        _OriginSectionLoadingSkeleton(
+          titleWidth: 118,
+          imageHeight: 92,
+          lineWidths: [0.88, 0.76],
+        ),
+        SizedBox(height: 28),
+        _OriginSectionTitleLoadingSkeleton(width: 146),
+        SizedBox(height: 10),
+        _OriginLoadingBone(width: 108, height: 12),
+        SizedBox(height: 18),
+        _OriginSectionTitleLoadingSkeleton(width: 92),
+        SizedBox(height: 14),
+        _OriginLoadingBone(widthFactor: 0.96, height: 74, radius: 6),
+        SizedBox(height: 24),
+        Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
+        SizedBox(height: 24),
+        _OriginSectionTitleLoadingSkeleton(width: 112),
+        SizedBox(height: 14),
+        _OriginCharacterLoadingSkeleton(),
+      ],
+    );
+  }
+}
+
+class _OriginHeaderLoadingSkeleton extends StatelessWidget {
+  const _OriginHeaderLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Center(child: _OriginLoadingBone(width: 170, height: 18)),
+        SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(child: _OriginLoadingBone(width: 122, height: 12)),
+            SizedBox(width: 12),
+            _OriginLoadingBone(width: 128, height: 12),
+          ],
+        ),
+        SizedBox(height: 12),
+        _OriginLoadingBone(width: 150, height: 12),
+      ],
+    );
+  }
+}
+
+class _OriginSectionLoadingSkeleton extends StatelessWidget {
+  const _OriginSectionLoadingSkeleton({
+    required this.titleWidth,
+    this.imageHeight,
+    this.imageAspectRatio,
+    required this.lineWidths,
+  }) : assert(imageHeight != null || imageAspectRatio != null);
+
+  final double titleWidth;
+  final double? imageHeight;
+  final double? imageAspectRatio;
+  final List<double> lineWidths;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _OriginSectionTitleLoadingSkeleton(width: titleWidth),
+        const SizedBox(height: 12),
+        for (final width in lineWidths) ...[
+          _OriginLoadingBone(widthFactor: width, height: 12),
+          const SizedBox(height: 8),
+        ],
+        const SizedBox(height: 4),
+        if (imageAspectRatio == null)
+          _OriginLoadingBone(widthFactor: 1, height: imageHeight!, radius: 4)
+        else
+          _OriginLoadingAspectBone(aspectRatio: imageAspectRatio!, radius: 4),
+      ],
+    );
+  }
+}
+
+class _OriginLoadingAspectBone extends StatelessWidget {
+  const _OriginLoadingAspectBone({required this.aspectRatio, this.radius = 4});
+
+  final double aspectRatio;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: aspectRatio,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFE9EDF2),
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      ),
+    );
+  }
+}
+
+class _OriginSectionTitleLoadingSkeleton extends StatelessWidget {
+  const _OriginSectionTitleLoadingSkeleton({required this.width});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const _OriginLoadingBone(width: 14, height: 14, radius: 7),
+        const SizedBox(width: 8),
+        _OriginLoadingBone(width: width, height: 14),
+      ],
+    );
+  }
+}
+
+class _OriginCharacterLoadingSkeleton extends StatelessWidget {
+  const _OriginCharacterLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _OriginLoadingBone(width: 86, height: 86, radius: 6),
+        SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _OriginLoadingBone(width: 118, height: 14),
+              SizedBox(height: 8),
+              _OriginLoadingBone(widthFactor: 0.68, height: 12),
+              SizedBox(height: 10),
+              _OriginLoadingBone(widthFactor: 0.94, height: 12),
+              SizedBox(height: 8),
+              _OriginLoadingBone(widthFactor: 0.72, height: 12),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OriginBottomLaunchBarSkeleton extends StatelessWidget {
+  const _OriginBottomLaunchBarSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(color: Color(0xFFF9F9F9)),
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(13, 0, 13, 0),
+        child: SizedBox(
+          height: 56,
+          child: Row(
+            children: const [
+              _OriginLoadingBone(width: 36, height: 12),
+              SizedBox(width: 20),
+              _OriginLoadingBone(width: 36, height: 12),
+              SizedBox(width: 20),
+              _OriginLoadingBone(width: 36, height: 12),
+              Spacer(),
+              _OriginLoadingBone(width: 148, height: 30, radius: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OriginLoadingBone extends StatelessWidget {
+  const _OriginLoadingBone({
+    this.width,
+    this.widthFactor,
+    required this.height,
+    this.radius = 4,
+  });
+
+  final double? width;
+  final double? widthFactor;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFE9EDF2),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: SizedBox(width: width, height: height),
+    );
+    final widthFactor = this.widthFactor;
+    if (widthFactor == null) return child;
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      alignment: Alignment.centerLeft,
+      child: child,
+    );
+  }
+}
+
 class _WorldDetailsContent extends StatelessWidget {
   const _WorldDetailsContent({
     required this.origin,
+    required this.currentUid,
     required this.discussController,
   });
 
   final OriginDetail origin;
+  final String currentUid;
   final OriginDiscussListController discussController;
 
   @override
   Widget build(BuildContext context) {
     return SliverList.list(
       children: [
-        _OriginHeader(origin: origin),
+        _OriginHeader(origin: origin, currentUid: currentUid),
         const SizedBox(height: 22),
         _WorldViewSection(origin: origin),
         const SizedBox(height: 26),
@@ -358,8 +621,6 @@ class _WorldDetailsContent extends StatelessWidget {
         const _CopyWorldProgressSection(),
         const SizedBox(height: 18),
         _DiscussSection(origin: origin, controller: discussController),
-        const SizedBox(height: 24),
-        const Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
         const SizedBox(height: 24),
         _OriginCharactersSection(characters: origin.characters),
       ],
@@ -385,73 +646,66 @@ class _OriginBottomLaunchBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         minimum: const EdgeInsets.fromLTRB(13, 0, 13, 0),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final buttonWidth = (constraints.maxWidth * 0.38)
-                .clamp(132.0, 168.0)
-                .toDouble();
-            return SizedBox(
-              height: 56,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        _LaunchBarStat(
-                          icon: MyFlutterApp.save,
-                          value: origin.copyCount,
-                        ),
-                        const SizedBox(width: 20),
-                        _LaunchBarStat(
-                          icon: MyFlutterApp.copy,
-                          value: origin.interactCount,
-                        ),
-                        const SizedBox(width: 20),
-                        _LaunchBarStat(
-                          icon: MyFlutterApp.userStar,
-                          value: origin.characterCount,
-                        ),
-                      ],
+        child: SizedBox(
+          height: 56,
+          child: Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    _LaunchBarStat(
+                      icon: MyFlutterApp.save,
+                      value: origin.copyCount,
                     ),
-                  ),
-                  const SizedBox(width: 18),
-                  SizedBox(
-                    width: buttonWidth,
-                    height: 30,
-                    child: FilledButton(
-                      onPressed: launching ? null : onLaunch,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF238861),
-                        disabledBackgroundColor: const Color(
-                          0xFF238861,
-                        ).withValues(alpha: 0.62),
-                        foregroundColor: Colors.white,
-                        disabledForegroundColor: Colors.white,
-                        padding: EdgeInsets.zero,
-                        textStyle: const TextStyle(
-                          fontSize: 14,
-                          height: 1,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: launching
-                          ? const SizedBox.square(
-                              dimension: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.4,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('Launch'),
+                    const SizedBox(width: 20),
+                    _LaunchBarStat(
+                      iconAsset: _connectIconAsset,
+                      value: origin.interactCount,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 20),
+                    _LaunchBarStat(
+                      iconAsset: aiCharacterIconAsset,
+                      preserveIconAssetColor: true,
+                      value: origin.characterCount,
+                    ),
+                  ],
+                ),
               ),
-            );
-          },
+              const SizedBox(width: 18),
+              SizedBox(
+                height: 32,
+                child: FilledButton(
+                  onPressed: launching ? null : onLaunch,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF238861),
+                    disabledBackgroundColor: const Color(
+                      0xFF238861,
+                    ).withValues(alpha: 0.62),
+                    foregroundColor: Colors.white,
+                    disabledForegroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 35),
+                    textStyle: const TextStyle(
+                      fontSize: 14,
+                      height: 1,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: launching
+                      ? const SizedBox.square(
+                          dimension: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Launch'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -459,21 +713,30 @@ class _OriginBottomLaunchBar extends StatelessWidget {
 }
 
 class _LaunchBarStat extends StatelessWidget {
-  const _LaunchBarStat({required this.icon, required this.value});
+  const _LaunchBarStat({
+    this.icon,
+    this.iconAsset,
+    this.preserveIconAssetColor = false,
+    required this.value,
+  }) : assert(icon != null || iconAsset != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final String? iconAsset;
+  final bool preserveIconAssetColor;
   final int value;
 
   @override
   Widget build(BuildContext context) {
     return StatItem(
       icon: icon,
-      iconSize: 10,
+      iconAsset: iconAsset,
+      preserveIconAssetColor: preserveIconAssetColor,
+      iconSize: 14,
       iconColor: const Color(0xFF171717),
       gap: 4,
       text: formatStatCount(value),
       textStyle: const TextStyle(
-        fontSize: 12,
+        fontSize: 14,
         height: 1,
         fontWeight: FontWeight.w400,
         color: Color(0xFF171717),
@@ -483,15 +746,19 @@ class _LaunchBarStat extends StatelessWidget {
 }
 
 class _OriginHeader extends StatelessWidget {
-  const _OriginHeader({required this.origin});
+  const _OriginHeader({required this.origin, required this.currentUid});
 
   final OriginDetail origin;
+  final String currentUid;
 
   @override
   Widget build(BuildContext context) {
     final originator = origin.originator.trim().isEmpty
         ? '-'
-        : origin.originator.trim();
+        : formatUidForDisplay(origin.originator);
+    final ownerUid = origin.ownerUid.trim();
+    final canEditOrigin =
+        currentUid.trim().isNotEmpty && currentUid.trim() == ownerUid;
     final version = origin.versionNum <= 0 ? 1 : origin.versionNum;
     final age = formatRelativeTime(origin.updatedAt, fallback: '');
 
@@ -500,7 +767,7 @@ class _OriginHeader extends StatelessWidget {
       children: [
         Center(
           child: Text(
-            '#${origin.name}',
+            originDisplayName(origin.name, fallback: origin.oid),
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 16,
@@ -513,16 +780,18 @@ class _OriginHeader extends StatelessWidget {
         const SizedBox(height: 16),
         Row(
           children: [
-            Expanded(child: _OidMetaText(oid: origin.oid)),
+            Expanded(
+              child: CopyableIdLabel(label: 'OID', value: origin.oid),
+            ),
             const SizedBox(width: 12),
-            Text(
-              'Originator: $originator  >',
-              style: const TextStyle(
-                fontSize: 12,
-                height: 1.2,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF8C8C8C),
-              ),
+            _OriginatorMetaLink(
+              originator: originator,
+              onTap: ownerUid.isEmpty
+                  ? null
+                  : () => Navigator.of(context).pushNamed(
+                      RouteNames.userInfo,
+                      arguments: {'uid': ownerUid},
+                    ),
             ),
           ],
         ),
@@ -532,58 +801,62 @@ class _OriginHeader extends StatelessWidget {
           style: const TextStyle(
             fontSize: 12,
             height: 1.2,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w400,
             color: Color(0xFF8C8C8C),
           ),
         ),
-        const SizedBox(height: 12),
-        GenesisPrimaryButton(
-          label: 'Edit Origin',
-          onPressed: () => Navigator.of(
-            context,
-          ).pushNamed(RouteNames.edit, arguments: {'origin_id': origin.oid}),
-          backgroundColor: const Color(0xFF3B2468),
-          foregroundColor: Colors.white,
-        ),
+        if (canEditOrigin) ...[
+          const SizedBox(height: 12),
+          GenesisPrimaryButton(
+            label: 'Edit Origin',
+            onPressed: () => Navigator.of(
+              context,
+            ).pushNamed(RouteNames.edit, arguments: {'origin_id': origin.oid}),
+            backgroundColor: const Color(0xFF3B2468),
+            foregroundColor: Colors.white,
+          ),
+        ],
       ],
     );
   }
 }
 
-class _OidMetaText extends StatelessWidget {
-  const _OidMetaText({required this.oid});
+class _OriginatorMetaLink extends StatelessWidget {
+  const _OriginatorMetaLink({required this.originator, required this.onTap});
 
-  final String oid;
+  final String originator;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Flexible(
-          child: Text(
-            'OID: $oid',
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1.2,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF8C8C8C),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Flexible(
+              child: Text(
+                'Originator: ${formatUidForDisplay(originator)}',
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 1.2,
+                  fontWeight: FontWeight.w400,
+                  color: Color(0xFF8C8C8C),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 18, color: Color(0xFF8C8C8C)),
+          ],
         ),
-        const SizedBox(width: 4),
-        InkResponse(
-          onTap: () => _copyOid(context, oid),
-          radius: 18,
-          child: const Icon(
-            Icons.copy_outlined,
-            size: 15,
-            color: Color(0xFF8C8C8C),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -604,7 +877,7 @@ class _WorldViewSection extends StatelessWidget {
       children: [
         const _SectionTitle(
           icon: MyFlutterApp.eye,
-          iconColor: Color(0xFFFF2344),
+          iconColor: Color(0xFFF42C47),
           title: 'World View',
         ),
         const SizedBox(height: 12),
@@ -633,7 +906,7 @@ class _PreviewImage extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(2),
       child: AspectRatio(
-        aspectRatio: 2.1,
+        aspectRatio: 2 / 3,
         child: imageUrl.isEmpty
             ? fallback
             : imageUrl.startsWith('assets/')
@@ -663,12 +936,7 @@ class _LaunchPreviewSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final previewEvents = _previewEvents(origin);
-    final globalBody = origin.description.trim().isEmpty
-        ? (previewEvents.isEmpty
-              ? origin.worldView
-              : previewEvents.first.content)
-        : origin.description.trim();
+    final globalBody = _originPreviewNarrator(origin);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -680,11 +948,7 @@ class _LaunchPreviewSection extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         WorldTickEventItem(
-          tick: _originPreviewTick(
-            origin: origin,
-            globalBody: globalBody,
-            events: previewEvents,
-          ),
+          tick: _originPreviewTick(origin: origin, globalBody: globalBody),
           tickNumber: 1,
           fallbackBody: globalBody,
           dateLabel: origin.startTime.trim().isEmpty
@@ -706,8 +970,8 @@ class _CopyWorldProgressSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionTitle(
-          icon: MyFlutterApp.pregress,
-          iconColor: Color(0xFFFF3347),
+          icon: MyFlutterApp.lastProgress,
+          iconColor: Color(0xFFF42C47),
           title: 'Copy World Progress',
         ),
         SizedBox(height: 10),
@@ -731,51 +995,83 @@ class _DiscussSection extends StatelessWidget {
   final OriginDetail origin;
   final OriginDiscussListController controller;
 
+  bool get _hasDiscussContent =>
+      origin.discussCount > 0 ||
+      controller.totalAll > 0 ||
+      controller.items.isNotEmpty;
+
+  Future<void> _handleDiscussAreaTap(BuildContext context) {
+    if (_hasDiscussContent) return _openDiscussPage(context);
+    return _openPostComposer(context);
+  }
+
+  Future<void> _openDiscussPage(BuildContext context) {
+    return Navigator.of(context).pushNamed(
+      RouteNames.discuss,
+      arguments: {'oid': origin.oid, 'originId': origin.id},
+    );
+  }
+
+  Future<void> _openPostComposer(BuildContext context) async {
+    final submitted = await showDiscussPostComposer(
+      context: context,
+      title: 'New post',
+      placeholder: 'Write a post',
+      submitter: (content, images) async {
+        await AppServicesScope.read(context).api.v1.discuss.post(
+          bizId: origin.oid.trim(),
+          bizType: 1,
+          content: content,
+          images: images,
+        );
+      },
+    );
+    if (!context.mounted || !submitted) return;
+    unawaited(controller.refreshFirstPage());
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => Navigator.of(context).pushNamed(
-            RouteNames.discuss,
-            arguments: {'oid': origin.oid, 'originId': origin.id},
-          ),
-          child: Row(
-            children: [
-              _SectionTitle(
-                icon: MyFlutterApp.discuss,
-                iconColor: const Color(0xFF111111),
-                title: 'Discuss (${origin.discussCount})',
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final hasDiscussContent = _hasDiscussContent;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              key: const ValueKey('origin-discuss-summary-area'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => unawaited(_handleDiscussAreaTap(context)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionTitle(
+                    iconAsset: discussIconAsset,
+                    title: 'Discuss (${origin.discussCount})',
+                  ),
+                  const SizedBox(height: 14),
+                  OriginDiscussList(
+                    controller: controller,
+                    count: origin.discussCount,
+                    showHeader: false,
+                    showActions: false,
+                    showReplies: false,
+                    onViewMoreTap: () => _openDiscussPage(context),
+                  ),
+                ],
               ),
-              const Spacer(),
-              const Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: Color(0xFF8B8B8B),
+            ),
+            if (!hasDiscussContent) ...[
+              const SizedBox(height: 14),
+              DiscussPostInput(
+                bizId: origin.oid,
+                onSubmitted: () => unawaited(controller.refreshFirstPage()),
               ),
             ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        OriginDiscussList(
-          controller: controller,
-          count: origin.discussCount,
-          showHeader: false,
-          onViewMoreTap: () async {
-            await Navigator.of(context).pushNamed(
-              RouteNames.discuss,
-              arguments: {'oid': origin.oid, 'originId': origin.id},
-            );
-          },
-        ),
-        const SizedBox(height: 14),
-        DiscussPostInput(
-          bizId: origin.oid,
-          onSubmitted: () => unawaited(controller.refreshFirstPage()),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }
@@ -792,7 +1088,7 @@ class _OriginCharactersSection extends StatelessWidget {
       children: [
         _SectionTitle(
           icon: MyFlutterApp.userStar,
-          iconColor: const Color(0xFFFF2344),
+          iconColor: const Color(0xFFF42C47),
           title: 'Characters (${characters.length})',
         ),
         const SizedBox(height: 14),
@@ -865,7 +1161,7 @@ class _OriginCharacterRow extends StatelessWidget {
                     fontSize: 12,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFFFF5148),
+                    color: Color(0xFFF42C47),
                   ),
                 ),
               ],
@@ -887,20 +1183,31 @@ class _OriginCharacterRow extends StatelessWidget {
 
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle({
-    required this.icon,
-    required this.iconColor,
+    this.icon,
+    this.iconAsset,
+    this.iconColor,
     required this.title,
-  });
+  }) : assert(icon != null || iconAsset != null);
 
-  final IconData icon;
-  final Color iconColor;
+  final IconData? icon;
+  final String? iconAsset;
+  final Color? iconColor;
   final String title;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 14, color: iconColor),
+        if (iconAsset case final asset?)
+          Image.asset(
+            asset,
+            width: 16,
+            height: 16,
+            fit: BoxFit.contain,
+            excludeFromSemantics: true,
+          )
+        else
+          Icon(icon, size: 14, color: iconColor),
         const SizedBox(width: 8),
         Text(
           title,
@@ -953,69 +1260,40 @@ String _mapString(Map<dynamic, dynamic> map, List<String> keys) {
   return '';
 }
 
-Future<void> _copyOid(BuildContext context, String oid) async {
-  await Clipboard.setData(ClipboardData(text: oid));
-  if (!context.mounted) return;
-  showGenesisToast(context, 'OID copied');
-}
-
-List<OriginEvent> _previewEvents(OriginDetail origin) {
-  if (origin.events.isNotEmpty) {
-    return origin.events.take(3).toList(growable: false);
-  }
-
-  final renderLocations = origin.processedLocationTree.flattenedRenderNodes
-      .map((node) => node.value)
-      .toList(growable: false);
-  if (renderLocations.isNotEmpty) {
-    return renderLocations
-        .take(3)
-        .map(
-          (location) => OriginEvent(
-            label: location.name.trim().isEmpty ? 'Scene' : location.name,
-            timestamp: '',
-            content: location.description.trim().isEmpty
-                ? origin.description
-                : location.description,
-          ),
-        )
-        .where((event) => event.content.trim().isNotEmpty)
-        .toList(growable: false);
-  }
-
-  final fallback = origin.description.trim().isEmpty
-      ? origin.worldView.trim()
-      : origin.description.trim();
-  if (fallback.isEmpty) return const <OriginEvent>[];
-  return [OriginEvent(label: 'Scene', timestamp: '', content: fallback)];
-}
-
 Map<String, dynamic> _originPreviewTick({
   required OriginDetail origin,
   required String globalBody,
-  required List<OriginEvent> events,
 }) {
   return <String, dynamic>{
     'created_at': origin.updatedAt,
-    'narrator': globalBody,
-    'paragraphs': [
-      for (int i = 0; i < events.length; i++)
-        <String, dynamic>{
-          'label': events[i].label.trim().isEmpty
-              ? 'Scene'
-              : events[i].label.trim(),
-          'timestamp': events[i].timestamp.trim().isEmpty
-              ? _fallbackEventTime(i)
-              : events[i].timestamp.trim(),
-          'content': events[i].content,
-        },
-    ],
+    'tick_result': <String, dynamic>{
+      'narrator': globalBody,
+      'paragraphs': [
+        for (final location in origin.locations)
+          <String, dynamic>{
+            'location_id': location.locationId,
+            'label': location.name.trim().isEmpty
+                ? 'Location'
+                : location.name.trim(),
+            'text': location.locationParagraph,
+          },
+      ],
+    },
   };
 }
 
-String _fallbackEventTime(int index) {
-  const times = ['Day 1, 17:55', 'Day 1, 18:00', 'Day 1, 18:02'];
-  return times[index.clamp(0, times.length - 1)];
+String _originPreviewNarrator(OriginDetail origin) {
+  if (origin.ticks.isNotEmpty) {
+    final tick = origin.ticks.first;
+    final result = tick['tick_result'] is Map
+        ? (tick['tick_result'] as Map).cast<String, dynamic>()
+        : tick;
+    final narrator = _mapString(result, const ['narrator']);
+    if (narrator.isNotEmpty) return narrator;
+  }
+  final description = origin.description.trim();
+  if (description.isNotEmpty) return description;
+  return origin.worldView.trim();
 }
 
 List<OriginLocation> _rootOriginLocations(List<OriginLocation> locations) {
@@ -1150,14 +1428,5 @@ String _userAvatarStableId(UserAvatar avatar) {
 }
 
 String _initials(String name) {
-  final cleaned = name.trim();
-  if (cleaned.isEmpty) return '?';
-  final parts = cleaned
-      .split(RegExp(r'\s+'))
-      .where((e) => e.isNotEmpty)
-      .toList();
-  if (parts.length >= 2) {
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-  return cleaned.substring(0, cleaned.length >= 2 ? 2 : 1).toUpperCase();
+  return initialsForAvatarName(name);
 }

@@ -3,6 +3,7 @@
 来源：
 - Apifox 分享页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/460308499e0
 - Apifox world tick 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462798656e0
+- Apifox world tick 列表页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/469083051e0
 - Apifox discuss 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462474822e0
 - Apifox discuss 回复分页页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/466619391e0
 - Apifox direct_message 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462474827e0
@@ -20,13 +21,13 @@
 - Apifox chatroom narrator write 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446399e0
 - Apifox LLM 索引：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/llms.txt
 
-提取时间：2026-06-01
+提取时间：2026-06-05
 
 本文档记录 Flutter 项目当前对齐或待替换的 Apifox HTTP 接口，并对比当前 Flutter 项目中的 `lib/network` HTTP 设计。字段后带 `*` 表示 Apifox 标记为必填。
 
 ## 总览
 
-本文档当前覆盖 40 个接口，分为 `用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify` 和 `upload` 九组：
+本文档当前覆盖 41 个接口，分为 `用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify` 和 `upload` 九组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -40,6 +41,7 @@
 | 用户 | POST | `/api/v1/user/oauth/apple` | Apple login |
 | world | GET | `/api/v1/world/list` | World 列表 |
 | world | GET | `/api/v1/world/detail` | World 详情 |
+| world | GET | `/api/v1/world/tick/list` | 分页获取 world 下的 tick 列表 |
 | world | GET | `/api/v1/world/origin_progress` | 用户在某 origin 下的最大 world tick 进度 |
 | world | POST | `/api/v1/world/tick` | world owner 触发一次 tick |
 | chatroom | GET | `/aitown-chat/internal/world/messages` | 获取世界最近消息 |
@@ -146,7 +148,7 @@
 - `origin_id*`: string
 - `origin_name*`: string
 - `origin_version*`: string
-- `origin_version_time`: string，RFC3339 字符串；未发布时可能省略
+- `origin_version_time*`: integer，Unix 秒时间戳
 - `owner_uid`: string，创建者 uid，来自登录 session，不接受创建请求覆盖
 - `owner_name`: string，创建者昵称
 - `brief`: string
@@ -576,6 +578,28 @@ world owner 审批一条 pending 申请。`action=approve` 流转到 approved；
 - `20206`
 - `20207`
 
+### GET `/api/v1/world/tick/list`
+
+按 `world_id` 分页读取 `tbl_world_tick`。列表按 `tick_no DESC, id DESC` 排序，最新 tick 在前。公开可访问；未审核通过的 world 仅 owner 可见，其他调用方返回 `ErrorWorldNotExist`。
+
+Query：
+
+- `world_id*`: string
+- `pn`: integer，页码，从 1 开始
+- `rn`: integer，每页条数，默认 10
+
+响应 `data`：
+
+- `list*`: `Tick[]`
+- `total*`: integer
+- `pn*`: integer
+- `rn*`: integer
+
+错误码：
+
+- `4004`
+- `20201`
+
 ### POST `/api/v1/world/tick`
 
 world owner 触发一次 tick。该接口替代旧的 progress 触发接口，不保留旧接口兼容；请求字段使用 `world_id`，不再使用 `wid`。
@@ -745,7 +769,7 @@ Query：
 
 ## Chatroom HTTP 接口
 
-这些接口不在 `/api/v1` 下，而在 chatroom 服务前缀 `/aitown-chat` 下。当前 Flutter 侧通过 `GenesisApi.chatroomHttp` 使用独立 base URL，默认 `GENESIS_CHATROOM_HTTP_URL=http://47.77.195.140:5002/`；本地 mock 已覆盖这些路由。
+这些接口不在 `/api/v1` 下，而在 chatroom 服务前缀 `/aitown-chat` 下。当前 Flutter 侧通过 `GenesisApi.chatroomHttp` 使用独立 base URL，默认 `GENESIS_CHATROOM_HTTP_URL=https://dev.hushie.ai/`；本地 mock 已覆盖这些路由。
 
 ### GET `/aitown-chat/internal/world/messages`
 
@@ -1284,6 +1308,7 @@ query：
 | `GET /api/v1/user/followers` | 已新增 `FollowV1Api.followers(uid,pn,rn)`。 |
 | `GET /api/v1/world/list` | `WorldV1Api.list` query 已使用 `origin_id/owner_uid/keyword/pn/rn`；首页和个人 world 列表可消费 `list[].info + stats`。 |
 | `GET /api/v1/world/detail` | `WorldV1Api.detail` query 只使用 `world_id`；详情 mapper 支持 `info.metric`、`relation_status`、`locations[].location_description/location_paragraph/location_timestamp/dialogue` 与 `ticks[].tick_no/tick_result.paragraphs/location_groups`，不再消费旧 `wid` / `tick_index` / 顶层 `narrator` / `character_details` 别名。 |
+| `GET /api/v1/world/tick/list` | 已新增 `WorldV1Api.tickList(worldId,pn,rn)` 与 `GenesisApi.getWorldTicks(wid,limit,offset)`；query 使用 `world_id/pn/rn`，响应按 `Tick` 列表规范化并保持最新 tick 在前。 |
 | `GET /api/v1/world/origin_progress` | 已新增 `WorldV1Api.originProgress(uid,originId)`，query 使用 `uid/origin_id`，响应消费 `world_id/tick_cnt`；origin discuss loader 会用该接口补齐每条评论作者在当前 origin 下的 world 与 tick 进度。 |
 | `POST /api/v1/world/tick` | 新契约替代旧 progress 触发接口；客户端应提交 `{ "world_id": "<world_id>" }` 并消费 `world_id/tick_cnt/last_tick`。 |
 | `GET /aitown-chat/internal/world/messages` | 已新增 `ChatroomHttpApi.getWorldMessages(worldId)`，query 使用 `world_id`，响应消费 `locations[].location_id/messages[]`；本地 mock 按 location 分组返回最近消息。 |

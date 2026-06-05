@@ -12,6 +12,7 @@ import '../pages/chat/location_chat_page.dart';
 import '../pages/messages/message_category_list_page.dart';
 import '../pages/me/follows_page.dart';
 import '../pages/me/user_info_page.dart';
+import '../network/chatroom/chatroom_connection_controller.dart';
 
 sealed class RouteNames {
   static const shell = '/';
@@ -141,6 +142,7 @@ sealed class AppRouter {
         var locationId = '';
         var worldName = '';
         var locationName = '';
+        ChatroomConnectionController? chatroomConnection;
         if (args is Map) {
           final rawWorldId = args['world_id'] ?? args['worldId'] ?? args['wid'];
           if (rawWorldId != null) worldId = rawWorldId.toString();
@@ -161,6 +163,12 @@ sealed class AppRouter {
           if (rawLocationName != null) {
             locationName = rawLocationName.toString();
           }
+
+          final rawConnection =
+              args['chatroom_connection'] ?? args['chatroomConnection'];
+          if (rawConnection is ChatroomConnectionController) {
+            chatroomConnection = rawConnection;
+          }
         }
         return MaterialPageRoute<void>(
           settings: settings,
@@ -169,6 +177,7 @@ sealed class AppRouter {
             locationId: locationId,
             worldName: worldName,
             locationName: locationName,
+            connection: chatroomConnection,
           ),
         );
       case RouteNames.search:

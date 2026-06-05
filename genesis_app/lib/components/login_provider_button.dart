@@ -1,6 +1,78 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../platform/auth/auth_session.dart';
+
+const String _googleOauthIconAsset = 'assets/custom-icons/png/google_oauth.png';
+
+class LoginProviderButtons extends StatelessWidget {
+  const LoginProviderButtons({
+    super.key,
+    required this.loggingInProvider,
+    required this.onLogin,
+    this.spacing = 18,
+  });
+
+  final IdentityProvider? loggingInProvider;
+  final FutureOr<void> Function(IdentityProvider provider) onLogin;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        LoginProviderButton(
+          provider: IdentityProvider.google,
+          label: 'Continue with Google',
+          onPressed: loggingInProvider == null
+              ? () => onLogin(IdentityProvider.google)
+              : null,
+          isLoading: loggingInProvider == IdentityProvider.google,
+        ),
+        SizedBox(height: spacing),
+        LoginProviderButton(
+          provider: IdentityProvider.apple,
+          label: 'Continue with Apple',
+          onPressed: loggingInProvider == null
+              ? () => onLogin(IdentityProvider.apple)
+              : null,
+          isLoading: loggingInProvider == IdentityProvider.apple,
+        ),
+      ],
+    );
+  }
+}
+
+class LoginLegalText extends StatelessWidget {
+  const LoginLegalText({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const baseStyle = TextStyle(
+      fontSize: 12,
+      height: 1.35,
+      color: Color(0xFF8A8A8A),
+    );
+    const linkStyle = TextStyle(
+      fontSize: 12,
+      height: 1.35,
+      color: Color(0xFF3E5B8A),
+    );
+    return const Text.rich(
+      TextSpan(
+        style: baseStyle,
+        children: [
+          TextSpan(text: 'By continuing, you agree to our '),
+          TextSpan(text: 'Terms', style: linkStyle),
+          TextSpan(text: '\nand acknowledge our '),
+          TextSpan(text: 'Privacy Policy', style: linkStyle),
+        ],
+      ),
+      textAlign: TextAlign.center,
+    );
+  }
+}
 
 class LoginProviderButton extends StatelessWidget {
   const LoginProviderButton({
@@ -68,7 +140,7 @@ class LoginProviderButton extends StatelessWidget {
                   maxLines: 1,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w800,
                     height: 1.1,
                     color: foregroundColor,
@@ -91,10 +163,11 @@ class _LoginProviderIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (provider) {
-      IdentityProvider.google => const Icon(
-        Icons.g_mobiledata,
-        size: 38,
-        color: Color(0xFF4285F4),
+      IdentityProvider.google => Image.asset(
+        _googleOauthIconAsset,
+        width: 38,
+        height: 38,
+        fit: BoxFit.contain,
       ),
       IdentityProvider.apple => const Icon(
         Icons.apple,

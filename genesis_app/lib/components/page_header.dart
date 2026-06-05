@@ -64,9 +64,25 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: true,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-        onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+      leadingWidth: 37,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 20),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: IconButton(
+            constraints: const BoxConstraints.tightFor(
+              width: 17,
+              height: 17,
+            ),
+            padding: EdgeInsets.zero,
+            icon: const Icon(
+              Icons.arrow_back_ios_new,
+              color: Colors.black,
+              size: 17,
+            ),
+            onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+          ),
+        ),
       ),
       title: PageTitleText(pageName: pageName),
       actions: actions,

@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../icons/my_flutter_app_icons.dart';
+import '../../ui/components/genesis_avatar.dart';
 
 class CharactersList extends StatelessWidget {
   const CharactersList({super.key, required this.characters});
@@ -88,15 +89,11 @@ class _CharacterTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = imageUrl.trim();
-    final fallback = ColoredBox(
-      color: const Color(0xFFF3F4F6),
-      child: Center(
-        child: Icon(
-          Icons.person_outline,
-          size: 28,
-          color: Colors.black.withValues(alpha: 0.45),
-        ),
-      ),
+    final fallback = GenesisAvatarFallback(
+      name: name,
+      width: 86,
+      height: 86,
+      borderRadius: 6,
     );
 
     return Row(
@@ -104,7 +101,6 @@ class _CharacterTile extends StatelessWidget {
       children: [
         SizedBox(
           width: 86,
-          height: 128,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: url.isEmpty
@@ -160,7 +156,7 @@ class _CharacterTile extends StatelessWidget {
                       child: Text(
                         tag,
                         style: const TextStyle(
-                          color: Color(0xFFFF2344),
+                          color: Color(0xFFF42C47),
                           fontSize: 10,
                           fontWeight: FontWeight.w400,
                         ),

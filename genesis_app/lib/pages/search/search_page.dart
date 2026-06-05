@@ -4,13 +4,20 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/copyable_id_label.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/search_bar.dart';
-import '../../components/secend_tabs.dart';
+import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_avatar.dart';
+import '../../ui/components/secend_tabs.dart';
+import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
+import 'search_history_store.dart';
+
+const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
 
 enum _SearchTab {
   all('', 'All', 'Results'),
@@ -40,6 +47,7 @@ class _SearchPageState extends State<SearchPage>
   static const int _pageSize = 20;
   static const int _minSearchLength = 1;
 
+  final SearchHistoryStore _historyStore = const SearchHistoryStore();
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   late final TabController _tabController;
@@ -49,6 +57,7 @@ class _SearchPageState extends State<SearchPage>
   int _requestToken = 0;
   String _activeQuery = '';
   bool _hasInput = false;
+  List<String> _searchHistory = <String>[];
 
   @override
   void initState() {
@@ -60,6 +69,7 @@ class _SearchPageState extends State<SearchPage>
     _results = {
       for (final tab in _SearchTab.values) tab: _SearchTabResults(tab),
     };
+    unawaited(_loadSearchHistory());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNode.requestFocus();
     });
@@ -74,6 +84,24 @@ class _SearchPageState extends State<SearchPage>
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadSearchHistory() async {
+    final history = await _historyStore.load();
+    if (!mounted) return;
+    setState(() {
+      _searchHistory = history;
+    });
+  }
+
+  Future<void> _recordActiveSearchQuery() async {
+    final query = _activeQuery.trim();
+    if (query.isEmpty) return;
+    final history = await _historyStore.add(query);
+    if (!mounted) return;
+    setState(() {
+      _searchHistory = history;
+    });
   }
 
   void _onQueryChanged(String raw) {
@@ -417,24 +445,9 @@ class _SearchPageState extends State<SearchPage>
 
   Widget _buildBody() {
     if (!_hasInput) {
-      final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-      return Padding(
-        padding: EdgeInsets.only(left: 24, right: 24, bottom: bottomInset + 56),
-        child: const Column(
-          children: [
-            Spacer(),
-            Text(
-              'No search history yet.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Color(0xFF8D8D8D),
-                height: 1.35,
-                fontWeight: FontWeight.w400,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+      return _SearchHistoryPanel(
+        queries: _searchHistory,
+        onSelect: _searchFromHistory,
       );
     }
 
@@ -458,7 +471,15 @@ class _SearchPageState extends State<SearchPage>
     );
   }
 
+  void _searchFromHistory(String query) {
+    _controller.text = query;
+    _controller.selection = TextSelection.collapsed(offset: query.length);
+    _onQueryChanged(query);
+    _focusNode.requestFocus();
+  }
+
   void _openResult(_SearchResultItem item) {
+    unawaited(_recordActiveSearchQuery());
     switch (item.tab) {
       case _SearchTab.origin:
         Navigator.of(context).pushNamed(
@@ -476,6 +497,107 @@ class _SearchPageState extends State<SearchPage>
       case _SearchTab.all:
         break;
     }
+  }
+}
+
+class _SearchHistoryPanel extends StatelessWidget {
+  const _SearchHistoryPanel({required this.queries, required this.onSelect});
+
+  final List<String> queries;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    if (queries.isEmpty) return const SizedBox.shrink();
+
+    final visibleQueries = queries.take(20);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxTagWidth = constraints.maxWidth - 32;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+          physics: const BouncingScrollPhysics(),
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Search histroy',
+                  style: TextStyle(
+                    color: Color(0xFF111111),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.start,
+                  children: [
+                    for (final query in visibleQueries)
+                      _SearchHistoryTag(
+                        query: query,
+                        maxWidth: maxTagWidth,
+                        onTap: () => onSelect(query),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SearchHistoryTag extends StatelessWidget {
+  const _SearchHistoryTag({
+    required this.query,
+    required this.maxWidth,
+    required this.onTap,
+  });
+
+  final String query;
+  final double maxWidth;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F3F6),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            child: SizedBox(
+              height: 30,
+              child: Center(
+                widthFactor: 1,
+                child: Text(
+                  query,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF888888),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -688,7 +810,7 @@ class _SearchResultTile extends StatelessWidget {
           SizedBox(width: isUser ? 18 : 16),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(top: isUser ? 8 : 0),
+              padding: EdgeInsets.zero,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -704,17 +826,20 @@ class _SearchResultTile extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 9),
-                  Text(
-                    item.displaySubtitle,
-                    maxLines: isUser ? 1 : 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF888888),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      height: 1.33,
+                  if (isUser)
+                    CopyableIdLabel(label: 'UID', value: item.displaySubtitle)
+                  else
+                    Text(
+                      item.displaySubtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF888888),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        height: 1.33,
+                      ),
                     ),
-                  ),
                   if (!isUser) ...[
                     const SizedBox(height: 12),
                     _ResultStats(item: item),
@@ -736,6 +861,15 @@ class _ResultThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final size = item.tab == _SearchTab.user ? 48.0 : 62.0;
+    if (item.tab == _SearchTab.user) {
+      return GenesisAvatar(
+        url: item.coverImage,
+        name: item.title,
+        size: size,
+        borderRadius: 5,
+      );
+    }
     final placeholder = DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFFE8E8E8),
@@ -744,7 +878,6 @@ class _ResultThumb extends StatelessWidget {
         ),
       ),
     );
-    final size = item.tab == _SearchTab.user ? 70.0 : 62.0;
     final url = item.coverImage.trim();
     final image = url.isEmpty
         ? placeholder
@@ -774,15 +907,23 @@ class _ResultStats extends StatelessWidget {
   Widget build(BuildContext context) {
     final stats = item.tab == _SearchTab.origin
         ? [
-            _StatData(MyFlutterApp.save, item.copyCount),
-            _StatData(MyFlutterApp.copy, item.connectCount),
-            _StatData(MyFlutterApp.userStar, item.playerCount),
+            _StatData(icon: MyFlutterApp.save, value: item.copyCount),
+            _StatData(iconAsset: _connectIconAsset, value: item.connectCount),
+            _StatData(
+              iconAsset: aiCharacterIconAsset,
+              preserveIconAssetColor: true,
+              value: item.playerCount,
+            ),
           ]
         : [
-            _StatData(MyFlutterApp.pregress, item.tickCount),
-            _StatData(MyFlutterApp.copy, item.connectCount),
-            _StatData(MyFlutterApp.userStar, item.playerCount),
-            _StatData(MyFlutterApp.user, item.memberCount),
+            _StatData(icon: MyFlutterApp.pregress, value: item.tickCount),
+            _StatData(iconAsset: _connectIconAsset, value: item.connectCount),
+            _StatData(
+              iconAsset: aiCharacterIconAsset,
+              preserveIconAssetColor: true,
+              value: item.playerCount,
+            ),
+            _StatData(icon: MyFlutterApp.user, value: item.memberCount),
           ];
 
     return Wrap(
@@ -793,6 +934,8 @@ class _ResultStats extends StatelessWidget {
         for (final stat in stats)
           StatItem(
             icon: stat.icon,
+            iconAsset: stat.iconAsset,
+            preserveIconAssetColor: stat.preserveIconAssetColor,
             iconSize: 11,
             iconColor: Colors.black,
             gap: 4,
@@ -810,9 +953,16 @@ class _ResultStats extends StatelessWidget {
 }
 
 class _StatData {
-  const _StatData(this.icon, this.value);
+  const _StatData({
+    this.icon,
+    this.iconAsset,
+    this.preserveIconAssetColor = false,
+    required this.value,
+  }) : assert(icon != null || iconAsset != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final String? iconAsset;
+  final bool preserveIconAssetColor;
   final int value;
 }
 
@@ -906,11 +1056,15 @@ class _SearchResultItem {
     if (fallbackTab == _SearchTab.user || user != null) {
       final raw = user ?? json;
       final uid = asString(raw['uid']);
+      final title = formatUidForDisplay(
+        asString(raw['name']),
+        fallback: formatUidForDisplay(uid),
+      );
       return _SearchResultItem(
         tab: _SearchTab.user,
         entityId: uid,
         shortCode: uid,
-        title: asString(raw['name'], fallback: uid),
+        title: title,
         subtitle: asString(raw['bio']),
         coverImage: asString(raw['avatar']),
         copyCount: 0,
@@ -974,7 +1128,9 @@ class _SearchResultItem {
 
   String get displayTitle {
     final trimmed = title.trim();
-    if (tab == _SearchTab.origin && trimmed.isNotEmpty) return '#$trimmed';
+    if (tab == _SearchTab.origin && trimmed.isNotEmpty) {
+      return originDisplayName(trimmed);
+    }
     if (trimmed.isNotEmpty) return trimmed;
     return shortCode.trim().isNotEmpty ? shortCode : entityId;
   }

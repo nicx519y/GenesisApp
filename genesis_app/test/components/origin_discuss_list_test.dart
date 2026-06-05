@@ -37,6 +37,7 @@ void main() {
       expect(find.text('Discuss 1'), findsOneWidget);
       expect(find.text('Discuss 2'), findsOneWidget);
       expect(find.text('Discuss 3'), findsNothing);
+      expect(find.byType(Divider), findsNothing);
       expect(find.text('View More >'), findsOneWidget);
     },
   );
@@ -117,6 +118,46 @@ void main() {
 
     expect(find.text('User: Reply 1'), findsOneWidget);
     expect(find.text('User: Reply 2'), findsOneWidget);
+    expect(find.text('View all 2 replies'), findsNothing);
+  });
+
+  testWidgets('can render preview rows without actions or replies', (
+    tester,
+  ) async {
+    final controller = OriginDiscussListController()
+      ..configure(
+        oid: 'o_alpha',
+        loader: ({required oid, required pn, required rn}) async =>
+            OriginDiscussPage(
+              items: [
+                _item(
+                  1,
+                  'Discuss preview only',
+                  latestReplies: [_reply(1), _reply(2)],
+                ),
+              ],
+              topTotal: 1,
+              totalAll: 1,
+              pn: pn,
+              rn: rn,
+            ),
+      );
+
+    await controller.loadInitialIfNeeded();
+    await tester.pumpWidget(
+      _host(controller, showActions: false, showReplies: false),
+    );
+
+    expect(find.text('Discuss preview only'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('origin-discuss-like-dis_1')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('origin-discuss-reply-dis_1')),
+      findsNothing,
+    );
+    expect(find.text('User: Reply 1'), findsNothing);
     expect(find.text('View all 2 replies'), findsNothing);
   });
 
@@ -344,6 +385,70 @@ void main() {
       find.byType(CachedNetworkImage).first,
     );
     expect(avatar.imageUrl, 'https://cdn.example.com/users/u_1.png');
+  });
+
+  testWidgets('renders discuss author name with subtle compact style', (
+    tester,
+  ) async {
+    final controller = OriginDiscussListController()
+      ..configure(
+        oid: 'o_alpha',
+        loader: ({required oid, required pn, required rn}) async {
+          return OriginDiscussPage(
+            items: [_item(1, 'Discuss with styled author')],
+            topTotal: 1,
+            totalAll: 1,
+            pn: pn,
+            rn: rn,
+          );
+        },
+      );
+
+    await controller.loadInitialIfNeeded();
+    await tester.pumpWidget(_host(controller));
+
+    final author = tester.widget<Text>(find.text('User 1'));
+    expect(author.style?.fontSize, 12);
+    expect(author.style?.fontWeight, FontWeight.w500);
+    expect(author.style?.color, const Color(0xFF888888));
+  });
+
+  testWidgets('renders compact avatars and today time without date', (
+    tester,
+  ) async {
+    final today = DateTime.now();
+    final controller = OriginDiscussListController()
+      ..configure(
+        oid: 'o_alpha',
+        loader: ({required oid, required pn, required rn}) async {
+          return OriginDiscussPage(
+            items: [
+              _item(
+                1,
+                'Discuss today',
+                authorUid: 'u_today',
+                createdAt: DateTime(today.year, today.month, today.day, 9, 7),
+              ),
+            ],
+            topTotal: 1,
+            totalAll: 1,
+            pn: pn,
+            rn: rn,
+          );
+        },
+      );
+
+    await controller.loadInitialIfNeeded();
+    await tester.pumpWidget(_host(controller));
+
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('origin-discuss-avatar-u_today')),
+      ),
+      const Size(30, 30),
+    );
+    expect(find.text('09:07'), findsOneWidget);
+    expect(find.text('${today.month}-${today.day} 09:07'), findsNothing);
   });
 
   testWidgets('renders item images as responsive square thumbnails', (
@@ -970,6 +1075,8 @@ Widget _host(
   OriginDiscussListController controller, {
   AppServices? services,
   List<RouteSettings>? pushed,
+  bool showActions = true,
+  bool showReplies = true,
 }) {
   final app = MaterialApp(
     onGenerateRoute: (settings) {
@@ -978,7 +1085,12 @@ Widget _host(
         settings: settings,
         builder: (_) => Scaffold(
           body: SingleChildScrollView(
-            child: OriginDiscussList(controller: controller, showHeader: false),
+            child: OriginDiscussList(
+              controller: controller,
+              showHeader: false,
+              showActions: showActions,
+              showReplies: showReplies,
+            ),
           ),
         ),
       );
@@ -1085,6 +1197,7 @@ OriginDiscussListItem _item(
   int? replyCount,
   int likeCount = 0,
   bool isLiked = false,
+  DateTime? createdAt,
   List<Map<String, dynamic>> latestReplies = const <Map<String, dynamic>>[],
 }) {
   return OriginDiscussListItem(
@@ -1099,7 +1212,7 @@ OriginDiscussListItem _item(
     replyCount: replyCount ?? id,
     likeCount: likeCount,
     isLiked: isLiked,
-    createdAt: DateTime(2026, 2, id.clamp(1, 28)),
+    createdAt: createdAt ?? DateTime(2026, 2, id.clamp(1, 28)),
     seed: 'u_$id',
     latestReplies: latestReplies,
   );

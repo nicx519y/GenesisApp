@@ -3,7 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/discuss/origin_discuss_preview_list.dart';
 import 'package:genesis_flutter_android/components/home/popular_origin_list.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
+
+const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
 
 void main() {
   testWidgets('renders popular origin feed fields and handles taps', (
@@ -51,7 +54,12 @@ void main() {
                     replyCount: 36,
                     createdAt: DateTime(2026, 2, 9),
                     seed: 'u_shawn',
-                    latestReplies: const <Map<String, dynamic>>[],
+                    latestReplies: const <Map<String, dynamic>>[
+                      {
+                        'author': {'name': 'Reply User'},
+                        'content': 'Hidden reply',
+                      },
+                    ],
                   ),
                   OriginDiscussPreviewItem(
                     discussId: 'dis_2',
@@ -77,27 +85,46 @@ void main() {
     expect(find.text('OID: o_alpha'), findsOneWidget);
     expect(find.text('v3'), findsOneWidget);
     expect(find.text('Discuss (128)'), findsOneWidget);
+    expect(find.image(const AssetImage(discussIconAsset)), findsOneWidget);
     expect(requestedDiscussOid, 'o_alpha');
     expect(find.text('Shawn'), findsOneWidget);
-    expect(find.text('36'), findsOneWidget);
-    expect(find.text('2026/2/9'), findsOneWidget);
+    expect(find.text('36'), findsNothing);
+    expect(find.text('2-9 00:00'), findsOneWidget);
     expect(
       find.text('24 replies pushed the story into a new branch.'),
       findsOneWidget,
     );
     expect(find.text('kmev'), findsOneWidget);
-    expect(find.text('87'), findsOneWidget);
-    expect(find.text('2026/3/10'), findsOneWidget);
+    expect(find.text('87'), findsNothing);
+    expect(find.text('3-10 00:00'), findsOneWidget);
     expect(
       find.text('The new sibling route is working nicely.'),
       findsOneWidget,
     );
     expect(find.byIcon(MyFlutterApp.save), findsOneWidget);
-    expect(find.byIcon(MyFlutterApp.copy), findsOneWidget);
+    expect(_findConnectImageIcon(), findsOneWidget);
     expect(find.text('2.3K'), findsOneWidget);
     expect(find.text('4.4M'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('origin-discuss-like-dis_1')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('origin-discuss-reply-dis_1')),
+      findsNothing,
+    );
+    expect(find.text('Reply User: Hidden reply'), findsNothing);
 
     await tester.tap(find.text('Copy World Progress'));
     expect(tappedOid, 'o_alpha');
   });
+}
+
+Finder _findConnectImageIcon() {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is ImageIcon &&
+        widget.image is AssetImage &&
+        (widget.image as AssetImage).assetName == _connectIconAsset,
+  );
 }

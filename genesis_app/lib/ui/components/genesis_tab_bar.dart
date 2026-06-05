@@ -16,6 +16,7 @@ class GenesisTabBar extends StatelessWidget {
     this.indicatorColor,
     this.indicatorWidth,
     this.indicatorHeight,
+    this.labelFontSize,
     this.expanded = false,
   });
 
@@ -26,11 +27,18 @@ class GenesisTabBar extends StatelessWidget {
   final Color? indicatorColor;
   final double? indicatorWidth;
   final double? indicatorHeight;
+  final double? labelFontSize;
   final bool expanded;
 
   @override
   Widget build(BuildContext context) {
     final uiTheme = GenesisUiTheme.of(context);
+    final labelStyle = labelFontSize == null
+        ? uiTheme.bodyStrongStyle
+        : uiTheme.bodyStrongStyle.copyWith(fontSize: labelFontSize);
+    final unselectedLabelStyle = labelFontSize == null
+        ? uiTheme.bodyStyle
+        : uiTheme.bodyStyle.copyWith(fontSize: labelFontSize);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: TabBar(
@@ -40,17 +48,19 @@ class GenesisTabBar extends StatelessWidget {
         dividerColor: Colors.transparent,
         padding: EdgeInsets.zero,
         labelPadding: labelPadding,
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
         indicatorSize: TabBarIndicatorSize.label,
         indicator: GenesisFixedUnderlineIndicator(
           color: indicatorColor ?? uiTheme.tabIndicatorColor,
           width: indicatorWidth ?? uiTheme.tabIndicatorWidth,
           height: indicatorHeight ?? uiTheme.tabIndicatorHeight,
-          bottomPadding: 5,
+          bottomPadding: 7.5,
         ),
         labelColor: uiTheme.tabSelectedColor,
         unselectedLabelColor: uiTheme.tabUnselectedColor,
-        labelStyle: uiTheme.bodyStrongStyle,
-        unselectedLabelStyle: uiTheme.bodyStyle,
+        labelStyle: labelStyle,
+        unselectedLabelStyle: unselectedLabelStyle,
         tabs: [for (final label in labels) Tab(text: label)],
       ),
     );

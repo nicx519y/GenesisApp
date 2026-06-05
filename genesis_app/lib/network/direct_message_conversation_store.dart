@@ -17,6 +17,7 @@ class DirectMessageConversationRecord {
     required this.peerName,
     required this.lastMessage,
     required this.lastMessageAt,
+    required this.lastMessageAtTime,
     required this.unreadCount,
     required this.sortValue,
     required this.rawJson,
@@ -33,6 +34,7 @@ class DirectMessageConversationRecord {
       peerName: asString(peer['name'], fallback: 'Unknown user'),
       lastMessage: asString(json['last_message']),
       lastMessageAt: formatRelativeTimestamp(json['last_message_at']),
+      lastMessageAtTime: time,
       unreadCount: asInt(json['unread_cnt']),
       sortValue: time?.millisecondsSinceEpoch ?? 0,
       rawJson: jsonEncode(json),
@@ -46,6 +48,7 @@ class DirectMessageConversationRecord {
   final String peerName;
   final String lastMessage;
   final String lastMessageAt;
+  final DateTime? lastMessageAtTime;
   final int unreadCount;
   final int sortValue;
   final String rawJson;

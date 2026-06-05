@@ -12,6 +12,7 @@ import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/components/common/copyable_id_label.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
@@ -27,6 +28,7 @@ import 'package:genesis_flutter_android/pages/create/create_origin_id_utils.dart
 import 'package:genesis_flutter_android/pages/create/create_origin_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_story_events_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
+import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/models/user.dart';
@@ -43,12 +45,14 @@ import 'package:genesis_flutter_android/pages/messages/message_category_list_pag
 import 'package:genesis_flutter_android/pages/messages/messages_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
+import 'package:genesis_flutter_android/pages/world/world_page.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
 import 'package:genesis_flutter_android/platform/auth/identity_auth_service.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 
 Future<AppServices> _testServices({
   bool backendAuthenticated = false,
@@ -252,18 +256,28 @@ class _RecordingV1ListTransport implements HttpTransport {
 
   _RecordingV1ListTransport({
     this.worldRelationStatus = 'owner',
+    this.originDiscussCount = 9,
+    this.discussTotalAll = 25,
     this.worldTickCompleter,
     this.userInfoCompleter,
     this.originListCompleter,
     this.worldListCompleter,
+    this.worldMetricDefault = 0,
+    this.worldCharacterMetricValue = 50,
+    this.worldCharacters,
   });
 
   final requests = <TransportRequest>[];
-  final String worldRelationStatus;
+  String worldRelationStatus;
+  final int originDiscussCount;
+  final int discussTotalAll;
   final Completer<TransportResponse>? worldTickCompleter;
   final Completer<TransportResponse>? userInfoCompleter;
   final Completer<TransportResponse>? originListCompleter;
   final Completer<TransportResponse>? worldListCompleter;
+  final Object? worldMetricDefault;
+  final Object? worldCharacterMetricValue;
+  final List<Map<String, Object?>>? worldCharacters;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -288,6 +302,46 @@ class _RecordingV1ListTransport implements HttpTransport {
         'err_no': 0,
         'err_str': 'success',
         'data': _worldDetail(wid),
+      });
+    }
+    if (request.uri.path.endsWith('/world/tick/list')) {
+      final wid = request.uri.queryParameters['world_id'] ?? 'w_test_1';
+      final pn = int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1;
+      final rn = int.tryParse(request.uri.queryParameters['rn'] ?? '') ?? 20;
+      const totalTicks = 25;
+      final start = ((pn - 1) * rn).clamp(0, totalTicks);
+      final end = (start + rn).clamp(0, totalTicks);
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'list': [
+            for (var index = start; index < end; index += 1)
+              {
+                'tick_id': 'tick_${wid}_${index + 1}',
+                'tick_no': totalTicks - index,
+                'status': 10,
+                'created_at': 1777680000 + index,
+                'tick_result': {
+                  'narrator': index == 0
+                      ? 'Paged event first page.'
+                      : 'Paged event ${index + 1}.',
+                  'paragraphs': [
+                    {
+                      'location_id': 'l_$wid',
+                      'timestamp': 'tick-time-${index + 1}',
+                      'text': 'Paged event paragraph ${index + 1}.',
+                      'character_deltas': const <Object?>[],
+                    },
+                  ],
+                  'location_groups': const <Object?>[],
+                },
+              },
+          ],
+          'total': totalTicks,
+          'pn': pn,
+          'rn': rn,
+        },
       });
     }
     if (request.method == 'POST' && request.uri.path.endsWith('/world/tick')) {
@@ -365,7 +419,7 @@ class _RecordingV1ListTransport implements HttpTransport {
       final bizId = request.uri.queryParameters['biz_id'] ?? '';
       final pn = int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1;
       final rn = int.tryParse(request.uri.queryParameters['rn'] ?? '') ?? 20;
-      const totalAll = 25;
+      final totalAll = discussTotalAll;
       final start = ((pn - 1) * rn).clamp(0, totalAll);
       final end = (start + rn).clamp(0, totalAll);
       return _jsonResponse({
@@ -506,7 +560,7 @@ class _RecordingV1ListTransport implements HttpTransport {
         'origin_id': fallback,
         'origin_name': 'Origin detail $fallback',
         'origin_version': '1',
-        'origin_version_time': '2026-05-02T00:00:00Z',
+        'origin_version_time': 1777680000,
         'owner_uid': 'u_test',
         'owner_name': 'Tester',
         'brief': 'Origin detail subtitle',
@@ -523,7 +577,7 @@ class _RecordingV1ListTransport implements HttpTransport {
       },
       'stats': {
         'copy_cnt': 7,
-        'discuss_cnt': 9,
+        'discuss_cnt': originDiscussCount,
         'character_cnt': 1,
         'connect_cnt': 8,
         'location_cnt': 1,
@@ -554,7 +608,7 @@ class _RecordingV1ListTransport implements HttpTransport {
           'location_pid': '',
           'location_name': 'Detail Location',
           'location_description': 'A location from detail.',
-          'location_paragraph': '',
+          'location_paragraph': 'Detail location launch paragraph.',
           'location_timestamp': '',
           'location_summary': '',
           'image': '',
@@ -564,7 +618,16 @@ class _RecordingV1ListTransport implements HttpTransport {
           'dialogue': const <Object?>[],
         },
       ],
-      'ticks': const <Object?>[],
+      'ticks': const [
+        {
+          'tick_no': 1,
+          'created_at': 1777680000,
+          'tick_result': {
+            'narrator': 'Origin launch tick narrator.',
+            'paragraphs': <Object?>[],
+          },
+        },
+      ],
     };
   }
 
@@ -588,7 +651,7 @@ class _RecordingV1ListTransport implements HttpTransport {
           'label': 'Goal Progress',
           'unit': '%',
           'range': [0, 100],
-          'default': 0,
+          'default': worldMetricDefault,
         },
         'started_at': '2026-05-01T00:00:00Z',
         'tick_duration_days': 30,
@@ -604,22 +667,25 @@ class _RecordingV1ListTransport implements HttpTransport {
         'player_cnt': 1,
         'location_cnt': 1,
       },
-      'characters': [
-        {
-          'type': 'ai',
-          'player_uid': worldRelationStatus == 'approved' ? '' : 'u_mock',
-          'char_id': 'c_$fallback',
-          'name': 'World Character',
-          'identity': 'Guide',
-          'brief': 'Knows the world',
-          'description': 'A world character.',
-          'goal': 'Guide the player.',
-          'avatar': '',
-          'initial_location_id': 'l_$fallback',
-          'location_id': 'l_$fallback',
-          'metric_value': 50,
-        },
-      ],
+      'characters':
+          worldCharacters ??
+          [
+            {
+              'type': 'ai',
+              'player_uid': worldRelationStatus == 'approved' ? '' : 'u_mock',
+              'player_username': 'Mock User',
+              'char_id': 'c_$fallback',
+              'name': 'World Character',
+              'identity': 'Guide',
+              'brief': 'Knows the world',
+              'description': 'A world character.',
+              'goal': 'Guide the player.',
+              'avatar': '',
+              'initial_location_id': 'l_$fallback',
+              'location_id': 'l_$fallback',
+              'metric_value': worldCharacterMetricValue,
+            },
+          ],
       'locations': [
         {
           'location_id': 'l_$fallback',
@@ -679,8 +745,50 @@ class _RecordingV1ListTransport implements HttpTransport {
   }
 }
 
-class _RecordingMessageCategoryTransport implements HttpTransport {
+class _QueuedOriginRefreshTransport implements HttpTransport {
+  _QueuedOriginRefreshTransport({required this.refreshResponse});
+
+  final Future<TransportResponse> refreshResponse;
   final requests = <TransportRequest>[];
+  final _delegate = _RecordingV1ListTransport();
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    if (request.uri.path.endsWith('/origin/list')) {
+      if (requestsFor('/api/v1/origin/list').length == 1) {
+        return _originListResponse(0);
+      }
+      return refreshResponse;
+    }
+    return _delegate.send(request);
+  }
+
+  List<TransportRequest> requestsFor(String path) {
+    return requests.where((request) => request.uri.path == path).toList();
+  }
+
+  TransportResponse _originListResponse(int startIndex) {
+    return _delegate._jsonResponse({
+      'err_no': 0,
+      'err_str': 'success',
+      'data': {
+        'list': [_delegate._originItem(startIndex)],
+        'total': 1,
+      },
+    });
+  }
+}
+
+class _RecordingMessageCategoryTransport implements HttpTransport {
+  _RecordingMessageCategoryTransport({
+    this.readCompleter,
+    this.notificationIsRead = true,
+  });
+
+  final requests = <TransportRequest>[];
+  final Completer<TransportResponse>? readCompleter;
+  final bool notificationIsRead;
   var commentRead = false;
 
   @override
@@ -691,6 +799,8 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
     if (request.method == 'POST' && path == '/api/v1/message/read') {
       final body = decodedBody(request);
       if (body['block'] == 'interaction') commentRead = true;
+      final completer = readCompleter;
+      if (completer != null) return completer.future;
     } else if (request.method == 'GET' && path == '/api/v1/message/unread') {
       data = {
         'world_apply_unread': 1,
@@ -713,7 +823,7 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
             'biz_id': 'o_recorded_001',
             'obj_id': 'd_recorded_001',
             'content': 'Recorded block message',
-            'is_read': true,
+            'is_read': notificationIsRead,
             'created_at': '2026-05-20T10:00:00Z',
           },
         ],
@@ -730,6 +840,89 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
   Map<String, dynamic> decodedBody(TransportRequest request) {
     return jsonDecode(utf8.decode(request.bodyBytes ?? const <int>[]))
         as Map<String, dynamic>;
+  }
+}
+
+class _RecordingMessagesDataPollTransport implements HttpTransport {
+  final requests = <TransportRequest>[];
+  var unreadTotal = 4;
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    final path = request.uri.path;
+    Object? data = <String, Object?>{};
+    if (request.method == 'GET' && path == '/api/v1/message/unread') {
+      data = {
+        'world_apply_unread': 1,
+        'follow_unread': 1,
+        'interaction_unread': 1,
+        'direct_message_unread': 1,
+        'total_unread': unreadTotal,
+      };
+    } else if (request.method == 'GET' &&
+        path == '/api/v1/direct_message/conversations') {
+      final isDelta = request.uri.queryParameters.containsKey(
+        'after_message_id',
+      );
+      data = {
+        'list': const <Object?>[],
+        'total': 0,
+        'pn': int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1,
+        'rn': int.tryParse(request.uri.queryParameters['rn'] ?? '') ?? 100,
+        'next_after_message_id': isDelta ? 'dm_cursor_next' : 'dm_cursor_001',
+      };
+    } else if (request.method == 'GET' && path == '/api/v1/origin/list') {
+      data = {'list': const <Object?>[], 'total': 0};
+    }
+    return _v1Response(data);
+  }
+
+  int count(String path) {
+    return requests.where((request) => request.uri.path == path).length;
+  }
+
+  List<String> get messagesDataPaths {
+    return requests
+        .map((request) => request.uri.path)
+        .where(
+          (path) =>
+              path == '/api/v1/message/unread' ||
+              path == '/api/v1/direct_message/conversations',
+        )
+        .toList(growable: false);
+  }
+}
+
+class _BlockingDmConversationsTransport implements HttpTransport {
+  final requests = <TransportRequest>[];
+  final _conversationsCompleter = Completer<TransportResponse>();
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) {
+    requests.add(request);
+    if (request.method == 'GET' &&
+        request.uri.path == '/api/v1/direct_message/conversations') {
+      return _conversationsCompleter.future;
+    }
+    return Future.value(_v1Response(<String, Object?>{}));
+  }
+
+  void completeConversations() {
+    if (_conversationsCompleter.isCompleted) return;
+    _conversationsCompleter.complete(
+      _v1Response({
+        'list': const <Object?>[],
+        'total': 0,
+        'pn': 1,
+        'rn': 100,
+        'next_after_message_id': 'dm_cursor_empty',
+      }),
+    );
+  }
+
+  int count(String path) {
+    return requests.where((request) => request.uri.path == path).length;
   }
 }
 
@@ -944,6 +1137,40 @@ int _unixTimestamp(DateTime value) {
   return value.millisecondsSinceEpoch ~/ 1000;
 }
 
+Future<AppServices> _messagesServicesWithCachedConversation({
+  required DateTime lastMessageAt,
+}) async {
+  final sessionStore = MemoryUserSessionStore();
+  await sessionStore.saveUid('u_mock');
+  final storage = MemoryDirectMessageConversationStorage();
+  final conversation = _dmConversationJson(
+    convId: 'dm_cached_time',
+    peerName: 'Penny Direct',
+    messageId: 'dm_cached_time_msg',
+    message: 'Cached direct message preview',
+    minutesAgo: 0,
+  )..['last_message_at'] = _unixTimestamp(lastMessageAt);
+  await storage.mergeConversations(
+    ownerUid: 'u_mock',
+    conversations: [conversation],
+    nextAfterMessageId: 'cached_cursor',
+  );
+  final api = GenesisApi(
+    useMock: true,
+    deviceIdService: const _FakeDeviceIdService(),
+    sessionStore: sessionStore,
+  );
+  final store = DirectMessageConversationStore(
+    api: api,
+    sessionStore: sessionStore,
+    storage: storage,
+  );
+  return _testServices(
+    sessionStoreOverride: sessionStore,
+    directMessageConversations: store,
+  );
+}
+
 Future<void> _jumpChatListToBottom(WidgetTester tester) async {
   final scrollableFinder = find
       .descendant(of: find.byType(ListView), matching: find.byType(Scrollable))
@@ -1099,7 +1326,7 @@ class _RecordingCreateOriginTransport implements HttpTransport {
           'origin_id': oid,
           'origin_name': 'Editable Origin',
           'origin_version': '1',
-          'origin_version_time': '2026-05-02T00:00:00Z',
+          'origin_version_time': 1777680000,
           'owner_uid': 'u_test',
           'owner_name': 'Tester',
           'brief': 'Editable public view.',
@@ -1304,6 +1531,12 @@ void main() {
     expect(find.text('Search World'), findsOneWidget);
     expect(find.text('Users'), findsOneWidget);
     expect(find.text('Search User'), findsOneWidget);
+    final searchUserUid = find.text('UID: u_search_1');
+    expect(searchUserUid, findsOneWidget);
+    expect(
+      find.ancestor(of: searchUserUid, matching: find.byType(CopyableIdLabel)),
+      findsOneWidget,
+    );
     final subtitle = tester.widget<Text>(find.text('OID: O_SEARCH_1'));
     expect(subtitle.style?.fontSize, 12);
     expect(subtitle.style?.fontWeight, FontWeight.w400);
@@ -1376,9 +1609,8 @@ void main() {
 
     expect(find.text('登录后可使用该功能'), findsNothing);
     expect(find.text('Sign in to continue'), findsOneWidget);
-    expect(find.text('Sign In With Google'), findsOneWidget);
-    expect(find.text('Sign In With Apple'), findsOneWidget);
-    expect(find.text('Continue with Google'), findsNothing);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with Apple'), findsOneWidget);
     expect(find.text('Private chats'), findsNothing);
   });
 
@@ -1408,6 +1640,134 @@ void main() {
     );
   });
 
+  testWidgets('messages data polling shares one five second cadence', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingMessagesDataPollTransport();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      initialAuthToken: 'backend-token',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const AppShellPage(initialIndex: 0),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(transport.count('/api/v1/message/unread'), 1);
+    expect(transport.count('/api/v1/direct_message/conversations'), 1);
+    expect(transport.messagesDataPaths.take(2), [
+      '/api/v1/message/unread',
+      '/api/v1/direct_message/conversations',
+    ]);
+
+    await tester.pump(const Duration(milliseconds: 4999));
+    expect(transport.count('/api/v1/message/unread'), 1);
+    expect(transport.count('/api/v1/direct_message/conversations'), 1);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(transport.count('/api/v1/message/unread'), 2);
+    expect(transport.count('/api/v1/direct_message/conversations'), 2);
+
+    await tester.tap(find.text('Messages'));
+    await tester.pump();
+    await tester.pump();
+    expect(transport.count('/api/v1/message/unread'), 3);
+    expect(transport.count('/api/v1/direct_message/conversations'), 3);
+
+    await tester.pump(const Duration(milliseconds: 4999));
+    expect(transport.count('/api/v1/message/unread'), 3);
+    expect(transport.count('/api/v1/direct_message/conversations'), 3);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(transport.count('/api/v1/message/unread'), 4);
+    expect(transport.count('/api/v1/direct_message/conversations'), 4);
+  });
+
+  testWidgets(
+    'messages tab switch does not duplicate requests while polling is in flight',
+    (WidgetTester tester) async {
+      final transport = _BlockingDmConversationsTransport();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialAuthToken: 'backend-token',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: const AppShellPage(initialIndex: 0),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(transport.count('/api/v1/message/unread'), 1);
+      expect(transport.count('/api/v1/direct_message/conversations'), 1);
+
+      await tester.tap(find.text('Messages'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(transport.count('/api/v1/message/unread'), 1);
+      expect(transport.count('/api/v1/direct_message/conversations'), 1);
+
+      transport.completeConversations();
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('messages tab switch forces requests when polling is idle', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingMessagesDataPollTransport();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      initialAuthToken: 'backend-token',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const AppShellPage(initialIndex: 0),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(transport.count('/api/v1/message/unread'), 1);
+    expect(transport.count('/api/v1/direct_message/conversations'), 1);
+
+    await tester.pump(const Duration(seconds: 2));
+    await tester.tap(find.text('Messages'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(transport.count('/api/v1/message/unread'), 2);
+    expect(transport.count('/api/v1/direct_message/conversations'), 2);
+
+    await tester.pump(const Duration(milliseconds: 4999));
+    expect(transport.count('/api/v1/message/unread'), 2);
+    expect(transport.count('/api/v1/direct_message/conversations'), 2);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(transport.count('/api/v1/message/unread'), 3);
+    expect(transport.count('/api/v1/direct_message/conversations'), 3);
+  });
+
   testWidgets('direct messages list uses conversations endpoint and polls', (
     WidgetTester tester,
   ) async {
@@ -1423,6 +1783,12 @@ void main() {
     expect(find.text('Penny Direct'), findsOneWidget);
     expect(find.text('First direct message preview'), findsOneWidget);
     expect(find.text('2 hours ago'), findsOneWidget);
+    final dmAvatar = find.byKey(const ValueKey('dm-avatar-dm_test_001'));
+    final dmName = find.text('Penny Direct');
+    expect(dmAvatar, findsOneWidget);
+    expect(tester.getSize(dmAvatar), const Size(48, 48));
+    expect(tester.widget<GenesisAvatar>(dmAvatar).borderRadius, 5);
+    expect(tester.getTopLeft(dmAvatar).dy, tester.getTopLeft(dmName).dy);
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('dm-avatar-dm_test_001-unread-badge')),
@@ -1457,6 +1823,124 @@ void main() {
     );
     expect(deltaRequest.uri.queryParameters.containsKey('pn'), isFalse);
     expect(deltaRequest.uri.queryParameters.containsKey('rn'), isFalse);
+  });
+
+  testWidgets('direct messages time labels refresh every minute', (
+    WidgetTester tester,
+  ) async {
+    var now = DateTime.utc(2026, 6, 5, 10);
+    final services = await _messagesServicesWithCachedConversation(
+      lastMessageAt: now.subtract(const Duration(seconds: 30)),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: MessagesPage(
+            onMessagesDataRefresh: () async {},
+            nowProvider: () => now,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Penny Direct'), findsOneWidget);
+    expect(find.text('just now'), findsOneWidget);
+
+    now = now.add(const Duration(minutes: 1));
+    await tester.pump(const Duration(minutes: 1));
+
+    expect(find.text('just now'), findsNothing);
+    expect(find.text('1 minute ago'), findsOneWidget);
+  });
+
+  testWidgets('direct messages time labels refresh when tab becomes active', (
+    WidgetTester tester,
+  ) async {
+    final isActive = ValueNotifier<bool>(false);
+    var now = DateTime.utc(2026, 6, 5, 10);
+    final services = await _messagesServicesWithCachedConversation(
+      lastMessageAt: now.subtract(const Duration(seconds: 30)),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: MessagesPage(
+            onMessagesDataRefresh: () async {},
+            isActiveListenable: isActive,
+            nowProvider: () => now,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Penny Direct'), findsOneWidget);
+    expect(find.text('just now'), findsOneWidget);
+
+    now = now.add(const Duration(seconds: 75));
+    await tester.pump(const Duration(seconds: 75));
+
+    expect(find.text('just now'), findsOneWidget);
+    expect(find.text('1 minute ago'), findsNothing);
+
+    isActive.value = true;
+    await tester.pump();
+
+    expect(find.text('just now'), findsNothing);
+    expect(find.text('1 minute ago'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    isActive.dispose();
+  });
+
+  testWidgets('direct messages list avoids spinner during conversation sync', (
+    WidgetTester tester,
+  ) async {
+    void expectEmptyTextCentered() {
+      final emptyState = find.byKey(
+        const ValueKey('direct-messages-empty-state'),
+      );
+      final emptyText = find.text('no private messages yet.');
+      final emptyCenter = tester.getCenter(emptyState);
+      final textCenter = tester.getCenter(emptyText);
+      expect(textCenter.dx, closeTo(emptyCenter.dx, 0.1));
+      expect(textCenter.dy, closeTo(emptyCenter.dy, 0.1));
+    }
+
+    final transport = _BlockingDmConversationsTransport();
+    final services = await _testServices(transport: transport, useMock: false);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(services: services, child: const MessagesPage()),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      transport.requests
+          .where(
+            (request) =>
+                request.uri.path == '/api/v1/direct_message/conversations',
+          )
+          .length,
+      1,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('no private messages yet.'), findsOneWidget);
+    expectEmptyTextCentered();
+
+    transport.completeConversations();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('no private messages yet.'), findsOneWidget);
+    expectEmptyTextCentered();
   });
 
   testWidgets('direct messages tap opens chat page with peer uid', (
@@ -1665,55 +2149,86 @@ void main() {
     );
   });
 
-  testWidgets('message category page marks block read before loading list', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingMessageCategoryTransport();
-    final services = await _testServices(transport: transport, useMock: false);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: services,
-          child: MessageCategoryListPage(
-            title: 'Comments',
-            block: 'interaction',
-            emptyText: 'No comments yet.',
-            onNotificationsRead: () async {
-              await services.api.v1.messages.unreadSummary();
-            },
+  testWidgets(
+    'message category page loads list without waiting for mark read',
+    (WidgetTester tester) async {
+      final readCompleter = Completer<TransportResponse>();
+      final transport = _RecordingMessageCategoryTransport(
+        readCompleter: readCompleter,
+        notificationIsRead: false,
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: MessageCategoryListPage(
+              title: 'Comments',
+              block: 'interaction',
+              emptyText: 'No comments yet.',
+              onNotificationsRead: () async {
+                await services.api.v1.messages.unreadSummary();
+              },
+            ),
           ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pump();
+      await tester.pump();
 
-    final readRequest = transport.requests.firstWhere(
-      (request) => request.uri.path == '/api/v1/message/read',
-    );
-    final listRequest = transport.requests.firstWhere(
-      (request) => request.uri.path == '/api/v1/message/notifications',
-    );
-    final unreadRequest = transport.requests.firstWhere(
-      (request) => request.uri.path == '/api/v1/message/unread',
-    );
+      expect(find.text('Recorded block message'), findsOneWidget);
 
-    expect(readRequest.method, 'POST');
-    expect(transport.decodedBody(readRequest)['block'], 'interaction');
-    expect(unreadRequest.method, 'GET');
-    expect(listRequest.method, 'GET');
-    expect(listRequest.uri.queryParameters['block'], 'interaction');
-    expect(listRequest.uri.queryParameters['pn'], '1');
-    expect(listRequest.uri.queryParameters['rn'], '20');
-    expect(
-      transport.requests.indexOf(readRequest),
-      lessThan(transport.requests.indexOf(unreadRequest)),
-    );
-    expect(
-      transport.requests.indexOf(unreadRequest),
-      lessThan(transport.requests.indexOf(listRequest)),
-    );
-    expect(find.text('Recorded block message'), findsOneWidget);
-  });
+      final readRequest = transport.requests.firstWhere(
+        (request) => request.uri.path == '/api/v1/message/read',
+      );
+      final listRequest = transport.requests.firstWhere(
+        (request) => request.uri.path == '/api/v1/message/notifications',
+      );
+      expect(
+        transport.requests.where(
+          (request) => request.uri.path == '/api/v1/message/unread',
+        ),
+        isEmpty,
+      );
+
+      readCompleter.complete(
+        TransportResponse(
+          statusCode: 200,
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({
+            'err_no': 0,
+            'err_str': 'success',
+            'data': <String, Object?>{},
+          }),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final unreadRequest = transport.requests.firstWhere(
+        (request) => request.uri.path == '/api/v1/message/unread',
+      );
+
+      expect(readRequest.method, 'POST');
+      expect(transport.decodedBody(readRequest)['block'], 'interaction');
+      expect(unreadRequest.method, 'GET');
+      expect(listRequest.method, 'GET');
+      expect(listRequest.uri.queryParameters['block'], 'interaction');
+      expect(listRequest.uri.queryParameters['pn'], '1');
+      expect(listRequest.uri.queryParameters['rn'], '20');
+      expect(
+        transport.requests.indexOf(listRequest),
+        lessThan(transport.requests.indexOf(readRequest)),
+      );
+      expect(
+        transport.requests.indexOf(readRequest),
+        lessThan(transport.requests.indexOf(unreadRequest)),
+      );
+      expect(find.text('Recorded block message'), findsOneWidget);
+    },
+  );
 
   testWidgets('tap Origin switches to Origin page', (
     WidgetTester tester,
@@ -1906,18 +2421,79 @@ void main() {
 
     final discussRequests = transport.requestsFor('/api/v1/discuss/list');
     expect(discussRequests.length, previousDiscussRequestCount);
-    expect(find.widgetWithText(TextField, 'Write a post'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Write a post'), findsNothing);
     expect(find.text('Discuss preview for o_test_1'), findsOneWidget);
     expect(find.text('View More >'), findsOneWidget);
+  });
 
-    final discussListCountBeforePost = discussRequests.length;
-    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+  testWidgets('Origin detail discuss area opens discuss page when populated', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final discussArea = find.byKey(
+      const ValueKey('origin-discuss-summary-area'),
+    );
+    await _dragOriginPanelUntilVisible(tester, discussArea);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('origin-discuss-like-dis_o_test_1_1')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('origin-discuss-reply-dis_o_test_1_1')),
+      findsNothing,
+    );
+    await tester.tap(discussArea);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Discuss'), findsOneWidget);
+    final discussRequests = transport.requestsFor('/api/v1/discuss/list');
+    expect(discussRequests.last.uri.queryParameters['biz_id'], 'o_test_1');
+  });
+
+  testWidgets('Origin detail empty discuss area opens post composer', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      originDiscussCount: 0,
+      discussTotalAll: 0,
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final discussArea = find.byKey(
+      const ValueKey('origin-discuss-summary-area'),
+    );
+    await _dragOriginPanelUntilVisible(tester, discussArea);
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextField, 'Write a post'), findsOneWidget);
+    await tester.tap(discussArea);
     await tester.pumpAndSettle();
 
     expect(find.text('New post'), findsOneWidget);
     await tester.enterText(
       find.widgetWithText(TextField, 'Write a post').last,
-      'A new discuss post',
+      'First empty discuss post',
     );
     await tester.pump();
     await tester.tap(find.text('Send'));
@@ -1928,15 +2504,7 @@ void main() {
     final postBody = transport.decodedBody(postRequests.single);
     expect(postBody['biz_type'], 1);
     expect(postBody['biz_id'], 'o_test_1');
-    expect(postBody['content'], 'A new discuss post');
-    expect(postBody['images'], isEmpty);
-    expect(find.text('New post'), findsNothing);
-    final discussRequestsAfterPost = transport.requestsFor(
-      '/api/v1/discuss/list',
-    );
-    expect(discussRequestsAfterPost.length, discussListCountBeforePost + 1);
-    expect(discussRequestsAfterPost.last.uri.queryParameters['pn'], '1');
-    expect(discussRequestsAfterPost.last.uri.queryParameters['rn'], '20');
+    expect(postBody['content'], 'First empty discuss post');
   });
 
   testWidgets('Origin detail launch bar launches a world', (
@@ -1961,6 +2529,16 @@ void main() {
     expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
+    await tester.pump();
+
+    expect(find.text('Please select a preset role'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
+
+    await tester.tap(
+      find.byKey(const ValueKey('origin-role-preset-c_o_test_1')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
     await tester.pumpAndSettle();
 
     final launchRequests = transport.requestsFor('/api/v1/origin/launch');
@@ -1975,6 +2553,106 @@ void main() {
       worldRequests.last.uri.queryParameters['world_id'],
       'w_launched_from_origin',
     );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('Origin detail launch preview uses detail tick and locations', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.dragFrom(const Offset(400, 500), const Offset(0, -420));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 5; i++) {
+      if (find.text('Launch Preview').evaluate().isNotEmpty) break;
+      await tester.dragFrom(const Offset(400, 500), const Offset(0, -500));
+      await tester.pumpAndSettle();
+    }
+
+    expect(find.text('Launch Preview'), findsOneWidget);
+    expect(find.text('Global'), findsOneWidget);
+    expect(find.text('Origin launch tick narrator.'), findsOneWidget);
+    expect(find.text('Detail Location'), findsWidgets);
+    expect(find.text('Detail location launch paragraph.'), findsOneWidget);
+  });
+
+  testWidgets('Origin detail originator opens user info', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Originator: Tester'));
+    await tester.pumpAndSettle();
+
+    final userInfoRequests = transport.requestsFor('/api/v1/user/info');
+    expect(userInfoRequests, hasLength(1));
+    expect(userInfoRequests.single.uri.queryParameters['uid'], 'u_test');
+    expect(find.text('User Info'), findsOneWidget);
+  });
+
+  testWidgets('Origin detail shows edit button to owner', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialUid: 'u_test',
+        ),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit Origin'), findsOneWidget);
+  });
+
+  testWidgets('Origin detail hides edit button from non-owner', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialUid: 'u_other',
+        ),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit Origin'), findsNothing);
   });
 
   testWidgets('Origin detail launch sheet sends custom role payload', (
@@ -1997,6 +2675,14 @@ void main() {
     await tester.tap(find.text('Custom'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'Custom Hero');
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
+    await tester.pump();
+
+    expect(find.text('Please enter identity'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
+
     await tester.enterText(find.byType(TextField).at(1), 'Time traveler');
     await tester.enterText(find.byType(TextField).at(2), 'Knows too much.');
     await tester.pump();
@@ -2016,6 +2702,8 @@ void main() {
       containsPair('identity', 'Time traveler'),
     );
     expect(launchBody['custom_role'], containsPair('bio', 'Knows too much.'));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('Origin detail custom role fills avatar from profile', (
@@ -2133,13 +2821,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
 
     final detailRequests = transport.requestsFor('/api/v1/world/detail');
     expect(detailRequests, hasLength(1));
     expect(detailRequests.single.uri.queryParameters['world_id'], 'w_test_1');
-    expect(find.text('#World detail w_test_1'), findsWidgets);
+    expect(find.text('World detail w_test_1'), findsWidgets);
     final sheet = tester.widget<DraggableScrollableSheet>(
       find.byType(DraggableScrollableSheet),
     );
@@ -2158,6 +2846,118 @@ void main() {
     expect(find.text('User Info'), findsOneWidget);
   });
 
+  testWidgets('World status uses metric default when character value is zero', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldMetricDefault: 42,
+      worldCharacterMetricValue: 0,
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('World 1'));
+    await tester.pumpAndSettle();
+    await tester.dragFrom(const Offset(400, 570), const Offset(0, -360));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Status'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Goal Progress: 42%'), findsOneWidget);
+  });
+
+  testWidgets('World status and character lists prioritize users and self', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldCharacters: [
+        {
+          'type': 'ai',
+          'player_uid': '',
+          'player_username': '',
+          'char_id': 'c_ai',
+          'name': 'AI Guide',
+          'identity': 'Guide',
+          'brief': 'AI row',
+          'description': 'An AI character.',
+          'goal': '',
+          'avatar': '',
+          'initial_location_id': 'l_w_test_1',
+          'location_id': 'l_w_test_1',
+          'metric_value': 12,
+        },
+        {
+          'type': 'player',
+          'player_uid': 'u_other',
+          'player_username': 'Other User',
+          'char_id': 'c_other',
+          'name': 'Other Hero',
+          'identity': 'Visitor',
+          'brief': 'Other row',
+          'description': 'Another user character.',
+          'goal': '',
+          'avatar': '',
+          'initial_location_id': 'l_w_test_1',
+          'location_id': 'l_w_test_1',
+          'metric_value': 34,
+        },
+        {
+          'type': 'player',
+          'player_uid': 'u_mock',
+          'player_username': 'Mock User',
+          'char_id': 'c_self',
+          'name': 'Self Hero',
+          'identity': 'Self',
+          'brief': 'Self row',
+          'description': 'Current user character.',
+          'goal': '',
+          'avatar': '',
+          'initial_location_id': 'l_w_test_1',
+          'location_id': 'l_w_test_1',
+          'metric_value': 56,
+        },
+      ],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('World 1'));
+    await tester.pumpAndSettle();
+    await tester.dragFrom(const Offset(400, 570), const Offset(0, -360));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Status'));
+    await tester.pumpAndSettle();
+    _expectCharacterNameOrder(tester);
+
+    await tester.tap(find.text('Characters'));
+    await tester.pumpAndSettle();
+    _expectCharacterNameOrder(tester);
+
+    final otherName = tester.widget<Text>(
+      _richTextFinder('Other Hero (Other User)'),
+    );
+    final otherSpan = otherName.textSpan! as TextSpan;
+    final suffixSpan = otherSpan.children!.single as TextSpan;
+    expect(suffixSpan.style?.color, const Color(0xFF888888));
+  });
+
   testWidgets('World character row marks current player as Me', (
     WidgetTester tester,
   ) async {
@@ -2173,14 +2973,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
     await tester.dragFrom(const Offset(400, 570), const Offset(0, -360));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Characters'));
     await tester.pumpAndSettle();
 
-    expect(find.text('World Character (Me)'), findsOneWidget);
+    expect(_richTextFinder('World Character (Me)'), findsOneWidget);
   });
 
   testWidgets('World map drills into non-leaf locations', (
@@ -2198,7 +2998,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
 
     expect(find.text('World Location'), findsWidgets);
@@ -2209,7 +3009,7 @@ void main() {
     await tester.tap(find.text('World Location').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('#World detail w_test_1'), findsWidgets);
+    expect(find.text('World detail w_test_1'), findsWidgets);
     expect(find.text('Child Location'), findsWidgets);
     expect(find.text('Location (2)'), findsOneWidget);
     expect(find.byIcon(Icons.subdirectory_arrow_left), findsOneWidget);
@@ -2246,8 +3046,8 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
     await tester.pumpAndSettle();
 
-    expect(find.text('#World detail w_test_1'), findsNothing);
-    expect(find.text('#World 1'), findsOneWidget);
+    expect(find.text('World detail w_test_1'), findsNothing);
+    expect(find.text('World 1'), findsOneWidget);
   });
 
   testWidgets('World Request button calls v1 apply for requestable statuses', (
@@ -2265,7 +3065,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
 
     final buttonFinder = find.widgetWithText(FilledButton, 'Request');
@@ -2292,7 +3092,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
 
     final buttonFinder = find.widgetWithText(FilledButton, 'pending');
@@ -2325,7 +3125,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('#World 1'));
+    await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
 
     final buttonFinder = find.widgetWithText(FilledButton, 'Launch');
@@ -2338,6 +3138,16 @@ void main() {
     expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
+    await tester.pump();
+
+    expect(find.text('Please select a preset role'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/world/join'), isEmpty);
+
+    await tester.tap(
+      find.byKey(const ValueKey('origin-role-preset-c_w_test_1')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
     await tester.pumpAndSettle();
 
     final joinRequests = transport.requestsFor('/api/v1/world/join');
@@ -2346,6 +3156,8 @@ void main() {
     expect(body['world_id'], 'w_test_1');
     expect(body['preset_character_id'], 'c_w_test_1');
     expect(body.containsKey('apply_id'), isFalse);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
   });
 
   testWidgets(
@@ -2366,7 +3178,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('#World 1'));
+      await tester.tap(find.text('World 1'));
       await tester.pumpAndSettle();
 
       final buttonFinder = find.widgetWithText(FilledButton, 'Progress');
@@ -2462,6 +3274,43 @@ void main() {
     expect(originRequests.last.uri.queryParameters['rn'], '20');
   });
 
+  testWidgets('Origin pull refresh keeps current list until response returns', (
+    WidgetTester tester,
+  ) async {
+    final refreshCompleter = Completer<TransportResponse>();
+    final transport = _QueuedOriginRefreshTransport(
+      refreshResponse: refreshCompleter.future,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('#Origin 1'), findsOneWidget);
+
+    final refreshFuture = tester
+        .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
+        .show();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(transport.requestsFor('/api/v1/origin/list'), hasLength(2));
+    expect(find.text('#Origin 1'), findsOneWidget);
+    expect(find.byType(RefreshProgressIndicator), findsOneWidget);
+
+    refreshCompleter.complete(transport._originListResponse(100));
+    await refreshFuture;
+    await tester.pumpAndSettle();
+
+    expect(find.text('#Origin 1'), findsNothing);
+    expect(find.text('#Origin 101'), findsOneWidget);
+  });
+
   testWidgets('Origin tab keeps loaded list when switching away and back', (
     WidgetTester tester,
   ) async {
@@ -2548,16 +3397,21 @@ void main() {
       ),
     );
 
-    expect(find.text('Sign In With Google'), findsOneWidget);
-    expect(find.text('Sign In With Apple'), findsOneWidget);
+    expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with Apple'), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsOneWidget);
+    expect(find.text('Cancel'), findsNothing);
+    expect(_loginLegalTextFinder(), findsOneWidget);
 
-    await tester.tap(find.text('Sign In With Apple'));
+    await tester.tap(find.text('Continue with Apple'));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
     expect(tappedProvider, IdentityProvider.apple);
-    expect(find.text('Sign In With Apple'), findsOneWidget);
+    expect(find.text('Continue with Apple'), findsOneWidget);
+    expect(_loginLegalTextFinder(), findsOneWidget);
   });
 
   testWidgets('tap Me renders cached profile then refreshes user info', (
@@ -2826,7 +3680,7 @@ void main() {
     await tester.pump();
 
     expect(shellBuilds, 1);
-    expect(find.text('Origin loaded'), findsOneWidget);
+    expect(find.text('#Origin loaded'), findsOneWidget);
   });
 
   testWidgets('profile avatar notifier update does not rebuild profile shell', (
@@ -2956,6 +3810,36 @@ void main() {
     final textRight = tester.getTopRight(find.text('Short')).dx;
     final iconLeft = tester.getTopLeft(find.byIcon(Icons.edit)).dx;
     expect(iconLeft - textRight, lessThan(16));
+  });
+
+  testWidgets('profile avatar edit button uses image edit icon', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: UserProfileContent(
+            data: const UserProfileData(
+              avatarUrl: '',
+              displayName: 'Short',
+              uid: 'u_cached',
+              followingCount: 7,
+              followerCount: 11,
+              origins: <UserProfileOriginItem>[],
+              worlds: <UserProfileWorldItem>[],
+            ),
+            onEditAvatar: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byIcon(MyFlutterApp.editImage), findsOneWidget);
+    expect(find.byIcon(Icons.image_outlined), findsNothing);
+    expect(find.byIcon(Icons.photo_camera_outlined), findsNothing);
+    expect(find.byIcon(Icons.add_photo_alternate_outlined), findsNothing);
+    expect(find.byIcon(Icons.edit_document), findsNothing);
   });
 
   testWidgets('signed-out Me view enters Me after Google login succeeds', (
@@ -3104,8 +3988,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sign in to continue'), findsOneWidget);
-    expect(find.text('Sign In With Google'), findsOneWidget);
-    expect(find.text('Sign In With Apple'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Continue with Apple'), findsOneWidget);
     expect(find.text('Create Origin'), findsNothing);
     expect(find.text('Basics'), findsNothing);
   });
@@ -3224,6 +4108,71 @@ void main() {
     expect(find.text('1 characters: Tff'), findsOneWidget);
     expect(find.text('1 locations: Jenrn ff'), findsOneWidget);
     expect(find.text('2 Events'), findsOneWidget);
+  });
+
+  testWidgets('create origin back action can discard the local draft', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.saveFinal(
+      const CreateOriginDraft(
+        basics: BasicsDraft(originName: 'Draft Origin'),
+        characters: <CharacterDraft>[CharacterDraft()],
+        locations: <LocationDraft>[LocationDraft()],
+        storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        basicsSaved: true,
+        charactersSaved: false,
+        locationsSaved: false,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return Scaffold(
+              body: FilledButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const CreateOriginPage(),
+                    ),
+                  );
+                },
+                child: const Text('Open create'),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open create'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Save the draft before leaving?'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('genesis-action-box-detached-cancel')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Create Origin'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Discard'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Open create'), findsOneWidget);
+    expect(find.text('Create Origin'), findsNothing);
+    expect((await CreateOriginDraftStore.load()).basics.originName, isEmpty);
   });
 
   testWidgets('characters add button appends empty form', (
@@ -3587,6 +4536,8 @@ void main() {
       find.text('Origin created successfully: o_created_1'),
       findsOneWidget,
     );
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('edit flow loads origin detail and posts update after changes', (
@@ -3661,8 +4612,10 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: SettingsPage()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Location chat test'), findsOneWidget);
-    expect(find.text('WebSocket test'), findsOneWidget);
+    expect(find.text('Developer page'), findsOneWidget);
+    expect(find.text('Location chat test'), findsNothing);
+    expect(find.text('WebSocket test'), findsNothing);
+    expect(find.text('Clear direct message cache'), findsNothing);
 
     await tester.tap(find.text('About us'));
     await tester.pumpAndSettle();
@@ -3676,110 +4629,98 @@ void main() {
     );
   });
 
-  testWidgets('settings opens websocket test page', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(const MaterialApp(home: SettingsPage()));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('WebSocket test'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('WebSocket test'), findsWidgets);
-    expect(find.text('Status: Disconnected'), findsOneWidget);
-    expect(find.text('Connect'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('Send message'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('Send message'), findsOneWidget);
-  });
-
-  testWidgets('settings clears local direct message cache', (
-    WidgetTester tester,
-  ) async {
-    final sessionStore = MemoryUserSessionStore();
-    await sessionStore.saveUid('u_mock');
-    final api = GenesisApi(
-      useMock: true,
-      platformConfig: const DefaultPlatformConfig(),
-      deviceIdService: const _FakeDeviceIdService(),
-      sessionStore: sessionStore,
-      identityAuthService: const _FakeIdentityAuthService(),
-    );
-    final conversationStorage = MemoryDirectMessageConversationStorage();
-    await conversationStorage.mergeConversations(
-      ownerUid: 'u_mock',
-      conversations: [
-        _dmConversationJson(
-          convId: 'dm_cached',
-          peerName: 'Cached Peer',
-          messageId: 'dm_cached_msg',
-          message: 'Cached preview',
-          minutesAgo: 1,
-        ),
-      ],
-      nextAfterMessageId: 'dm_cached_cursor',
-    );
-    final messageStorage = MemoryDirectMessageMessageStorage();
-    await messageStorage.mergeMessages(
-      ownerUid: 'u_mock',
-      peerUid: 'peer_dm_cached',
-      messages: [
-        {
-          'msg_id': 'dm_cached_msg',
-          'conv_id': 'dm_cached',
-          'sender_uid': 'peer_dm_cached',
-          'receiver_uid': 'u_mock',
-          'content': 'Cached message',
-          'created_at': _unixTimestamp(DateTime.now()),
-        },
-      ],
-    );
-    final conversationStore = DirectMessageConversationStore(
-      api: api,
-      sessionStore: sessionStore,
-      storage: conversationStorage,
-    );
-    final messageStore = DirectMessageMessageStore(
-      api: api,
-      sessionStore: sessionStore,
-      storage: messageStorage,
-    );
-    await conversationStore.loadFromDb();
-    await messageStore.loadFromDb('peer_dm_cached');
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(
-            directMessageConversations: conversationStore,
-            directMessageMessages: messageStore,
+  testWidgets(
+    'developer page shows device id and clears local direct message cache',
+    (WidgetTester tester) async {
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_mock');
+      final api = GenesisApi(
+        useMock: true,
+        platformConfig: const DefaultPlatformConfig(),
+        deviceIdService: const _FakeDeviceIdService(),
+        sessionStore: sessionStore,
+        identityAuthService: const _FakeIdentityAuthService(),
+      );
+      final conversationStorage = MemoryDirectMessageConversationStorage();
+      await conversationStorage.mergeConversations(
+        ownerUid: 'u_mock',
+        conversations: [
+          _dmConversationJson(
+            convId: 'dm_cached',
+            peerName: 'Cached Peer',
+            messageId: 'dm_cached_msg',
+            message: 'Cached preview',
+            minutesAgo: 1,
           ),
-          child: const SettingsPage(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Clear direct message cache'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(TextButton, 'Clear'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Direct message cache cleared'), findsOneWidget);
-    expect(conversationStore.orderedConversationIds.value, isEmpty);
-    expect(messageStore.orderedMessageIds.value, isEmpty);
-    expect(await conversationStorage.loadConversations('u_mock'), isEmpty);
-    expect(
-      await messageStorage.loadMessages(
+        ],
+        nextAfterMessageId: 'dm_cached_cursor',
+      );
+      final messageStorage = MemoryDirectMessageMessageStorage();
+      await messageStorage.mergeMessages(
         ownerUid: 'u_mock',
         peerUid: 'peer_dm_cached',
-      ),
-      isEmpty,
-    );
-  });
+        messages: [
+          {
+            'msg_id': 'dm_cached_msg',
+            'conv_id': 'dm_cached',
+            'sender_uid': 'peer_dm_cached',
+            'receiver_uid': 'u_mock',
+            'content': 'Cached message',
+            'created_at': _unixTimestamp(DateTime.now()),
+          },
+        ],
+      );
+      final conversationStore = DirectMessageConversationStore(
+        api: api,
+        sessionStore: sessionStore,
+        storage: conversationStorage,
+      );
+      final messageStore = DirectMessageMessageStore(
+        api: api,
+        sessionStore: sessionStore,
+        storage: messageStorage,
+      );
+      await conversationStore.loadFromDb();
+      await messageStore.loadFromDb('peer_dm_cached');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              directMessageConversations: conversationStore,
+              directMessageMessages: messageStore,
+            ),
+            child: const SettingsPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Developer page'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Developer page'), findsWidgets);
+      expect(find.text('Device ID'), findsOneWidget);
+      expect(find.text('test-device-id'), findsOneWidget);
+
+      await tester.tap(find.text('Clear direct message cache'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Direct message cache cleared'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(conversationStore.orderedConversationIds.value, isEmpty);
+      expect(messageStore.orderedMessageIds.value, isEmpty);
+      expect(await conversationStorage.loadConversations('u_mock'), isEmpty);
+      expect(
+        await messageStorage.loadMessages(
+          ownerUid: 'u_mock',
+          peerUid: 'peer_dm_cached',
+        ),
+        isEmpty,
+      );
+    },
+  );
 
   testWidgets('settings logout clears local login session cache', (
     WidgetTester tester,
@@ -3799,6 +4740,7 @@ void main() {
           services: await _testServices(
             sessionStoreOverride: sessionStore,
             backendAuth: backendAuth,
+            initialUid: null,
           ),
           child: const SettingsPage(),
         ),
@@ -3807,6 +4749,19 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Log out'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Log out of your account?'), findsOneWidget);
+    expect(await sessionStore.readUid(), 'u_cached');
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(await sessionStore.readUid(), 'u_cached');
+
+    await tester.tap(find.text('Log out'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Log out').last);
     await tester.pumpAndSettle();
 
     expect(await sessionStore.readUid(), isNull);
@@ -3863,6 +4818,12 @@ void main() {
     expect(find.text('Following'), findsOneWidget);
     expect(find.text('20'), findsOneWidget);
     expect(find.text('Followers'), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_right), findsNothing);
+
+    await tester.tap(find.text('World'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.chevron_right), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -3960,10 +4921,49 @@ void main() {
     expect(find.text('Following Friend 01'), findsOneWidget);
     expect(find.text('Following Friend 24'), findsNothing);
     expect(find.text('Unfollow'), findsWidgets);
-    final unfollowButtonSize = tester.getSize(
-      find.byKey(const ValueKey('follows-action-u_following_01')),
+    final followingName = tester.widget<Text>(find.text('Following Friend 01'));
+    expect(followingName.style?.fontWeight, FontWeight.w500);
+    final followingAvatar = find.byKey(
+      const ValueKey('follows-avatar-u_following_01'),
     );
+    final followingAction = find.byKey(
+      const ValueKey('follows-action-u_following_01'),
+    );
+    final followingGenesisAvatar = find.descendant(
+      of: followingAvatar,
+      matching: find.byType(GenesisAvatar),
+    );
+    expect(followingAvatar, findsOneWidget);
+    expect(tester.getSize(followingAvatar), const Size(48, 48));
+    expect(
+      tester.getTopLeft(followingAvatar).dy,
+      tester.getTopLeft(find.text('Following Friend 01')).dy,
+    );
+    expect(followingGenesisAvatar, findsOneWidget);
+    expect(
+      tester.widget<GenesisAvatar>(followingGenesisAvatar).borderRadius,
+      5,
+    );
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('follows-name-uid-gap-u_following_01')),
+          )
+          .height,
+      4,
+    );
+    final followingUid = find.text('UID: u_following_01');
+    expect(followingUid, findsOneWidget);
+    expect(
+      find.ancestor(of: followingUid, matching: find.byType(CopyableIdLabel)),
+      findsOneWidget,
+    );
+    final unfollowButtonSize = tester.getSize(followingAction);
     expect(unfollowButtonSize, const Size(86, 28));
+    expect(
+      tester.getCenter(followingAction).dy,
+      tester.getCenter(followingAvatar).dy,
+    );
 
     await tester.tap(find.text('24 Followers'));
     await tester.pumpAndSettle();
@@ -4694,6 +5694,126 @@ void main() {
   });
 
   testWidgets(
+    'world page connects chatroom on entry and disconnects on dispose',
+    (WidgetTester tester) async {
+      final chatroom = _FakeChatroomClient();
+      final services = await _testServices(chatroom: chatroom);
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(chatroom.worldInstanceId, 'w_test_1');
+      expect(chatroom.senderId, 'u_mock');
+
+      await tester.pump();
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(chatroom.session.disconnectCount, greaterThan(0));
+    },
+  );
+
+  testWidgets(
+    'world page events load from paged tick list and request next page near edge',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final initialRequests = transport.requestsFor('/api/v1/world/tick/list');
+      expect(initialRequests, hasLength(1));
+      expect(
+        initialRequests.single.uri.queryParameters['world_id'],
+        'w_test_1',
+      );
+      expect(initialRequests.single.uri.queryParameters['pn'], '1');
+      expect(initialRequests.single.uri.queryParameters['rn'], '20');
+      expect(
+        find.text('Paged event first page.', skipOffstage: false),
+        findsWidgets,
+      );
+      expect(
+        find.text('Tick 25 · tick-time-1', skipOffstage: false),
+        findsWidgets,
+      );
+
+      await tester.dragUntilVisible(
+        find.text('Paged event 20.', skipOffstage: false).first,
+        find.byType(CustomScrollView).last,
+        const Offset(0, -300),
+      );
+      await tester.pumpAndSettle();
+
+      final tickRequests = transport.requestsFor('/api/v1/world/tick/list');
+      expect(tickRequests.length, greaterThanOrEqualTo(2));
+      expect(tickRequests[1].uri.queryParameters['world_id'], 'w_test_1');
+      expect(tickRequests[1].uri.queryParameters['pn'], '2');
+      expect(tickRequests[1].uri.queryParameters['rn'], '20');
+      expect(find.text('Paged event 25.', skipOffstage: false), findsWidgets);
+      expect(
+        find.text('Tick 1 · tick-time-25', skipOffstage: false),
+        findsWidgets,
+      );
+    },
+  );
+
+  testWidgets(
+    'world page gates chatroom connection by relation status changes',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'approved',
+      );
+      final chatroom = _FakeChatroomClient();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(chatroom.connectCount, 0);
+
+      transport.worldRelationStatus = 'joined';
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+
+      expect(chatroom.connectCount, 1);
+      expect(chatroom.worldInstanceId, 'w_test_1');
+
+      transport.worldRelationStatus = 'approved';
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+
+      expect(chatroom.session.disconnectCount, greaterThan(0));
+    },
+  );
+
+  testWidgets(
     'location chat route connects and sends through chatroom client',
     (WidgetTester tester) async {
       final chatroom = _FakeChatroomClient();
@@ -4716,12 +5836,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(chatroom.worldInstanceId, 'world-1');
-      expect(chatroom.locationId, 'castle');
+      expect(chatroom.locationId, '');
+      expect(chatroom.session.joinLocationId, 'castle');
       expect(chatroom.senderId, 'u_mock');
       expect(chatroom.senderName, 'u_mock');
       expect(find.text('Castle (1)'), findsOneWidget);
       expect(find.text('World One'), findsOneWidget);
-      expect(find.text('Me'), findsOneWidget);
+      expect(find.text('Joined'), findsOneWidget);
       await tester.tap(find.byType(TextField));
       await tester.enterText(find.byType(TextField), 'hello castle');
       await tester.pump();
@@ -4773,7 +5894,55 @@ void main() {
       matching: find.byType(IconButton),
     );
     expect(tester.widget<IconButton>(sendButton).onPressed, isNull);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 2));
   });
+}
+
+Future<void> _dragOriginPanelUntilVisible(
+  WidgetTester tester,
+  Finder finder,
+) async {
+  for (var attempt = 0; attempt < 12; attempt += 1) {
+    if (finder.evaluate().isNotEmpty) {
+      final top = tester.getTopLeft(finder).dy;
+      final bottom = tester.getBottomRight(finder).dy;
+      if (top >= 100 && bottom <= 600) return;
+      if (top < 100) {
+        await tester.dragFrom(const Offset(400, 220), const Offset(0, 240));
+        await tester.pumpAndSettle();
+        continue;
+      }
+    }
+    await tester.dragFrom(const Offset(400, 500), const Offset(0, -500));
+    await tester.pumpAndSettle();
+  }
+  expect(finder, findsOneWidget);
+}
+
+Finder _richTextFinder(String text) {
+  return find.byWidgetPredicate((widget) {
+    return widget is Text && widget.textSpan?.toPlainText() == text;
+  });
+}
+
+Finder _loginLegalTextFinder() {
+  return _richTextFinder(
+    'By continuing, you agree to our Terms\n'
+    'and acknowledge our Privacy Policy',
+  );
+}
+
+void _expectCharacterNameOrder(WidgetTester tester) {
+  final self = _richTextFinder('Self Hero (Me)');
+  final other = _richTextFinder('Other Hero (Other User)');
+  final ai = _richTextFinder('AI Guide');
+  expect(self, findsOneWidget);
+  expect(other, findsOneWidget);
+  expect(ai, findsOneWidget);
+  expect(tester.getTopLeft(self).dy, lessThan(tester.getTopLeft(other).dy));
+  expect(tester.getTopLeft(other).dy, lessThan(tester.getTopLeft(ai).dy));
 }
 
 class _RecordingProfileActionTransport implements HttpTransport {
@@ -4944,7 +6113,19 @@ class _FailingChatroomClient implements ChatroomClient {
   Future<ChatroomSession> connect({
     String? worldId,
     String? worldInstanceId,
-    required String locationId,
+    String? locationId,
+    String? userId,
+    String? senderId,
+    String? senderName,
+  }) async {
+    throw StateError('test connection failed');
+  }
+
+  @override
+  Future<ChatroomSession> connectAndJoin({
+    String? worldId,
+    String? worldInstanceId,
+    String? locationId,
     String? userId,
     String? senderId,
     String? senderName,
@@ -4955,6 +6136,7 @@ class _FailingChatroomClient implements ChatroomClient {
 
 class _FakeChatroomClient implements ChatroomClient {
   late final _FakeChatroomSession session;
+  int connectCount = 0;
   String? worldInstanceId;
   String? locationId;
   String? userId;
@@ -4965,21 +6147,46 @@ class _FakeChatroomClient implements ChatroomClient {
   Future<ChatroomSession> connect({
     String? worldId,
     String? worldInstanceId,
-    required String locationId,
+    String? locationId,
     String? userId,
     String? senderId,
     String? senderName,
   }) async {
+    connectCount += 1;
     final resolvedWorldId = worldId ?? worldInstanceId ?? '';
     this.worldInstanceId = resolvedWorldId;
-    this.locationId = locationId;
+    this.locationId = locationId ?? '';
     this.userId = userId;
     this.senderId = senderId;
     this.senderName = senderName;
     session = _FakeChatroomSession(
       worldInstanceId: resolvedWorldId,
-      locationId: locationId,
+      locationId: locationId ?? '',
+      userId: userId ?? '',
+      senderId: senderId ?? '',
+      senderName: senderName ?? '',
     );
+    return session;
+  }
+
+  @override
+  Future<ChatroomSession> connectAndJoin({
+    String? worldId,
+    String? worldInstanceId,
+    String? locationId,
+    String? userId,
+    String? senderId,
+    String? senderName,
+  }) async {
+    final session = await connect(
+      worldId: worldId,
+      worldInstanceId: worldInstanceId,
+      locationId: locationId,
+      userId: userId,
+      senderId: senderId,
+      senderName: senderName,
+    );
+    await session.join();
     return session;
   }
 }
@@ -4988,6 +6195,9 @@ class _FakeChatroomSession implements ChatroomSession {
   _FakeChatroomSession({
     required this.worldInstanceId,
     required this.locationId,
+    required this.userId,
+    required this.senderId,
+    required this.senderName,
   });
 
   @override
@@ -4996,16 +6206,30 @@ class _FakeChatroomSession implements ChatroomSession {
   @override
   final String locationId;
 
+  @override
+  final String userId;
+
+  @override
+  final String senderId;
+
+  @override
+  final String senderName;
+
   final sentMessages = <String>[];
+  String? joinLocationId;
+  int joinCount = 0;
+  int leaveCount = 0;
+  int disconnectCount = 0;
   final _events = StreamController<ChatroomEvent>.broadcast();
   final _errors = StreamController<ChatroomErrorEvent>.broadcast();
+  final _failures = StreamController<ChatroomFailureEvent>.broadcast();
   final _streams = StreamController<ChatroomAiMessageStream>.broadcast();
 
   @override
   ChatroomJoined? get joined => ChatroomJoined(
     sessionId: 'sess-1',
     worldId: worldInstanceId,
-    locationId: locationId,
+    locationId: joinLocationId ?? locationId,
     userId: 'u_mock',
     code: 0,
     codeMsg: 'ok',
@@ -5026,7 +6250,37 @@ class _FakeChatroomSession implements ChatroomSession {
   Stream<ChatroomErrorEvent> get errors => _errors.stream;
 
   @override
+  Stream<ChatroomFailureEvent> get failures => _failures.stream;
+
+  @override
   Stream<ChatroomAiMessageStream> get streams => _streams.stream;
+
+  @override
+  StreamSubscription<ChatroomEvent> listenMessages(
+    ChatroomMessageHandlers handlers, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    return events.listen(
+      handlers.handle,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
+  }
+
+  @override
+  Future<ChatroomJoined> join({String? locationId}) async {
+    joinCount += 1;
+    joinLocationId = locationId;
+    final event = joined!;
+    _events.add(event);
+    return event;
+  }
+
+  @override
+  Future<void> heartbeat() async {}
 
   @override
   Future<ChatroomAck> sendMessage(
@@ -5054,9 +6308,21 @@ class _FakeChatroomSession implements ChatroomSession {
   ChatroomAiMessageStream? streamForMessage(int messageId) => null;
 
   @override
+  Future<void> leave() async {
+    leaveCount += 1;
+  }
+
+  @override
+  Future<void> disconnect() async {
+    disconnectCount += 1;
+    await close();
+  }
+
+  @override
   Future<void> close() async {
     await _events.close();
     await _errors.close();
+    await _failures.close();
     await _streams.close();
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
 void main() {
   testWidgets('chat message list shows first divider and long gaps', (
@@ -85,6 +86,31 @@ void main() {
 
     final name = tester.widget<Text>(find.text('Peer Name'));
     expect(name.style?.color, const Color(0xFF222222));
+  });
+
+  testWidgets('character chat avatar uses redstar icon badge', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'character',
+              senderName: 'Guide',
+              text: 'hello',
+              isMe: false,
+              status: 'sent',
+              senderType: 'character',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(MyFlutterApp.redstarCharIcon), findsOneWidget);
   });
 
   testWidgets('chat composer grows with text up to ten lines', (

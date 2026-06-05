@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
@@ -15,6 +14,7 @@ import '../../network/models/origin.dart';
 import '../../platform/auth/auth_cancelled_exception.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../platform/session/user_session_store.dart';
+import '../../utils/display_name_formatter.dart';
 import '../../utils/relative_time_formatter.dart';
 import 'settings_page.dart';
 
@@ -301,12 +301,6 @@ class _MePageState extends State<MePage> {
     }
   }
 
-  Future<void> _copyUid(String uid) async {
-    await Clipboard.setData(ClipboardData(text: uid));
-    if (!mounted) return;
-    showGenesisToast(context, 'UID copied');
-  }
-
   Future<void> _openSettings() async {
     final loggedOut = await Navigator.of(
       context,
@@ -504,7 +498,6 @@ class _MePageState extends State<MePage> {
                   isUpdatingProfileListenable: _isUpdatingProfile,
                   onEditAvatar: _editAvatar,
                   onEditDisplayName: _editNickName,
-                  onCopyUid: _copyUid,
                 ),
               ),
             ],
@@ -617,7 +610,7 @@ String _originSubtitle(OriginSummary item) {
   final oid = item.oid.trim().isEmpty ? '-' : item.oid.trim();
   final originator = item.originator.trim().isEmpty
       ? '-'
-      : item.originator.trim();
+      : formatUidForDisplay(item.originator);
   final version = item.versionNum <= 0 ? '-' : 'V${item.versionNum}';
   final updated = formatRelativeTime(item.updatedAt);
   return 'OID: $oid  Originator: $originator\n'
@@ -626,7 +619,7 @@ String _originSubtitle(OriginSummary item) {
 
 String _worldSubtitle(String wid, String ownerName) {
   final displayWid = wid.trim().isEmpty ? '-' : wid.trim();
-  final owner = ownerName.trim().isEmpty ? '-' : ownerName.trim();
+  final owner = formatUidForDisplay(ownerName, fallback: '-');
   return 'WID: $displayWid  Owner: $owner';
 }
 

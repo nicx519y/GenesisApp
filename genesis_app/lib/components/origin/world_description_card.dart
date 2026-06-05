@@ -19,7 +19,7 @@ class WorldDescriptionCard extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(MyFlutterApp.eye, size: 14, color: Color(0xFFFF2344)),
+            Icon(MyFlutterApp.eye, size: 14, color: Color(0xFFF42C47)),
             const SizedBox(width: 8),
             Text(
               title,

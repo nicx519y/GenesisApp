@@ -19,6 +19,7 @@ class ChatroomEnvelope {
     this.payload = const <String, dynamic>{},
     this.worldPayload = const <String, dynamic>{},
     this.broadcast,
+    this.mySessionId = '',
   });
 
   final String type;
@@ -26,6 +27,7 @@ class ChatroomEnvelope {
   final Map<String, dynamic> payload;
   final Map<String, dynamic> worldPayload;
   final bool? broadcast;
+  final String mySessionId;
 
   factory ChatroomEnvelope.fromJson(Map<String, dynamic> json) {
     return ChatroomEnvelope(
@@ -34,6 +36,7 @@ class ChatroomEnvelope {
       payload: _optionalJsonMap(json['payload']),
       worldPayload: _optionalJsonMap(json['world_payload']),
       broadcast: json['broadcast'] == null ? null : asBool(json['broadcast']),
+      mySessionId: asString(json['my_session_id']),
     );
   }
 
@@ -171,6 +174,99 @@ class ChatroomKicked extends ChatroomPayloadEvent {
 
 class ChatroomDisconnected extends ChatroomEvent {
   const ChatroomDisconnected();
+}
+
+class ChatroomHeartbeat extends ChatroomPayloadEvent {
+  const ChatroomHeartbeat({
+    required super.sessionId,
+    required super.worldId,
+    required super.locationId,
+    required super.userId,
+    required super.code,
+    required super.codeMsg,
+    required super.ts,
+    required this.mySessionId,
+  });
+
+  final String mySessionId;
+
+  factory ChatroomHeartbeat.fromEnvelope(ChatroomEnvelope envelope) {
+    final payload = envelope.payload;
+    return ChatroomHeartbeat(
+      sessionId: asString(payload['session_id']),
+      worldId: _worldId(payload),
+      locationId: asString(payload['location_id']),
+      userId: asString(payload['user_id']),
+      code: asInt(payload['code']),
+      codeMsg: asString(payload['code_msg']),
+      ts: asDateTime(payload['ts']),
+      mySessionId: envelope.mySessionId,
+    );
+  }
+}
+
+class ChatroomFailureEvent extends ChatroomEvent implements Exception {
+  const ChatroomFailureEvent({
+    required this.code,
+    required this.message,
+    this.sourceType = '',
+    this.requestType = '',
+    this.cause,
+  });
+
+  final String code;
+  final String message;
+  final String sourceType;
+  final String requestType;
+  final Object? cause;
+
+  factory ChatroomFailureEvent.fromError(
+    ChatroomErrorEvent error, {
+    String requestType = '',
+  }) {
+    return ChatroomFailureEvent(
+      code: error.code,
+      message: error.message,
+      sourceType: error.sourceType,
+      requestType: requestType,
+      cause: error.cause ?? error,
+    );
+  }
+
+  factory ChatroomFailureEvent.fromPayloadEvent(
+    ChatroomPayloadEvent event, {
+    String sourceType = '',
+    String requestType = '',
+    Object? cause,
+  }) {
+    return ChatroomFailureEvent(
+      code: event.code.toString(),
+      message: event.codeMsg.isEmpty
+          ? 'Chatroom request failed'
+          : event.codeMsg,
+      sourceType: sourceType.isEmpty ? chatroomEventType(event) : sourceType,
+      requestType: requestType,
+      cause: cause ?? event,
+    );
+  }
+
+  ChatroomFailureEvent withRequestType(String value) {
+    return ChatroomFailureEvent(
+      code: code,
+      message: message,
+      sourceType: sourceType,
+      requestType: value,
+      cause: cause,
+    );
+  }
+
+  @override
+  String toString() {
+    final prefix = requestType.isEmpty
+        ? sourceType
+        : '$requestType/$sourceType';
+    return 'ChatroomFailureEvent($prefix $code): $message';
+  }
 }
 
 class ChatroomOnlineUser {
@@ -590,21 +686,27 @@ class ChatroomErrorEvent extends ChatroomEvent implements Exception {
     this.sessionId = '',
     this.conversationRoundId = '',
     this.senderId = '',
+    this.sourceType = 'error',
     this.cause,
   });
 
   final String sessionId;
   final String conversationRoundId;
   final String senderId;
+  final String sourceType;
   final String code;
   final String message;
   final Object? cause;
 
-  factory ChatroomErrorEvent.fromPayload(Map<String, dynamic> payload) {
+  factory ChatroomErrorEvent.fromPayload(
+    Map<String, dynamic> payload, {
+    String sourceType = 'error',
+  }) {
     return ChatroomErrorEvent(
       sessionId: asString(payload['session_id']),
       conversationRoundId: asString(payload['conversation_round_id']),
       senderId: asString(payload['sender_id']),
+      sourceType: sourceType,
       code: asString(
         payload['code'],
         fallback: asString(payload['error_code'], fallback: 'error'),
@@ -620,6 +722,92 @@ class ChatroomErrorEvent extends ChatroomEvent implements Exception {
   String toString() => 'ChatroomErrorEvent($code): $message';
 }
 
+class ChatroomMessageHandlers {
+  const ChatroomMessageHandlers({
+    this.onEvent,
+    this.onJoined,
+    this.onLeaved,
+    this.onKicked,
+    this.onDisconnected,
+    this.onHeartbeat,
+    this.onAck,
+    this.onError,
+    this.onFailure,
+    this.onInputBlocked,
+    this.onInputReady,
+    this.onWorldNotification,
+    this.onQueuePosition,
+    this.onUserMessage,
+    this.onCharacterMessage,
+    this.onNarratorMessage,
+    this.onAiStreamStart,
+    this.onAiStreamChunk,
+    this.onAiStreamEnd,
+  });
+
+  final void Function(ChatroomEvent event)? onEvent;
+  final void Function(ChatroomJoined event)? onJoined;
+  final void Function(ChatroomLeaved event)? onLeaved;
+  final void Function(ChatroomKicked event)? onKicked;
+  final void Function(ChatroomDisconnected event)? onDisconnected;
+  final void Function(ChatroomHeartbeat event)? onHeartbeat;
+  final void Function(ChatroomAck event)? onAck;
+  final void Function(ChatroomErrorEvent event)? onError;
+  final void Function(ChatroomFailureEvent event)? onFailure;
+  final void Function(ChatroomInputBlocked event)? onInputBlocked;
+  final void Function(ChatroomInputReady event)? onInputReady;
+  final void Function(ChatroomWorldNotification event)? onWorldNotification;
+  final void Function(ChatroomQueuePosition event)? onQueuePosition;
+  final void Function(ChatroomUserMessage event)? onUserMessage;
+  final void Function(ChatroomCharacterMessage event)? onCharacterMessage;
+  final void Function(ChatroomNarratorMessage event)? onNarratorMessage;
+  final void Function(ChatroomAiStreamStart event)? onAiStreamStart;
+  final void Function(ChatroomAiStreamChunk event)? onAiStreamChunk;
+  final void Function(ChatroomAiStreamEnd event)? onAiStreamEnd;
+
+  void handle(ChatroomEvent event) {
+    onEvent?.call(event);
+    switch (event) {
+      case ChatroomJoined e:
+        onJoined?.call(e);
+      case ChatroomLeaved e:
+        onLeaved?.call(e);
+      case ChatroomKicked e:
+        onKicked?.call(e);
+      case ChatroomDisconnected e:
+        onDisconnected?.call(e);
+      case ChatroomHeartbeat e:
+        onHeartbeat?.call(e);
+      case ChatroomAck e:
+        onAck?.call(e);
+      case ChatroomErrorEvent e:
+        onError?.call(e);
+      case ChatroomFailureEvent e:
+        onFailure?.call(e);
+      case ChatroomInputBlocked e:
+        onInputBlocked?.call(e);
+      case ChatroomInputReady e:
+        onInputReady?.call(e);
+      case ChatroomWorldNotification e:
+        onWorldNotification?.call(e);
+      case ChatroomQueuePosition e:
+        onQueuePosition?.call(e);
+      case ChatroomUserMessage e:
+        onUserMessage?.call(e);
+      case ChatroomCharacterMessage e:
+        onCharacterMessage?.call(e);
+      case ChatroomNarratorMessage e:
+        onNarratorMessage?.call(e);
+      case ChatroomAiStreamStart e:
+        onAiStreamStart?.call(e);
+      case ChatroomAiStreamChunk e:
+        onAiStreamChunk?.call(e);
+      case ChatroomAiStreamEnd e:
+        onAiStreamEnd?.call(e);
+    }
+  }
+}
+
 ChatroomEvent chatroomEventFromEnvelope(ChatroomEnvelope envelope) {
   switch (envelope.type) {
     case 'joined':
@@ -630,11 +818,16 @@ ChatroomEvent chatroomEventFromEnvelope(ChatroomEnvelope envelope) {
       return ChatroomKicked.fromPayload(envelope.payload);
     case 'disconnected':
       return const ChatroomDisconnected();
+    case 'heartbeat':
+      return ChatroomHeartbeat.fromEnvelope(envelope);
     case 'ack':
       return ChatroomAck.fromPayload(envelope.payload);
     case 'error':
     case 'ai_error':
-      return ChatroomErrorEvent.fromPayload(envelope.payload);
+      return ChatroomErrorEvent.fromPayload(
+        envelope.payload,
+        sourceType: envelope.type,
+      );
     case 'input_blocked':
       return ChatroomInputBlocked.fromPayload(envelope.payload);
     case 'input_ready':
@@ -657,6 +850,47 @@ ChatroomEvent chatroomEventFromEnvelope(ChatroomEnvelope envelope) {
       return ChatroomQueuePosition.fromPayload(envelope.payload);
     default:
       throw ChatroomProtocolException('Unsupported type: ${envelope.type}');
+  }
+}
+
+String chatroomEventType(ChatroomEvent event) {
+  switch (event) {
+    case ChatroomJoined():
+      return 'joined';
+    case ChatroomLeaved():
+      return 'leaved';
+    case ChatroomKicked():
+      return 'kicked';
+    case ChatroomDisconnected():
+      return 'disconnected';
+    case ChatroomHeartbeat():
+      return 'heartbeat';
+    case ChatroomAck():
+      return 'ack';
+    case ChatroomErrorEvent e:
+      return e.sourceType;
+    case ChatroomFailureEvent e:
+      return e.sourceType;
+    case ChatroomInputBlocked():
+      return 'input_blocked';
+    case ChatroomInputReady():
+      return 'input_ready';
+    case ChatroomWorldNotification():
+      return 'world_notification';
+    case ChatroomQueuePosition():
+      return 'queue_position';
+    case ChatroomUserMessage():
+      return 'user_message';
+    case ChatroomCharacterMessage():
+      return 'character_message';
+    case ChatroomNarratorMessage():
+      return 'narrator_message';
+    case ChatroomAiStreamStart():
+      return 'ai_stream_start';
+    case ChatroomAiStreamChunk():
+      return 'ai_stream_chunk';
+    case ChatroomAiStreamEnd():
+      return 'ai_stream_end';
   }
 }
 

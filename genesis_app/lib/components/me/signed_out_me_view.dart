@@ -52,7 +52,7 @@ class SignedOutMeView extends StatelessWidget {
                             'friends, and continue them anywhere.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 12,
                               height: 1.35,
                               color: Color(0xFF666666),
                             ),
@@ -62,27 +62,12 @@ class SignedOutMeView extends StatelessWidget {
                     ),
                     Column(
                       children: [
-                        LoginProviderButton(
-                          provider: IdentityProvider.google,
-                          label: 'Continue with Google',
-                          onPressed: loggingInProvider == null
-                              ? () => onLogin(IdentityProvider.google)
-                              : null,
-                          isLoading:
-                              loggingInProvider == IdentityProvider.google,
-                        ),
-                        const SizedBox(height: 18),
-                        LoginProviderButton(
-                          provider: IdentityProvider.apple,
-                          label: 'Continue with Apple',
-                          onPressed: loggingInProvider == null
-                              ? () => onLogin(IdentityProvider.apple)
-                              : null,
-                          isLoading:
-                              loggingInProvider == IdentityProvider.apple,
+                        LoginProviderButtons(
+                          loggingInProvider: loggingInProvider,
+                          onLogin: onLogin,
                         ),
                         const SizedBox(height: 38),
-                        const _LegalText(),
+                        const LoginLegalText(),
                         const SizedBox(height: 28),
                       ],
                     ),
@@ -93,36 +78,6 @@ class SignedOutMeView extends StatelessWidget {
           );
         },
       ),
-    );
-  }
-}
-
-class _LegalText extends StatelessWidget {
-  const _LegalText();
-
-  @override
-  Widget build(BuildContext context) {
-    const baseStyle = TextStyle(
-      fontSize: 14,
-      height: 1.35,
-      color: Color(0xFF8A8A8A),
-    );
-    const linkStyle = TextStyle(
-      fontSize: 14,
-      height: 1.35,
-      color: Color(0xFF3E5B8A),
-    );
-    return const Text.rich(
-      TextSpan(
-        style: baseStyle,
-        children: [
-          TextSpan(text: 'By continuing, you agree to our '),
-          TextSpan(text: 'Terms', style: linkStyle),
-          TextSpan(text: '\nand acknowledge our '),
-          TextSpan(text: 'Privacy Policy', style: linkStyle),
-        ],
-      ),
-      textAlign: TextAlign.center,
     );
   }
 }

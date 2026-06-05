@@ -75,6 +75,32 @@ class WorldV1Api extends V1ApiResource {
     );
   }
 
+  /// GET /api/v1/world/tick/list
+  ///
+  /// 提交参数:
+  /// ```json
+  /// {"world_id":"string","pn":1,"rn":10}
+  /// ```
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"tick_id":"string","tick_no":1,"status":10,"tick_result":{"narrator":"string","paragraphs":[],"location_groups":[]},"created_at":0}],"total":0,"pn":1,"rn":10}}
+  /// ```
+  Future<Map<String, dynamic>> tickList({
+    required String worldId,
+    int? pn,
+    int? rn,
+  }) {
+    final resolvedWorldId = worldId.trim();
+    if (resolvedWorldId.isEmpty) {
+      throw ArgumentError.value(worldId, 'worldId', 'must not be empty');
+    }
+    return getMap(
+      'world/tick/list',
+      v1Query({'world_id': resolvedWorldId, 'pn': pn, 'rn': rn}),
+    );
+  }
+
   /// POST /api/v1/world/apply
   ///
   /// 提交参数:

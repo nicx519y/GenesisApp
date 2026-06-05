@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
+const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
+
 void main() {
   testWidgets('renders image stats on the cover overlay', (
     WidgetTester tester,
@@ -37,9 +39,18 @@ void main() {
     );
 
     expect(find.byIcon(MyFlutterApp.save), findsOneWidget);
-    expect(find.byIcon(MyFlutterApp.copy), findsOneWidget);
+    expect(_findConnectImageIcon(), findsOneWidget);
     expect(find.text('2.3K'), findsOneWidget);
     expect(find.text('4.4M'), findsOneWidget);
     expect(find.text('v3'), findsNothing);
   });
+}
+
+Finder _findConnectImageIcon() {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is ImageIcon &&
+        widget.image is AssetImage &&
+        (widget.image as AssetImage).assetName == _connectIconAsset,
+  );
 }

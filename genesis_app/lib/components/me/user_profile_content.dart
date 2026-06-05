@@ -1,14 +1,18 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../routers/app_router.dart';
 import '../../ui/genesis_ui.dart';
+import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import 'profile_collection_list.dart';
+
+const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
 
 class UserProfileContent extends StatefulWidget {
   const UserProfileContent({
@@ -24,7 +28,8 @@ class UserProfileContent extends StatefulWidget {
     this.isUpdatingProfileListenable,
     this.onEditAvatar,
     this.onEditDisplayName,
-    this.onCopyUid,
+    this.nameUidGap = 4,
+    this.tabLabelFontSize = 16,
   });
 
   final UserProfileData data;
@@ -40,7 +45,8 @@ class UserProfileContent extends StatefulWidget {
   final ValueListenable<bool>? isUpdatingProfileListenable;
   final VoidCallback? onEditAvatar;
   final VoidCallback? onEditDisplayName;
-  final ValueChanged<String>? onCopyUid;
+  final double nameUidGap;
+  final double? tabLabelFontSize;
 
   @override
   State<UserProfileContent> createState() => _UserProfileContentState();
@@ -90,7 +96,9 @@ class _UserProfileContentState extends State<UserProfileContent>
             children: [
               _Avatar(
                 url: data.avatarUrl,
+                name: data.displayName,
                 urlListenable: widget.avatarUrlListenable,
+                nameListenable: widget.displayNameListenable,
                 isUpdating: widget.isUpdatingProfile,
                 updatingListenable: widget.isUpdatingProfileListenable,
                 onEdit: widget.onEditAvatar,
@@ -120,29 +128,11 @@ class _UserProfileContentState extends State<UserProfileContent>
                         ],
                       ],
                     ),
-                    Row(
-                      children: [
-                        Text(
-                          'UID: ${data.uid}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF6F6F6F),
-                          ),
-                        ),
-                        if (widget.onCopyUid != null) ...[
-                          const SizedBox(width: 4),
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => widget.onCopyUid!(data.uid),
-                            child: const Padding(
-                              padding: EdgeInsets.all(5),
-                              child: Icon(Icons.copy, size: 14),
-                            ),
-                          ),
-                        ],
-                      ],
+                    if (widget.nameUidGap > 0)
+                      SizedBox(height: widget.nameUidGap),
+                    CopyableIdLabel(
+                      label: 'UID',
+                      value: formatUidForDisplay(data.uid),
                     ),
                   ],
                 ),
@@ -178,6 +168,7 @@ class _UserProfileContentState extends State<UserProfileContent>
           child: SecendTabs(
             controller: _tabController,
             labels: const ['Origin', 'World'],
+            labelFontSize: widget.tabLabelFontSize,
           ),
         ),
         Expanded(
@@ -363,7 +354,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
           .map(
             (item) => GenesisProfileCollectionItemData(
               imageUrl: item.imageUrl,
-              title: item.title,
+              title: originDisplayName(item.title),
               subtitle: item.subtitle,
               stats: [
                 GenesisProfileCollectionStat(
@@ -371,11 +362,12 @@ class _OriginProfileCollectionList extends StatelessWidget {
                   value: item.copyCount,
                 ),
                 GenesisProfileCollectionStat(
-                  icon: MyFlutterApp.copy,
+                  iconAsset: _connectIconAsset,
                   value: item.interactCount,
                 ),
                 GenesisProfileCollectionStat(
-                  icon: MyFlutterApp.userStar,
+                  iconAsset: aiCharacterIconAsset,
+                  preserveIconAssetColor: true,
                   value: item.characterCount,
                 ),
               ],
@@ -439,11 +431,12 @@ class _WorldProfileCollectionList extends StatelessWidget {
                   value: item.progressCount,
                 ),
                 GenesisProfileCollectionStat(
-                  icon: MyFlutterApp.copy,
+                  iconAsset: _connectIconAsset,
                   value: item.interactCount,
                 ),
                 GenesisProfileCollectionStat(
-                  icon: MyFlutterApp.userStar,
+                  iconAsset: aiCharacterIconAsset,
+                  preserveIconAssetColor: true,
                   value: item.characterCount,
                 ),
                 GenesisProfileCollectionStat(
@@ -526,15 +519,15 @@ class _FollowStats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const style = TextStyle(
-      fontSize: 13,
+      fontSize: 16,
       height: 1,
-      color: Colors.black,
+      color: Color(0xFF111111),
       fontWeight: FontWeight.w600,
     );
     const labelStyle = TextStyle(
-      fontSize: 13,
+      fontSize: 14,
       height: 1,
-      color: Color(0xFF6F6F6F),
+      color: Color(0xFF666666),
       fontWeight: FontWeight.w400,
     );
 
@@ -611,12 +604,13 @@ class _ProfileActionButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     final backgroundColor = isFollowed
         ? const Color(0xFFE5E5E5)
-        : const Color(0xFFE85050);
+        : const Color(0xFFF42C47);
     final foregroundColor = isFollowed ? Colors.black : Colors.white;
     final disabledBackgroundColor = isFollowed
         ? const Color(0xFFE5E5E5)
-        : const Color(0xFFE85050).withValues(alpha: 0.55);
+        : const Color(0xFFF42C47).withValues(alpha: 0.55);
     final disabledForegroundColor = isFollowed ? Colors.black54 : Colors.white;
+    const actionTextStyle = TextStyle(fontWeight: FontWeight.w400);
 
     return Row(
       children: [
@@ -644,7 +638,10 @@ class _ProfileActionButtons extends StatelessWidget {
                         color: disabledForegroundColor,
                       ),
                     )
-                  : Text(isFollowed ? 'Unfollow' : 'Follow'),
+                  : Text(
+                      isFollowed ? 'Unfollow' : 'Follow',
+                      style: actionTextStyle,
+                    ),
             ),
           ),
         ),
@@ -664,7 +661,7 @@ class _ProfileActionButtons extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text('Message'),
+              child: const Text('Message', style: actionTextStyle),
             ),
           ),
         ),
@@ -676,7 +673,9 @@ class _ProfileActionButtons extends StatelessWidget {
 class _Avatar extends StatelessWidget {
   const _Avatar({
     required this.url,
+    required this.name,
     required this.urlListenable,
+    required this.nameListenable,
     required this.isUpdating,
     required this.updatingListenable,
     required this.onEdit,
@@ -686,42 +685,60 @@ class _Avatar extends StatelessWidget {
   static const double _radius = 8;
 
   final String url;
+  final String name;
   final ValueListenable<String>? urlListenable;
+  final ValueListenable<String>? nameListenable;
   final bool isUpdating;
   final ValueListenable<bool>? updatingListenable;
   final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
+    final listenableName = nameListenable;
+    if (listenableName != null) {
+      return ValueListenableBuilder<String>(
+        valueListenable: listenableName,
+        builder: (context, displayName, _) =>
+            _buildUrlLayer(displayName.trim().isEmpty ? name : displayName),
+      );
+    }
+    return _buildUrlLayer(name);
+  }
+
+  Widget _buildUrlLayer(String displayName) {
     final avatarListenable = urlListenable;
     if (avatarListenable == null) {
-      return _buildAvatar(url, isUpdating);
+      return _buildAvatar(url, displayName, isUpdating);
     }
     return ValueListenableBuilder<String>(
       valueListenable: avatarListenable,
       builder: (context, avatarUrl, _) {
         final loadingListenable = updatingListenable;
         if (loadingListenable == null) {
-          return _buildAvatar(avatarUrl, isUpdating);
+          return _buildAvatar(avatarUrl, displayName, isUpdating);
         }
         return ValueListenableBuilder<bool>(
           valueListenable: loadingListenable,
-          builder: (context, updating, _) => _buildAvatar(avatarUrl, updating),
+          builder: (context, updating, _) =>
+              _buildAvatar(avatarUrl, displayName, updating),
         );
       },
     );
   }
 
-  Widget _buildAvatar(String avatarUrl, bool updating) {
+  Widget _buildAvatar(String avatarUrl, String displayName, bool updating) {
     return SizedBox(
       width: _size,
       height: _size,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(_radius),
-            child: _AvatarImage(url: avatarUrl, size: _size),
+          GenesisAvatar(
+            url: avatarUrl,
+            name: displayName,
+            size: _size,
+            borderRadius: _radius,
+            imageKey: const ValueKey('user-profile-avatar-image'),
           ),
           if (onEdit != null)
             Positioned(
@@ -736,7 +753,7 @@ class _Avatar extends StatelessWidget {
                   child: const Padding(
                     padding: EdgeInsets.all(4),
                     child: Icon(
-                      Icons.edit_document,
+                      MyFlutterApp.editImage,
                       size: 12,
                       color: Colors.white,
                     ),
@@ -819,43 +836,6 @@ class _ProfileEditButton extends StatelessWidget {
       child: const Padding(
         padding: EdgeInsets.all(5),
         child: Icon(Icons.edit, size: 14),
-      ),
-    );
-  }
-}
-
-class _AvatarImage extends StatelessWidget {
-  const _AvatarImage({required this.url, required this.size});
-
-  final String url;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    if (url.trim().isNotEmpty) {
-      return CachedNetworkImage(
-        key: const ValueKey('user-profile-avatar-image'),
-        imageUrl: url,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        placeholder: (_, __) => _fallback(),
-        errorWidget: (_, __, ___) => _fallback(),
-      );
-    }
-    return _fallback();
-  }
-
-  Widget _fallback() {
-    return Container(
-      width: size,
-      height: size,
-      color: const Color(0xFFE6E6E6),
-      alignment: Alignment.center,
-      child: Icon(
-        Icons.person,
-        size: size * 0.45,
-        color: const Color(0xFF9C9C9C),
       ),
     );
   }
