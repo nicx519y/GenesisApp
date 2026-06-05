@@ -2,6 +2,7 @@ export 'components/genesis_avatar.dart';
 export 'components/genesis_bottom_navigation.dart';
 export 'components/genesis_character_avatar.dart';
 export 'components/genesis_fixed_underline_indicator.dart';
+export 'components/genesis_list_image.dart';
 export 'components/genesis_page_title.dart';
 export 'components/genesis_page_header.dart';
 export 'components/genesis_primary_button.dart';

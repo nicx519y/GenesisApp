@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import '../../platform/device/device_id_service.dart';
@@ -162,6 +163,7 @@ class ChatroomSession {
   final _pendingAcks = <String, _PendingAck>{};
   final _pendingHeartbeats = <_PendingHeartbeat>[];
   final _activeStreams = <int, ChatroomAiMessageStream>{};
+  final _pendingJoinAcks = <String, _PendingAck>{};
   _PendingJoin? _pendingJoin;
   late final StreamSubscription<String> _subscription;
   Timer? _heartbeatTimer;
@@ -223,7 +225,17 @@ class ChatroomSession {
       if (resolvedLocationId.isEmpty) {
         throw const ChatroomProtocolException('locationId is required');
       }
-      await _sendEnvelope('join', <String, Object?>{
+      final clientMsgId = _newClientMessageId();
+      _pendingJoinAcks[clientMsgId] = _PendingAck(
+        Completer<ChatroomAck>(),
+        Timer(_ackTimeout, () {
+          _pendingJoinAcks.remove(clientMsgId);
+        }),
+        requestType: 'join',
+      );
+      await _sendClientMessage('join', <String, Object?>{
+        'client_msg_id': clientMsgId,
+        'world_id': worldInstanceId,
         'location_id': resolvedLocationId,
       });
     } catch (e) {
@@ -262,7 +274,7 @@ class ChatroomSession {
     _pendingHeartbeats.add(pending);
 
     try {
-      await _sendEnvelope('heartbeat', const <String, Object?>{});
+      await _sendClientMessage('heartbeat', const <String, Object?>{});
     } catch (e) {
       _pendingHeartbeats.remove(pending);
       pending.cancel();
@@ -314,9 +326,9 @@ class ChatroomSession {
     );
 
     try {
-      await _sendEnvelope('send_message', <String, Object?>{
-        'text': trimmed,
-        'client_uuid': resolvedClientUuid,
+      await _sendClientMessage('send_message', <String, Object?>{
+        'client_msg_id': resolvedClientUuid,
+        'content': trimmed,
       });
     } catch (e) {
       final pending = _pendingAcks.remove(resolvedClientUuid);
@@ -354,7 +366,9 @@ class ChatroomSession {
   Future<void> leave() async {
     _throwIfClosed();
     try {
-      await _sendEnvelope('leave', const <String, Object?>{});
+      await _sendClientMessage('leave', <String, Object?>{
+        'client_msg_id': _newClientMessageId(),
+      });
       _joined = null;
     } catch (e) {
       final failure = ChatroomFailureEvent(
@@ -381,11 +395,16 @@ class ChatroomSession {
     await _socket.close(1000, 'client_disconnect');
   }
 
-  Future<void> _sendEnvelope(String type, Map<String, Object?> payload) {
+  Future<void> _sendClientMessage(String type, Map<String, Object?> fields) {
     _throwIfClosed();
-    return _socket.send(
-      ChatroomEnvelope(type: type, payload: payload).encode(),
-    );
+    final json = <String, Object?>{'type': type};
+    for (final entry in fields.entries) {
+      final value = entry.value;
+      if (value == null) continue;
+      if (value is String && value.trim().isEmpty) continue;
+      json[entry.key] = value;
+    }
+    return _socket.send(jsonEncode(json));
   }
 
   void _handleMessage(String raw) {
@@ -410,6 +429,7 @@ class ChatroomSession {
       final pending = _pendingJoin;
       _pendingJoin = null;
       pending?.cancel();
+      _clearPendingJoinAcks();
       if (event.ok) {
         _joined = event;
         pending?.complete(event);
@@ -422,6 +442,38 @@ class ChatroomSession {
         pending?.completeError(failure);
       }
     } else if (event is ChatroomAck) {
+      final joinPending = _pendingJoin == null
+          ? null
+          : event.clientUuid.isEmpty
+          ? _removeOldestPendingJoinAck()
+          : _pendingJoinAcks.remove(event.clientUuid);
+      joinPending?.cancel();
+      final pendingJoin = joinPending == null ? null : _pendingJoin;
+      if (pendingJoin != null) {
+        _pendingJoin = null;
+        pendingJoin.cancel();
+        final joined = ChatroomJoined(
+          sessionId: event.sessionId,
+          worldId: event.worldId.isEmpty ? worldInstanceId : event.worldId,
+          locationId: event.locationId.isEmpty ? locationId : event.locationId,
+          userId: event.userId.isEmpty ? userId : event.userId,
+          code: event.code,
+          codeMsg: event.codeMsg,
+          ts: event.ts,
+          onlineUsers: const <ChatroomOnlineUser>[],
+        );
+        if (joined.ok) {
+          _joined = joined;
+          pendingJoin.complete(joined);
+        } else {
+          final failure = ChatroomFailureEvent.fromPayloadEvent(
+            joined,
+            requestType: 'join',
+          );
+          _emitFailure(failure);
+          pendingJoin.completeError(failure);
+        }
+      }
       final pending = event.clientUuid.isEmpty
           ? _removeOldestPendingAck()
           : _pendingAcks.remove(event.clientUuid);
@@ -517,6 +569,7 @@ class ChatroomSession {
 
     _pendingJoin?.completeError(reason);
     _pendingJoin = null;
+    _clearPendingJoinAcks();
 
     for (final pending in _pendingAcks.values) {
       pending.completeError(reason);
@@ -647,6 +700,19 @@ class ChatroomSession {
     if (_pendingAcks.isEmpty) return null;
     final key = _pendingAcks.keys.first;
     return _pendingAcks.remove(key);
+  }
+
+  _PendingAck? _removeOldestPendingJoinAck() {
+    if (_pendingJoinAcks.isEmpty) return null;
+    final key = _pendingJoinAcks.keys.first;
+    return _pendingJoinAcks.remove(key);
+  }
+
+  void _clearPendingJoinAcks() {
+    for (final pending in _pendingJoinAcks.values) {
+      pending.cancel();
+    }
+    _pendingJoinAcks.clear();
   }
 
   _PendingHeartbeat? _removeOldestPendingHeartbeat() {

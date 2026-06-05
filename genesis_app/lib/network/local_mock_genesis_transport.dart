@@ -225,6 +225,10 @@ class LocalMockGenesisTransport implements HttpTransport {
     Map<String, String> query,
     Map<String, dynamic> body,
   ) async {
+    if (method == 'GET' && path == 'aitown-chat/api/ulocation') {
+      return _v1Ok(_state.chatroomUserLocations(query['world_id'] ?? ''));
+    }
+
     if (method == 'GET' && path == 'aitown-chat/internal/world/messages') {
       return _v1Ok(_state.chatroomWorldMessages(query['world_id'] ?? ''));
     }
@@ -232,7 +236,7 @@ class LocalMockGenesisTransport implements HttpTransport {
     if (method == 'GET' && path == 'aitown-chat/api/messages') {
       return _v1Ok(
         _state.chatroomHistoryMessages(
-          worldId: query['world_instance_id'] ?? '',
+          worldId: query['world_id'] ?? query['world_instance_id'] ?? '',
           locationId: query['location_id'] ?? '',
           since: int.tryParse(query['since'] ?? ''),
           limit: int.tryParse(query['limit'] ?? ''),
@@ -980,6 +984,38 @@ class _MockState {
       'locations': [
         for (final entry in byLocation.entries)
           {'location_id': entry.key, 'messages': entry.value},
+      ],
+    };
+  }
+
+  Map<String, dynamic> chatroomUserLocations(String worldId) {
+    final resolvedWorldId = _resolveChatroomWorldId(worldId);
+    final byLocation = <String, Map<String, Map<String, dynamic>>>{};
+    for (final message in _chatroomMessagesForWorld(resolvedWorldId)) {
+      if (message['sender_type'] != 'user') continue;
+      final locationId = asString(message['location_id']);
+      final userId = asString(message['user_id'], fallback: asString(me['id']));
+      if (locationId.isEmpty || userId.isEmpty) continue;
+      byLocation.putIfAbsent(
+        locationId,
+        () => <String, Map<String, dynamic>>{},
+      );
+      byLocation[locationId]!.putIfAbsent(userId, () {
+        return {
+          'user_id': userId,
+          'user_name': asString(
+            message['sender_name'],
+            fallback: asString(me['display_name']),
+          ),
+          'avatar': asString(me['avatar_url']),
+        };
+      });
+    }
+    return {
+      'world_id': resolvedWorldId,
+      'locations': [
+        for (final entry in byLocation.entries)
+          {'location_id': entry.key, 'users': entry.value.values.toList()},
       ],
     };
   }

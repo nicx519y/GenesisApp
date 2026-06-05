@@ -20,6 +20,16 @@ class ChatroomEnvelope {
     this.worldPayload = const <String, dynamic>{},
     this.broadcast,
     this.mySessionId = '',
+    this.clientMsgId = '',
+    this.worldId = '',
+    this.sessionId = '',
+    this.locationId = '',
+    this.userId = '',
+    this.senderName = '',
+    this.errCode = '',
+    this.errMsg = '',
+    this.msgId,
+    this.conversationRoundId,
   });
 
   final String type;
@@ -28,6 +38,16 @@ class ChatroomEnvelope {
   final Map<String, dynamic> worldPayload;
   final bool? broadcast;
   final String mySessionId;
+  final String clientMsgId;
+  final String worldId;
+  final String sessionId;
+  final String locationId;
+  final String userId;
+  final String senderName;
+  final String errCode;
+  final String errMsg;
+  final int? msgId;
+  final int? conversationRoundId;
 
   factory ChatroomEnvelope.fromJson(Map<String, dynamic> json) {
     return ChatroomEnvelope(
@@ -37,6 +57,18 @@ class ChatroomEnvelope {
       worldPayload: _optionalJsonMap(json['world_payload']),
       broadcast: json['broadcast'] == null ? null : asBool(json['broadcast']),
       mySessionId: asString(json['my_session_id']),
+      clientMsgId: asString(json['client_msg_id']),
+      worldId: asString(json['world_id']),
+      sessionId: asString(json['session_id']),
+      locationId: asString(json['location_id']),
+      userId: asString(json['user_id']),
+      senderName: asString(json['sender_name']),
+      errCode: asString(json['err_code']),
+      errMsg: asString(json['err_msg']),
+      msgId: json['msg_id'] == null ? null : asInt(json['msg_id']),
+      conversationRoundId: json['conversation_round_id'] == null
+          ? null
+          : asInt(json['conversation_round_id']),
     );
   }
 
@@ -55,11 +87,54 @@ class ChatroomEnvelope {
   }
 
   String encode() {
-    return jsonEncode(<String, Object?>{
+    final json = <String, Object?>{
       'type': type,
       'ts': ts ?? DateTime.now().millisecondsSinceEpoch,
-      'payload': payload,
-    });
+      if (clientMsgId.isNotEmpty) 'client_msg_id': clientMsgId,
+      if (worldId.isNotEmpty) 'world_id': worldId,
+      if (locationId.isNotEmpty) 'location_id': locationId,
+      if (payload.isNotEmpty) 'payload': payload,
+    };
+    return jsonEncode(json);
+  }
+
+  Map<String, dynamic> get mergedPayload {
+    final merged = <String, dynamic>{...payload};
+    void putString(String key, String value) {
+      if (value.isNotEmpty && !merged.containsKey(key)) merged[key] = value;
+    }
+
+    putString('client_msg_id', clientMsgId);
+    putString('world_id', worldId);
+    putString('session_id', sessionId);
+    putString('location_id', locationId);
+    putString('user_id', userId);
+    putString('sender_name', senderName);
+    putString('err_code', errCode);
+    putString('err_msg', errMsg);
+    if (msgId != null && !merged.containsKey('msg_id')) {
+      merged['msg_id'] = msgId;
+    }
+    if (conversationRoundId != null &&
+        !merged.containsKey('conversation_round_id')) {
+      merged['conversation_round_id'] = conversationRoundId;
+    }
+    if (merged.containsKey('msg_id') && !merged.containsKey('message_id')) {
+      merged['message_id'] = merged['msg_id'];
+    }
+    if (merged.containsKey('client_msg_id') &&
+        !merged.containsKey('client_uuid')) {
+      merged['client_uuid'] = merged['client_msg_id'];
+    }
+    if (merged.containsKey('err_code') && !merged.containsKey('code')) {
+      merged['code'] = merged['err_code'];
+    }
+    if (merged.containsKey('err_msg') && !merged.containsKey('code_msg')) {
+      merged['code_msg'] = merged['err_msg'];
+    }
+    merged.putIfAbsent('code', () => 0);
+    merged.putIfAbsent('code_msg', () => '');
+    return merged;
   }
 }
 
@@ -191,7 +266,7 @@ class ChatroomHeartbeat extends ChatroomPayloadEvent {
   final String mySessionId;
 
   factory ChatroomHeartbeat.fromEnvelope(ChatroomEnvelope envelope) {
-    final payload = envelope.payload;
+    final payload = envelope.mergedPayload;
     return ChatroomHeartbeat(
       sessionId: asString(payload['session_id']),
       worldId: _worldId(payload),
@@ -383,7 +458,7 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
   final DateTime? createdAt;
 
   factory ChatroomUserMessage.fromEnvelope(ChatroomEnvelope envelope) {
-    final payload = envelope.payload;
+    final payload = envelope.mergedPayload;
     return ChatroomUserMessage(
       sessionId: asString(payload['session_id']),
       worldId: _worldId(payload),
@@ -425,7 +500,7 @@ class ChatroomCharacterMessage extends ChatroomMessageEvent {
   });
 
   factory ChatroomCharacterMessage.fromEnvelope(ChatroomEnvelope envelope) {
-    final payload = envelope.payload;
+    final payload = envelope.mergedPayload;
     return ChatroomCharacterMessage(
       sessionId: asString(payload['session_id']),
       worldId: _worldId(payload),
@@ -466,7 +541,7 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
   });
 
   factory ChatroomNarratorMessage.fromEnvelope(ChatroomEnvelope envelope) {
-    final payload = envelope.payload;
+    final payload = envelope.mergedPayload;
     return ChatroomNarratorMessage(
       sessionId: asString(payload['session_id']),
       worldId: _worldId(payload),
@@ -506,7 +581,8 @@ class ChatroomAiStreamStart extends ChatroomEvent {
   final String senderId;
   final String senderName;
 
-  factory ChatroomAiStreamStart.fromPayload(Map<String, dynamic> payload) {
+  factory ChatroomAiStreamStart.fromEnvelope(ChatroomEnvelope envelope) {
+    final payload = envelope.mergedPayload;
     final roundId = asString(payload['conversation_round_id']);
     return ChatroomAiStreamStart(
       sessionId: asString(payload['session_id']),
@@ -537,13 +613,14 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
   final String chunk;
   final bool isDelta;
 
-  factory ChatroomAiStreamChunk.fromPayload(Map<String, dynamic> payload) {
+  factory ChatroomAiStreamChunk.fromEnvelope(ChatroomEnvelope envelope) {
+    final payload = envelope.mergedPayload;
     return ChatroomAiStreamChunk(
       sessionId: asString(payload['session_id']),
       messageId: asInt(payload['message_id']),
       conversationRoundId: asString(payload['conversation_round_id']),
       senderId: asString(payload['sender_id']),
-      chunk: asString(payload['chunk']),
+      chunk: asString(payload['chunk'], fallback: asString(payload['content'])),
       isDelta: asBool(payload['is_delta'], fallback: true),
     );
   }
@@ -564,7 +641,8 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
   final String senderId;
   final DateTime? createdAt;
 
-  factory ChatroomAiStreamEnd.fromPayload(Map<String, dynamic> payload) {
+  factory ChatroomAiStreamEnd.fromEnvelope(ChatroomEnvelope envelope) {
+    final payload = envelope.mergedPayload;
     return ChatroomAiStreamEnd(
       sessionId: asString(payload['session_id']),
       messageId: asInt(payload['message_id']),
@@ -643,10 +721,12 @@ class ChatroomWorldNotification extends ChatroomEvent {
   final bool broadcast;
 
   factory ChatroomWorldNotification.fromEnvelope(ChatroomEnvelope envelope) {
-    final payload = envelope.worldPayload;
+    final payload = envelope.worldPayload.isNotEmpty
+        ? envelope.worldPayload
+        : envelope.mergedPayload;
     return ChatroomWorldNotification(
-      worldId: asString(payload['world_id']),
-      eventType: asString(payload['event_type']),
+      worldId: asString(payload['world_id'], fallback: envelope.worldId),
+      eventType: asString(payload['event_type'], fallback: envelope.type),
       title: asString(payload['title']),
       summary: asString(payload['summary']),
       detailUrl: asString(payload['detail_url']),
@@ -811,28 +891,34 @@ class ChatroomMessageHandlers {
 ChatroomEvent chatroomEventFromEnvelope(ChatroomEnvelope envelope) {
   switch (envelope.type) {
     case 'joined':
-      return ChatroomJoined.fromPayload(envelope.payload);
+      return ChatroomJoined.fromPayload(envelope.mergedPayload);
     case 'leaved':
-      return ChatroomLeaved.fromPayload(envelope.payload);
+      return ChatroomLeaved.fromPayload(envelope.mergedPayload);
     case 'kicked':
-      return ChatroomKicked.fromPayload(envelope.payload);
+      return ChatroomKicked.fromPayload(envelope.mergedPayload);
     case 'disconnected':
       return const ChatroomDisconnected();
     case 'heartbeat':
       return ChatroomHeartbeat.fromEnvelope(envelope);
     case 'ack':
-      return ChatroomAck.fromPayload(envelope.payload);
+      return ChatroomAck.fromPayload(envelope.mergedPayload);
     case 'error':
     case 'ai_error':
       return ChatroomErrorEvent.fromPayload(
-        envelope.payload,
+        envelope.mergedPayload,
         sourceType: envelope.type,
       );
     case 'input_blocked':
-      return ChatroomInputBlocked.fromPayload(envelope.payload);
+      return ChatroomInputBlocked.fromPayload(envelope.mergedPayload);
     case 'input_ready':
-      return ChatroomInputReady.fromPayload(envelope.payload);
+      return ChatroomInputReady.fromPayload(envelope.mergedPayload);
     case 'world_notification':
+    case 'tick_start':
+    case 'tick_done':
+    case 'world_change':
+    case 'user_location_change':
+    case 'world_new_message':
+    case 'nar_new_message':
       return ChatroomWorldNotification.fromEnvelope(envelope);
     case 'user_message':
       return ChatroomUserMessage.fromEnvelope(envelope);
@@ -841,13 +927,16 @@ ChatroomEvent chatroomEventFromEnvelope(ChatroomEnvelope envelope) {
     case 'narrator_message':
       return ChatroomNarratorMessage.fromEnvelope(envelope);
     case 'ai_stream_start':
-      return ChatroomAiStreamStart.fromPayload(envelope.payload);
+    case 'llm_stream_start':
+      return ChatroomAiStreamStart.fromEnvelope(envelope);
     case 'ai_stream_chunk':
-      return ChatroomAiStreamChunk.fromPayload(envelope.payload);
+    case 'llm_chunk':
+      return ChatroomAiStreamChunk.fromEnvelope(envelope);
     case 'ai_stream_end':
-      return ChatroomAiStreamEnd.fromPayload(envelope.payload);
+    case 'llm_stream_end':
+      return ChatroomAiStreamEnd.fromEnvelope(envelope);
     case 'queue_position':
-      return ChatroomQueuePosition.fromPayload(envelope.payload);
+      return ChatroomQueuePosition.fromPayload(envelope.mergedPayload);
     default:
       throw ChatroomProtocolException('Unsupported type: ${envelope.type}');
   }

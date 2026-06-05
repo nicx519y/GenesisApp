@@ -10,6 +10,17 @@ class ChatroomHttpApi {
 
   final ApiClient _client;
 
+  /// GET /aitown-chat/api/ulocation
+  Future<ChatroomUserLocationsResponse> getUserLocations({
+    required String worldId,
+  }) async {
+    final data = await _getMap(
+      'aitown-chat/api/ulocation',
+      v1Query({'world_id': _required(worldId, 'worldId')}),
+    );
+    return ChatroomUserLocationsResponse.fromJson(data);
+  }
+
   /// GET /aitown-chat/internal/world/messages
   Future<ChatroomWorldMessagesResponse> getWorldMessages({
     required String worldId,
@@ -31,7 +42,7 @@ class ChatroomHttpApi {
     final data = await _getMap(
       'aitown-chat/api/messages',
       v1Query({
-        'world_instance_id': _required(worldInstanceId, 'worldInstanceId'),
+        'world_id': _required(worldInstanceId, 'worldInstanceId'),
         'location_id': _required(locationId, 'locationId'),
         'since': since,
         'limit': limit,

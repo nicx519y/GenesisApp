@@ -13,6 +13,23 @@ class _FakeTransport implements HttpTransport {
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
     final path = request.uri.path;
+    if (path == '/aitown-chat/api/ulocation') {
+      return _ok({
+        'world_id': 'w_1',
+        'locations': [
+          {
+            'location_id': 'loc_1',
+            'users': [
+              {
+                'user_id': 'u_1',
+                'user_name': 'A',
+                'avatar': 'https://example.com/u_1.jpg',
+              },
+            ],
+          },
+        ],
+      });
+    }
     if (path == '/aitown-chat/internal/world/messages') {
       return _ok({
         'locations': [
@@ -40,19 +57,16 @@ class _FakeTransport implements HttpTransport {
       return _ok({
         'messages': [
           {
-            'message_id': 1001,
+            'msg_id': 1001,
             'conversation_round_id': 100,
-            'round_order': 1,
             'sender_type': 'user',
             'sender_id': 'char_1',
             'sender_name': 'A',
-            'user_id': 'u_1',
             'content': 'hello',
-            'created_at': '2026-05-29 10:00:00',
+            'ts': 1717300000000,
           },
         ],
         'has_more': false,
-        'newest_message_id': 1001,
       });
     }
     if (path == '/aitown-chat/internal/tick/lock') {
@@ -102,6 +116,10 @@ void main() {
       ApiClient(baseUrl: 'http://chat.local/', transport: transport),
     );
 
+    final userLocations = await api.getUserLocations(worldId: 'w_1');
+    expect(userLocations.worldId, 'w_1');
+    expect(userLocations.locations.single.users.single.userId, 'u_1');
+
     final worldMessages = await api.getWorldMessages(worldId: 'w_1');
     expect(worldMessages.locations.single.locationId, 'loc_1');
     expect(worldMessages.locations.single.messages.single.content, 'hello');
@@ -141,6 +159,7 @@ void main() {
     expect(narratorMessageId, 1002);
 
     expect(transport.requests.map((request) => request.uri.path).toList(), [
+      '/aitown-chat/api/ulocation',
       '/aitown-chat/internal/world/messages',
       '/aitown-chat/api/messages',
       '/aitown-chat/internal/tick/lock',
@@ -153,7 +172,11 @@ void main() {
       containsPair('world_id', 'w_1'),
     );
     expect(
-      utf8.decode(transport.requests[2].bodyBytes!),
+      transport.requests[2].uri.queryParameters,
+      containsPair('world_id', 'w_1'),
+    );
+    expect(
+      utf8.decode(transport.requests[3].bodyBytes!),
       contains('name="world_id"'),
     );
   });

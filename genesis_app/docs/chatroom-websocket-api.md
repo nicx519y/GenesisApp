@@ -1,6 +1,6 @@
 # Chatroom WebSocket API
 
-本文档对齐 `/Users/ionix/Desktop/aitown-chat-ws.yaml`，描述 AITown 聊天室 WebSocket 协议，以及 Flutter 侧当前实现需要遵守的字段契约。
+本文档按 `/Users/ionix/Downloads/aitown-chat-ws.yaml` 重写，描述 AITown 聊天室 WebSocket `2.0.0` 协议，以及 Flutter 侧当前实现需要遵守的字段契约。
 
 ## 1. 概览
 
@@ -8,25 +8,26 @@
 | --- | --- |
 | OpenAPI | `3.0.3` |
 | 标题 | `AITown Chat WebSocket API` |
-| 版本 | `1.0.0` |
-| 本地服务 | `ws://localhost:8082/aitown-chat/ws` |
+| 版本 | `2.0.0` |
+| Dev WS 服务 | `wss://dev.hushie.ai/aitown-chat/ws` |
 | Flutter WS 配置 | `GENESIS_CHATROOM_WS_URL` |
-| Flutter 默认 WS | `ws://dev.hushie.ai/aitown-chat/ws` |
+| Flutter 默认 WS | `wss://dev.hushie.ai/aitown-chat/ws` |
+| Flutter HTTP 配置 | `GENESIS_CHATROOM_HTTP_URL` |
 
-WebSocket 建联时自动创建 Session。同一用户建立新连接时，服务端会踢掉该用户的旧连接。
+建联时服务端自动创建 Session；同一用户建立新连接时，服务端会踢掉该用户的旧连接。客户端需要通过心跳维持连接，建议每 2 秒发送一次。所有 WebSocket 消息使用 JSON，字段命名采用 `snake_case`。
+
+世界级广播使用单一世界通道：
+
+```text
+channel:chat:world:{world_id}
+```
 
 Flutter 侧 WebSocket 域名使用独立配置 `GENESIS_CHATROOM_WS_URL`，不复用 chatroom HTTP 接口的 `GENESIS_CHATROOM_HTTP_URL`。
 
 ## 2. 建联接口
 
 ```text
-GET ws://{host}:{port}/aitown-chat/ws?world_id={world_id}
-```
-
-示例：
-
-```text
-ws://localhost:8082/aitown-chat/ws?world_id=world_123
+GET wss://dev.hushie.ai/aitown-chat/ws?world_id={world_id}
 ```
 
 请求头：
@@ -47,404 +48,343 @@ ws://localhost:8082/aitown-chat/ws?world_id=world_123
 | --- | --- |
 | `101` | `Switching Protocols`，WebSocket 连接成功 |
 
-## 3. 连接生命周期
+## 3. 客户端上行消息
 
-1. 客户端连接 `/aitown-chat/ws`，query 中传入 `world_id`，header 中传入 `Authorization`。
-2. 建联成功后服务端创建 Session，并踢掉该用户的旧连接。
-3. 客户端发送 `join` 进入指定地点聊天室。
-4. 服务端返回 `joined`，并广播 `world_notification`，`event_type=user_join`。
-5. 客户端发送 `send_message`。
-6. 服务端返回 `ack`，随后广播 `user_message`。
-7. AI 处理完成后，服务端广播 `character_message` 或 `narrator_message`，也可能发送 AI 流式消息。
-8. 客户端发送 `leave` 离开聊天室，服务端返回 `leaved`，并广播 `world_notification`，`event_type=user_leave`。
-9. 客户端按固定间隔发送 `heartbeat` 维持连接。Flutter 默认间隔为 2 秒。
-10. 连接断开后，服务端广播 `world_notification`，`event_type=user_leave`。
+上行消息不再包 `payload`，业务字段直接放在顶层。
 
-## 4. 通用消息结构
-
-所有 WebSocket 消息使用 JSON envelope：
-
-```json
-{
-  "type": "message_type",
-  "ts": 1748352000000,
-  "payload": {}
-}
-```
-
-顶层字段：
-
-| 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- |
-| `type` | `string` | 是 | 消息类型 |
-| `ts` | `integer(int64)` | 否 | 时间戳，毫秒 |
-| `payload` | `object` | 否 | 常规消息载荷 |
-| `world_payload` | `object` | 否 | `world_notification` 专用载荷 |
-| `broadcast` | `boolean` | 否 | 是否为广播消息 |
-| `my_session_id` | `string` | 否 | 当前客户端会话 ID，服务端心跳响应可能携带 |
-
-## 5. 客户端上行消息
-
-### 5.1 `join`
+### 3.1 `join`
 
 进入指定地点聊天室。
 
-Payload 字段：
-
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `location_id` | `string` | 是 | 地点 ID |
-
-示例：
+| `type` | `string` | 是 | 固定 `join` |
+| `client_msg_id` | `string` | 否 | 客户端消息 ID，用于 ack 匹配 |
+| `world_id` | `string` | 否 | 世界实例 ID |
+| `location_id` | `string` | 否 | 地点 ID |
 
 ```json
 {
   "type": "join",
-  "ts": 1748352000000,
-  "payload": {
-    "location_id": "location_001"
-  }
+  "client_msg_id": "client_abc_001",
+  "world_id": "world_001",
+  "location_id": "loc_001"
 }
 ```
 
-### 5.2 `send_message`
+### 3.2 `send_message`
 
 发送聊天消息到当前聊天室。
 
-Payload 字段：
-
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
-| `text` | `string` | 是 | 消息内容 |
-| `client_uuid` | `string` | 否 | 客户端消息 UUID，用于幂等去重和本地 pending 消息对齐 |
-
-示例：
+| `type` | `string` | 是 | 固定 `send_message` |
+| `client_msg_id` | `string` | 否 | 客户端消息 ID，用于 ack 匹配 |
+| `content` | `string` | 是 | 消息内容 |
 
 ```json
 {
   "type": "send_message",
-  "ts": 1748352000000,
-  "payload": {
-    "text": "你好，今天天气怎么样？",
-    "client_uuid": "client_uuid_001"
-  }
+  "client_msg_id": "client_abc_002",
+  "content": "大家好！"
 }
 ```
 
-### 5.3 `heartbeat`
+### 3.3 `heartbeat`
 
-心跳消息。客户端发送空 payload。
+心跳消息。
 
 ```json
 {
-  "type": "heartbeat",
-  "ts": 1748352000000,
-  "payload": {}
+  "type": "heartbeat"
 }
 ```
 
-### 5.4 `leave`
+### 3.4 `leave`
 
-离开当前聊天室，但保持 WebSocket 连接。
+离开当前聊天室，保持 WebSocket 连接。
 
 ```json
 {
   "type": "leave",
-  "ts": 1748352000000,
-  "payload": {}
+  "client_msg_id": "client_abc_003"
 }
 ```
 
-## 6. 服务端下行消息
+## 4. 服务端下行统一结构
 
-### 6.1 连接控制
+服务端下行消息使用统一顶层结构，公共元数据直接放在顶层，个性化内容放在 `payload`。
 
-`joined`、`leaved`、`kicked` 共用 `WSPayload`。
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `type` | `string` | 是 | 事件类型 |
+| `ts` | `integer(int64)` | 是 | 毫秒时间戳 |
+| `world_id` | `string` | 是 | 世界实例 ID |
+| `payload` | `object` | 是 | 个性化消息载荷 |
+| `session_id` | `string` | 否 | 会话 ID，排查用 |
+| `msg_id` | `integer(int64)` | 否 | 消息 ID |
+| `conversation_round_id` | `integer(int64)` | 否 | 对话轮次 ID |
+| `user_id` | `string` | 否 | 用户 ID |
+| `sender_name` | `string` | 否 | 发送者名称 |
+| `location_id` | `string` | 否 | 地点 ID |
+| `err_code` | `string` | 否 | 错误码 |
+| `err_msg` | `string` | 否 | 错误信息 |
 
-`WSPayload` 字段：
+Flutter 解析时会把这些顶层字段合并到本地事件模型中；旧的 `payload.message_id` / `payload.client_uuid` / `world_payload` 仍作为解析兜底，但上行不再发送旧格式。
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `ts` | `integer(int64)` | 消息时间戳，毫秒 |
-| `world_id` | `string` | 世界实例 ID |
-| `location_id` | `string` | 聊天室地点 ID |
-| `session_id` | `string` | 会话 ID |
-| `user_id` | `string` | 用户 ID |
-| `code` | `integer` | 状态码，`0` 表示成功 |
-| `code_msg` | `string` | 状态或错误描述 |
+## 5. 服务端下行消息
 
-`joined` 示例：
-
-```json
-{
-  "type": "joined",
-  "ts": 1748352000000,
-  "payload": {
-    "ts": 1748352000000,
-    "world_id": "world_123",
-    "location_id": "location_001",
-    "session_id": "session_abc123",
-    "user_id": "user_001",
-    "code": 0,
-    "code_msg": "ok"
-  }
-}
-```
-
-`leaved` 表示服务端确认用户已离开聊天室。
-
-`kicked` 表示用户在新设备登录，当前连接被踢下线。示例 `code=1001`、`code_msg=new_connection`。
-
-`disconnected` 表示 WebSocket 连接已断开：
-
-```json
-{
-  "type": "disconnected",
-  "payload": {}
-}
-```
-
-### 6.2 `ack`
+### 5.1 `ack`
 
 服务端确认收到用户消息。
-
-Payload 字段：
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `message_id` | `integer(int64)` | 服务端消息 ID |
-| `conversation_round_id` | `integer(int64)` | 对话轮次 ID |
-| `client_uuid` | `string` | 客户端消息 UUID；服务端可能不回传，客户端需按 pending 顺序兜底 |
-
-示例：
 
 ```json
 {
   "type": "ack",
-  "ts": 1748352000000,
+  "ts": 1717300000000,
+  "world_id": "world_001",
+  "session_id": "sess_abc",
+  "msg_id": 456,
+  "conversation_round_id": 123,
   "payload": {
-    "ts": 1748352000000,
-    "world_id": "world_123",
-    "location_id": "location_001",
-    "session_id": "session_abc123",
-    "user_id": "user_001",
-    "code": 0,
-    "code_msg": "ok",
-    "message_id": 1001,
-    "conversation_round_id": 201
+    "client_msg_id": "client_abc_002"
   }
 }
 ```
 
-### 6.3 `error`
+### 5.2 `error`
 
-服务端错误消息。
-
-Payload 字段：
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `code` | `integer` | 错误码 |
-| `code_msg` | `string` | 错误描述 |
-
-示例：
+服务端返回错误信息。
 
 ```json
 {
   "type": "error",
-  "ts": 1748352000000,
-  "payload": {
-    "ts": 1748352000000,
-    "world_id": "world_123",
-    "location_id": "location_001",
-    "session_id": "session_abc123",
-    "user_id": "user_001",
-    "code": 1005,
-    "code_msg": "未加入聊天室"
-  }
+  "ts": 1717300000000,
+  "world_id": "world_001",
+  "session_id": "sess_abc",
+  "err_code": "tick_locked",
+  "err_msg": "当前 Tick 正在推进，请稍后",
+  "payload": {}
 }
 ```
 
-### 6.4 输入状态
+### 5.3 系统通知
 
-`input_blocked` 表示世界正在推进中，暂时阻止用户输入。
+这些事件共用 `SystemNotifyPayload`：
 
-`input_ready` 表示世界推进完成，用户可以继续输入。
+| 事件 | 触发时机 | 客户端行为 |
+| --- | --- | --- |
+| `tick_start` | 外部 tick 服务调用 lock 接口 | 用户不能发送消息，但可以进出 location |
+| `tick_done` | 外部 tick 服务调用 unlock 接口 | 用户可以发送消息 |
+| `world_change` | Tick 完成后世界发生变更 | 调用 `/api/v1/world/detail?world_id=xxx` 拉取世界详情 |
+| `user_location_change` | 玩家 join/leave 或收到 `tick_start` | 调用 `/aitown-chat/api/ulocation?world_id=xxx` 拉取玩家位置 |
+| `world_new_message` | 世界某地点产生新对话 | 调用 `/aitown-chat/api/messages?...` 拉取历史消息 |
+| `nar_new_message` | Tick 结束后产生旁白 | 按 `msg_id` 或详情入口刷新旁白 |
 
-二者使用 `WSPayload`。
-
-### 6.5 `world_notification`
-
-世界级事件通知，广播给世界内所有用户。
-
-顶层使用 `world_payload`，不是 `payload`。
-
-`world_payload` 字段：
+`SystemNotifyPayload`：
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `ts` | `integer(int64)` | 消息时间戳，毫秒 |
-| `world_id` | `string` | 世界实例 ID |
-| `event_type` | `string` | `user_join` 或 `user_leave` |
 | `title` | `string` | 标题 |
-| `summary` | `string` | JSON 字符串摘要 |
-| `detail_url` | `string` | 详情链接 |
-
-`summary` 格式：
-
-```json
-{
-  "location_id": "location_001",
-  "online_count": 5,
-  "users": [
-    {
-      "uid": "user_001",
-      "avatar": "https://example.com/avatar/user_001.png"
-    }
-  ]
-}
-```
+| `summary` | `string` | 摘要 |
+| `detail_url` | `string` | 详情 URL，空字符串表示无详情 |
 
 示例：
 
 ```json
 {
-  "type": "world_notification",
-  "ts": 1748352000000,
-  "world_payload": {
-    "ts": 1748352000000,
-    "world_id": "world_123",
-    "event_type": "user_join",
-    "title": "用户加入",
-    "summary": "{\"location_id\":\"location_001\",\"online_count\":3,\"users\":[{\"uid\":\"user_001\",\"avatar\":\"https://example.com/avatar/user_001.png\"}]}"
-  },
-  "broadcast": true
+  "type": "world_change",
+  "ts": 1717300000000,
+  "world_id": "world_001",
+  "payload": {
+    "title": "世界变更",
+    "summary": "角色位置变更，新玩家加入",
+    "detail_url": "/api/v1/world/detail?world_id=world_001"
+  }
 }
 ```
 
-触发时机：
+`world_new_message` 还会携带顶层 `location_id`；`nar_new_message` 还会携带顶层 `msg_id`。
 
-| 触发 | `event_type` |
-| --- | --- |
-| 用户发送 `join` 成功加入地点 | `user_join` |
-| 用户发送 `leave` 离开地点 | `user_leave` |
-| 用户断开连接 | `user_leave` |
+### 5.4 `user_message`
 
-### 6.6 聊天消息广播
-
-`user_message`、`character_message`、`narrator_message` 都使用通用聊天消息结构。
-
-Payload 字段：
-
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `message_id` | `integer(int64)` | 服务端消息 ID |
-| `conversation_round_id` | `integer(int64)` | 对话轮次 ID |
-| `round_order` | `integer` | 当前轮次内顺序 |
-| `sender_type` | `string` | `user`、`character` 或 `narrator` |
-| `sender_id` | `string` | 发送者 ID；旁白可能为空 |
-| `sender_name` | `string` | 发送者名称；旁白可能为空 |
-| `content` | `string` | 完整消息内容 |
-
-用户消息示例：
+广播用户发送的消息给世界内所有用户。
 
 ```json
 {
   "type": "user_message",
-  "ts": 1748352000000,
+  "ts": 1717300000000,
+  "world_id": "world_001",
+  "session_id": "sess_abc",
+  "msg_id": 456,
+  "conversation_round_id": 123,
+  "user_id": "user_001",
+  "sender_name": "张三",
+  "location_id": "loc_001",
   "payload": {
-    "ts": 1748352000000,
-    "world_id": "world_123",
-    "location_id": "location_001",
-    "session_id": "session_abc123",
-    "user_id": "user_001",
-    "code": 0,
-    "code_msg": "ok",
-    "message_id": 1001,
-    "conversation_round_id": 201,
-    "round_order": 0,
-    "sender_type": "user",
-    "sender_id": "sender_001",
-    "sender_name": "玩家小明",
-    "content": "你好，今天天气怎么样？"
-  },
-  "broadcast": true
+    "content": "大家好！"
+  }
 }
 ```
 
-### 6.7 AI 流式消息
+### 5.5 LLM 流式消息
 
-`ai_stream_start` 表示 AI 开始流式输出。
+#### `llm_stream_start`
 
-Payload 字段：
+```json
+{
+  "type": "llm_stream_start",
+  "ts": 1717300000000,
+  "world_id": "world_001",
+  "location_id": "loc_001",
+  "msg_id": 789,
+  "conversation_round_id": 123,
+  "payload": {
+    "sender_type": "character",
+    "sender_id": "char_001",
+    "sender_name": "村长"
+  }
+}
+```
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `conversation_round_id` | `integer(int64)` | 对话轮次 ID |
+#### `llm_chunk`
 
-`ai_stream_chunk` 表示增量内容：
+```json
+{
+  "type": "llm_chunk",
+  "ts": 1717300000500,
+  "world_id": "world_001",
+  "location_id": "loc_001",
+  "msg_id": 789,
+  "conversation_round_id": 123,
+  "payload": {
+    "sender_type": "character",
+    "sender_id": "char_001",
+    "sender_name": "村长",
+    "seq": 5,
+    "content": "欢迎来到"
+  }
+}
+```
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `chunk` | `string` | 增量内容 |
+#### `llm_stream_end`
 
-`ai_stream_end` 表示流式输出结束：
+```json
+{
+  "type": "llm_stream_end",
+  "ts": 1717300001000,
+  "world_id": "world_001",
+  "location_id": "loc_001",
+  "msg_id": 789,
+  "conversation_round_id": 123,
+  "payload": {
+    "sender_type": "character",
+    "sender_id": "char_001",
+    "sender_name": "村长",
+    "content": "欢迎来到我们的小镇！有什么可以帮助你的吗？"
+  }
+}
+```
 
-| 字段 | 类型 | 说明 |
-| --- | --- | --- |
-| `message_id` | `integer(int64)` | 最终消息 ID |
+`sender_type` 可为 `character` 或 `narrator`。`llm_chunk.payload.seq` 用于排序，防止乱序。
+
+## 6. 配套 HTTP 接口
+
+这些接口由 chatroom 服务提供。Flutter 侧通过 `GenesisApi.chatroomHttp` 访问，base URL 由 `GENESIS_CHATROOM_HTTP_URL` 配置，默认 `https://dev.hushie.ai/`。
+
+### 6.1 GET `/api/v1/world/detail`
+
+获取世界详情。该接口由主 HTTP 服务提供，字段以 `docs/apifox-http-api-contract.md` 的 `World detail` 契约为准。
+
+Query：
+
+- `world_id*`: string，世界实例 ID
+
+### 6.2 GET `/aitown-chat/api/ulocation`
+
+获取世界内所有已加入 location 的玩家位置信息，按地点分组返回。未加入任何 location 的用户不会出现在结果中。
+
+Query：
+
+- `world_id*`: string，世界实例 ID
+
+响应：
+
+```json
+{
+  "err_no": 0,
+  "err_msg": "",
+  "data": {
+    "world_id": "world_001",
+    "locations": [
+      {
+        "location_id": "loc_001",
+        "users": [
+          {
+            "user_id": "user_001",
+            "user_name": "张三",
+            "avatar": "https://example.com/avatar/user_001.jpg"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 6.3 GET `/aitown-chat/api/messages`
+
+YAML 的 `paths` 写作 `/api/messages`，但通知 `detail_url` 使用 `/aitown-chat/api/messages`，项目实现按 chatroom 服务前缀访问。
+
+Query：
+
+- `world_id*`: string，世界实例 ID
+- `location_id*`: string，地点 ID
+- `since`: integer，起始消息 ID，不包含
+- `limit`: integer，默认 `20`，最大 `100`
+
+响应：
+
+```json
+{
+  "code": 0,
+  "data": {
+    "messages": [
+      {
+        "msg_id": 456,
+        "conversation_round_id": 123,
+        "sender_type": "user",
+        "sender_id": "user_001",
+        "sender_name": "张三",
+        "content": "大家好！",
+        "ts": 1717300000000
+      }
+    ],
+    "has_more": false
+  }
+}
+```
 
 ## 7. 错误码
 
-### 7.1 WebSocket 错误
-
-| Code | Message | 说明 |
+| 范围 | 错误码 | 说明 |
 | --- | --- | --- |
-| `1001` | 参数错误 | 请求参数不正确 |
-| `1002` | 消息格式错误 | WebSocket 消息 JSON 格式不正确 |
-| `1003` | 未知消息类型 | 发送了不支持的消息类型 |
-| `1004` | 已加入聊天室 | 用户已经在当前聊天室中 |
-| `1005` | 未加入聊天室 | 用户未加入聊天室，无法发送消息 |
-| `1006` | join 消息格式错误 | join 消息的 payload 格式不正确 |
-| `1007` | user_id、sender_id、sender_name 必填 | 旧字段校验错误；新版客户端不再上行这些字段 |
-| `1008` | send_message 消息格式错误 | send_message payload 格式不正确 |
-| `1009` | text 必填 | 发送消息缺少 `text` 字段 |
-| `1010` | 地点已满 | 当前地点人数已达上限 |
-| `1011` | 会话不存在 | Session 不存在或已过期 |
-| `1012` | 未建立连接 | WebSocket 连接未建立 |
-| `1013` | location_id 必填 | join 消息缺少 `location_id` |
+| WebSocket `1xxx` | `1001` | 参数错误 |
+| WebSocket `1xxx` | `1002` | 消息格式错误 |
+| WebSocket `1xxx` | `1003` | 未知消息类型 |
+| WebSocket `1xxx` | `1004` | 已加入聊天室 |
+| WebSocket `1xxx` | `1005` | 未加入聊天室，无法发送消息 |
+| 业务 `2xxx` | `2001` | 创建 Session 失败 |
+| 业务 `2xxx` | `2002` | 消息发送失败 |
+| 业务 `2xxx` | `2003` | `tick_locked`，Tick 锁定中 |
+| 内部 `5xxx` | `5000` | 服务暂时不可用 |
+| 认证 `100xx` | `10001` | 未授权 |
 
-### 7.2 业务错误
-
-| Code | Message | 说明 |
-| --- | --- | --- |
-| `2001` | 创建会话失败 | 创建 Session 时发生错误 |
-| `2002` | 生成消息ID失败 | Redis INCR 生成消息 ID 失败 |
-| `2003` | 生成轮次ID失败 | Redis INCR 生成轮次 ID 失败 |
-| `2004` | 保存消息失败 | 消息持久化到 MySQL 失败 |
-| `2005` | 队列已满 | 消息队列已达上限 |
-| `2006` | 世界正在推进中 | Tick 锁定中，请稍候 |
-| `2007` | AI 服务暂时不可用 | LLM 调用失败 |
-| `2008` | 开场白生成失败 | 生成开场白时发生错误 |
-| `2009` | Tick 已被锁定 | 世界正在推进中，请稍候 |
-| `2010` | 消息发送过于频繁 | 用户消息频次限制，10 秒内只能发送一条 |
-
-### 7.3 内部错误和认证错误
-
-| Code | Message | 说明 |
-| --- | --- | --- |
-| `5000` | 服务暂时不可用 | 内部服务错误 |
-| `5001` | 服务暂时不可用 | Redis 操作错误 |
-| `5002` | 服务暂时不可用 | MySQL 操作错误 |
-| `5003` | 服务暂时不可用 | 外部服务调用错误 |
-| `10001` | 未授权 | 请先登录 |
-
-## 8. Flutter 实现对齐点
+## 8. Flutter 实现约定
 
 - `ChatroomClient.connect` 使用 `GENESIS_CHATROOM_WS_URL` 拼接 `world_id` query，并通过 `Authorization: Bearer ...` 建联。
-- `ChatroomSession.join` 只发送 `payload.location_id`，不再发送 `user_id`、`sender_id`、`sender_name`。
-- `ChatroomSession.sendMessage` 发送 `payload.text` 和 `payload.client_uuid`。
-- `heartbeat` 和 `leave` 都发送空 payload。
-- 下行 `world_notification` 从顶层 `world_payload` 解析。
-- `ack` 优先用 `client_uuid` 关联 pending 消息；服务端未回传时，客户端按最早 pending 消息兜底。
-- `joined`、`leaved`、`kicked`、`disconnected`、`input_blocked`、`input_ready`、聊天消息和 AI 流式事件均映射为 `ChatroomEvent`。
+- `join`、`send_message`、`heartbeat`、`leave` 上行消息使用顶层字段，不再发送 `payload.text` 或 `payload.client_uuid`。
+- `send_message` 的 ack 匹配以 `client_msg_id` 为主；服务端缺失该字段时，Flutter 仍按 pending 顺序兜底。
+- `join()` 兼容服务端返回 `joined` 或返回携带相同 `client_msg_id` 的 `ack`。
+- `llm_stream_start`、`llm_chunk`、`llm_stream_end` 在 Flutter 内部仍复用 `ChatroomAiMessageStream` 事件模型。
+- 原始帧通过 `developer.log(name: 'ChatroomSocketFrame')` 输出到 Flutter DevTools Logging。

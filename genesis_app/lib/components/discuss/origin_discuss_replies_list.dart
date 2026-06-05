@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../network/json_utils.dart';
+import '../../ui/components/genesis_list_image.dart';
 import '../../utils/display_name_formatter.dart';
 import '../common/genesis_image_viewer_overlay.dart';
 
@@ -12,6 +13,7 @@ class OriginDiscussRepliesList extends StatelessWidget {
     required this.remainingReplyCount,
     required this.isLoading,
     required this.onLoadMore,
+    this.onReplyTap,
   });
 
   final String discussId;
@@ -19,6 +21,7 @@ class OriginDiscussRepliesList extends StatelessWidget {
   final int remainingReplyCount;
   final bool isLoading;
   final VoidCallback onLoadMore;
+  final void Function(Map<String, dynamic> reply)? onReplyTap;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +41,10 @@ class OriginDiscussRepliesList extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             for (final reply in replies) ...[
-              _OriginDiscussReplyItem(reply: reply),
+              _OriginDiscussReplyItem(
+                reply: reply,
+                onTap: onReplyTap == null ? null : () => onReplyTap!(reply),
+              ),
               const SizedBox(height: 6),
             ],
             if (remainingReplyCount > 0)
@@ -73,14 +79,15 @@ class OriginDiscussRepliesList extends StatelessWidget {
 }
 
 class _OriginDiscussReplyItem extends StatelessWidget {
-  const _OriginDiscussReplyItem({required this.reply});
+  const _OriginDiscussReplyItem({required this.reply, this.onTap});
 
   final Map<String, dynamic> reply;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final imageUrls = _imageUrlsFrom(reply['images'] ?? reply['image_urls']);
-    return Column(
+    final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -97,6 +104,15 @@ class _OriginDiscussReplyItem extends StatelessWidget {
           _OriginDiscussReplyImageThumbnails(urls: imageUrls),
         ],
       ],
+    );
+    if (onTap == null) return content;
+
+    final replyId = asString(reply['discuss_id']);
+    return GestureDetector(
+      key: ValueKey('origin-discuss-reply-item-$replyId'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: SizedBox(width: double.infinity, child: content),
     );
   }
 }
@@ -140,44 +156,16 @@ class _OriginDiscussReplyImageThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     const size = 32.0;
     final imageUrl = url.trim();
-    final fallback = Container(
-      color: const Color(0xFFEDEDED),
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.image_outlined,
-        size: 18,
-        color: Color(0xFF999999),
-      ),
-    );
-    final image = imageUrl.isEmpty
-        ? fallback
-        : imageUrl.startsWith('assets/')
-        ? Image.asset(
-            imageUrl,
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => fallback,
-          )
-        : Image.network(
-            imageUrl,
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => fallback,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return fallback;
-            },
-          );
 
     return GestureDetector(
       key: ValueKey('origin-discuss-reply-image-$imageUrl'),
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: ClipRRect(
+      child: GenesisListImage(
+        imageUrl: imageUrl,
+        width: size,
+        height: size,
         borderRadius: BorderRadius.circular(4),
-        child: SizedBox(width: size, height: size, child: image),
       ),
     );
   }

@@ -342,6 +342,11 @@ void main() {
       worldId: world,
     );
     expect(worldMessages.locations, isNotEmpty);
+    final userLocations = await api.chatroomHttp.getUserLocations(
+      worldId: world,
+    );
+    expect(userLocations.worldId, world);
+    expect(userLocations.locations, isNotEmpty);
     final history = await api.chatroomHttp.getMessages(
       worldInstanceId: world,
       locationId: worldMessages.locations.first.locationId,

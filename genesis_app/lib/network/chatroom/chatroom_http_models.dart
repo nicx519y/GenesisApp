@@ -27,7 +27,7 @@ class ChatroomHttpMessage {
 
   factory ChatroomHttpMessage.fromJson(Map<String, dynamic> json) {
     return ChatroomHttpMessage(
-      messageId: asInt(json['message_id']),
+      messageId: asInt(json['message_id'], fallback: asInt(json['msg_id'])),
       locationId: asString(json['location_id']),
       conversationRoundId: asInt(json['conversation_round_id']),
       roundOrder: asInt(json['round_order']),
@@ -36,7 +36,71 @@ class ChatroomHttpMessage {
       senderName: asString(json['sender_name']),
       userId: asString(json['user_id']),
       content: asString(json['content']),
-      createdAt: asDateTime(json['created_at']),
+      createdAt: asDateTime(json['created_at'] ?? json['ts']),
+    );
+  }
+}
+
+class ChatroomUserLocation {
+  const ChatroomUserLocation({
+    required this.userId,
+    required this.userName,
+    required this.avatar,
+  });
+
+  final String userId;
+  final String userName;
+  final String avatar;
+
+  factory ChatroomUserLocation.fromJson(Map<String, dynamic> json) {
+    return ChatroomUserLocation(
+      userId: asString(json['user_id']),
+      userName: asString(json['user_name']),
+      avatar: asString(json['avatar']),
+    );
+  }
+}
+
+class ChatroomUserLocationGroup {
+  const ChatroomUserLocationGroup({
+    required this.locationId,
+    required this.users,
+  });
+
+  final String locationId;
+  final List<ChatroomUserLocation> users;
+
+  factory ChatroomUserLocationGroup.fromJson(Map<String, dynamic> json) {
+    final rawUsers = json['users'] is List
+        ? asJsonList(json['users'])
+        : const [];
+    return ChatroomUserLocationGroup(
+      locationId: asString(json['location_id']),
+      users: rawUsers
+          .map((item) => ChatroomUserLocation.fromJson(asJsonMap(item)))
+          .toList(growable: false),
+    );
+  }
+}
+
+class ChatroomUserLocationsResponse {
+  const ChatroomUserLocationsResponse({
+    required this.worldId,
+    required this.locations,
+  });
+
+  final String worldId;
+  final List<ChatroomUserLocationGroup> locations;
+
+  factory ChatroomUserLocationsResponse.fromJson(Map<String, dynamic> json) {
+    final rawLocations = json['locations'] is List
+        ? asJsonList(json['locations'])
+        : const [];
+    return ChatroomUserLocationsResponse(
+      worldId: asString(json['world_id']),
+      locations: rawLocations
+          .map((item) => ChatroomUserLocationGroup.fromJson(asJsonMap(item)))
+          .toList(growable: false),
     );
   }
 }
@@ -95,12 +159,20 @@ class ChatroomMessageListResponse {
     final rawMessages = json['messages'] is List
         ? asJsonList(json['messages'])
         : const [];
+    final messages = rawMessages
+        .map((item) => ChatroomHttpMessage.fromJson(asJsonMap(item)))
+        .toList(growable: false);
     return ChatroomMessageListResponse(
-      messages: rawMessages
-          .map((item) => ChatroomHttpMessage.fromJson(asJsonMap(item)))
-          .toList(growable: false),
+      messages: messages,
       hasMore: asBool(json['has_more']),
-      newestMessageId: asInt(json['newest_message_id']),
+      newestMessageId: asInt(
+        json['newest_message_id'],
+        fallback: messages.fold<int>(
+          0,
+          (previous, message) =>
+              message.messageId > previous ? message.messageId : previous,
+        ),
+      ),
     );
   }
 }

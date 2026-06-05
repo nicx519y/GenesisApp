@@ -4827,6 +4827,56 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('user info page shows skeleton while loading', (
+    WidgetTester tester,
+  ) async {
+    final userInfoCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      userInfoCompleter: userInfoCompleter,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const UserInfoPage(uid: 'u_mock_peer'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('user-info-loading-skeleton')),
+      findsOneWidget,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    userInfoCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'user': {
+            'uid': 'u_mock_peer',
+            'name': 'Penny Hardaway',
+            'avatar': '',
+            'following_cnt': 16,
+            'follower_cnt': 20,
+          },
+          'relation': {
+            'is_self': false,
+            'is_followed': false,
+            'i_followed': false,
+          },
+        },
+      }),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Penny Hardaway'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('peer profile follows and opens direct chat', (
     WidgetTester tester,
   ) async {

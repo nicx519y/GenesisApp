@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../ui/components/genesis_list_image.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
@@ -108,22 +109,6 @@ class OriginItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final coverPlaceholder = _CoverPlaceholder(
-      seed: item.oid.isEmpty ? item.title : item.oid,
-      label: _badgeText(item.title),
-    );
-    final cover = item.cover.trim().isEmpty
-        ? coverPlaceholder
-        : Image.network(
-            item.cover,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => coverPlaceholder,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return coverPlaceholder;
-            },
-          );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -134,7 +119,7 @@ class OriginItemCard extends StatelessWidget {
             width: double.infinity,
             child: Stack(
               children: [
-                Positioned.fill(child: cover),
+                Positioned.fill(child: GenesisListImage(imageUrl: item.cover)),
                 Positioned(
                   left: 0,
                   right: 0,
@@ -231,42 +216,6 @@ class _ImageStat extends StatelessWidget {
   }
 }
 
-class _CoverPlaceholder extends StatelessWidget {
-  const _CoverPlaceholder({required this.seed, required this.label});
-
-  final String seed;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = _gradientFor(seed);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
-        ),
-      ),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              height: 1.05,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _TagWrap extends StatelessWidget {
   const _TagWrap({required this.tags});
 
@@ -312,23 +261,4 @@ List<String> _tagsFromJson(Object? value) {
 double _coverHeightFor(String seed) {
   final hash = seed.codeUnits.fold<int>(0, (a, b) => (a * 31 + b) & 0x7fffffff);
   return (160 + (hash % 120)).clamp(140, 260).toDouble();
-}
-
-List<Color> _gradientFor(String seed) {
-  final hash = seed.codeUnits.fold<int>(
-    0,
-    (a, b) => (a * 131 + b) & 0x7fffffff,
-  );
-  int tint(int v) => 0xFF000000 | (v & 0x00FFFFFF) | 0x00303030;
-  return [Color(tint(hash)), Color(tint(hash * 17))];
-}
-
-String _badgeText(String name) {
-  final cleaned = name.replaceAll('#', '').trim();
-  final words = cleaned
-      .split(RegExp(r'\s+'))
-      .where((e) => e.trim().isNotEmpty)
-      .toList();
-  if (words.isEmpty) return 'ENTER\nWORLD';
-  return words.take(4).map((e) => e.toUpperCase()).join('\n');
 }

@@ -771,6 +771,19 @@ Query：
 
 这些接口不在 `/api/v1` 下，而在 chatroom 服务前缀 `/aitown-chat` 下。当前 Flutter 侧通过 `GenesisApi.chatroomHttp` 使用独立 base URL，默认 `GENESIS_CHATROOM_HTTP_URL=https://dev.hushie.ai/`；本地 mock 已覆盖这些路由。
 
+### GET `/aitown-chat/api/ulocation`
+
+获取世界内所有已加入 location 的玩家位置信息，按地点分组返回。未加入任何 location 的用户不会出现在结果中。
+
+Query：
+
+- `world_id*`: string，世界实例 ID
+
+响应 `data`：
+
+- `world_id`: string，世界实例 ID
+- `locations`: `{ location_id, users: { user_id, user_name, avatar }[] }[]`
+
 ### GET `/aitown-chat/internal/world/messages`
 
 获取指定世界最近 50 条消息，按 `conversation_round_id` 倒排、`round_order` 正排，并按 `location_id` 分组返回。
@@ -795,14 +808,14 @@ Query：
 
 Query：
 
-- `world_instance_id*`: string，世界实例 ID
+- `world_id*`: string，世界实例 ID
 - `location_id*`: string，地点 ID
 - `since`: integer，起始消息 ID；`0` 表示获取最新
 - `limit`: integer，默认 `20`
 
 响应 `data`：
 
-- `messages`: `ChatroomMessageDTO[]`
+- `messages`: `ChatroomMessageDTO[]`；新 WebSocket 文档中的响应示例使用 `msg_id` 和毫秒级 `ts`，Flutter DTO 同时兼容旧 `message_id` / `created_at`
 - `has_more`: boolean，是否有更多消息
 - `newest_message_id`: integer，最新消息 ID
 

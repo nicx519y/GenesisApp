@@ -47,7 +47,12 @@ void main() {
     await _tick();
 
     expect(socket.sentTypes, contains('join'));
-    expect(socket.sentPayload('join'), {'location_id': 'loc-1'});
+    expect(socket.sentFrame('join'), {
+      'type': 'join',
+      'client_msg_id': isA<String>(),
+      'world_id': 'world-1',
+      'location_id': 'loc-1',
+    });
 
     socket.serverEvent('joined', {
       'session_id': 'sess-1',
@@ -119,7 +124,7 @@ void main() {
 
     expect(
       transport.lastUri.toString(),
-      'ws://dev.hushie.ai:80/aitown-chat/ws?world_id=world-1',
+      'wss://dev.hushie.ai:443/aitown-chat/ws?world_id=world-1',
     );
     await session.disconnect();
   });
@@ -154,18 +159,19 @@ void main() {
     await _tick();
 
     expect(socket.sentTypes, contains('send_message'));
-    expect(socket.sentPayload('send_message'), {
-      'text': 'hello',
-      'client_uuid': 'client-1',
+    expect(socket.sentFrame('send_message'), {
+      'type': 'send_message',
+      'client_msg_id': 'client-1',
+      'content': 'hello',
     });
 
-    socket.serverEvent('ack', {
+    socket.serverFrame('ack', {
+      'world_id': 'world-1',
       'session_id': 'sess-1',
-      'message_id': 1001,
+      'location_id': 'loc-1',
+      'msg_id': 1001,
       'conversation_round_id': 201,
-      'client_uuid': 'client-1',
-      'code': 0,
-      'code_msg': 'ok',
+      'payload': {'client_msg_id': 'client-1'},
     });
 
     final ack = await ackFuture;
@@ -184,12 +190,13 @@ void main() {
       final ackFuture = session.sendMessage('hello', clientMsgId: 'client-1');
       await _tick();
 
-      socket.serverEvent('ack', {
+      socket.serverFrame('ack', {
+        'world_id': 'world-1',
         'session_id': 'sess-1',
-        'message_id': 1001,
+        'location_id': 'loc-1',
+        'msg_id': 1001,
         'conversation_round_id': 201,
-        'code': 0,
-        'code_msg': 'ok',
+        'payload': <String, Object?>{},
       });
 
       final ack = await ackFuture;
@@ -227,18 +234,63 @@ void main() {
     final session = await _connectedSession(client, socket);
 
     final streamFuture = session.streams.first;
-    socket.serverEvent('ai_stream_start', {'conversation_round_id': 201});
+    socket.serverFrame('llm_stream_start', {
+      'world_id': 'world-1',
+      'location_id': 'loc-1',
+      'msg_id': 789,
+      'conversation_round_id': 201,
+      'payload': {
+        'sender_type': 'character',
+        'sender_id': 'char_001',
+        'sender_name': '村长',
+      },
+    });
     final aiStream = await streamFuture;
     final chunks = <String>[];
     final sub = aiStream.chunks.listen((chunk) => chunks.add(chunk.chunk));
 
-    socket.serverEvent('ai_stream_chunk', {'chunk': 'hello '});
-    socket.serverEvent('ai_stream_chunk', {'chunk': 'there'});
-    socket.serverEvent('ai_stream_end', {'message_id': 1002});
+    socket.serverFrame('llm_chunk', {
+      'world_id': 'world-1',
+      'location_id': 'loc-1',
+      'msg_id': 789,
+      'conversation_round_id': 201,
+      'payload': {
+        'sender_type': 'character',
+        'sender_id': 'char_001',
+        'sender_name': '村长',
+        'seq': 1,
+        'content': 'hello ',
+      },
+    });
+    socket.serverFrame('llm_chunk', {
+      'world_id': 'world-1',
+      'location_id': 'loc-1',
+      'msg_id': 789,
+      'conversation_round_id': 201,
+      'payload': {
+        'sender_type': 'character',
+        'sender_id': 'char_001',
+        'sender_name': '村长',
+        'seq': 2,
+        'content': 'there',
+      },
+    });
+    socket.serverFrame('llm_stream_end', {
+      'world_id': 'world-1',
+      'location_id': 'loc-1',
+      'msg_id': 789,
+      'conversation_round_id': 201,
+      'payload': {
+        'sender_type': 'character',
+        'sender_id': 'char_001',
+        'sender_name': '村长',
+        'content': 'hello there',
+      },
+    });
 
     final end = await aiStream.done;
     await sub.cancel();
-    expect(end.messageId, 1002);
+    expect(end.messageId, 789);
     expect(aiStream.start.conversationRoundId, '201');
     expect(chunks, ['hello ', 'there']);
     expect(aiStream.content, 'hello there');
@@ -251,15 +303,16 @@ void main() {
     final session = await _connectedSession(client, socket);
 
     final errorFuture = session.errors.first;
-    socket.serverEvent('error', {
+    socket.serverFrame('error', {
       'session_id': 'sess-1',
-      'code': 1005,
-      'code_msg': '未加入聊天室',
+      'err_code': 'tick_locked',
+      'err_msg': '当前 Tick 正在推进，请稍后',
+      'payload': <String, Object?>{},
     });
 
     final error = await errorFuture;
-    expect(error.code, '1005');
-    expect(error.message, '未加入聊天室');
+    expect(error.code, 'tick_locked');
+    expect(error.message, '当前 Tick 正在推进，请稍后');
     await session.close();
   });
 
@@ -270,40 +323,39 @@ void main() {
     final events = <ChatroomEvent>[];
     final sub = session.events.listen(events.add);
 
-    socket.serverEvent('input_blocked', {
+    socket.serverFrame('tick_start', {
       'world_id': 'world-1',
-      'location_id': 'loc-1',
-      'code': 2006,
-      'code_msg': '世界正在推进中',
+      'payload': {
+        'title': 'Tick 开始',
+        'summary': 'Tick 5 开始推进',
+        'detail_url': '',
+      },
     });
-    socket.serverWorldEvent(
-      'world_notification',
-      worldPayload: {
-        'world_id': 'world-1',
-        'event_type': 'weather_change',
+    socket.serverFrame('world_change', {
+      'world_id': 'world-1',
+      'payload': {
         'title': '天气变化',
         'summary': '下雨了',
         'detail_url': '/api/v1/world/world-1/events/weather',
       },
-      broadcast: true,
-    );
-    socket.serverEvent('character_message', {
-      'message_id': 1002,
+    });
+    socket.serverFrame('user_message', {
+      'world_id': 'world-1',
+      'session_id': 'sess-1',
+      'msg_id': 1002,
       'conversation_round_id': 201,
-      'round_order': 1,
-      'sender_type': 'character',
-      'sender_id': 'char_alice',
+      'user_id': 'u_1',
       'sender_name': 'Alice',
-      'content': '你好',
-    }, broadcast: true);
+      'location_id': 'loc-1',
+      'payload': {'content': '你好'},
+    });
     await _tick();
 
-    expect(events.whereType<ChatroomInputBlocked>(), isNotEmpty);
     expect(
-      events.whereType<ChatroomWorldNotification>().single.eventType,
-      'weather_change',
+      events.whereType<ChatroomWorldNotification>().map((e) => e.eventType),
+      containsAll(['tick_start', 'world_change']),
     );
-    expect(events.whereType<ChatroomCharacterMessage>().single.content, '你好');
+    expect(events.whereType<ChatroomUserMessage>().single.content, '你好');
     await sub.cancel();
     await session.close();
   });
@@ -635,7 +687,7 @@ void main() {
 
     expect(transport.connectCount, 2);
     expect(secondSocket.sentTypes, contains('join'));
-    expect(secondSocket.sentPayload('join')['location_id'], 'loc-1');
+    expect(secondSocket.sentFrame('join')['location_id'], 'loc-1');
     secondSocket.serverEvent('joined', _joinedPayload());
     await Future<void>.delayed(const Duration(milliseconds: 1));
     expect(controller.status, ChatroomConnectionStatus.joined);
@@ -864,12 +916,19 @@ class _FakeChatroomSocket implements ChatroomSocket {
     await _messages.close();
   }
 
-  Map<String, dynamic> sentPayload(String type) {
+  Map<String, dynamic> sentFrame(String type) {
     final raw = sent.lastWhere(
       (item) => (jsonDecode(item) as Map<String, dynamic>)['type'] == type,
     );
-    return (jsonDecode(raw) as Map<String, dynamic>)['payload']
-        as Map<String, dynamic>;
+    return jsonDecode(raw) as Map<String, dynamic>;
+  }
+
+  Map<String, dynamic> sentPayload(String type) {
+    return sentFrame(type)['payload'] as Map<String, dynamic>;
+  }
+
+  void serverFrame(String type, Map<String, Object?> fields) {
+    _messages.add(jsonEncode(<String, Object?>{'type': type, ...fields}));
   }
 
   void serverEvent(

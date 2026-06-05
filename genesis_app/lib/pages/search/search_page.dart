@@ -12,6 +12,7 @@ import '../../icons/my_flutter_app_icons.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -870,30 +871,10 @@ class _ResultThumb extends StatelessWidget {
         borderRadius: 5,
       );
     }
-    final placeholder = DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8E8E8),
-        borderRadius: BorderRadius.circular(
-          item.tab == _SearchTab.user ? 32 : 0,
-        ),
-      ),
-    );
-    final url = item.coverImage.trim();
-    final image = url.isEmpty
-        ? placeholder
-        : Image.network(
-            url,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => placeholder,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return placeholder;
-            },
-          );
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(item.tab == _SearchTab.user ? 35 : 0),
-      child: SizedBox.square(dimension: size, child: image),
+    return GenesisListImage(
+      imageUrl: item.coverImage,
+      width: size,
+      height: size,
     );
   }
 }

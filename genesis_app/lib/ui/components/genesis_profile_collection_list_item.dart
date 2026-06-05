@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../utils/stat_count_formatter.dart';
+import 'genesis_list_image.dart';
 
 class GenesisProfileCollectionItemData {
   const GenesisProfileCollectionItemData({
@@ -58,7 +59,11 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(0),
-              child: _ItemImage(url: item.imageUrl),
+              child: GenesisListImage(
+                imageUrl: item.imageUrl,
+                width: 52,
+                height: 52,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -169,36 +174,6 @@ class _Stat extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ItemImage extends StatelessWidget {
-  const _ItemImage({required this.url});
-
-  final String url;
-
-  @override
-  Widget build(BuildContext context) {
-    if (url.trim().isNotEmpty) {
-      return Image.network(
-        url,
-        width: 52,
-        height: 52,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _fallback(),
-      );
-    }
-    return _fallback();
-  }
-
-  Widget _fallback() {
-    return Container(
-      width: 52,
-      height: 52,
-      color: const Color(0xFFEDEDED),
-      alignment: Alignment.center,
-      child: const Icon(Icons.image_outlined, color: Color(0xFF9C9C9C)),
     );
   }
 }

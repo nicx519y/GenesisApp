@@ -9,6 +9,7 @@ import '../../icons/my_flutter_app_icons.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/components/genesis_list_image.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../common/genesis_center_toast.dart';
@@ -22,6 +23,8 @@ typedef OriginDiscussPageLoader =
       required int pn,
       required int rn,
     });
+typedef OriginDiscussReplyTap =
+    void Function(OriginDiscussListItem item, Map<String, dynamic> reply);
 
 const int originDiscussPageSize = 20;
 const int originDiscussRepliesPageSize = 20;
@@ -740,6 +743,7 @@ class OriginDiscussList extends StatelessWidget {
     this.showActions = false,
     this.showReplies = false,
     this.onViewMoreTap,
+    this.onReplyTap,
   });
 
   final OriginDiscussListController controller;
@@ -750,6 +754,7 @@ class OriginDiscussList extends StatelessWidget {
   final bool showActions;
   final bool showReplies;
   final Future<void> Function()? onViewMoreTap;
+  final OriginDiscussReplyTap? onReplyTap;
 
   @override
   Widget build(BuildContext context) {
@@ -795,6 +800,7 @@ class OriginDiscussList extends StatelessWidget {
                         item: entry.$2,
                         showActions: showActions,
                         showReplies: showReplies,
+                        onReplyTap: onReplyTap,
                       ),
                       if (entry.$1 != comments.length - 1)
                         const SizedBox(height: 32),
@@ -892,12 +898,14 @@ class _DiscussPreviewRow extends StatefulWidget {
     required this.item,
     required this.showActions,
     required this.showReplies,
+    this.onReplyTap,
   });
 
   final OriginDiscussListController controller;
   final OriginDiscussListItem item;
   final bool showActions;
   final bool showReplies;
+  final OriginDiscussReplyTap? onReplyTap;
 
   @override
   State<_DiscussPreviewRow> createState() => _DiscussPreviewRowState();
@@ -1044,6 +1052,7 @@ class _DiscussPreviewRowState extends State<_DiscussPreviewRow> {
                 _DiscussReplyPreview(
                   controller: widget.controller,
                   item: widget.item,
+                  onReplyTap: widget.onReplyTap,
                 ),
               ],
             ],
@@ -1135,7 +1144,11 @@ class _DiscussActions extends StatelessWidget {
         GestureDetector(
           key: ValueKey('origin-discuss-reply-${item.discussId}'),
           behavior: HitTestBehavior.opaque,
-          onTap: () => _showReplyComposer(context),
+          onTap: () => showOriginDiscussReplyComposer(
+            context: context,
+            controller: controller,
+            item: item,
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Image.asset(
@@ -1189,65 +1202,18 @@ class _DiscussActions extends StatelessWidget {
       controller.setLikePending(discussId, false);
     }
   }
-
-  Future<void> _showReplyComposer(BuildContext context) async {
-    final discussId = item.discussId.trim();
-    final bizId = item.bizId.trim();
-    if (discussId.isEmpty || bizId.isEmpty) return;
-
-    await showDiscussPostComposer(
-      context: context,
-      title: 'Reply',
-      placeholder: 'Write a reply',
-      submitter: (content, images) {
-        return _submitReply(
-          context: context,
-          content: content,
-          images: images,
-          bizId: bizId,
-          discussId: discussId,
-        );
-      },
-    );
-  }
-
-  Future<void> _submitReply({
-    required BuildContext context,
-    required String content,
-    required List<String> images,
-    required String bizId,
-    required String discussId,
-  }) async {
-    final services = AppServicesScope.read(context);
-    final created = await services.api.v1.discuss.post(
-      bizId: bizId,
-      content: content,
-      images: images,
-      rootDiscussId: discussId,
-      parentDiscussId: discussId,
-    );
-    final userInfo = await services.sessionStore.readUserInfo();
-    controller.insertReply(
-      discussId,
-      _localReplyJson(
-        created: created,
-        content: content,
-        images: images,
-        bizId: bizId,
-        rootDiscussId: discussId,
-        parentDiscussId: discussId,
-        replyToUid: item.authorUid,
-        userInfo: userInfo,
-      ),
-    );
-  }
 }
 
 class _DiscussReplyPreview extends StatelessWidget {
-  const _DiscussReplyPreview({required this.controller, required this.item});
+  const _DiscussReplyPreview({
+    required this.controller,
+    required this.item,
+    this.onReplyTap,
+  });
 
   final OriginDiscussListController controller;
   final OriginDiscussListItem item;
+  final OriginDiscussReplyTap? onReplyTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1261,6 +1227,9 @@ class _DiscussReplyPreview extends StatelessWidget {
       remainingReplyCount: controller.replyButtonCount(item),
       isLoading: controller.isReplyLoading(item.discussId),
       onLoadMore: () => _loadMoreReplies(context),
+      onReplyTap: onReplyTap == null
+          ? null
+          : (reply) => onReplyTap!(item, reply),
     );
   }
 
@@ -1278,6 +1247,46 @@ class _DiscussReplyPreview extends StatelessWidget {
       if (context.mounted) showGenesisToast(context, 'Load replies failed');
     }
   }
+}
+
+Future<bool> showOriginDiscussReplyComposer({
+  required BuildContext context,
+  required OriginDiscussListController controller,
+  required OriginDiscussListItem item,
+}) async {
+  final discussId = item.discussId.trim();
+  final bizId = item.bizId.trim();
+  if (discussId.isEmpty || bizId.isEmpty) return false;
+
+  return showDiscussPostComposer(
+    context: context,
+    title: 'Reply',
+    placeholder: 'Write a reply',
+    submitter: (content, images) async {
+      final services = AppServicesScope.read(context);
+      final created = await services.api.v1.discuss.post(
+        bizId: bizId,
+        content: content,
+        images: images,
+        rootDiscussId: discussId,
+        parentDiscussId: discussId,
+      );
+      final userInfo = await services.sessionStore.readUserInfo();
+      controller.insertReply(
+        discussId,
+        _localReplyJson(
+          created: created,
+          content: content,
+          images: images,
+          bizId: bizId,
+          rootDiscussId: discussId,
+          parentDiscussId: discussId,
+          replyToUid: item.authorUid,
+          userInfo: userInfo,
+        ),
+      );
+    },
+  );
 }
 
 Map<String, dynamic> _localReplyJson({
@@ -1372,44 +1381,16 @@ class _DiscussImageThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = url.trim();
-    final fallback = Container(
-      color: const Color(0xFFEDEDED),
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.image_outlined,
-        size: 22,
-        color: Color(0xFF999999),
-      ),
-    );
-    final image = imageUrl.isEmpty
-        ? fallback
-        : imageUrl.startsWith('assets/')
-        ? Image.asset(
-            imageUrl,
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => fallback,
-          )
-        : Image.network(
-            imageUrl,
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => fallback,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return fallback;
-            },
-          );
 
     return GestureDetector(
       key: ValueKey('origin-discuss-image-$imageUrl'),
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: ClipRRect(
+      child: GenesisListImage(
+        imageUrl: imageUrl,
+        width: size,
+        height: size,
         borderRadius: BorderRadius.circular(4),
-        child: SizedBox(width: size, height: size, child: image),
       ),
     );
   }

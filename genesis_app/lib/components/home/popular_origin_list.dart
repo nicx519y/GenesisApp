@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../discuss/origin_discuss_preview_list.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
+import '../../ui/components/genesis_list_image.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../origin/origin_item_card.dart';
@@ -131,8 +132,6 @@ class PopularOriginListItem extends StatelessWidget {
       children: [
         _OriginImage(
           imageUrl: item.cover,
-          seed: item.oid.isEmpty ? title : item.oid,
-          label: _badgeText(title),
           width: 48,
           height: 48,
           borderRadius: thumbnailBorderRadius,
@@ -203,12 +202,7 @@ class _OriginHeroImage extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _OriginImage(
-              imageUrl: item.cover,
-              seed: item.oid.isEmpty ? item.title : item.oid,
-              label: _badgeText(item.title),
-              borderRadius: 0,
-            ),
+            _OriginImage(imageUrl: item.cover, borderRadius: 0),
             Positioned(
               left: 0,
               right: 0,
@@ -249,45 +243,23 @@ class _OriginHeroImage extends StatelessWidget {
 class _OriginImage extends StatelessWidget {
   const _OriginImage({
     required this.imageUrl,
-    required this.seed,
-    required this.label,
     this.width,
     this.height,
     this.borderRadius = 8,
   });
 
   final String imageUrl;
-  final String seed;
-  final String label;
   final double? width;
   final double? height;
   final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
-    final placeholder = _CoverPlaceholder(seed: seed, label: label);
-    final resolved = imageUrl.trim();
-    final image = resolved.isEmpty
-        ? placeholder
-        : resolved.startsWith('assets/')
-        ? Image.asset(
-            resolved,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => placeholder,
-          )
-        : Image.network(
-            resolved,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => placeholder,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return placeholder;
-            },
-          );
-
-    return ClipRRect(
+    return GenesisListImage(
+      imageUrl: imageUrl,
+      width: width,
+      height: height,
       borderRadius: BorderRadius.circular(borderRadius),
-      child: SizedBox(width: width, height: height, child: image),
     );
   }
 }
@@ -473,42 +445,6 @@ class _EnterOriginRow extends StatelessWidget {
   }
 }
 
-class _CoverPlaceholder extends StatelessWidget {
-  const _CoverPlaceholder({required this.seed, required this.label});
-
-  final String seed;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = _gradientFor(seed);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
-        ),
-      ),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              height: 1.05,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 const _bodyStyle = TextStyle(
   color: Color(0xFF1D1D1D),
   fontSize: 11,
@@ -522,25 +458,6 @@ const _metaStyle = TextStyle(
   height: 1.1,
   fontWeight: FontWeight.w400,
 );
-
-List<Color> _gradientFor(String seed) {
-  final hash = seed.codeUnits.fold<int>(
-    0,
-    (a, b) => (a * 131 + b) & 0x7fffffff,
-  );
-  int tint(int v) => 0xFF000000 | (v & 0x00FFFFFF) | 0x00303030;
-  return [Color(tint(hash)), Color(tint(hash * 17))];
-}
-
-String _badgeText(String name) {
-  final cleaned = name.replaceAll('#', '').trim();
-  final words = cleaned
-      .split(RegExp(r'\s+'))
-      .where((e) => e.trim().isNotEmpty)
-      .toList();
-  if (words.isEmpty) return 'ENTER\nWORLD';
-  return words.take(4).map((e) => e.toUpperCase()).join('\n');
-}
 
 String _relativeTime(String raw) {
   final value = raw.trim();

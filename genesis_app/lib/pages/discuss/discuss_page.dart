@@ -104,7 +104,7 @@ class _DiscussPageState extends State<DiscussPage> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting &&
               origin == null) {
-            return const Center(child: CircularProgressIndicator());
+            return const _DiscussPageLoadingSkeleton();
           }
 
           if (snapshot.hasError && origin == null) {
@@ -144,6 +144,7 @@ class _DiscussPageState extends State<DiscussPage> {
                   enableViewMore: false,
                   showActions: true,
                   showReplies: true,
+                  onReplyTap: _handleReplyListItemTap,
                 ),
                 AnimatedBuilder(
                   animation: _discussController,
@@ -180,6 +181,220 @@ class _DiscussPageState extends State<DiscussPage> {
                 ),
               ),
             ),
+    );
+  }
+
+  void _handleReplyListItemTap(
+    OriginDiscussListItem item,
+    Map<String, dynamic> _,
+  ) {
+    unawaited(
+      showOriginDiscussReplyComposer(
+        context: context,
+        controller: _discussController,
+        item: item,
+      ),
+    );
+  }
+}
+
+class _DiscussPageLoadingSkeleton extends StatelessWidget {
+  const _DiscussPageLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return _DiscussLoadingShimmer(
+      child: ListView(
+        key: const ValueKey<String>('discuss-page-loading-skeleton'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+        children: const [
+          _DiscussOriginSummarySkeleton(),
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
+          ),
+          _DiscussCommentSkeleton(),
+          SizedBox(height: 22),
+          _DiscussCommentSkeleton(),
+          SizedBox(height: 22),
+          _DiscussCommentSkeleton(compact: true),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiscussOriginSummarySkeleton extends StatelessWidget {
+  const _DiscussOriginSummarySkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        _DiscussSkeletonBone(width: 48, height: 48, borderRadius: 2),
+        SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DiscussSkeletonBone(widthFactor: 0.48, height: 14),
+              SizedBox(height: 8),
+              _DiscussSkeletonBone(widthFactor: 0.86, height: 12),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DiscussCommentSkeleton extends StatelessWidget {
+  const _DiscussCommentSkeleton({this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _DiscussSkeletonBone(width: 30, height: 30, borderRadius: 15),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _DiscussSkeletonBone(widthFactor: 0.34, height: 12),
+              const SizedBox(height: 10),
+              const _DiscussSkeletonBone(widthFactor: 0.96, height: 10),
+              const SizedBox(height: 7),
+              _DiscussSkeletonBone(
+                widthFactor: compact ? 0.58 : 0.82,
+                height: 10,
+              ),
+              const SizedBox(height: 12),
+              const Row(
+                children: [
+                  _DiscussSkeletonBone(width: 42, height: 12),
+                  SizedBox(width: 16),
+                  _DiscussSkeletonBone(width: 46, height: 12),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DiscussLoadingShimmer extends StatefulWidget {
+  const _DiscussLoadingShimmer({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_DiscussLoadingShimmer> createState() => _DiscussLoadingShimmerState();
+}
+
+class _DiscussLoadingShimmerState extends State<_DiscussLoadingShimmer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _DiscussSkeletonAnimation(
+      animation: _controller,
+      child: widget.child,
+    );
+  }
+}
+
+class _DiscussSkeletonAnimation extends InheritedWidget {
+  const _DiscussSkeletonAnimation({
+    required this.animation,
+    required super.child,
+  });
+
+  final Animation<double> animation;
+
+  static Animation<double>? maybeOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<_DiscussSkeletonAnimation>()
+        ?.animation;
+  }
+
+  @override
+  bool updateShouldNotify(covariant _DiscussSkeletonAnimation oldWidget) {
+    return animation != oldWidget.animation;
+  }
+}
+
+class _DiscussSkeletonBone extends StatelessWidget {
+  const _DiscussSkeletonBone({
+    this.width,
+    this.widthFactor,
+    required this.height,
+    this.borderRadius = 4,
+  }) : assert(width == null || widthFactor == null);
+
+  final double? width;
+  final double? widthFactor;
+  final double height;
+  final double borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final animation = _DiscussSkeletonAnimation.maybeOf(context);
+    final disableAnimations = MediaQuery.disableAnimationsOf(context);
+    Widget child = SizedBox(
+      width: width,
+      height: height,
+      child: animation == null || disableAnimations
+          ? _decoratedBox(0)
+          : AnimatedBuilder(
+              animation: animation,
+              builder: (context, child) => _decoratedBox(animation.value),
+            ),
+    );
+
+    if (widthFactor case final factor?) {
+      child = FractionallySizedBox(
+        alignment: Alignment.centerLeft,
+        widthFactor: factor,
+        child: child,
+      );
+    }
+    return child;
+  }
+
+  Widget _decoratedBox(double animationValue) {
+    final offset = -1.4 + animationValue * 2.8;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(borderRadius),
+        gradient: LinearGradient(
+          begin: Alignment(offset - 0.8, 0),
+          end: Alignment(offset + 0.8, 0),
+          colors: const [
+            Color(0xFFE8EBF0),
+            Color(0xFFF6F7F9),
+            Color(0xFFE8EBF0),
+          ],
+          stops: const [0.25, 0.5, 0.75],
+        ),
+      ),
     );
   }
 }

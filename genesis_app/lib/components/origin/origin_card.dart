@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/origin_item.dart';
+import '../../ui/components/genesis_list_image.dart';
 import '../../utils/display_name_formatter.dart';
 
 class OriginCard extends StatelessWidget {
@@ -10,43 +11,6 @@ class OriginCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final coverPlaceholder = DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: item.gradient,
-        ),
-      ),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Text(
-            item.badgeText,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              height: 1.05,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ),
-    );
-
-    final cover = item.coverImageUrl.trim().isEmpty
-        ? coverPlaceholder
-        : Image.network(
-            item.coverImageUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => coverPlaceholder,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return coverPlaceholder;
-            },
-          );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -57,7 +21,9 @@ class OriginCard extends StatelessWidget {
             width: double.infinity,
             child: Stack(
               children: [
-                Positioned.fill(child: cover),
+                Positioned.fill(
+                  child: GenesisListImage(imageUrl: item.coverImageUrl),
+                ),
                 Positioned.fill(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
