@@ -419,7 +419,7 @@ class _FollowUserTile extends StatelessWidget {
                             ),
                           )
                         : Text(
-                            isFollowed ? 'Unfollow' : 'Follow',
+                            isFollowed ? 'Following' : 'Follow',
                             style: const TextStyle(fontSize: 12),
                           ),
                   ),

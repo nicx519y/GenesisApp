@@ -26,6 +26,8 @@ class CreateOriginPage extends StatelessWidget {
       locationsPageBuilder: (_) => const CreateLocationsPage(),
       storyEventsPageBuilder: (_) => const CreateStoryEventsPage(),
       failurePrefix: 'Create failed',
+      submitLabel: 'Create',
+      submittingLabel: 'Creating...',
       onSubmit: _onCreate,
       popOnSubmitSuccess: true,
       confirmLeaveWithDraftOptions: true,

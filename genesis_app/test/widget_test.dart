@@ -4226,7 +4226,7 @@ void main() {
 
     expect(find.text('Create Origin'), findsOneWidget);
     expect(find.text('Basics'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Save'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Create'), findsOneWidget);
   });
 
   testWidgets('create route opens create origin page', (
@@ -4242,7 +4242,7 @@ void main() {
 
     expect(find.text('Create Origin'), findsOneWidget);
     expect(find.text('Basics'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Save'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Create'), findsOneWidget);
   });
 
   testWidgets('create origin entries navigate to detail pages', (
@@ -4322,14 +4322,10 @@ void main() {
 
     expect(find.textContaining('World Name: #Cff'), findsOneWidget);
     expect(find.textContaining('World View: Xkkdd'), findsOneWidget);
-    final worldLogic = tester.widget<Text>(
-      find.textContaining('World Logic:').first,
-    );
-    expect(worldLogic.maxLines, 1);
-    expect(worldLogic.softWrap, isFalse);
+    expect(find.textContaining('World Logic:'), findsNothing);
     expect(find.textContaining('Cover Image: Uploaded'), findsOneWidget);
-    expect(find.text('1 characters: Tff'), findsOneWidget);
-    expect(find.text('1 locations: Jenrn ff'), findsOneWidget);
+    expect(find.text('Tff: Guide / Calm'), findsOneWidget);
+    expect(find.text('Jenrn ff'), findsOneWidget);
     expect(find.text('2 Events'), findsOneWidget);
   });
 
@@ -4449,6 +4445,59 @@ void main() {
     expect(nameField.controller?.text, isEmpty);
   });
 
+  testWidgets(
+    'characters save ignores empty cards but validates partial cards',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) {
+                return FilledButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const CreateCharactersPage(),
+                      ),
+                    );
+                  },
+                  child: const Text('Open characters'),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Open characters'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      var draft = await CreateOriginDraftStore.loadFinal();
+      expect(draft.charactersSaved, isTrue);
+      expect(
+        draft.characters.where((item) => item.name.trim().isNotEmpty),
+        isEmpty,
+      );
+
+      await tester.tap(find.text('Open characters'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Ari');
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Character 1: Identity is required.'), findsOneWidget);
+      draft = await CreateOriginDraftStore.loadFinal();
+      expect(
+        draft.characters.where((item) => item.name.trim().isNotEmpty),
+        isEmpty,
+      );
+      await tester.pump(const Duration(seconds: 2));
+    },
+  );
+
   testWidgets('locations add button appends empty form', (
     WidgetTester tester,
   ) async {
@@ -4469,6 +4518,62 @@ void main() {
     expect(find.text('Location 2'), findsOneWidget);
   });
 
+  testWidgets(
+    'locations save ignores empty cards but validates partial cards',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) {
+                return FilledButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const CreateLocationsPage(),
+                      ),
+                    );
+                  },
+                  child: const Text('Open locations'),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Open locations'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      var draft = await CreateOriginDraftStore.loadFinal();
+      expect(draft.locationsSaved, isTrue);
+      expect(
+        draft.locations.where((item) => item.name.trim().isNotEmpty),
+        isEmpty,
+      );
+
+      await tester.tap(find.text('Open locations'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(1), 'Hidden door');
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Location 1: Location Name is required.'),
+        findsOneWidget,
+      );
+      draft = await CreateOriginDraftStore.loadFinal();
+      expect(
+        draft.locations.where((item) => item.name.trim().isNotEmpty),
+        isEmpty,
+      );
+      await tester.pump(const Duration(seconds: 2));
+    },
+  );
+
   testWidgets('locations character picker reports empty final characters', (
     WidgetTester tester,
   ) async {
@@ -4486,6 +4591,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('There are no characters yet.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('locations parent picker stores a single parent location', (
@@ -4629,6 +4735,24 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Origin Name is required.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('basics back without save does not persist section draft', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'Unsaved Origin');
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+
+    final draft = await CreateOriginDraftStore.load();
+    final finalDraft = await CreateOriginDraftStore.loadFinal();
+    expect(draft.basics.originName, isEmpty);
+    expect(finalDraft.basics.originName, isEmpty);
   });
 
   test('create id helper hashes uid and timestamp deterministically', () {
@@ -4656,13 +4780,14 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
     await tester.pumpAndSettle();
 
     expect(
       find.text('Please save Basics, Characters, Locations before creating.'),
       findsOneWidget,
     );
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('create save posts v1 origin and clears local draft', (
@@ -4723,7 +4848,7 @@ void main() {
     await tester.tap(find.text('Open create'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
     await tester.pumpAndSettle();
 
     final requests = transport.requestsFor('/api/v1/origin/create');
@@ -4780,10 +4905,10 @@ void main() {
     expect(detailRequests.single.uri.queryParameters['origin_id'], 'o_edit_1');
     expect(find.textContaining('World Name: Editable Origin'), findsOneWidget);
 
-    var rootSave = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Save'),
+    var rootPublish = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Publish'),
     );
-    expect(rootSave.onPressed, isNull);
+    expect(rootPublish.onPressed, isNotNull);
 
     await tester.tap(find.text('Basics'));
     await tester.pumpAndSettle();
@@ -4796,12 +4921,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('World Name: Edited Origin'), findsOneWidget);
-    rootSave = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Save'),
+    rootPublish = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Publish'),
     );
-    expect(rootSave.onPressed, isNotNull);
+    expect(rootPublish.onPressed, isNotNull);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+    expect(find.text('Publish changes before leaving?'), findsOneWidget);
+    expect(find.text('Publish'), findsWidgets);
+    expect(find.text('Discard'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit Origin'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Publish'));
     await tester.pumpAndSettle();
 
     final updateRequests = transport.requestsFor('/api/v1/origin/update');
@@ -4826,7 +4960,10 @@ void main() {
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
-    expect(find.text('Origin saved successfully: o_edit_1'), findsOneWidget);
+    expect(
+      find.text('Origin published successfully: o_edit_1'),
+      findsOneWidget,
+    );
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
   });
@@ -5255,7 +5392,7 @@ void main() {
     expect(find.text('24 Followers'), findsOneWidget);
     expect(find.text('Following Friend 01'), findsOneWidget);
     expect(find.text('Following Friend 24'), findsNothing);
-    expect(find.text('Unfollow'), findsWidgets);
+    expect(find.text('Following'), findsWidgets);
     final followingName = tester.widget<Text>(find.text('Following Friend 01'));
     expect(followingName.style?.fontWeight, FontWeight.w500);
     final followingAvatar = find.byKey(
@@ -5333,7 +5470,7 @@ void main() {
     expect(transport.decodedBody(transport.followRequests.single), {
       'target_uid': 'u_follower_01',
     });
-    expect(find.text('Unfollow'), findsOneWidget);
+    expect(find.text('Following'), findsOneWidget);
   });
 
   testWidgets('follows page renders cached totals before list totals', (

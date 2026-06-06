@@ -90,6 +90,40 @@ void main() {
     );
   });
 
+  testWidgets('post input floats at the bottom of the page', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 760);
+    tester.view.padding = const FakeViewPadding(bottom: 34);
+    addTearDown(tester.view.reset);
+
+    final transport = _DiscussPageTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
+        child: const MaterialApp(home: DiscussPage(oid: 'o_auto')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    expect(scaffold.bottomNavigationBar, isNull);
+
+    final bar = tester.widget<ColoredBox>(
+      find.byKey(const ValueKey<String>('discuss-page-post-input-bar')),
+    );
+    expect(bar.color, const Color(0xFFF9F9F9));
+
+    final barRect = tester.getRect(
+      find.byKey(const ValueKey<String>('discuss-page-post-input-bar')),
+    );
+    final inputRect = tester.getRect(
+      find.widgetWithText(TextField, 'Write a post'),
+    );
+    expect(barRect.bottom, 760);
+    expect(inputRect.bottom, greaterThan(660));
+    expect(inputRect.bottom, lessThanOrEqualTo(760 - 34));
+  });
+
   testWidgets('reply list item opens composer for its root discuss', (
     tester,
   ) async {

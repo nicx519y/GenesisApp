@@ -293,6 +293,7 @@ class CreateOriginDraft {
 
     for (int i = 0; i < characters.length; i++) {
       final item = characters[i];
+      if (!_characterHasContent(item)) continue;
       if (item.name.trim().isEmpty) {
         errors.add('Characters #${i + 1}: Name is required.');
       }
@@ -306,6 +307,7 @@ class CreateOriginDraft {
 
     for (int i = 0; i < locations.length; i++) {
       final item = locations[i];
+      if (!_locationHasContent(item)) continue;
       if (item.name.trim().isEmpty) {
         errors.add('Locations #${i + 1}: Location Name is required.');
       }
@@ -323,6 +325,7 @@ class CreateOriginDraft {
       'world_setting': basics.worldLogic.trim(),
       'cover': basics.coverImageUrl.trim(),
       'character_list': characters
+          .where(_characterHasContent)
           .map(
             (item) => <String, dynamic>{
               if (item.charId.trim().isNotEmpty) 'char_id': item.charId.trim(),
@@ -422,6 +425,23 @@ class CreateOriginDraft {
         },
     ];
   }
+}
+
+bool _characterHasContent(CharacterDraft item) {
+  return item.avatarUrl.trim().isNotEmpty ||
+      item.name.trim().isNotEmpty ||
+      item.identity.trim().isNotEmpty ||
+      item.personality.trim().isNotEmpty ||
+      item.bio.trim().isNotEmpty ||
+      item.goal.trim().isNotEmpty;
+}
+
+bool _locationHasContent(LocationDraft item) {
+  return item.imageUrl.trim().isNotEmpty ||
+      item.name.trim().isNotEmpty ||
+      item.description.trim().isNotEmpty ||
+      item.parentLocationId.trim().isNotEmpty ||
+      item.initialCharacterIds.isNotEmpty;
 }
 
 class BasicsDraft {

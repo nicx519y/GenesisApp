@@ -23,6 +23,7 @@ class DiscussPage extends StatefulWidget {
 
 class _DiscussPageState extends State<DiscussPage> {
   static const double _loadMoreThreshold = 600;
+  static const double _postInputReservedHeight = 96;
 
   late final OriginDiscussListController _discussController;
   final ScrollController _scrollController = ScrollController();
@@ -121,66 +122,83 @@ class _DiscussPageState extends State<DiscussPage> {
           final data = snapshot.data ?? origin;
           if (data == null) return const SizedBox.shrink();
 
-          return RefreshIndicator(
-            onRefresh: _refresh,
-            child: ListView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-              children: [
-                _DiscussOriginSummary(origin: data),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: Color(0xFFEDEDED),
-                  ),
-                ),
-                OriginDiscussList(
-                  controller: _discussController,
-                  showHeader: false,
-                  collapseInitialItems: false,
-                  enableViewMore: false,
-                  showActions: true,
-                  showReplies: true,
-                  onReplyTap: _handleReplyListItemTap,
-                ),
-                AnimatedBuilder(
-                  animation: _discussController,
-                  builder: (context, _) {
-                    if (!_discussController.isLoadingMore) {
-                      return const SizedBox.shrink();
-                    }
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Center(
-                        child: SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+          final bottomPadding =
+              _postInputReservedHeight + MediaQuery.paddingOf(context).bottom;
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: ListView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(20, 18, 20, bottomPadding),
+                    children: [
+                      _DiscussOriginSummary(origin: data),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: Color(0xFFEDEDED),
                         ),
                       ),
-                    );
-                  },
+                      OriginDiscussList(
+                        controller: _discussController,
+                        showHeader: false,
+                        collapseInitialItems: false,
+                        enableViewMore: false,
+                        showActions: true,
+                        showReplies: true,
+                        onReplyTap: _handleReplyListItemTap,
+                      ),
+                      AnimatedBuilder(
+                        animation: _discussController,
+                        builder: (context, _) {
+                          if (!_discussController.isLoadingMore) {
+                            return const SizedBox.shrink();
+                          }
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: ColoredBox(
+                  key: const ValueKey<String>('discuss-page-post-input-bar'),
+                  color: const Color(0xFFF9F9F9),
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+                      child: DiscussPostInput(
+                        bizId: data.oid,
+                        onSubmitted: () =>
+                            unawaited(_discussController.refreshFirstPage()),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           );
         },
       ),
-      bottomNavigationBar: origin == null
-          ? null
-          : SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-                child: DiscussPostInput(
-                  bizId: origin.oid,
-                  onSubmitted: () =>
-                      unawaited(_discussController.refreshFirstPage()),
-                ),
-              ),
-            ),
     );
   }
 

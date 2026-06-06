@@ -177,15 +177,18 @@ class CreateFormCard extends StatelessWidget {
                   ),
                 ),
               ),
-              IconButton(
-                onPressed: onDelete,
-                icon: const Icon(
-                  Icons.delete_outline,
-                  size: 26,
-                  color: Color(0xFF8F8F8F),
+              Transform.translate(
+                offset: const Offset(13, 0),
+                child: IconButton(
+                  onPressed: onDelete,
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    size: 26,
+                    color: Color(0xFF8F8F8F),
+                  ),
+                  splashRadius: 22,
+                  visualDensity: VisualDensity.compact,
                 ),
-                splashRadius: 22,
-                visualDensity: VisualDensity.compact,
               ),
             ],
           ),

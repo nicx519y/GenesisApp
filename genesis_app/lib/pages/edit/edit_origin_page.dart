@@ -119,6 +119,13 @@ class _EditOriginPageState extends State<EditOriginPage> {
       storyEventsPageBuilder: (repository) =>
           EditStoryEventsPage(repository: repository),
       canSubmit: repository.hasSubmitChanges,
+      submitLabel: 'Publish',
+      submittingLabel: 'Publishing...',
+      failurePrefix: 'Publish failed',
+      leaveTitle: 'Publish changes before leaving?',
+      leaveSubmitLabel: 'Publish',
+      submitUnavailableMessage: 'No changes to publish.',
+      confirmLeaveWithDraftOptions: true,
       onSubmit: _onSave,
     );
   }
@@ -139,7 +146,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
       repository.markCurrentAsOriginal();
     }
     return OriginSubmitResult(
-      message: 'Origin saved successfully: ${result.oid}',
+      message: 'Origin published successfully: ${result.oid}',
     );
   }
 }

@@ -15,6 +15,23 @@ import '../create/create_origin_draft_store.dart';
 import '../create/create_origin_id_utils.dart';
 import 'origin_draft_repository.dart';
 
+bool _characterDraftHasContent(CharacterDraft item) {
+  return item.avatarUrl.trim().isNotEmpty ||
+      item.name.trim().isNotEmpty ||
+      item.identity.trim().isNotEmpty ||
+      item.personality.trim().isNotEmpty ||
+      item.bio.trim().isNotEmpty ||
+      item.goal.trim().isNotEmpty;
+}
+
+bool _locationDraftHasContent(LocationDraft item) {
+  return item.imageUrl.trim().isNotEmpty ||
+      item.name.trim().isNotEmpty ||
+      item.description.trim().isNotEmpty ||
+      item.parentLocationId.trim().isNotEmpty ||
+      item.initialCharacterIds.isNotEmpty;
+}
+
 class OriginSubmitResult {
   const OriginSubmitResult({required this.message, this.draft});
 
@@ -29,7 +46,7 @@ typedef OriginSubmitHandler =
       CreateOriginDraft draft,
     );
 
-enum _DraftLeaveAction { save, discard }
+enum _DraftLeaveAction { submit, save, discard }
 
 class OriginDraftFlowPage extends StatefulWidget {
   const OriginDraftFlowPage({
@@ -44,6 +61,9 @@ class OriginDraftFlowPage extends StatefulWidget {
     this.submitLabel = 'Save',
     this.submittingLabel = 'Saving...',
     this.failurePrefix = 'Save failed',
+    this.leaveTitle = 'Save the draft before leaving?',
+    this.leaveSubmitLabel,
+    this.submitUnavailableMessage = 'No changes to save.',
     this.canSubmit,
     this.popOnSubmitSuccess = false,
     this.confirmLeaveWithDraftOptions = false,
@@ -61,6 +81,9 @@ class OriginDraftFlowPage extends StatefulWidget {
   final String submitLabel;
   final String submittingLabel;
   final String failurePrefix;
+  final String leaveTitle;
+  final String? leaveSubmitLabel;
+  final String submitUnavailableMessage;
   final bool Function(CreateOriginDraft draft)? canSubmit;
   final bool popOnSubmitSuccess;
   final bool confirmLeaveWithDraftOptions;
@@ -100,14 +123,19 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     }
   }
 
-  Future<void> _submit() async {
+  Future<bool> _submit() async {
     final latest = await widget.repository.loadSummaryDraft();
-    if (!mounted) return;
+    if (!mounted) return false;
     final errors = latest.validateForSubmit();
     if (errors.isNotEmpty) {
       _showError(errors.first);
       setState(() => _draft = latest);
-      return;
+      return false;
+    }
+    if (!(widget.canSubmit?.call(latest) ?? true)) {
+      _showError(widget.submitUnavailableMessage);
+      setState(() => _draft = latest);
+      return false;
     }
 
     setState(() {
@@ -117,7 +145,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
 
     try {
       final result = await widget.onSubmit(context, widget.repository, latest);
-      if (!mounted) return;
+      if (!mounted) return false;
       showGenesisToast(context, result.message);
       if (result.draft != null) {
         setState(() {
@@ -131,14 +159,17 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       if (widget.popOnSubmitSuccess && mounted) {
         Navigator.of(context).maybePop();
       }
+      return true;
     } on ApiException catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _isSubmitting = false);
       _showError(e.message);
+      return false;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _isSubmitting = false);
       _showError('${widget.failurePrefix}: $e');
+      return false;
     }
   }
 
@@ -152,20 +183,23 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     try {
       final latest = await widget.repository.loadSummaryDraft();
       if (!mounted) return;
-      if (!widget.confirmLeaveWithDraftOptions || !_hasDraftContent(latest)) {
+      if (!widget.confirmLeaveWithDraftOptions ||
+          !_shouldConfirmLeave(latest)) {
         Navigator.of(context).pop();
         return;
       }
 
       final action = await showGenesisActionBox<_DraftLeaveAction>(
         context: context,
-        title: 'Save the draft before leaving?',
-        actions: const [
+        title: widget.leaveTitle,
+        actions: [
           GenesisActionBoxAction<_DraftLeaveAction>(
-            label: 'Save',
-            value: _DraftLeaveAction.save,
+            label: widget.leaveSubmitLabel ?? 'Save',
+            value: widget.leaveSubmitLabel == null
+                ? _DraftLeaveAction.save
+                : _DraftLeaveAction.submit,
           ),
-          GenesisActionBoxAction<_DraftLeaveAction>(
+          const GenesisActionBoxAction<_DraftLeaveAction>(
             label: 'Discard',
             value: _DraftLeaveAction.discard,
             color: createFormText,
@@ -175,6 +209,9 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       if (!mounted || action == null) return;
       if (action == _DraftLeaveAction.save) {
         await widget.repository.saveFinalDraft(latest);
+      } else if (action == _DraftLeaveAction.submit) {
+        final submitted = await _submit();
+        if (!submitted || !mounted) return;
       } else {
         await widget.onDiscardDraft?.call(widget.repository);
       }
@@ -183,6 +220,13 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     } finally {
       _isHandlingLeave = false;
     }
+  }
+
+  bool _shouldConfirmLeave(CreateOriginDraft draft) {
+    if (widget.leaveSubmitLabel != null) {
+      return widget.repository.hasSubmitChanges(draft);
+    }
+    return _hasDraftContent(draft);
   }
 
   bool _hasDraftContent(CreateOriginDraft draft) {
@@ -225,8 +269,10 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final submitEnabled =
-        !_isSubmitting && (widget.canSubmit?.call(_draft) ?? true);
+    final submitReady =
+        !_isSubmitting &&
+        _draft.validateForSubmit().isEmpty &&
+        (widget.canSubmit?.call(_draft) ?? true);
 
     return PopScope(
       canPop: false,
@@ -298,11 +344,13 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
           minimum: const EdgeInsets.fromLTRB(20, 8, 20, 14),
           child: GenesisPrimaryButton(
             label: _isSubmitting ? widget.submittingLabel : widget.submitLabel,
-            onPressed: submitEnabled ? _submit : null,
-            backgroundColor: const Color(0xFF198B64),
+            onPressed: _isSubmitting ? null : () => unawaited(_submit()),
+            backgroundColor: submitReady
+                ? const Color(0xFF198B64)
+                : const Color(0xFFBFD8CD),
             foregroundColor: Colors.white,
-            disabledBackgroundColor: const Color(0xFFE3E3E3),
-            disabledForegroundColor: const Color(0xFF6F6F6F),
+            disabledBackgroundColor: const Color(0xFFBFD8CD),
+            disabledForegroundColor: Colors.white,
           ),
         ),
       ),
@@ -315,27 +363,45 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     return [
       'World Name: ${_summaryValue(basics.originName)}',
       'World View: ${_summaryValue(basics.worldView)}',
-      'World Logic: ${_summaryValue(basics.worldLogic, maxLength: 36)}',
       'Cover Image: ${basics.coverImageUrl.trim().isEmpty ? 'Not uploaded' : 'Uploaded'}',
     ].join('\n');
   }
 
   String _charactersSummary(CreateOriginDraft draft) {
     if (!draft.charactersSaved) return 'Not started yet';
-    final names = draft.characters
-        .map((item) => item.name.trim())
-        .where((item) => item.isNotEmpty)
+    final characters = draft.characters
+        .where(_characterDraftHasContent)
         .toList(growable: false);
-    return '${names.length} characters: ${_summaryValue(names.join(', '), maxLength: 42)}';
+    if (characters.isEmpty) return '0 characters';
+    return characters
+        .take(3)
+        .map((item) {
+          final title = _summaryValue(item.name, maxLength: 18);
+          final detail = [
+            item.identity.trim(),
+            item.personality.trim(),
+          ].where((value) => value.isNotEmpty).join(' / ');
+          if (detail.isEmpty) return title;
+          return '$title: ${_summaryValue(detail, maxLength: 34)}';
+        })
+        .join('\n');
   }
 
   String _locationsSummary(CreateOriginDraft draft) {
     if (!draft.locationsSaved) return 'Not started yet';
-    final names = draft.locations
-        .map((item) => item.name.trim())
-        .where((item) => item.isNotEmpty)
+    final locations = draft.locations
+        .where(_locationDraftHasContent)
         .toList(growable: false);
-    return '${names.length} locations: ${_summaryValue(names.join(', '), maxLength: 42)}';
+    if (locations.isEmpty) return '0 locations';
+    return locations
+        .take(3)
+        .map((item) {
+          final title = _summaryValue(item.name, maxLength: 20);
+          final description = item.description.trim();
+          if (description.isEmpty) return title;
+          return '$title: ${_summaryValue(description, maxLength: 34)}';
+        })
+        .join('\n');
   }
 
   String _storyEventsSummary(CreateOriginDraft draft) {
@@ -370,10 +436,21 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
   final TextEditingController _worldLogicController = TextEditingController();
   final TextEditingController _metricController = TextEditingController();
   final TextEditingController _coverImageController = TextEditingController();
+  final TextEditingController _worldStartTimeController =
+      TextEditingController();
+  final TextEditingController _timeProgressCustomController =
+      TextEditingController();
+  final TextEditingController _progressMetricController =
+      TextEditingController();
+  final TextEditingController _unitController = TextEditingController();
+  final TextEditingController _startingValueController =
+      TextEditingController();
+  final TextEditingController _minValueController = TextEditingController();
+  final TextEditingController _maxValueController = TextEditingController();
 
-  Timer? _tempSaveDebounce;
   bool _isSaving = false;
   bool _isFinalSynced = false;
+  String _selectedTimeProgress = '';
 
   @override
   void initState() {
@@ -389,17 +466,12 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     _worldLogicController.text = draft.basics.worldLogic;
     _metricController.text = draft.basics.metricJson;
     _coverImageController.text = draft.basics.coverImageUrl;
+    _loadSimulationSettings(draft.basics.metricJson);
     _isFinalSynced = draft.basicsSaved;
     setState(() {});
   }
 
   void _onFormChanged() {
-    _tempSaveDebounce?.cancel();
-    if (widget.repository.supportsTempDrafts) {
-      _tempSaveDebounce = Timer(const Duration(seconds: 10), () {
-        unawaited(_writeTempDraft());
-      });
-    }
     setState(() => _isFinalSynced = false);
   }
 
@@ -414,22 +486,17 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
         originName: _originNameController.text.trim(),
         worldView: _worldViewController.text.trim(),
         worldLogic: _worldLogicController.text.trim(),
-        metricJson: _metricController.text.trim(),
+        metricJson: _simulationSettingsJson(),
         coverImageUrl: _coverImageController.text.trim(),
       ),
       basicsSaved: basicsSaved,
     );
   }
 
-  Future<void> _writeTempDraft() async {
-    final draft = await _draftWithCurrentBasics(basicsSaved: false);
-    await widget.repository.saveTempDraft(draft);
-  }
-
   Future<void> _onSave() async {
     final originName = _originNameController.text.trim();
     final worldView = _worldViewController.text.trim();
-    final metricJson = _metricController.text.trim();
+    final metricJson = _simulationSettingsJson();
     final coverImage = _coverImageController.text.trim();
 
     if (originName.isEmpty) {
@@ -464,7 +531,6 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
       basicsSaved: true,
       originId: originId,
     );
-    _tempSaveDebounce?.cancel();
     await widget.repository.saveFinalDraft(updatedDraft);
     if (!mounted) return;
     setState(() {
@@ -478,17 +544,79 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     showGenesisToast(context, message);
   }
 
+  void _loadSimulationSettings(String metricJson) {
+    final raw = metricJson.trim();
+    if (raw.isEmpty) return;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return;
+      _worldStartTimeController.text = decoded['start_time']?.toString() ?? '';
+      _selectedTimeProgress = decoded['time_per_progress']?.toString() ?? '';
+      _timeProgressCustomController.text =
+          decoded['time_per_progress_custom']?.toString() ?? '';
+      _progressMetricController.text =
+          decoded['label']?.toString() ??
+          decoded['progress_metric']?.toString() ??
+          '';
+      _unitController.text = decoded['unit']?.toString() ?? '';
+      final range = decoded['range'];
+      if (range is List) {
+        if (range.isNotEmpty) _minValueController.text = '${range.first}';
+        if (range.length > 1) _maxValueController.text = '${range[1]}';
+      }
+      _startingValueController.text =
+          decoded['default']?.toString() ??
+          decoded['starting_value']?.toString() ??
+          '';
+    } catch (_) {
+      return;
+    }
+  }
+
+  String _simulationSettingsJson() {
+    final values = <String, String>{
+      'start_time': _worldStartTimeController.text.trim(),
+      'time_per_progress': _selectedTimeProgress.trim(),
+      'time_per_progress_custom': _timeProgressCustomController.text.trim(),
+      'progress_metric': _progressMetricController.text.trim(),
+      'label': _progressMetricController.text.trim(),
+      'unit': _unitController.text.trim(),
+      'starting_value': _startingValueController.text.trim(),
+      'min': _minValueController.text.trim(),
+      'max': _maxValueController.text.trim(),
+    }..removeWhere((_, value) => value.isEmpty);
+
+    if (values.isEmpty) return _metricController.text.trim();
+
+    final payload = <String, dynamic>{
+      ...values,
+      'mode': 'quantitative',
+      if (_minValueController.text.trim().isNotEmpty ||
+          _maxValueController.text.trim().isNotEmpty)
+        'range': [
+          _minValueController.text.trim(),
+          _maxValueController.text.trim(),
+        ],
+      if (_startingValueController.text.trim().isNotEmpty)
+        'default': _startingValueController.text.trim(),
+    };
+    return jsonEncode(payload);
+  }
+
   @override
   void dispose() {
-    _tempSaveDebounce?.cancel();
-    if (widget.repository.supportsTempDrafts && !_isFinalSynced) {
-      unawaited(_writeTempDraft());
-    }
     _originNameController.dispose();
     _worldViewController.dispose();
     _worldLogicController.dispose();
     _metricController.dispose();
     _coverImageController.dispose();
+    _worldStartTimeController.dispose();
+    _timeProgressCustomController.dispose();
+    _progressMetricController.dispose();
+    _unitController.dispose();
+    _startingValueController.dispose();
+    _minValueController.dispose();
+    _maxValueController.dispose();
     super.dispose();
   }
 
@@ -504,7 +632,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -544,25 +672,6 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: 24),
-                      CreateTextFieldBlock(
-                        label: 'World Logic - Hidden (Optional)',
-                        controller: _worldLogicController,
-                        hintText:
-                            'Define the logic for AI to drive the story: hidden conspiracies, physical laws, undisclosed boss weaknesses, and numerical boundaries...',
-                        maxLength: 2000,
-                        minLines: 5,
-                        onChanged: (_) => _onFormChanged(),
-                      ),
-                      const SizedBox(height: 24),
-                      CreateTextFieldBlock(
-                        label: 'Metric (Optional)',
-                        controller: _metricController,
-                        hintText:
-                            'Leave blank to use server default. Example: {"mode":"quantitative","label":"Influence","unit":"pts","range":[0,100],"default":50}',
-                        minLines: 3,
-                        onChanged: (_) => _onFormChanged(),
-                      ),
-                      const SizedBox(height: 26),
                       const Text(
                         'Cover Image *',
                         style: TextStyle(
@@ -598,6 +707,126 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 30),
+                      const _AdvancedSettingsDivider(),
+                      const SizedBox(height: 26),
+                      CreateTextFieldBlock(
+                        label: 'World Logic - Hidden (Optional)',
+                        controller: _worldLogicController,
+                        hintText:
+                            'Define the logic for AI to drive the story: hidden conspiracies, physical laws, undisclosed boss weaknesses, and numerical boundaries...',
+                        maxLength: 2000,
+                        minLines: 5,
+                        onChanged: (_) => _onFormChanged(),
+                      ),
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Simulation Settings (Optional)',
+                        style: TextStyle(
+                          color: createFormText,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const _SimulationFieldLabel('World Start Time'),
+                      const SizedBox(height: 10),
+                      CreateTextFieldBlock(
+                        label: '',
+                        controller: _worldStartTimeController,
+                        hintText: 'Day 1 / 2026-01-01 / Dark Year One',
+                        maxLines: 1,
+                        onChanged: (_) => _onFormChanged(),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Time per Progress',
+                        style: TextStyle(
+                          color: createFormMuted,
+                          fontSize: 12,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _TimeProgressPicker(
+                        selected: _selectedTimeProgress,
+                        onSelected: (value) {
+                          setState(() => _selectedTimeProgress = value);
+                          _onFormChanged();
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      CreateTextFieldBlock(
+                        label: '',
+                        controller: _timeProgressCustomController,
+                        hintText: 'e.g. one season, one council meeting',
+                        maxLines: 1,
+                        onChanged: (_) => _onFormChanged(),
+                      ),
+                      const SizedBox(height: 18),
+                      const _SimulationFieldLabel('Progress Metric'),
+                      const SizedBox(height: 10),
+                      CreateTextFieldBlock(
+                        label: '',
+                        controller: _progressMetricController,
+                        hintText: 'Goal Progress / Wealth / Affection',
+                        maxLines: 1,
+                        onChanged: (_) => _onFormChanged(),
+                      ),
+                      const SizedBox(height: 18),
+                      const _SimulationFieldLabel('Unit'),
+                      const SizedBox(height: 10),
+                      CreateTextFieldBlock(
+                        label: '',
+                        controller: _unitController,
+                        hintText: '%, percent, pts, coins, reputation',
+                        maxLines: 1,
+                        onChanged: (_) => _onFormChanged(),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Value Range',
+                        style: TextStyle(
+                          color: createFormMuted,
+                          fontSize: 12,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CreateTextFieldBlock(
+                              label: '',
+                              controller: _startingValueController,
+                              hintText: 'Starting',
+                              maxLines: 1,
+                              onChanged: (_) => _onFormChanged(),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: CreateTextFieldBlock(
+                              label: '',
+                              controller: _minValueController,
+                              hintText: 'Min',
+                              maxLines: 1,
+                              onChanged: (_) => _onFormChanged(),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: CreateTextFieldBlock(
+                              label: '',
+                              controller: _maxValueController,
+                              hintText: 'Max',
+                              maxLines: 1,
+                              onChanged: (_) => _onFormChanged(),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -621,6 +850,118 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
   }
 }
 
+class _AdvancedSettingsDivider extends StatelessWidget {
+  const _AdvancedSettingsDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      children: [
+        Expanded(child: Divider(height: 1, color: createFormBorder)),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            'Advanced Settings (Optional)',
+            style: TextStyle(
+              color: createFormMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
+            ),
+          ),
+        ),
+        Expanded(child: Divider(height: 1, color: createFormBorder)),
+      ],
+    );
+  }
+}
+
+class _SimulationFieldLabel extends StatelessWidget {
+  const _SimulationFieldLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(color: createFormMuted, fontSize: 12, height: 1.2),
+    );
+  }
+}
+
+class _TimeProgressPicker extends StatelessWidget {
+  const _TimeProgressPicker({required this.selected, required this.onSelected});
+
+  static const List<String> _options = <String>[
+    'Half day',
+    '1 day',
+    '1 week',
+    '1 month',
+  ];
+
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return GridView.count(
+      padding: EdgeInsets.zero,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: 4.8,
+      children: [
+        for (final option in _options)
+          _TimeProgressOption(
+            label: option,
+            selected: option == selected,
+            onTap: () => onSelected(option == selected ? '' : option),
+          ),
+      ],
+    );
+  }
+}
+
+class _TimeProgressOption extends StatelessWidget {
+  const _TimeProgressOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? const Color(0xFFE0EEE8) : createFormFieldFill,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Center(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: selected ? createFormGreen : createFormMuted,
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+              height: 1.2,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class OriginCharactersEditorPage extends StatefulWidget {
   const OriginCharactersEditorPage({super.key, required this.repository});
 
@@ -636,7 +977,6 @@ class _OriginCharactersEditorPageState
   static const int _maxCharacters = 8;
 
   final List<OriginCharacterForm> _forms = <OriginCharacterForm>[];
-  Timer? _tempSaveDebounce;
   String _uid = 'anonymous';
   bool _isSaving = false;
   bool _isFinalSynced = false;
@@ -701,12 +1041,6 @@ class _OriginCharactersEditorPageState
   }
 
   void _onFormChanged() {
-    _tempSaveDebounce?.cancel();
-    if (widget.repository.supportsTempDrafts) {
-      _tempSaveDebounce = Timer(const Duration(seconds: 10), () {
-        unawaited(_writeTempDraft());
-      });
-    }
     setState(() => _isFinalSynced = false);
   }
 
@@ -726,22 +1060,10 @@ class _OriginCharactersEditorPageState
         .toList(growable: false);
   }
 
-  Future<void> _writeTempDraft() async {
-    final characters = _snapshotCharacters();
-    final draft = await widget.repository.loadDraft();
-    final validCharacterIds = characters
-        .map((item) => item.charId.trim())
-        .where((item) => item.isNotEmpty)
-        .toSet();
-    final updatedDraft = draft
-        .copyWith(characters: characters, charactersSaved: false)
-        .pruneLocationBindings(validCharacterIds);
-    await widget.repository.saveTempDraft(updatedDraft);
-  }
-
   Future<void> _saveCharacters() async {
     for (int i = 0; i < _forms.length; i++) {
       final form = _forms[i];
+      if (!form.hasContent) continue;
       if (form.name.text.trim().isEmpty) {
         _showError('Character ${i + 1}: Name is required.');
         return;
@@ -758,7 +1080,9 @@ class _OriginCharactersEditorPageState
 
     setState(() => _isSaving = true);
     final draft = await widget.repository.loadDraft();
-    final characters = _snapshotCharacters();
+    final characters = _snapshotCharacters()
+        .where(_characterDraftHasContent)
+        .toList(growable: false);
     final validCharacterIds = characters
         .map((item) => item.charId.trim())
         .where((item) => item.isNotEmpty)
@@ -767,7 +1091,6 @@ class _OriginCharactersEditorPageState
         .copyWith(characters: characters, charactersSaved: true)
         .pruneLocationBindings(validCharacterIds);
 
-    _tempSaveDebounce?.cancel();
     await widget.repository.saveFinalDraft(updatedDraft);
 
     if (!mounted) return;
@@ -801,10 +1124,6 @@ class _OriginCharactersEditorPageState
 
   @override
   void dispose() {
-    _tempSaveDebounce?.cancel();
-    if (widget.repository.supportsTempDrafts && !_isFinalSynced) {
-      unawaited(_writeTempDraft());
-    }
     for (final form in _forms) {
       form.dispose();
     }
@@ -827,6 +1146,27 @@ class _OriginCharactersEditorPageState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const Text(
+                        'Define the souls that inhabit your world. Each character requires an identity and personality to interact authentically.',
+                        style: TextStyle(
+                          color: createFormMuted,
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${_forms.length}/$_maxCharacters (Added / Max)',
+                          style: const TextStyle(
+                            color: createFormText,
+                            fontSize: 14,
+                            height: 1.2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
                       for (int i = 0; i < _forms.length; i++) ...[
                         _CharacterCard(
                           index: i + 1,
@@ -882,7 +1222,6 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   static const int _maxLocations = 10;
 
   final List<_LocationForm> _forms = <_LocationForm>[];
-  Timer? _tempSaveDebounce;
   String _uid = 'anonymous';
   List<CharacterDraft> _finalCharacters = const <CharacterDraft>[];
   bool _isSaving = false;
@@ -949,12 +1288,6 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   }
 
   void _onFormChanged() {
-    _tempSaveDebounce?.cancel();
-    if (widget.repository.supportsTempDrafts) {
-      _tempSaveDebounce = Timer(const Duration(seconds: 10), () {
-        unawaited(_writeTempDraft());
-      });
-    }
     setState(() => _isFinalSynced = false);
   }
 
@@ -1095,17 +1428,10 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     return false;
   }
 
-  Future<void> _writeTempDraft() async {
-    final locations = _snapshotLocations();
-    final draft = await widget.repository.loadDraft();
-    await widget.repository.saveTempDraft(
-      draft.copyWith(locations: locations, locationsSaved: false),
-    );
-  }
-
   Future<void> _saveLocations() async {
     for (int i = 0; i < _forms.length; i++) {
       final form = _forms[i];
+      if (!form.hasContent) continue;
       if (form.name.text.trim().isEmpty) {
         _showError('Location ${i + 1}: Location Name is required.');
         return;
@@ -1128,9 +1454,10 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     setState(() => _isSaving = true);
     final draft = await widget.repository.loadDraft();
     _finalCharacters = await widget.repository.loadSavedCharacters();
-    final locations = _snapshotLocations();
+    final locations = _snapshotLocations()
+        .where(_locationDraftHasContent)
+        .toList(growable: false);
 
-    _tempSaveDebounce?.cancel();
     await widget.repository.saveFinalDraft(
       draft.copyWith(locations: locations, locationsSaved: true),
     );
@@ -1149,10 +1476,6 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
 
   @override
   void dispose() {
-    _tempSaveDebounce?.cancel();
-    if (widget.repository.supportsTempDrafts && !_isFinalSynced) {
-      unawaited(_writeTempDraft());
-    }
     for (final form in _forms) {
       form.dispose();
     }
@@ -1260,7 +1583,6 @@ class _OriginStoryEventsEditorPageState
 
   bool _isSaving = false;
   bool _isFinalSynced = false;
-  Timer? _tempSaveDebounce;
 
   @override
   void initState() {
@@ -1313,12 +1635,6 @@ class _OriginStoryEventsEditorPageState
   }
 
   void _onFormChanged() {
-    _tempSaveDebounce?.cancel();
-    if (widget.repository.supportsTempDrafts) {
-      _tempSaveDebounce = Timer(const Duration(seconds: 10), () {
-        unawaited(_writeTempDraft());
-      });
-    }
     setState(() => _isFinalSynced = false);
   }
 
@@ -1328,20 +1644,13 @@ class _OriginStoryEventsEditorPageState
         .toList(growable: false);
   }
 
-  Future<void> _writeTempDraft() async {
-    final events = _snapshotEvents();
-    final draft = await widget.repository.loadDraft();
-    await widget.repository.saveTempDraft(
-      draft.copyWith(storyEvents: events, storyEventsSaved: false),
-    );
-  }
-
   Future<void> _saveEvents() async {
     setState(() => _isSaving = true);
     final draft = await widget.repository.loadDraft();
-    final events = _snapshotEvents();
+    final events = _snapshotEvents()
+        .where((item) => item.event.trim().isNotEmpty)
+        .toList(growable: false);
 
-    _tempSaveDebounce?.cancel();
     await widget.repository.saveFinalDraft(
       draft.copyWith(storyEvents: events, storyEventsSaved: true),
     );
@@ -1360,10 +1669,6 @@ class _OriginStoryEventsEditorPageState
 
   @override
   void dispose() {
-    _tempSaveDebounce?.cancel();
-    if (widget.repository.supportsTempDrafts && !_isFinalSynced) {
-      unawaited(_writeTempDraft());
-    }
     for (final controller in _eventControllers) {
       controller.dispose();
     }
