@@ -144,6 +144,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(TextField, 'Write a reply'), findsOneWidget);
+    final replyInput = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Write a reply'),
+    );
+    expect(replyInput.minLines, 3);
+    expect(replyInput.maxLines, 6);
+    expect(replyInput.expands, isFalse);
 
     await tester.enterText(
       find.widgetWithText(TextField, 'Write a reply'),

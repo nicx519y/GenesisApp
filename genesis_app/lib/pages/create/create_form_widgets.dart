@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/common/genesis_upload_progress_overlay.dart';
 import '../../components/common/local_image_crop_page.dart';
 import '../../platform/native_image_picker.dart';
 
@@ -599,7 +600,7 @@ class _Preview extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         image,
-        if (isUploading) _UploadProgressOverlay(progress: progress),
+        if (isUploading) GenesisUploadProgressOverlay(progress: progress),
       ],
     );
   }
@@ -644,50 +645,6 @@ class _PreviewErrorIcon extends StatelessWidget {
           size: 34,
         ),
       ),
-    );
-  }
-}
-
-class _UploadProgressOverlay extends StatelessWidget {
-  const _UploadProgressOverlay({required this.progress});
-
-  final double progress;
-
-  @override
-  Widget build(BuildContext context) {
-    final normalized = progress.clamp(0.0, 1.0).toDouble();
-    final coverFactor = (1 - normalized).clamp(0.0, 1.0).toDouble();
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: FractionallySizedBox(
-            widthFactor: 1,
-            heightFactor: coverFactor,
-            child: ColoredBox(color: Colors.black.withValues(alpha: 0.48)),
-          ),
-        ),
-        Center(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.52),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              child: Text(
-                '${(normalized * 100).round()}%',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

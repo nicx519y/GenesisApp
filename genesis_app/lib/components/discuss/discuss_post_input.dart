@@ -5,8 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
-import '../common/genesis_center_toast.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
+import '../common/genesis_center_toast.dart';
+import '../common/genesis_upload_progress_overlay.dart';
 import '../../platform/native_image_picker.dart';
 
 export '../../platform/native_image_picker.dart' show DiscussPickedImage;
@@ -15,11 +16,18 @@ typedef DiscussPostSubmitter =
     Future<Map<String, dynamic>> Function(String content, List<String> images);
 typedef DiscussComposerSubmitter =
     Future<void> Function(String content, List<String> images);
-typedef DiscussImagePicker = Future<List<DiscussPickedImage>> Function();
+typedef DiscussImagePicker =
+    Future<List<DiscussPickedImage>> Function(int limit);
 typedef DiscussImageUploader =
     Future<String> Function(DiscussPickedImage image);
 
 const int discussPostMaxImages = 6;
+const int _discussComposerMinTextLines = 3;
+const int _discussComposerMaxTextLines = 6;
+const double _discussComposerFontSize = 14;
+const double _discussComposerLineHeight = 1.25;
+const double _discussComposerTextHeightAllowance = 2;
+const double _discussComposerActionHeight = 50;
 
 class DiscussPostInput extends StatefulWidget {
   const DiscussPostInput({
@@ -67,8 +75,7 @@ Future<bool> showDiscussPostComposer({
       return _DiscussComposerSheet(
         title: title,
         placeholder: placeholder,
-        pickImages:
-            imagePicker ?? () => pickGenesisImages(limit: discussPostMaxImages),
+        pickImages: imagePicker ?? (limit) => pickGenesisImages(limit: limit),
         uploadImage:
             imageUploader ??
             (image) async {
@@ -149,8 +156,8 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
     );
   }
 
-  Future<List<DiscussPickedImage>> _pickImages() async {
-    return pickGenesisImages(limit: discussPostMaxImages);
+  Future<List<DiscussPickedImage>> _pickImages(int limit) async {
+    return pickGenesisImages(limit: limit);
   }
 
   Future<String> _uploadImage(DiscussPickedImage image) async {
@@ -265,6 +272,9 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     _metricsSyncTimers.clear();
     _controller.removeListener(_handleTextChanged);
     _controller.dispose();
+    for (final image in _images) {
+      image.progressTimer?.cancel();
+    }
     super.dispose();
   }
 
@@ -384,7 +394,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
     try {
-      picked = await widget.pickImages();
+      picked = await widget.pickImages(available);
     } catch (error, stackTrace) {
       pickError = error;
       debugPrint('Discuss image selection failed: $error\n$stackTrace');
@@ -416,6 +426,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     for (final attachment in added) {
       final uploadFuture = _uploadAttachment(attachment);
       attachment.uploadFuture = uploadFuture;
+      _startAttachmentProgressTimer(attachment);
     }
   }
 
@@ -423,12 +434,15 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     try {
       final url = await widget.uploadImage(attachment.image);
       if (!mounted || !_images.contains(attachment)) return;
+      attachment.progressTimer?.cancel();
       setState(() {
+        attachment.progress = 1;
         attachment.url = url;
         attachment.uploading = false;
       });
     } catch (_) {
       if (!mounted || !_images.contains(attachment)) return;
+      attachment.progressTimer?.cancel();
       setState(() {
         attachment.failed = true;
         attachment.uploading = false;
@@ -440,7 +454,31 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
 
   void _removeImage(_DiscussImageAttachment image) {
     if (_submitting) return;
+    image.progressTimer?.cancel();
     setState(() => _images.remove(image));
+  }
+
+  void _startAttachmentProgressTimer(_DiscussImageAttachment attachment) {
+    attachment.progressTimer?.cancel();
+    attachment.progressTimer = Timer.periodic(
+      const Duration(milliseconds: 90),
+      (_) {
+        if (!mounted ||
+            !_images.contains(attachment) ||
+            !attachment.uploading) {
+          attachment.progressTimer?.cancel();
+          return;
+        }
+        setState(() {
+          final remaining = 0.92 - attachment.progress;
+          if (remaining <= 0) {
+            attachment.progress = 0.92;
+          } else {
+            attachment.progress += remaining < 0.02 ? remaining : 0.02;
+          }
+        });
+      },
+    );
   }
 
   void _handleScrimTap() {
@@ -476,7 +514,16 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
       0.0,
       media.size.height - keyboardInset - media.padding.top - 12,
     );
-    final sheetHeight = math.min(324.0, maxSheetHeight);
+    final composerContentWidth = math.max(0.0, media.size.width - 32);
+    final composerTextLines = _discussComposerVisibleTextLines(
+      text: _controller.text,
+      placeholder: widget.placeholder,
+      maxWidth: composerContentWidth,
+    );
+    final sheetHeight = math.min(
+      _discussComposerPreferredSheetHeight(media.size.width, composerTextLines),
+      maxSheetHeight,
+    );
     if (_closing) return const SizedBox.shrink();
     return PopScope(
       canPop: false,
@@ -510,34 +557,31 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _controller,
-                            autofocus: true,
-                            keyboardType: TextInputType.multiline,
-                            textInputAction: TextInputAction.newline,
-                            minLines: null,
-                            maxLines: null,
-                            expands: true,
-                            cursorColor: const Color(0xFF6C657A),
-                            style: const TextStyle(
-                              fontSize: 14,
-                              height: 1.25,
+                        TextField(
+                          controller: _controller,
+                          autofocus: true,
+                          keyboardType: TextInputType.multiline,
+                          textInputAction: TextInputAction.newline,
+                          minLines: _discussComposerMinTextLines,
+                          maxLines: _discussComposerMaxTextLines,
+                          cursorColor: const Color(0xFF6C657A),
+                          style: const TextStyle(
+                            fontSize: _discussComposerFontSize,
+                            height: _discussComposerLineHeight,
+                            fontWeight: FontWeight.w400,
+                            color: Color(0xFF111111),
+                          ),
+                          decoration: InputDecoration(
+                            hintText: widget.placeholder,
+                            hintStyle: const TextStyle(
+                              fontSize: _discussComposerFontSize,
+                              height: _discussComposerLineHeight,
                               fontWeight: FontWeight.w400,
-                              color: Color(0xFF111111),
+                              color: Color(0xFFB8B8B8),
                             ),
-                            decoration: InputDecoration(
-                              hintText: widget.placeholder,
-                              hintStyle: const TextStyle(
-                                fontSize: 14,
-                                height: 1.25,
-                                fontWeight: FontWeight.w400,
-                                color: Color(0xFFB8B8B8),
-                              ),
-                              border: InputBorder.none,
-                              isCollapsed: true,
-                              contentPadding: EdgeInsets.zero,
-                            ),
+                            border: InputBorder.none,
+                            isCollapsed: true,
+                            contentPadding: EdgeInsets.zero,
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -616,7 +660,9 @@ class _DiscussImageAttachment {
   final int id;
   final DiscussPickedImage image;
   late Future<void> uploadFuture;
+  Timer? progressTimer;
   String? url;
+  double progress = 0;
   bool uploading = true;
   bool failed = false;
 }
@@ -736,34 +782,30 @@ class _DiscussImageTile extends StatelessWidget {
                 key: ValueKey('discuss-image-thumb-${attachment.id}'),
                 width: size,
                 height: size,
-                child: Image.memory(attachment.image.bytes, fit: BoxFit.cover),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.memory(attachment.image.bytes, fit: BoxFit.cover),
+                    if (attachment.uploading)
+                      GenesisUploadProgressOverlay(
+                        progress: attachment.progress,
+                      ),
+                    if (attachment.failed)
+                      ColoredBox(
+                        color: Colors.black.withValues(alpha: 0.48),
+                        child: const Center(
+                          child: Icon(
+                            Icons.error_outline,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
-          if (attachment.uploading || attachment.failed)
-            Positioned(
-              left: 0,
-              bottom: 0,
-              child: Container(
-                width: size,
-                height: size,
-                color: Colors.black.withValues(alpha: 0.24),
-                alignment: Alignment.center,
-                child: attachment.failed
-                    ? const Icon(
-                        Icons.error_outline,
-                        color: Colors.white,
-                        size: 22,
-                      )
-                    : const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      ),
-              ),
-            ),
           Positioned(
             top: 0,
             right: 0,
@@ -820,6 +862,51 @@ double _keyboardInsetBottom(BuildContext context, MediaQueryData media) {
     media.viewInsets.bottom,
     math.max(viewInset, dispatcherInset),
   );
+}
+
+double _discussComposerPreferredSheetHeight(double screenWidth, int textLines) {
+  final contentWidth = math.max(0.0, screenWidth - 32);
+  final gap = _discussImageGap(contentWidth);
+  final imageStripHeight = _discussImageTileSize(contentWidth, gap) + 8;
+  final textHeight =
+      _discussComposerFontSize * _discussComposerLineHeight * textLines +
+      _discussComposerTextHeightAllowance;
+
+  return 22 +
+      GenesisBottomSheetPanel.titleStyle.fontSize! *
+          GenesisBottomSheetPanel.titleStyle.height! +
+      18 +
+      textHeight +
+      14 +
+      imageStripHeight +
+      14 +
+      _discussComposerActionHeight +
+      14;
+}
+
+int _discussComposerVisibleTextLines({
+  required String text,
+  required String placeholder,
+  required double maxWidth,
+}) {
+  if (maxWidth <= 0) return _discussComposerMinTextLines;
+  final measuredText = text.isEmpty ? placeholder : text;
+  final painter = TextPainter(
+    text: TextSpan(
+      text: measuredText,
+      style: const TextStyle(
+        fontSize: _discussComposerFontSize,
+        height: _discussComposerLineHeight,
+        fontWeight: FontWeight.w400,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout(maxWidth: maxWidth);
+  final lineCount = painter.computeLineMetrics().length;
+  painter.dispose();
+  return lineCount
+      .clamp(_discussComposerMinTextLines, _discussComposerMaxTextLines)
+      .toInt();
 }
 
 double _discussImageGap(double maxWidth) {

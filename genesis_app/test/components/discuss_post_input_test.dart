@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/common/genesis_upload_progress_overlay.dart';
 import 'package:genesis_flutter_android/components/discuss/discuss_post_input.dart';
 
 void main() {
@@ -14,7 +15,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
-            imagePicker: () async => const <DiscussPickedImage>[],
+            imagePicker: (limit) async => const <DiscussPickedImage>[],
             submitter: (content, images) async => <String, dynamic>{},
           ),
         ),
@@ -28,6 +29,12 @@ void main() {
       find.byKey(const ValueKey('discuss-composer-sheet')),
       findsOneWidget,
     );
+    final composerInput = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Write a post').last,
+    );
+    expect(composerInput.minLines, 3);
+    expect(composerInput.maxLines, 6);
+    expect(composerInput.expands, isFalse);
     expect(tester.testTextInput.isVisible, isTrue);
 
     await tester.tapAt(const Offset(20, 20));
@@ -42,6 +49,47 @@ void main() {
     expect(find.text('New post'), findsNothing);
   });
 
+  testWidgets('composer grows from three to six lines then scrolls', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 900);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DiscussPostInput(
+            bizId: 'o_test_1',
+            imagePicker: (limit) async => const <DiscussPickedImage>[],
+            submitter: (content, images) async => <String, dynamic>{},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+    await tester.pumpAndSettle();
+
+    final sheet = find.byKey(const ValueKey('discuss-composer-sheet'));
+    final input = find.widgetWithText(TextField, 'Write a post').last;
+    final initialHeight = tester.getSize(sheet).height;
+
+    await tester.enterText(input, 'one\ntwo\nthree\nfour\nfive\nsix');
+    await tester.pump();
+    final sixLineHeight = tester.getSize(sheet).height;
+
+    expect(sixLineHeight, greaterThan(initialHeight));
+
+    await tester.enterText(
+      input,
+      'one\ntwo\nthree\nfour\nfive\nsix\nseven\neight',
+    );
+    await tester.pump();
+
+    expect(tester.getSize(sheet).height, sixLineHeight);
+  });
+
   testWidgets('dismisses composer directly when route back is pressed', (
     WidgetTester tester,
   ) async {
@@ -54,7 +102,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
-            imagePicker: () async => const <DiscussPickedImage>[],
+            imagePicker: (limit) async => const <DiscussPickedImage>[],
             submitter: (content, images) async => <String, dynamic>{},
           ),
         ),
@@ -94,7 +142,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
-            imagePicker: () async => const <DiscussPickedImage>[],
+            imagePicker: (limit) async => const <DiscussPickedImage>[],
             submitter: (content, images) async => <String, dynamic>{},
           ),
         ),
@@ -138,7 +186,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
-            imagePicker: () async => List<DiscussPickedImage>.generate(
+            imagePicker: (limit) async => List<DiscussPickedImage>.generate(
               8,
               (index) => _pickedImage(index),
             ),
@@ -189,6 +237,8 @@ void main() {
       find.byKey(const ValueKey('discuss-image-add-button')),
       findsNothing,
     );
+    expect(find.byType(GenesisUploadProgressOverlay), findsNWidgets(6));
+    expect(find.byType(CircularProgressIndicator), findsNothing);
 
     await tester.enterText(
       find.widgetWithText(TextField, 'Write a post').last,
@@ -222,7 +272,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
-            imagePicker: () async => <DiscussPickedImage>[_pickedImage(0)],
+            imagePicker: (limit) async => <DiscussPickedImage>[_pickedImage(0)],
             imageUploader: (image) async => 'https://cdn.example.com/0.jpg',
             submitter: (content, images) async => <String, dynamic>{},
           ),
@@ -255,14 +305,16 @@ void main() {
     WidgetTester tester,
   ) async {
     var pickCount = 0;
+    final requestedLimits = <int>[];
     final uploadedFilenames = <String>[];
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
-            imagePicker: () async {
+            imagePicker: (limit) async {
               pickCount += 1;
+              requestedLimits.add(limit);
               if (pickCount == 1) {
                 return List<DiscussPickedImage>.generate(
                   6,
@@ -287,6 +339,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(pickCount, 1);
+    expect(requestedLimits, <int>[6]);
     expect(uploadedFilenames, hasLength(6));
     expect(
       find.byKey(const ValueKey('discuss-image-add-button')),
@@ -305,6 +358,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(pickCount, 2);
+    expect(requestedLimits, <int>[6, 1]);
     expect(uploadedFilenames, contains('image_99.png'));
     expect(find.byKey(const ValueKey('discuss-image-thumb-6')), findsOneWidget);
     expect(
@@ -323,7 +377,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
-            imagePicker: () {
+            imagePicker: (limit) {
               pickerStarted = true;
               return pickerCompleter.future;
             },
@@ -374,7 +428,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
-            imagePicker: () async => <DiscussPickedImage>[_pickedImage(0)],
+            imagePicker: (limit) async => <DiscussPickedImage>[_pickedImage(0)],
             imageUploader: (image) async => 'https://cdn.example.com/0.jpg',
             submitter: (content, images) async => <String, dynamic>{},
           ),
@@ -414,7 +468,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
-            imagePicker: () async {
+            imagePicker: (limit) async {
               tester.view.viewInsets = const FakeViewPadding(bottom: 80);
               return const <DiscussPickedImage>[];
             },
@@ -461,7 +515,7 @@ void main() {
           home: Scaffold(
             body: DiscussPostInput(
               bizId: 'o_test_1',
-              imagePicker: () async {
+              imagePicker: (limit) async {
                 tester.view.viewInsets = const FakeViewPadding(bottom: 80);
                 tester.binding.handleMetricsChanged();
                 return <DiscussPickedImage>[_pickedImage(0)];

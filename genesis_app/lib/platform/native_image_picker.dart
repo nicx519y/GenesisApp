@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
-const MethodChannel _iosDiscussImagePickerChannel = MethodChannel(
+const MethodChannel _nativeDiscussImagePickerChannel = MethodChannel(
   'com.genesis.ai/discuss_image_picker',
 );
 
@@ -54,22 +54,22 @@ Future<List<XFile>> pickGenesisImageFiles({required int limit}) async {
     final file = await _pickSingleImageFile();
     return file == null ? const <XFile>[] : <XFile>[file];
   }
-  if (!Platform.isIOS) {
-    return ImagePicker().pickMultiImage();
+  if (Platform.isAndroid || Platform.isIOS) {
+    try {
+      final paths = await _nativeDiscussImagePickerChannel
+          .invokeListMethod<String>('pickImages', <String, Object>{
+            'limit': limit,
+          });
+      return (paths ?? const <String>[])
+          .where((path) => path.trim().isNotEmpty)
+          .map((path) => XFile(path))
+          .toList(growable: false);
+    } on MissingPluginException {
+      return ImagePicker().pickMultiImage(limit: limit);
+    }
   }
 
-  try {
-    final paths = await _iosDiscussImagePickerChannel.invokeListMethod<String>(
-      'pickImages',
-      <String, Object>{'limit': limit},
-    );
-    return (paths ?? const <String>[])
-        .where((path) => path.trim().isNotEmpty)
-        .map((path) => XFile(path))
-        .toList(growable: false);
-  } on MissingPluginException {
-    return ImagePicker().pickMultiImage();
-  }
+  return ImagePicker().pickMultiImage(limit: limit);
 }
 
 Future<XFile?> _pickSingleImageFile() async {
@@ -78,10 +78,10 @@ Future<XFile?> _pickSingleImageFile() async {
   }
 
   try {
-    final paths = await _iosDiscussImagePickerChannel.invokeListMethod<String>(
-      'pickImages',
-      const <String, Object>{'limit': 1},
-    );
+    final paths = await _nativeDiscussImagePickerChannel
+        .invokeListMethod<String>('pickImages', const <String, Object>{
+          'limit': 1,
+        });
     String? path;
     for (final item in paths ?? const <String>[]) {
       if (item.trim().isNotEmpty) {
