@@ -19,11 +19,35 @@ class UserInfoPage extends StatefulWidget {
 
 class _UserInfoPageState extends State<UserInfoPage> {
   late Future<UserProfileData> _future;
+  String _profileUid = '';
+  final ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>
+  _originsState =
+      ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>(
+        const UserProfileCollectionState<UserProfileOriginItem>(
+          items: <UserProfileOriginItem>[],
+          isLoading: false,
+        ),
+      );
+  final ValueNotifier<UserProfileCollectionState<UserProfileWorldItem>>
+  _worldsState =
+      ValueNotifier<UserProfileCollectionState<UserProfileWorldItem>>(
+        const UserProfileCollectionState<UserProfileWorldItem>(
+          items: <UserProfileWorldItem>[],
+          isLoading: false,
+        ),
+      );
 
   @override
   void initState() {
     super.initState();
     _future = _loadData();
+  }
+
+  @override
+  void dispose() {
+    _originsState.dispose();
+    _worldsState.dispose();
+    super.dispose();
   }
 
   Future<UserProfileData> _loadData() async {
@@ -42,56 +66,32 @@ class _UserInfoPageState extends State<UserInfoPage> {
     final displayName = _mapString(user, 'name', fallback: 'User');
     final avatarUrl = resolveAssetUrl(_mapString(user, 'avatar'));
     final profileUid = resolvedUid.trim().isNotEmpty ? resolvedUid : uid;
+    if (mounted) _profileUid = profileUid;
 
     List<UserProfileOriginItem> origins = const [];
     if (profileUid.trim().isNotEmpty) {
       try {
-        final originPage = await api.getMyLaunchedOrigins(
-          uid: profileUid,
-          limit: 30,
-          offset: 0,
-        );
-        origins = originPage.data
-            .map(
-              (item) => UserProfileOriginItem(
-                originId: item.id,
-                oid: item.oid,
-                title: item.name.trim().isEmpty ? item.oid : item.name.trim(),
-                subtitle: _originSubtitle(item),
-                imageUrl: resolveAssetUrl(item.mapImage),
-                copyCount: item.copyCount,
-                interactCount: item.interactCount,
-                characterCount: item.characterCount,
-              ),
-            )
-            .toList(growable: false);
+        origins = await _loadOriginItems(api, profileUid);
       } catch (_) {}
+    }
+    if (mounted) {
+      _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
+        items: origins,
+        isLoading: false,
+      );
     }
 
     List<UserProfileWorldItem> worldItems = const [];
     if (profileUid.trim().isNotEmpty) {
       try {
-        final worlds = await api.getMyWorlds(
-          uid: profileUid,
-          limit: 30,
-          offset: 0,
-        );
-        worldItems = worlds
-            .map(
-              (item) => UserProfileWorldItem(
-                wid: item.wid,
-                title: item.name.trim().isEmpty ? item.wid : item.name.trim(),
-                subtitle: _worldSubtitle(item.wid, item.ownerName),
-                imageUrl: resolveAssetUrl(item.snapshotCoverUrl),
-                progressCount: item.progressCount,
-                interactCount: item.interactCount,
-                characterCount: item.characterCount,
-                playerCount: item.playerCount,
-                ownerName: item.ownerName,
-              ),
-            )
-            .toList(growable: false);
+        worldItems = await _loadWorldItems(api, profileUid);
       } catch (_) {}
+    }
+    if (mounted) {
+      _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
+        items: worldItems,
+        isLoading: false,
+      );
     }
 
     return UserProfileData(
@@ -115,6 +115,103 @@ class _UserInfoPageState extends State<UserInfoPage> {
       _future = _loadData();
     });
     await _future;
+  }
+
+  Future<void> _refreshOrigins() async {
+    final uid = _profileUid.trim().isEmpty ? widget.uid.trim() : _profileUid;
+    if (uid.isEmpty) return;
+    final current = _originsState.value;
+    _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
+      items: current.items,
+      isLoading: true,
+    );
+    try {
+      final api = AppServicesScope.read(context).api;
+      final items = await _loadOriginItems(api, uid);
+      if (!mounted) return;
+      _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
+        items: items,
+        isLoading: false,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
+        items: current.items,
+        isLoading: false,
+      );
+    }
+  }
+
+  Future<void> _refreshWorlds() async {
+    final uid = _profileUid.trim().isEmpty ? widget.uid.trim() : _profileUid;
+    if (uid.isEmpty) return;
+    final current = _worldsState.value;
+    _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
+      items: current.items,
+      isLoading: true,
+    );
+    try {
+      final api = AppServicesScope.read(context).api;
+      final items = await _loadWorldItems(api, uid);
+      if (!mounted) return;
+      _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
+        items: items,
+        isLoading: false,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
+        items: current.items,
+        isLoading: false,
+      );
+    }
+  }
+
+  Future<List<UserProfileOriginItem>> _loadOriginItems(
+    GenesisApi api,
+    String uid,
+  ) async {
+    final originPage = await api.getMyLaunchedOrigins(
+      uid: uid,
+      limit: 30,
+      offset: 0,
+    );
+    return originPage.data
+        .map(
+          (item) => UserProfileOriginItem(
+            originId: item.id,
+            oid: item.oid,
+            title: item.name.trim().isEmpty ? item.oid : item.name.trim(),
+            subtitle: _originSubtitle(item),
+            imageUrl: resolveAssetUrl(item.mapImage),
+            copyCount: item.copyCount,
+            interactCount: item.interactCount,
+            characterCount: item.characterCount,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<List<UserProfileWorldItem>> _loadWorldItems(
+    GenesisApi api,
+    String uid,
+  ) async {
+    final worlds = await api.getMyWorlds(uid: uid, limit: 30, offset: 0);
+    return worlds
+        .map(
+          (item) => UserProfileWorldItem(
+            wid: item.wid,
+            title: item.name.trim().isEmpty ? item.wid : item.name.trim(),
+            subtitle: _worldSubtitle(item.wid, item.ownerName),
+            imageUrl: resolveAssetUrl(item.snapshotCoverUrl),
+            progressCount: item.progressCount,
+            interactCount: item.interactCount,
+            characterCount: item.characterCount,
+            playerCount: item.playerCount,
+            ownerName: item.ownerName,
+          ),
+        )
+        .toList(growable: false);
   }
 
   @override
@@ -147,7 +244,13 @@ class _UserInfoPageState extends State<UserInfoPage> {
 
             final data = snapshot.data;
             if (data == null) return const SizedBox.shrink();
-            return UserProfileContent(data: data);
+            return UserProfileContent(
+              data: data,
+              originsListenable: _originsState,
+              worldsListenable: _worldsState,
+              onRefreshOrigins: _refreshOrigins,
+              onRefreshWorlds: _refreshWorlds,
+            );
           },
         ),
       ),

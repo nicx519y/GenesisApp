@@ -745,6 +745,111 @@ class _RecordingV1ListTransport implements HttpTransport {
   }
 }
 
+class _UserInfoRefreshTransport implements HttpTransport {
+  final requests = <TransportRequest>[];
+  final Completer<TransportResponse> _originRefreshCompleter =
+      Completer<TransportResponse>();
+  final Completer<TransportResponse> _worldRefreshCompleter =
+      Completer<TransportResponse>();
+  var originListRequests = 0;
+  var worldListRequests = 0;
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    final path = request.uri.path;
+    if (path == '/api/v1/user/info') {
+      return _v1Response({
+        'user': {
+          'uid': request.uri.queryParameters['uid'] ?? 'u_refresh_peer',
+          'name': 'Refresh Peer',
+          'avatar': '',
+          'following_cnt': 2,
+          'follower_cnt': 3,
+        },
+        'relation': {
+          'is_self': false,
+          'is_followed': false,
+          'i_followed': false,
+        },
+      });
+    }
+    if (path == '/api/v1/origin/list') {
+      originListRequests += 1;
+      if (originListRequests == 1) {
+        return _v1Response({
+          'list': [_originListItem('o_old', 'Origin Old')],
+          'total': 1,
+        });
+      }
+      return _originRefreshCompleter.future;
+    }
+    if (path == '/api/v1/world/list') {
+      worldListRequests += 1;
+      if (worldListRequests == 1) {
+        return _v1Response({
+          'list': [_worldListItem('w_old', 'World Old')],
+          'total': 1,
+        });
+      }
+      return _worldRefreshCompleter.future;
+    }
+    return _v1Response(<String, Object?>{});
+  }
+
+  void completeOriginRefresh() {
+    if (_originRefreshCompleter.isCompleted) return;
+    _originRefreshCompleter.complete(
+      _v1Response({
+        'list': [_originListItem('o_new', 'Origin New')],
+        'total': 1,
+      }),
+    );
+  }
+
+  void completeWorldRefresh() {
+    if (_worldRefreshCompleter.isCompleted) return;
+    _worldRefreshCompleter.complete(
+      _v1Response({
+        'list': [_worldListItem('w_new', 'World New')],
+        'total': 1,
+      }),
+    );
+  }
+
+  Map<String, Object?> _originListItem(String oid, String name) {
+    return {
+      'info': {
+        'oid': oid,
+        'name': name,
+        'cover': '',
+        'created_user_name': 'Refresh Peer',
+        'version_num': 1,
+        'updated_at': '2026-06-05T00:00:00Z',
+      },
+      'stats': {'copy_cnt': 1, 'connect_cnt': 2, 'character_cnt': 3},
+    };
+  }
+
+  Map<String, Object?> _worldListItem(String wid, String name) {
+    return {
+      'info': {
+        'wid': wid,
+        'name': name,
+        'cover': '',
+        'owner_name': 'Refresh Peer',
+        'updated_at': '2026-06-05T00:00:00Z',
+      },
+      'stats': {
+        'tick_cnt': 1,
+        'connect_cnt': 2,
+        'ai_character_cnt': 3,
+        'player_cnt': 4,
+      },
+    };
+  }
+}
+
 class _QueuedOriginRefreshTransport implements HttpTransport {
   _QueuedOriginRefreshTransport({required this.refreshResponse});
 
@@ -1942,6 +2047,57 @@ void main() {
     expect(find.text('no private messages yet.'), findsOneWidget);
     expectEmptyTextCentered();
   });
+
+  testWidgets(
+    'direct messages pull refresh keeps old rows until callback returns',
+    (WidgetTester tester) async {
+      final services = await _messagesServicesWithCachedConversation(
+        lastMessageAt: DateTime.utc(2026, 6, 5, 10),
+      );
+      final refreshCompleter = Completer<void>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: MessagesPage(
+              onMessagesDataRefresh: () async {
+                await refreshCompleter.future;
+                await services.directMessageConversations.mergeConversationJson(
+                  _dmConversationJson(
+                    convId: 'dm_cached_time',
+                    peerName: 'Penny Direct',
+                    messageId: 'dm_cached_time_msg_2',
+                    message: 'Refreshed direct message preview',
+                    minutesAgo: 1,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cached direct message preview'), findsOneWidget);
+      expect(find.text('Refreshed direct message preview'), findsNothing);
+
+      final refreshFuture = tester
+          .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
+          .show();
+      await tester.pump();
+
+      expect(find.text('Cached direct message preview'), findsOneWidget);
+      expect(find.text('Refreshed direct message preview'), findsNothing);
+
+      refreshCompleter.complete();
+      await tester.pumpAndSettle();
+      await refreshFuture;
+
+      expect(find.text('Cached direct message preview'), findsNothing);
+      expect(find.text('Refreshed direct message preview'), findsOneWidget);
+    },
+  );
 
   testWidgets('direct messages tap opens chat page with peer uid', (
     WidgetTester tester,
@@ -3479,6 +3635,73 @@ void main() {
     expect(cachedUser?['follower_cnt'], 17);
   });
 
+  testWidgets('Me origin and world refresh preserve old list until response', (
+    WidgetTester tester,
+  ) async {
+    final transport = _UserInfoRefreshTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialUid: 'u_me_refresh',
+              initialAuthToken: 'backend-token',
+            ),
+            child: const MePage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('#Origin Old'), findsOneWidget);
+    expect(find.text('#Origin New'), findsNothing);
+
+    var refreshFuture = tester
+        .widget<RefreshIndicator>(
+          find.byKey(const ValueKey('profile-origin-list-refresh')),
+        )
+        .onRefresh();
+    await tester.pump();
+
+    expect(transport.originListRequests, 2);
+    expect(find.text('#Origin Old'), findsOneWidget);
+    expect(find.text('#Origin New'), findsNothing);
+
+    transport.completeOriginRefresh();
+    await tester.pumpAndSettle();
+    await refreshFuture;
+
+    expect(find.text('#Origin Old'), findsNothing);
+    expect(find.text('#Origin New'), findsOneWidget);
+
+    await tester.tap(find.text('World'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('World Old'), findsOneWidget);
+    expect(find.text('World New'), findsNothing);
+
+    refreshFuture = tester
+        .widget<RefreshIndicator>(
+          find.byKey(const ValueKey('profile-world-list-refresh')),
+        )
+        .onRefresh();
+    await tester.pump();
+
+    expect(transport.worldListRequests, 2);
+    expect(find.text('World Old'), findsOneWidget);
+    expect(find.text('World New'), findsNothing);
+
+    transport.completeWorldRefresh();
+    await tester.pumpAndSettle();
+    await refreshFuture;
+
+    expect(find.text('World Old'), findsNothing);
+    expect(find.text('World New'), findsOneWidget);
+  });
+
   test('remote user info with same rendered fields is ignored', () {
     const current = UserProfileData(
       avatarUrl: '',
@@ -4876,6 +5099,68 @@ void main() {
     expect(find.text('Penny Hardaway'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'user info origin and world refresh preserve old list until response',
+    (WidgetTester tester) async {
+      final transport = _UserInfoRefreshTransport();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const UserInfoPage(uid: 'u_refresh_peer'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('#Origin Old'), findsOneWidget);
+      expect(find.text('#Origin New'), findsNothing);
+
+      var refreshFuture = tester
+          .widget<RefreshIndicator>(
+            find.byKey(const ValueKey('profile-origin-list-refresh')),
+          )
+          .onRefresh();
+      await tester.pump();
+
+      expect(transport.originListRequests, 2);
+      expect(find.text('#Origin Old'), findsOneWidget);
+      expect(find.text('#Origin New'), findsNothing);
+
+      transport.completeOriginRefresh();
+      await tester.pumpAndSettle();
+      await refreshFuture;
+
+      expect(find.text('#Origin Old'), findsNothing);
+      expect(find.text('#Origin New'), findsOneWidget);
+
+      await tester.tap(find.text('World'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('World Old'), findsOneWidget);
+      expect(find.text('World New'), findsNothing);
+
+      refreshFuture = tester
+          .widget<RefreshIndicator>(
+            find.byKey(const ValueKey('profile-world-list-refresh')),
+          )
+          .onRefresh();
+      await tester.pump();
+
+      expect(transport.worldListRequests, 2);
+      expect(find.text('World Old'), findsOneWidget);
+      expect(find.text('World New'), findsNothing);
+
+      transport.completeWorldRefresh();
+      await tester.pumpAndSettle();
+      await refreshFuture;
+
+      expect(find.text('World Old'), findsNothing);
+      expect(find.text('World New'), findsOneWidget);
+    },
+  );
 
   testWidgets('peer profile follows and opens direct chat', (
     WidgetTester tester,

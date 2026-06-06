@@ -227,13 +227,17 @@ class _MessagesPageState extends State<MessagesPage> {
                 if (!_loadedLocalConversations) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                if (conversationIds.isEmpty) return const _NoMessagesFooter();
-                return _ConversationList(
-                  controller: _scrollController,
-                  conversationIds: conversationIds,
-                  conversationStore: _conversationStore,
-                  onTap: _openConversation,
-                  timeLabelNow: _timeLabelNow,
+                return RefreshIndicator(
+                  onRefresh: _refreshMessagesData,
+                  child: conversationIds.isEmpty
+                      ? const _NoMessagesFooter()
+                      : _ConversationList(
+                          controller: _scrollController,
+                          conversationIds: conversationIds,
+                          conversationStore: _conversationStore,
+                          onTap: _openConversation,
+                          timeLabelNow: _timeLabelNow,
+                        ),
                 );
               },
             ),
@@ -388,6 +392,9 @@ class _ConversationList extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.separated(
       controller: controller,
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
       padding: EdgeInsets.only(
         left: 18,
         right: 18,
@@ -569,18 +576,24 @@ class _NoMessagesFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox.expand(
-      child: Center(
-        key: ValueKey('direct-messages-empty-state'),
-        child: Text(
-          'no private messages yet.',
-          style: TextStyle(
-            fontSize: 14,
-            color: Color(0xFF94979E),
-            fontWeight: FontWeight.w500,
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.45,
+          child: const Center(
+            key: ValueKey('direct-messages-empty-state'),
+            child: Text(
+              'no private messages yet.',
+              style: TextStyle(
+                fontSize: 14,
+                color: Color(0xFF94979E),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

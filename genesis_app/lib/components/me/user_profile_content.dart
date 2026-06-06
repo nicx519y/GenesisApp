@@ -28,6 +28,8 @@ class UserProfileContent extends StatefulWidget {
     this.isUpdatingProfileListenable,
     this.onEditAvatar,
     this.onEditDisplayName,
+    this.onRefreshOrigins,
+    this.onRefreshWorlds,
     this.nameUidGap = 4,
     this.tabLabelFontSize = 16,
   });
@@ -45,6 +47,8 @@ class UserProfileContent extends StatefulWidget {
   final ValueListenable<bool>? isUpdatingProfileListenable;
   final VoidCallback? onEditAvatar;
   final VoidCallback? onEditDisplayName;
+  final Future<void> Function()? onRefreshOrigins;
+  final Future<void> Function()? onRefreshWorlds;
   final double nameUidGap;
   final double? tabLabelFontSize;
 
@@ -181,11 +185,13 @@ class _UserProfileContentState extends State<UserProfileContent>
                   items: data.origins,
                   isLoading: widget.originsLoading,
                   listenable: widget.originsListenable,
+                  onRefresh: widget.onRefreshOrigins,
                 ),
                 _WorldProfileCollectionList(
                   items: data.worlds,
                   isLoading: widget.worldsLoading,
                   listenable: widget.worldsListenable,
+                  onRefresh: widget.onRefreshWorlds,
                 ),
               ],
             ),
@@ -321,12 +327,14 @@ class _OriginProfileCollectionList extends StatelessWidget {
     required this.items,
     required this.isLoading,
     required this.listenable,
+    required this.onRefresh,
   });
 
   final List<UserProfileOriginItem> items;
   final bool isLoading;
   final ValueListenable<UserProfileCollectionState<UserProfileOriginItem>>?
   listenable;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -381,6 +389,8 @@ class _OriginProfileCollectionList extends StatelessWidget {
       emptyText: 'No Origins you created yet.',
       isLoading: isLoading,
       loadingKey: const ValueKey('profile-origin-list-loading'),
+      onRefresh: onRefresh,
+      refreshKey: const ValueKey('profile-origin-list-refresh'),
     );
   }
 }
@@ -390,12 +400,14 @@ class _WorldProfileCollectionList extends StatelessWidget {
     required this.items,
     required this.isLoading,
     required this.listenable,
+    required this.onRefresh,
   });
 
   final List<UserProfileWorldItem> items;
   final bool isLoading;
   final ValueListenable<UserProfileCollectionState<UserProfileWorldItem>>?
   listenable;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -453,6 +465,8 @@ class _WorldProfileCollectionList extends StatelessWidget {
       emptyText: 'No Worlds you created yet.',
       isLoading: isLoading,
       loadingKey: const ValueKey('profile-world-list-loading'),
+      onRefresh: onRefresh,
+      refreshKey: const ValueKey('profile-world-list-refresh'),
     );
   }
 }

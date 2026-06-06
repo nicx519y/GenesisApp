@@ -270,6 +270,64 @@ class _MePageState extends State<MePage> {
     await _future;
   }
 
+  Future<void> _refreshOrigins() async {
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final current = _originsState.value;
+    _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
+      items: current.items,
+      isLoading: true,
+    );
+    try {
+      final originPage = await services.api.getMyLaunchedOrigins(
+        uid: uid.isEmpty ? null : uid,
+        limit: 30,
+        offset: 0,
+      );
+      if (!mounted) return;
+      _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
+        items: originPage.data
+            .map(_profileOriginItemFromSummary)
+            .toList(growable: false),
+        isLoading: false,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
+        items: current.items,
+        isLoading: false,
+      );
+    }
+  }
+
+  Future<void> _refreshWorlds() async {
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final current = _worldsState.value;
+    _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
+      items: current.items,
+      isLoading: true,
+    );
+    try {
+      final worlds = await services.api.getMyWorlds(
+        uid: uid.isEmpty ? null : uid,
+        limit: 30,
+        offset: 0,
+      );
+      if (!mounted) return;
+      _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
+        items: worlds.map(_profileWorldItemFromSummary).toList(growable: false),
+        isLoading: false,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
+        items: current.items,
+        isLoading: false,
+      );
+    }
+  }
+
   Future<void> _login(IdentityProvider provider) async {
     if (_loggingInProvider != null) return;
     final login = widget.onLogin;
@@ -498,6 +556,8 @@ class _MePageState extends State<MePage> {
                   isUpdatingProfileListenable: _isUpdatingProfile,
                   onEditAvatar: _editAvatar,
                   onEditDisplayName: _editNickName,
+                  onRefreshOrigins: _refreshOrigins,
+                  onRefreshWorlds: _refreshWorlds,
                 ),
               ),
             ],
