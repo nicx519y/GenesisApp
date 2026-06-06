@@ -34,7 +34,7 @@ class ChatroomHttpApi {
 
   /// GET /aitown-chat/api/messages
   Future<ChatroomMessageListResponse> getMessages({
-    required String worldInstanceId,
+    required String worldId,
     required String locationId,
     int? since,
     int? limit,
@@ -42,7 +42,7 @@ class ChatroomHttpApi {
     final data = await _getMap(
       'aitown-chat/api/messages',
       v1Query({
-        'world_id': _required(worldInstanceId, 'worldInstanceId'),
+        'world_id': _required(worldId, 'worldId'),
         'location_id': _required(locationId, 'locationId'),
         'since': since,
         'limit': limit,

@@ -214,15 +214,6 @@ class _LocationChatPageState extends State<LocationChatPage>
           if (!mounted) return;
           _handleUserMessage(e);
         },
-        onQueuePosition: (e) {
-          if (!mounted) return;
-          setState(() {
-            _messages.add(
-              ChatMessageVm.system('Queue position: ${e.position}'),
-            );
-          });
-          _scrollToBottom();
-        },
       ),
       onDone: _markDisconnected,
     );
@@ -359,9 +350,7 @@ class _LocationChatPageState extends State<LocationChatPage>
       setState(() {
         localMessage.messageId = ack.messageId;
         localMessage.roundId = ack.conversationRoundId;
-        localMessage.status = ack.queuePosition == 0
-            ? 'sent'
-            : 'queued ${ack.queuePosition}';
+        localMessage.status = 'sent';
         _sending = false;
       });
     } catch (e) {

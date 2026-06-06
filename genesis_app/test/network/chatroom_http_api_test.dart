@@ -37,7 +37,7 @@ class _FakeTransport implements HttpTransport {
             'location_id': 'loc_1',
             'messages': [
               {
-                'message_id': 1001,
+                'msg_id': 1001,
                 'location_id': 'loc_1',
                 'conversation_round_id': 100,
                 'round_order': 1,
@@ -46,7 +46,7 @@ class _FakeTransport implements HttpTransport {
                 'sender_name': 'A',
                 'user_id': 'u_1',
                 'content': 'hello',
-                'created_at': '2026-05-29 10:00:00',
+                'ts': 1717300000000,
               },
             ],
           },
@@ -125,7 +125,7 @@ void main() {
     expect(worldMessages.locations.single.messages.single.content, 'hello');
 
     final history = await api.getMessages(
-      worldInstanceId: 'w_1',
+      worldId: 'w_1',
       locationId: 'loc_1',
       since: 0,
       limit: 20,

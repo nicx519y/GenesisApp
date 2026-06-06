@@ -34,7 +34,7 @@ void main() {
     await session.disconnect();
   });
 
-  test('join sends join payload and completes with joined event', () async {
+  test('join sends join frame and completes with matching ack', () async {
     final socket = _FakeChatroomSocket();
     final transport = _FakeChatroomTransport(socket);
     final client = await _client(transport);
@@ -54,15 +54,7 @@ void main() {
       'location_id': 'loc-1',
     });
 
-    socket.serverEvent('joined', {
-      'session_id': 'sess-1',
-      'world_id': 'world-1',
-      'location_id': 'loc-1',
-      'user_id': 'u_1',
-      'code': 0,
-      'code_msg': 'ok',
-      'online_users': <Object?>[],
-    });
+    socket.serverJoinAck();
 
     final joined = await joinFuture;
     expect(joined.sessionId, 'sess-1');
@@ -180,31 +172,38 @@ void main() {
     await session.close();
   });
 
-  test(
-    'sendMessage matches ack by pending order when server omits client_uuid',
-    () async {
-      final socket = _FakeChatroomSocket();
-      final client = await _client(_FakeChatroomTransport(socket));
-      final session = await _connectedSession(client, socket);
+  test('sendMessage requires ack payload client_msg_id', () async {
+    final socket = _FakeChatroomSocket();
+    final client = await _client(
+      _FakeChatroomTransport(socket),
+      ackTimeout: const Duration(milliseconds: 20),
+    );
+    final session = await _connectedSession(client, socket);
 
-      final ackFuture = session.sendMessage('hello', clientMsgId: 'client-1');
-      await _tick();
+    final future = session.sendMessage('hello', clientMsgId: 'client-1');
+    await _tick();
 
-      socket.serverFrame('ack', {
-        'world_id': 'world-1',
-        'session_id': 'sess-1',
-        'location_id': 'loc-1',
-        'msg_id': 1001,
-        'conversation_round_id': 201,
-        'payload': <String, Object?>{},
-      });
+    socket.serverFrame('ack', {
+      'world_id': 'world-1',
+      'session_id': 'sess-1',
+      'location_id': 'loc-1',
+      'msg_id': 1001,
+      'conversation_round_id': 201,
+      'payload': <String, Object?>{},
+    });
 
-      final ack = await ackFuture;
-      expect(ack.clientUuid, isEmpty);
-      expect(ack.messageId, 1001);
-      await session.close();
-    },
-  );
+    await expectLater(
+      future,
+      throwsA(
+        isA<ChatroomFailureEvent>().having(
+          (e) => e.code,
+          'code',
+          'ack_timeout',
+        ),
+      ),
+    );
+    await session.close();
+  });
 
   test('sendMessage fails when ack times out', () async {
     final socket = _FakeChatroomSocket();
@@ -385,34 +384,18 @@ void main() {
     expect(socket.closed, true);
   });
 
-  test('heartbeat completes after server heartbeat response', () async {
+  test('heartbeat sends the documented one-way frame', () async {
     final socket = _FakeChatroomSocket();
     final client = await _client(_FakeChatroomTransport(socket));
     final session = await _connectedSession(client, socket);
     final before = socket.sentTypes.where((type) => type == 'heartbeat').length;
-    final events = <ChatroomEvent>[];
-    final sub = session.events.listen(events.add);
 
-    var completed = false;
-    final heartbeatFuture = session.heartbeat().then((_) {
-      completed = true;
-    });
-    await _tick();
+    await session.heartbeat();
 
     expect(
       socket.sentTypes.where((type) => type == 'heartbeat').length,
       before + 1,
     );
-    expect(completed, false);
-
-    socket.serverEvent('heartbeat', _basePayload(), mySessionId: 'sess-1');
-
-    await heartbeatFuture;
-    await _tick();
-    expect(completed, true);
-    final heartbeat = events.whereType<ChatroomHeartbeat>().single;
-    expect(heartbeat.mySessionId, 'sess-1');
-    await sub.cancel();
     await session.close();
   });
 
@@ -455,16 +438,18 @@ void main() {
 
     final failures = <ChatroomFailureEvent>[];
     final sub = session.failures.listen(failures.add);
-    socket.serverEvent('error', {
+    socket.serverFrame('error', {
+      'world_id': 'world-1',
       'session_id': 'sess-1',
-      'code': 1005,
-      'code_msg': '未加入聊天室',
+      'err_code': 'tick_locked',
+      'err_msg': '当前 Tick 正在推进，请稍后',
+      'payload': <String, Object?>{},
     });
     await _tick();
 
     expect(failures, hasLength(1));
-    expect(failures.single.code, '1005');
-    expect(failures.single.message, '未加入聊天室');
+    expect(failures.single.code, 'tick_locked');
+    expect(failures.single.message, '当前 Tick 正在推进，请稍后');
     await sub.cancel();
     await session.close();
   });
@@ -491,98 +476,107 @@ void main() {
       final handled = <String>[];
       final sub = session.listenMessages(
         ChatroomMessageHandlers(
-          onJoined: (_) => handled.add('joined'),
-          onLeaved: (_) => handled.add('leaved'),
-          onKicked: (_) => handled.add('kicked'),
-          onDisconnected: (_) => handled.add('disconnected'),
           onAck: (_) => handled.add('ack'),
           onError: (_) => handled.add('error'),
           onFailure: (_) => handled.add('failure'),
-          onInputBlocked: (_) => handled.add('input_blocked'),
-          onInputReady: (_) => handled.add('input_ready'),
           onWorldNotification: (_) => handled.add('world_notification'),
-          onQueuePosition: (_) => handled.add('queue_position'),
           onUserMessage: (_) => handled.add('user_message'),
-          onCharacterMessage: (_) => handled.add('character_message'),
-          onNarratorMessage: (_) => handled.add('narrator_message'),
-          onAiStreamStart: (_) => handled.add('ai_stream_start'),
-          onAiStreamChunk: (_) => handled.add('ai_stream_chunk'),
-          onAiStreamEnd: (_) => handled.add('ai_stream_end'),
+          onAiStreamStart: (_) => handled.add('llm_stream_start'),
+          onAiStreamChunk: (_) => handled.add('llm_chunk'),
+          onAiStreamEnd: (_) => handled.add('llm_stream_end'),
         ),
       );
 
-      socket.serverEvent('joined', _joinedPayload());
-      socket.serverEvent('leaved', _basePayload());
-      socket.serverEvent('kicked', _basePayload());
-      socket.serverEvent('disconnected', const <String, Object?>{});
-      socket.serverEvent('ack', {
-        ..._basePayload(),
-        'message_id': 1001,
-        'conversation_round_id': 201,
-        'queue_position': 0,
-      });
-      socket.serverEvent('error', {
+      socket.serverFrame('ack', {
+        'world_id': 'world-1',
         'session_id': 'sess-1',
-        'code': 1005,
-        'code_msg': '未加入聊天室',
+        'location_id': 'loc-1',
+        'msg_id': 1001,
+        'conversation_round_id': 201,
+        'payload': {'client_msg_id': 'client-handler'},
       });
-      socket.serverEvent('input_blocked', _basePayload());
-      socket.serverEvent('input_ready', _basePayload());
-      socket.serverWorldEvent(
-        'world_notification',
-        worldPayload: {
-          'world_id': 'world-1',
-          'event_type': 'weather_change',
+      socket.serverFrame('error', {
+        'world_id': 'world-1',
+        'session_id': 'sess-1',
+        'err_code': 'tick_locked',
+        'err_msg': '当前 Tick 正在推进，请稍后',
+        'payload': <String, Object?>{},
+      });
+      socket.serverFrame('tick_start', {
+        'world_id': 'world-1',
+        'payload': {
+          'title': 'Tick 开始',
+          'summary': 'Tick 5 开始推进',
+          'detail_url': '',
+        },
+      });
+      socket.serverFrame('world_change', {
+        'world_id': 'world-1',
+        'payload': {
           'title': '天气变化',
           'summary': '下雨了',
           'detail_url': '/api/v1/world/world-1/events/weather',
         },
-      );
-      socket.serverEvent('queue_position', {
-        'session_id': 'sess-1',
-        'conversation_round_id': 201,
-        'position': 2,
-        'estimated_wait_seconds': 8,
       });
-      socket.serverEvent('user_message', _messagePayload('user'));
-      socket.serverEvent('character_message', _messagePayload('character'));
-      socket.serverEvent('narrator_message', _messagePayload('narrator'));
-      socket.serverEvent('ai_stream_start', _aiStartPayload());
-      socket.serverEvent('ai_stream_chunk', {
+      socket.serverFrame('user_message', {
+        'world_id': 'world-1',
         'session_id': 'sess-1',
-        'message_id': 1002,
+        'location_id': 'loc-1',
+        'user_id': 'u_1',
+        'sender_name': 'Alice',
+        'msg_id': 1001,
         'conversation_round_id': 201,
-        'sender_id': 'char_alice',
-        'chunk': 'hello',
+        'payload': {'content': '你好'},
       });
-      socket.serverEvent('ai_stream_end', {
-        'session_id': 'sess-1',
-        'message_id': 1002,
+      socket.serverFrame('llm_stream_start', {
+        'world_id': 'world-1',
+        'location_id': 'loc-1',
+        'msg_id': 1002,
         'conversation_round_id': 201,
-        'sender_id': 'char_alice',
+        'payload': {
+          'sender_type': 'character',
+          'sender_id': 'char_alice',
+          'sender_name': 'Alice',
+        },
+      });
+      socket.serverFrame('llm_chunk', {
+        'world_id': 'world-1',
+        'location_id': 'loc-1',
+        'msg_id': 1002,
+        'conversation_round_id': 201,
+        'payload': {
+          'sender_type': 'character',
+          'sender_id': 'char_alice',
+          'sender_name': 'Alice',
+          'seq': 1,
+          'content': 'hello',
+        },
+      });
+      socket.serverFrame('llm_stream_end', {
+        'world_id': 'world-1',
+        'location_id': 'loc-1',
+        'msg_id': 1002,
+        'conversation_round_id': 201,
+        'payload': {
+          'sender_type': 'character',
+          'sender_id': 'char_alice',
+          'sender_name': 'Alice',
+          'content': 'hello',
+        },
       });
       await _tick();
 
       expect(
         handled,
         containsAll(<String>[
-          'joined',
-          'leaved',
-          'kicked',
-          'disconnected',
           'ack',
           'error',
           'failure',
-          'input_blocked',
-          'input_ready',
           'world_notification',
-          'queue_position',
           'user_message',
-          'character_message',
-          'narrator_message',
-          'ai_stream_start',
-          'ai_stream_chunk',
-          'ai_stream_end',
+          'llm_stream_start',
+          'llm_chunk',
+          'llm_stream_end',
         ]),
       );
       await sub.cancel();
@@ -678,7 +672,7 @@ void main() {
     await controller.connect(worldId: 'world-1', identity: _identity());
     final joinFuture = controller.join(locationId: 'loc-1');
     await _tick();
-    firstSocket.serverEvent('joined', _joinedPayload());
+    firstSocket.serverJoinAck();
     await joinFuture;
     expect(controller.status, ChatroomConnectionStatus.joined);
 
@@ -688,7 +682,7 @@ void main() {
     expect(transport.connectCount, 2);
     expect(secondSocket.sentTypes, contains('join'));
     expect(secondSocket.sentFrame('join')['location_id'], 'loc-1');
-    secondSocket.serverEvent('joined', _joinedPayload());
+    secondSocket.serverJoinAck();
     await Future<void>.delayed(const Duration(milliseconds: 1));
     expect(controller.status, ChatroomConnectionStatus.joined);
     await controller.disconnect();
@@ -730,7 +724,7 @@ void main() {
     await controller.connect(worldId: 'world-1', identity: _identity());
     final joinFuture = controller.join(locationId: 'loc-1');
     await _tick();
-    firstSocket.serverEvent('joined', _joinedPayload());
+    firstSocket.serverJoinAck();
     await joinFuture;
 
     await controller.handleAppBackground();
@@ -740,7 +734,7 @@ void main() {
     final foregroundFuture = controller.handleAppForeground();
     await _tick();
     expect(secondSocket.sentTypes, contains('join'));
-    secondSocket.serverEvent('joined', _joinedPayload());
+    secondSocket.serverJoinAck();
     await foregroundFuture;
 
     expect(controller.status, ChatroomConnectionStatus.joined);
@@ -782,60 +776,12 @@ Future<ChatroomSession> _connectedSession(
   final session = await client.connect(worldId: 'world-1', locationId: 'loc-1');
   final future = session.join();
   await _tick();
-  socket.serverEvent('joined', {
-    'session_id': 'sess-1',
-    'world_id': 'world-1',
-    'location_id': 'loc-1',
-    'user_id': 'u_1',
-    'code': 0,
-    'code_msg': 'ok',
-    'online_users': <Object?>[],
-  });
+  socket.serverJoinAck();
   await future;
   return session;
 }
 
 Future<void> _tick() => Future<void>.delayed(Duration.zero);
-
-Map<String, Object?> _basePayload() {
-  return {
-    'session_id': 'sess-1',
-    'world_id': 'world-1',
-    'location_id': 'loc-1',
-    'user_id': 'u_1',
-    'code': 0,
-    'code_msg': 'ok',
-  };
-}
-
-Map<String, Object?> _joinedPayload() {
-  return {..._basePayload(), 'online_users': <Object?>[]};
-}
-
-Map<String, Object?> _messagePayload(String senderType) {
-  return {
-    ..._basePayload(),
-    'message_id': senderType == 'user' ? 1001 : 1002,
-    'conversation_round_id': 201,
-    'round_order': senderType == 'user' ? 0 : 1,
-    'sender_type': senderType,
-    'sender_id': senderType == 'narrator' ? 'narrator' : 'char_alice',
-    'sender_name': senderType == 'narrator' ? 'Narrator' : 'Alice',
-    'content': '你好',
-  };
-}
-
-Map<String, Object?> _aiStartPayload() {
-  return {
-    'session_id': 'sess-1',
-    'message_id': 1002,
-    'conversation_round_id': 201,
-    'round_order': 1,
-    'sender_type': 'character',
-    'sender_id': 'char_alice',
-    'sender_name': 'Alice',
-  };
-}
 
 ChatroomConnectionIdentity _identity() {
   return const ChatroomConnectionIdentity(
@@ -923,42 +869,19 @@ class _FakeChatroomSocket implements ChatroomSocket {
     return jsonDecode(raw) as Map<String, dynamic>;
   }
 
-  Map<String, dynamic> sentPayload(String type) {
-    return sentFrame(type)['payload'] as Map<String, dynamic>;
-  }
-
   void serverFrame(String type, Map<String, Object?> fields) {
     _messages.add(jsonEncode(<String, Object?>{'type': type, ...fields}));
   }
 
-  void serverEvent(
-    String type,
-    Map<String, Object?> payload, {
-    bool? broadcast,
-    String? mySessionId,
-  }) {
-    _messages.add(
-      jsonEncode(<String, Object?>{
-        'type': type,
-        'payload': payload,
-        if (broadcast != null) 'broadcast': broadcast,
-        if (mySessionId != null) 'my_session_id': mySessionId,
-      }),
-    );
-  }
-
-  void serverWorldEvent(
-    String type, {
-    required Map<String, Object?> worldPayload,
-    bool? broadcast,
-  }) {
-    _messages.add(
-      jsonEncode(<String, Object?>{
-        'type': type,
-        'world_payload': worldPayload,
-        if (broadcast != null) 'broadcast': broadcast,
-      }),
-    );
+  void serverJoinAck() {
+    final clientMsgId = sentFrame('join')['client_msg_id'] as String;
+    serverFrame('ack', {
+      'world_id': 'world-1',
+      'session_id': 'sess-1',
+      'location_id': sentFrame('join')['location_id'],
+      'user_id': 'u_1',
+      'payload': {'client_msg_id': clientMsgId},
+    });
   }
 
   void serverRaw(String raw) {

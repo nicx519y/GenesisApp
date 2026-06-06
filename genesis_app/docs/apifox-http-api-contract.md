@@ -815,13 +815,13 @@ Query：
 
 响应 `data`：
 
-- `messages`: `ChatroomMessageDTO[]`；新 WebSocket 文档中的响应示例使用 `msg_id` 和毫秒级 `ts`，Flutter DTO 同时兼容旧 `message_id` / `created_at`
+- `messages`: `ChatroomMessageDTO[]`；响应消息使用 `msg_id` 和毫秒级 `ts`
 - `has_more`: boolean，是否有更多消息
 - `newest_message_id`: integer，最新消息 ID
 
 ### POST `/aitown-chat/internal/tick/lock`
 
-Tick 服务锁定 world，chat 服务广播 `input_blocked`，阻止用户继续发送消息。
+Tick 服务锁定 world，chat 服务按 WebSocket 新协议广播 `tick_start`，阻止用户继续发送消息。
 
 Query / multipart form：
 
@@ -847,7 +847,7 @@ Query：
 
 ### POST `/aitown-chat/internal/tick/unlock`
 
-Tick 服务解锁 world，chat 服务广播 `input_ready`，用户可以继续发送消息。
+Tick 服务解锁 world，chat 服务按 WebSocket 新协议广播 `tick_done`，用户可以继续发送消息。
 
 multipart form：
 
@@ -859,7 +859,7 @@ multipart form：
 
 ### POST `/aitown-chat/internal/narrator/write`
 
-旁白服务写入旁白消息，并广播 `narrator_message` 给对应 location 用户。
+旁白服务写入旁白消息，并按 WebSocket 新协议广播 `nar_new_message` 给对应 location 用户。
 
 JSON body：
 
@@ -1325,7 +1325,7 @@ query：
 | `GET /api/v1/world/origin_progress` | 已新增 `WorldV1Api.originProgress(uid,originId)`，query 使用 `uid/origin_id`，响应消费 `world_id/tick_cnt`；origin discuss loader 会用该接口补齐每条评论作者在当前 origin 下的 world 与 tick 进度。 |
 | `POST /api/v1/world/tick` | 新契约替代旧 progress 触发接口；客户端应提交 `{ "world_id": "<world_id>" }` 并消费 `world_id/tick_cnt/last_tick`。 |
 | `GET /aitown-chat/internal/world/messages` | 已新增 `ChatroomHttpApi.getWorldMessages(worldId)`，query 使用 `world_id`，响应消费 `locations[].location_id/messages[]`；本地 mock 按 location 分组返回最近消息。 |
-| `GET /aitown-chat/api/messages` | 已新增 `ChatroomHttpApi.getMessages(worldInstanceId,locationId,since,limit)`，query 使用 `world_instance_id/location_id/since/limit`，响应消费 `messages/has_more/newest_message_id`。 |
+| `GET /aitown-chat/api/messages` | 已新增 `ChatroomHttpApi.getMessages(worldId,locationId,since,limit)`，query 使用 `world_id/location_id/since/limit`，响应消费 `messages/has_more/newest_message_id`。 |
 | `POST /aitown-chat/internal/tick/lock` | 已新增 `ChatroomHttpApi.lockWorld(worldId)`，按 Apifox 同时发送 query `world_id` 与 multipart form `world_id`，响应消费 `locked`。 |
 | `GET /aitown-chat/internal/tick/progress` | 已新增 `ChatroomHttpApi.tickProgress(worldId)`，响应消费 `progress/pending_messages/active_llm_calls`。 |
 | `POST /aitown-chat/internal/tick/unlock` | 已新增 `ChatroomHttpApi.unlockWorld(worldId)`，multipart form 发送 `world_id`，响应消费 `unlocked`。 |

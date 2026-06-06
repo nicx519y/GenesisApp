@@ -5757,7 +5757,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(chatroom.worldInstanceId, 'w_test_1');
+      expect(chatroom.worldId, 'w_test_1');
       expect(chatroom.senderId, 'u_mock');
 
       await tester.pump();
@@ -5853,7 +5853,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(chatroom.connectCount, 1);
-      expect(chatroom.worldInstanceId, 'w_test_1');
+      expect(chatroom.worldId, 'w_test_1');
 
       transport.worldRelationStatus = 'approved';
       await tester.pump(const Duration(seconds: 5));
@@ -5885,7 +5885,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(chatroom.worldInstanceId, 'world-1');
+      expect(chatroom.worldId, 'world-1');
       expect(chatroom.locationId, '');
       expect(chatroom.session.joinLocationId, 'castle');
       expect(chatroom.senderId, 'u_mock');
@@ -5896,15 +5896,15 @@ void main() {
       await tester.tap(find.byType(TextField));
       await tester.enterText(find.byType(TextField), 'hello castle');
       await tester.pump();
-      final sendButton = find.ancestor(
-        of: find.byIcon(Icons.send),
-        matching: find.byType(IconButton),
+      final sendButton = find.descendant(
+        of: find.byKey(const ValueKey('chat-composer-send-button')),
+        matching: find.byType(TextButton),
       );
       for (var i = 0; i < 10; i++) {
-        if (tester.widget<IconButton>(sendButton).onPressed != null) break;
+        if (tester.widget<TextButton>(sendButton).onPressed != null) break;
         await tester.pump(const Duration(milliseconds: 10));
       }
-      expect(tester.widget<IconButton>(sendButton).onPressed, isNotNull);
+      expect(tester.widget<TextButton>(sendButton).onPressed, isNotNull);
       await tester.tap(sendButton);
       await tester.pump();
 
@@ -5939,11 +5939,11 @@ void main() {
     await tester.pump();
 
     expect(find.text('draft before connect'), findsOneWidget);
-    final sendButton = find.ancestor(
-      of: find.byIcon(Icons.send),
-      matching: find.byType(IconButton),
+    final sendButton = find.descendant(
+      of: find.byKey(const ValueKey('chat-composer-send-button')),
+      matching: find.byType(TextButton),
     );
-    expect(tester.widget<IconButton>(sendButton).onPressed, isNull);
+    expect(tester.widget<TextButton>(sendButton).onPressed, isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 2));
@@ -6161,8 +6161,7 @@ class _RecordingFollowsTransport implements HttpTransport {
 class _FailingChatroomClient implements ChatroomClient {
   @override
   Future<ChatroomSession> connect({
-    String? worldId,
-    String? worldInstanceId,
+    required String worldId,
     String? locationId,
     String? userId,
     String? senderId,
@@ -6173,8 +6172,7 @@ class _FailingChatroomClient implements ChatroomClient {
 
   @override
   Future<ChatroomSession> connectAndJoin({
-    String? worldId,
-    String? worldInstanceId,
+    required String worldId,
     String? locationId,
     String? userId,
     String? senderId,
@@ -6187,7 +6185,7 @@ class _FailingChatroomClient implements ChatroomClient {
 class _FakeChatroomClient implements ChatroomClient {
   late final _FakeChatroomSession session;
   int connectCount = 0;
-  String? worldInstanceId;
+  String? worldId;
   String? locationId;
   String? userId;
   String? senderId;
@@ -6195,22 +6193,21 @@ class _FakeChatroomClient implements ChatroomClient {
 
   @override
   Future<ChatroomSession> connect({
-    String? worldId,
-    String? worldInstanceId,
+    required String worldId,
     String? locationId,
     String? userId,
     String? senderId,
     String? senderName,
   }) async {
     connectCount += 1;
-    final resolvedWorldId = worldId ?? worldInstanceId ?? '';
-    this.worldInstanceId = resolvedWorldId;
+    final resolvedWorldId = worldId;
+    this.worldId = resolvedWorldId;
     this.locationId = locationId ?? '';
     this.userId = userId;
     this.senderId = senderId;
     this.senderName = senderName;
     session = _FakeChatroomSession(
-      worldInstanceId: resolvedWorldId,
+      worldId: resolvedWorldId,
       locationId: locationId ?? '',
       userId: userId ?? '',
       senderId: senderId ?? '',
@@ -6221,8 +6218,7 @@ class _FakeChatroomClient implements ChatroomClient {
 
   @override
   Future<ChatroomSession> connectAndJoin({
-    String? worldId,
-    String? worldInstanceId,
+    required String worldId,
     String? locationId,
     String? userId,
     String? senderId,
@@ -6230,7 +6226,6 @@ class _FakeChatroomClient implements ChatroomClient {
   }) async {
     final session = await connect(
       worldId: worldId,
-      worldInstanceId: worldInstanceId,
       locationId: locationId,
       userId: userId,
       senderId: senderId,
@@ -6243,7 +6238,7 @@ class _FakeChatroomClient implements ChatroomClient {
 
 class _FakeChatroomSession implements ChatroomSession {
   _FakeChatroomSession({
-    required this.worldInstanceId,
+    required this.worldId,
     required this.locationId,
     required this.userId,
     required this.senderId,
@@ -6251,7 +6246,7 @@ class _FakeChatroomSession implements ChatroomSession {
   });
 
   @override
-  final String worldInstanceId;
+  final String worldId;
 
   @override
   final String locationId;
@@ -6278,7 +6273,7 @@ class _FakeChatroomSession implements ChatroomSession {
   @override
   ChatroomJoined? get joined => ChatroomJoined(
     sessionId: 'sess-1',
-    worldId: worldInstanceId,
+    worldId: worldId,
     locationId: joinLocationId ?? locationId,
     userId: 'u_mock',
     code: 0,
@@ -6333,15 +6328,11 @@ class _FakeChatroomSession implements ChatroomSession {
   Future<void> heartbeat() async {}
 
   @override
-  Future<ChatroomAck> sendMessage(
-    String text, {
-    String? clientUuid,
-    String? clientMsgId,
-  }) async {
+  Future<ChatroomAck> sendMessage(String text, {String? clientMsgId}) async {
     sentMessages.add(text);
     return ChatroomAck(
       sessionId: 'sess-1',
-      worldId: worldInstanceId,
+      worldId: worldId,
       locationId: locationId,
       userId: 'u_mock',
       code: 0,
@@ -6349,8 +6340,7 @@ class _FakeChatroomSession implements ChatroomSession {
       ts: null,
       messageId: 42,
       conversationRoundId: 'round-1',
-      clientUuid: clientUuid ?? clientMsgId ?? 'client-1',
-      queuePosition: 0,
+      clientMsgId: clientMsgId ?? 'client-1',
     );
   }
 

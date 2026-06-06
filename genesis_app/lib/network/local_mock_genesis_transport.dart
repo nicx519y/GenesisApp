@@ -236,7 +236,7 @@ class LocalMockGenesisTransport implements HttpTransport {
     if (method == 'GET' && path == 'aitown-chat/api/messages') {
       return _v1Ok(
         _state.chatroomHistoryMessages(
-          worldId: query['world_id'] ?? query['world_instance_id'] ?? '',
+          worldId: query['world_id'] ?? '',
           locationId: query['location_id'] ?? '',
           since: int.tryParse(query['since'] ?? ''),
           limit: int.tryParse(query['limit'] ?? ''),
@@ -2946,6 +2946,10 @@ class _MockState {
   Map<String, dynamic> _chatroomResponseMessage(Map<String, dynamic> message) {
     final copy = _deepCopyMap(message);
     copy.remove('world_id');
+    copy['msg_id'] = asInt(copy.remove('message_id'));
+    copy['ts'] =
+        asDateTime(copy.remove('created_at'))?.millisecondsSinceEpoch ??
+        DateTime.now().millisecondsSinceEpoch;
     return copy;
   }
 

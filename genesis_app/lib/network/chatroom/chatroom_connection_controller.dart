@@ -63,7 +63,6 @@ class ChatroomConnectionController {
   ChatroomFailureEvent? _lastFailure;
   ChatroomConnectionIdentity? _identity;
   String? _worldId;
-  String? _worldInstanceId;
   String? _joinLocationId;
   bool _desiredConnected = false;
   bool _desiredJoined = false;
@@ -107,12 +106,10 @@ class ChatroomConnectionController {
 
   Future<void> connect({
     required String worldId,
-    String? worldInstanceId,
     required ChatroomConnectionIdentity identity,
   }) {
     _throwIfDisposed();
     _worldId = worldId.trim();
-    _worldInstanceId = (worldInstanceId ?? worldId).trim();
     _identity = identity;
     _desiredConnected = true;
     _manualSessionClose = false;
@@ -276,15 +273,12 @@ class ChatroomConnectionController {
     _setStatus(ChatroomConnectionStatus.connecting);
     try {
       final identity = _identity;
-      final worldInstanceId = _worldInstanceId;
-      if (identity == null ||
-          worldInstanceId == null ||
-          worldInstanceId.isEmpty) {
+      final worldId = _worldId;
+      if (identity == null || worldId == null || worldId.isEmpty) {
         throw const ChatroomProtocolException('connect request is incomplete');
       }
       final session = await _client.connect(
-        worldId: _worldId,
-        worldInstanceId: worldInstanceId,
+        worldId: worldId,
         userId: identity.userId,
         senderId: identity.senderId,
         senderName: identity.senderName,
@@ -376,17 +370,6 @@ class ChatroomConnectionController {
           if (_desiredJoined) {
             _setStatus(ChatroomConnectionStatus.joined);
           }
-        },
-        onLeaved: (_) {
-          _joined = null;
-          if (!_desiredJoined && _session != null) {
-            _setStatus(ChatroomConnectionStatus.connected);
-          }
-        },
-        onKicked: (_) {
-          _desiredJoined = false;
-          _joined = null;
-          if (_session != null) _setStatus(ChatroomConnectionStatus.connected);
         },
         onDisconnected: (_) => _handleSessionDone(),
       ),

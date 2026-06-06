@@ -130,7 +130,7 @@ GET wss://dev.hushie.ai/aitown-chat/ws?world_id={world_id}
 | `err_code` | `string` | 否 | 错误码 |
 | `err_msg` | `string` | 否 | 错误信息 |
 
-Flutter 解析时会把这些顶层字段合并到本地事件模型中；旧的 `payload.message_id` / `payload.client_uuid` / `world_payload` 仍作为解析兜底，但上行不再发送旧格式。
+Flutter 解析时只接受本文档列出的顶层字段与 `payload` 结构，不兼容旧协议字段或旧事件类型。
 
 ## 5. 服务端下行消息
 
@@ -383,8 +383,8 @@ Query：
 ## 8. Flutter 实现约定
 
 - `ChatroomClient.connect` 使用 `GENESIS_CHATROOM_WS_URL` 拼接 `world_id` query，并通过 `Authorization: Bearer ...` 建联。
-- `join`、`send_message`、`heartbeat`、`leave` 上行消息使用顶层字段，不再发送 `payload.text` 或 `payload.client_uuid`。
-- `send_message` 的 ack 匹配以 `client_msg_id` 为主；服务端缺失该字段时，Flutter 仍按 pending 顺序兜底。
-- `join()` 兼容服务端返回 `joined` 或返回携带相同 `client_msg_id` 的 `ack`。
+- `join`、`send_message`、`heartbeat`、`leave` 上行消息只使用顶层字段，不发送旧 `payload` 包裹。
+- `send_message` 的 ack 必须通过 `payload.client_msg_id` 匹配；服务端缺失该字段时请求会超时。
+- `join()` 只接受携带相同 `payload.client_msg_id` 的 `ack` 作为完成信号。
 - `llm_stream_start`、`llm_chunk`、`llm_stream_end` 在 Flutter 内部仍复用 `ChatroomAiMessageStream` 事件模型。
 - 原始帧通过 `developer.log(name: 'ChatroomSocketFrame')` 输出到 Flutter DevTools Logging。

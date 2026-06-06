@@ -348,7 +348,7 @@ void main() {
     expect(userLocations.worldId, world);
     expect(userLocations.locations, isNotEmpty);
     final history = await api.chatroomHttp.getMessages(
-      worldInstanceId: world,
+      worldId: world,
       locationId: worldMessages.locations.first.locationId,
       since: 0,
       limit: 20,
