@@ -1,0 +1,247 @@
+part of 'origin_editor_pages.dart';
+
+class OriginCharactersEditorPage extends StatefulWidget {
+  const OriginCharactersEditorPage({super.key, required this.repository});
+
+  final OriginDraftRepository repository;
+
+  @override
+  State<OriginCharactersEditorPage> createState() =>
+      _OriginCharactersEditorPageState();
+}
+
+class _OriginCharactersEditorPageState
+    extends State<OriginCharactersEditorPage> {
+  static const int _maxCharacters = 8;
+
+  final List<OriginCharacterForm> _forms = <OriginCharacterForm>[];
+  String _uid = 'anonymous';
+  bool _isSaving = false;
+  bool _isFinalSynced = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    final uidFuture = readCreateOriginUid(context);
+    final draft = await widget.repository.loadDraft();
+    _uid = await uidFuture;
+    final source = draft.characters.isEmpty
+        ? const <CharacterDraft>[CharacterDraft()]
+        : draft.characters;
+    final missingIds = source.any((item) => item.charId.trim().isEmpty);
+    for (final item in source) {
+      _forms.add(_characterFormFromDraft(item, uid: _uid));
+    }
+    if (!mounted) return;
+    _isFinalSynced = draft.charactersSaved && !missingIds;
+    setState(() {});
+  }
+
+  void _addCharacter() {
+    if (_forms.length >= _maxCharacters) {
+      _showError('You can add up to $_maxCharacters characters.');
+      return;
+    }
+    setState(() {
+      _forms.add(
+        OriginCharacterForm.empty(
+          charId: createUidTimestampHashId(uid: _uid, prefix: 'char'),
+        ),
+      );
+    });
+    _onFormChanged();
+  }
+
+  Future<void> _requestRemoveCharacter(int index) async {
+    final form = _forms[index];
+    if (form.hasContent) {
+      final confirmed = await confirmCreateFormDelete(
+        context,
+        itemLabel: 'Character ${index + 1}',
+      );
+      if (!confirmed || !mounted) return;
+    }
+    _removeCharacter(index);
+  }
+
+  void _removeCharacter(int index) {
+    if (_forms.length <= 1) {
+      _forms[index].clear();
+    } else {
+      final form = _forms.removeAt(index);
+      form.dispose();
+    }
+    _onFormChanged();
+  }
+
+  void _onFormChanged() {
+    setState(() => _isFinalSynced = false);
+  }
+
+  List<CharacterDraft> _snapshotCharacters() {
+    return _forms
+        .map(
+          (form) => CharacterDraft(
+            charId: form.charId,
+            avatarUrl: form.avatarUrl.text.trim(),
+            name: form.name.text.trim(),
+            identity: form.identity.text.trim(),
+            personality: form.personality.text.trim(),
+            bio: form.bio.text.trim(),
+            goal: form.goal.text.trim(),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<void> _saveCharacters() async {
+    for (int i = 0; i < _forms.length; i++) {
+      final form = _forms[i];
+      if (!form.hasContent) continue;
+      if (form.name.text.trim().isEmpty) {
+        _showError('Character ${i + 1}: Name is required.');
+        return;
+      }
+      if (form.identity.text.trim().isEmpty) {
+        _showError('Character ${i + 1}: Identity is required.');
+        return;
+      }
+      if (form.personality.text.trim().isEmpty) {
+        _showError('Character ${i + 1}: Personality is required.');
+        return;
+      }
+    }
+
+    setState(() => _isSaving = true);
+    final draft = await widget.repository.loadDraft();
+    final characters = _snapshotCharacters()
+        .where(_characterDraftHasContent)
+        .toList(growable: false);
+    final validCharacterIds = characters
+        .map((item) => item.charId.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    final updatedDraft = draft
+        .copyWith(characters: characters, charactersSaved: true)
+        .pruneLocationBindings(validCharacterIds);
+
+    await widget.repository.saveFinalDraft(updatedDraft);
+
+    if (!mounted) return;
+    setState(() {
+      _isSaving = false;
+      _isFinalSynced = true;
+    });
+    Navigator.of(context).pop(true);
+  }
+
+  void _showError(String message) {
+    showGenesisToast(context, message);
+  }
+
+  OriginCharacterForm _characterFormFromDraft(
+    CharacterDraft draft, {
+    required String uid,
+  }) {
+    return OriginCharacterForm.fromValues(
+      charId: draft.charId.trim().isEmpty
+          ? createUidTimestampHashId(uid: uid, prefix: 'char')
+          : draft.charId.trim(),
+      avatarUrl: draft.avatarUrl,
+      name: draft.name,
+      identity: draft.identity,
+      personality: draft.personality,
+      bio: draft.bio,
+      goal: draft.goal,
+    );
+  }
+
+  @override
+  void dispose() {
+    for (final form in _forms) {
+      form.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: const GenesisBackAppBar(pageName: '👤 Characters'),
+      body: CreateKeyboardDismissArea(
+        child: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 14, 24, 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Define the souls that inhabit your world. Each character requires an identity and personality to interact authentically.',
+                        style: TextStyle(
+                          color: createFormMuted,
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${_forms.length}/$_maxCharacters (Added / Max)',
+                          style: const TextStyle(
+                            color: createFormText,
+                            fontSize: 14,
+                            height: 1.2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      for (int i = 0; i < _forms.length; i++) ...[
+                        _CharacterCard(
+                          index: i + 1,
+                          form: _forms[i],
+                          onChanged: _onFormChanged,
+                          onDelete: () {
+                            _requestRemoveCharacter(i);
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                      CreateAddButton(
+                        label: '+ Add Character',
+                        onTap: _addCharacter,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+              SafeArea(
+                top: false,
+                minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
+                child: GenesisPrimaryButton(
+                  label: _isSaving ? 'Saving...' : 'Save',
+                  onPressed: (_isSaving || _isFinalSynced)
+                      ? null
+                      : _saveCharacters,
+                  backgroundColor: createFormGreen,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: const Color(0xFFBFD8CD),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

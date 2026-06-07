@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../app/bootstrap/app_services_scope.dart';
+import '../app/bootstrap/polling_scheduler.dart';
 import '../components/bottom_tabs.dart';
 import '../components/login_sheet.dart';
 import '../network/models/unread_summary.dart';
@@ -31,9 +32,7 @@ class _AppShellPageState extends State<AppShellPage>
   final ValueNotifier<UnreadSummary> _unreadSummaryNotifier =
       ValueNotifier<UnreadSummary>(UnreadSummary.zero);
   static const _messagesPollInterval = Duration(seconds: 5);
-  Timer? _messagesPollTimer;
-  bool _messagesPollingActive = false;
-  int _messagesPollInFlightCount = 0;
+  late final GenesisPollingScheduler _messagesPoller;
 
   @override
   void initState() {
@@ -42,6 +41,10 @@ class _AppShellPageState extends State<AppShellPage>
     _selectedIndex = _normalTabIndex(widget.initialIndex);
     _messagesTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 3);
     _visitedTabIndexes = <int>{_selectedIndex};
+    _messagesPoller = GenesisPollingScheduler(
+      interval: _messagesPollInterval,
+      onTick: _refreshMessagesData,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startMessagesPolling();
     });
@@ -66,33 +69,15 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   void _startMessagesPolling() {
-    if (!mounted || _messagesPollingActive) return;
-    _messagesPollingActive = true;
-    unawaited(_refreshMessagesData(force: true));
+    if (!mounted) return;
+    _messagesPoller.start();
   }
 
   void _stopMessagesPolling() {
-    _messagesPollingActive = false;
-    _messagesPollTimer?.cancel();
-    _messagesPollTimer = null;
+    _messagesPoller.stop();
   }
 
-  void _scheduleNextMessagesPoll() {
-    if (!_messagesPollingActive || !mounted) return;
-    _messagesPollTimer?.cancel();
-    _messagesPollTimer = Timer(_messagesPollInterval, () {
-      unawaited(_refreshMessagesData());
-    });
-  }
-
-  Future<void> _refreshMessagesData({bool force = false}) async {
-    if (_messagesPollInFlightCount > 0) {
-      _scheduleNextMessagesPoll();
-      return;
-    }
-    _messagesPollTimer?.cancel();
-    _messagesPollTimer = null;
-    _messagesPollInFlightCount += 1;
+  Future<void> _refreshMessagesData() async {
     try {
       final services = AppServicesScope.read(context);
       final requests = <Future<void>>[
@@ -104,9 +89,6 @@ class _AppShellPageState extends State<AppShellPage>
     } catch (e, st) {
       debugPrint('[Messages][Poll] refresh failed: $e');
       debugPrint('[Messages][Poll] stacktrace:\n$st');
-    } finally {
-      _messagesPollInFlightCount -= 1;
-      _scheduleNextMessagesPoll();
     }
   }
 
@@ -150,7 +132,7 @@ class _AppShellPageState extends State<AppShellPage>
       if (!mounted) return;
       if (_selectedIndex == 3) return;
       _selectTab(3);
-      unawaited(_refreshMessagesData(force: true));
+      unawaited(_messagesPoller.runNow());
       return;
     }
 
@@ -244,7 +226,7 @@ class _AppShellPageState extends State<AppShellPage>
           builder: (context, unreadSummary, _) {
             return MessagesPage(
               unreadSummary: unreadSummary,
-              onMessagesDataRefresh: () => _refreshMessagesData(force: true),
+              onMessagesDataRefresh: _messagesPoller.runNow,
               isActiveListenable: _messagesTabActiveNotifier,
             );
           },

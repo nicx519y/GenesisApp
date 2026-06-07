@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../platform/platform_services.dart';
 import '../utils/relative_time_formatter.dart';
+import 'direct_message_database.dart';
 import 'genesis_api.dart';
 import 'json_utils.dart';
 
@@ -136,50 +137,14 @@ abstract class DirectMessageMessageStorage {
 
 class SqfliteDirectMessageMessageStorage
     implements DirectMessageMessageStorage {
-  Database? _database;
+  SqfliteDirectMessageMessageStorage({
+    DirectMessageDatabaseProvider? databaseProvider,
+  }) : _databaseProvider =
+           databaseProvider ?? DirectMessageDatabaseProvider.instance;
 
-  Future<Database> get _db async {
-    final existing = _database;
-    if (existing != null) return existing;
-    final databasePath = await getDatabasesPath();
-    final db = await openDatabase(
-      '$databasePath/genesis_direct_messages.db',
-      version: 4,
-      onCreate: (db, _) async {
-        await db.execute('''
-          CREATE TABLE IF NOT EXISTS dm_conversations (
-            owner_uid TEXT NOT NULL,
-            conv_id TEXT NOT NULL,
-            raw_json TEXT NOT NULL,
-            sort_value INTEGER NOT NULL,
-            PRIMARY KEY(owner_uid, conv_id)
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE IF NOT EXISTS dm_sync_meta (
-            owner_uid TEXT NOT NULL,
-            key TEXT NOT NULL,
-            value TEXT NOT NULL,
-            PRIMARY KEY(owner_uid, key)
-          )
-        ''');
-        await db.execute(_createDmMessagesSql);
-        await db.execute(_createDmMessagesIndexSql);
-        await db.execute(_createDmMessageDraftsSql);
-      },
-      onUpgrade: (db, oldVersion, _) async {
-        if (oldVersion < 2) {
-          await db.execute(_createDmMessagesSql);
-        }
-        await db.execute(_createDmMessagesIndexSql);
-        if (oldVersion < 3) {
-          await db.execute(_createDmMessageDraftsSql);
-        }
-      },
-    );
-    _database = db;
-    return db;
-  }
+  final DirectMessageDatabaseProvider _databaseProvider;
+
+  Future<Database> get _db => _databaseProvider.database;
 
   @override
   Future<List<DirectMessageMessageRecord>> loadMessages({
@@ -663,9 +628,16 @@ class DirectMessageMessageStore {
     }
     _syncFutureOwnerUid = ownerUid;
     _syncFuturePeerUid = cleanPeerUid;
+    final stopwatch = _dmMessageMetricsEnabled ? (Stopwatch()..start()) : null;
     late final Future<void> trackedFuture;
     trackedFuture = _syncLatest(ownerUid: ownerUid, peerUid: cleanPeerUid)
         .whenComplete(() {
+          if (stopwatch != null) {
+            debugPrint(
+              '[ChatPage][DM] syncLatest peer=$cleanPeerUid '
+              'elapsed=${stopwatch.elapsedMilliseconds}ms',
+            );
+          }
           if (identical(_syncFuture, trackedFuture)) {
             _syncFuture = null;
             _syncFutureOwnerUid = null;
@@ -932,34 +904,6 @@ class DirectMessageMessageStore {
   }
 }
 
-const _createDmMessagesSql = '''
-  CREATE TABLE IF NOT EXISTS dm_messages (
-    owner_uid TEXT NOT NULL,
-    peer_uid TEXT NOT NULL,
-    msg_id TEXT NOT NULL,
-    local_id TEXT NOT NULL,
-    raw_json TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    send_status TEXT NOT NULL,
-    PRIMARY KEY(owner_uid, peer_uid, msg_id)
-  )
-''';
-
-const _createDmMessagesIndexSql = '''
-  CREATE INDEX IF NOT EXISTS idx_dm_messages_conversation_created
-  ON dm_messages(owner_uid, peer_uid, created_at, msg_id)
-''';
-
-const _createDmMessageDraftsSql = '''
-  CREATE TABLE IF NOT EXISTS dm_message_drafts (
-    owner_uid TEXT NOT NULL,
-    peer_uid TEXT NOT NULL,
-    content TEXT NOT NULL,
-    updated_at INTEGER NOT NULL,
-    PRIMARY KEY(owner_uid, peer_uid)
-  )
-''';
-
 List<DirectMessageMessageRecord> _sorted(
   Iterable<DirectMessageMessageRecord> records,
 ) {
@@ -1026,3 +970,5 @@ bool _sameIds(List<String> previous, List<String> next) {
   }
   return true;
 }
+
+bool get _dmMessageMetricsEnabled => kDebugMode || kProfileMode;

@@ -64,6 +64,8 @@ class LocationChatPanel extends StatefulWidget {
     this.active = true,
     this.leaveOnInactive = true,
     this.onBack,
+    this.composerReplacement,
+    this.showConnectionStatus = true,
   });
 
   final String worldId;
@@ -76,6 +78,8 @@ class LocationChatPanel extends StatefulWidget {
   final bool active;
   final bool leaveOnInactive;
   final VoidCallback? onBack;
+  final Widget? composerReplacement;
+  final bool showConnectionStatus;
 
   @override
   State<LocationChatPanel> createState() => _LocationChatPanelState();
@@ -871,6 +875,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             connected: joined,
             connecting: connecting,
             onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
+            showSubtitle: widget.showConnectionStatus,
           ),
           Expanded(
             child: Stack(
@@ -894,15 +899,17 @@ class _LocationChatPanelState extends State<LocationChatPanel>
               ],
             ),
           ),
-          ChatComposer(
-            controller: _textController,
-            inputEnabled: widget.active,
-            sendEnabled: widget.active && joined && !_sending && !inputBlocked,
-            sending: _sending,
-            onSend: _send,
-            sendLabel: 'Send',
-            onHeightChanged: (_) => _keepBottomAfterLayoutIfNeeded(),
-          ),
+          widget.composerReplacement ??
+              ChatComposer(
+                controller: _textController,
+                inputEnabled: widget.active,
+                sendEnabled:
+                    widget.active && joined && !_sending && !inputBlocked,
+                sending: _sending,
+                onSend: _send,
+                sendLabel: 'Send',
+                onHeightChanged: (_) => _keepBottomAfterLayoutIfNeeded(),
+              ),
         ],
       ),
     );

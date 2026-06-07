@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../platform/platform_services.dart';
 import '../utils/relative_time_formatter.dart';
+import 'direct_message_database.dart';
 import 'genesis_api.dart';
 import 'json_utils.dart';
 
@@ -72,52 +73,14 @@ abstract class DirectMessageConversationStorage {
 
 class SqfliteDirectMessageConversationStorage
     implements DirectMessageConversationStorage {
-  SqfliteDirectMessageConversationStorage();
+  SqfliteDirectMessageConversationStorage({
+    DirectMessageDatabaseProvider? databaseProvider,
+  }) : _databaseProvider =
+           databaseProvider ?? DirectMessageDatabaseProvider.instance;
 
-  Database? _database;
+  final DirectMessageDatabaseProvider _databaseProvider;
 
-  Future<Database> get _db async {
-    final existing = _database;
-    if (existing != null) return existing;
-    final databasePath = await getDatabasesPath();
-    final db = await openDatabase(
-      '$databasePath/genesis_direct_messages.db',
-      version: 4,
-      onCreate: (db, _) async {
-        await db.execute('''
-          CREATE TABLE dm_conversations (
-            owner_uid TEXT NOT NULL,
-            conv_id TEXT NOT NULL,
-            raw_json TEXT NOT NULL,
-            sort_value INTEGER NOT NULL,
-            PRIMARY KEY(owner_uid, conv_id)
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE dm_sync_meta (
-            owner_uid TEXT NOT NULL,
-            key TEXT NOT NULL,
-            value TEXT NOT NULL,
-            PRIMARY KEY(owner_uid, key)
-          )
-        ''');
-        await db.execute(_createDmMessagesSql);
-        await db.execute(_createDmMessagesIndexSql);
-        await db.execute(_createDmMessageDraftsSql);
-      },
-      onUpgrade: (db, oldVersion, _) async {
-        if (oldVersion < 2) {
-          await db.execute(_createDmMessagesSql);
-        }
-        await db.execute(_createDmMessagesIndexSql);
-        if (oldVersion < 3) {
-          await db.execute(_createDmMessageDraftsSql);
-        }
-      },
-    );
-    _database = db;
-    return db;
-  }
+  Future<Database> get _db => _databaseProvider.database;
 
   @override
   Future<List<DirectMessageConversationRecord>> loadConversations(
@@ -143,7 +106,7 @@ class SqfliteDirectMessageConversationStorage
       'dm_sync_meta',
       columns: const ['value'],
       where: 'owner_uid = ? AND key = ?',
-      whereArgs: [ownerUid, _cursorKey],
+      whereArgs: [ownerUid, directMessageCursorKey],
       limit: 1,
     );
     if (rows.isEmpty) return null;
@@ -173,7 +136,7 @@ class SqfliteDirectMessageConversationStorage
       if (cursor != null && cursor.isNotEmpty) {
         await txn.insert('dm_sync_meta', {
           'owner_uid': ownerUid,
-          'key': _cursorKey,
+          'key': directMessageCursorKey,
           'value': cursor,
         }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
@@ -286,7 +249,16 @@ class DirectMessageConversationStore {
   Future<void> syncConversations() {
     final inFlight = _syncFuture;
     if (inFlight != null) return inFlight;
-    final future = _syncConversations();
+    final stopwatch = _dmConversationMetricsEnabled
+        ? (Stopwatch()..start())
+        : null;
+    final future = _syncConversations().whenComplete(() {
+      if (stopwatch == null) return;
+      debugPrint(
+        '[Messages][DM] syncConversations '
+        'elapsed=${stopwatch.elapsedMilliseconds}ms',
+      );
+    });
     _syncFuture = future.whenComplete(() => _syncFuture = null);
     return _syncFuture!;
   }
@@ -414,35 +386,6 @@ class DirectMessageConversationStore {
   }
 }
 
-const _cursorKey = 'next_after_message_id';
-const _createDmMessagesSql = '''
-  CREATE TABLE IF NOT EXISTS dm_messages (
-    owner_uid TEXT NOT NULL,
-    peer_uid TEXT NOT NULL,
-    msg_id TEXT NOT NULL,
-    local_id TEXT NOT NULL,
-    raw_json TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    send_status TEXT NOT NULL,
-    PRIMARY KEY(owner_uid, peer_uid, msg_id)
-  )
-''';
-
-const _createDmMessagesIndexSql = '''
-  CREATE INDEX IF NOT EXISTS idx_dm_messages_conversation_created
-  ON dm_messages(owner_uid, peer_uid, created_at, msg_id)
-''';
-
-const _createDmMessageDraftsSql = '''
-  CREATE TABLE IF NOT EXISTS dm_message_drafts (
-    owner_uid TEXT NOT NULL,
-    peer_uid TEXT NOT NULL,
-    content TEXT NOT NULL,
-    updated_at INTEGER NOT NULL,
-    PRIMARY KEY(owner_uid, peer_uid)
-  )
-''';
-
 List<DirectMessageConversationRecord> _sorted(
   Iterable<DirectMessageConversationRecord> records,
 ) {
@@ -487,3 +430,5 @@ bool _sameIds(List<String> previous, List<String> next) {
   }
   return true;
 }
+
+bool get _dmConversationMetricsEnabled => kDebugMode || kProfileMode;

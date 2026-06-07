@@ -2717,6 +2717,51 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('Origin detail location opens launch-only chat panel', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    final chatroom = _FakeChatroomClient();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          chatroom: chatroom,
+        ),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Detail Location'), warnIfMissed: false);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(chatroom.connectCount, 0);
+    expect(_visibleText('Detail Location (1)'), findsOneWidget);
+    final chatPanel = find.byType(LocationChatPanel);
+    expect(chatPanel, findsOneWidget);
+    expect(
+      find.descendant(of: chatPanel, matching: find.byType(TextField)),
+      findsNothing,
+    );
+    final chatLaunch = find.descendant(
+      of: chatPanel,
+      matching: find.text('Launch'),
+    );
+    expect(chatLaunch, findsOneWidget);
+
+    await tester.tap(chatLaunch);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Setup Your Role'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
+  });
+
   testWidgets('Origin detail launch preview uses detail tick and locations', (
     WidgetTester tester,
   ) async {
@@ -6170,10 +6215,15 @@ void main() {
   });
 
   testWidgets(
-    'world page connects chatroom on entry and disconnects on dispose',
+    'world page connects chatroom when relation allows and disconnects on dispose',
     (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(worldRelationStatus: 'owner');
       final chatroom = _FakeChatroomClient();
-      final services = await _testServices(chatroom: chatroom);
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+      );
 
       await tester.pumpWidget(
         AppServicesScope(
@@ -6272,8 +6322,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(chatroom.connectCount, 1);
-    expect(chatroom.worldId, 'w_test_1');
+    expect(chatroom.connectCount, 0);
+    expect(chatroom.worldId, isNull);
     final initialWorldDetailRequests = transport
         .requestsFor('/api/v1/world/detail')
         .length;
@@ -6283,20 +6333,19 @@ void main() {
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
 
-    expect(chatroom.connectCount, 1);
-    expect(chatroom.worldId, 'w_test_1');
+    expect(chatroom.connectCount, 0);
+    expect(chatroom.worldId, isNull);
     expect(
       transport.requestsFor('/api/v1/world/detail'),
       hasLength(initialWorldDetailRequests),
     );
-    expect(chatroom.session.disconnectCount, 0);
   });
 
   testWidgets(
     'world location chat cached panels prebuild hidden without joining',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport(
-        worldRelationStatus: 'approved',
+        worldRelationStatus: 'joined',
       );
       final chatroom = _FakeChatroomClient();
       final services = await _testServices(
@@ -6335,7 +6384,7 @@ void main() {
     'world location chat opens inline and reuses cached panel state',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport(
-        worldRelationStatus: 'approved',
+        worldRelationStatus: 'joined',
       );
       final chatroom = _FakeChatroomClient();
       final observer = _RecordingNavigatorObserver();
@@ -6411,9 +6460,7 @@ void main() {
   testWidgets('system back hides inline world location chat', (
     WidgetTester tester,
   ) async {
-    final transport = _RecordingV1ListTransport(
-      worldRelationStatus: 'approved',
-    );
+    final transport = _RecordingV1ListTransport(worldRelationStatus: 'joined');
     final chatroom = _FakeChatroomClient();
     final observer = _RecordingNavigatorObserver();
     final services = await _testServices(

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/bootstrap/polling_scheduler.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../network/direct_message_message_store.dart';
 import '../../network/json_utils.dart';
@@ -35,7 +36,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   final Map<String, DirectMessageMessageRecord> _failedLocalMessages = {};
   final Set<String> _readMarkedIncomingMessageIds = {};
   int _unseenIncomingCount = 0;
-  Timer? _pollTimer;
+  late final GenesisPollingScheduler _poller;
   Timer? _draftSaveTimer;
   late DirectMessageMessageStore _messageStore;
   bool _loadedLocalMessages = false;
@@ -56,10 +57,11 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _scrollController = _createScrollController();
     _messageStore = AppServicesScope.read(context).directMessageMessages;
     _textController.addListener(_handleDraftTextChanged);
+    _poller = GenesisPollingScheduler(
+      interval: const Duration(seconds: 5),
+      onTick: _syncLatest,
+    )..start(immediately: false);
     unawaited(_bootstrap());
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      unawaited(_syncLatest());
-    });
   }
 
   @override
@@ -96,9 +98,18 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _poller.start();
+    } else {
+      _poller.stop();
+    }
+  }
+
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _pollTimer?.cancel();
+    _poller.stop();
     _flushDraft();
     _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();

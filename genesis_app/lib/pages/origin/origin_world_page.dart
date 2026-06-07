@@ -25,6 +25,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/relative_time_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
+import '../chat/location_chat_page.dart';
 
 const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
 
@@ -44,6 +45,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   late final OriginDiscussListController _discussController;
   Future<OriginDetail>? _future;
   bool _launching = false;
+  _OriginLocationChatDescriptor? _activeChatLocation;
   var _currentUid = '';
   var _currentUidRequested = false;
 
@@ -69,6 +71,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.oid != widget.oid) {
       _future = _loadOriginDetail();
+      _activeChatLocation = null;
     }
   }
 
@@ -121,6 +124,57 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       0,
       duration: const Duration(milliseconds: 120),
       curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _openChatForPoint(OriginDetail origin, WorldPoint point) {
+    final pointId = point.pointId.trim().isNotEmpty
+        ? point.pointId.trim()
+        : point.id.trim();
+    final locationId = point.sceneId.trim().isNotEmpty
+        ? point.sceneId.trim()
+        : pointId;
+    if (locationId.isEmpty) return;
+
+    setState(() {
+      _activeChatLocation = _OriginLocationChatDescriptor(
+        originId: origin.oid,
+        locationId: locationId,
+        locationName: point.name,
+        isLeafLocation: point.isLeafLocation,
+      );
+    });
+  }
+
+  void _closeLocationChat() {
+    if (_activeChatLocation == null) return;
+    setState(() => _activeChatLocation = null);
+  }
+
+  void _handleOriginPopBlocked() {
+    if (_activeChatLocation == null) return;
+    _closeLocationChat();
+  }
+
+  Widget? _buildLocationChatOverlay(OriginDetail origin) {
+    final descriptor = _activeChatLocation;
+    if (descriptor == null) return null;
+    return Positioned.fill(
+      child: LocationChatPanel(
+        key: ValueKey('origin-location-chat-${descriptor.locationId}'),
+        worldId: descriptor.originId,
+        locationId: descriptor.locationId,
+        locationName: descriptor.locationName,
+        isLeafLocation: descriptor.isLeafLocation,
+        active: false,
+        leaveOnInactive: false,
+        onBack: _closeLocationChat,
+        showConnectionStatus: false,
+        composerReplacement: _OriginLocationChatLaunchBar(
+          launching: _launching,
+          onLaunch: () => _showLaunchRoleSheet(origin),
+        ),
+      ),
     );
   }
 
@@ -336,39 +390,93 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             ? _pointsFromLocations(origin.locations, avatarsByLocation)
             : points;
 
-        return WorldDetailsPageScaffold(
-          panelTopGap: 50,
-          panelCollapsedHeightOffset: 100,
-          map: WorldMapStage(
-            controller: _tabController,
-            pointsCount: listPoints.length,
-            top: topPadding + 8,
-            mapBuilder: (context, pointMode) => WorldMap(
-              points: points,
-              listPoints: listPoints,
-              locationNodes: locationNodes,
-              mapImageUrl: mapImageUrl,
-              dimmed: pointMode,
-              showPointsList: pointMode,
-              overlayTop: topPadding + 8 + 48,
-              drillExitTop: topPadding + 68,
-              onDrillIntoLocation: _showMapTab,
+        return PopScope(
+          canPop: _activeChatLocation == null,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            _handleOriginPopBlocked();
+          },
+          child: WorldDetailsPageScaffold(
+            panelTopGap: 50,
+            panelCollapsedHeightOffset: 100,
+            topOverlay: _buildLocationChatOverlay(origin),
+            map: WorldMapStage(
+              controller: _tabController,
+              pointsCount: listPoints.length,
+              top: topPadding + 8,
+              mapBuilder: (context, pointMode) => WorldMap(
+                points: points,
+                listPoints: listPoints,
+                locationNodes: locationNodes,
+                mapImageUrl: mapImageUrl,
+                dimmed: pointMode,
+                showPointsList: pointMode,
+                overlayTop: topPadding + 8 + 48,
+                drillExitTop: topPadding + 68,
+                onDrillIntoLocation: _showMapTab,
+                onPointTap: (point) => _openChatForPoint(origin, point),
+              ),
             ),
-          ),
-          slivers: [
-            _WorldDetailsContent(
+            slivers: [
+              _WorldDetailsContent(
+                origin: origin,
+                currentUid: _currentUid,
+                discussController: _discussController,
+              ),
+            ],
+            bottomBar: _OriginBottomLaunchBar(
               origin: origin,
-              currentUid: _currentUid,
-              discussController: _discussController,
+              launching: _launching,
+              onLaunch: () => _showLaunchRoleSheet(origin),
             ),
-          ],
-          bottomBar: _OriginBottomLaunchBar(
-            origin: origin,
-            launching: _launching,
-            onLaunch: () => _showLaunchRoleSheet(origin),
           ),
         );
       },
+    );
+  }
+}
+
+class _OriginLocationChatDescriptor {
+  const _OriginLocationChatDescriptor({
+    required this.originId,
+    required this.locationId,
+    required this.locationName,
+    required this.isLeafLocation,
+  });
+
+  final String originId;
+  final String locationId;
+  final String locationName;
+  final bool isLeafLocation;
+}
+
+class _OriginLocationChatLaunchBar extends StatelessWidget {
+  const _OriginLocationChatLaunchBar({
+    required this.launching,
+    required this.onLaunch,
+  });
+
+  final bool launching;
+  final VoidCallback onLaunch;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    return DecoratedBox(
+      decoration: const BoxDecoration(color: Color(0xFFF9F9F9)),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomInset),
+        child: GenesisPrimaryButton(
+          label: launching ? 'Launching...' : 'Launch',
+          onPressed: launching ? null : onLaunch,
+          backgroundColor: const Color(0xFF238861),
+          disabledBackgroundColor: const Color(
+            0xFF238861,
+          ).withValues(alpha: 0.62),
+          foregroundColor: Colors.white,
+          disabledForegroundColor: Colors.white,
+        ),
+      ),
     );
   }
 }
@@ -1311,7 +1419,9 @@ List<WorldMapLocationNode> _originMapLocationNodes(
       .map((node) {
         return WorldMapLocationNode(
           id: node.id,
-          isRoot: node.id == processedLocationTree.root?.id,
+          isRoot:
+              node.id == processedLocationTree.root?.id &&
+              node.children.isNotEmpty,
           point: _pointsFromLocations(
             [node.value],
             avatarsByLocation,

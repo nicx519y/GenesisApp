@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/bootstrap/polling_scheduler.dart';
 import '../../components/page_header.dart';
 import '../../network/direct_message_conversation_store.dart';
 import '../../network/models/unread_summary.dart';
@@ -34,7 +35,7 @@ class MessagesPage extends StatefulWidget {
 
 class _MessagesPageState extends State<MessagesPage> {
   final _scrollController = ScrollController();
-  Timer? _conversationPollTimer;
+  GenesisPollingScheduler? _conversationPoller;
   Timer? _timeRefreshTimer;
   late final DirectMessageConversationStore _conversationStore;
   late DateTime _timeLabelNow;
@@ -54,9 +55,10 @@ class _MessagesPageState extends State<MessagesPage> {
     });
     unawaited(_bootstrapConversations());
     if (widget.onMessagesDataRefresh == null) {
-      _conversationPollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-        unawaited(_syncConversations());
-      });
+      _conversationPoller = GenesisPollingScheduler(
+        interval: const Duration(seconds: 5),
+        onTick: _syncConversations,
+      )..start(immediately: false);
     }
   }
 
@@ -72,7 +74,7 @@ class _MessagesPageState extends State<MessagesPage> {
   @override
   void dispose() {
     widget.isActiveListenable?.removeListener(_handleActiveChanged);
-    _conversationPollTimer?.cancel();
+    _conversationPoller?.stop();
     _timeRefreshTimer?.cancel();
     _scrollController.dispose();
     super.dispose();

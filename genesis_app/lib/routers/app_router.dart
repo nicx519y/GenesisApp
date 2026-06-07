@@ -36,6 +36,247 @@ sealed class RouteNames {
   static const follows = '/follows';
 }
 
+class _RouteArgs {
+  const _RouteArgs(this.raw);
+
+  final Object? raw;
+
+  String directString() {
+    final value = raw;
+    return value is String ? value : '';
+  }
+
+  String string(List<String> keys, {String fallback = ''}) {
+    final rawValue = _first(keys);
+    return rawValue == null ? fallback : rawValue.toString();
+  }
+
+  int integer(List<String> keys, {int fallback = 0}) {
+    final rawValue = _first(keys);
+    if (rawValue is int) return rawValue;
+    if (rawValue == null) return fallback;
+    return int.tryParse(rawValue.toString()) ?? fallback;
+  }
+
+  bool boolean(List<String> keys, {required bool fallback}) {
+    final rawValue = _first(keys);
+    if (rawValue is bool) return rawValue;
+    if (rawValue == null) return fallback;
+    return rawValue.toString().trim().toLowerCase() != 'false';
+  }
+
+  T? typed<T>(List<String> keys) {
+    final rawValue = _first(keys);
+    return rawValue is T ? rawValue : null;
+  }
+
+  Object? _first(List<String> keys) {
+    final value = raw;
+    if (value is! Map) return null;
+    for (final key in keys) {
+      final rawValue = value[key];
+      if (rawValue != null) return rawValue;
+    }
+    return null;
+  }
+}
+
+class _OriginWorldRouteArgs {
+  const _OriginWorldRouteArgs({required this.oid, required this.originId});
+
+  factory _OriginWorldRouteArgs.from(Object? raw) {
+    final args = _RouteArgs(raw);
+    return _OriginWorldRouteArgs(
+      oid: args.directString().isNotEmpty
+          ? args.directString()
+          : args.string(const ['oid']),
+      originId: args.integer(const ['originId']),
+    );
+  }
+
+  final String oid;
+  final int originId;
+}
+
+class _DiscussRouteArgs {
+  const _DiscussRouteArgs({required this.oid, required this.originId});
+
+  factory _DiscussRouteArgs.from(Object? raw) {
+    final args = _RouteArgs(raw);
+    final direct = args.directString();
+    return _DiscussRouteArgs(
+      oid: direct.isNotEmpty
+          ? direct
+          : args.string(const ['oid', 'origin_id', 'originId']),
+      originId: args.integer(const ['originId', 'origin_id']),
+    );
+  }
+
+  final String oid;
+  final int originId;
+}
+
+class _WorldRouteArgs {
+  const _WorldRouteArgs({required this.wid});
+
+  factory _WorldRouteArgs.from(Object? raw) {
+    final args = _RouteArgs(raw);
+    final direct = args.directString();
+    return _WorldRouteArgs(
+      wid: direct.isNotEmpty ? direct : args.string(const ['wid']),
+    );
+  }
+
+  final String wid;
+}
+
+class _ChatRouteArgs {
+  const _ChatRouteArgs({
+    required this.peerUid,
+    required this.peerName,
+    required this.peerAvatar,
+    required this.conversationId,
+  });
+
+  factory _ChatRouteArgs.from(Object? raw) {
+    final args = _RouteArgs(raw);
+    return _ChatRouteArgs(
+      peerUid: args.string(const ['peer_uid', 'peerUid', 'uid']),
+      peerName: args.string(const ['peer_name', 'peerName', 'name']),
+      peerAvatar: args.string(const ['peer_avatar', 'peerAvatar', 'avatar']),
+      conversationId: args.string(const [
+        'conv_id',
+        'conversationId',
+        'conversation_id',
+      ]),
+    );
+  }
+
+  final String peerUid;
+  final String peerName;
+  final String peerAvatar;
+  final String conversationId;
+}
+
+class _LocationChatRouteArgs {
+  const _LocationChatRouteArgs({
+    required this.worldId,
+    required this.locationId,
+    required this.worldName,
+    required this.locationName,
+    required this.isLeafLocation,
+    required this.chatroomConnection,
+    required this.worldChatroomService,
+  });
+
+  factory _LocationChatRouteArgs.from(Object? raw) {
+    final args = _RouteArgs(raw);
+    return _LocationChatRouteArgs(
+      worldId: args.string(const ['world_id', 'worldId', 'wid']),
+      locationId: args.string(const [
+        'location_id',
+        'locationId',
+        'scene_id',
+        'sceneId',
+        'point_id',
+        'pointId',
+      ]),
+      worldName: args.string(const ['world_name', 'worldName']),
+      locationName: args.string(const ['locationName', 'location_name']),
+      isLeafLocation: args.boolean(const [
+        'is_leaf_location',
+        'isLeafLocation',
+      ], fallback: true),
+      chatroomConnection: args.typed<ChatroomConnectionController>(const [
+        'chatroom_connection',
+        'chatroomConnection',
+      ]),
+      worldChatroomService: args.typed<WorldChatroomService>(const [
+        'world_chatroom_service',
+        'worldChatroomService',
+      ]),
+    );
+  }
+
+  final String worldId;
+  final String locationId;
+  final String worldName;
+  final String locationName;
+  final bool isLeafLocation;
+  final ChatroomConnectionController? chatroomConnection;
+  final WorldChatroomService? worldChatroomService;
+}
+
+class _EditRouteArgs {
+  const _EditRouteArgs({required this.originId});
+
+  factory _EditRouteArgs.from(Object? raw) {
+    final args = _RouteArgs(raw);
+    final direct = args.directString();
+    return _EditRouteArgs(
+      originId: direct.isNotEmpty
+          ? direct
+          : args.string(const ['origin_id', 'originId', 'oid']),
+    );
+  }
+
+  final String originId;
+}
+
+class _UserInfoRouteArgs {
+  const _UserInfoRouteArgs({required this.uid});
+
+  factory _UserInfoRouteArgs.from(Object? raw) {
+    final args = _RouteArgs(raw);
+    final direct = args.directString();
+    return _UserInfoRouteArgs(
+      uid: direct.isNotEmpty
+          ? direct
+          : args.string(const ['uid', 'userId', 'id']),
+    );
+  }
+
+  final String uid;
+}
+
+class _FollowsRouteArgs {
+  const _FollowsRouteArgs({
+    required this.uid,
+    required this.initialIndex,
+    required this.title,
+  });
+
+  factory _FollowsRouteArgs.from(Object? raw) {
+    final args = _RouteArgs(raw);
+    final direct = args.directString();
+    return _FollowsRouteArgs(
+      uid: direct.isNotEmpty
+          ? direct
+          : args.string(const ['uid', 'userId', 'id']),
+      initialIndex: _tabIndex(args),
+      title: _title(args),
+    );
+  }
+
+  static int _tabIndex(_RouteArgs args) {
+    final rawTab = args._first(const ['initialIndex', 'tabIndex', 'tab']);
+    if (rawTab is int) return rawTab;
+    if (rawTab == null) return 0;
+    final tabText = rawTab.toString().trim().toLowerCase();
+    return int.tryParse(tabText) ??
+        (tabText == 'followers' || tabText == 'follower' ? 1 : 0);
+  }
+
+  static String? _title(_RouteArgs args) {
+    final title = args.string(const ['title', 'name', 'displayName']).trim();
+    return title.isEmpty ? null : title;
+  }
+
+  final String uid;
+  final int initialIndex;
+  final String? title;
+}
+
 sealed class AppRouter {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -50,152 +291,47 @@ sealed class AppRouter {
           builder: (_) => const AppShellPage(initialIndex: 1),
         );
       case RouteNames.originWorld:
-        final args = settings.arguments;
-        var oid = '';
-        var originId = 0;
-        if (args is String) {
-          oid = args;
-        } else if (args is Map) {
-          final rawOid = args['oid'];
-          final rawOriginId = args['originId'];
-          if (rawOid != null) oid = rawOid.toString();
-          if (rawOriginId is int) {
-            originId = rawOriginId;
-          } else if (rawOriginId != null) {
-            originId = int.tryParse(rawOriginId.toString()) ?? 0;
-          }
-        }
+        final args = _OriginWorldRouteArgs.from(settings.arguments);
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => OriginWorldPage(oid: oid, originId: originId),
+          builder: (_) =>
+              OriginWorldPage(oid: args.oid, originId: args.originId),
         );
       case RouteNames.discuss:
-        final args = settings.arguments;
-        var oid = '';
-        var originId = 0;
-        if (args is String) {
-          oid = args;
-        } else if (args is Map) {
-          final rawOid = args['oid'] ?? args['origin_id'] ?? args['originId'];
-          if (rawOid != null) oid = rawOid.toString();
-          final rawOriginId = args['originId'] ?? args['origin_id'];
-          if (rawOriginId is int) {
-            originId = rawOriginId;
-          } else if (rawOriginId != null) {
-            originId = int.tryParse(rawOriginId.toString()) ?? 0;
-          }
-        }
+        final args = _DiscussRouteArgs.from(settings.arguments);
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => DiscussPage(oid: oid, originId: originId),
+          builder: (_) => DiscussPage(oid: args.oid, originId: args.originId),
         );
       case RouteNames.world:
-        final args = settings.arguments;
-        var wid = '';
-        if (args is String) {
-          wid = args;
-        } else if (args is Map) {
-          final rawWid = args['wid'];
-          if (rawWid != null) wid = rawWid.toString();
-        }
+        final args = _WorldRouteArgs.from(settings.arguments);
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => WorldPage(wid: wid),
+          builder: (_) => WorldPage(wid: args.wid),
         );
       case RouteNames.chat:
-        final args = settings.arguments;
-        var peerUid = '';
-        var peerName = '';
-        var peerAvatar = '';
-        var conversationId = '';
-        if (args is Map) {
-          final rawPeerUid = args['peer_uid'] ?? args['peerUid'] ?? args['uid'];
-          if (rawPeerUid != null) peerUid = rawPeerUid.toString();
-
-          final rawPeerName =
-              args['peer_name'] ?? args['peerName'] ?? args['name'];
-          if (rawPeerName != null) peerName = rawPeerName.toString();
-
-          final rawPeerAvatar =
-              args['peer_avatar'] ?? args['peerAvatar'] ?? args['avatar'];
-          if (rawPeerAvatar != null) peerAvatar = rawPeerAvatar.toString();
-
-          final rawConversationId =
-              args['conv_id'] ??
-              args['conversationId'] ??
-              args['conversation_id'];
-          if (rawConversationId != null) {
-            conversationId = rawConversationId.toString();
-          }
-        }
+        final args = _ChatRouteArgs.from(settings.arguments);
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => ChatPage(
-            peerUid: peerUid,
-            peerName: peerName,
-            peerAvatar: peerAvatar,
-            conversationId: conversationId,
+            peerUid: args.peerUid,
+            peerName: args.peerName,
+            peerAvatar: args.peerAvatar,
+            conversationId: args.conversationId,
           ),
         );
       case RouteNames.locationChat:
-        final args = settings.arguments;
-        var worldId = '';
-        var locationId = '';
-        var worldName = '';
-        var locationName = '';
-        var isLeafLocation = true;
-        ChatroomConnectionController? chatroomConnection;
-        WorldChatroomService? worldChatroomService;
-        if (args is Map) {
-          final rawWorldId = args['world_id'] ?? args['worldId'] ?? args['wid'];
-          if (rawWorldId != null) worldId = rawWorldId.toString();
-
-          final rawWorldName = args['world_name'] ?? args['worldName'];
-          if (rawWorldName != null) worldName = rawWorldName.toString();
-
-          final rawLocationId =
-              args['location_id'] ??
-              args['locationId'] ??
-              args['scene_id'] ??
-              args['sceneId'] ??
-              args['point_id'] ??
-              args['pointId'];
-          if (rawLocationId != null) locationId = rawLocationId.toString();
-
-          final rawLocationName = args['locationName'] ?? args['location_name'];
-          if (rawLocationName != null) {
-            locationName = rawLocationName.toString();
-          }
-          final rawIsLeafLocation =
-              args['is_leaf_location'] ?? args['isLeafLocation'];
-          if (rawIsLeafLocation is bool) {
-            isLeafLocation = rawIsLeafLocation;
-          } else if (rawIsLeafLocation != null) {
-            isLeafLocation =
-                rawIsLeafLocation.toString().trim().toLowerCase() != 'false';
-          }
-
-          final rawConnection =
-              args['chatroom_connection'] ?? args['chatroomConnection'];
-          if (rawConnection is ChatroomConnectionController) {
-            chatroomConnection = rawConnection;
-          }
-          final rawService =
-              args['world_chatroom_service'] ?? args['worldChatroomService'];
-          if (rawService is WorldChatroomService) {
-            worldChatroomService = rawService;
-          }
-        }
+        final args = _LocationChatRouteArgs.from(settings.arguments);
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => LocationChatPage(
-            worldId: worldId,
-            locationId: locationId,
-            worldName: worldName,
-            locationName: locationName,
-            isLeafLocation: isLeafLocation,
-            service: worldChatroomService,
-            connection: chatroomConnection,
+            worldId: args.worldId,
+            locationId: args.locationId,
+            worldName: args.worldName,
+            locationName: args.locationName,
+            isLeafLocation: args.isLeafLocation,
+            service: args.worldChatroomService,
+            connection: args.chatroomConnection,
           ),
         );
       case RouteNames.search:
@@ -209,18 +345,10 @@ sealed class AppRouter {
           builder: (_) => const CreateOriginPage(),
         );
       case RouteNames.edit:
-        final args = settings.arguments;
-        var originId = '';
-        if (args is String) {
-          originId = args;
-        } else if (args is Map) {
-          final rawOriginId =
-              args['origin_id'] ?? args['originId'] ?? args['oid'];
-          if (rawOriginId != null) originId = rawOriginId.toString();
-        }
+        final args = _EditRouteArgs.from(settings.arguments);
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => EditOriginPage(originId: originId),
+          builder: (_) => EditOriginPage(originId: args.originId),
         );
       case RouteNames.messages:
         return MaterialPageRoute<void>(
@@ -260,51 +388,19 @@ sealed class AppRouter {
           ),
         );
       case RouteNames.userInfo:
-        final args = settings.arguments;
-        var uid = '';
-        if (args is String) {
-          uid = args;
-        } else if (args is Map) {
-          final rawUid = args['uid'] ?? args['userId'] ?? args['id'];
-          if (rawUid != null) uid = rawUid.toString();
-        }
+        final args = _UserInfoRouteArgs.from(settings.arguments);
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => UserInfoPage(uid: uid),
+          builder: (_) => UserInfoPage(uid: args.uid),
         );
       case RouteNames.follows:
-        final args = settings.arguments;
-        var uid = '';
-        var initialIndex = 0;
-        String? title;
-        if (args is String) {
-          uid = args;
-        } else if (args is Map) {
-          final rawUid = args['uid'] ?? args['userId'] ?? args['id'];
-          if (rawUid != null) uid = rawUid.toString();
-
-          final rawTitle = args['title'] ?? args['name'] ?? args['displayName'];
-          if (rawTitle != null && rawTitle.toString().trim().isNotEmpty) {
-            title = rawTitle.toString();
-          }
-
-          final rawTab =
-              args['initialIndex'] ?? args['tabIndex'] ?? args['tab'];
-          if (rawTab is int) {
-            initialIndex = rawTab;
-          } else if (rawTab != null) {
-            final tabText = rawTab.toString().trim().toLowerCase();
-            initialIndex =
-                int.tryParse(tabText) ??
-                (tabText == 'followers' || tabText == 'follower' ? 1 : 0);
-          }
-        }
+        final args = _FollowsRouteArgs.from(settings.arguments);
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => FollowsPage(
-            uid: uid,
-            initialIndex: initialIndex,
-            initialTitle: title,
+            uid: args.uid,
+            initialIndex: args.initialIndex,
+            initialTitle: args.title,
           ),
         );
       case RouteNames.shell:

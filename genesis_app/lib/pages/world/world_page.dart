@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
@@ -60,7 +61,6 @@ class _WorldPageState extends State<WorldPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _startWorldChatroom();
     unawaited(_fetchWorld(isInitial: true));
   }
 
@@ -102,6 +102,32 @@ class _WorldPageState extends State<WorldPage>
       shouldShow: (failure) => failure.code != 'snapshot_failed',
     );
     unawaited(_connectWorldChatroom(service, services));
+  }
+
+  void _syncWorldChatroomForRelationStatus(String relationStatus) {
+    if (_shouldConnectWorldChatroom(relationStatus)) {
+      _startWorldChatroom();
+      return;
+    }
+    _stopWorldChatroom();
+  }
+
+  void _stopWorldChatroom() {
+    final chatroom = _worldChatroom;
+    if (chatroom == null) return;
+    _locationChatPrecacheGeneration += 1;
+    unawaited(_worldChatroomSub?.cancel());
+    unawaited(_worldChatroomFailureSub?.cancel());
+    _worldChatroomSub = null;
+    _worldChatroomFailureSub = null;
+    _worldChatroom = null;
+    if (mounted) {
+      setState(() {
+        _activeChatLocationId = '';
+        _cachedLocationChatIds.clear();
+      });
+    }
+    unawaited(_disposeWorldChatroom(chatroom));
   }
 
   Future<void> _connectWorldChatroom(
@@ -167,6 +193,7 @@ class _WorldPageState extends State<WorldPage>
         if (isInitial) _initialLoadError = null;
         _syncLocationChatDescriptors(world);
       });
+      _syncWorldChatroomForRelationStatus(world.relationStatus);
     } catch (e) {
       if (!mounted) return;
       if (isInitial) {
@@ -320,6 +347,10 @@ class _WorldPageState extends State<WorldPage>
   ) async {
     final locationId = descriptor.locationId;
     if (locationId.isEmpty) return;
+    final wasCached = _cachedLocationChatIds.contains(locationId);
+    final stopwatch = _locationChatMetricsEnabled
+        ? (Stopwatch()..start())
+        : null;
     final previousActiveId = _activeChatLocationId;
     if (previousActiveId.isNotEmpty && previousActiveId != locationId) {
       await _leaveCachedLocationChat(previousActiveId);
@@ -336,6 +367,11 @@ class _WorldPageState extends State<WorldPage>
       _activeChatLocationId = locationId;
     });
     await WidgetsBinding.instance.endOfFrame;
+    _logLocationChatMetric(
+      'open location=$locationId cached=$wasCached '
+      'previous=${previousActiveId.isEmpty ? 'none' : previousActiveId} '
+      'active=$_activeChatLocationId elapsed=${stopwatch?.elapsedMilliseconds}ms',
+    );
   }
 
   void _closeCachedLocationChat() {
@@ -410,6 +446,10 @@ class _WorldPageState extends State<WorldPage>
   void _scheduleLocationChatPrecache(List<String> locationIds) {
     _locationChatPrecacheGeneration += 1;
     final generation = _locationChatPrecacheGeneration;
+    _logLocationChatMetric(
+      'precache scheduled count=${locationIds.length} '
+      'cached=${_cachedLocationChatIds.length}',
+    );
     void scheduleNext(int index) {
       if (index >= locationIds.length) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -420,12 +460,23 @@ class _WorldPageState extends State<WorldPage>
         if (_locationChatDescriptors.containsKey(locationId) &&
             _cachedLocationChatIds.add(locationId)) {
           setState(() {});
+          _logLocationChatMetric(
+            'precache panel location=$locationId '
+            'cached=${_cachedLocationChatIds.length}/${locationIds.length}',
+          );
         }
         scheduleNext(index + 1);
       });
     }
 
     scheduleNext(0);
+  }
+
+  bool get _locationChatMetricsEnabled => kDebugMode || kProfileMode;
+
+  void _logLocationChatMetric(String message) {
+    if (!_locationChatMetricsEnabled) return;
+    debugPrint('[World][LocationChatCache] $message');
   }
 
   Widget? _buildLocationChatOverlay() {
@@ -1430,6 +1481,16 @@ _WorldHeaderAction _worldHeaderActionFor(String relationStatus) {
         'Unavailable',
         false,
       );
+  }
+}
+
+bool _shouldConnectWorldChatroom(String relationStatus) {
+  switch (relationStatus.trim().toLowerCase()) {
+    case 'owner':
+    case 'joined':
+      return true;
+    default:
+      return false;
   }
 }
 
