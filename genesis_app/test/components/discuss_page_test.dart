@@ -8,6 +8,7 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/pages/discuss/discuss_page.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
@@ -203,6 +204,7 @@ AppServices _servicesWithTransport(_DiscussPageTransport transport) {
       sessionStore: sessionStore,
     ),
     chatroom: base.chatroom,
+    chatroomMessages: MemoryChatroomMessageStorage(),
     directMessageConversations: base.directMessageConversations,
     directMessageMessages: base.directMessageMessages,
   );

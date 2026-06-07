@@ -26,6 +26,7 @@ class ChatroomEnvelope {
     this.errMsg = '',
     this.msgId,
     this.conversationRoundId,
+    this.clientMsgId = '',
   });
 
   final String type;
@@ -40,6 +41,7 @@ class ChatroomEnvelope {
   final String errMsg;
   final int? msgId;
   final int? conversationRoundId;
+  final String clientMsgId;
 
   factory ChatroomEnvelope.fromJson(Map<String, dynamic> json) {
     return ChatroomEnvelope(
@@ -57,6 +59,7 @@ class ChatroomEnvelope {
       conversationRoundId: json['conversation_round_id'] == null
           ? null
           : asInt(json['conversation_round_id']),
+      clientMsgId: asString(json['client_msg_id']),
     );
   }
 
@@ -99,6 +102,7 @@ class ChatroomEnvelope {
     if (conversationRoundId != null) {
       merged['conversation_round_id'] = conversationRoundId;
     }
+    if (clientMsgId.isNotEmpty) merged['client_msg_id'] = clientMsgId;
     merged.putIfAbsent('code', () => 0);
     merged.putIfAbsent('code_msg', () => '');
     return merged;
@@ -314,9 +318,11 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
     required super.senderName,
     required super.content,
     required super.broadcast,
+    required this.clientMsgId,
     required this.createdAt,
   });
 
+  final String clientMsgId;
   final DateTime? createdAt;
 
   factory ChatroomUserMessage.fromEnvelope(ChatroomEnvelope envelope) {
@@ -337,6 +343,52 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
       senderName: asString(payload['sender_name']),
       content: asString(payload['content']),
       broadcast: asBool(payload['broadcast']),
+      clientMsgId: asString(payload['client_msg_id']),
+      createdAt: asDateTime(payload['created_at']),
+    );
+  }
+}
+
+class ChatroomNarratorMessage extends ChatroomMessageEvent {
+  const ChatroomNarratorMessage({
+    required super.sessionId,
+    required super.worldId,
+    required super.locationId,
+    required super.userId,
+    required super.code,
+    required super.codeMsg,
+    required super.ts,
+    required super.messageId,
+    required super.conversationRoundId,
+    required super.roundOrder,
+    required super.senderType,
+    required super.senderId,
+    required super.senderName,
+    required super.content,
+    required super.broadcast,
+    required this.createdAt,
+  });
+
+  final DateTime? createdAt;
+
+  factory ChatroomNarratorMessage.fromEnvelope(ChatroomEnvelope envelope) {
+    final payload = envelope.mergedPayload;
+    return ChatroomNarratorMessage(
+      sessionId: asString(payload['session_id']),
+      worldId: _worldId(payload),
+      locationId: asString(payload['location_id']),
+      userId: asString(payload['user_id']),
+      code: asInt(payload['code']),
+      codeMsg: asString(payload['code_msg']),
+      ts: asDateTime(payload['ts'] ?? envelope.ts),
+      messageId: asInt(payload['message_id']),
+      conversationRoundId: asString(payload['conversation_round_id']),
+      roundOrder: asInt(payload['round_order']),
+      senderType: asString(payload['sender_type'], fallback: 'narrator'),
+      senderId: asString(payload['sender_id']),
+      senderName: asString(payload['sender_name'], fallback: 'Narrator'),
+      content: asString(payload['content']),
+      broadcast: asBool(payload['broadcast']),
       createdAt: asDateTime(payload['created_at']),
     );
   }
@@ -345,6 +397,7 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
 class ChatroomAiStreamStart extends ChatroomEvent {
   const ChatroomAiStreamStart({
     required this.sessionId,
+    required this.locationId,
     required this.messageId,
     required this.conversationRoundId,
     required this.roundOrder,
@@ -354,6 +407,7 @@ class ChatroomAiStreamStart extends ChatroomEvent {
   });
 
   final String sessionId;
+  final String locationId;
   final int messageId;
   final String conversationRoundId;
   final int roundOrder;
@@ -366,6 +420,7 @@ class ChatroomAiStreamStart extends ChatroomEvent {
     final roundId = asString(payload['conversation_round_id']);
     return ChatroomAiStreamStart(
       sessionId: asString(payload['session_id']),
+      locationId: asString(payload['location_id']),
       messageId: asInt(payload['message_id']),
       conversationRoundId: roundId,
       roundOrder: asInt(payload['round_order']),
@@ -379,6 +434,7 @@ class ChatroomAiStreamStart extends ChatroomEvent {
 class ChatroomAiStreamChunk extends ChatroomEvent {
   const ChatroomAiStreamChunk({
     required this.sessionId,
+    required this.locationId,
     required this.messageId,
     required this.conversationRoundId,
     required this.senderId,
@@ -387,6 +443,7 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
   });
 
   final String sessionId;
+  final String locationId;
   final int messageId;
   final String conversationRoundId;
   final String senderId;
@@ -397,6 +454,7 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
     final payload = envelope.mergedPayload;
     return ChatroomAiStreamChunk(
       sessionId: asString(payload['session_id']),
+      locationId: asString(payload['location_id']),
       messageId: asInt(payload['message_id']),
       conversationRoundId: asString(payload['conversation_round_id']),
       senderId: asString(payload['sender_id']),
@@ -409,25 +467,31 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
 class ChatroomAiStreamEnd extends ChatroomEvent {
   const ChatroomAiStreamEnd({
     required this.sessionId,
+    required this.locationId,
     required this.messageId,
     required this.conversationRoundId,
     required this.senderId,
+    required this.content,
     required this.createdAt,
   });
 
   final String sessionId;
+  final String locationId;
   final int messageId;
   final String conversationRoundId;
   final String senderId;
+  final String content;
   final DateTime? createdAt;
 
   factory ChatroomAiStreamEnd.fromEnvelope(ChatroomEnvelope envelope) {
     final payload = envelope.mergedPayload;
     return ChatroomAiStreamEnd(
       sessionId: asString(payload['session_id']),
+      locationId: asString(payload['location_id']),
       messageId: asInt(payload['message_id']),
       conversationRoundId: asString(payload['conversation_round_id']),
       senderId: asString(payload['sender_id']),
+      content: asString(payload['content']),
       createdAt: asDateTime(payload['created_at']),
     );
   }
@@ -436,6 +500,7 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
 class ChatroomWorldNotification extends ChatroomEvent {
   const ChatroomWorldNotification({
     required this.worldId,
+    required this.locationId,
     required this.eventType,
     required this.title,
     required this.summary,
@@ -445,6 +510,7 @@ class ChatroomWorldNotification extends ChatroomEvent {
   });
 
   final String worldId;
+  final String locationId;
   final String eventType;
   final String title;
   final String summary;
@@ -456,6 +522,7 @@ class ChatroomWorldNotification extends ChatroomEvent {
     final payload = envelope.mergedPayload;
     return ChatroomWorldNotification(
       worldId: asString(payload['world_id'], fallback: envelope.worldId),
+      locationId: asString(payload['location_id']),
       eventType: asString(payload['event_type'], fallback: envelope.type),
       title: asString(payload['title']),
       summary: asString(payload['summary']),
@@ -519,6 +586,7 @@ class ChatroomMessageHandlers {
     this.onFailure,
     this.onWorldNotification,
     this.onUserMessage,
+    this.onNarratorMessage,
     this.onAiStreamStart,
     this.onAiStreamChunk,
     this.onAiStreamEnd,
@@ -532,6 +600,7 @@ class ChatroomMessageHandlers {
   final void Function(ChatroomFailureEvent event)? onFailure;
   final void Function(ChatroomWorldNotification event)? onWorldNotification;
   final void Function(ChatroomUserMessage event)? onUserMessage;
+  final void Function(ChatroomNarratorMessage event)? onNarratorMessage;
   final void Function(ChatroomAiStreamStart event)? onAiStreamStart;
   final void Function(ChatroomAiStreamChunk event)? onAiStreamChunk;
   final void Function(ChatroomAiStreamEnd event)? onAiStreamEnd;
@@ -553,6 +622,8 @@ class ChatroomMessageHandlers {
         onWorldNotification?.call(e);
       case ChatroomUserMessage e:
         onUserMessage?.call(e);
+      case ChatroomNarratorMessage e:
+        onNarratorMessage?.call(e);
       case ChatroomAiStreamStart e:
         onAiStreamStart?.call(e);
       case ChatroomAiStreamChunk e:
@@ -573,12 +644,14 @@ ChatroomEvent chatroomEventFromEnvelope(ChatroomEnvelope envelope) {
         sourceType: envelope.type,
       );
     case 'tick_start':
+    case 'tick_end':
     case 'tick_done':
     case 'world_change':
     case 'user_location_change':
     case 'world_new_message':
-    case 'nar_new_message':
       return ChatroomWorldNotification.fromEnvelope(envelope);
+    case 'nar_new_message':
+      return ChatroomNarratorMessage.fromEnvelope(envelope);
     case 'user_message':
       return ChatroomUserMessage.fromEnvelope(envelope);
     case 'llm_stream_start':
@@ -608,6 +681,8 @@ String chatroomEventType(ChatroomEvent event) {
       return 'world_change';
     case ChatroomUserMessage():
       return 'user_message';
+    case ChatroomNarratorMessage():
+      return 'nar_new_message';
     case ChatroomAiStreamStart():
       return 'llm_stream_start';
     case ChatroomAiStreamChunk():

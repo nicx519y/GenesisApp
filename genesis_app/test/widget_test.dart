@@ -17,6 +17,7 @@ import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_p
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/direct_message_conversation_store.dart';
 import 'package:genesis_flutter_android/network/direct_message_message_store.dart';
@@ -67,6 +68,7 @@ Future<AppServices> _testServices({
   MemoryUserSessionStore? sessionStoreOverride,
   DirectMessageConversationStore? directMessageConversations,
   DirectMessageMessageStore? directMessageMessages,
+  ChatroomMessageStorage? chatroomMessages,
 }) async {
   const config = AppConfig(useMock: true);
   final platformConfig = DefaultPlatformConfig(appConfig: config);
@@ -110,6 +112,7 @@ Future<AppServices> _testServices({
           wsBaseUrl: config.chatroomWsBaseUrl,
           sessionStore: sessionStore,
         ),
+    chatroomMessages: chatroomMessages ?? MemoryChatroomMessageStorage(),
     directMessageConversations:
         directMessageConversations ??
         DirectMessageConversationStore(
@@ -6247,43 +6250,46 @@ void main() {
     },
   );
 
-  testWidgets(
-    'world page gates chatroom connection by relation status changes',
-    (WidgetTester tester) async {
-      final transport = _RecordingV1ListTransport(
-        worldRelationStatus: 'approved',
-      );
-      final chatroom = _FakeChatroomClient();
-      final services = await _testServices(
-        transport: transport,
-        useMock: false,
-        chatroom: chatroom,
-      );
+  testWidgets('world page does not poll world detail after entry', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+    );
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+    );
 
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: services,
-          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
-        ),
-      );
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(chatroom.connectCount, 0);
+    expect(chatroom.connectCount, 1);
+    expect(chatroom.worldId, 'w_test_1');
+    final initialWorldDetailRequests = transport
+        .requestsFor('/api/v1/world/detail')
+        .length;
+    expect(initialWorldDetailRequests, greaterThan(0));
 
-      transport.worldRelationStatus = 'joined';
-      await tester.pump(const Duration(seconds: 5));
-      await tester.pumpAndSettle();
+    transport.worldRelationStatus = 'joined';
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
 
-      expect(chatroom.connectCount, 1);
-      expect(chatroom.worldId, 'w_test_1');
-
-      transport.worldRelationStatus = 'approved';
-      await tester.pump(const Duration(seconds: 5));
-      await tester.pumpAndSettle();
-
-      expect(chatroom.session.disconnectCount, greaterThan(0));
-    },
-  );
+    expect(chatroom.connectCount, 1);
+    expect(chatroom.worldId, 'w_test_1');
+    expect(
+      transport.requestsFor('/api/v1/world/detail'),
+      hasLength(initialWorldDetailRequests),
+    );
+    expect(chatroom.session.disconnectCount, 0);
+  });
 
   testWidgets(
     'location chat route connects and sends through chatroom client',
@@ -6313,7 +6319,7 @@ void main() {
       expect(chatroom.senderId, 'u_mock');
       expect(chatroom.senderName, 'u_mock');
       expect(find.text('Castle (1)'), findsOneWidget);
-      expect(find.text('World One'), findsOneWidget);
+      expect(find.text('World One'), findsNothing);
       expect(find.text('Joined'), findsOneWidget);
       await tester.tap(find.byType(TextField));
       await tester.enterText(find.byType(TextField), 'hello castle');
@@ -6331,11 +6337,257 @@ void main() {
       await tester.pump();
 
       expect(chatroom.session.sentMessages, ['hello castle']);
+      final clientMsgId = chatroom.session.sentClientMsgIds.single;
+      await tester.pumpAndSettle();
+
+      expect(find.text('hello castle'), findsOneWidget);
+
+      chatroom.session.emit(
+        ChatroomUserMessage(
+          sessionId: 'sess-1',
+          worldId: 'world-1',
+          locationId: 'castle',
+          userId: 'U_J57GT5',
+          code: 0,
+          codeMsg: 'ok',
+          ts: null,
+          messageId: 42,
+          conversationRoundId: 'round-1',
+          roundOrder: 0,
+          senderType: 'user',
+          senderId: '',
+          senderName: '号称句句',
+          content: 'hello castle',
+          broadcast: true,
+          clientMsgId: clientMsgId,
+          createdAt: null,
+        ),
+      );
+      await tester.pump();
       await tester.pumpAndSettle();
 
       expect(find.text('hello castle'), findsOneWidget);
     },
   );
+
+  testWidgets('location chat merges pending send with matching user message', (
+    WidgetTester tester,
+  ) async {
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(chatroom: chatroom);
+    await tester.pumpWidget(GenesisApp(services: services));
+    await tester.pumpAndSettle();
+
+    Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
+      RouteNames.locationChat,
+      arguments: {
+        'world_id': 'world-1',
+        'world_name': 'World One',
+        'location_id': 'castle',
+        'location_name': 'Castle',
+      },
+    );
+    await tester.pumpAndSettle();
+    chatroom.session.holdSendAcks = true;
+
+    await tester.tap(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), '吃饭了吗');
+    await tester.pump();
+    final sendButton = find.descendant(
+      of: find.byKey(const ValueKey('chat-composer-send-button')),
+      matching: find.byType(TextButton),
+    );
+    expect(tester.widget<TextButton>(sendButton).onPressed, isNotNull);
+    await tester.tap(sendButton);
+    await tester.pump();
+
+    final clientMsgId = chatroom.session.sentClientMsgIds.single;
+    expect(find.text('吃饭了吗'), findsOneWidget);
+
+    chatroom.session.emit(
+      ChatroomUserMessage(
+        sessionId: 'sess-1',
+        worldId: 'world-1',
+        locationId: 'castle',
+        userId: 'U_J57GT5',
+        code: 0,
+        codeMsg: 'ok',
+        ts: null,
+        messageId: 126,
+        conversationRoundId: '1317',
+        roundOrder: 0,
+        senderType: 'user',
+        senderId: '',
+        senderName: '号称句句',
+        content: '吃饭了吗',
+        broadcast: true,
+        clientMsgId: clientMsgId,
+        createdAt: null,
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('吃饭了吗'), findsOneWidget);
+  });
+
+  testWidgets('location chat shows role name instead of pushed username', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldCharacters: const [
+        {
+          'type': 'player',
+          'player_uid': 'u_other',
+          'player_username': 'Actual Username',
+          'char_id': 'c_other',
+          'name': 'Role Persona',
+          'identity': 'Visitor',
+          'brief': 'Visits the world',
+          'description': 'A player role.',
+          'goal': 'Talk',
+          'avatar': '',
+          'location_id': 'l_world-1',
+        },
+      ],
+    );
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+    );
+    await tester.pumpWidget(GenesisApp(services: services));
+    await tester.pumpAndSettle();
+
+    Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
+      RouteNames.locationChat,
+      arguments: {
+        'world_id': 'world-1',
+        'location_id': 'l_world-1',
+        'location_name': 'World Location',
+      },
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    chatroom.session.emit(
+      ChatroomUserMessage(
+        sessionId: 'sess-1',
+        worldId: 'world-1',
+        locationId: 'l_world-1',
+        userId: 'u_other',
+        code: 0,
+        codeMsg: 'ok',
+        ts: null,
+        messageId: 127,
+        conversationRoundId: '1318',
+        roundOrder: 0,
+        senderType: 'user',
+        senderId: '',
+        senderName: 'Actual Username',
+        content: 'role name check',
+        broadcast: true,
+        clientMsgId: '',
+        createdAt: null,
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Role Persona'), findsOneWidget);
+    expect(find.text('Actual Username'), findsNothing);
+    expect(find.text('role name check'), findsOneWidget);
+  });
+
+  testWidgets('location chat does not join non-leaf locations', (
+    WidgetTester tester,
+  ) async {
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(chatroom: chatroom);
+    await tester.pumpWidget(GenesisApp(services: services));
+    await tester.pumpAndSettle();
+
+    Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
+      RouteNames.locationChat,
+      arguments: {
+        'world_id': 'world-1',
+        'world_name': 'World One',
+        'location_id': 'district',
+        'location_name': 'District',
+        'is_leaf_location': false,
+      },
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(chatroom.worldId, 'world-1');
+    expect(chatroom.session.joinLocationId, isNull);
+    final sendButton = find.descendant(
+      of: find.byKey(const ValueKey('chat-composer-send-button')),
+      matching: find.byType(TextButton),
+    );
+    expect(tester.widget<TextButton>(sendButton).onPressed, isNull);
+  });
+
+  testWidgets('location chat disables send during tick progress', (
+    WidgetTester tester,
+  ) async {
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(chatroom: chatroom);
+    await tester.pumpWidget(GenesisApp(services: services));
+    await tester.pumpAndSettle();
+
+    Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
+      RouteNames.locationChat,
+      arguments: {
+        'world_id': 'world-1',
+        'world_name': 'World One',
+        'location_id': 'castle',
+        'location_name': 'Castle',
+      },
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    final sendButton = find.descendant(
+      of: find.byKey(const ValueKey('chat-composer-send-button')),
+      matching: find.byType(TextButton),
+    );
+    expect(tester.widget<TextButton>(sendButton).onPressed, isNotNull);
+
+    chatroom.session.emit(
+      ChatroomWorldNotification(
+        worldId: 'world-1',
+        locationId: 'castle',
+        eventType: 'tick_start',
+        title: '',
+        summary: '',
+        detailUrl: '',
+        ts: null,
+        broadcast: false,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(tester.widget<TextButton>(sendButton).onPressed, isNull);
+
+    chatroom.session.emit(
+      ChatroomWorldNotification(
+        worldId: 'world-1',
+        locationId: 'castle',
+        eventType: 'tick_end',
+        title: '',
+        summary: '',
+        detailUrl: '',
+        ts: null,
+        broadcast: false,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(tester.widget<TextButton>(sendButton).onPressed, isNotNull);
+  });
 
   testWidgets('location chat input stays editable before connection', (
     WidgetTester tester,
@@ -6588,6 +6840,7 @@ class _FailingChatroomClient implements ChatroomClient {
     String? userId,
     String? senderId,
     String? senderName,
+    bool? autoHeartbeat,
   }) async {
     throw StateError('test connection failed');
   }
@@ -6599,6 +6852,7 @@ class _FailingChatroomClient implements ChatroomClient {
     String? userId,
     String? senderId,
     String? senderName,
+    bool? autoHeartbeat,
   }) async {
     throw StateError('test connection failed');
   }
@@ -6620,6 +6874,7 @@ class _FakeChatroomClient implements ChatroomClient {
     String? userId,
     String? senderId,
     String? senderName,
+    bool? autoHeartbeat,
   }) async {
     connectCount += 1;
     final resolvedWorldId = worldId;
@@ -6645,6 +6900,7 @@ class _FakeChatroomClient implements ChatroomClient {
     String? userId,
     String? senderId,
     String? senderName,
+    bool? autoHeartbeat,
   }) async {
     final session = await connect(
       worldId: worldId,
@@ -6652,6 +6908,7 @@ class _FakeChatroomClient implements ChatroomClient {
       userId: userId,
       senderId: senderId,
       senderName: senderName,
+      autoHeartbeat: autoHeartbeat,
     );
     await session.join();
     return session;
@@ -6683,10 +6940,13 @@ class _FakeChatroomSession implements ChatroomSession {
   final String senderName;
 
   final sentMessages = <String>[];
+  final sentClientMsgIds = <String>[];
+  final pendingSendAcks = <String, Completer<ChatroomAck>>{};
   String? joinLocationId;
   int joinCount = 0;
   int leaveCount = 0;
   int disconnectCount = 0;
+  bool holdSendAcks = false;
   final _events = StreamController<ChatroomEvent>.broadcast();
   final _errors = StreamController<ChatroomErrorEvent>.broadcast();
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();
@@ -6722,6 +6982,28 @@ class _FakeChatroomSession implements ChatroomSession {
   @override
   Stream<ChatroomAiMessageStream> get streams => _streams.stream;
 
+  void emit(ChatroomEvent event) {
+    if (event is ChatroomUserMessage && event.clientMsgId.isNotEmpty) {
+      pendingSendAcks
+          .remove(event.clientMsgId)
+          ?.complete(
+            ChatroomAck(
+              sessionId: event.sessionId,
+              worldId: event.worldId,
+              locationId: event.locationId,
+              userId: event.userId,
+              code: event.code,
+              codeMsg: event.codeMsg,
+              ts: event.ts,
+              messageId: event.messageId,
+              conversationRoundId: event.conversationRoundId,
+              clientMsgId: event.clientMsgId,
+            ),
+          );
+    }
+    _events.add(event);
+  }
+
   @override
   StreamSubscription<ChatroomEvent> listenMessages(
     ChatroomMessageHandlers handlers, {
@@ -6752,7 +7034,9 @@ class _FakeChatroomSession implements ChatroomSession {
   @override
   Future<ChatroomAck> sendMessage(String text, {String? clientMsgId}) async {
     sentMessages.add(text);
-    return ChatroomAck(
+    final resolvedClientMsgId = clientMsgId ?? 'client-1';
+    sentClientMsgIds.add(resolvedClientMsgId);
+    final ack = ChatroomAck(
       sessionId: 'sess-1',
       worldId: worldId,
       locationId: locationId,
@@ -6762,8 +7046,14 @@ class _FakeChatroomSession implements ChatroomSession {
       ts: null,
       messageId: 42,
       conversationRoundId: 'round-1',
-      clientMsgId: clientMsgId ?? 'client-1',
+      clientMsgId: resolvedClientMsgId,
     );
+    if (holdSendAcks) {
+      final completer = Completer<ChatroomAck>();
+      pendingSendAcks[resolvedClientMsgId] = completer;
+      return completer.future;
+    }
+    return ack;
   }
 
   @override

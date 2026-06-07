@@ -10,6 +10,7 @@ export 'chat_ui_style_config.dart';
 class ChatMessageVm {
   ChatMessageVm({
     required this.localId,
+    this.clientMsgId = '',
     this.messageId,
     this.roundId = '',
     required this.senderId,
@@ -34,10 +35,11 @@ class ChatMessageVm {
   }
 
   final String localId;
+  final String clientMsgId;
   int? messageId;
   String roundId;
   final String senderId;
-  final String senderName;
+  String senderName;
   String text;
   final bool isMe;
   String status;
@@ -540,8 +542,7 @@ class ChatMessageRow extends StatelessWidget {
   }
 
   Widget _buildMe(BuildContext context, ChatUiStyleConfig style) {
-    final maxBubbleWidth =
-        MediaQuery.sizeOf(context).width * style.selfBubbleMaxWidthFactor;
+    final maxBubbleWidth = _normalBubbleMaxWidth(context, style);
     final showFailedBadge = message.status == 'failed';
     final showSendingBadge = message.status == 'sending';
     final showStatusText =
@@ -552,6 +553,7 @@ class ChatMessageRow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _ChatAvatarSideSpacer(style: style),
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -598,8 +600,7 @@ class ChatMessageRow extends StatelessWidget {
   }
 
   Widget _buildOther(BuildContext context, ChatUiStyleConfig style) {
-    final maxBubbleWidth =
-        MediaQuery.sizeOf(context).width * style.otherBubbleMaxWidthFactor;
+    final maxBubbleWidth = _normalBubbleMaxWidth(context, style);
     return Padding(
       padding: EdgeInsets.only(bottom: style.rowBottomPadding),
       child: Row(
@@ -647,9 +648,31 @@ class ChatMessageRow extends StatelessWidget {
               ],
             ),
           ),
+          _ChatAvatarSideSpacer(style: style),
         ],
       ),
     );
+  }
+}
+
+double _normalBubbleMaxWidth(BuildContext context, ChatUiStyleConfig style) {
+  return _normalBubbleMaxWidthForWidth(MediaQuery.sizeOf(context).width, style);
+}
+
+double _normalBubbleMaxWidthForWidth(double width, ChatUiStyleConfig style) {
+  final sideReservation = style.avatarSize + style.avatarBubbleGap;
+  final rowAvailableWidth = width - sideReservation * 2;
+  return rowAvailableWidth > 0 ? rowAvailableWidth : width;
+}
+
+class _ChatAvatarSideSpacer extends StatelessWidget {
+  const _ChatAvatarSideSpacer({required this.style});
+
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(width: style.avatarSize + style.avatarBubbleGap);
   }
 }
 
@@ -819,16 +842,30 @@ class ChatSystemMessage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
-    return Center(
-      child: Container(
-        margin: style.systemMessageMargin,
-        padding: style.systemMessagePadding,
-        decoration: BoxDecoration(
-          color: style.systemMessageBackgroundColor,
-          borderRadius: BorderRadius.circular(style.systemMessageBorderRadius),
-        ),
-        child: Text(text, style: style.systemMessageTextStyle),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxBubbleWidth = _normalBubbleMaxWidthForWidth(
+          constraints.maxWidth,
+          style,
+        );
+        return Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+            child: Container(
+              key: const ValueKey('chat-system-message-bubble'),
+              margin: style.systemMessageMargin,
+              padding: style.systemMessagePadding,
+              decoration: BoxDecoration(
+                color: style.systemMessageBackgroundColor,
+                borderRadius: BorderRadius.circular(
+                  style.systemMessageBorderRadius,
+                ),
+              ),
+              child: Text(text, style: style.systemMessageTextStyle),
+            ),
+          ),
+        );
+      },
     );
   }
 }

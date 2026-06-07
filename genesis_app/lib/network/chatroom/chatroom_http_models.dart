@@ -10,6 +10,7 @@ class ChatroomHttpMessage {
     required this.senderId,
     required this.senderName,
     required this.userId,
+    this.clientMsgId = '',
     required this.content,
     required this.createdAt,
   });
@@ -22,6 +23,7 @@ class ChatroomHttpMessage {
   final String senderId;
   final String senderName;
   final String userId;
+  final String clientMsgId;
   final String content;
   final DateTime? createdAt;
 
@@ -35,6 +37,7 @@ class ChatroomHttpMessage {
       senderId: asString(json['sender_id']),
       senderName: asString(json['sender_name']),
       userId: asString(json['user_id']),
+      clientMsgId: asString(json['client_msg_id']),
       content: asString(json['content']),
       createdAt: asDateTime(json['ts']),
     );

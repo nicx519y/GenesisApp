@@ -5,6 +5,7 @@ import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
 import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/world_details_shell.dart';
@@ -13,6 +14,7 @@ import '../../components/world_map_stage.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
+import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/origin.dart';
@@ -38,25 +40,22 @@ class WorldPage extends StatefulWidget {
 }
 
 class _WorldPageState extends State<WorldPage>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   WorldDetail? _world;
   Object? _initialLoadError;
-  Timer? _pollTimer;
-  ChatroomConnectionController? _chatroomConnection;
-  StreamSubscription<ChatroomConnectionSnapshot>? _chatroomConnectionSub;
+  WorldChatroomService? _worldChatroom;
+  StreamSubscription<WorldChatroomState>? _worldChatroomSub;
+  StreamSubscription? _worldChatroomFailureSub;
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 2, vsync: this);
+    _startWorldChatroom();
     unawaited(_fetchWorld(isInitial: true));
-    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      unawaited(_fetchWorld());
-    });
   }
 
   @override
@@ -67,94 +66,47 @@ class _WorldPageState extends State<WorldPage>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _pollTimer?.cancel();
-    unawaited(_chatroomConnectionSub?.cancel());
-    final chatroomConnection = _chatroomConnection;
-    _chatroomConnection = null;
-    if (chatroomConnection != null) {
-      unawaited(_disposeChatroomConnection(chatroomConnection));
+    unawaited(_worldChatroomSub?.cancel());
+    unawaited(_worldChatroomFailureSub?.cancel());
+    final chatroom = _worldChatroom;
+    _worldChatroom = null;
+    if (chatroom != null) {
+      unawaited(_disposeWorldChatroom(chatroom));
     }
     _tabController.dispose();
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    final chatroomConnection = _chatroomConnection;
-    if (chatroomConnection == null) return;
-    switch (state) {
-      case AppLifecycleState.resumed:
-        unawaited(
-          chatroomConnection.handleAppForeground().catchError((Object _) {}),
-        );
-        break;
-      case AppLifecycleState.paused:
-      case AppLifecycleState.hidden:
-        unawaited(
-          chatroomConnection.handleAppBackground().catchError((Object _) {}),
-        );
-        break;
-      case AppLifecycleState.inactive:
-      case AppLifecycleState.detached:
-        break;
-    }
-  }
-
-  void _startChatroomConnection() {
-    if (_chatroomConnection != null) return;
+  void _startWorldChatroom() {
+    if (_worldChatroom != null) return;
     final services = AppServicesScope.read(context);
-    final controller = ChatroomConnectionController(client: services.chatroom);
-    _chatroomConnection = controller;
-    _chatroomConnectionSub = controller.states.listen((_) {
+    final service = WorldChatroomService(
+      api: services.api,
+      client: services.chatroom,
+      messageStorage: services.chatroomMessages,
+    );
+    _worldChatroom = service;
+    _worldChatroomSub = service.states.listen((_) {
       if (mounted) setState(() {});
     });
-    unawaited(_connectChatroom(controller, services));
+    _worldChatroomFailureSub = bindChatroomFailureToast(
+      context,
+      service.failures,
+      shouldShow: (failure) => failure.code != 'snapshot_failed',
+    );
+    unawaited(_connectWorldChatroom(service, services));
   }
 
-  Future<void> _stopChatroomConnection() async {
-    final chatroomConnection = _chatroomConnection;
-    _chatroomConnection = null;
-    final subscription = _chatroomConnectionSub;
-    _chatroomConnectionSub = null;
-    final disconnectFuture = chatroomConnection?.disconnect();
-    await subscription?.cancel();
-    if (chatroomConnection != null) {
-      try {
-        await disconnectFuture;
-      } catch (_) {
-        // Relation changes should not be blocked by socket shutdown errors.
-      }
-      await chatroomConnection.dispose();
-    }
-    if (mounted) setState(() {});
-  }
-
-  void _syncChatroomConnectionForWorld(WorldDetail world) {
-    if (_shouldMaintainChatroomConnection(world)) {
-      _startChatroomConnection();
-      return;
-    }
-    if (_chatroomConnection != null) {
-      unawaited(_stopChatroomConnection());
-    }
-  }
-
-  bool _shouldMaintainChatroomConnection(WorldDetail world) {
-    final relationStatus = world.relationStatus.trim().toLowerCase();
-    return relationStatus == 'owner' || relationStatus == 'joined';
-  }
-
-  Future<void> _connectChatroom(
-    ChatroomConnectionController controller,
+  Future<void> _connectWorldChatroom(
+    WorldChatroomService service,
     AppServices services,
   ) async {
     try {
       final identity = await _chatroomIdentity(services);
-      if (!mounted || !identical(_chatroomConnection, controller)) return;
-      await controller.connect(worldId: widget.wid, identity: identity);
+      if (!mounted || !identical(_worldChatroom, service)) return;
+      await service.connect(worldId: widget.wid, identity: identity);
     } catch (_) {
-      // The controller emits state/failure and keeps retrying while desired.
+      // The service emits failures and keeps reconnecting while desired.
     }
   }
 
@@ -162,8 +114,17 @@ class _WorldPageState extends State<WorldPage>
     AppServices services,
   ) async {
     final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final userInfo = await services.sessionStore.readUserInfo();
+    final cachedUid = userInfo == null
+        ? ''
+        : _mapString(userInfo, const ['uid']);
     final profile = services.identityAuth.currentProfile();
-    final senderId = _firstNonEmpty([profile?.uid, uid, 'local-user']);
+    final senderId = _firstNonEmpty([
+      uid,
+      cachedUid,
+      profile?.uid,
+      'local-user',
+    ]);
     final senderName = _firstNonEmpty([
       profile?.displayName,
       profile?.email,
@@ -177,15 +138,13 @@ class _WorldPageState extends State<WorldPage>
     );
   }
 
-  Future<void> _disposeChatroomConnection(
-    ChatroomConnectionController controller,
-  ) async {
+  Future<void> _disposeWorldChatroom(WorldChatroomService service) async {
     try {
-      await controller.disconnect();
+      await service.disconnect();
     } catch (_) {
       // Leaving the page should not be blocked by socket shutdown errors.
     }
-    await controller.dispose();
+    await service.dispose();
   }
 
   Future<void> _fetchWorld({bool isInitial = false}) async {
@@ -200,7 +159,6 @@ class _WorldPageState extends State<WorldPage>
         _world = world;
         if (isInitial) _initialLoadError = null;
       });
-      _syncChatroomConnectionForWorld(world);
     } catch (e) {
       if (!mounted) return;
       if (isInitial) {
@@ -319,13 +277,10 @@ class _WorldPageState extends State<WorldPage>
   }
 
   Future<void> _openChatForPoint(WorldPoint point) async {
-    final chatroomConnection = _chatroomConnection;
-    if (!_canOpenLocationChat(chatroomConnection)) {
+    final chatroom = _worldChatroom;
+    if (!_canOpenLocationChat(chatroom)) {
       if (mounted) {
-        showGenesisToast(
-          context,
-          _chatroomStatusLabel(chatroomConnection?.status),
-        );
+        showGenesisToast(context, _chatroomStatusLabel(chatroom?.state));
       }
       return;
     }
@@ -338,9 +293,11 @@ class _WorldPageState extends State<WorldPage>
         arguments: {
           'world_id': widget.wid,
           'world_name': _world?.name ?? '',
-          'chatroom_connection': chatroomConnection,
+          'is_leaf_location': point.isLeafLocation,
+          'world_chatroom_service': chatroom,
         },
       );
+      await WidgetsBinding.instance.endOfFrame;
       return;
     }
 
@@ -362,24 +319,22 @@ class _WorldPageState extends State<WorldPage>
         'location_id': locationId,
         'pointId': pointId,
         'location_name': point.name,
-        'chatroom_connection': chatroomConnection,
+        'is_leaf_location': point.isLeafLocation,
+        'world_chatroom_service': chatroom,
       },
     );
+    await WidgetsBinding.instance.endOfFrame;
   }
 
-  bool _canOpenLocationChat(ChatroomConnectionController? controller) {
-    return controller?.status == ChatroomConnectionStatus.connected ||
-        controller?.status == ChatroomConnectionStatus.joined;
+  bool _canOpenLocationChat(WorldChatroomService? service) {
+    return service?.state.connected == true;
   }
 
-  String _chatroomStatusLabel(ChatroomConnectionStatus? status) {
-    return switch (status) {
-      ChatroomConnectionStatus.connected => 'Connecting',
-      ChatroomConnectionStatus.connecting => 'Connecting',
-      ChatroomConnectionStatus.joining => 'Joining',
-      ChatroomConnectionStatus.joined => 'Joined',
-      ChatroomConnectionStatus.disconnected || null => 'Disconnect',
-    };
+  String _chatroomStatusLabel(WorldChatroomState? state) {
+    if (state == null) return 'Disconnect';
+    if (state.reconnecting) return 'Reconnecting';
+    if (state.connected) return 'Connected';
+    return 'Connecting';
   }
 
   void _showMapTab() {
@@ -491,7 +446,7 @@ class _WorldPageState extends State<WorldPage>
           overlayTop: topPadding + 8 + 48,
           drillExitTop: topPadding + 68,
           onDrillIntoLocation: _showMapTab,
-          onPointTap: (point) => unawaited(_openChatForPoint(point)),
+          onPointTap: _openChatForPoint,
         ),
       ),
       slivers: [

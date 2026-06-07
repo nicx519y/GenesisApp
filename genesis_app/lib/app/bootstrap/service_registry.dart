@@ -1,5 +1,6 @@
 import '../../network/genesis_api.dart';
 import '../../network/chatroom/chatroom_client.dart';
+import '../../network/chatroom/chatroom_message_storage.dart';
 import '../../network/chatroom/chatroom_socket_transport.dart';
 import '../../network/direct_message_conversation_store.dart';
 import '../../network/direct_message_message_store.dart';
@@ -18,6 +19,7 @@ class AppServices {
     required this.backendAuth,
     required this.api,
     required this.chatroom,
+    required this.chatroomMessages,
     required this.directMessageConversations,
     required this.directMessageMessages,
   });
@@ -30,6 +32,7 @@ class AppServices {
   final BackendAuthCoordinator backendAuth;
   final GenesisApi api;
   final ChatroomClient chatroom;
+  final ChatroomMessageStorage chatroomMessages;
   final DirectMessageConversationStore directMessageConversations;
   final DirectMessageMessageStore directMessageMessages;
 }
@@ -87,6 +90,7 @@ class ServiceRegistry {
       sessionStore: sessionStore,
       storage: SqfliteDirectMessageMessageStorage(),
     );
+    final chatroomMessages = SqfliteChatroomMessageStorage();
     return AppServices(
       config: config,
       platformConfig: platformConfig,
@@ -96,6 +100,7 @@ class ServiceRegistry {
       backendAuth: backendAuth,
       api: api,
       chatroom: chatroom,
+      chatroomMessages: chatroomMessages,
       directMessageConversations: directMessageConversations,
       directMessageMessages: directMessageMessages,
     );

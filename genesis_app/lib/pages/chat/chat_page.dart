@@ -532,6 +532,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             sendEnabled: _peerUid.isNotEmpty && !_sending,
             sending: _sending,
             onSend: _send,
+            sendLabel: 'Send',
             onHeightChanged: (_) => _revealLatestMessageAfterLayout(),
           ),
         ],

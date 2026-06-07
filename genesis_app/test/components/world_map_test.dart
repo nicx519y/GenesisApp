@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -967,6 +968,89 @@ void main() {
     expect(tappedIds, ['root', 'leaf']);
   });
 
+  testWidgets('world map ignores duplicate taps while point tap is pending', (
+    tester,
+  ) async {
+    final tappedIds = <String>[];
+    final completer = Completer<void>();
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      onPointTap: (point) {
+        tappedIds.add(point.id);
+        return completer.future;
+      },
+    );
+
+    await tester.tap(find.text('Gate'));
+    await tester.tap(find.text('Gate'));
+    expect(tappedIds, ['point-1']);
+
+    completer.complete();
+    await tester.pump();
+    await tester.tap(find.text('Gate'));
+    expect(tappedIds, ['point-1', 'point-1']);
+  });
+
+  testWidgets('world map ignores duplicate taps while drilling into location', (
+    tester,
+  ) async {
+    var drillCount = 0;
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [],
+      onDrillIntoLocation: () {
+        drillCount += 1;
+      },
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'district',
+          point: WorldPoint(
+            id: 'district',
+            sceneId: 'district',
+            name: 'District',
+            type: WorldPointType.shop,
+            position: _pointPosition,
+            users: [],
+            isLeafLocation: false,
+          ),
+          children: [
+            WorldMapLocationNode(
+              id: 'room-a',
+              point: WorldPoint(
+                id: 'room-a',
+                sceneId: 'room-a',
+                name: 'Room A',
+                type: WorldPointType.camp,
+                position: Offset(0.45, 0.4),
+                users: [],
+              ),
+            ),
+            WorldMapLocationNode(
+              id: 'room-b',
+              point: WorldPoint(
+                id: 'room-b',
+                sceneId: 'room-b',
+                name: 'Room B',
+                type: WorldPointType.camp,
+                position: Offset(0.55, 0.5),
+                users: [],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    await tester.tap(find.text('District'));
+    await tester.tap(find.text('District'), warnIfMissed: false);
+    expect(drillCount, 1);
+
+    await tester.pump();
+    expect(find.text('Room A'), findsOneWidget);
+  });
+
   testWidgets(
     'points list can show full hierarchy while map points stay scoped',
     (tester) async {
@@ -1076,7 +1160,8 @@ Future<void> _pumpWorldMap(
   List<WorldPoint>? points,
   List<WorldPoint>? listPoints,
   List<WorldMapLocationNode> locationNodes = const <WorldMapLocationNode>[],
-  ValueChanged<WorldPoint>? onPointTap,
+  WorldPointTapCallback? onPointTap,
+  VoidCallback? onDrillIntoLocation,
 }) async {
   tester.view.physicalSize = const Size(430, 820);
   tester.view.devicePixelRatio = 1;
@@ -1097,6 +1182,7 @@ Future<void> _pumpWorldMap(
               showPointsList: showPointsList,
               listPoints: listPoints,
               locationNodes: locationNodes,
+              onDrillIntoLocation: onDrillIntoLocation,
               onPointTap: onPointTap,
               points:
                   points ??

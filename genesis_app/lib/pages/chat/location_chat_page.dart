@@ -6,9 +6,9 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
-import '../../network/chatroom/chatroom_client.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
+import '../../network/chatroom/world_chatroom_service.dart';
 import '../../utils/display_name_formatter.dart';
 
 class LocationChatPage extends StatefulWidget {
@@ -16,15 +16,19 @@ class LocationChatPage extends StatefulWidget {
     super.key,
     required this.worldId,
     required this.locationId,
+    this.isLeafLocation = true,
     this.worldName,
     this.locationName,
+    this.service,
     this.connection,
   });
 
   final String worldId;
   final String locationId;
+  final bool isLeafLocation;
   final String? worldName;
   final String? locationName;
+  final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
 
   @override
@@ -36,23 +40,20 @@ class _LocationChatPageState extends State<LocationChatPage>
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
   final _messages = <ChatMessageVm>[];
-  final _streamSubscriptions = <StreamSubscription<Object?>>[];
-  final _activeStreams = <int, ChatMessageVm>{};
 
-  ChatroomSession? _session;
-  ChatroomSession? _attachedSession;
-  ChatroomConnectionController? _connection;
-  StreamSubscription<ChatroomConnectionSnapshot>? _connectionSubscription;
-  StreamSubscription<ChatroomEvent>? _eventsSubscription;
+  WorldChatroomService? _service;
+  StreamSubscription<WorldChatroomState>? _stateSubscription;
   StreamSubscription<ChatroomFailureEvent>? _failuresSubscription;
-  StreamSubscription<ChatroomAiMessageStream>? _streamsSubscription;
+  WorldChatroomState _chatroomState = const WorldChatroomState();
+  final Set<String> _myUserIdKeys = <String>{};
+  final Set<String> _mySenderIdKeys = <String>{};
+  String _myUserId = '';
   String _mySenderId = '';
   String _mySenderName = '';
-  ChatroomConnectionStatus _connectionStatus =
-      ChatroomConnectionStatus.disconnected;
-  List<ChatroomOnlineUser> _onlineUsers = const <ChatroomOnlineUser>[];
-  bool _ownsConnection = false;
+  bool _ownsService = false;
+  bool _joinedLocation = false;
   bool _sending = false;
+  int _clientMsgCounter = 0;
 
   @override
   void initState() {
@@ -64,11 +65,11 @@ class _LocationChatPageState extends State<LocationChatPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    final connection = _connection;
-    if (_ownsConnection && connection != null) {
-      unawaited(connection.disconnect().catchError((Object _) {}));
+    final service = _service;
+    if (_ownsService && service != null) {
+      unawaited(service.disconnect().catchError((Object _) {}));
     }
-    unawaited(_closeConnection());
+    unawaited(_closeChatroom());
     _scrollController.dispose();
     _textController.dispose();
     super.dispose();
@@ -81,58 +82,64 @@ class _LocationChatPageState extends State<LocationChatPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!_ownsConnection) return;
-    final connection = _connection;
-    if (connection == null) return;
-    switch (state) {
-      case AppLifecycleState.resumed:
-        unawaited(connection.handleAppForeground().catchError((Object _) {}));
-        break;
-      case AppLifecycleState.paused:
-      case AppLifecycleState.hidden:
-        unawaited(connection.handleAppBackground().catchError((Object _) {}));
-        break;
-      case AppLifecycleState.inactive:
-      case AppLifecycleState.detached:
-        break;
-    }
+    // WorldChatroomService owns reconnect behavior; this page only joins/leaves
+    // the current location.
   }
 
   void _startConnection() {
-    final provided = widget.connection;
+    final provided = widget.service;
     if (provided != null) {
-      _connection = provided;
-      _ownsConnection = false;
-      _attachConnection(provided);
-      unawaited(_joinLocation(provided));
+      _service = provided;
+      _ownsService = false;
+      _syncSenderIdentity(provided);
+      unawaited(_syncLocalIdentity(AppServicesScope.read(context)));
+      _attachService(provided);
+      if (widget.isLeafLocation) {
+        unawaited(_joinLocation(provided));
+      }
       return;
     }
 
     final services = AppServicesScope.read(context);
-    final connection = ChatroomConnectionController(client: services.chatroom);
-    _connection = connection;
-    _ownsConnection = true;
-    _attachConnection(connection);
-    unawaited(_connectFallbackAndJoin(connection, services));
+    final service = WorldChatroomService(
+      api: services.api,
+      client: services.chatroom,
+      messageStorage: services.chatroomMessages,
+    );
+    _service = service;
+    _ownsService = true;
+    _attachService(service);
+    unawaited(_connectFallbackAndJoin(service, services));
   }
 
   Future<void> _connectFallbackAndJoin(
-    ChatroomConnectionController connection,
+    WorldChatroomService service,
     AppServices services,
   ) async {
     try {
       final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+      final userInfo = await services.sessionStore.readUserInfo();
+      final cachedUid = _mapString(userInfo, 'uid');
       final profile = services.identityAuth.currentProfile();
-      final senderId = firstNonEmpty([profile?.uid, uid, 'local-user']);
+      final senderId = firstNonEmpty([
+        uid,
+        cachedUid,
+        profile?.uid,
+        'local-user',
+      ]);
       final senderName = firstNonEmpty([
         profile?.displayName,
         profile?.email,
         formatUidForDisplay(uid),
         'Me',
       ]);
-      _mySenderId = senderId;
+      _rememberMyUserId(uid);
+      _rememberMyUserId(cachedUid);
+      _rememberMyUserId(profile?.uid);
+      _rememberMyUserId(senderId);
+      _rememberMySenderId(senderId);
       _mySenderName = senderName;
-      await connection.connect(
+      await service.connect(
         worldId: widget.worldId,
         identity: ChatroomConnectionIdentity(
           userId: senderId,
@@ -140,7 +147,9 @@ class _LocationChatPageState extends State<LocationChatPage>
           senderName: senderName,
         ),
       );
-      await _joinLocation(connection);
+      if (widget.isLeafLocation) {
+        await _joinLocation(service);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -150,18 +159,18 @@ class _LocationChatPageState extends State<LocationChatPage>
     }
   }
 
-  Future<void> _joinLocation(ChatroomConnectionController connection) async {
+  Future<void> _joinLocation(WorldChatroomService service) async {
     try {
       if (_mySenderId.isEmpty || _mySenderName.isEmpty) {
-        final session = connection.session;
-        _mySenderId = firstNonEmpty([session?.senderId, 'local-user']);
-        _mySenderName = firstNonEmpty([
-          formatUidForDisplay(session?.senderName ?? ''),
-          'Me',
-        ]);
+        final senderId = firstNonEmpty([_mySenderId, 'local-user']);
+        _rememberMySenderId(senderId);
+        _mySenderName = firstNonEmpty([_mySenderName, 'Me']);
       }
-      await connection.join(locationId: widget.locationId);
+      if (_myUserId.isEmpty) _rememberMyUserId(_mySenderId);
+      _joinedLocation = true;
+      await service.join(locationId: widget.locationId);
     } catch (e) {
+      _joinedLocation = false;
       if (!mounted) return;
       setState(() {
         _messages.add(ChatMessageVm.system('Join failed: $e'));
@@ -170,168 +179,236 @@ class _LocationChatPageState extends State<LocationChatPage>
     }
   }
 
-  void _attachConnection(ChatroomConnectionController connection) {
+  void _attachService(WorldChatroomService service) {
     _failuresSubscription = bindChatroomFailureToast(
       context,
-      connection.failures,
+      service.failures,
       onFailure: _handleFailure,
     );
-    _connectionSubscription = connection.states.listen(_handleConnectionState);
-    _handleConnectionState(connection.snapshot);
+    _stateSubscription = service.states.listen(_handleChatroomState);
+    _handleChatroomState(service.state);
   }
 
-  void _handleConnectionState(ChatroomConnectionSnapshot snapshot) {
-    final session = snapshot.session;
-    if (session != null && !identical(session, _attachedSession)) {
-      _attachSession(session);
-    }
+  void _handleChatroomState(WorldChatroomState state) {
     if (!mounted) return;
-    setState(() {
-      _session = session;
-      _connectionStatus = snapshot.status;
-      _onlineUsers = snapshot.joined?.onlineUsers ?? _onlineUsers;
-      _mySenderId = firstNonEmpty([session?.senderId, _mySenderId]);
-      _mySenderName = firstNonEmpty([
-        formatUidForDisplay(session?.senderName ?? ''),
-        _mySenderName,
-      ]);
-    });
-  }
-
-  void _attachSession(ChatroomSession session) {
-    unawaited(_eventsSubscription?.cancel());
-    unawaited(_streamsSubscription?.cancel());
-    _attachedSession = session;
-    _eventsSubscription = session.listenMessages(
-      ChatroomMessageHandlers(
-        onJoined: (e) {
-          if (!mounted) return;
-          setState(() {
-            _onlineUsers = e.onlineUsers;
-          });
-        },
-        onUserMessage: (e) {
-          if (!mounted) return;
-          _handleUserMessage(e);
-        },
-      ),
-      onDone: _markDisconnected,
+    final service = _service;
+    if (service != null) _syncSenderIdentity(service);
+    final changedMessages = _reconcileMessages(
+      state.messagesByLocation[widget.locationId] ??
+          const <WorldChatroomMessage>[],
     );
-    _streamsSubscription = session.streams.listen(_handleAiStream);
+    setState(() {
+      _chatroomState = state;
+    });
+    if (changedMessages) _scrollToBottom();
   }
 
-  void _handleUserMessage(ChatroomUserMessage event) {
-    final isMe = event.senderId == _mySenderId || event.userId == _mySenderId;
-    final existingIndex = event.messageId == 0
-        ? -1
-        : _messages.indexWhere((m) => m.messageId == event.messageId);
-    if (existingIndex >= 0) return;
-
-    setState(() {
-      _messages.add(
-        ChatMessageVm(
-          localId: 'user-${event.messageId}',
-          messageId: event.messageId,
-          roundId: event.conversationRoundId,
-          senderId: event.senderId,
-          senderName: event.senderName,
-          text: event.content,
+  bool _reconcileMessages(List<WorldChatroomMessage> source) {
+    final previous = _messages.where((message) => !message.isSystem).toList();
+    final existingByKey = {
+      for (final message in previous) message.localId: message,
+    };
+    final existingByMessageId = <int, ChatMessageVm>{
+      for (final message in previous)
+        if ((message.messageId ?? 0) > 0) message.messageId!: message,
+    };
+    final existingByClientMsgId = <String, ChatMessageVm>{
+      for (final message in previous)
+        if (message.clientMsgId.trim().isNotEmpty)
+          message.clientMsgId.trim(): message,
+    };
+    final next = <ChatMessageVm>[];
+    final usedLocalIds = <String>{};
+    var changed = previous.length != source.length;
+    for (final message in source) {
+      final localId = _messageLocalId(message);
+      final status = message.streaming ? 'streaming' : 'sent';
+      final isMe = _isMineMessage(message);
+      final senderName = _messageSenderDisplayName(message);
+      final clientMsgId = message.clientMsgId.trim();
+      final existing =
+          (clientMsgId.isEmpty ? null : existingByClientMsgId[clientMsgId]) ??
+          existingByKey[localId] ??
+          (message.messageId > 0
+              ? existingByMessageId[message.messageId]
+              : null) ??
+          _matchingPendingSelfMessage(
+            previous,
+            message,
+            usedLocalIds: usedLocalIds,
+          );
+      final createdAt = message.createdAt ?? DateTime.now();
+      if (existing != null) {
+        if (usedLocalIds.contains(existing.localId)) {
+          changed = true;
+          continue;
+        }
+        usedLocalIds.add(existing.localId);
+        if (existing.messageId != message.messageId ||
+            existing.roundId != message.conversationRoundId ||
+            existing.senderName != senderName ||
+            existing.text != message.content ||
+            existing.status != status ||
+            existing.localId != localId) {
+          changed = true;
+        }
+        existing.messageId = message.messageId;
+        existing.roundId = message.conversationRoundId;
+        existing.senderName = senderName;
+        existing.text = message.content;
+        existing.status = status;
+        existing.error = null;
+        next.add(existing);
+      } else {
+        changed = true;
+        final nextMessage = ChatMessageVm(
+          localId: localId,
+          clientMsgId: message.clientMsgId,
+          messageId: message.messageId,
+          roundId: message.conversationRoundId,
+          senderId: message.senderId,
+          senderName: senderName,
+          text: message.content,
           isMe: isMe,
-          status: 'sent',
-        ),
-      );
-    });
-    _scrollToBottom();
+          status: status,
+          senderType: _messageSenderType(message),
+          createdAt: createdAt,
+        );
+        usedLocalIds.add(nextMessage.localId);
+        next.add(nextMessage);
+      }
+    }
+    for (var i = 0; i < next.length && i < previous.length; i += 1) {
+      if (next[i].localId != previous[i].localId) {
+        changed = true;
+        break;
+      }
+    }
+    if (changed) {
+      _messages
+        ..clear()
+        ..addAll(next);
+    }
+    return changed;
   }
 
-  void _handleAiStream(ChatroomAiMessageStream stream) {
-    final message = ChatMessageVm(
-      localId: 'ai-${stream.start.messageId}',
-      messageId: stream.start.messageId,
-      roundId: stream.start.conversationRoundId,
-      senderId: stream.start.senderId,
-      senderName: stream.start.senderName,
-      text: '',
-      isMe: false,
-      status: 'streaming',
+  ChatMessageVm? _matchingPendingSelfMessage(
+    List<ChatMessageVm> previous,
+    WorldChatroomMessage message, {
+    required Set<String> usedLocalIds,
+  }) {
+    final content = message.content.trim();
+    if (content.isEmpty) return null;
+    final now = DateTime.now();
+    for (final candidate in previous.reversed) {
+      if (usedLocalIds.contains(candidate.localId)) continue;
+      if (!candidate.isMe) continue;
+      if (candidate.status != 'sending' && candidate.status != 'sent') {
+        continue;
+      }
+      final candidateMessageId = candidate.messageId ?? 0;
+      if (candidateMessageId > 0 &&
+          message.messageId > 0 &&
+          candidateMessageId != message.messageId) {
+        continue;
+      }
+      final age = now.difference(candidate.createdAt).abs();
+      if (candidateMessageId <= 0 &&
+          candidate.status != 'sending' &&
+          age > const Duration(minutes: 1)) {
+        continue;
+      }
+      if (candidate.text.trim() != content) continue;
+      return candidate;
+    }
+    return null;
+  }
+
+  String _messageLocalId(WorldChatroomMessage message) {
+    if (message.messageId > 0) return 'message-${message.messageId}';
+    return 'stream-${message.locationId}-${message.conversationRoundId}-${message.senderId}';
+  }
+
+  String _messageSenderType(WorldChatroomMessage message) {
+    final senderType = message.senderType.trim().toLowerCase();
+    if (senderType == 'narrator') return 'system';
+    if (senderType == 'ai') return 'character';
+    return senderType.isEmpty ? 'user' : senderType;
+  }
+
+  void _syncSenderIdentity(WorldChatroomService service) {
+    final identity = service.identity;
+    if (identity == null) return;
+    final userId = identity.userId.trim();
+    final senderId = identity.senderId.trim();
+    final senderName = identity.senderName.trim();
+    _rememberMyUserId(userId);
+    _rememberMySenderId(senderId);
+    if (senderName.isNotEmpty) _mySenderName = senderName;
+  }
+
+  Future<void> _syncLocalIdentity(AppServices services) async {
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final userInfo = await services.sessionStore.readUserInfo();
+    final cachedUid = _mapString(userInfo, 'uid');
+    final profile = services.identityAuth.currentProfile();
+    final changed =
+        _rememberMyUserId(uid) |
+        _rememberMyUserId(cachedUid) |
+        _rememberMyUserId(profile?.uid);
+    if (!changed || !mounted) return;
+    final changedMessages = _reconcileMessages(
+      _chatroomState.messagesByLocation[widget.locationId] ??
+          const <WorldChatroomMessage>[],
     );
+    if (changedMessages && mounted) setState(() {});
+  }
 
-    if (!mounted) return;
-    setState(() {
-      _activeStreams[stream.start.messageId] = message;
-      _messages.add(message);
-    });
-    _scrollToBottom();
+  bool _rememberMyUserId(String? userId) {
+    final trimmed = userId?.trim() ?? '';
+    final key = _chatroomIdentityKey(trimmed);
+    if (key.isEmpty) return false;
+    if (_myUserId.isEmpty) _myUserId = trimmed;
+    return _myUserIdKeys.add(key);
+  }
 
-    final chunkSubscription = stream.chunks.listen(
-      (chunk) {
-        if (!mounted) return;
-        setState(() {
-          final target = _activeStreams[chunk.messageId];
-          if (target != null) {
-            target.text += chunk.chunk;
-          }
-        });
-        _scrollToBottom();
-      },
-      onError: (Object error) {
-        if (!mounted) return;
-        setState(() {
-          message.status = 'failed';
-          message.error = error.toString();
-        });
-      },
-    );
+  bool _rememberMySenderId(String? senderId) {
+    final trimmed = senderId?.trim() ?? '';
+    final key = _chatroomIdentityKey(trimmed);
+    if (key.isEmpty) return false;
+    if (_mySenderId.isEmpty) _mySenderId = trimmed;
+    return _mySenderIdKeys.add(key);
+  }
 
-    final doneSubscription = stream.done.asStream().listen(
-      (end) {
-        if (!mounted) return;
-        setState(() {
-          final target = _activeStreams.remove(end.messageId);
-          if (target != null) {
-            target.status = 'sent';
-          }
-        });
-        _scrollToBottom();
-      },
-      onError: (Object error) {
-        if (!mounted) return;
-        setState(() {
-          _activeStreams.remove(stream.start.messageId);
-          message.status = 'failed';
-          message.error = error.toString();
-        });
-      },
-    );
-
-    _streamSubscriptions.add(chunkSubscription);
-    _streamSubscriptions.add(doneSubscription);
+  bool _isMineMessage(WorldChatroomMessage message) {
+    final userIdKey = _chatroomIdentityKey(message.userId);
+    if (userIdKey.isNotEmpty && _myUserIdKeys.contains(userIdKey)) return true;
+    final senderIdKey = _chatroomIdentityKey(message.senderId);
+    return senderIdKey.isNotEmpty && _mySenderIdKeys.contains(senderIdKey);
   }
 
   void _handleFailure(ChatroomFailureEvent failure) {
-    if (!mounted) return;
-    setState(() {
-      _messages.add(
-        ChatMessageVm.system('${failure.code}: ${failure.message}'),
-      );
-    });
-    _scrollToBottom();
+    // Toast binding already displays the failure. Keep the message list backed
+    // by WorldChatroomState instead of appending synthetic rows.
   }
 
   Future<void> _send() async {
-    final session = _session;
-    if (session == null ||
-        _connectionStatus != ChatroomConnectionStatus.joined ||
+    final service = _service;
+    if (service == null ||
+        _chatroomState.joinedLocationId != widget.locationId ||
+        _chatroomState.inputBlocked ||
         _sending) {
       return;
     }
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
+    final clientMsgId = _nextClientMsgId();
     final localMessage = ChatMessageVm(
-      localId: 'local-${DateTime.now().microsecondsSinceEpoch}',
+      localId: 'local-$clientMsgId',
+      clientMsgId: clientMsgId,
       senderId: _mySenderId,
-      senderName: _mySenderName,
+      senderName: _localSelfDisplayName(),
       text: text,
       isMe: true,
       status: 'sending',
@@ -345,7 +422,7 @@ class _LocationChatPageState extends State<LocationChatPage>
     _scrollToBottom();
 
     try {
-      final ack = await session.sendMessage(text);
+      final ack = await service.sendMessage(text, clientMsgId: clientMsgId);
       if (!mounted) return;
       setState(() {
         localMessage.messageId = ack.messageId;
@@ -363,50 +440,128 @@ class _LocationChatPageState extends State<LocationChatPage>
     }
   }
 
-  Future<void> _closeConnection() async {
-    final connection = _connection;
-    final ownsConnection = _ownsConnection;
-    _connection = null;
-    _session = null;
-    _attachedSession = null;
-    _sending = false;
-
-    await _connectionSubscription?.cancel();
-    await _eventsSubscription?.cancel();
-    await _failuresSubscription?.cancel();
-    await _streamsSubscription?.cancel();
-    _connectionSubscription = null;
-    _eventsSubscription = null;
-    _failuresSubscription = null;
-    _streamsSubscription = null;
-
-    for (final subscription in _streamSubscriptions) {
-      await subscription.cancel();
-    }
-    _streamSubscriptions.clear();
-    _activeStreams.clear();
-
-    if (connection != null) {
-      try {
-        await connection.leave();
-      } catch (_) {
-        // Route disposal must not wait on or surface leave failures.
-      }
-      if (ownsConnection) {
-        try {
-          await connection.disconnect();
-        } catch (_) {}
-        await connection.dispose();
-      }
-    }
+  String _nextClientMsgId() {
+    _clientMsgCounter += 1;
+    return '${DateTime.now().microsecondsSinceEpoch}-$_clientMsgCounter';
   }
 
-  void _markDisconnected() {
-    if (!mounted) return;
-    setState(() {
-      _session = null;
-      _connectionStatus = ChatroomConnectionStatus.disconnected;
-    });
+  String _messageSenderDisplayName(WorldChatroomMessage message) {
+    return firstNonEmpty([
+      _roleNameForIdentityCandidates([message.userId, message.senderId]),
+      _entityNameForIdentity(message.userId),
+      _entityNameForIdentity(message.senderId),
+      message.senderName,
+    ]);
+  }
+
+  String _localSelfDisplayName() {
+    return firstNonEmpty([
+      _roleNameForIdentityCandidates([_myUserId, _mySenderId]),
+      _entityNameForIdentity(_myUserId),
+      _entityNameForIdentity(_mySenderId),
+      _mySenderName,
+    ]);
+  }
+
+  String _entityNameForIdentity(String value) {
+    final key = _chatroomIdentityKey(value);
+    if (key.isEmpty) return '';
+    for (final entry in _chatroomState.entitiesById.entries) {
+      if (_chatroomIdentityKey(entry.key) != key) continue;
+      return entry.value.name;
+    }
+    return '';
+  }
+
+  String _roleNameForIdentityCandidates(List<String?> identities) {
+    final keys = identities
+        .map(_chatroomIdentityKey)
+        .where((key) => key.isNotEmpty)
+        .toSet();
+    if (keys.isEmpty) return '';
+    final world = _chatroomState.world;
+    if (world == null) return '';
+    for (final character in world.characterPositions) {
+      final candidate = _roleNameFromCharacterCandidate(character, keys);
+      if (candidate.isNotEmpty) return candidate;
+    }
+    for (final character in world.characters) {
+      final candidate = _roleNameFromCharacterCandidate(character, keys);
+      if (candidate.isNotEmpty) return candidate;
+    }
+    for (final position in world.userPositions) {
+      final candidate = _roleNameFromUserPosition(position, keys);
+      if (candidate.isNotEmpty) return candidate;
+    }
+    return '';
+  }
+
+  String _roleNameFromCharacterCandidate(
+    Map<String, dynamic> candidate,
+    Set<String> identityKeys,
+  ) {
+    final rawCharacter = candidate['character'];
+    final character = rawCharacter is Map
+        ? _stringKeyMap(rawCharacter)
+        : candidate;
+    final playerUid = _firstMapString(character, const [
+      'player_uid',
+      'user_id',
+      'uid',
+    ]);
+    final playerKey = _chatroomIdentityKey(playerUid);
+    if (playerKey.isEmpty || !identityKeys.contains(playerKey)) return '';
+    return _firstMapString(character, const [
+      'name',
+      'role_nickname',
+      'role_name',
+      'character_name',
+    ]);
+  }
+
+  String _roleNameFromUserPosition(
+    Map<String, dynamic> position,
+    Set<String> identityKeys,
+  ) {
+    final rawUser = position['user'];
+    final user = rawUser is Map ? _stringKeyMap(rawUser) : position;
+    final userId = _firstMapString(user, const ['user_id', 'uid', 'id']);
+    final userKey = _chatroomIdentityKey(userId);
+    if (userKey.isEmpty || !identityKeys.contains(userKey)) return '';
+    return _firstMapString(user, const [
+      'role_nickname',
+      'role_name',
+      'character_name',
+      'name',
+    ]);
+  }
+
+  Future<void> _closeChatroom() async {
+    final service = _service;
+    final ownsService = _ownsService;
+    _service = null;
+    _sending = false;
+
+    await _stateSubscription?.cancel();
+    await _failuresSubscription?.cancel();
+    _stateSubscription = null;
+    _failuresSubscription = null;
+
+    if (service != null) {
+      if (_joinedLocation) {
+        try {
+          await service.leave();
+        } catch (_) {
+          // Route disposal must not wait on or surface leave failures.
+        }
+      }
+      if (ownsService) {
+        try {
+          await service.disconnect();
+        } catch (_) {}
+        await service.dispose();
+      }
+    }
   }
 
   void _scrollToBottom({bool jump = false, int settleFrames = 2}) {
@@ -436,15 +591,16 @@ class _LocationChatPageState extends State<LocationChatPage>
 
   @override
   Widget build(BuildContext context) {
-    final titleCount = _onlineUsers.isEmpty ? 1 : _onlineUsers.length;
+    final titleCount =
+        _chatroomState.entitiesByLocation[widget.locationId]?.length ?? 1;
     final title = firstNonEmpty([widget.locationName, widget.locationId]);
-    final worldName = firstNonEmpty([widget.worldName, widget.worldId]);
-    final subtitle = _chatroomStatusLabel(_connectionStatus);
-    final joined = _connectionStatus == ChatroomConnectionStatus.joined;
+    final subtitle = _chatroomStatusLabel(_chatroomState);
+    final joined = _chatroomState.joinedLocationId == widget.locationId;
     final connecting =
-        _connectionStatus == ChatroomConnectionStatus.connecting ||
-        _connectionStatus == ChatroomConnectionStatus.connected ||
-        _connectionStatus == ChatroomConnectionStatus.joining;
+        _chatroomState.reconnecting ||
+        _chatroomState.joining ||
+        (_chatroomState.connected && !joined);
+    final inputBlocked = _chatroomState.inputBlocked;
 
     return Scaffold(
       backgroundColor: ChatUiStyleConfig.standard.conversationBackgroundColor,
@@ -462,13 +618,13 @@ class _LocationChatPageState extends State<LocationChatPage>
             child: ChatMessageList(
               controller: _scrollController,
               messages: _messages,
-              topTitle: worldName,
+              topTitle: '',
             ),
           ),
           ChatComposer(
             controller: _textController,
             inputEnabled: !_sending,
-            sendEnabled: joined && _session != null && !_sending,
+            sendEnabled: joined && !_sending && !inputBlocked,
             sending: _sending,
             onSend: _send,
             sendLabel: 'Send',
@@ -479,13 +635,38 @@ class _LocationChatPageState extends State<LocationChatPage>
     );
   }
 
-  String _chatroomStatusLabel(ChatroomConnectionStatus status) {
-    return switch (status) {
-      ChatroomConnectionStatus.disconnected => 'Disconnect',
-      ChatroomConnectionStatus.connecting => 'Connecting',
-      ChatroomConnectionStatus.connected => 'Connecting',
-      ChatroomConnectionStatus.joining => 'Joining',
-      ChatroomConnectionStatus.joined => 'Joined',
-    };
+  String _chatroomStatusLabel(WorldChatroomState state) {
+    if (state.inputBlocked) return 'Progressing';
+    if (state.joinedLocationId == widget.locationId) return 'Joined';
+    if (state.joining) return 'Joining';
+    if (state.reconnecting) return 'Reconnecting';
+    if (state.connected) return 'Connecting';
+    return 'Disconnect';
   }
+}
+
+String _mapString(Map<String, dynamic>? map, String key) {
+  if (map == null) return '';
+  final value = map[key];
+  if (value == null) return '';
+  return '$value'.trim();
+}
+
+String _firstMapString(Map<String, dynamic> map, List<String> keys) {
+  for (final key in keys) {
+    final value = _mapString(map, key);
+    if (value.isNotEmpty) return value;
+  }
+  return '';
+}
+
+Map<String, dynamic> _stringKeyMap(Map<dynamic, dynamic> map) {
+  return {
+    for (final entry in map.entries)
+      if (entry.key is String) entry.key as String: entry.value,
+  };
+}
+
+String _chatroomIdentityKey(String? value) {
+  return (value ?? '').trim().toLowerCase();
 }

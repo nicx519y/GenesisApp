@@ -172,6 +172,32 @@ void main() {
     await session.close();
   });
 
+  test('sendMessage completes from matching user_message push', () async {
+    final socket = _FakeChatroomSocket();
+    final client = await _client(_FakeChatroomTransport(socket));
+    final session = await _connectedSession(client, socket);
+
+    final ackFuture = session.sendMessage('吃饭了吗', clientMsgId: 'client-1');
+    await _tick();
+
+    socket.serverFrame('user_message', {
+      'world_id': 'world-1',
+      'session_id': 'sess-1',
+      'location_id': 'loc-1',
+      'user_id': 'user-1',
+      'sender_name': 'Player One',
+      'msg_id': 126,
+      'conversation_round_id': 1317,
+      'payload': {'content': '吃饭了吗', 'client_msg_id': 'client-1'},
+    });
+
+    final ack = await ackFuture;
+    expect(ack.messageId, 126);
+    expect(ack.conversationRoundId, '1317');
+    expect(ack.clientMsgId, 'client-1');
+    await session.close();
+  });
+
   test('sendMessage requires ack payload client_msg_id', () async {
     final socket = _FakeChatroomSocket();
     final client = await _client(
@@ -223,7 +249,41 @@ void main() {
         ),
       ),
     );
+    expect(
+      socket
+          .sentFrames('send_message')
+          .where((frame) => frame['client_msg_id'] == 'client-timeout'),
+      hasLength(3),
+    );
 
+    await session.close();
+  });
+
+  test('sendMessage completes when retry receives matching ack', () async {
+    final socket = _FakeChatroomSocket();
+    final client = await _client(
+      _FakeChatroomTransport(socket),
+      ackTimeout: const Duration(milliseconds: 20),
+    );
+    final session = await _connectedSession(client, socket);
+
+    final future = session.sendMessage('hello', clientMsgId: 'client-retry');
+    await Future<void>.delayed(const Duration(milliseconds: 25));
+    expect(
+      socket
+          .sentFrames('send_message')
+          .where((frame) => frame['client_msg_id'] == 'client-retry'),
+      hasLength(2),
+    );
+    socket.serverFrame('ack', {
+      'world_id': 'world-1',
+      'session_id': 'sess-1',
+      'location_id': 'loc-1',
+      'user_id': 'u_1',
+      'payload': {'client_msg_id': 'client-retry'},
+    });
+
+    await future;
     await session.close();
   });
 
@@ -384,13 +444,23 @@ void main() {
     expect(socket.closed, true);
   });
 
-  test('heartbeat sends the documented one-way frame', () async {
+  test('heartbeat completes with the matching ack', () async {
     final socket = _FakeChatroomSocket();
     final client = await _client(_FakeChatroomTransport(socket));
     final session = await _connectedSession(client, socket);
     final before = socket.sentTypes.where((type) => type == 'heartbeat').length;
 
-    await session.heartbeat();
+    final heartbeatFuture = session.heartbeat();
+    await _tick();
+    final heartbeat = socket.sentFrame('heartbeat');
+    socket.serverFrame('ack', {
+      'world_id': 'world-1',
+      'session_id': 'sess-1',
+      'location_id': 'loc-1',
+      'user_id': 'u_1',
+      'payload': {'client_msg_id': heartbeat['client_msg_id']},
+    });
+    await heartbeatFuture;
 
     expect(
       socket.sentTypes.where((type) => type == 'heartbeat').length,
@@ -748,6 +818,7 @@ Future<ChatroomClient> _client(
   String wsBaseUrl = 'ws://localhost:8082/aitown-chat/ws',
   Duration heartbeatInterval = const Duration(seconds: 2),
   Duration ackTimeout = const Duration(milliseconds: 100),
+  bool autoHeartbeat = true,
 }) async {
   final store = MemoryUserSessionStore();
   await store.saveUid('u_1');
@@ -759,6 +830,7 @@ Future<ChatroomClient> _client(
     transport: transport,
     heartbeatInterval: heartbeatInterval,
     ackTimeout: ackTimeout,
+    autoHeartbeat: autoHeartbeat,
   );
 }
 
@@ -867,6 +939,13 @@ class _FakeChatroomSocket implements ChatroomSocket {
       (item) => (jsonDecode(item) as Map<String, dynamic>)['type'] == type,
     );
     return jsonDecode(raw) as Map<String, dynamic>;
+  }
+
+  List<Map<String, dynamic>> sentFrames(String type) {
+    return sent
+        .map((raw) => jsonDecode(raw) as Map<String, dynamic>)
+        .where((frame) => frame['type'] == type)
+        .toList(growable: false);
   }
 
   void serverFrame(String type, Map<String, Object?> fields) {

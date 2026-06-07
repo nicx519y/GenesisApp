@@ -88,6 +88,88 @@ void main() {
     expect(name.style?.color, const Color(0xFF222222));
   });
 
+  testWidgets('self chat message places avatar on the right', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'me',
+              senderName: 'Me',
+              text: 'hello',
+              isMe: true,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    final bubbleRight = tester.getTopRight(find.byType(ChatMessageBubble)).dx;
+    final avatarLeft = tester.getTopLeft(find.byType(ChatAvatar)).dx;
+    expect(avatarLeft, greaterThan(bubbleRight));
+  });
+
+  testWidgets('chat rows reserve matching avatar space on both sides', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            child: Column(
+              children: [
+                ChatMessageRow(
+                  message: ChatMessageVm(
+                    localId: 'other',
+                    senderId: 'peer',
+                    senderName: 'Peer',
+                    text: 'left',
+                    isMe: false,
+                    status: 'sent',
+                  ),
+                  showDateDivider: false,
+                ),
+                ChatMessageRow(
+                  message: ChatMessageVm(
+                    localId: 'me',
+                    senderId: 'me',
+                    senderName: 'Me',
+                    text: 'right',
+                    isMe: true,
+                    status: 'sent',
+                  ),
+                  showDateDivider: false,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final rows = find.byType(ChatMessageRow);
+    final otherRow = tester.getRect(rows.at(0));
+    final meRow = tester.getRect(rows.at(1));
+    final bubbles = find.byType(ChatMessageBubble);
+    final otherBubble = tester.getRect(bubbles.at(0));
+    final meBubble = tester.getRect(bubbles.at(1));
+    final reservedWidth =
+        ChatUiStyleConfig.standard.avatarSize +
+        ChatUiStyleConfig.standard.avatarBubbleGap;
+
+    expect(
+      otherBubble.right,
+      lessThanOrEqualTo(otherRow.right - reservedWidth),
+    );
+    expect(meBubble.left, greaterThanOrEqualTo(meRow.left + reservedWidth));
+  });
+
   testWidgets('character chat avatar uses redstar icon badge', (
     WidgetTester tester,
   ) async {
@@ -111,6 +193,38 @@ void main() {
     );
 
     expect(find.byIcon(MyFlutterApp.redstarCharIcon), findsOneWidget);
+  });
+
+  testWidgets('system chat message uses normal bubble width and centers', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm.system(
+              'A long narrator message that should be constrained like normal chat bubbles.',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    final systemBox = tester.getRect(find.byType(ChatSystemMessage));
+    final bubbleBox = tester.getRect(
+      find.byKey(const ValueKey('chat-system-message-bubble')),
+    );
+    final reservedWidth =
+        ChatUiStyleConfig.standard.avatarSize +
+        ChatUiStyleConfig.standard.avatarBubbleGap;
+    expect(bubbleBox.width, lessThanOrEqualTo(400 - reservedWidth * 2 + 1));
+    expect(bubbleBox.center.dx, closeTo(systemBox.center.dx, 1));
   });
 
   testWidgets('chat composer grows with text up to ten lines', (
@@ -204,7 +318,11 @@ void main() {
         ChatUiStyleConfig.standard.inputMinHeight,
       ),
     );
-    expect(find.byType(IconButton), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('chat-composer-send-button')),
+      findsOneWidget,
+    );
+    expect(find.byType(TextButton), findsOneWidget);
     expect(find.byIcon(Icons.send), findsOneWidget);
     expect(
       find.byWidgetPredicate((widget) {

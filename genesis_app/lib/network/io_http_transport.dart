@@ -50,6 +50,9 @@ HttpClient createProxyAwareHttpClient(String? proxy) {
   final proxyAddress = _normalizeProxyAddress(proxy);
   if (proxyAddress != null) {
     client.findProxy = (_) => 'PROXY $proxyAddress; DIRECT';
+    if (!const bool.fromEnvironment('dart.vm.product')) {
+      client.badCertificateCallback = (_, __, ___) => true;
+    }
   }
   return client;
 }

@@ -13,6 +13,7 @@ import '../pages/messages/message_category_list_page.dart';
 import '../pages/me/follows_page.dart';
 import '../pages/me/user_info_page.dart';
 import '../network/chatroom/chatroom_connection_controller.dart';
+import '../network/chatroom/world_chatroom_service.dart';
 
 sealed class RouteNames {
   static const shell = '/';
@@ -142,7 +143,9 @@ sealed class AppRouter {
         var locationId = '';
         var worldName = '';
         var locationName = '';
+        var isLeafLocation = true;
         ChatroomConnectionController? chatroomConnection;
+        WorldChatroomService? worldChatroomService;
         if (args is Map) {
           final rawWorldId = args['world_id'] ?? args['worldId'] ?? args['wid'];
           if (rawWorldId != null) worldId = rawWorldId.toString();
@@ -163,11 +166,24 @@ sealed class AppRouter {
           if (rawLocationName != null) {
             locationName = rawLocationName.toString();
           }
+          final rawIsLeafLocation =
+              args['is_leaf_location'] ?? args['isLeafLocation'];
+          if (rawIsLeafLocation is bool) {
+            isLeafLocation = rawIsLeafLocation;
+          } else if (rawIsLeafLocation != null) {
+            isLeafLocation =
+                rawIsLeafLocation.toString().trim().toLowerCase() != 'false';
+          }
 
           final rawConnection =
               args['chatroom_connection'] ?? args['chatroomConnection'];
           if (rawConnection is ChatroomConnectionController) {
             chatroomConnection = rawConnection;
+          }
+          final rawService =
+              args['world_chatroom_service'] ?? args['worldChatroomService'];
+          if (rawService is WorldChatroomService) {
+            worldChatroomService = rawService;
           }
         }
         return MaterialPageRoute<void>(
@@ -177,6 +193,8 @@ sealed class AppRouter {
             locationId: locationId,
             worldName: worldName,
             locationName: locationName,
+            isLeafLocation: isLeafLocation,
+            service: worldChatroomService,
             connection: chatroomConnection,
           ),
         );

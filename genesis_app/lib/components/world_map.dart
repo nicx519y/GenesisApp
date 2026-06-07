@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -12,6 +13,8 @@ export 'world_point.dart';
 
 const String kWorldMapFallbackBackgroundAsset =
     'assets/images/mock_maps/map_background.png';
+
+typedef WorldPointTapCallback = FutureOr<void> Function(WorldPoint point);
 
 class WorldMapLocationNode {
   const WorldMapLocationNode({
@@ -57,7 +60,7 @@ class WorldMap extends StatefulWidget {
   final double overlayTop;
   final double drillExitTop;
   final VoidCallback? onDrillIntoLocation;
-  final ValueChanged<WorldPoint>? onPointTap;
+  final WorldPointTapCallback? onPointTap;
 
   @override
   State<WorldMap> createState() => _WorldMapState();
@@ -66,6 +69,7 @@ class WorldMap extends StatefulWidget {
 class _WorldMapState extends State<WorldMap> {
   final List<_WorldMapLocationTrailEntry> _locationTrail =
       <_WorldMapLocationTrailEntry>[];
+  final Set<String> _pendingLocationTapKeys = <String>{};
   String _lastLoggedLocationTreeSignature = '';
   _MapTransitionSpec _mapTransition = const _MapTransitionSpec(
     origin: Alignment.center,
@@ -200,7 +204,9 @@ class _WorldMapState extends State<WorldMap> {
                     Expanded(
                       child: WorldLocationList(
                         points: flattenedPoints,
-                        onPointTap: _handlePointTap,
+                        onPointTap: (point) {
+                          unawaited(_handlePointTap(point));
+                        },
                       ),
                     ),
                     const SizedBox(height: 150),
@@ -228,45 +234,78 @@ class _WorldMapState extends State<WorldMap> {
       if (node == null) return null;
       final chatTarget = _chatTargetForNode(node);
       if (chatTarget != null && widget.onPointTap == null) return null;
-      return () => _handlePointTap(point);
+      return () {
+        unawaited(_handlePointTap(point));
+      };
     }
     if (widget.onPointTap == null) return null;
-    return () => _handlePointTap(point);
+    return () {
+      unawaited(_handlePointTap(point));
+    };
   }
 
-  void _handlePointTap(WorldPoint point) {
+  Future<void> _handlePointTap(WorldPoint point) async {
     if (_hasDrillTree) {
       final node = _findPointNode(point);
       if (node != null) {
         final chatTarget = _chatTargetForNode(node);
         if (chatTarget != null) {
-          widget.onPointTap?.call(chatTarget);
+          await _runLocationTapLocked(
+            _locationTapKey(chatTarget),
+            () => widget.onPointTap?.call(chatTarget),
+          );
           return;
         }
-        widget.onDrillIntoLocation?.call();
-        final origin = _mapTransitionOrigin(point);
-        final path = _nodePath(node.id);
-        setState(() {
-          _mapTransition = _MapTransitionSpec(
-            origin: origin,
-            direction: _MapTransitionDirection.drillIn,
-          );
-          _locationTrail
-            ..clear()
-            ..addAll(
-              (path.isEmpty ? <String>[node.id] : path).map(
-                (id) => _WorldMapLocationTrailEntry(
-                  id: id,
-                  origin: id == node.id ? origin : Alignment.center,
-                ),
-              ),
+        await _runLocationTapLocked(_locationTapKey(point), () async {
+          widget.onDrillIntoLocation?.call();
+          final origin = _mapTransitionOrigin(point);
+          final path = _nodePath(node.id);
+          setState(() {
+            _mapTransition = _MapTransitionSpec(
+              origin: origin,
+              direction: _MapTransitionDirection.drillIn,
             );
+            _locationTrail
+              ..clear()
+              ..addAll(
+                (path.isEmpty ? <String>[node.id] : path).map(
+                  (id) => _WorldMapLocationTrailEntry(
+                    id: id,
+                    origin: id == node.id ? origin : Alignment.center,
+                  ),
+                ),
+              );
+          });
+          await WidgetsBinding.instance.endOfFrame;
         });
         return;
       }
     }
 
-    widget.onPointTap?.call(point);
+    await _runLocationTapLocked(
+      _locationTapKey(point),
+      () => widget.onPointTap?.call(point),
+    );
+  }
+
+  Future<void> _runLocationTapLocked(
+    String key,
+    FutureOr<void> Function() action,
+  ) async {
+    if (key.isNotEmpty && !_pendingLocationTapKeys.add(key)) return;
+    try {
+      await action();
+    } finally {
+      if (key.isNotEmpty) _pendingLocationTapKeys.remove(key);
+    }
+  }
+
+  String _locationTapKey(WorldPoint point) {
+    final sceneId = point.sceneId.trim();
+    if (sceneId.isNotEmpty) return sceneId;
+    final pointId = point.pointId.trim();
+    if (pointId.isNotEmpty) return pointId;
+    return point.id.trim();
   }
 
   void _exitLocation() {

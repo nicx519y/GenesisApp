@@ -207,10 +207,10 @@ class ChatUiStyleConfig {
     showComposerStickerButton: false, // 是否显示输入框右侧表情按钮。
     showComposerAddButton: false, // 是否显示输入框右侧加号按钮。
     showComposerSendButton: true, // 是否显示最右侧发送按钮。
-    composerSendButtonWidth: 48, // 发送按钮宽度。
+    composerSendButtonWidth: 56, // 发送按钮宽度。
     composerSendButtonHeight: 40, // 发送按钮高度。
     composerSendButtonBorderRadius: 8, // 发送按钮圆角。
-    composerSendButtonColor: Color(0xFF26F24C), // 发送按钮背景色。
+    composerSendButtonColor: Color(0xFF20D844), // 发送按钮背景色。
     composerSendButtonDisabledColor: Color(0xFFBDBDBD), // 发送按钮禁用背景色。
     composerSendButtonIconColor: Colors.white, // 发送按钮图标颜色。
     composerSendButtonIconSize: 18, // 发送按钮图标尺寸。
@@ -250,7 +250,7 @@ class ChatUiStyleConfig {
     statusTextStyle: TextStyle(color: Colors.white70, fontSize: 11), // 状态文字样式。
     senderNameTextStyle: TextStyle(
       color: Color(0xFF222222), // 对方名字文字颜色。
-      fontSize: 14, // 对方名字字号。
+      fontSize: 12, // 对方名字字号。
       fontWeight: FontWeight.w400, // 对方名字字重。
     ),
     showSenderNameAboveOtherBubble: true, // 是否在对方气泡上方显示发送者名字。
