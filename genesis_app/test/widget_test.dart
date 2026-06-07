@@ -37,6 +37,7 @@ import 'package:genesis_flutter_android/components/origin/stat_item.dart';
 import 'package:genesis_flutter_android/components/search_bar.dart';
 import 'package:genesis_flutter_android/pages/app_shell_page.dart';
 import 'package:genesis_flutter_android/pages/chat/chat_page.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 import 'package:genesis_flutter_android/pages/home/home_page.dart';
 import 'package:genesis_flutter_android/pages/me/follows_page.dart';
 import 'package:genesis_flutter_android/pages/me/me_page.dart';
@@ -6292,6 +6293,170 @@ void main() {
   });
 
   testWidgets(
+    'world location chat cached panels prebuild hidden without joining',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'approved',
+      );
+      final chatroom = _FakeChatroomClient();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump();
+
+      expect(chatroom.connectCount, 1);
+      expect(chatroom.session.joinCount, 0);
+      expect(chatroom.session.joinLocationId, isNull);
+      expect(
+        find.text('World Location (1)', skipOffstage: false),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Child Location (1)', skipOffstage: false),
+        findsOneWidget,
+      );
+      expect(_visibleText('World Location (1)'), findsNothing);
+      expect(_visibleText('Child Location (1)'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'world location chat opens inline and reuses cached panel state',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'approved',
+      );
+      final chatroom = _FakeChatroomClient();
+      final observer = _RecordingNavigatorObserver();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            navigatorObservers: [observer],
+            home: const WorldPage(wid: 'w_test_1'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final initialPushCount = observer.pushCount;
+      Future<void> tapLocationListItem(String label) async {
+        final row = find.ancestor(
+          of: find.text(label).last,
+          matching: find.byType(InkWell),
+        );
+        await tester.tap(row.last);
+      }
+
+      await tester.tap(find.text('Location (2)'));
+      await tester.pumpAndSettle();
+      await tapLocationListItem('Child Location');
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(observer.pushCount, initialPushCount);
+      expect(find.byType(LocationChatPage), findsNothing);
+      expect(_visibleText('Child Location (1)'), findsOneWidget);
+      expect(chatroom.session.joinLocationId, 'l_w_test_1_child');
+      expect(chatroom.session.joinCount, 1);
+
+      final activeInput = find.byWidgetPredicate(
+        (widget) => widget is TextField && widget.enabled == true,
+      );
+      await tester.tap(activeInput);
+      await tester.enterText(activeInput, 'cached draft');
+      await tester.pump();
+      expect(find.text('cached draft'), findsOneWidget);
+
+      final chatBack = find.descendant(
+        of: find.byType(ChatHeader).last,
+        matching: find.byType(IconButton),
+      );
+      tester.widget<IconButton>(chatBack.first).onPressed!();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(chatroom.session.leaveCount, 1);
+      expect(_visibleText('Child Location (1)'), findsNothing);
+
+      await tester.tap(find.text('Location (2)'));
+      await tester.pumpAndSettle();
+      await tapLocationListItem('Child Location');
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(chatroom.session.joinLocationId, 'l_w_test_1_child');
+      expect(chatroom.session.joinCount, 2);
+      expect(_visibleText('Child Location (1)'), findsOneWidget);
+      expect(find.text('cached draft'), findsOneWidget);
+    },
+  );
+
+  testWidgets('system back hides inline world location chat', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+    );
+    final chatroom = _FakeChatroomClient();
+    final observer = _RecordingNavigatorObserver();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          navigatorObservers: [observer],
+          home: const WorldPage(wid: 'w_test_1'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Location (2)'));
+    await tester.pumpAndSettle();
+    final childRow = find.ancestor(
+      of: find.text('Child Location').last,
+      matching: find.byType(InkWell),
+    );
+    await tester.tap(childRow.last);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(_visibleText('Child Location (1)'), findsOneWidget);
+    expect(chatroom.session.joinCount, 1);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(observer.popCount, 0);
+    expect(find.byType(WorldPage), findsOneWidget);
+    expect(_visibleText('Child Location (1)'), findsNothing);
+    expect(chatroom.session.leaveCount, 1);
+  });
+
+  testWidgets(
     'location chat route connects and sends through chatroom client',
     (WidgetTester tester) async {
       final chatroom = _FakeChatroomClient();
@@ -6321,7 +6486,7 @@ void main() {
       expect(find.text('Castle (1)'), findsOneWidget);
       expect(find.text('World One'), findsNothing);
       expect(find.text('Joined'), findsOneWidget);
-      await tester.tap(find.byType(TextField));
+      await tester.showKeyboard(find.byType(TextField));
       await tester.enterText(find.byType(TextField), 'hello castle');
       await tester.pump();
       final sendButton = find.descendant(
@@ -6333,12 +6498,18 @@ void main() {
         await tester.pump(const Duration(milliseconds: 10));
       }
       expect(tester.widget<TextButton>(sendButton).onPressed, isNotNull);
+      chatroom.session.holdSendAcks = true;
       await tester.tap(sendButton);
       await tester.pump();
 
       expect(chatroom.session.sentMessages, ['hello castle']);
       final clientMsgId = chatroom.session.sentClientMsgIds.single;
-      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(find.byType(TextField)).enabled, isTrue);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller?.text,
+        '',
+      );
+      expect(tester.testTextInput.isVisible, isTrue);
 
       expect(find.text('hello castle'), findsOneWidget);
 
@@ -6429,6 +6600,147 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('吃饭了吗'), findsOneWidget);
+  });
+
+  testWidgets(
+    'location chat renders non-nar narrator push as character bubble',
+    (WidgetTester tester) async {
+      final chatroom = _FakeChatroomClient();
+      final services = await _testServices(chatroom: chatroom);
+      await tester.pumpWidget(GenesisApp(services: services));
+      await tester.pumpAndSettle();
+
+      Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
+        RouteNames.locationChat,
+        arguments: {
+          'world_id': 'world-1',
+          'world_name': 'World One',
+          'location_id': 'castle',
+          'location_name': 'Castle',
+        },
+      );
+      await tester.pumpAndSettle();
+
+      chatroom.session.emit(
+        ChatroomNarratorMessage(
+          sessionId: 'sess-1',
+          worldId: 'world-1',
+          locationId: 'castle',
+          userId: '',
+          code: 0,
+          codeMsg: 'ok',
+          ts: null,
+          messageId: 155,
+          conversationRoundId: '1349',
+          roundOrder: 0,
+          senderType: 'narrator',
+          senderId: 'char-1',
+          senderName: 'Alice',
+          content: '角色旁白式发言',
+          broadcast: true,
+          createdAt: null,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('角色旁白式发言'), findsOneWidget);
+      expect(find.byIcon(MyFlutterApp.redstarCharIcon), findsOneWidget);
+    },
+  );
+
+  testWidgets('location chat shows new message notice when not at bottom', (
+    WidgetTester tester,
+  ) async {
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(chatroom: chatroom);
+    await tester.pumpWidget(GenesisApp(services: services));
+    await tester.pumpAndSettle();
+
+    Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
+      RouteNames.locationChat,
+      arguments: {
+        'world_id': 'world-1',
+        'world_name': 'World One',
+        'location_id': 'castle',
+        'location_name': 'Castle',
+      },
+    );
+    await tester.pumpAndSettle();
+
+    for (var i = 1; i <= 60; i += 1) {
+      chatroom.session.emit(
+        ChatroomUserMessage(
+          sessionId: 'sess-1',
+          worldId: 'world-1',
+          locationId: 'castle',
+          userId: 'u_peer',
+          code: 0,
+          codeMsg: 'ok',
+          ts: null,
+          messageId: i,
+          conversationRoundId: '$i',
+          roundOrder: 0,
+          senderType: 'user',
+          senderId: 'u_peer',
+          senderName: 'Peer',
+          content: 'history message $i',
+          broadcast: true,
+          clientMsgId: '',
+          createdAt: null,
+        ),
+      );
+    }
+    await tester.pumpAndSettle();
+
+    final scrollable = find.descendant(
+      of: find.byType(ListView),
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(scrollable).position;
+    expect(position.pixels, 0);
+    expect(position.maxScrollExtent, greaterThan(240));
+
+    position.jumpTo(240);
+    await tester.pump();
+    final offsetBeforeNewMessage = position.pixels;
+
+    chatroom.session.emit(
+      ChatroomUserMessage(
+        sessionId: 'sess-1',
+        worldId: 'world-1',
+        locationId: 'castle',
+        userId: 'u_peer',
+        code: 0,
+        codeMsg: 'ok',
+        ts: null,
+        messageId: 61,
+        conversationRoundId: '61',
+        roundOrder: 0,
+        senderType: 'user',
+        senderId: 'u_peer',
+        senderName: 'Peer',
+        content: 'new while reading',
+        broadcast: true,
+        clientMsgId: '',
+        createdAt: null,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(position.pixels, offsetBeforeNewMessage);
+    expect(find.text('1 条新消息'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('location-chat-new-message-notice')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('location-chat-new-message-notice')),
+    );
+    await tester.pump();
+
+    expect(position.pixels, 0);
+    expect(find.text('1 条新消息'), findsNothing);
   });
 
   testWidgets('location chat shows role name instead of pushed username', (
@@ -6656,6 +6968,44 @@ Finder _loginLegalTextFinder() {
     'By continuing, you agree to our Terms\n'
     'and acknowledge our Privacy Policy',
   );
+}
+
+Finder _visibleText(String text) {
+  return find.byElementPredicate((element) {
+    final widget = element.widget;
+    final matchesText =
+        widget is Text &&
+        (widget.data == text || widget.textSpan?.toPlainText() == text);
+    if (!matchesText) return false;
+
+    var visible = true;
+    element.visitAncestorElements((ancestor) {
+      final ancestorWidget = ancestor.widget;
+      if (ancestorWidget is Opacity && ancestorWidget.opacity == 0) {
+        visible = false;
+        return false;
+      }
+      return true;
+    });
+    return visible;
+  });
+}
+
+class _RecordingNavigatorObserver extends NavigatorObserver {
+  int pushCount = 0;
+  int popCount = 0;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushCount += 1;
+    super.didPush(route, previousRoute);
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    popCount += 1;
+    super.didPop(route, previousRoute);
+  }
 }
 
 void _expectCharacterNameOrder(WidgetTester tester) {

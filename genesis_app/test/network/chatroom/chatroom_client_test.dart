@@ -408,6 +408,17 @@ void main() {
       'location_id': 'loc-1',
       'payload': {'content': '你好'},
     });
+    socket.serverFrame('nar_new_message', {
+      'world_id': 'world-1',
+      'session_id': 'sess-1',
+      'msg_id': 155,
+      'conversation_round_id': 1349,
+      'sender_id': 'nar',
+      'sender_name': '旁白',
+      'location_id': 'loc-2',
+      'broadcast': true,
+      'payload': {'content': '*旁白推进剧情*'},
+    });
     await _tick();
 
     expect(
@@ -415,6 +426,14 @@ void main() {
       containsAll(['tick_start', 'world_change']),
     );
     expect(events.whereType<ChatroomUserMessage>().single.content, '你好');
+    final narrator = events.whereType<ChatroomNarratorMessage>().single;
+    expect(narrator.messageId, 155);
+    expect(narrator.conversationRoundId, '1349');
+    expect(narrator.locationId, 'loc-2');
+    expect(narrator.senderId, 'nar');
+    expect(narrator.senderName, '旁白');
+    expect(narrator.content, '*旁白推进剧情*');
+    expect(narrator.broadcast, isTrue);
     await sub.cancel();
     await session.close();
   });

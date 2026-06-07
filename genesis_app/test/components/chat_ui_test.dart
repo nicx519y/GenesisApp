@@ -340,6 +340,39 @@ void main() {
     expect(sendCount, 1);
   });
 
+  testWidgets('chat composer send button keeps text field focused', (
+    WidgetTester tester,
+  ) async {
+    final controller = TextEditingController(text: 'hello');
+    var sendCount = 0;
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatComposer(
+            controller: controller,
+            inputEnabled: true,
+            sendEnabled: true,
+            sending: false,
+            onSend: () async {
+              sendCount += 1;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.showKeyboard(find.byType(TextField));
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    await tester.tap(find.byIcon(Icons.send));
+    await tester.pump();
+
+    expect(sendCount, 1);
+    expect(tester.testTextInput.isVisible, isTrue);
+  });
+
   testWidgets('chat composer keyboard sends when send button is hidden', (
     WidgetTester tester,
   ) async {

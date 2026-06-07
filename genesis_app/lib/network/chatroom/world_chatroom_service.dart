@@ -12,6 +12,16 @@ import 'chatroom_models.dart';
 
 const _maxMessagesPerLocation = 200;
 
+class WorldChatroomOlderMessagesPage {
+  const WorldChatroomOlderMessagesPage({
+    required this.loadedCount,
+    required this.hasMore,
+  });
+
+  final int loadedCount;
+  final bool hasMore;
+}
+
 class WorldChatroomService {
   WorldChatroomService({
     required GenesisApi api,
@@ -149,6 +159,55 @@ class WorldChatroomService {
       throw const ChatroomProtocolException('chatroom is not connected');
     }
     return session.sendMessage(text, clientMsgId: clientMsgId);
+  }
+
+  Future<WorldChatroomOlderMessagesPage> loadOlderMessages({
+    required String locationId,
+    required int beforeMessageId,
+    int limit = 20,
+  }) async {
+    _throwIfDisposed();
+    final resolvedLocationId = locationId.trim();
+    if (resolvedLocationId.isEmpty ||
+        _worldId.isEmpty ||
+        beforeMessageId <= 0 ||
+        limit <= 0) {
+      return const WorldChatroomOlderMessagesPage(
+        loadedCount: 0,
+        hasMore: false,
+      );
+    }
+    final loadedMessageIds = <int>{};
+    final ownerUid = _storageOwnerUid;
+    if (ownerUid.isNotEmpty && _worldId.isNotEmpty) {
+      final localMessages = await _messageStorage.loadMessagesBefore(
+        ownerUid: ownerUid,
+        worldId: _worldId,
+        locationId: resolvedLocationId,
+        beforeMessageId: beforeMessageId,
+        limit: limit,
+      );
+      for (final json in localMessages) {
+        final message = WorldChatroomMessage.fromStorageJson(json);
+        if (message.messageId > 0) loadedMessageIds.add(message.messageId);
+        _upsertMessage(message, persist: false);
+      }
+    }
+
+    final response = await _api.chatroomHttp.getMessages(
+      worldId: _worldId,
+      locationId: resolvedLocationId,
+      since: beforeMessageId,
+      limit: limit,
+    );
+    await _mergeFetchedMessages(resolvedLocationId, response.messages);
+    for (final message in response.messages) {
+      if (message.messageId > 0) loadedMessageIds.add(message.messageId);
+    }
+    return WorldChatroomOlderMessagesPage(
+      loadedCount: loadedMessageIds.length,
+      hasMore: response.hasMore || loadedMessageIds.length >= limit,
+    );
   }
 
   Future<void> dispose() async {
@@ -1124,7 +1183,9 @@ class WorldChatroomMessage {
       conversationRoundId: message.conversationRoundId,
       roundOrder: message.roundOrder,
       locationId: message.locationId,
-      senderType: message.senderType.isEmpty ? 'narrator' : message.senderType,
+      senderType: _senderIdIsNarrator(message.senderId)
+          ? 'narrator'
+          : 'character',
       userId: message.userId,
       senderId: message.senderId,
       senderName: message.senderName,
@@ -1178,4 +1239,8 @@ class WorldChatroomMessage {
       streaming: streaming ?? this.streaming,
     );
   }
+}
+
+bool _senderIdIsNarrator(String senderId) {
+  return senderId.trim().toLowerCase() == 'nar';
 }

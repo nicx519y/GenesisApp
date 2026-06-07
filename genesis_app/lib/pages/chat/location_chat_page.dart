@@ -11,7 +11,7 @@ import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../utils/display_name_formatter.dart';
 
-class LocationChatPage extends StatefulWidget {
+class LocationChatPage extends StatelessWidget {
   const LocationChatPage({
     super.key,
     required this.worldId,
@@ -32,10 +32,56 @@ class LocationChatPage extends StatefulWidget {
   final ChatroomConnectionController? connection;
 
   @override
-  State<LocationChatPage> createState() => _LocationChatPageState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: ChatUiStyleConfig.standard.conversationBackgroundColor,
+      resizeToAvoidBottomInset: true,
+      body: LocationChatPanel(
+        worldId: worldId,
+        locationId: locationId,
+        isLeafLocation: isLeafLocation,
+        worldName: worldName,
+        locationName: locationName,
+        service: service,
+        connection: connection,
+        active: true,
+        onBack: () => Navigator.of(context).maybePop(),
+      ),
+    );
+  }
 }
 
-class _LocationChatPageState extends State<LocationChatPage>
+class LocationChatPanel extends StatefulWidget {
+  const LocationChatPanel({
+    super.key,
+    required this.worldId,
+    required this.locationId,
+    this.isLeafLocation = true,
+    this.worldName,
+    this.locationName,
+    this.service,
+    this.connection,
+    this.active = true,
+    this.leaveOnInactive = true,
+    this.onBack,
+  });
+
+  final String worldId;
+  final String locationId;
+  final bool isLeafLocation;
+  final String? worldName;
+  final String? locationName;
+  final WorldChatroomService? service;
+  final ChatroomConnectionController? connection;
+  final bool active;
+  final bool leaveOnInactive;
+  final VoidCallback? onBack;
+
+  @override
+  State<LocationChatPanel> createState() => _LocationChatPanelState();
+}
+
+class _LocationChatPanelState extends State<LocationChatPanel>
     with WidgetsBindingObserver {
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
@@ -53,13 +99,17 @@ class _LocationChatPageState extends State<LocationChatPage>
   bool _ownsService = false;
   bool _joinedLocation = false;
   bool _sending = false;
+  bool _loadingOlderMessages = false;
+  bool _hasMoreOlderMessages = true;
+  int _unseenIncomingCount = 0;
   int _clientMsgCounter = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _startConnection();
+    _scrollController.addListener(_handleMessageListScroll);
+    _prepareConnection();
   }
 
   @override
@@ -70,14 +120,38 @@ class _LocationChatPageState extends State<LocationChatPage>
       unawaited(service.disconnect().catchError((Object _) {}));
     }
     unawaited(_closeChatroom());
+    _scrollController.removeListener(_handleMessageListScroll);
     _scrollController.dispose();
     _textController.dispose();
     super.dispose();
   }
 
   @override
+  void didUpdateWidget(LocationChatPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.service != widget.service ||
+        oldWidget.worldId != widget.worldId ||
+        oldWidget.locationId != widget.locationId) {
+      unawaited(
+        _closeChatroom().then((_) {
+          if (!mounted) return;
+          _hasMoreOlderMessages = true;
+          _loadingOlderMessages = false;
+          _prepareConnection();
+        }),
+      );
+      return;
+    }
+    if (!oldWidget.active && widget.active) {
+      _activateConnection();
+    } else if (oldWidget.active && !widget.active) {
+      unawaited(_deactivateConnection());
+    }
+  }
+
+  @override
   void didChangeMetrics() {
-    _revealLatestMessageAfterLayout();
+    _keepBottomAfterLayoutIfNeeded();
   }
 
   @override
@@ -86,7 +160,23 @@ class _LocationChatPageState extends State<LocationChatPage>
     // the current location.
   }
 
-  void _startConnection() {
+  void _prepareConnection() {
+    final provided = widget.service;
+    if (provided != null) {
+      _service = provided;
+      _ownsService = false;
+      _syncSenderIdentity(provided);
+      unawaited(_syncLocalIdentity(AppServicesScope.read(context)));
+      _syncFromServiceState(provided);
+      if (widget.active) _activateConnection();
+      return;
+    }
+
+    if (!widget.active) return;
+    _activateConnection();
+  }
+
+  void _activateConnection() {
     final provided = widget.service;
     if (provided != null) {
       _service = provided;
@@ -94,8 +184,17 @@ class _LocationChatPageState extends State<LocationChatPage>
       _syncSenderIdentity(provided);
       unawaited(_syncLocalIdentity(AppServicesScope.read(context)));
       _attachService(provided);
-      if (widget.isLeafLocation) {
+      if (widget.isLeafLocation && !_joinedLocation) {
         unawaited(_joinLocation(provided));
+      }
+      return;
+    }
+
+    if (_service != null) {
+      final service = _service!;
+      _attachService(service);
+      if (widget.isLeafLocation && !_joinedLocation) {
+        unawaited(_joinLocation(service));
       }
       return;
     }
@@ -110,6 +209,29 @@ class _LocationChatPageState extends State<LocationChatPage>
     _ownsService = true;
     _attachService(service);
     unawaited(_connectFallbackAndJoin(service, services));
+  }
+
+  Future<void> _deactivateConnection() async {
+    _sending = false;
+    final wasJoinedLocation = _joinedLocation;
+    _joinedLocation = false;
+    await _stateSubscription?.cancel();
+    await _failuresSubscription?.cancel();
+    _stateSubscription = null;
+    _failuresSubscription = null;
+    final service = _service;
+    final shouldLeave =
+        wasJoinedLocation ||
+        (service?.state.joinedLocationId == widget.locationId &&
+            widget.isLeafLocation);
+    if (widget.leaveOnInactive && service != null && shouldLeave) {
+      try {
+        await service.leave();
+      } catch (_) {
+        // Hidden cached panels should not surface leave failures.
+      }
+    }
+    if (mounted) setState(() {});
   }
 
   Future<void> _connectFallbackAndJoin(
@@ -180,12 +302,20 @@ class _LocationChatPageState extends State<LocationChatPage>
   }
 
   void _attachService(WorldChatroomService service) {
+    if (_stateSubscription != null || _failuresSubscription != null) {
+      _syncFromServiceState(service);
+      return;
+    }
     _failuresSubscription = bindChatroomFailureToast(
       context,
       service.failures,
       onFailure: _handleFailure,
     );
     _stateSubscription = service.states.listen(_handleChatroomState);
+    _syncFromServiceState(service);
+  }
+
+  void _syncFromServiceState(WorldChatroomService service) {
     _handleChatroomState(service.state);
   }
 
@@ -193,14 +323,36 @@ class _LocationChatPageState extends State<LocationChatPage>
     if (!mounted) return;
     final service = _service;
     if (service != null) _syncSenderIdentity(service);
-    final changedMessages = _reconcileMessages(
-      state.messagesByLocation[widget.locationId] ??
-          const <WorldChatroomMessage>[],
-    );
+    final wasAtBottom = _isAtBottom();
+    final previousSource =
+        _chatroomState.messagesByLocation[widget.locationId] ??
+        const <WorldChatroomMessage>[];
+    final previousLatestLocalId = _latestMessageLocalId();
+    final nextSource =
+        state.messagesByLocation[widget.locationId] ??
+        const <WorldChatroomMessage>[];
+    final changedMessages = _reconcileMessages(nextSource);
     setState(() {
       _chatroomState = state;
     });
-    if (changedMessages) _scrollToBottom();
+    if (changedMessages &&
+        previousLatestLocalId.isNotEmpty &&
+        _latestMessageLocalId() != previousLatestLocalId) {
+      if (wasAtBottom) {
+        _clearUnseenIncomingCount();
+        _scrollToBottom(jump: true);
+      } else {
+        final newIncomingCount = _newIncomingTailMessageCount(
+          previousSource,
+          nextSource,
+        );
+        if (newIncomingCount > 0) {
+          setState(() {
+            _unseenIncomingCount += newIncomingCount;
+          });
+        }
+      }
+    }
   }
 
   bool _reconcileMessages(List<WorldChatroomMessage> source) {
@@ -331,7 +483,9 @@ class _LocationChatPageState extends State<LocationChatPage>
 
   String _messageSenderType(WorldChatroomMessage message) {
     final senderType = message.senderType.trim().toLowerCase();
-    if (senderType == 'narrator') return 'system';
+    if (senderType == 'narrator') {
+      return _senderIdIsNarrator(message.senderId) ? 'system' : 'character';
+    }
     if (senderType == 'ai') return 'character';
     return senderType.isEmpty ? 'user' : senderType;
   }
@@ -445,6 +599,93 @@ class _LocationChatPageState extends State<LocationChatPage>
     return '${DateTime.now().microsecondsSinceEpoch}-$_clientMsgCounter';
   }
 
+  String _latestMessageLocalId() {
+    final nonSystem = _messages.where((message) => !message.isSystem);
+    if (nonSystem.isEmpty) return '';
+    return nonSystem.last.localId;
+  }
+
+  void _handleMessageListScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_unseenIncomingCount > 0 && _isAtBottom()) {
+      _clearUnseenIncomingCount();
+    }
+    if (!widget.active ||
+        !widget.isLeafLocation ||
+        _loadingOlderMessages ||
+        !_hasMoreOlderMessages) {
+      return;
+    }
+    final position = _scrollController.position;
+    if (position.maxScrollExtent - position.pixels > 180) return;
+    unawaited(_loadOlderMessages());
+  }
+
+  Future<void> _loadOlderMessages() async {
+    if (_loadingOlderMessages) return;
+    final service = _service;
+    if (service == null) return;
+    final beforeMessageId = _earliestLoadedMessageId();
+    if (beforeMessageId <= 0) {
+      _hasMoreOlderMessages = false;
+      return;
+    }
+    _loadingOlderMessages = true;
+    try {
+      final page = await service.loadOlderMessages(
+        locationId: widget.locationId,
+        beforeMessageId: beforeMessageId,
+        limit: 20,
+      );
+      _hasMoreOlderMessages = page.hasMore;
+    } catch (_) {
+      // Up-scroll history loading is opportunistic; connection failures are
+      // surfaced by the chatroom service failure stream when appropriate.
+    } finally {
+      _loadingOlderMessages = false;
+    }
+  }
+
+  int _earliestLoadedMessageId() {
+    var earliest = 0;
+    final source =
+        _chatroomState.messagesByLocation[widget.locationId] ??
+        const <WorldChatroomMessage>[];
+    for (final message in source) {
+      final messageId = message.messageId;
+      if (messageId <= 0) continue;
+      if (earliest == 0 || messageId < earliest) earliest = messageId;
+    }
+    return earliest;
+  }
+
+  int _newIncomingTailMessageCount(
+    List<WorldChatroomMessage> previous,
+    List<WorldChatroomMessage> next,
+  ) {
+    final previousKeys = previous.map(_messageDedupKey).toSet();
+    var count = 0;
+    for (final message in next) {
+      if (previousKeys.contains(_messageDedupKey(message))) continue;
+      if (_isMineMessage(message)) continue;
+      count += 1;
+    }
+    return count;
+  }
+
+  String _messageDedupKey(WorldChatroomMessage message) {
+    final clientMsgId = message.clientMsgId.trim();
+    if (clientMsgId.isNotEmpty) return 'client:$clientMsgId';
+    if (message.messageId > 0) return 'message:${message.messageId}';
+    return [
+      'round',
+      message.locationId,
+      message.conversationRoundId,
+      message.senderId,
+      message.roundOrder,
+    ].join(':');
+  }
+
   String _messageSenderDisplayName(WorldChatroomMessage message) {
     return firstNonEmpty([
       _roleNameForIdentityCandidates([message.userId, message.senderId]),
@@ -548,7 +789,11 @@ class _LocationChatPageState extends State<LocationChatPage>
     _failuresSubscription = null;
 
     if (service != null) {
-      if (_joinedLocation) {
+      final shouldLeave =
+          _joinedLocation ||
+          (service.state.joinedLocationId == widget.locationId &&
+              widget.isLeafLocation);
+      if (widget.leaveOnInactive && shouldLeave) {
         try {
           await service.leave();
         } catch (_) {
@@ -564,29 +809,43 @@ class _LocationChatPageState extends State<LocationChatPage>
     }
   }
 
-  void _scrollToBottom({bool jump = false, int settleFrames = 2}) {
+  bool _isAtBottom() {
+    if (!_scrollController.hasClients) return true;
+    return _scrollController.position.pixels <= 24;
+  }
+
+  void _scrollToBottom({bool jump = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
       if (jump) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-        if (settleFrames > 0) {
-          _scrollToBottom(jump: true, settleFrames: settleFrames - 1);
-        }
+        _scrollController.jumpTo(0);
         return;
       }
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
+        0,
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
       );
     });
   }
 
-  void _revealLatestMessageAfterLayout() {
+  void _keepBottomAfterLayoutIfNeeded() {
+    if (!_isAtBottom()) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
-      _scrollToBottom(jump: true, settleFrames: 4);
+      if (!_isAtBottom()) return;
+      _scrollToBottom(jump: true);
     });
+  }
+
+  void _clearUnseenIncomingCount() {
+    if (_unseenIncomingCount == 0 || !mounted) return;
+    setState(() => _unseenIncomingCount = 0);
+  }
+
+  void _openUnseenIncomingMessages() {
+    _clearUnseenIncomingCount();
+    _scrollToBottom(jump: true);
   }
 
   @override
@@ -602,33 +861,47 @@ class _LocationChatPageState extends State<LocationChatPage>
         (_chatroomState.connected && !joined);
     final inputBlocked = _chatroomState.inputBlocked;
 
-    return Scaffold(
-      backgroundColor: ChatUiStyleConfig.standard.conversationBackgroundColor,
-      resizeToAvoidBottomInset: true,
-      body: Column(
+    return ColoredBox(
+      color: ChatUiStyleConfig.standard.conversationBackgroundColor,
+      child: Column(
         children: [
           ChatHeader(
             title: '$title ($titleCount)',
             subtitle: subtitle,
             connected: joined,
             connecting: connecting,
-            onBack: () => Navigator.of(context).maybePop(),
+            onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
           ),
           Expanded(
-            child: ChatMessageList(
-              controller: _scrollController,
-              messages: _messages,
-              topTitle: '',
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: ChatMessageList(
+                    controller: _scrollController,
+                    messages: _messages,
+                    topTitle: '',
+                  ),
+                ),
+                if (_unseenIncomingCount > 0)
+                  Positioned(
+                    right: 16,
+                    bottom: 12,
+                    child: _LocationChatNewMessageNotice(
+                      count: _unseenIncomingCount,
+                      onTap: _openUnseenIncomingMessages,
+                    ),
+                  ),
+              ],
             ),
           ),
           ChatComposer(
             controller: _textController,
-            inputEnabled: !_sending,
-            sendEnabled: joined && !_sending && !inputBlocked,
+            inputEnabled: widget.active,
+            sendEnabled: widget.active && joined && !_sending && !inputBlocked,
             sending: _sending,
             onSend: _send,
             sendLabel: 'Send',
-            onHeightChanged: (_) => _revealLatestMessageAfterLayout(),
+            onHeightChanged: (_) => _keepBottomAfterLayoutIfNeeded(),
           ),
         ],
       ),
@@ -650,6 +923,44 @@ String _mapString(Map<String, dynamic>? map, String key) {
   final value = map[key];
   if (value == null) return '';
   return '$value'.trim();
+}
+
+bool _senderIdIsNarrator(String senderId) {
+  return senderId.trim().toLowerCase() == 'nar';
+}
+
+class _LocationChatNewMessageNotice extends StatelessWidget {
+  const _LocationChatNewMessageNotice({
+    required this.count,
+    required this.onTap,
+  });
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.72),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        key: const ValueKey('location-chat-new-message-notice'),
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Text(
+            '$count 条新消息',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 String _firstMapString(Map<String, dynamic> map, List<String> keys) {

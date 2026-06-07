@@ -21,12 +21,14 @@ class ChatroomEnvelope {
     this.sessionId = '',
     this.locationId = '',
     this.userId = '',
+    this.senderId = '',
     this.senderName = '',
     this.errCode = '',
     this.errMsg = '',
     this.msgId,
     this.conversationRoundId,
     this.clientMsgId = '',
+    this.broadcast,
   });
 
   final String type;
@@ -36,12 +38,14 @@ class ChatroomEnvelope {
   final String sessionId;
   final String locationId;
   final String userId;
+  final String senderId;
   final String senderName;
   final String errCode;
   final String errMsg;
   final int? msgId;
   final int? conversationRoundId;
   final String clientMsgId;
+  final bool? broadcast;
 
   factory ChatroomEnvelope.fromJson(Map<String, dynamic> json) {
     return ChatroomEnvelope(
@@ -52,6 +56,7 @@ class ChatroomEnvelope {
       sessionId: asString(json['session_id']),
       locationId: asString(json['location_id']),
       userId: asString(json['user_id']),
+      senderId: asString(json['sender_id']),
       senderName: asString(json['sender_name']),
       errCode: asString(json['err_code']),
       errMsg: asString(json['err_msg']),
@@ -60,6 +65,9 @@ class ChatroomEnvelope {
           ? null
           : asInt(json['conversation_round_id']),
       clientMsgId: asString(json['client_msg_id']),
+      broadcast: json.containsKey('broadcast')
+          ? asBool(json['broadcast'])
+          : null,
     );
   }
 
@@ -95,6 +103,7 @@ class ChatroomEnvelope {
     if (sessionId.isNotEmpty) merged['session_id'] = sessionId;
     if (locationId.isNotEmpty) merged['location_id'] = locationId;
     if (userId.isNotEmpty) merged['user_id'] = userId;
+    if (senderId.isNotEmpty) merged['sender_id'] = senderId;
     if (senderName.isNotEmpty) merged['sender_name'] = senderName;
     if (errCode.isNotEmpty) merged['code'] = errCode;
     if (errMsg.isNotEmpty) merged['code_msg'] = errMsg;
@@ -103,6 +112,7 @@ class ChatroomEnvelope {
       merged['conversation_round_id'] = conversationRoundId;
     }
     if (clientMsgId.isNotEmpty) merged['client_msg_id'] = clientMsgId;
+    if (broadcast != null) merged['broadcast'] = broadcast;
     merged.putIfAbsent('code', () => 0);
     merged.putIfAbsent('code_msg', () => '');
     return merged;

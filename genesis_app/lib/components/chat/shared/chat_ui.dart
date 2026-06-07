@@ -197,82 +197,86 @@ class ChatComposer extends StatelessWidget {
           bottom: style.composerPadding.bottom + bottomInset,
         ),
         color: style.composerBackgroundColor,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            if (style.showComposerVoiceButton) ...[
-              _ComposerIconButton(
-                icon: MyFlutterApp.voice,
-                onPressed: inputEnabled ? () {} : null,
-                style: style,
-              ),
-              SizedBox(width: style.composerLeadingGap),
-            ],
-            Expanded(
-              child: Container(
-                constraints: BoxConstraints(
-                  minHeight: style.inputMinHeight,
-                  maxHeight: style.inputMaxHeight,
+        child: TextFieldTapRegion(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (style.showComposerVoiceButton) ...[
+                _ComposerIconButton(
+                  icon: MyFlutterApp.voice,
+                  onPressed: inputEnabled ? () {} : null,
+                  style: style,
                 ),
-                decoration: BoxDecoration(
-                  color: style.inputBackgroundColor,
-                  borderRadius: BorderRadius.circular(style.inputBorderRadius),
-                ),
-                child: TextField(
-                  controller: controller,
-                  enabled: inputEnabled,
-                  minLines: style.inputMinLines,
-                  maxLines: style.inputMaxLines,
-                  keyboardType: submitFromKeyboard
-                      ? TextInputType.text
-                      : TextInputType.multiline,
-                  textInputAction: submitFromKeyboard
-                      ? TextInputAction.send
-                      : TextInputAction.newline,
-                  onTapOutside: (_) =>
-                      FocusManager.instance.primaryFocus?.unfocus(),
-                  onSubmitted: submitFromKeyboard
-                      ? (_) {
-                          if (sendEnabled) unawaited(onSend());
-                        }
-                      : null,
-                  style: style.inputTextStyle,
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: style.inputHorizontalPadding,
-                      vertical: style.inputVerticalPadding,
+                SizedBox(width: style.composerLeadingGap),
+              ],
+              Expanded(
+                child: Container(
+                  constraints: BoxConstraints(
+                    minHeight: style.inputMinHeight,
+                    maxHeight: style.inputMaxHeight,
+                  ),
+                  decoration: BoxDecoration(
+                    color: style.inputBackgroundColor,
+                    borderRadius: BorderRadius.circular(
+                      style.inputBorderRadius,
+                    ),
+                  ),
+                  child: TextField(
+                    controller: controller,
+                    enabled: inputEnabled,
+                    minLines: style.inputMinLines,
+                    maxLines: style.inputMaxLines,
+                    keyboardType: submitFromKeyboard
+                        ? TextInputType.text
+                        : TextInputType.multiline,
+                    textInputAction: submitFromKeyboard
+                        ? TextInputAction.send
+                        : TextInputAction.newline,
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
+                    onSubmitted: submitFromKeyboard
+                        ? (_) {
+                            if (sendEnabled) unawaited(onSend());
+                          }
+                        : null,
+                    style: style.inputTextStyle,
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: style.inputHorizontalPadding,
+                        vertical: style.inputVerticalPadding,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            if (style.showComposerStickerButton) ...[
-              SizedBox(width: style.composerActionGap),
-              _ComposerIconButton(
-                icon: MyFlutterApp.sticker,
-                onPressed: inputEnabled ? () {} : null,
-                style: style,
-              ),
+              if (style.showComposerStickerButton) ...[
+                SizedBox(width: style.composerActionGap),
+                _ComposerIconButton(
+                  icon: MyFlutterApp.sticker,
+                  onPressed: inputEnabled ? () {} : null,
+                  style: style,
+                ),
+              ],
+              if (style.showComposerAddButton) ...[
+                SizedBox(width: style.composerActionGap),
+                _ComposerIconButton(
+                  icon: MyFlutterApp.add2,
+                  onPressed: inputEnabled ? () {} : null,
+                  style: style,
+                ),
+              ],
+              if (style.showComposerSendButton) ...[
+                SizedBox(width: style.composerActionGap),
+                _ComposerSendButton(
+                  sending: sending,
+                  onPressed: sendEnabled ? onSend : null,
+                  label: sendLabel,
+                  style: style,
+                ),
+              ],
             ],
-            if (style.showComposerAddButton) ...[
-              SizedBox(width: style.composerActionGap),
-              _ComposerIconButton(
-                icon: MyFlutterApp.add2,
-                onPressed: inputEnabled ? () {} : null,
-                style: style,
-              ),
-            ],
-            if (style.showComposerSendButton) ...[
-              SizedBox(width: style.composerActionGap),
-              _ComposerSendButton(
-                sending: sending,
-                onPressed: sendEnabled ? onSend : null,
-                label: sendLabel,
-                style: style,
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
@@ -462,12 +466,15 @@ class ChatMessageList extends StatelessWidget {
     final style = this.style ?? ChatUiStyleConfig.standard;
     return ListView.builder(
       controller: controller,
+      reverse: true,
       padding: style.messageListPadding,
       itemCount: messages.length + 1,
       itemBuilder: (context, index) {
-        if (index == 0) return _ChatTopTitle(name: topTitle, style: style);
+        if (index == messages.length) {
+          return _ChatTopTitle(name: topTitle, style: style);
+        }
 
-        final messageIndex = index - 1;
+        final messageIndex = messages.length - 1 - index;
         final current = messages[messageIndex];
         final previous = messageIndex == 0 ? null : messages[messageIndex - 1];
         return ChatMessageRow(

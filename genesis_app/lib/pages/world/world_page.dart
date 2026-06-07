@@ -25,6 +25,7 @@ import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
+import '../chat/location_chat_page.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
@@ -47,6 +48,11 @@ class _WorldPageState extends State<WorldPage>
   WorldChatroomService? _worldChatroom;
   StreamSubscription<WorldChatroomState>? _worldChatroomSub;
   StreamSubscription? _worldChatroomFailureSub;
+  Map<String, _LocationChatPanelDescriptor> _locationChatDescriptors =
+      <String, _LocationChatPanelDescriptor>{};
+  final Set<String> _cachedLocationChatIds = <String>{};
+  String _activeChatLocationId = '';
+  int _locationChatPrecacheGeneration = 0;
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
 
@@ -66,6 +72,7 @@ class _WorldPageState extends State<WorldPage>
 
   @override
   void dispose() {
+    _locationChatPrecacheGeneration += 1;
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
     final chatroom = _worldChatroom;
@@ -158,6 +165,7 @@ class _WorldPageState extends State<WorldPage>
       setState(() {
         _world = world;
         if (isInitial) _initialLoadError = null;
+        _syncLocationChatDescriptors(world);
       });
     } catch (e) {
       if (!mounted) return;
@@ -287,43 +295,193 @@ class _WorldPageState extends State<WorldPage>
     final pointId = point.pointId.trim().isNotEmpty
         ? point.pointId.trim()
         : point.id.trim();
-    if (pointId.isEmpty) {
-      Navigator.of(context).pushNamed(
-        RouteNames.locationChat,
-        arguments: {
-          'world_id': widget.wid,
-          'world_name': _world?.name ?? '',
-          'is_leaf_location': point.isLeafLocation,
-          'world_chatroom_service': chatroom,
-        },
-      );
-      await WidgetsBinding.instance.endOfFrame;
-      return;
-    }
+    final locationId = point.sceneId.trim().isNotEmpty
+        ? point.sceneId.trim()
+        : pointId;
+    if (locationId.isEmpty) return;
 
     try {
       await AppServicesScope.of(
         context,
-      ).api.updateUserPosition(wid: widget.wid, locationId: point.sceneId);
+      ).api.updateUserPosition(wid: widget.wid, locationId: locationId);
     } catch (_) {}
 
     if (!mounted) return;
-    final locationId = point.sceneId.trim().isNotEmpty
-        ? point.sceneId.trim()
-        : pointId;
-    Navigator.of(context).pushNamed(
-      RouteNames.locationChat,
-      arguments: {
-        'world_id': widget.wid,
-        'world_name': _world?.name ?? '',
-        'location_id': locationId,
-        'pointId': pointId,
-        'location_name': point.name,
-        'is_leaf_location': point.isLeafLocation,
-        'world_chatroom_service': chatroom,
-      },
+    final descriptor = _LocationChatPanelDescriptor(
+      locationId: locationId,
+      locationName: point.name,
+      isLeafLocation: point.isLeafLocation,
     );
+    await _showCachedLocationChat(descriptor);
+  }
+
+  Future<void> _showCachedLocationChat(
+    _LocationChatPanelDescriptor descriptor,
+  ) async {
+    final locationId = descriptor.locationId;
+    if (locationId.isEmpty) return;
+    final previousActiveId = _activeChatLocationId;
+    if (previousActiveId.isNotEmpty && previousActiveId != locationId) {
+      await _leaveCachedLocationChat(previousActiveId);
+      if (!mounted) return;
+      setState(() {
+        _activeChatLocationId = '';
+      });
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
+    }
+    setState(() {
+      _locationChatDescriptors[locationId] = descriptor;
+      _cachedLocationChatIds.add(locationId);
+      _activeChatLocationId = locationId;
+    });
     await WidgetsBinding.instance.endOfFrame;
+  }
+
+  void _closeCachedLocationChat() {
+    final locationId = _activeChatLocationId;
+    if (locationId.isEmpty) return;
+    unawaited(_leaveCachedLocationChat(locationId));
+    setState(() {
+      _activeChatLocationId = '';
+    });
+  }
+
+  void _handleWorldPopBlocked() {
+    if (_activeChatLocationId.isEmpty) return;
+    _closeCachedLocationChat();
+  }
+
+  Future<void> _leaveCachedLocationChat(String locationId) async {
+    final descriptor = _locationChatDescriptors[locationId];
+    final chatroom = _worldChatroom;
+    if (descriptor?.isLeafLocation != true || chatroom == null) return;
+    if (chatroom.state.joinedLocationId != locationId) return;
+    try {
+      await chatroom.leave();
+    } catch (_) {
+      // Closing or switching cached panels should not surface leave failures.
+    }
+  }
+
+  void _syncLocationChatDescriptors(WorldDetail world) {
+    final descriptors = _locationChatDescriptorsForWorld(world);
+    _locationChatDescriptors = descriptors;
+    _cachedLocationChatIds.removeWhere(
+      (locationId) => !descriptors.containsKey(locationId),
+    );
+    if (!_locationChatDescriptors.containsKey(_activeChatLocationId)) {
+      _activeChatLocationId = '';
+    }
+    _scheduleLocationChatPrecache(descriptors.keys.toList(growable: false));
+  }
+
+  Map<String, _LocationChatPanelDescriptor> _locationChatDescriptorsForWorld(
+    WorldDetail world,
+  ) {
+    final nodes = world.processedLocationTree.flattened;
+    if (nodes.isNotEmpty) {
+      return {
+        for (final node in nodes)
+          if (node.id.trim().isNotEmpty)
+            node.id.trim(): _LocationChatPanelDescriptor.fromNode(node),
+      };
+    }
+
+    final parentIds = world.locations
+        .map((location) => _mapString(location, const ['location_pid']))
+        .where((locationId) => locationId.isNotEmpty)
+        .toSet();
+    return {
+      for (final location in world.locations)
+        if (_mapString(location, const ['location_id', 'id']).isNotEmpty)
+          _mapString(location, const [
+            'location_id',
+            'id',
+          ]): _LocationChatPanelDescriptor.fromLocation(
+            location,
+            isLeafLocation: !parentIds.contains(
+              _mapString(location, const ['location_id', 'id']),
+            ),
+          ),
+    };
+  }
+
+  void _scheduleLocationChatPrecache(List<String> locationIds) {
+    _locationChatPrecacheGeneration += 1;
+    final generation = _locationChatPrecacheGeneration;
+    void scheduleNext(int index) {
+      if (index >= locationIds.length) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || generation != _locationChatPrecacheGeneration) {
+          return;
+        }
+        final locationId = locationIds[index];
+        if (_locationChatDescriptors.containsKey(locationId) &&
+            _cachedLocationChatIds.add(locationId)) {
+          setState(() {});
+        }
+        scheduleNext(index + 1);
+      });
+    }
+
+    scheduleNext(0);
+  }
+
+  Widget? _buildLocationChatOverlay() {
+    final chatroom = _worldChatroom;
+    if (chatroom == null || _cachedLocationChatIds.isEmpty) return null;
+    final cachedIds = _cachedLocationChatIds
+        .where(_locationChatDescriptors.containsKey)
+        .toList(growable: false);
+    if (cachedIds.isEmpty) return null;
+
+    return Positioned.fill(
+      child: IgnorePointer(
+        ignoring: _activeChatLocationId.isEmpty,
+        child: Stack(
+          children: [
+            for (final locationId in cachedIds)
+              _buildCachedLocationChatPanel(
+                _locationChatDescriptors[locationId]!,
+                chatroom,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCachedLocationChatPanel(
+    _LocationChatPanelDescriptor descriptor,
+    WorldChatroomService chatroom,
+  ) {
+    final active = descriptor.locationId == _activeChatLocationId;
+    return IgnorePointer(
+      ignoring: !active,
+      child: ExcludeSemantics(
+        excluding: !active,
+        child: Opacity(
+          opacity: active ? 1 : 0,
+          child: TickerMode(
+            enabled: active,
+            child: SizedBox.expand(
+              child: LocationChatPanel(
+                key: ValueKey('world-location-chat-${descriptor.locationId}'),
+                worldId: widget.wid,
+                locationId: descriptor.locationId,
+                locationName: descriptor.locationName,
+                isLeafLocation: descriptor.isLeafLocation,
+                service: chatroom,
+                active: active,
+                leaveOnInactive: false,
+                onBack: _closeCachedLocationChat,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   bool _canOpenLocationChat(WorldChatroomService? service) {
@@ -429,35 +587,85 @@ class _WorldPageState extends State<WorldPage>
         : world.locations.isNotEmpty
         ? _pointsFromWorldLocations(world.locations, avatarsByLocation)
         : points;
-    return WorldDetailsPageScaffold(
-      panelTopGap: 50,
-      panelCollapsedHeightOffset: 100,
-      map: WorldMapStage(
-        controller: _tabController,
-        pointsCount: listPoints.length,
-        top: topPadding + 20,
-        mapBuilder: (context, pointMode) => WorldMap(
-          points: points,
-          listPoints: listPoints,
-          locationNodes: locationNodes,
-          mapImageUrl: rootMapImageUrl,
-          dimmed: pointMode,
-          showPointsList: pointMode,
-          overlayTop: topPadding + 8 + 48,
-          drillExitTop: topPadding + 68,
-          onDrillIntoLocation: _showMapTab,
-          onPointTap: _openChatForPoint,
+    return PopScope(
+      canPop: _activeChatLocationId.isEmpty,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleWorldPopBlocked();
+      },
+      child: WorldDetailsPageScaffold(
+        panelTopGap: 50,
+        panelCollapsedHeightOffset: 100,
+        topOverlay: _buildLocationChatOverlay(),
+        map: WorldMapStage(
+          controller: _tabController,
+          pointsCount: listPoints.length,
+          top: topPadding + 20,
+          mapBuilder: (context, pointMode) => WorldMap(
+            points: points,
+            listPoints: listPoints,
+            locationNodes: locationNodes,
+            mapImageUrl: rootMapImageUrl,
+            dimmed: pointMode,
+            showPointsList: pointMode,
+            overlayTop: topPadding + 8 + 48,
+            drillExitTop: topPadding + 68,
+            onDrillIntoLocation: _showMapTab,
+            onPointTap: _openChatForPoint,
+          ),
         ),
+        slivers: [
+          _WorldFeedContent(
+            world: world,
+            worldActionRunning: _worldActionRunning,
+            onWorldAction: _runWorldAction,
+          ),
+        ],
       ),
-      slivers: [
-        _WorldFeedContent(
-          world: world,
-          worldActionRunning: _worldActionRunning,
-          onWorldAction: _runWorldAction,
-        ),
-      ],
     );
   }
+}
+
+class _LocationChatPanelDescriptor {
+  const _LocationChatPanelDescriptor({
+    required this.locationId,
+    required this.locationName,
+    required this.isLeafLocation,
+  });
+
+  factory _LocationChatPanelDescriptor.fromNode(
+    LocationTreeNode<Map<String, dynamic>> node,
+  ) {
+    final value = node.value;
+    final locationId = node.id.trim();
+    return _LocationChatPanelDescriptor(
+      locationId: locationId,
+      locationName: _mapString(value, const [
+        'location_name',
+        'name',
+      ], fallback: locationId),
+      isLeafLocation: node.children.isEmpty,
+    );
+  }
+
+  factory _LocationChatPanelDescriptor.fromLocation(
+    Map<String, dynamic> location, {
+    required bool isLeafLocation,
+  }) {
+    final locationId = _mapString(location, const ['location_id', 'id']);
+    return _LocationChatPanelDescriptor(
+      locationId: locationId,
+      locationName: _mapString(location, const [
+        'location_name',
+        'name',
+      ], fallback: locationId),
+      isLeafLocation: isLeafLocation,
+    );
+  }
+
+  final String locationId;
+  final String locationName;
+  final bool isLeafLocation;
 }
 
 class _WorldDetailsLoadingContent extends StatelessWidget {

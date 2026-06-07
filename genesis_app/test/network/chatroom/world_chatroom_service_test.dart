@@ -196,6 +196,73 @@ void main() {
     },
   );
 
+  test('chatroom message storage loads messages before cursor', () async {
+    final storage = MemoryChatroomMessageStorage();
+    await storage.mergeMessages(
+      ownerUid: 'user-1',
+      worldId: 'world-1',
+      locationId: 'loc-1',
+      messages: [
+        for (var id = 1; id <= 5; id += 1)
+          _httpMessageJson(
+            messageId: id,
+            locationId: 'loc-1',
+            content: 'message-$id',
+          ),
+      ],
+    );
+
+    final records = await storage.loadMessagesBefore(
+      ownerUid: 'user-1',
+      worldId: 'world-1',
+      locationId: 'loc-1',
+      beforeMessageId: 4,
+      limit: 2,
+    );
+
+    expect(records.map((message) => message['msg_id']).toList(), [2, 3]);
+  });
+
+  test('loadOlderMessages requests remote history before cursor', () async {
+    final socket = _FakeChatroomSocket();
+    final http = _WorldChatroomHttpTransport()
+      ..messagesByLocation['loc-1'] = [
+        _httpMessageJson(
+          messageId: 1,
+          locationId: 'loc-1',
+          content: 'remote-old',
+        ),
+        _httpMessageJson(
+          messageId: 2,
+          locationId: 'loc-1',
+          content: 'remote-new',
+        ),
+      ]
+      ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      httpTransport: http,
+    );
+
+    await service.connect(worldId: 'world-1', identity: _identity());
+    final page = await service.loadOlderMessages(
+      locationId: 'loc-1',
+      beforeMessageId: 2,
+      limit: 20,
+    );
+
+    expect(page.loadedCount, 1);
+    expect(page.hasMore, isFalse);
+    expect(http.messageSinceByLocation['loc-1']?.last, 2);
+    expect(
+      service.state.messagesByLocation['loc-1']!
+          .map((message) => message.content)
+          .toList(),
+      ['remote-old', 'remote-new'],
+    );
+    await service.dispose();
+  });
+
   test('user message keeps user id when sender id is omitted', () async {
     final socket = _FakeChatroomSocket();
     final http = _WorldChatroomHttpTransport()
@@ -231,6 +298,87 @@ void main() {
     expect(message.userId, 'user-1');
     expect(message.senderId, isEmpty);
     expect(message.clientMsgId, 'client-1');
+    await service.dispose();
+  });
+
+  test('narrator push with top-level fields enters location queue', () async {
+    final socket = _FakeChatroomSocket();
+    final http = _WorldChatroomHttpTransport()
+      ..messagesByLocation['loc-1'] = const <Map<String, dynamic>>[]
+      ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      httpTransport: http,
+    );
+
+    await service.connect(worldId: 'world-1', identity: _identity());
+    socket.serverFrame('nar_new_message', {
+      'ts': 1780840607650,
+      'world_id': 'world-1',
+      'payload': {'content': '*黑暗中，芯片脉冲与数据卡蓝光交织*'},
+      'msg_id': 155,
+      'conversation_round_id': 1349,
+      'sender_id': 'nar',
+      'sender_name': '旁白',
+      'location_id': 'loc-1',
+      'broadcast': true,
+    });
+
+    await _waitFor(
+      () =>
+          service.state.messagesByLocation['loc-1']?.any(
+            (message) => message.messageId == 155,
+          ) ==
+          true,
+    );
+    final message = service.state.messagesByLocation['loc-1']!.singleWhere(
+      (message) => message.messageId == 155,
+    );
+    expect(message.conversationRoundId, '1349');
+    expect(message.locationId, 'loc-1');
+    expect(message.senderType, 'narrator');
+    expect(message.senderId, 'nar');
+    expect(message.senderName, '旁白');
+    expect(message.content, '*黑暗中，芯片脉冲与数据卡蓝光交织*');
+    await service.dispose();
+  });
+
+  test('narrator push from non-nar sender enters queue as character', () async {
+    final socket = _FakeChatroomSocket();
+    final http = _WorldChatroomHttpTransport()
+      ..messagesByLocation['loc-1'] = const <Map<String, dynamic>>[]
+      ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      httpTransport: http,
+    );
+
+    await service.connect(worldId: 'world-1', identity: _identity());
+    socket.serverFrame('nar_new_message', {
+      'world_id': 'world-1',
+      'payload': {'content': '角色旁白式发言'},
+      'msg_id': 156,
+      'conversation_round_id': 1350,
+      'sender_id': 'char-1',
+      'sender_name': 'Alice',
+      'location_id': 'loc-1',
+      'broadcast': true,
+    });
+
+    await _waitFor(
+      () =>
+          service.state.messagesByLocation['loc-1']?.any(
+            (message) => message.messageId == 156,
+          ) ==
+          true,
+    );
+    final message = service.state.messagesByLocation['loc-1']!.singleWhere(
+      (message) => message.messageId == 156,
+    );
+    expect(message.conversationRoundId, '1350');
+    expect(message.senderId, 'char-1');
+    expect(message.senderType, 'character');
+    expect(message.content, '角色旁白式发言');
     await service.dispose();
   });
 
@@ -516,6 +664,7 @@ class _WorldChatroomHttpTransport implements HttpTransport {
   int messagesRequests = 0;
   final Set<String> failedMessageLocationIds = <String>{};
   final Map<String, int> messagesRequestsByLocation = {};
+  final Map<String, List<int?>> messageSinceByLocation = {};
   final Map<String, List<Map<String, dynamic>>> messagesByLocation = {
     'loc-1': [
       _httpMessageJson(messageId: 2, locationId: 'loc-1', content: 'gap'),
@@ -557,13 +706,23 @@ class _WorldChatroomHttpTransport implements HttpTransport {
     if (path.endsWith('/aitown-chat/api/messages')) {
       messagesRequests += 1;
       final locationId = request.uri.queryParameters['location_id'] ?? '';
+      final since = int.tryParse(request.uri.queryParameters['since'] ?? '');
       messagesRequestsByLocation[locationId] =
           (messagesRequestsByLocation[locationId] ?? 0) + 1;
+      messageSinceByLocation.putIfAbsent(locationId, () => <int?>[]).add(since);
       if (failedMessageLocationIds.contains(locationId)) {
         return _json({'err_no': 500, 'err_msg': 'history failed', 'data': {}});
       }
-      final messages =
+      final allMessages =
           messagesByLocation[locationId] ?? const <Map<String, dynamic>>[];
+      final messages = since == null
+          ? allMessages
+          : allMessages
+                .where((message) {
+                  final messageId = message['msg_id'];
+                  return messageId is int && messageId < since;
+                })
+                .toList(growable: false);
       return _json({
         'err_no': 0,
         'err_msg': 'succ',

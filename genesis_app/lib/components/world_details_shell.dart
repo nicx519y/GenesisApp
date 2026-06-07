@@ -8,6 +8,7 @@ class WorldDetailsPageScaffold extends StatelessWidget {
     this.panelTopGap = defaultPanelTopGap,
     this.panelCollapsedHeightOffset = defaultPanelCollapsedHeightOffset,
     this.bottomBar,
+    this.topOverlay,
   });
 
   static const double defaultPanelTopGap = 30;
@@ -21,10 +22,12 @@ class WorldDetailsPageScaffold extends StatelessWidget {
   final double panelTopGap;
   final double panelCollapsedHeightOffset;
   final Widget? bottomBar;
+  final Widget? topOverlay;
 
   @override
   Widget build(BuildContext context) {
     final bottomBar = this.bottomBar;
+    final topOverlay = this.topOverlay;
     return Scaffold(
       body: Stack(
         children: [
@@ -40,6 +43,7 @@ class WorldDetailsPageScaffold extends StatelessWidget {
           ),
           if (bottomBar != null)
             Positioned(left: 0, right: 0, bottom: 0, child: bottomBar),
+          if (topOverlay != null) topOverlay,
         ],
       ),
     );

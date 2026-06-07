@@ -12,6 +12,14 @@ abstract class ChatroomMessageStorage {
     required int limit,
   });
 
+  Future<List<Map<String, dynamic>>> loadMessagesBefore({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int beforeMessageId,
+    required int limit,
+  });
+
   Future<void> mergeMessages({
     required String ownerUid,
     required String worldId,
@@ -62,6 +70,31 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
       'chatroom_messages',
       where: 'owner_uid = ? AND world_id = ? AND location_id = ?',
       whereArgs: [ownerUid, worldId, locationId],
+      orderBy: 'created_at DESC, msg_id DESC',
+      limit: limit,
+    );
+    final messages = rows
+        .map(_messageFromRow)
+        .whereType<Map<String, dynamic>>()
+        .toList(growable: false);
+    return _sortMessageJson(messages);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> loadMessagesBefore({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int beforeMessageId,
+    required int limit,
+  }) async {
+    if (beforeMessageId <= 0) return const <Map<String, dynamic>>[];
+    final db = await _db;
+    final rows = await db.query(
+      'chatroom_messages',
+      where:
+          'owner_uid = ? AND world_id = ? AND location_id = ? AND msg_id < ?',
+      whereArgs: [ownerUid, worldId, locationId, beforeMessageId],
       orderBy: 'created_at DESC, msg_id DESC',
       limit: limit,
     );
@@ -188,6 +221,25 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
   }) async {
     final descending = _sortMessageJson(
       _bucket(ownerUid, worldId, locationId).values,
+    ).reversed.toList(growable: false);
+    return _sortMessageJson(descending.take(limit));
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> loadMessagesBefore({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int beforeMessageId,
+    required int limit,
+  }) async {
+    if (beforeMessageId <= 0) return const <Map<String, dynamic>>[];
+    final descending = _sortMessageJson(
+      _bucket(
+        ownerUid,
+        worldId,
+        locationId,
+      ).values.where((message) => _messageId(message) < beforeMessageId),
     ).reversed.toList(growable: false);
     return _sortMessageJson(descending.take(limit));
   }
