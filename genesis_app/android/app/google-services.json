@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "447881000582-g8i3bve0ac4n9sgti7lftp1k1je5t5h9.apps.googleusercontent.com",
+          "client_id": "447881000582-sch38hm8gasm91rqcupcq5p1eur691sj.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.genesis.ai",
-            "certificate_hash": "73512729341f25842c2cd0c0977a630a4ba05988"
+            "certificate_hash": "46d57d209c16335f4f631b74ed0262e9d5abf11a"
           }
         },
         {
