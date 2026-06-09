@@ -201,10 +201,7 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
       metricJson: metric is Map && metric.isNotEmpty
           ? jsonEncode(asJsonMap(metric))
           : '',
-      coverImageUrl: asString(
-        origin['cover'],
-        fallback: asString(origin['map_url']),
-      ),
+      coverImageUrl: asImageUrl(origin['cover'], fallback: origin['map_url']),
     ),
     characters: characters.isEmpty
         ? const <CharacterDraft>[CharacterDraft()]
@@ -225,7 +222,7 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
 CharacterDraft _characterDraftFromV1(Map<String, dynamic> raw) {
   return CharacterDraft(
     charId: asString(raw['character_id'], fallback: asString(raw['char_id'])),
-    avatarUrl: asString(raw['avatar']),
+    avatarUrl: asImageUrl(raw['avatar']),
     name: asString(raw['name']),
     identity: asString(raw['identity']),
     personality: asString(raw['tagline'], fallback: asString(raw['brief'])),
@@ -257,7 +254,7 @@ LocationDraft _locationDraftFromV1(
     parentLocationId: parentLocationId == rootLocationId
         ? ''
         : parentLocationId,
-    imageUrl: asString(raw['image'], fallback: asString(raw['icon'])),
+    imageUrl: asImageUrl(raw['image'], fallback: raw['icon']),
     name: asString(raw['name'], fallback: asString(raw['location_name'])),
     description: asString(
       raw['description'],

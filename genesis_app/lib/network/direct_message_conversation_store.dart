@@ -31,7 +31,7 @@ class DirectMessageConversationRecord {
       conversationId: asString(json['conv_id']),
       peerUid: asString(peer['uid']),
       lastMessageId: asString(json['last_message_id']),
-      avatarUrl: asString(peer['avatar']),
+      avatarUrl: asImageUrl(peer['avatar']),
       peerName: asString(peer['name'], fallback: 'Unknown user'),
       lastMessage: asString(json['last_message']),
       lastMessageAt: formatRelativeTimestamp(json['last_message_at']),

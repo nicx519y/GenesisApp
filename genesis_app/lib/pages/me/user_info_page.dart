@@ -4,6 +4,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/page_header.dart';
 import '../../components/me/user_profile_content.dart';
 import '../../network/genesis_api.dart';
+import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/relative_time_formatter.dart';
@@ -64,7 +65,11 @@ class _UserInfoPageState extends State<UserInfoPage> {
         : const <String, dynamic>{};
     final resolvedUid = _mapString(user, 'uid', fallback: uid);
     final displayName = _mapString(user, 'name', fallback: 'User');
-    final avatarUrl = resolveAssetUrl(_mapString(user, 'avatar'));
+    final avatarUrl = asResolvedImageUrl(
+      user['avatar'],
+      resolveAssetUrl,
+      fallback: user['avatar_url'],
+    );
     final profileUid = resolvedUid.trim().isNotEmpty ? resolvedUid : uid;
     if (mounted) _profileUid = profileUid;
 

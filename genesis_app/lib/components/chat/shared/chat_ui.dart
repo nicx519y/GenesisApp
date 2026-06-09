@@ -13,6 +13,7 @@ class ChatMessageVm {
     this.clientMsgId = '',
     this.messageId,
     this.roundId = '',
+    this.tickNo = 0,
     required this.senderId,
     required this.senderName,
     required this.text,
@@ -38,6 +39,7 @@ class ChatMessageVm {
   final String clientMsgId;
   int? messageId;
   String roundId;
+  int tickNo;
   final String senderId;
   String senderName;
   String text;
@@ -47,7 +49,11 @@ class ChatMessageVm {
   String? error;
   final DateTime createdAt;
 
-  bool get isSystem => senderType == 'system';
+  bool get isSystem => senderType == 'system' || isNarrator || isTick;
+
+  bool get isNarrator => senderType == 'narrator';
+
+  bool get isTick => senderType == 'tick';
 }
 
 class ChatHeader extends StatelessWidget {
@@ -532,7 +538,18 @@ class ChatMessageRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
     if (message.isSystem) {
-      return ChatSystemMessage(text: message.text, style: style);
+      return ChatSystemMessage(
+        text: message.isTick ? _tickAdvanceText(message) : message.text,
+        fullWidth: message.isTick,
+        singleLine: message.isTick,
+        textAlign: message.isTick || message.isNarrator
+            ? TextAlign.left
+            : TextAlign.center,
+        bubbleKey: message.isTick
+            ? const ValueKey('chat-tick-message-bubble')
+            : const ValueKey('chat-system-message-bubble'),
+        style: style,
+      );
     }
 
     final row = message.isMe
@@ -841,9 +858,21 @@ bool shouldShowChatDateDivider(DateTime? previous, DateTime current) {
 }
 
 class ChatSystemMessage extends StatelessWidget {
-  const ChatSystemMessage({super.key, required this.text, this.style});
+  const ChatSystemMessage({
+    super.key,
+    required this.text,
+    this.fullWidth = false,
+    this.singleLine = false,
+    this.textAlign = TextAlign.center,
+    this.bubbleKey = const ValueKey('chat-system-message-bubble'),
+    this.style,
+  });
 
   final String text;
+  final bool fullWidth;
+  final bool singleLine;
+  final TextAlign textAlign;
+  final Key bubbleKey;
   final ChatUiStyleConfig? style;
 
   @override
@@ -851,15 +880,17 @@ class ChatSystemMessage extends StatelessWidget {
     final style = this.style ?? ChatUiStyleConfig.standard;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxBubbleWidth = _normalBubbleMaxWidthForWidth(
-          constraints.maxWidth,
-          style,
-        );
+        final maxBubbleWidth = fullWidth
+            ? constraints.maxWidth
+            : _normalBubbleMaxWidthForWidth(constraints.maxWidth, style);
         return Center(
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+            constraints: BoxConstraints(
+              minWidth: fullWidth ? maxBubbleWidth : 0,
+              maxWidth: maxBubbleWidth,
+            ),
             child: Container(
-              key: const ValueKey('chat-system-message-bubble'),
+              key: bubbleKey,
               margin: style.systemMessageMargin,
               padding: style.systemMessagePadding,
               decoration: BoxDecoration(
@@ -868,13 +899,26 @@ class ChatSystemMessage extends StatelessWidget {
                   style.systemMessageBorderRadius,
                 ),
               ),
-              child: Text(text, style: style.systemMessageTextStyle),
+              child: Text(
+                text,
+                maxLines: singleLine ? 1 : null,
+                overflow: singleLine ? TextOverflow.ellipsis : null,
+                textAlign: textAlign,
+                style: style.systemMessageTextStyle,
+              ),
             ),
           ),
         );
       },
     );
   }
+}
+
+String _tickAdvanceText(ChatMessageVm message) {
+  final tick = message.tickNo > 0 ? '${message.tickNo}' : '';
+  final time = message.text.trim();
+  final prefix = tick.isEmpty ? 'Tick' : 'Tick $tick';
+  return time.isEmpty ? prefix : '$prefix · $time';
 }
 
 String chatInitials(String value) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../icons/my_flutter_app_icons.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../utils/genesis_image_resource.dart';
 
 class CharactersList extends StatelessWidget {
   const CharactersList({super.key, required this.characters});
@@ -88,7 +89,12 @@ class _CharacterTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = imageUrl.trim();
+    final url = selectGenesisImageUrl(
+      imageUrl,
+      logicalWidth: 86,
+      logicalHeight: 86,
+      devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+    ).trim();
     final fallback = GenesisAvatarFallback(
       name: name,
       width: 86,
@@ -109,11 +115,13 @@ class _CharacterTile extends StatelessWidget {
                 ? Image.asset(
                     url,
                     fit: BoxFit.cover,
+                    alignment: Alignment.topCenter,
                     errorBuilder: (context, error, stackTrace) => fallback,
                   )
                 : CachedNetworkImage(
                     imageUrl: url,
                     fit: BoxFit.cover,
+                    alignment: Alignment.topCenter,
                     placeholder: (context, url) => fallback,
                     errorWidget: (context, url, error) => fallback,
                   ),

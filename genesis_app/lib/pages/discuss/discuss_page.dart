@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
@@ -9,6 +8,8 @@ import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/page_header.dart';
 import '../../network/genesis_api.dart';
 import '../../network/models/origin.dart';
+import '../../routers/app_router.dart';
+import '../../ui/components/genesis_list_image.dart';
 import '../../utils/display_name_formatter.dart';
 
 class DiscussPage extends StatefulWidget {
@@ -150,6 +151,7 @@ class _DiscussPageState extends State<DiscussPage> {
                         enableViewMore: false,
                         showActions: true,
                         showReplies: true,
+                        onItemReplyTap: _openPostDetail,
                         onReplyTap: _handleReplyListItemTap,
                       ),
                       AnimatedBuilder(
@@ -205,13 +207,19 @@ class _DiscussPageState extends State<DiscussPage> {
   void _handleReplyListItemTap(
     OriginDiscussListItem item,
     Map<String, dynamic> _,
-  ) {
+  ) => _openPostDetail(item);
+
+  void _openPostDetail(OriginDiscussListItem item) {
     unawaited(
-      showOriginDiscussReplyComposer(
-        context: context,
-        controller: _discussController,
-        item: item,
-      ),
+      Navigator.of(context)
+          .pushNamed(
+            RouteNames.postDetail,
+            arguments: {'item': item, 'oid': item.bizId},
+          )
+          .then((_) {
+            if (!mounted) return;
+            unawaited(_discussController.refreshFirstPage());
+          }),
     );
   }
 }
@@ -473,33 +481,9 @@ class _OriginCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = resolveAssetUrl(url);
-    final fallback = Container(
-      color: const Color(0xFFEDEDED),
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.image_outlined,
-        size: 20,
-        color: Color(0xFF999999),
-      ),
-    );
-    final image = imageUrl.isEmpty
-        ? fallback
-        : imageUrl.startsWith('assets/')
-        ? Image.asset(
-            imageUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => fallback,
-          )
-        : CachedNetworkImage(
-            imageUrl: imageUrl,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => fallback,
-            errorWidget: (context, url, error) => fallback,
-          );
-
     return ClipRRect(
       borderRadius: BorderRadius.circular(2),
-      child: SizedBox(width: 48, height: 48, child: image),
+      child: GenesisListImage(imageUrl: imageUrl, width: 48, height: 48),
     );
   }
 }

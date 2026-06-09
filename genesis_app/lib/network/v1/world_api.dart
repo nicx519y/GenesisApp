@@ -75,6 +75,33 @@ class WorldV1Api extends V1ApiResource {
     );
   }
 
+  /// GET /api/v1/world/summary/latest
+  ///
+  /// 提交参数:
+  /// ```json
+  /// {"origin_id":"O_A1B2C3","world_id":"W_A1B2C3"}
+  /// ```
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"world_id":"W_A1B2C3","origin_id":"O_A1B2C3","tick_no":12,"summary":"莲花殿在第十二个 tick 后恢复平静。","tick_time":1780000000,"created_at":1780000010}]}}
+  /// ```
+  Future<Map<String, dynamic>> summaryLatest({
+    String? originId,
+    String? worldId,
+  }) {
+    final resolvedOriginId = originId?.trim();
+    final resolvedWorldId = worldId?.trim();
+    if ((resolvedOriginId == null || resolvedOriginId.isEmpty) &&
+        (resolvedWorldId == null || resolvedWorldId.isEmpty)) {
+      throw ArgumentError('originId or worldId must be provided');
+    }
+    return getMap(
+      'world/summary/latest',
+      v1Query({'origin_id': resolvedOriginId, 'world_id': resolvedWorldId}),
+    );
+  }
+
   /// GET /api/v1/world/tick/list
   ///
   /// 提交参数:

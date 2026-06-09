@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../components/common/copyable_id_label.dart';
@@ -19,10 +20,10 @@ import '../../network/models/location_tree.dart';
 import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
-import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/genesis_image_resource.dart';
 import '../../utils/relative_time_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_page.dart';
@@ -726,7 +727,7 @@ class _WorldDetailsContent extends StatelessWidget {
         const SizedBox(height: 26),
         _LaunchPreviewSection(origin: origin),
         const SizedBox(height: 28),
-        const _CopyWorldProgressSection(),
+        CopyWorldProgressSection(originId: origin.oid),
         const SizedBox(height: 18),
         _DiscussSection(origin: origin, controller: discussController),
         const SizedBox(height: 24),
@@ -1004,7 +1005,6 @@ class _PreviewImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = url.trim();
     final fallback = Container(
       color: const Color(0xFFEFF1F4),
       alignment: Alignment.center,
@@ -1015,23 +1015,38 @@ class _PreviewImage extends StatelessWidget {
       borderRadius: BorderRadius.circular(2),
       child: AspectRatio(
         aspectRatio: 2 / 3,
-        child: imageUrl.isEmpty
-            ? fallback
-            : imageUrl.startsWith('assets/')
-            ? Image.asset(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => fallback,
-              )
-            : Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => fallback,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return fallback;
-                },
-              ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final imageUrl = selectGenesisImageUrl(
+              url,
+              logicalWidth: constraints.maxWidth.isFinite
+                  ? constraints.maxWidth
+                  : null,
+              logicalHeight: constraints.maxHeight.isFinite
+                  ? constraints.maxHeight
+                  : null,
+              devicePixelRatio:
+                  MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+            );
+            return imageUrl.isEmpty
+                ? fallback
+                : imageUrl.startsWith('assets/')
+                ? Image.asset(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => fallback,
+                  )
+                : Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => fallback,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return fallback;
+                    },
+                  );
+          },
+        ),
       ),
     );
   }
@@ -1069,28 +1084,195 @@ class _LaunchPreviewSection extends StatelessWidget {
   }
 }
 
-class _CopyWorldProgressSection extends StatelessWidget {
-  const _CopyWorldProgressSection();
+class CopyWorldProgressSection extends StatefulWidget {
+  const CopyWorldProgressSection({super.key, required this.originId});
+
+  final String originId;
+
+  @override
+  State<CopyWorldProgressSection> createState() =>
+      _CopyWorldProgressSectionState();
+}
+
+class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
+  static const _rotationInterval = Duration(seconds: 5);
+
+  Timer? _timer;
+  var _summaries = const <WorldSummaryLatestItem>[];
+  var _visibleIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadSummaries());
+  }
+
+  @override
+  void didUpdateWidget(covariant CopyWorldProgressSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.originId != widget.originId) {
+      _timer?.cancel();
+      _summaries = const <WorldSummaryLatestItem>[];
+      _visibleIndex = 0;
+      unawaited(_loadSummaries());
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadSummaries() async {
+    final originId = widget.originId.trim();
+    if (originId.isEmpty) {
+      _applySummaries(const <WorldSummaryLatestItem>[]);
+      return;
+    }
+    try {
+      final summaries = await AppServicesScope.read(
+        context,
+      ).api.getLatestWorldSummaries(originId: originId);
+      if (!mounted || widget.originId.trim() != originId) return;
+      _applySummaries(summaries);
+    } catch (_) {
+      if (!mounted || widget.originId.trim() != originId) return;
+      _applySummaries(const <WorldSummaryLatestItem>[]);
+    }
+  }
+
+  void _applySummaries(List<WorldSummaryLatestItem> summaries) {
+    _timer?.cancel();
+    final visible = summaries
+        .where((item) => item.summary.trim().isNotEmpty)
+        .toList(growable: false);
+    setState(() {
+      _summaries = visible;
+      _visibleIndex = 0;
+    });
+    if (visible.length <= 1) return;
+    _timer = Timer.periodic(_rotationInterval, (_) {
+      if (!mounted || _summaries.length <= 1) return;
+      setState(() {
+        _visibleIndex = (_visibleIndex + 1) % _summaries.length;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    final summaryIndex = _visibleIndex >= _summaries.length ? 0 : _visibleIndex;
+    final summary = _summaries.isEmpty ? null : _summaries[summaryIndex];
+
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionTitle(
+        const _SectionTitle(
           icon: MyFlutterApp.lastProgress,
           iconColor: Color(0xFFF42C47),
           title: 'Copy World Progress',
         ),
-        SizedBox(height: 10),
-        Text(
-          'No launched world',
-          style: TextStyle(
-            fontSize: 12,
-            height: 1.3,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF999999),
+        const SizedBox(height: 12),
+        _CopyWorldProgressCard(summary: summary),
+      ],
+    );
+  }
+}
+
+class _CopyWorldProgressCard extends StatelessWidget {
+  const _CopyWorldProgressCard({required this.summary});
+
+  static const double _bodyFontSize = 14;
+  static const double _bodyLineHeight = 1.45;
+  static const double _bodyHeight = _bodyFontSize * _bodyLineHeight * 5;
+
+  final WorldSummaryLatestItem? summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final item = summary;
+    final body = item?.summary.trim();
+    if (item == null || body == null || body.isEmpty) {
+      return const Text(
+        'No launched world',
+        key: ValueKey('copy-world-progress-empty'),
+        style: TextStyle(
+          fontSize: 12,
+          height: 1.3,
+          fontWeight: FontWeight.w500,
+          color: Color(0xFF999999),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          key: const ValueKey('copy-world-progress-body'),
+          height: _bodyHeight,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 520),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: Text(
+              body,
+              key: ValueKey(item.worldId),
+              maxLines: 5,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: _bodyFontSize,
+                height: _bodyLineHeight,
+                fontWeight: FontWeight.w400,
+                color: Color(0xFF1E1E1E),
+              ),
+            ),
           ),
+        ),
+        const SizedBox(height: 10),
+        _CopyWorldProgressMeta(summary: item),
+      ],
+    );
+  }
+}
+
+class _CopyWorldProgressMeta extends StatelessWidget {
+  const _CopyWorldProgressMeta({required this.summary});
+
+  final WorldSummaryLatestItem? summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final item = summary;
+    if (item == null) {
+      return const SizedBox(height: 18);
+    }
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'WID: ${item.worldId}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _copyWorldProgressMetaStyle,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Icon(
+          MyFlutterApp.lastProgress,
+          size: 14,
+          color: _copyWorldProgressMetaStyle.color,
+        ),
+        const SizedBox(width: 4),
+        Text('${item.tickNo}', style: _copyWorldProgressMetaStyle),
+        const SizedBox(width: 16),
+        Text(
+          _formatSummaryTimestamp(
+            item.tickTime == 0 ? item.createdAt : item.tickTime,
+          ),
+          textAlign: TextAlign.right,
+          style: _copyWorldProgressMetaStyle,
         ),
       ],
     );
@@ -1227,13 +1409,9 @@ class _OriginCharacterRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GenesisCharacterAvatar(
+        _OriginCharacterPortrait(
           url: _resolveAssetUrl(character.avatar),
           name: character.name,
-          showStar: true,
-          size: 86,
-          borderRadius: 6,
-          starSize: 22,
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -1282,6 +1460,70 @@ class _OriginCharacterRow extends StatelessWidget {
                 Text('Goal: $goal', style: _bodyTextStyle),
               ],
             ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OriginCharacterPortrait extends StatelessWidget {
+  const _OriginCharacterPortrait({required this.url, required this.name});
+
+  static const double _width = 86;
+  static const double _borderRadius = 6;
+  static const double _starSize = 22;
+
+  final String url;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedUrl = selectGenesisImageUrl(
+      url,
+      logicalWidth: _width,
+      logicalHeight: _width,
+      devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+    ).trim();
+    final fallback = GenesisAvatarFallback(
+      name: name,
+      width: _width,
+      height: _width,
+      borderRadius: _borderRadius,
+    );
+    final image = resolvedUrl.isEmpty
+        ? fallback
+        : resolvedUrl.startsWith('assets/')
+        ? Image.asset(
+            resolvedUrl,
+            width: _width,
+            fit: BoxFit.fitWidth,
+            alignment: Alignment.topCenter,
+            errorBuilder: (context, error, stackTrace) => fallback,
+          )
+        : CachedNetworkImage(
+            imageUrl: resolvedUrl,
+            width: _width,
+            fit: BoxFit.fitWidth,
+            alignment: Alignment.topCenter,
+            placeholder: (context, url) => fallback,
+            errorWidget: (context, url, error) => fallback,
+          );
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(_borderRadius),
+          child: image,
+        ),
+        Positioned(
+          top: -_starSize / 4 - 2,
+          right: -_starSize / 4 - 3,
+          child: Icon(
+            MyFlutterApp.redstarCharIcon,
+            size: _starSize,
+            color: const Color(0xFFF42C47),
           ),
         ),
       ],
@@ -1345,6 +1587,13 @@ const _mutedBodyTextStyle = TextStyle(
   color: Color(0xFF999999),
 );
 
+const _copyWorldProgressMetaStyle = TextStyle(
+  fontSize: 12,
+  height: 1.2,
+  fontWeight: FontWeight.w400,
+  color: Color(0xFF8C8C8C),
+);
+
 List<String> _splitTags(String tags) {
   if (tags.trim().isEmpty) return const [];
   return tags
@@ -1402,6 +1651,17 @@ String _originPreviewNarrator(OriginDetail origin) {
   final description = origin.description.trim();
   if (description.isNotEmpty) return description;
   return origin.worldView.trim();
+}
+
+String _formatSummaryTimestamp(int seconds) {
+  if (seconds <= 0) return '';
+  final local = DateTime.fromMillisecondsSinceEpoch(
+    seconds * 1000,
+    isUtc: true,
+  ).toLocal();
+  String two(int value) => value.toString().padLeft(2, '0');
+  return '${local.year}/${two(local.month)}/${two(local.day)} '
+      '${two(local.hour)}:${two(local.minute)}';
 }
 
 List<OriginLocation> _rootOriginLocations(List<OriginLocation> locations) {

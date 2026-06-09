@@ -45,6 +45,9 @@ class ChatroomClient {
       throw const ChatroomProtocolException('worldId is required');
     }
     final resolvedUserId = (userId ?? await _sessionStore.readUid())?.trim();
+    if (resolvedUserId == null || resolvedUserId.isEmpty) {
+      throw const ChatroomProtocolException('userId is required');
+    }
 
     final authToken = (await _sessionStore.readAuthToken())?.trim();
     if (authToken == null || authToken.isEmpty) {
@@ -53,7 +56,7 @@ class ChatroomClient {
     final deviceId = (await _deviceIdService?.getDeviceId())?.trim();
     final resolvedSenderId = senderId?.trim().isNotEmpty == true
         ? senderId!.trim()
-        : resolvedUserId ?? '';
+        : resolvedUserId;
     final resolvedSenderName = senderName?.trim().isNotEmpty == true
         ? senderName!.trim()
         : resolvedSenderId;
@@ -72,7 +75,7 @@ class ChatroomClient {
       socket: socket,
       worldId: resolvedWorldId,
       locationId: locationId?.trim() ?? '',
-      userId: resolvedUserId ?? '',
+      userId: resolvedUserId,
       senderId: resolvedSenderId,
       senderName: resolvedSenderName,
       heartbeatInterval: _heartbeatInterval,
@@ -202,8 +205,6 @@ class ChatroomSession {
 
   Future<ChatroomJoined> join({String? locationId}) async {
     _throwIfClosed();
-    if (_joined != null) return _joined!;
-
     try {
       final requestedLocationId = locationId?.trim();
       final resolvedLocationId =
@@ -213,11 +214,18 @@ class ChatroomSession {
       if (resolvedLocationId.isEmpty) {
         throw const ChatroomProtocolException('locationId is required');
       }
+      final joined = _joined;
+      if (joined != null && joined.locationId == resolvedLocationId) {
+        return joined;
+      }
       final ack = await _sendAckedClientMessage('join', <String, Object?>{
         'world_id': worldId,
         'location_id': resolvedLocationId,
+        'user_id': userId,
+        'sender_id': senderId,
+        'sender_name': senderName,
       }, requestType: 'join');
-      final joined = ChatroomJoined(
+      final nextJoined = ChatroomJoined(
         sessionId: ack.sessionId,
         worldId: ack.worldId.isEmpty ? worldId : ack.worldId,
         locationId: ack.locationId.isEmpty
@@ -229,8 +237,8 @@ class ChatroomSession {
         ts: ack.ts,
         onlineUsers: const <ChatroomOnlineUser>[],
       );
-      _joined = joined;
-      return joined;
+      _joined = nextJoined;
+      return nextJoined;
     } catch (e) {
       if (e is ChatroomFailureEvent) {
         rethrow;
@@ -250,11 +258,7 @@ class ChatroomSession {
   Future<void> heartbeat() async {
     _throwIfClosed();
     try {
-      await _sendAckedClientMessage(
-        'heartbeat',
-        const <String, Object?>{},
-        requestType: 'heartbeat',
-      );
+      await _sendClientMessage('heartbeat', const <String, Object?>{});
     } catch (e) {
       if (e is ChatroomFailureEvent) {
         rethrow;

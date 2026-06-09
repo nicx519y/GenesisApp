@@ -275,6 +275,28 @@ void main() {
       greaterThanOrEqualTo(1000),
     );
     final worldOrigin = ((worldDetail['info'] as Map)['origin_id']) as String;
+    final summaryByOrigin = await api.v1.world.summaryLatest(
+      originId: worldOrigin,
+    );
+    final summaryItems = summaryByOrigin['list'] as List;
+    expect(summaryItems, isNotEmpty);
+    expect(summaryItems.length, lessThanOrEqualTo(5));
+    final summaryItem = summaryItems.first as Map;
+    expect(summaryItem['origin_id'], worldOrigin);
+    expect(summaryItem['world_id'], isNotEmpty);
+    expect(summaryItem['summary'], isNotEmpty);
+    expect(summaryItem['tick_no'], isA<int>());
+    expect(summaryItem['tick_time'], isA<int>());
+    expect(summaryItem['created_at'], isA<int>());
+    final summaryByWorld = await api.v1.world.summaryLatest(worldId: world);
+    for (final item in summaryByWorld['list'] as List) {
+      expect((item as Map)['world_id'], isNot(world));
+    }
+    final facadeSummaries = await api.getLatestWorldSummaries(
+      originId: worldOrigin,
+    );
+    expect(facadeSummaries.first.originId, worldOrigin);
+    expect(facadeSummaries.first.summary, isNotEmpty);
     final originProgress = await api.v1.world.originProgress(
       uid: 'u_mock_001',
       originId: worldOrigin,
@@ -613,7 +635,8 @@ void main() {
       filename: 'avatar.jpg',
       contentType: 'image/jpeg',
     );
-    expect(imageUpload['url'], startsWith('https://mock.local/uploads/'));
+    expect(imageUpload['sm_url'], startsWith('https://mock.local/uploads/'));
+    expect(imageUpload['xl_url'], startsWith('https://mock.local/uploads/'));
     expect(imageUpload['object_key'], startsWith('uploads/'));
     final draft = await api.v1.common.saveDraft(
       draftType: 'origin_create',

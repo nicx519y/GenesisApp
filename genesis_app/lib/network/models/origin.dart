@@ -78,14 +78,14 @@ class OriginSummary {
   final List<OriginLocation> locations;
 
   factory OriginSummary.fromJson(Map<String, dynamic> json) {
-    final mapImage = asString(json['map_image']);
+    final mapImage = asImageUrl(json['map_image']);
     return OriginSummary(
       id: asInt(json['id']),
       oid: asString(json['oid']),
       name: asString(json['name']),
       description: asString(json['description']),
       mapImage: mapImage,
-      worldMap: asString(json['world_map'], fallback: mapImage),
+      worldMap: asImageUrl(json['world_map'], fallback: mapImage),
       worldView: asString(json['world_view']),
       originator: asString(
         json['owner_name'],
@@ -172,7 +172,7 @@ class OriginDetail {
   final ProcessedLocationTree<OriginLocation> processedLocationTree;
 
   factory OriginDetail.fromJson(Map<String, dynamic> json) {
-    final mapImage = asString(json['map_image']);
+    final mapImage = asImageUrl(json['map_image']);
     final locations = (json['locations'] is List)
         ? asJsonList(json['locations'])
               .map((e) => OriginLocation.fromJson(asJsonMap(e)))
@@ -189,7 +189,7 @@ class OriginDetail {
       name: asString(json['name']),
       description: asString(json['description']),
       mapImage: mapImage,
-      worldMap: asString(json['world_map'], fallback: mapImage),
+      worldMap: asImageUrl(json['world_map'], fallback: mapImage),
       worldView: asString(json['world_view']),
       ownerUid: asString(json['owner_uid']),
       originator: asString(json['owner_name']),
@@ -326,7 +326,7 @@ class OriginCharacter {
       ),
       originId: asInt(json['origin_id']),
       name: asString(json['name']),
-      avatar: asString(json['avatar']),
+      avatar: asImageUrl(json['avatar']),
       tags: asString(json['tags'], fallback: asString(json['identity'])),
       tagline: asString(json['tagline'], fallback: asString(json['brief'])),
       description: asString(
@@ -387,7 +387,7 @@ class OriginLocation {
       id: asInt(json['id']),
       originId: asInt(json['origin_id']),
       name: asString(json['name'], fallback: asString(json['location_name'])),
-      icon: asString(json['icon'], fallback: asString(json['image'])),
+      icon: asImageUrl(json['icon'], fallback: json['image']),
       mapUrl: asString(json['map_url']),
       description: asString(
         json['description'],

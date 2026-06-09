@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../pages/app_shell_page.dart';
 import '../pages/create/create_origin_page.dart';
 import '../pages/discuss/discuss_page.dart';
+import '../pages/discuss/post_detail_page.dart';
 import '../pages/edit/edit_origin_page.dart';
 import '../pages/search/search_page.dart';
 import '../pages/origin/origin_world_page.dart';
@@ -14,6 +15,7 @@ import '../pages/me/follows_page.dart';
 import '../pages/me/user_info_page.dart';
 import '../network/chatroom/chatroom_connection_controller.dart';
 import '../network/chatroom/world_chatroom_service.dart';
+import '../components/discuss/origin_discuss_list.dart';
 
 sealed class RouteNames {
   static const shell = '/';
@@ -21,6 +23,7 @@ sealed class RouteNames {
   static const origin = '/origin';
   static const originWorld = '/origin_world';
   static const discuss = '/discuss';
+  static const postDetail = '/post_detail';
   static const world = '/world';
   static const chat = '/chat';
   static const locationChat = '/location_chat';
@@ -114,6 +117,19 @@ class _DiscussRouteArgs {
 
   final String oid;
   final int originId;
+}
+
+class _PostDetailRouteArgs {
+  const _PostDetailRouteArgs({required this.item});
+
+  factory _PostDetailRouteArgs.from(Object? raw) {
+    final args = _RouteArgs(raw);
+    return _PostDetailRouteArgs(
+      item: args.typed<OriginDiscussListItem>(const ['item', 'discuss']),
+    );
+  }
+
+  final OriginDiscussListItem? item;
 }
 
 class _WorldRouteArgs {
@@ -302,6 +318,12 @@ sealed class AppRouter {
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => DiscussPage(oid: args.oid, originId: args.originId),
+        );
+      case RouteNames.postDetail:
+        final args = _PostDetailRouteArgs.from(settings.arguments);
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => PostDetailPage(item: args.item),
         );
       case RouteNames.world:
         final args = _WorldRouteArgs.from(settings.arguments);

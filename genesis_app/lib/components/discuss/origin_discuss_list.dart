@@ -25,6 +25,7 @@ typedef OriginDiscussPageLoader =
     });
 typedef OriginDiscussReplyTap =
     void Function(OriginDiscussListItem item, Map<String, dynamic> reply);
+typedef OriginDiscussItemTap = void Function(OriginDiscussListItem item);
 
 const int originDiscussPageSize = 20;
 const int originDiscussRepliesPageSize = 20;
@@ -193,7 +194,7 @@ class OriginDiscussListItem {
       ),
       authorUid: uid,
       authorName: formatUidForDisplay(name, fallback: 'User'),
-      avatar: asString(author?['avatar'] ?? author?['avatar_url']),
+      avatar: asImageUrl(author?['avatar'] ?? author?['avatar_url']),
       content: asString(json['content']),
       imageUrls: _imageUrlsFrom(json['images'] ?? json['image_urls']),
       storyCount: asInt(
@@ -299,6 +300,30 @@ class OriginDiscussListController extends ChangeNotifier {
   List<OriginDiscussListItem> get visibleItems {
     if (_expanded) return items;
     return _items.take(2).toList(growable: false);
+  }
+
+  void seedSingleItem(OriginDiscussListItem item) {
+    _requestSerial += 1;
+    _items
+      ..clear()
+      ..add(item);
+    _totalAll = 1;
+    _currentPage = 1;
+    _hasLoaded = true;
+    _isInitialLoading = false;
+    _isLoadingMore = false;
+    _isRefreshing = false;
+    _expanded = true;
+    _error = null;
+    _likePendingIds.clear();
+    _replyLoadingIds.clear();
+    _progressLoadingKeys.clear();
+    _progressCompletedKeys.clear();
+    _progressResults.clear();
+    _replyCurrentPages.clear();
+    _replyTotals.clear();
+    _replyRequestSerials.clear();
+    notifyListeners();
   }
 
   bool hasProgressTarget(OriginDiscussListItem item) {
@@ -743,6 +768,7 @@ class OriginDiscussList extends StatelessWidget {
     this.showActions = false,
     this.showReplies = false,
     this.onViewMoreTap,
+    this.onItemReplyTap,
     this.onReplyTap,
   });
 
@@ -754,6 +780,7 @@ class OriginDiscussList extends StatelessWidget {
   final bool showActions;
   final bool showReplies;
   final Future<void> Function()? onViewMoreTap;
+  final OriginDiscussItemTap? onItemReplyTap;
   final OriginDiscussReplyTap? onReplyTap;
 
   @override
@@ -800,6 +827,7 @@ class OriginDiscussList extends StatelessWidget {
                         item: entry.$2,
                         showActions: showActions,
                         showReplies: showReplies,
+                        onItemReplyTap: onItemReplyTap,
                         onReplyTap: onReplyTap,
                       ),
                       if (entry.$1 != comments.length - 1)
@@ -898,6 +926,7 @@ class _DiscussPreviewRow extends StatefulWidget {
     required this.item,
     required this.showActions,
     required this.showReplies,
+    this.onItemReplyTap,
     this.onReplyTap,
   });
 
@@ -905,6 +934,7 @@ class _DiscussPreviewRow extends StatefulWidget {
   final OriginDiscussListItem item;
   final bool showActions;
   final bool showReplies;
+  final OriginDiscussItemTap? onItemReplyTap;
   final OriginDiscussReplyTap? onReplyTap;
 
   @override
@@ -1043,6 +1073,7 @@ class _DiscussPreviewRowState extends State<_DiscussPreviewRow> {
                 _DiscussActions(
                   controller: widget.controller,
                   item: widget.item,
+                  onReplyTap: widget.onItemReplyTap,
                 ),
               ],
               if (widget.showReplies &&
@@ -1099,10 +1130,15 @@ class _DiscussImageThumbnails extends StatelessWidget {
 }
 
 class _DiscussActions extends StatelessWidget {
-  const _DiscussActions({required this.controller, required this.item});
+  const _DiscussActions({
+    required this.controller,
+    required this.item,
+    this.onReplyTap,
+  });
 
   final OriginDiscussListController controller;
   final OriginDiscussListItem item;
+  final OriginDiscussItemTap? onReplyTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1144,11 +1180,20 @@ class _DiscussActions extends StatelessWidget {
         GestureDetector(
           key: ValueKey('origin-discuss-reply-${item.discussId}'),
           behavior: HitTestBehavior.opaque,
-          onTap: () => showOriginDiscussReplyComposer(
-            context: context,
-            controller: controller,
-            item: item,
-          ),
+          onTap: () {
+            final handler = onReplyTap;
+            if (handler != null) {
+              handler(item);
+              return;
+            }
+            unawaited(
+              showOriginDiscussReplyComposer(
+                context: context,
+                controller: controller,
+                item: item,
+              ),
+            );
+          },
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Image.asset(
@@ -1318,7 +1363,7 @@ Map<String, dynamic> _localReplyJson({
     'author': {
       'uid': uid,
       'name': name,
-      'avatar': asString(userMap['avatar'] ?? userMap['avatar_url']),
+      'avatar': asImageUrl(userMap['avatar'] ?? userMap['avatar_url']),
     },
     'content': content,
     'images': images,
@@ -1533,7 +1578,10 @@ List<String> _imageUrlsFrom(Object? value) {
       .map((raw) {
         if (raw is Map) {
           final map = asJsonMap(raw);
-          return asString(map['url'] ?? map['image_url'] ?? map['image']);
+          return asImageUrl(
+            map['url'] ?? map['image_url'] ?? map['image'],
+            fallback: raw,
+          );
         }
         return asString(raw);
       })

@@ -353,7 +353,7 @@ class _LocationCard extends StatelessWidget {
                 width: 96,
                 height: 150,
                 iconSize: 36,
-                cropSize: const Size(384, 600),
+                cropSize: const Size(800, 1200),
                 onChanged: onChanged,
               ),
               const SizedBox(width: 14),

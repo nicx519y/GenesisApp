@@ -9,6 +9,8 @@ import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_upload_progress_overlay.dart';
 import '../../platform/native_image_picker.dart';
+import '../../utils/genesis_image_resource.dart';
+import '../../utils/image_upload_processing.dart';
 
 export '../../platform/native_image_picker.dart' show DiscussPickedImage;
 
@@ -28,6 +30,7 @@ const double _discussComposerFontSize = 14;
 const double _discussComposerLineHeight = 1.25;
 const double _discussComposerTextHeightAllowance = 2;
 const double _discussComposerActionHeight = 50;
+const int _discussUploadMaxWidth = 800;
 
 class DiscussPostInput extends StatefulWidget {
   const DiscussPostInput({
@@ -79,16 +82,21 @@ Future<bool> showDiscussPostComposer({
         uploadImage:
             imageUploader ??
             (image) async {
-              final uploaded = await AppServicesScope.read(sheetContext)
-                  .api
-                  .v1
-                  .upload
-                  .image(
-                    bytes: image.bytes,
-                    filename: image.filename,
-                    contentType: image.contentType,
-                  );
-              final url = '${uploaded['url'] ?? ''}'.trim();
+              final api = AppServicesScope.read(sheetContext).api;
+              final uploadImage = await resizeImageToMaxWidth(
+                bytes: image.bytes,
+                filename: image.filename,
+                contentType: image.contentType,
+                maxWidth: _discussUploadMaxWidth,
+              );
+              final uploaded = await api.v1.upload.image(
+                bytes: uploadImage.bytes,
+                filename: uploadImage.filename,
+                contentType: uploadImage.contentType,
+              );
+              final url = GenesisImageResourceRegistry.resolve(
+                uploaded,
+              ).displayUrl;
               if (url.isEmpty) throw StateError('Upload returned an empty URL');
               return url;
             },
@@ -161,12 +169,19 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
   }
 
   Future<String> _uploadImage(DiscussPickedImage image) async {
-    final uploaded = await AppServicesScope.read(context).api.v1.upload.image(
+    final api = AppServicesScope.read(context).api;
+    final uploadImage = await resizeImageToMaxWidth(
       bytes: image.bytes,
       filename: image.filename,
       contentType: image.contentType,
+      maxWidth: _discussUploadMaxWidth,
     );
-    final url = '${uploaded['url'] ?? ''}'.trim();
+    final uploaded = await api.v1.upload.image(
+      bytes: uploadImage.bytes,
+      filename: uploadImage.filename,
+      contentType: uploadImage.contentType,
+    );
+    final url = GenesisImageResourceRegistry.resolve(uploaded).displayUrl;
     if (url.isEmpty) throw StateError('Upload returned an empty URL');
     return url;
   }

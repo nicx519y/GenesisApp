@@ -435,6 +435,33 @@ Query：
 - `rn*`: integer
 - `list*`: `{ info: WorldInfo, stats: WorldStats }[]`
 
+### GET `/api/v1/world/summary/latest`
+
+公开查询同一个 origin 下最新的非空 world summary。调用方可传 `origin_id` 或 `world_id`；传 `world_id` 时服务端先读取该 world 的 `origin_id`，再返回同 origin 下其他 world 的最新 summary，并排除当前 `world_id`。两者都传时，服务端校验 world 所属 origin 与 `origin_id` 一致。结果按 `tick_time DESC, id DESC` 排序，最多返回 5 条，且结果内 `world_id` 不重复。
+
+Query：
+
+- `origin_id`: string，与 `world_id` 至少传一个
+- `world_id`: string，传入时会排除该 world 自身
+
+响应 `data`：
+
+- `list*`: `WorldSummaryItem[]`
+
+`WorldSummaryItem`：
+
+- `world_id*`: string
+- `origin_id*`: string
+- `tick_no*`: integer
+- `summary*`: string
+- `tick_time*`: integer，summary 对应 tick 的时间，Unix 秒
+- `created_at*`: integer，summary 记录创建时间，Unix 秒
+
+错误码：
+
+- `4004`：`origin_id` / `world_id` 都缺失，或二者不匹配
+- `20201`：`world_id` 不存在或已软删除
+
 ### GET `/api/v1/world/detail`
 
 返回单个 world 的完整详情：基本信息、统计信息、角色列表、location、ticks。

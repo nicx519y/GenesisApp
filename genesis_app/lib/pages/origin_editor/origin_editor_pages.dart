@@ -274,11 +274,6 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final submitReady =
-        !_isSubmitting &&
-        _draft.validateForSubmit().isEmpty &&
-        (widget.canSubmit?.call(_draft) ?? true);
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -350,9 +345,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
           child: GenesisPrimaryButton(
             label: _isSubmitting ? widget.submittingLabel : widget.submitLabel,
             onPressed: _isSubmitting ? null : () => unawaited(_submit()),
-            backgroundColor: submitReady
-                ? const Color(0xFF198B64)
-                : const Color(0xFFBFD8CD),
+            backgroundColor: const Color(0xFF198B64),
             foregroundColor: Colors.white,
             disabledBackgroundColor: const Color(0xFFBFD8CD),
             disabledForegroundColor: Colors.white,

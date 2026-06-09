@@ -270,7 +270,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             width: 170,
                             height: 230,
                             iconSize: 42,
-                            cropSize: const Size(768, 1024),
+                            cropSize: const Size(800, 1200),
                             onChanged: _onFormChanged,
                           ),
                           const SizedBox(width: 14),

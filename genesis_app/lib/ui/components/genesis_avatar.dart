@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../utils/genesis_image_resource.dart';
+
 class GenesisAvatar extends StatelessWidget {
   const GenesisAvatar({
     super.key,
@@ -11,6 +13,7 @@ class GenesisAvatar extends StatelessWidget {
     this.height,
     this.borderRadius = 8,
     this.fit = BoxFit.cover,
+    this.alignment = Alignment.topCenter,
     this.imageKey,
     this.textStyle,
   });
@@ -22,6 +25,7 @@ class GenesisAvatar extends StatelessWidget {
   final double? height;
   final double borderRadius;
   final BoxFit fit;
+  final Alignment alignment;
   final Key? imageKey;
   final TextStyle? textStyle;
 
@@ -31,7 +35,12 @@ class GenesisAvatar extends StatelessWidget {
     final resolvedHeight = height ?? size;
     final imageWidth = resolvedWidth.isFinite ? resolvedWidth : null;
     final imageHeight = resolvedHeight.isFinite ? resolvedHeight : null;
-    final resolvedUrl = url.trim();
+    final resolvedUrl = selectGenesisImageUrl(
+      url,
+      logicalWidth: imageWidth,
+      logicalHeight: imageHeight,
+      devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+    ).trim();
     final fallback = GenesisAvatarFallback(
       name: name,
       width: resolvedWidth,
@@ -49,6 +58,7 @@ class GenesisAvatar extends StatelessWidget {
             width: imageWidth,
             height: imageHeight,
             fit: fit,
+            alignment: alignment,
             errorBuilder: (context, error, stackTrace) => fallback,
           )
         : CachedNetworkImage(
@@ -57,6 +67,7 @@ class GenesisAvatar extends StatelessWidget {
             width: imageWidth,
             height: imageHeight,
             fit: fit,
+            alignment: alignment,
             placeholder: (context, url) => fallback,
             errorWidget: (context, url, error) => fallback,
           );

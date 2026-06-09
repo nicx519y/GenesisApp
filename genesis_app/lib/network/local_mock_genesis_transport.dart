@@ -373,6 +373,14 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_state.v1WorldContractList(query));
     }
 
+    if (method == 'GET' && path == 'world/summary/latest') {
+      if ((query['origin_id'] ?? '').trim().isEmpty &&
+          (query['world_id'] ?? '').trim().isEmpty) {
+        return _v1Error(4004, 'origin_id or world_id required');
+      }
+      return _v1Ok(_state.v1WorldSummaryLatest(query));
+    }
+
     if (method == 'GET' && path == 'world/detail') {
       return _v1Ok(_state.v1WorldContractDetail(query['world_id']));
     }
@@ -573,10 +581,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       final m = now.month.toString().padLeft(2, '0');
       final d = now.day.toString().padLeft(2, '0');
       final objectKey = 'uploads/$y$m$d/mock_${now.microsecondsSinceEpoch}.png';
-      return _v1Ok({
-        'url': 'https://mock.local/$objectKey',
-        'object_key': objectKey,
-      });
+      return _v1Ok(_mockUploadedImageObject(objectKey));
     }
 
     if (method == 'POST' && path == 'common/upload') {
@@ -770,6 +775,18 @@ class _MockState {
   Map<String, dynamic> get _v1Origin => _v1Origins.first;
 
   Map<String, dynamic> get _v1World => _v1Worlds.first;
+
+  Map<String, dynamic> _v1UserPayload(Map<String, dynamic> user) {
+    final copy = _deepCopyMap(user);
+    copy['avatar'] = _mockImageObject(copy['avatar'] ?? copy['avatar_url']);
+    return copy;
+  }
+
+  Map<String, dynamic> _v1OriginPayload(Map<String, dynamic> origin) {
+    final copy = _deepCopyMap(origin);
+    copy['cover'] = _mockImageObject(copy['cover']);
+    return copy;
+  }
 
   void markAuthenticated() {
     _authenticated = true;
@@ -1007,7 +1024,7 @@ class _MockState {
             message['sender_name'],
             fallback: asString(me['display_name']),
           ),
-          'avatar': asString(me['avatar_url']),
+          'avatar': _mockImageObject(me['avatar_url']),
         };
       });
     }
@@ -1100,7 +1117,7 @@ class _MockState {
           conversationRoundId: ++_chatroomRoundSeq,
           roundOrder: 1,
           senderType: 'narrator',
-          senderId: '',
+          senderId: 'nar',
           senderName: '旁白',
           userId: '',
           content: asString(group['location_summary']),
@@ -1240,7 +1257,7 @@ class _MockState {
       final value = body[key];
       if (value != null) _v1User[key] = value;
     }
-    return _deepCopyMap(_v1User);
+    return _v1UserPayload(_v1User);
   }
 
   Map<String, dynamic> v1UserProfile(String? uid) {
@@ -1248,7 +1265,7 @@ class _MockState {
     final isSelf = normalizedUid.isEmpty || normalizedUid == _v1User['uid'];
     final user = isSelf ? _v1User : _v1UserForUid(normalizedUid);
     return {
-      'user': _deepCopyMap(user),
+      'user': _v1UserPayload(user),
       'relation': _deepCopyMap(
         isSelf ? kMockV1SelfRelation : _relationForSearchUser(user),
       ),
@@ -1261,7 +1278,7 @@ class _MockState {
       if (user['uid'] == uid) return user;
     }
     return {
-      ..._deepCopyMap(_v1PeerUser),
+      ..._v1UserPayload(_v1PeerUser),
       'uid': uid,
       'name': uid,
       'bio': 'Mock profile for $uid.',
@@ -1420,6 +1437,54 @@ class _MockState {
       'world_id': '${bestWorld['wid'] ?? ''}',
       'tick_cnt': ((bestWorld['tick_cnt'] as num?)?.toInt() ?? 0),
     };
+  }
+
+  Map<String, dynamic> v1WorldSummaryLatest(Map<String, String> query) {
+    final originId = (query['origin_id'] ?? '').trim();
+    final worldId = (query['world_id'] ?? '').trim();
+    final world = worldId.isEmpty ? null : _findV1World(worldId);
+    final resolvedOriginId = originId.isNotEmpty
+        ? originId
+        : '${world?['oid'] ?? ''}'.trim();
+    if (resolvedOriginId.isEmpty) {
+      return {'list': const <Map<String, dynamic>>[]};
+    }
+    if (originId.isNotEmpty &&
+        world != null &&
+        '${world['oid'] ?? ''}'.trim() != originId) {
+      return {'list': const <Map<String, dynamic>>[]};
+    }
+
+    final seenWorldIds = <String>{};
+    final items = <Map<String, dynamic>>[];
+    for (final candidate in _v1Worlds) {
+      final candidateWorldId = '${candidate['wid'] ?? ''}'.trim();
+      if (candidateWorldId.isEmpty || !seenWorldIds.add(candidateWorldId)) {
+        continue;
+      }
+      if (worldId.isNotEmpty && candidateWorldId == worldId) continue;
+      if ('${candidate['oid'] ?? ''}'.trim() != resolvedOriginId) continue;
+      final summary = '${candidate['last_progress_summary'] ?? ''}'.trim();
+      if (summary.isEmpty) continue;
+      final tickTime = _mockEpoch(candidate['last_progress_at']);
+      items.add({
+        'world_id': candidateWorldId,
+        'origin_id': '${candidate['oid'] ?? ''}',
+        'tick_no': asInt(candidate['tick_cnt']),
+        'summary': summary,
+        'tick_time': tickTime,
+        'created_at': tickTime + 10,
+      });
+    }
+
+    items.sort((a, b) {
+      final tickTimeCompare = asInt(
+        b['tick_time'],
+      ).compareTo(asInt(a['tick_time']));
+      if (tickTimeCompare != 0) return tickTimeCompare;
+      return asInt(b['created_at']).compareTo(asInt(a['created_at']));
+    });
+    return {'list': items.take(5).toList(growable: false)};
   }
 
   bool _v1WorldBelongsToUser(Map<String, dynamic> world, String uid) {
@@ -1673,7 +1738,7 @@ class _MockState {
   List<Map<String, dynamic>> v1FollowerMessages() {
     return [
       {
-        ..._deepCopyMap(_v1PeerUser),
+        ..._v1UserPayload(_v1PeerUser),
         'created_at': kMockV1Now,
         'is_read': false,
         'relation': _deepCopyMap(kMockV1PeerRelation),
@@ -1694,7 +1759,7 @@ class _MockState {
       'pn': int.tryParse(query['pn'] ?? '') ?? 1,
       'rn': int.tryParse(query['rn'] ?? '') ?? 10,
       'list': pagedUsers.map((item) {
-        final user = _deepCopyMap(item);
+        final user = _v1UserPayload(item);
         final relation = user.remove('relation');
         return {
           'user': user,
@@ -1908,7 +1973,7 @@ class _MockState {
   List<Map<String, dynamic>> v1DirectMessageBlocks() {
     return [
       if (_v1BlockedDirectMessagePeers.contains(_v1PeerUser['uid']))
-        _deepCopyMap(_v1PeerUser),
+        _v1UserPayload(_v1PeerUser),
     ];
   }
 
@@ -2046,7 +2111,7 @@ class _MockState {
 
   List<Map<String, dynamic>> _mockDirectMessagePeers() {
     return [
-      _deepCopyMap(_v1PeerUser),
+      _v1UserPayload(_v1PeerUser),
       for (var index = 2; index <= 25; index += 1)
         {
           'uid': 'u_mock_dm_${index.toString().padLeft(3, '0')}',
@@ -2076,7 +2141,7 @@ class _MockState {
     );
     return {
       'conv_id': 'DMC_MOCK_${(index + 1).toString().padLeft(3, '0')}',
-      'peer': _deepCopyMap(peer),
+      'peer': _v1UserPayload(peer),
       'last_message_id':
           'DM_MOCK_CONV_${(index + 1).toString().padLeft(3, '0')}',
       'last_message': 'Mock conversation ${index + 1} preview message.',
@@ -2133,7 +2198,7 @@ class _MockState {
       'biz_type': 1,
       'biz_id': oid,
       'world_id': _worldIdForOrigin(oid),
-      'author': _deepCopyMap(author),
+      'author': _v1UserPayload(author),
       'content': slot.isEven
           ? '$title 的最新分支很适合继续推进角色关系。'
           : '我在 $title 里补了一条 mock discuss，用来验证列表预览。',
@@ -2162,7 +2227,7 @@ class _MockState {
       'discuss_id': 'dis_mock_auto_${idPart}_${slot}_reply',
       'biz_type': 1,
       'biz_id': oid,
-      'author': _deepCopyMap(author),
+      'author': _v1UserPayload(author),
       'content': '收到，这条讨论会出现在 ${origin['name']} 的最新回复里。',
       'images': <String>[],
       'root_discuss_id': comment['discuss_id'],
@@ -2263,7 +2328,7 @@ class _MockState {
       'biz_type': _positiveInt('${body['biz_type'] ?? ''}', fallback: 1),
       'biz_id': '${body['biz_id'] ?? _v1Origin['oid']}',
       'world_id': _worldIdForOrigin('${body['biz_id'] ?? _v1Origin['oid']}'),
-      'author': _deepCopyMap(_v1User),
+      'author': _v1UserPayload(_v1User),
       'content': '${body['content'] ?? ''}',
       'images': body['images'] is List ? body['images'] : <String>[],
       'root_discuss_id': isReply ? rootDiscussId : '',
@@ -2465,7 +2530,7 @@ class _MockState {
             'user': {
               'uid': item['uid'] ?? '',
               'name': item['name'] ?? '',
-              'avatar': item['avatar'] ?? '',
+              'avatar': _mockImageObject(item['avatar']),
               'bio': item['bio'] ?? '',
               'last_login_at': item['last_login_at'] ?? kMockV1Now,
               'create_at': item['create_at'] ?? kMockV1Now,
@@ -2564,12 +2629,12 @@ class _MockState {
       {
         'event_type': 'world_launch',
         'event_time': kMockV1Now,
-        'actor': _deepCopyMap(_v1PeerUser),
+        'actor': _v1UserPayload(_v1PeerUser),
         'target': {
           'oid': _v1Origin['oid'],
           'wid': _v1World['wid'],
           'name': _v1World['name'],
-          'cover': _v1World['cover'],
+          'cover': _mockImageObject(_v1World['cover']),
           'tick_cnt': _v1World['tick_cnt'],
         },
         'summary': 'Penny launched a local mock world.',
@@ -2614,7 +2679,7 @@ class _MockState {
 
   Map<String, dynamic> _originDetailPayload(Map<String, dynamic> origin) {
     return {
-      'origin': _deepCopyMap(origin),
+      'origin': _v1OriginPayload(origin),
       'character_list': kMockV1Characters.map(_deepCopyMap).toList(),
       'metric': _deepCopyMap(kMockV1Metric),
       'location_list': kMockV1Locations.map(_deepCopyMap).toList(),
@@ -2628,7 +2693,7 @@ class _MockState {
       'status': origin['status'],
       'version_num': origin['version_num'],
       'name': origin['name'],
-      'cover': origin['cover'],
+      'cover': _mockImageObject(origin['cover']),
       'display_subtitle': origin['display_subtitle'],
       'world_view': origin['world_view'],
       'created_uid': origin['created_uid'],
@@ -2652,7 +2717,7 @@ class _MockState {
       'wid': world['wid'],
       'status': world['status'],
       'name': world['name'],
-      'cover': world['cover'],
+      'cover': _mockImageObject(world['cover']),
       'display_subtitle': world['display_subtitle'],
       'created_uid': world['created_uid'],
       'created_user_name': world['created_user_name'],
@@ -2693,7 +2758,7 @@ class _MockState {
         'created_at': _mockEpoch(origin['created_at']),
         'started_at': origin['start_time'],
         'tick_duration_days': origin['tick_duration_days'],
-        'cover': origin['cover'],
+        'cover': _mockImageObject(origin['cover']),
         'map_url': origin['map_url'] ?? origin['cover'],
         'status': origin['status'],
       },
@@ -2725,7 +2790,7 @@ class _MockState {
         'created_at': _mockEpoch(world['created_at']),
         'started_at': '${world['created_at']}',
         'tick_duration_days': 30,
-        'cover': world['cover'],
+        'cover': _mockImageObject(world['cover']),
         'map_url': world['map_url'] ?? world['cover'],
         'status': world['status'],
       },
@@ -2750,7 +2815,7 @@ class _MockState {
       'brief': character['tagline'] ?? character['personality'],
       'description': character['description'] ?? character['bio'],
       'goal': character['goal'],
-      'avatar': character['avatar'],
+      'avatar': _mockImageObject(character['avatar']),
       'initial_location_id':
           character['initial_location_id'] ?? character['location_id'] ?? '',
       'location_id':
@@ -2772,7 +2837,7 @@ class _MockState {
       'location_timestamp': location['location_timestamp'] ?? '',
       'location_summary':
           location['location_summary'] ?? location['description'] ?? '',
-      'image': location['image'],
+      'image': _mockImageObject(location['image']),
       'x_percent': location['x_percent'],
       'y_percent': location['y_percent'],
       'map_url': location['map_url'] ?? location['image'],
@@ -2876,7 +2941,7 @@ class _MockState {
         'conversation_round_id': 101,
         'round_order': 1,
         'sender_type': 'narrator',
-        'sender_id': '',
+        'sender_id': 'nar',
         'sender_name': '旁白',
         'user_id': '',
         'content': '夜幕降临...',
@@ -3229,4 +3294,26 @@ dynamic _deepCopyValue(dynamic value) {
   }
   if (value is List) return _deepCopyList(value);
   return value;
+}
+
+Map<String, dynamic> _mockImageObject(Object? raw) {
+  if (raw is Map<String, dynamic>) return _deepCopyMap(raw);
+  if (raw is Map) {
+    return raw.map((key, value) => MapEntry('$key', _deepCopyValue(value)));
+  }
+  final url = '${raw ?? ''}'.trim();
+  if (url.isEmpty) {
+    return const {'sm_url': '', 'xl_url': '', 'object_key': ''};
+  }
+  return {'sm_url': url, 'xl_url': url, 'object_key': url};
+}
+
+Map<String, dynamic> _mockUploadedImageObject(String objectKey) {
+  final smKey = objectKey.replaceFirst(RegExp(r'(\.[^.]+)$'), r'_400_300$1');
+  final xlKey = objectKey.replaceFirst(RegExp(r'(\.[^.]+)$'), r'_800_600$1');
+  return {
+    'sm_url': 'https://mock.local/$smKey',
+    'xl_url': 'https://mock.local/$xlKey',
+    'object_key': xlKey,
+  };
 }

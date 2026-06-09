@@ -64,7 +64,7 @@ class WorldListItem {
       status: asInt(info['status']),
       name: name.trim().isEmpty ? wid : name,
       cover: resolveAssetUrl(
-        asString(info['cover'], fallback: asString(info['map_url'])),
+        asImageUrl(info['cover'], fallback: info['map_url']),
       ),
       displaySubtitle: asString(
         info['display_subtitle'],
@@ -151,10 +151,12 @@ class WorldItemCard extends StatelessWidget {
     super.key,
     required this.item,
     this.thumbnailBorderRadius = 8,
+    this.showPreviewImages = true,
   });
 
   final WorldListItem item;
   final double thumbnailBorderRadius;
+  final bool showPreviewImages;
 
   @override
   Widget build(BuildContext context) {
@@ -168,16 +170,22 @@ class WorldItemCard extends StatelessWidget {
           borderRadius: thumbnailBorderRadius,
         ),
         const SizedBox(width: 14),
-        Expanded(child: _WorldItemBody(item: item)),
+        Expanded(
+          child: _WorldItemBody(
+            item: item,
+            showPreviewImages: showPreviewImages,
+          ),
+        ),
       ],
     );
   }
 }
 
 class _WorldItemBody extends StatelessWidget {
-  const _WorldItemBody({required this.item});
+  const _WorldItemBody({required this.item, required this.showPreviewImages});
 
   final WorldListItem item;
+  final bool showPreviewImages;
 
   @override
   Widget build(BuildContext context) {
@@ -224,7 +232,7 @@ class _WorldItemBody extends StatelessWidget {
             fontWeight: FontWeight.w400,
           ),
         ),
-        if (previewImages.isNotEmpty) ...[
+        if (showPreviewImages && previewImages.isNotEmpty) ...[
           const SizedBox(height: 16),
           Row(
             children: [
@@ -407,7 +415,7 @@ List<String> _previewImagesFromJson(Map<String, dynamic> info) {
     final value = info[key];
     if (value is List) {
       return value
-          .map((e) => resolveAssetUrl(e.toString()))
+          .map((e) => resolveAssetUrl(asImageUrl(e)))
           .where((e) => e.trim().isNotEmpty)
           .toList(growable: false);
     }

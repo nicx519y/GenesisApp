@@ -381,6 +381,89 @@ void main() {
     });
   });
 
+  test(
+    'getWorld accepts Apifox image objects except location map url',
+    () async {
+      Map<String, Object?> image(String name) => {
+        'sm_url': 'https://cdn.example.com/${name}_400_300.webp',
+        'xl_url': 'https://cdn.example.com/${name}_800_600.webp',
+        'object_key': 'uploads/${name}_800_600.webp',
+      };
+
+      final apiTransport = _FakeTransport(
+        handler: (_) => TransportResponse(
+          statusCode: 200,
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({
+            'err_no': 0,
+            'err_msg': 'succ',
+            'data': {
+              'info': {
+                'world_id': 'w_1',
+                'world_name': 'World One',
+                'origin_id': 'o_1',
+                'owner_uid': 'u_1',
+                'owner_name': 'Tester',
+                'brief': 'Brief.',
+                'setting': 'Setting.',
+                'events': const <Object?>[],
+                'tags': const <Object?>[],
+                'metric': const <String, Object?>{},
+                'created_at': 1716000000,
+                'cover': image('world_cover'),
+                'map_url': 'https://cdn.example.com/location_map.png',
+                'status': 10,
+              },
+              'stats': const <String, Object?>{},
+              'relation_status': 'owner',
+              'characters': [
+                {
+                  'char_id': 'c_1',
+                  'type': 'ai',
+                  'name': 'Iris',
+                  'avatar': image('avatar'),
+                  'location_id': 'loc_1',
+                },
+              ],
+              'locations': [
+                {
+                  'location_id': 'loc_1',
+                  'location_name': 'Gate',
+                  'image': image('location'),
+                  'map_url': 'https://cdn.example.com/location_map.png',
+                },
+              ],
+              'ticks': const <Object?>[],
+            },
+          }),
+        ),
+      );
+      final healthTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      );
+
+      final api = _apiWith(apiTransport, healthTransport);
+      final world = await api.getWorld('w_1');
+      final character = world.characters.single;
+      final location = world.locations.single;
+
+      expect(
+        world.origin.mapImage,
+        'https://cdn.example.com/world_cover_800_600.webp',
+      );
+      expect(
+        character['avatar'],
+        'https://cdn.example.com/avatar_800_600.webp',
+      );
+      expect(location['icon'], 'https://cdn.example.com/location_800_600.webp');
+      expect(location['map_url'], 'https://cdn.example.com/location_map.png');
+    },
+  );
+
   test('launchWorld uses POST /worlds/launch with new body', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
@@ -1184,6 +1267,58 @@ void main() {
   );
 
   test(
+    'latest world summaries use Apifox query and normalize response',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"errNo":0,"errStr":"success","data":{"list":[{"worldId":"w_peer","originId":"o_1","tickNo":12,"summary":"latest summary","tickTime":1780000000,"createdAt":1780000010}]}}',
+        ),
+      );
+      final healthTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      );
+
+      final api = _apiWith(apiTransport, healthTransport);
+      final result = await api.getLatestWorldSummaries(
+        originId: 'o_1',
+        worldId: 'w_self',
+      );
+
+      expect(apiTransport.lastRequest!.method, 'GET');
+      expect(
+        apiTransport.lastRequest!.uri.path,
+        '/api/v1/world/summary/latest',
+      );
+      expect(apiTransport.lastRequest!.uri.queryParameters['origin_id'], 'o_1');
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters['world_id'],
+        'w_self',
+      );
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters.containsKey('originId'),
+        isFalse,
+      );
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters.containsKey('worldId'),
+        isFalse,
+      );
+      expect(result.single.worldId, 'w_peer');
+      expect(result.single.originId, 'o_1');
+      expect(result.single.tickNo, 12);
+      expect(result.single.summary, 'latest summary');
+      expect(result.single.tickTime, 1780000000);
+      expect(result.single.createdAt, 1780000010);
+    },
+  );
+
+  test(
     'getWorldTicks uses Apifox tick list query and normalizes ticks',
     () async {
       final apiTransport = _FakeTransport(
@@ -1335,7 +1470,7 @@ void main() {
         statusCode: 200,
         headers: {'content-type': 'application/json'},
         body:
-            '{"err_no":0,"err_msg":"succ","data":{"url":"https://cdn.example.com/uploads/20260526/123.jpg","object_key":"uploads/20260526/123.jpg"}}',
+            '{"err_no":0,"err_msg":"succ","data":{"sm_url":"https://cdn.example.com/uploads/20260526/123_400_300.jpg","xl_url":"https://cdn.example.com/uploads/20260526/123_800_600.jpg","object_key":"uploads/20260526/123_800_600.jpg"}}',
       ),
     );
     final healthTransport = _FakeTransport(
@@ -1353,8 +1488,15 @@ void main() {
       contentType: 'image/png',
     );
 
-    expect(result['url'], 'https://cdn.example.com/uploads/20260526/123.jpg');
-    expect(result['object_key'], 'uploads/20260526/123.jpg');
+    expect(
+      result['sm_url'],
+      'https://cdn.example.com/uploads/20260526/123_400_300.jpg',
+    );
+    expect(
+      result['xl_url'],
+      'https://cdn.example.com/uploads/20260526/123_800_600.jpg',
+    );
+    expect(result['object_key'], 'uploads/20260526/123_800_600.jpg');
     expect(apiTransport.lastRequest!.method, 'POST');
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/upload/image');
     expect(

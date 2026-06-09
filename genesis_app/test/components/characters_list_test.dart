@@ -31,5 +31,6 @@ void main() {
     expect(image, findsOneWidget);
     expect(tester.getSize(image).width, 86);
     expect(tester.getSize(image).height, isNot(128));
+    expect(tester.widget<Image>(image).alignment, Alignment.topCenter);
   });
 }

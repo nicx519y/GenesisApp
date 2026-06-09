@@ -26,7 +26,7 @@ class User {
       uid: asString(json['uid']),
       did: asString(json['did']),
       nickname: asString(json['nickname']),
-      avatar: asString(json['avatar']),
+      avatar: asImageUrl(json['avatar']),
       createdAt: asDateTime(json['created_at']),
     );
   }

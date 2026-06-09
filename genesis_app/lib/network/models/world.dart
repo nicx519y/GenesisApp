@@ -198,7 +198,7 @@ class WorldMember {
       id: asInt(json['id']),
       worldId: asInt(json['world_id']),
       uid: asString(json['uid']),
-      roleAvatar: asString(json['role_avatar']),
+      roleAvatar: asImageUrl(json['role_avatar']),
       roleNickname: asString(json['role_nickname']),
       joinedAt: asDateTime(json['joined_at']),
     );

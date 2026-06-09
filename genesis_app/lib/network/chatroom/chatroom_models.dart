@@ -23,8 +23,9 @@ class ChatroomEnvelope {
     this.userId = '',
     this.senderId = '',
     this.senderName = '',
-    this.errCode = '',
+    this.errNo = '',
     this.errMsg = '',
+    this.currentTime = '',
     this.msgId,
     this.conversationRoundId,
     this.clientMsgId = '',
@@ -40,8 +41,9 @@ class ChatroomEnvelope {
   final String userId;
   final String senderId;
   final String senderName;
-  final String errCode;
+  final String errNo;
   final String errMsg;
+  final String currentTime;
   final int? msgId;
   final int? conversationRoundId;
   final String clientMsgId;
@@ -58,8 +60,9 @@ class ChatroomEnvelope {
       userId: asString(json['user_id']),
       senderId: asString(json['sender_id']),
       senderName: asString(json['sender_name']),
-      errCode: asString(json['err_code']),
+      errNo: asString(json['err_no']),
       errMsg: asString(json['err_msg']),
+      currentTime: asString(json['current_time']),
       msgId: json['msg_id'] == null ? null : asInt(json['msg_id']),
       conversationRoundId: json['conversation_round_id'] == null
           ? null
@@ -105,8 +108,9 @@ class ChatroomEnvelope {
     if (userId.isNotEmpty) merged['user_id'] = userId;
     if (senderId.isNotEmpty) merged['sender_id'] = senderId;
     if (senderName.isNotEmpty) merged['sender_name'] = senderName;
-    if (errCode.isNotEmpty) merged['code'] = errCode;
+    if (errNo.isNotEmpty) merged['code'] = errNo;
     if (errMsg.isNotEmpty) merged['code_msg'] = errMsg;
+    if (currentTime.isNotEmpty) merged['current_time'] = currentTime;
     if (msgId != null) merged['message_id'] = msgId;
     if (conversationRoundId != null) {
       merged['conversation_round_id'] = conversationRoundId;
@@ -404,6 +408,55 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
   }
 }
 
+class ChatroomTickAdvanceMessage extends ChatroomMessageEvent {
+  const ChatroomTickAdvanceMessage({
+    required super.sessionId,
+    required super.worldId,
+    required super.locationId,
+    required super.userId,
+    required super.code,
+    required super.codeMsg,
+    required super.ts,
+    required super.messageId,
+    required super.conversationRoundId,
+    required super.roundOrder,
+    required super.senderType,
+    required super.senderId,
+    required super.senderName,
+    required super.content,
+    required super.broadcast,
+    required this.tickNo,
+    required this.currentTime,
+  });
+
+  final int tickNo;
+  final String currentTime;
+
+  factory ChatroomTickAdvanceMessage.fromEnvelope(ChatroomEnvelope envelope) {
+    final payload = envelope.mergedPayload;
+    final currentTime = asString(payload['current_time']);
+    return ChatroomTickAdvanceMessage(
+      sessionId: asString(payload['session_id']),
+      worldId: _worldId(payload),
+      locationId: asString(payload['location_id']),
+      userId: asString(payload['user_id']),
+      code: asInt(payload['code']),
+      codeMsg: asString(payload['code_msg']),
+      ts: asDateTime(payload['ts'] ?? envelope.ts),
+      messageId: asInt(payload['message_id']),
+      conversationRoundId: asString(payload['conversation_round_id']),
+      roundOrder: asInt(payload['round_order']),
+      senderType: 'tick',
+      senderId: 'tick',
+      senderName: 'Time',
+      content: asString(payload['content'], fallback: currentTime),
+      broadcast: asBool(payload['broadcast']),
+      tickNo: asInt(payload['tick_no']),
+      currentTime: currentTime,
+    );
+  }
+}
+
 class ChatroomAiStreamStart extends ChatroomEvent {
   const ChatroomAiStreamStart({
     required this.sessionId,
@@ -414,6 +467,7 @@ class ChatroomAiStreamStart extends ChatroomEvent {
     required this.senderType,
     required this.senderId,
     required this.senderName,
+    required this.currentTime,
   });
 
   final String sessionId;
@@ -424,6 +478,7 @@ class ChatroomAiStreamStart extends ChatroomEvent {
   final String senderType;
   final String senderId;
   final String senderName;
+  final String currentTime;
 
   factory ChatroomAiStreamStart.fromEnvelope(ChatroomEnvelope envelope) {
     final payload = envelope.mergedPayload;
@@ -437,6 +492,7 @@ class ChatroomAiStreamStart extends ChatroomEvent {
       senderType: asString(payload['sender_type'], fallback: 'character'),
       senderId: asString(payload['sender_id']),
       senderName: asString(payload['sender_name'], fallback: 'AI'),
+      currentTime: asString(payload['current_time']),
     );
   }
 }
@@ -450,6 +506,7 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
     required this.senderId,
     required this.chunk,
     required this.isDelta,
+    required this.currentTime,
   });
 
   final String sessionId;
@@ -459,6 +516,7 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
   final String senderId;
   final String chunk;
   final bool isDelta;
+  final String currentTime;
 
   factory ChatroomAiStreamChunk.fromEnvelope(ChatroomEnvelope envelope) {
     final payload = envelope.mergedPayload;
@@ -470,6 +528,7 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
       senderId: asString(payload['sender_id']),
       chunk: asString(payload['chunk'], fallback: asString(payload['content'])),
       isDelta: asBool(payload['is_delta'], fallback: true),
+      currentTime: asString(payload['current_time']),
     );
   }
 }
@@ -483,6 +542,7 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
     required this.senderId,
     required this.content,
     required this.createdAt,
+    required this.currentTime,
   });
 
   final String sessionId;
@@ -492,6 +552,7 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
   final String senderId;
   final String content;
   final DateTime? createdAt;
+  final String currentTime;
 
   factory ChatroomAiStreamEnd.fromEnvelope(ChatroomEnvelope envelope) {
     final payload = envelope.mergedPayload;
@@ -503,6 +564,7 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
       senderId: asString(payload['sender_id']),
       content: asString(payload['content']),
       createdAt: asDateTime(payload['created_at']),
+      currentTime: asString(payload['current_time']),
     );
   }
 }
@@ -597,6 +659,7 @@ class ChatroomMessageHandlers {
     this.onWorldNotification,
     this.onUserMessage,
     this.onNarratorMessage,
+    this.onTickAdvanceMessage,
     this.onAiStreamStart,
     this.onAiStreamChunk,
     this.onAiStreamEnd,
@@ -611,6 +674,7 @@ class ChatroomMessageHandlers {
   final void Function(ChatroomWorldNotification event)? onWorldNotification;
   final void Function(ChatroomUserMessage event)? onUserMessage;
   final void Function(ChatroomNarratorMessage event)? onNarratorMessage;
+  final void Function(ChatroomTickAdvanceMessage event)? onTickAdvanceMessage;
   final void Function(ChatroomAiStreamStart event)? onAiStreamStart;
   final void Function(ChatroomAiStreamChunk event)? onAiStreamChunk;
   final void Function(ChatroomAiStreamEnd event)? onAiStreamEnd;
@@ -634,6 +698,8 @@ class ChatroomMessageHandlers {
         onUserMessage?.call(e);
       case ChatroomNarratorMessage e:
         onNarratorMessage?.call(e);
+      case ChatroomTickAdvanceMessage e:
+        onTickAdvanceMessage?.call(e);
       case ChatroomAiStreamStart e:
         onAiStreamStart?.call(e);
       case ChatroomAiStreamChunk e:
@@ -648,18 +714,14 @@ ChatroomEvent chatroomEventFromEnvelope(ChatroomEnvelope envelope) {
   switch (envelope.type) {
     case 'ack':
       return ChatroomAck.fromPayload(envelope.mergedPayload);
-    case 'error':
-      return ChatroomErrorEvent.fromPayload(
-        envelope.mergedPayload,
-        sourceType: envelope.type,
-      );
     case 'tick_start':
-    case 'tick_end':
     case 'tick_done':
     case 'world_change':
     case 'user_location_change':
     case 'world_new_message':
       return ChatroomWorldNotification.fromEnvelope(envelope);
+    case 'tick_advance':
+      return ChatroomTickAdvanceMessage.fromEnvelope(envelope);
     case 'nar_new_message':
       return ChatroomNarratorMessage.fromEnvelope(envelope);
     case 'user_message':
@@ -693,6 +755,8 @@ String chatroomEventType(ChatroomEvent event) {
       return 'user_message';
     case ChatroomNarratorMessage():
       return 'nar_new_message';
+    case ChatroomTickAdvanceMessage():
+      return 'tick_advance';
     case ChatroomAiStreamStart():
       return 'llm_stream_start';
     case ChatroomAiStreamChunk():

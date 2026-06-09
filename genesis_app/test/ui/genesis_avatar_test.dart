@@ -1,6 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
+import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 
 void main() {
   test('initialsForAvatarName follows Chinese and foreign name rules', () {
@@ -28,5 +30,65 @@ void main() {
     );
 
     expect(find.text('TL'), findsOneWidget);
+  });
+
+  testWidgets('GenesisAvatar crops loaded images from the top center', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: GenesisAvatar(
+            url: 'assets/images/mock_avatars/avatar_iris.png',
+            name: 'Iris',
+            width: 40,
+            height: 60,
+          ),
+        ),
+      ),
+    );
+
+    final image = tester.widget<Image>(
+      find.image(
+        const AssetImage('assets/images/mock_avatars/avatar_iris.png'),
+      ),
+    );
+    expect(image.fit, BoxFit.cover);
+    expect(image.alignment, Alignment.topCenter);
+    expect(tester.getSize(find.byType(GenesisAvatar)), const Size(40, 60));
+  });
+
+  testWidgets('GenesisAvatar chooses xl image when sm would be blurry', (
+    tester,
+  ) async {
+    final resource = GenesisImageResourceRegistry.register(
+      const GenesisImageResource(
+        smUrl: 'https://cdn.example.com/avatar_400_300.webp',
+        xlUrl: 'https://cdn.example.com/avatar_800_600.webp',
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(devicePixelRatio: 2),
+          child: Scaffold(
+            body: GenesisAvatar(
+              url: resource.displayUrl,
+              name: 'Iris',
+              width: 300,
+              height: 225,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester
+          .widget<CachedNetworkImage>(find.byType(CachedNetworkImage))
+          .imageUrl,
+      'https://cdn.example.com/avatar_800_600.webp',
+    );
   });
 }

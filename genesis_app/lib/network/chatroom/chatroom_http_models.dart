@@ -6,6 +6,7 @@ class ChatroomHttpMessage {
     required this.locationId,
     required this.conversationRoundId,
     required this.roundOrder,
+    this.tickNo = 0,
     required this.senderType,
     required this.senderId,
     required this.senderName,
@@ -19,6 +20,7 @@ class ChatroomHttpMessage {
   final String locationId;
   final int conversationRoundId;
   final int roundOrder;
+  final int tickNo;
   final String senderType;
   final String senderId;
   final String senderName;
@@ -33,6 +35,7 @@ class ChatroomHttpMessage {
       locationId: asString(json['location_id']),
       conversationRoundId: asInt(json['conversation_round_id']),
       roundOrder: asInt(json['round_order']),
+      tickNo: asInt(json['tick_no']),
       senderType: asString(json['sender_type']),
       senderId: asString(json['sender_id']),
       senderName: asString(json['sender_name']),
@@ -59,7 +62,7 @@ class ChatroomUserLocation {
     return ChatroomUserLocation(
       userId: asString(json['user_id']),
       userName: asString(json['user_name']),
-      avatar: asString(json['avatar']),
+      avatar: asImageUrl(json['avatar']),
     );
   }
 }

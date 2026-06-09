@@ -9,6 +9,7 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_upload_progress_overlay.dart';
 import '../../components/common/local_image_crop_page.dart';
 import '../../platform/native_image_picker.dart';
+import '../../utils/genesis_image_resource.dart';
 
 const Color createFormGreen = Color(0xFF198B64);
 const Color createFormFieldFill = Color(0xFFF4F4F6);
@@ -239,6 +240,7 @@ class CreateUploadBox extends StatefulWidget {
     this.height = 176,
     this.iconSize = 38,
     this.cropSize,
+    this.previewAlignment = Alignment.center,
     this.showRemoveLinkWhenFilled = false,
   });
 
@@ -249,6 +251,7 @@ class CreateUploadBox extends StatefulWidget {
   final double height;
   final double iconSize;
   final Size? cropSize;
+  final Alignment previewAlignment;
   final bool showRemoveLinkWhenFilled;
 
   @override
@@ -337,6 +340,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
                     imageBytes: _previewBytes,
                     isUploading: _isUploading,
                     progress: _uploadProgress,
+                    alignment: widget.previewAlignment,
                   ),
           ),
         ),
@@ -441,7 +445,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
         contentType: crop.contentType,
       );
       if (!mounted) return;
-      final url = '${uploaded['url'] ?? ''}'.trim();
+      final url = GenesisImageResourceRegistry.resolve(uploaded).displayUrl;
       if (url.isEmpty) {
         throw StateError('Upload returned an empty URL');
       }
@@ -530,12 +534,14 @@ class _Preview extends StatelessWidget {
     required this.imageBytes,
     required this.isUploading,
     required this.progress,
+    required this.alignment,
   });
 
   final String imageUrl;
   final Uint8List? imageBytes;
   final bool isUploading;
   final double progress;
+  final Alignment alignment;
 
   @override
   Widget build(BuildContext context) {
@@ -547,61 +553,83 @@ class _Preview extends StatelessWidget {
       'hasBytes=${bytes != null}, '
       'isUploading=$isUploading',
     );
-    final Widget image = bytes != null
-        ? Image.memory(
-            bytes,
-            width: double.infinity,
-            height: double.infinity,
-            fit: BoxFit.cover,
-          )
-        : url.isEmpty
-        ? const _PreviewPlaceholder(showSpinner: false)
-        : url.startsWith('assets/')
-        ? Image.asset(
-            url,
-            width: double.infinity,
-            height: double.infinity,
-            fit: BoxFit.cover,
-            errorBuilder: (_, error, ___) {
-              debugPrint(
-                '[CreateUploadBox] asset image failed: '
-                'url="$url", error="$error"',
-              );
-              return const _PreviewErrorIcon();
-            },
-          )
-        : CachedNetworkImage(
-            imageUrl: url,
-            width: double.infinity,
-            height: double.infinity,
-            fit: BoxFit.cover,
-            imageBuilder: (_, imageProvider) {
-              debugPrint('[CreateUploadBox] cached image ready: "$url"');
-              return Image(
-                image: imageProvider,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final selectedUrl = selectGenesisImageUrl(
+          url,
+          logicalWidth: constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : null,
+          logicalHeight: constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : null,
+          devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+        );
+        final Widget image = bytes != null
+            ? Image.memory(
+                bytes,
                 width: double.infinity,
                 height: double.infinity,
                 fit: BoxFit.cover,
+                alignment: alignment,
+              )
+            : selectedUrl.isEmpty
+            ? const _PreviewPlaceholder(showSpinner: false)
+            : selectedUrl.startsWith('assets/')
+            ? Image.asset(
+                selectedUrl,
+                width: double.infinity,
+                height: double.infinity,
+                fit: BoxFit.cover,
+                alignment: alignment,
+                errorBuilder: (_, error, ___) {
+                  debugPrint(
+                    '[CreateUploadBox] asset image failed: '
+                    'url="$selectedUrl", error="$error"',
+                  );
+                  return const _PreviewErrorIcon();
+                },
+              )
+            : CachedNetworkImage(
+                imageUrl: selectedUrl,
+                width: double.infinity,
+                height: double.infinity,
+                fit: BoxFit.cover,
+                alignment: alignment,
+                imageBuilder: (_, imageProvider) {
+                  debugPrint(
+                    '[CreateUploadBox] cached image ready: "$selectedUrl"',
+                  );
+                  return Image(
+                    image: imageProvider,
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
+                    alignment: alignment,
+                  );
+                },
+                placeholder: (_, __) {
+                  debugPrint(
+                    '[CreateUploadBox] cached image loading: "$selectedUrl"',
+                  );
+                  return const _PreviewPlaceholder();
+                },
+                errorWidget: (_, __, error) {
+                  debugPrint(
+                    '[CreateUploadBox] cached image failed: '
+                    'url="$selectedUrl", error="$error"',
+                  );
+                  return const _PreviewErrorIcon();
+                },
               );
-            },
-            placeholder: (_, __) {
-              debugPrint('[CreateUploadBox] cached image loading: "$url"');
-              return const _PreviewPlaceholder();
-            },
-            errorWidget: (_, __, error) {
-              debugPrint(
-                '[CreateUploadBox] cached image failed: '
-                'url="$url", error="$error"',
-              );
-              return const _PreviewErrorIcon();
-            },
-          );
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        image,
-        if (isUploading) GenesisUploadProgressOverlay(progress: progress),
-      ],
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            image,
+            if (isUploading) GenesisUploadProgressOverlay(progress: progress),
+          ],
+        );
+      },
     );
   }
 }

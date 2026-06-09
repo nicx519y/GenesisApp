@@ -197,7 +197,10 @@ List<String> _imageUrlsFrom(Object? value) {
       .map((raw) {
         if (raw is Map) {
           final map = asJsonMap(raw);
-          return asString(map['url'] ?? map['image_url'] ?? map['image']);
+          return asImageUrl(
+            map['url'] ?? map['image_url'] ?? map['image'],
+            fallback: raw,
+          );
         }
         return asString(raw);
       })

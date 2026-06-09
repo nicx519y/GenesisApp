@@ -10,6 +10,7 @@ import '../../components/common/local_image_crop_page.dart';
 import '../../components/me/signed_out_me_view.dart';
 import '../../components/me/user_profile_content.dart';
 import '../../network/genesis_api.dart';
+import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
 import '../../platform/auth/auth_cancelled_exception.dart';
 import '../../platform/auth/auth_session.dart';
@@ -118,10 +119,14 @@ class _MePageState extends State<MePage> {
     final cachedUser = await services.sessionStore.readUserInfo();
     if (cachedUser != null) {
       final backendName = _mapString(cachedUser, 'name');
-      final backendAvatar = _mapString(cachedUser, 'avatar');
+      final backendAvatar = asResolvedImageUrl(
+        cachedUser['avatar'],
+        resolveAssetUrl,
+        fallback: cachedUser['avatar_url'],
+      );
       if (backendName.isNotEmpty) resolvedDisplayName = backendName;
       if (backendAvatar.isNotEmpty) {
-        resolvedAvatarUrl = resolveAssetUrl(backendAvatar);
+        resolvedAvatarUrl = backendAvatar;
       }
       resolvedFollowingCount = _mapInt(cachedUser, 'following_cnt');
       resolvedFollowerCount = _mapInt(cachedUser, 'follower_cnt');
@@ -394,7 +399,7 @@ class _MePageState extends State<MePage> {
               filename: result.filename,
               contentType: result.contentType,
             );
-            return _mapString(uploaded, 'url');
+            return asResolvedImageUrl(uploaded, resolveAssetUrl);
           },
         ),
       ),
@@ -404,12 +409,12 @@ class _MePageState extends State<MePage> {
     await _updateAvatar(
       update: () => services.api.v1.user.update(avatar: avatarUrl),
       apply: (updatedUser) {
-        final updatedAvatar = _mapString(
-          updatedUser,
-          'avatar',
+        final updatedAvatar = asResolvedImageUrl(
+          updatedUser['avatar'],
+          resolveAssetUrl,
           fallback: avatarUrl,
         );
-        return resolveAssetUrl(updatedAvatar);
+        return updatedAvatar;
       },
     );
   }
@@ -598,12 +603,14 @@ UserProfileData _mergeRemoteUserInfoForRender(
   Map<String, dynamic> remoteUser,
 ) {
   final backendName = _mapString(remoteUser, 'name');
-  final backendAvatar = _mapString(remoteUser, 'avatar');
+  final backendAvatar = asResolvedImageUrl(
+    remoteUser['avatar'],
+    resolveAssetUrl,
+    fallback: remoteUser['avatar_url'],
+  );
   final backendUid = _mapString(remoteUser, 'uid');
   return currentData.copyWith(
-    avatarUrl: backendAvatar.isEmpty
-        ? currentData.avatarUrl
-        : resolveAssetUrl(backendAvatar),
+    avatarUrl: backendAvatar.isEmpty ? currentData.avatarUrl : backendAvatar,
     displayName: backendName.isEmpty ? currentData.displayName : backendName,
     uid: backendUid.isEmpty ? currentData.uid : backendUid,
     followingCount:

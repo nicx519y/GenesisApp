@@ -225,6 +225,84 @@ void main() {
         ChatUiStyleConfig.standard.avatarBubbleGap;
     expect(bubbleBox.width, lessThanOrEqualTo(400 - reservedWidth * 2 + 1));
     expect(bubbleBox.center.dx, closeTo(systemBox.center.dx, 1));
+    final text = tester.widget<Text>(
+      find.text(
+        'A long narrator message that should be constrained like normal chat bubbles.',
+      ),
+    );
+    expect(text.maxLines, isNull);
+    expect(text.overflow, isNull);
+  });
+
+  testWidgets('narrator system message text is left aligned', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'nar-1',
+              senderId: 'nar',
+              senderName: '旁白',
+              text: 'A narrator paragraph can wrap across multiple lines.',
+              isMe: false,
+              status: 'sent',
+              senderType: 'narrator',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    final text = tester.widget<Text>(
+      find.text('A narrator paragraph can wrap across multiple lines.'),
+    );
+    expect(text.maxLines, isNull);
+    expect(text.overflow, isNull);
+    expect(text.textAlign, TextAlign.left);
+  });
+
+  testWidgets('tick system message spans avatar-edge width with tick label', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            child: ChatMessageRow(
+              message: ChatMessageVm(
+                localId: 'tick-112',
+                senderId: 'tick',
+                senderName: 'Time',
+                text: 'Day 45, 19:34',
+                isMe: false,
+                status: 'sent',
+                senderType: 'tick',
+                roundId: '1455',
+                tickNo: 7,
+              ),
+              showDateDivider: false,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final rowBox = tester.getRect(find.byType(ChatMessageRow));
+    final bubbleBox = tester.getRect(
+      find.byKey(const ValueKey('chat-tick-message-bubble')),
+    );
+
+    expect(find.text('Tick 7 · Day 45, 19:34'), findsOneWidget);
+    final text = tester.widget<Text>(find.text('Tick 7 · Day 45, 19:34'));
+    expect(text.maxLines, 1);
+    expect(text.overflow, TextOverflow.ellipsis);
+    expect(text.textAlign, TextAlign.left);
+    expect(bubbleBox.left, closeTo(rowBox.left, 1));
+    expect(bubbleBox.right, closeTo(rowBox.right, 1));
   });
 
   testWidgets('chat composer grows with text up to ten lines', (

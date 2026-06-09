@@ -23,6 +23,7 @@ import '../platform/device/device_id_service.dart';
 import '../platform/device/method_channel_device_id_service.dart';
 import '../platform/session/method_channel_user_session_store.dart';
 import '../platform/session/user_session_store.dart';
+import '../utils/genesis_image_resource.dart';
 
 class GenesisApi {
   static const String defaultBaseHost = 'https://dev.hushie.ai';
@@ -157,9 +158,9 @@ class GenesisApi {
           profile['display_name'],
           fallback: asString(profile['name']),
         ),
-        avatar: asString(
+        avatar: _resolveImageAssetUrl(
           profile['avatar_url'],
-          fallback: asString(profile['avatar']),
+          fallback: profile['avatar'],
         ),
         createdAt: null,
       );
@@ -233,9 +234,9 @@ class GenesisApi {
         profile['display_name'],
         fallback: asString(profile['name']),
       ),
-      avatar: asString(
+      avatar: _resolveImageAssetUrl(
         profile['avatar_url'],
-        fallback: asString(profile['avatar']),
+        fallback: profile['avatar'],
       ),
       createdAt: null,
     );
@@ -352,12 +353,9 @@ class GenesisApi {
         userMap['display_name'],
         fallback: asString(userMap['name']),
       ),
-      avatar: asString(
+      avatar: _resolveImageAssetUrl(
         userMap['avatar_url'],
-        fallback: asString(
-          userMap['avatar'],
-          fallback: asString(userMap['picture']),
-        ),
+        fallback: userMap['avatar'] ?? userMap['picture'],
       ),
       createdAt: null,
     );
@@ -585,6 +583,20 @@ class GenesisApi {
       limit: limit,
       offset: offset,
     );
+  }
+
+  Future<List<WorldSummaryLatestItem>> getLatestWorldSummaries({
+    String? originId,
+    String? worldId,
+  }) async {
+    final map = await v1.world.summaryLatest(
+      originId: originId,
+      worldId: worldId,
+    );
+    final summariesRaw = map['list'];
+    return (summariesRaw is List ? asJsonList(summariesRaw) : const [])
+        .map((item) => _worldSummaryLatestItemFromV1(asJsonMap(item)))
+        .toList(growable: false);
   }
 
   Future<String> requestWorld(String wid) async {
@@ -872,6 +884,24 @@ class MyWorldSummary {
   final int playerCount;
 }
 
+class WorldSummaryLatestItem {
+  const WorldSummaryLatestItem({
+    required this.worldId,
+    required this.originId,
+    required this.tickNo,
+    required this.summary,
+    required this.tickTime,
+    required this.createdAt,
+  });
+
+  final String worldId;
+  final String originId;
+  final int tickNo;
+  final String summary;
+  final int tickTime;
+  final int createdAt;
+}
+
 class SearchResultBundle {
   const SearchResultBundle({
     required this.origins,
@@ -1080,6 +1110,14 @@ String resolveAssetUrl(String raw) {
   return '$base$value';
 }
 
+String _resolveImageAssetUrl(Object? raw, {Object? fallback}) {
+  final resource = GenesisImageResource.fromJson(
+    raw,
+    fallback: fallback,
+  ).mapUrls(resolveAssetUrl);
+  return GenesisImageResourceRegistry.register(resource).displayUrl;
+}
+
 int _pageFromOffset({required int limit, required int offset}) {
   if (limit <= 0 || offset <= 0) return 1;
   return (offset ~/ limit) + 1;
@@ -1089,12 +1127,12 @@ OriginSummary _originSummaryFromV1ListItem(Map<String, dynamic> raw) {
   final origin = raw['info'] is Map ? asJsonMap(raw['info']) : raw;
   final stats = raw['stats'] is Map ? asJsonMap(raw['stats']) : raw;
   final oid = asString(origin['oid'], fallback: asString(origin['origin_id']));
-  final cover = resolveAssetUrl(
-    asString(origin['cover'], fallback: asString(origin['map_url'])),
+  final cover = _resolveImageAssetUrl(
+    origin['cover'],
+    fallback: origin['map_url'],
   );
-  final mapUrl = resolveAssetUrl(
-    asString(origin['map_url'], fallback: asString(origin['cover'])),
-  );
+  final mapUrlRaw = asString(origin['map_url']).trim();
+  final mapUrl = mapUrlRaw.isNotEmpty ? resolveAssetUrl(mapUrlRaw) : cover;
 
   return OriginSummary(
     id: asInt(origin['id'], fallback: _stableInt(oid)),
@@ -1145,17 +1183,9 @@ MyWorldSummary _myWorldSummaryFromV1ListItem(Map<String, dynamic> raw) {
     world['name'],
     fallback: asString(world['world_name'], fallback: wid),
   );
-  final cover = resolveAssetUrl(
-    asString(
-      world['snapshot_cover_url'],
-      fallback: asString(
-        world['cover'],
-        fallback: asString(
-          world['map_url'],
-          fallback: asString(world['cover_url']),
-        ),
-      ),
-    ),
+  final cover = _resolveImageAssetUrl(
+    world['snapshot_cover_url'],
+    fallback: world['cover'] ?? world['map_url'] ?? world['cover_url'],
   );
 
   return MyWorldSummary(
@@ -1174,6 +1204,17 @@ MyWorldSummary _myWorldSummaryFromV1ListItem(Map<String, dynamic> raw) {
       fallback: asInt(stats['character_cnt']),
     ),
     playerCount: asInt(stats['player_cnt']),
+  );
+}
+
+WorldSummaryLatestItem _worldSummaryLatestItemFromV1(Map<String, dynamic> raw) {
+  return WorldSummaryLatestItem(
+    worldId: asString(raw['world_id']),
+    originId: asString(raw['origin_id']),
+    tickNo: asInt(raw['tick_no']),
+    summary: asString(raw['summary']),
+    tickTime: asInt(raw['tick_time']),
+    createdAt: asInt(raw['created_at']),
   );
 }
 
@@ -1200,9 +1241,9 @@ OriginSummary _originSummaryFromV5(Map<String, dynamic> raw) {
     raw['worldviewId'],
     fallback: asString(raw['OidStr']),
   );
-  final mapImage = asString(
+  final mapImage = _resolveImageAssetUrl(
     raw['Omap_image'],
-    fallback: asString(raw['Oworld_view_image']),
+    fallback: raw['Oworld_view_image'],
   );
   final id = asInt(raw['Oid'], fallback: _stableInt(worldviewId));
 
@@ -1241,7 +1282,7 @@ List<OriginCharacter> _originCharactersFromV5(Object? raw, int originId) {
           characterId: asString(c['character_id'], fallback: asString(c['id'])),
           originId: originId,
           name: asString(c['name']),
-          avatar: asString(c['image']),
+          avatar: _resolveImageAssetUrl(c['image']),
           tags: asString(c['identity']),
           tagline: asString(c['tagline']),
           description: asString(c['intro']),
@@ -1280,7 +1321,7 @@ List<OriginLocation> _originLocationsFromV5(Object? raw, int originId) {
           id: id,
           originId: originId,
           name: asString(p['label']),
-          icon: asString(p['image']),
+          icon: _resolveImageAssetUrl(p['image']),
           mapUrl: asString(p['map_url']),
           description: '',
           position: i + 1,
@@ -1299,7 +1340,7 @@ List<OriginLocation> _originLocationsFromV5(Object? raw, int originId) {
 Map<String, dynamic> _normalizeWorldLocation(Map<String, dynamic> location) {
   final locationId = asString(location['location_id']);
   final parentLocationId = asString(location['location_pid']);
-  final pointId = locationId;
+  final pointId = asString(location['point_id'], fallback: locationId);
   final xPercentRaw = location['x_percent'];
   final yPercentRaw = location['y_percent'];
 
@@ -1332,7 +1373,7 @@ Map<String, dynamic> _normalizeWorldLocation(Map<String, dynamic> location) {
     'location_description': locationDescription,
     'location_paragraph': asString(location['location_paragraph']),
     'location_timestamp': asString(location['location_timestamp']),
-    'icon': asString(location['image']),
+    'icon': _resolveImageAssetUrl(location['image']),
     'map_url': asString(location['map_url']),
     'dialogue': location['dialogue'] is List
         ? asJsonList(
@@ -1351,12 +1392,12 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
   final stats = raw['stats'] is Map ? asJsonMap(raw['stats']) : origin;
   final oid = asString(origin['oid'], fallback: asString(origin['origin_id']));
   final id = _stableInt(oid);
-  final cover = resolveAssetUrl(
-    asString(origin['cover'], fallback: asString(origin['map_url'])),
+  final cover = _resolveImageAssetUrl(
+    origin['cover'],
+    fallback: origin['map_url'],
   );
-  final mapUrl = resolveAssetUrl(
-    asString(origin['map_url'], fallback: asString(origin['cover'])),
-  );
+  final mapUrlRaw = asString(origin['map_url']).trim();
+  final mapUrl = mapUrlRaw.isNotEmpty ? resolveAssetUrl(mapUrlRaw) : cover;
   final charactersRaw = raw['character_list'] ?? raw['characters'];
   final characters = charactersRaw is List
       ? asJsonList(charactersRaw)
@@ -1549,12 +1590,12 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
   final oid = asString(world['origin_id']);
   final worldId = _stableInt(wid);
   final originId = _stableInt(oid);
-  final cover = resolveAssetUrl(
-    asString(world['cover'], fallback: asString(world['map_url'])),
+  final cover = _resolveImageAssetUrl(
+    world['cover'],
+    fallback: world['map_url'],
   );
-  final mapUrl = resolveAssetUrl(
-    asString(world['map_url'], fallback: asString(world['cover'])),
-  );
+  final mapUrlRaw = asString(world['map_url']).trim();
+  final mapUrl = mapUrlRaw.isNotEmpty ? resolveAssetUrl(mapUrlRaw) : cover;
   final locationsRaw = raw['locations'];
   final locations = locationsRaw is List
       ? asJsonList(locationsRaw)
@@ -1656,7 +1697,7 @@ OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
     characterId: characterId,
     originId: originId,
     name: asString(raw['name']),
-    avatar: resolveAssetUrl(asString(raw['avatar'])),
+    avatar: _resolveImageAssetUrl(raw['avatar']),
     tags: asString(raw['identity']),
     tagline: asString(raw['tagline'], fallback: asString(raw['brief'])),
     description: asString(
@@ -1678,7 +1719,7 @@ OriginLocation _originLocationFromV1(Map<String, dynamic> raw, int originId) {
     id: asInt(raw['id'], fallback: _stableInt(locationId)),
     originId: originId,
     name: asString(raw['name'], fallback: asString(raw['location_name'])),
-    icon: resolveAssetUrl(asString(raw['image'])),
+    icon: _resolveImageAssetUrl(raw['image']),
     mapUrl: resolveAssetUrl(asString(raw['map_url'])),
     description: asString(
       raw['description'],
@@ -1714,7 +1755,7 @@ Map<String, dynamic>? _worldCharacterPositionFromV1(Map<String, dynamic> raw) {
       'identity': asString(raw['identity']),
       'tagline': asString(raw['brief']),
       'description': asString(raw['description']),
-      'avatar': resolveAssetUrl(asString(raw['avatar'])),
+      'avatar': _resolveImageAssetUrl(raw['avatar']),
     },
   };
 }
@@ -1730,7 +1771,7 @@ Map<String, dynamic> _worldCharacterFromV1(Map<String, dynamic> raw) {
     'brief': asString(raw['brief']),
     'description': asString(raw['description']),
     'goal': asString(raw['goal']),
-    'avatar': resolveAssetUrl(asString(raw['avatar'])),
+    'avatar': _resolveImageAssetUrl(raw['avatar']),
     'initial_location_id': asString(raw['initial_location_id']),
     'location_id': asString(raw['location_id']),
     'metric_value': raw['metric_value'],
@@ -1859,9 +1900,9 @@ OriginSummary _originSummaryFromSearchItem(Map<String, dynamic> raw) {
       fallback: asString(raw['worldviewId']),
     ),
   );
-  final mapImage = asString(
+  final mapImage = _resolveImageAssetUrl(
     raw['map_image'],
-    fallback: asString(raw['snapshot_cover_url']),
+    fallback: raw['snapshot_cover_url'],
   );
   final id = asInt(raw['id'], fallback: _stableInt(oid));
 
@@ -1874,7 +1915,7 @@ OriginSummary _originSummaryFromSearchItem(Map<String, dynamic> raw) {
       fallback: asString(raw['subtitle']),
     ),
     mapImage: mapImage,
-    worldMap: asString(raw['world_map'], fallback: mapImage),
+    worldMap: _resolveImageAssetUrl(raw['world_map'], fallback: mapImage),
     worldView: asString(raw['world_view']),
     originator: _originatorFromOriginMap(raw),
     versionNum: asInt(raw['version_num']),
@@ -1902,9 +1943,9 @@ MyWorldSummary _worldSummaryFromSearchItem(Map<String, dynamic> raw) {
       fallback: asString(raw['wid'], fallback: asString(raw['id'])),
     ),
     name: asString(raw['world_name'], fallback: asString(raw['name'])),
-    snapshotCoverUrl: asString(
+    snapshotCoverUrl: _resolveImageAssetUrl(
       raw['snapshot_cover_url'],
-      fallback: asString(raw['cover_url']),
+      fallback: raw['cover_url'] ?? raw['cover'],
     ),
     updatedAtText: asString(raw['updated_at']),
     ownerName: asString(
@@ -1929,7 +1970,7 @@ SearchUserSummary _userSummaryFromSearchItem(Map<String, dynamic> raw) {
       raw['display_name'],
       fallback: asString(raw['nickname'], fallback: asString(raw['name'])),
     ),
-    avatarUrl: asString(raw['avatar_url'], fallback: asString(raw['avatar'])),
+    avatarUrl: asImageUrl(raw['avatar_url'], fallback: raw['avatar']),
     userCode: asString(raw['user_code'], fallback: uid),
   );
 }

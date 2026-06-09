@@ -310,7 +310,11 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                   ).pushNamed(RouteNames.world, arguments: {'wid': vm.wid}),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: WorldItemCard(item: vm, thumbnailBorderRadius: 0),
+                    child: WorldItemCard(
+                      item: vm,
+                      thumbnailBorderRadius: 0,
+                      showPreviewImages: false,
+                    ),
                   ),
                 );
               },

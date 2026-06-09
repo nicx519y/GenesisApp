@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -371,19 +372,26 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
       logicalRect.bottom / imageViewSize.height * image.height,
     );
 
-    final targetWidth = widget.cropSize.width.round().clamp(1, 4096);
-    final targetHeight = widget.cropSize.height.round().clamp(1, 4096);
+    final targetSize = _targetOutputSize(sourceRect);
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     final paint = Paint()..filterQuality = FilterQuality.high;
     canvas.drawImageRect(
       image,
       sourceRect,
-      Rect.fromLTWH(0, 0, targetWidth.toDouble(), targetHeight.toDouble()),
+      Rect.fromLTWH(
+        0,
+        0,
+        targetSize.width.toDouble(),
+        targetSize.height.toDouble(),
+      ),
       paint,
     );
     final picture = recorder.endRecording();
-    final croppedImage = await picture.toImage(targetWidth, targetHeight);
+    final croppedImage = await picture.toImage(
+      targetSize.width,
+      targetSize.height,
+    );
     final byteData = await croppedImage.toByteData(
       format: ui.ImageByteFormat.png,
     );
@@ -395,10 +403,23 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
     }
     return LocalImageCropResult(
       bytes: bytes,
-      width: targetWidth,
-      height: targetHeight,
+      width: targetSize.width,
+      height: targetSize.height,
       filename: widget.filename,
       contentType: widget.contentType,
+    );
+  }
+
+  ({int width, int height}) _targetOutputSize(Rect sourceRect) {
+    final maxWidth = widget.cropSize.width.round().clamp(1, 4096);
+    final maxHeight = widget.cropSize.height.round().clamp(1, 4096);
+    final scale = math.min(
+      1.0,
+      math.min(maxWidth / sourceRect.width, maxHeight / sourceRect.height),
+    );
+    return (
+      width: math.max(1, (maxWidth * scale).round()),
+      height: math.max(1, (maxHeight * scale).round()),
     );
   }
 }

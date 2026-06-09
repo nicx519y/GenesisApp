@@ -49,7 +49,7 @@ class OriginListItem {
       ),
       name: name.trim().isEmpty ? oid : name,
       cover: resolveAssetUrl(
-        asString(info['cover'], fallback: asString(info['map_url'])),
+        asImageUrl(info['cover'], fallback: info['map_url']),
       ),
       displaySubtitle: asString(
         info['display_subtitle'],

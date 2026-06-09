@@ -19,6 +19,7 @@ import 'package:genesis_flutter_android/components/me/user_profile_content.dart'
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
+import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/network/direct_message_conversation_store.dart';
 import 'package:genesis_flutter_android/network/direct_message_message_store.dart';
 import 'package:genesis_flutter_android/pages/create/create_basics_page.dart';
@@ -55,6 +56,7 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
+import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 
 Future<AppServices> _testServices({
   bool backendAuthenticated = false,
@@ -266,9 +268,12 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.userInfoCompleter,
     this.originListCompleter,
     this.worldListCompleter,
+    this.setPlayerSceneCompleter,
     this.worldMetricDefault = 0,
     this.worldCharacterMetricValue = 50,
     this.worldCharacters,
+    this.worldLocations,
+    this.worldSummaryLatestItems,
   });
 
   final requests = <TransportRequest>[];
@@ -279,9 +284,12 @@ class _RecordingV1ListTransport implements HttpTransport {
   final Completer<TransportResponse>? userInfoCompleter;
   final Completer<TransportResponse>? originListCompleter;
   final Completer<TransportResponse>? worldListCompleter;
+  final Completer<TransportResponse>? setPlayerSceneCompleter;
   final Object? worldMetricDefault;
   final Object? worldCharacterMetricValue;
   final List<Map<String, Object?>>? worldCharacters;
+  final List<Map<String, Object?>>? worldLocations;
+  final List<Map<String, Object?>>? worldSummaryLatestItems;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -348,6 +356,19 @@ class _RecordingV1ListTransport implements HttpTransport {
         },
       });
     }
+    if (request.uri.path.endsWith('/world/summary/latest')) {
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'list':
+              worldSummaryLatestItems ??
+              _worldSummaryLatest(
+                request.uri.queryParameters['origin_id'] ?? 'o_test_1',
+              ),
+        },
+      });
+    }
     if (request.method == 'POST' && request.uri.path.endsWith('/world/tick')) {
       if (worldTickCompleter != null) {
         return worldTickCompleter!.future;
@@ -377,6 +398,25 @@ class _RecordingV1ListTransport implements HttpTransport {
         'err_no': 0,
         'err_str': 'success',
         'data': {'world_id': body['world_id'], 'char_id': 'char_1'},
+      });
+    }
+    if (request.method == 'POST' &&
+        request.uri.path.endsWith('/session/set-world')) {
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {'ok': true},
+      });
+    }
+    if (request.method == 'POST' &&
+        request.uri.path.endsWith('/session/set-player-scene')) {
+      if (setPlayerSceneCompleter != null) {
+        return setPlayerSceneCompleter!.future;
+      }
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {'ok': true},
       });
     }
     if (request.method == 'POST' &&
@@ -557,6 +597,29 @@ class _RecordingV1ListTransport implements HttpTransport {
     };
   }
 
+  List<Map<String, Object?>> _worldSummaryLatest(String originId) {
+    final resolvedOriginId = originId.isEmpty ? 'o_test_1' : originId;
+    return [
+      {
+        'world_id': 'w_summary_1',
+        'origin_id': resolvedOriginId,
+        'tick_no': 4,
+        'summary': 'First copied world progress summary for $resolvedOriginId.',
+        'tick_time': 1780000000,
+        'created_at': 1780000010,
+      },
+      {
+        'world_id': 'w_summary_2',
+        'origin_id': resolvedOriginId,
+        'tick_no': 5,
+        'summary':
+            'Second copied world progress summary for $resolvedOriginId.',
+        'tick_time': 1780000100,
+        'created_at': 1780000110,
+      },
+    ];
+  }
+
   Map<String, Object?> _originDetail(String oid) {
     final fallback = oid.isEmpty ? 'o_test_1' : oid;
     return {
@@ -690,27 +753,29 @@ class _RecordingV1ListTransport implements HttpTransport {
               'metric_value': worldCharacterMetricValue,
             },
           ],
-      'locations': [
-        {
-          'location_id': 'l_$fallback',
-          'location_name': 'World Location',
-          'location_summary': 'A world location.',
-          'image': '',
-          'map_url': '',
-          'x_percent': 35,
-          'y_percent': 45,
-        },
-        {
-          'location_id': 'l_${fallback}_child',
-          'location_pid': 'l_$fallback',
-          'location_name': 'Child Location',
-          'location_summary': 'A child world location.',
-          'image': '',
-          'map_url': '',
-          'x_percent': 55,
-          'y_percent': 45,
-        },
-      ],
+      'locations':
+          worldLocations ??
+          [
+            {
+              'location_id': 'l_$fallback',
+              'location_name': 'World Location',
+              'location_summary': 'A world location.',
+              'image': '',
+              'map_url': '',
+              'x_percent': 35,
+              'y_percent': 45,
+            },
+            {
+              'location_id': 'l_${fallback}_child',
+              'location_pid': 'l_$fallback',
+              'location_name': 'Child Location',
+              'location_summary': 'A child world location.',
+              'image': '',
+              'map_url': '',
+              'x_percent': 55,
+              'y_percent': 45,
+            },
+          ],
       'ticks': [
         {
           'tick_no': 1,
@@ -893,11 +958,13 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
   _RecordingMessageCategoryTransport({
     this.readCompleter,
     this.notificationIsRead = true,
+    this.notification,
   });
 
   final requests = <TransportRequest>[];
   final Completer<TransportResponse>? readCompleter;
   final bool notificationIsRead;
+  final Map<String, Object?>? notification;
   var commentRead = false;
 
   @override
@@ -921,23 +988,12 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
     } else if (request.method == 'GET' &&
         path == '/api/v1/message/notifications') {
       data = {
-        'list': [
-          {
-            'id': 99,
-            'notification_id': 'ntf_recorded_001',
-            'notice_block': request.uri.queryParameters['block'],
-            'notice_type': 'discuss_comment',
-            'sender': const <String, Object?>{},
-            'biz_type': 1,
-            'biz_id': 'o_recorded_001',
-            'obj_id': 'd_recorded_001',
-            'content': 'Recorded block message',
-            'is_read': notificationIsRead,
-            'created_at': '2026-05-20T10:00:00Z',
-          },
-        ],
+        'list': [notification ?? _defaultNotification(request)],
         'total': 1,
       };
+    } else if (request.method == 'POST' &&
+        path == '/api/v1/world/apply/review') {
+      data = {'apply_id': decodedBody(request)['apply_id'], 'status': 20};
     }
     return TransportResponse(
       statusCode: 200,
@@ -949,6 +1005,22 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
   Map<String, dynamic> decodedBody(TransportRequest request) {
     return jsonDecode(utf8.decode(request.bodyBytes ?? const <int>[]))
         as Map<String, dynamic>;
+  }
+
+  Map<String, Object?> _defaultNotification(TransportRequest request) {
+    return {
+      'id': 99,
+      'notification_id': 'ntf_recorded_001',
+      'notice_block': request.uri.queryParameters['block'],
+      'notice_type': 'discuss_comment',
+      'sender': const <String, Object?>{},
+      'biz_type': 1,
+      'biz_id': 'o_recorded_001',
+      'obj_id': 'd_recorded_001',
+      'content': 'Recorded block message',
+      'is_read': notificationIsRead,
+      'created_at': '2026-05-20T10:00:00Z',
+    };
   }
 }
 
@@ -2276,8 +2348,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Notifications'), findsWidgets);
+    expect(find.text('Join request'), findsOneWidget);
     expect(
-      find.text('Penny wants to join Steam Kingdom Live.'),
+      find.text(
+        'Penny Hardaway request to join Steam Kingdom Live\n(w_mock_001)',
+      ),
       findsOneWidget,
     );
   });
@@ -2294,7 +2369,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('New followers'), findsWidgets);
-    expect(find.text('Penny Hardaway started following you.'), findsOneWidget);
+    expect(find.text('Penny Hardaway'), findsOneWidget);
+    expect(find.text(' started following you.'), findsOneWidget);
+
+    await tester.tap(find.text('Penny Hardaway'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(UserInfoPage), findsOneWidget);
+    expect(find.text('Penny Hardaway'), findsWidgets);
+
+    Navigator.of(tester.element(find.byType(UserInfoPage))).pop();
+    await tester.pumpAndSettle();
 
     Navigator.of(tester.element(find.byType(MessageCategoryListPage))).pop();
     await tester.pumpAndSettle();
@@ -2389,6 +2474,66 @@ void main() {
       expect(find.text('Recorded block message'), findsOneWidget);
     },
   );
+
+  testWidgets('join request notification approves world apply', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingMessageCategoryTransport(
+      notificationIsRead: false,
+      notification: const {
+        'notification_id': 'ntf_apply_001',
+        'notice_block': 'world_apply',
+        'notice_type': 'world_apply',
+        'sender': {'uid': 'U_Z7Y8S', 'name': 'Hushie'},
+        'biz_type': 2,
+        'biz_id': 'W_G9B5TK',
+        'obj_id': 'apl_apply_001',
+        'world_name': '重生 2005 测试时间设置',
+        'content': 'Hushie request to join 重生 2005 测试时间设置.',
+        'is_read': false,
+        'created_at': '2026-05-20T10:00:00Z',
+      },
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const MessageCategoryListPage(
+            title: 'Notifications',
+            block: 'world_apply',
+            emptyText: 'No notifications yet.',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Join request'), findsOneWidget);
+    expect(
+      find.text('Hushie request to join 重生 2005 测试时间设置\n(W_G9B5TK)'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Join request').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Approve'), findsOneWidget);
+    expect(find.text('Reject'), findsOneWidget);
+
+    await tester.tap(find.text('Approve'));
+    await tester.pumpAndSettle();
+
+    final reviewRequest = transport.requests.firstWhere(
+      (request) => request.uri.path == '/api/v1/world/apply/review',
+    );
+    final body = transport.decodedBody(reviewRequest);
+    expect(reviewRequest.method, 'POST');
+    expect(body['apply_id'], 'apl_apply_001');
+    expect(body['action'], 'approve');
+    expect(find.text('Approved'), findsWidgets);
+    await tester.pump(const Duration(seconds: 3));
+  });
 
   testWidgets('tap Origin switches to Origin page', (
     WidgetTester tester,
@@ -2791,6 +2936,96 @@ void main() {
     expect(find.text('Detail Location'), findsWidgets);
     expect(find.text('Detail location launch paragraph.'), findsOneWidget);
   });
+
+  testWidgets(
+    'Origin detail copy world progress rotates summary latest items',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport();
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: Scaffold(
+              body: Padding(
+                padding: EdgeInsets.all(12),
+                child: CopyWorldProgressSection(originId: 'o_test_1'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final summaryRequests = transport.requestsFor(
+        '/api/v1/world/summary/latest',
+      );
+      expect(summaryRequests, hasLength(1));
+      expect(
+        summaryRequests.single.uri.queryParameters['origin_id'],
+        'o_test_1',
+      );
+      expect(
+        summaryRequests.single.uri.queryParameters.containsKey('world_id'),
+        isFalse,
+      );
+      expect(
+        find.text('First copied world progress summary for o_test_1.'),
+        findsOneWidget,
+      );
+      expect(find.text('WID: w_summary_1'), findsOneWidget);
+      expect(find.text('4'), findsWidgets);
+      expect(
+        tester
+            .getSize(find.byKey(const ValueKey('copy-world-progress-body')))
+            .height,
+        closeTo(14 * 1.45 * 5, 0.1),
+      );
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(const Duration(milliseconds: 600));
+
+      expect(
+        find.text('Second copied world progress summary for o_test_1.'),
+        findsOneWidget,
+      );
+      expect(find.text('WID: w_summary_2'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Origin detail copy world progress empty list uses natural height',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldSummaryLatestItems: const <Map<String, Object?>>[],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: Scaffold(
+              body: Padding(
+                padding: EdgeInsets.all(12),
+                child: CopyWorldProgressSection(originId: 'o_test_1'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('No launched world'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('copy-world-progress-body')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .getSize(find.byKey(const ValueKey('copy-world-progress-empty')))
+            .height,
+        lessThan(14 * 1.45 * 5),
+      );
+    },
+  );
 
   testWidgets('Origin detail originator opens user info', (
     WidgetTester tester,
@@ -3796,6 +4031,41 @@ void main() {
     expect(next.displayName, 'Remote User');
     expect(next.followingCount, 13);
     expect(next.followerCount, 17);
+  });
+
+  test('remote user info image object avatar keeps responsive resource', () {
+    const current = UserProfileData(
+      avatarUrl: '',
+      displayName: 'Cached User',
+      uid: 'u_cached',
+      followingCount: 7,
+      followerCount: 11,
+      origins: <UserProfileOriginItem>[],
+      worlds: <UserProfileWorldItem>[],
+    );
+
+    final next = mergeRemoteUserInfoForRenderForTest(current, {
+      'uid': 'u_cached',
+      'name': 'Cached User',
+      'avatar': {
+        'sm_url': 'https://cdn.example.com/me_avatar_400_300.webp',
+        'xl_url': 'https://cdn.example.com/me_avatar_800_600.webp',
+        'object_key': 'uploads/user_avatar/20260608/me_avatar_800_600.webp',
+      },
+      'following_cnt': 7,
+      'follower_cnt': 11,
+    });
+
+    expect(next.avatarUrl, 'https://cdn.example.com/me_avatar_800_600.webp');
+    expect(
+      selectGenesisImageUrl(
+        next.avatarUrl,
+        logicalWidth: 120,
+        logicalHeight: 90,
+        devicePixelRatio: 2,
+      ),
+      'https://cdn.example.com/me_avatar_400_300.webp',
+    );
   });
 
   testWidgets('Me page enters before origin and world lists finish', (
@@ -4829,6 +5099,15 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
     await tester.pumpAndSettle();
 
+    final createButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Create'),
+    );
+    expect(createButton.onPressed, isNotNull);
+    expect(
+      createButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+      const Color(0xFF198B64),
+    );
+
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
     await tester.pumpAndSettle();
 
@@ -4958,6 +5237,16 @@ void main() {
       find.widgetWithText(FilledButton, 'Publish'),
     );
     expect(rootPublish.onPressed, isNotNull);
+    expect(
+      rootPublish.style?.backgroundColor?.resolve(<WidgetState>{}),
+      const Color(0xFF198B64),
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Publish'));
+    await tester.pumpAndSettle();
+    expect(find.text('No changes to publish.'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
+    await tester.pump(const Duration(seconds: 2));
 
     await tester.tap(find.text('Basics'));
     await tester.pumpAndSettle();
@@ -6341,44 +6630,35 @@ void main() {
     );
   });
 
-  testWidgets(
-    'world location chat cached panels prebuild hidden without joining',
-    (WidgetTester tester) async {
-      final transport = _RecordingV1ListTransport(
-        worldRelationStatus: 'joined',
-      );
-      final chatroom = _FakeChatroomClient();
-      final services = await _testServices(
-        transport: transport,
-        useMock: false,
-        chatroom: chatroom,
-      );
+  testWidgets('world location chat does not prebuild hidden panels on entry', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldRelationStatus: 'joined');
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+    );
 
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: services,
-          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.pump();
-      await tester.pump();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
 
-      expect(chatroom.connectCount, 1);
-      expect(chatroom.session.joinCount, 0);
-      expect(chatroom.session.joinLocationId, isNull);
-      expect(
-        find.text('World Location (1)', skipOffstage: false),
-        findsOneWidget,
-      );
-      expect(
-        find.text('Child Location (1)', skipOffstage: false),
-        findsOneWidget,
-      );
-      expect(_visibleText('World Location (1)'), findsNothing);
-      expect(_visibleText('Child Location (1)'), findsNothing);
-    },
-  );
+    expect(chatroom.connectCount, 1);
+    expect(chatroom.session.joinCount, 0);
+    expect(chatroom.session.joinLocationId, isNull);
+    expect(find.text('World Location (1)', skipOffstage: false), findsNothing);
+    expect(find.text('Child Location (1)', skipOffstage: false), findsNothing);
+    expect(_visibleText('World Location (1)'), findsNothing);
+    expect(_visibleText('Child Location (1)'), findsNothing);
+  });
 
   testWidgets(
     'world location chat opens inline and reuses cached panel state',
@@ -6454,6 +6734,344 @@ void main() {
       expect(chatroom.session.joinCount, 2);
       expect(_visibleText('Child Location (1)'), findsOneWidget);
       expect(find.text('cached draft'), findsOneWidget);
+    },
+  );
+
+  testWidgets('world location chat shows skeleton before first panel frame', (
+    WidgetTester tester,
+  ) async {
+    final connectCompleter = Completer<void>();
+    final transport = _RecordingV1ListTransport(worldRelationStatus: 'joined');
+    final chatroom = _FakeChatroomClient(connectCompleter: connectCompleter);
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Location (2)'));
+    await tester.pumpAndSettle();
+    final childRow = find.ancestor(
+      of: find.text('Child Location').last,
+      matching: find.byType(InkWell),
+    );
+    await tester.tap(childRow.last);
+    await tester.pump();
+
+    expect(_visibleText('Child Location (1)'), findsOneWidget);
+    expect(_visibleText('Loading'), findsOneWidget);
+    expect(chatroom.session.joinCount, 0);
+
+    connectCompleter.complete();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('world location chat opens before position update completes', (
+    WidgetTester tester,
+  ) async {
+    final setPlayerSceneCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'joined',
+      setPlayerSceneCompleter: setPlayerSceneCompleter,
+    );
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Location (2)'));
+    await tester.pumpAndSettle();
+    final childRow = find.ancestor(
+      of: find.text('Child Location').last,
+      matching: find.byType(InkWell),
+    );
+    await tester.tap(childRow.last);
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      transport.requestsFor('/api/session/set-player-scene'),
+      hasLength(1),
+    );
+    expect(setPlayerSceneCompleter.isCompleted, false);
+    expect(_visibleText('Child Location (1)'), findsOneWidget);
+    expect(chatroom.session.joinLocationId, 'l_w_test_1_child');
+
+    setPlayerSceneCompleter.complete(
+      TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {'ok': true},
+        }),
+      ),
+    );
+    await tester.pump();
+  });
+
+  testWidgets(
+    'world location chat opens while websocket connects in background',
+    (WidgetTester tester) async {
+      final connectCompleter = Completer<void>();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+      );
+      final chatroom = _FakeChatroomClient(connectCompleter: connectCompleter);
+      final messageStorage = MemoryChatroomMessageStorage();
+      await messageStorage.mergeMessages(
+        ownerUid: 'u_mock',
+        worldId: 'w_test_1',
+        locationId: 'l_w_test_1_child',
+        messages: const [
+          {
+            'msg_id': 7,
+            'location_id': 'l_w_test_1_child',
+            'conversation_round_id': 7,
+            'round_order': 1,
+            'sender_type': 'user',
+            'sender_id': 'u_cached_peer',
+            'sender_name': 'Cached Peer',
+            'user_id': 'u_cached_peer',
+            'content': 'cached local location message',
+            'ts': 1717300000007,
+          },
+        ],
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+        chatroomMessages: messageStorage,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(chatroom.connectCount, 1);
+      expect(connectCompleter.isCompleted, false);
+
+      await tester.tap(find.text('Location (2)'));
+      await tester.pumpAndSettle();
+      final childRow = find.ancestor(
+        of: find.text('Child Location').last,
+        matching: find.byType(InkWell),
+      );
+      await tester.tap(childRow.last);
+      await tester.pump();
+      await tester.pump();
+
+      expect(_visibleText('Child Location (1)'), findsOneWidget);
+      expect(find.text('cached local location message'), findsOneWidget);
+      expect(chatroom.session.joinCount, 0);
+
+      connectCompleter.complete();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(chatroom.session.joinLocationId, 'l_w_test_1_child');
+      expect(chatroom.session.joinCount, 1);
+    },
+  );
+
+  testWidgets(
+    'world location chat renders cached point-id messages before join',
+    (WidgetTester tester) async {
+      final connectCompleter = Completer<void>();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+        worldLocations: const [
+          {
+            'location_id': 'scene_root',
+            'point_id': 'point_root',
+            'location_name': 'World Location',
+            'location_summary': 'A world location.',
+            'image': '',
+            'map_url': '',
+            'x_percent': 35,
+            'y_percent': 45,
+          },
+          {
+            'location_id': 'scene_child',
+            'point_id': 'point_child',
+            'location_pid': 'scene_root',
+            'location_name': 'Child Location',
+            'location_summary': 'A child world location.',
+            'image': '',
+            'map_url': '',
+            'x_percent': 55,
+            'y_percent': 45,
+          },
+        ],
+      );
+      final chatroom = _FakeChatroomClient(connectCompleter: connectCompleter);
+      final messageStorage = MemoryChatroomMessageStorage();
+      await messageStorage.mergeMessages(
+        ownerUid: 'u_mock',
+        worldId: 'w_test_1',
+        locationId: 'point_child',
+        messages: const [
+          {
+            'msg_id': 8,
+            'location_id': 'point_child',
+            'conversation_round_id': 8,
+            'round_order': 1,
+            'sender_type': 'user',
+            'sender_id': 'u_cached_peer',
+            'sender_name': 'Cached Peer',
+            'user_id': 'u_cached_peer',
+            'content': 'cached point-id location message',
+            'ts': 1717300000008,
+          },
+        ],
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+        chatroomMessages: messageStorage,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Location (2)'));
+      await tester.pumpAndSettle();
+      final childRow = find.ancestor(
+        of: find.text('Child Location').last,
+        matching: find.byType(InkWell),
+      );
+      await tester.tap(childRow.last);
+      await tester.pump();
+      await tester.pump();
+
+      expect(_visibleText('Child Location (1)'), findsOneWidget);
+      expect(find.text('cached point-id location message'), findsOneWidget);
+      expect(chatroom.session.joinCount, 0);
+
+      connectCompleter.complete();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(chatroom.session.joinLocationId, 'scene_child');
+      expect(chatroom.session.joinCount, 1);
+    },
+  );
+
+  testWidgets(
+    'world location chat loads cached messages only for the opened location',
+    (WidgetTester tester) async {
+      final connectCompleter = Completer<void>();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+        worldLocations: const [
+          {
+            'location_id': 'scene_root',
+            'point_id': 'point_root',
+            'location_name': 'World Location',
+            'location_summary': 'A world location.',
+            'image': '',
+            'map_url': '',
+            'x_percent': 35,
+            'y_percent': 45,
+          },
+          {
+            'location_id': 'scene_child',
+            'point_id': 'point_child',
+            'location_pid': 'scene_root',
+            'location_name': 'Child Location',
+            'location_summary': 'A child world location.',
+            'image': '',
+            'map_url': '',
+            'x_percent': 55,
+            'y_percent': 45,
+          },
+        ],
+      );
+      final chatroom = _FakeChatroomClient(connectCompleter: connectCompleter);
+      final messageStorage = _RecordingChatroomMessageStorage();
+      await messageStorage.mergeMessages(
+        ownerUid: 'u_mock',
+        worldId: 'w_test_1',
+        locationId: 'point_child',
+        messages: const [
+          {
+            'msg_id': 9,
+            'location_id': 'point_child',
+            'conversation_round_id': 9,
+            'round_order': 1,
+            'sender_type': 'user',
+            'sender_id': 'u_cached_peer',
+            'sender_name': 'Cached Peer',
+            'user_id': 'u_cached_peer',
+            'content': 'preloaded local message',
+            'ts': 1717300000009,
+          },
+        ],
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+        chatroomMessages: messageStorage,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(connectCompleter.isCompleted, false);
+      expect(chatroom.session.joinCount, 0);
+      expect(messageStorage.latestLocationIds, isNot(contains('point_child')));
+      expect(_visibleText('preloaded local message'), findsNothing);
+
+      await tester.tap(find.text('Location (2)'));
+      await tester.pumpAndSettle();
+      final childRow = find.ancestor(
+        of: find.text('Child Location').last,
+        matching: find.byType(InkWell),
+      );
+      await tester.tap(childRow.last);
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(messageStorage.latestLocationIds, contains('point_child'));
+      expect(_visibleText('preloaded local message'), findsOneWidget);
+      expect(chatroom.session.joinCount, 0);
     },
   );
 
@@ -6573,7 +7191,7 @@ void main() {
           conversationRoundId: 'round-1',
           roundOrder: 0,
           senderType: 'user',
-          senderId: '',
+          senderId: 'U_J57GT5',
           senderName: '号称句句',
           content: 'hello castle',
           broadcast: true,
@@ -6635,7 +7253,7 @@ void main() {
         conversationRoundId: '1317',
         roundOrder: 0,
         senderType: 'user',
-        senderId: '',
+        senderId: 'U_J57GT5',
         senderName: '号称句句',
         content: '吃饭了吗',
         broadcast: true,
@@ -6694,6 +7312,33 @@ void main() {
       expect(find.byIcon(MyFlutterApp.redstarCharIcon), findsOneWidget);
     },
   );
+
+  test('location chat visible messages keep only latest consecutive tick', () {
+    WorldChatroomMessage message(int id, String senderType) {
+      return WorldChatroomMessage(
+        messageId: id,
+        conversationRoundId: '$id',
+        roundOrder: 0,
+        tickNo: senderType == 'tick' ? id : 0,
+        locationId: 'loc-1',
+        senderType: senderType,
+        senderId: senderType == 'tick' ? 'tick' : 'u_peer',
+        senderName: senderType == 'tick' ? 'Time' : 'Peer',
+        content: 'message $id',
+        createdAt: null,
+      );
+    }
+
+    final visible = visibleLocationChatMessagesForTesting([
+      message(1, 'user'),
+      message(2, 'tick'),
+      message(3, 'tick'),
+      message(4, 'user'),
+      message(5, 'tick'),
+    ]);
+
+    expect(visible.map((message) => message.messageId), [1, 3, 4, 5]);
+  });
 
   testWidgets('location chat shows new message notice when not at bottom', (
     WidgetTester tester,
@@ -6843,7 +7488,7 @@ void main() {
         conversationRoundId: '1318',
         roundOrder: 0,
         senderType: 'user',
-        senderId: '',
+        senderId: 'u_other',
         senderName: 'Actual Username',
         content: 'role name check',
         broadcast: true,
@@ -6935,7 +7580,7 @@ void main() {
       ChatroomWorldNotification(
         worldId: 'world-1',
         locationId: 'castle',
-        eventType: 'tick_end',
+        eventType: 'tick_done',
         title: '',
         summary: '',
         detailUrl: '',
@@ -7255,7 +7900,30 @@ class _FailingChatroomClient implements ChatroomClient {
   }
 }
 
+class _RecordingChatroomMessageStorage extends MemoryChatroomMessageStorage {
+  final latestLocationIds = <String>[];
+
+  @override
+  Future<List<Map<String, dynamic>>> loadLatestMessages({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int limit,
+  }) async {
+    latestLocationIds.add(locationId);
+    return super.loadLatestMessages(
+      ownerUid: ownerUid,
+      worldId: worldId,
+      locationId: locationId,
+      limit: limit,
+    );
+  }
+}
+
 class _FakeChatroomClient implements ChatroomClient {
+  _FakeChatroomClient({this.connectCompleter});
+
+  final Completer<void>? connectCompleter;
   late final _FakeChatroomSession session;
   int connectCount = 0;
   String? worldId;
@@ -7287,6 +7955,9 @@ class _FakeChatroomClient implements ChatroomClient {
       senderId: senderId ?? '',
       senderName: senderName ?? '',
     );
+    if (connectCompleter != null) {
+      await connectCompleter!.future;
+    }
     return session;
   }
 

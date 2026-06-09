@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/genesis_image_resource.dart';
+
 Future<void> showGenesisImageViewer(
   BuildContext context, {
   required List<String> imageUrls,
@@ -203,27 +205,40 @@ class _ImageByUrl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = url.trim();
     final fallback = Container(
       color: const Color(0xFF202020),
       alignment: Alignment.center,
       child: const Icon(Icons.image_outlined, size: 28, color: Colors.white54),
     );
-    if (imageUrl.isEmpty) return fallback;
-    if (imageUrl.startsWith('assets/')) {
-      return Image.asset(
-        imageUrl,
-        fit: fit,
-        errorBuilder: (context, error, stackTrace) => fallback,
-      );
-    }
-    return Image.network(
-      imageUrl,
-      fit: fit,
-      errorBuilder: (context, error, stackTrace) => fallback,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return fallback;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final imageUrl = selectGenesisImageUrl(
+          url,
+          logicalWidth: constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : null,
+          logicalHeight: constraints.maxHeight.isFinite
+              ? constraints.maxHeight
+              : null,
+          devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+        );
+        if (imageUrl.isEmpty) return fallback;
+        if (imageUrl.startsWith('assets/')) {
+          return Image.asset(
+            imageUrl,
+            fit: fit,
+            errorBuilder: (context, error, stackTrace) => fallback,
+          );
+        }
+        return Image.network(
+          imageUrl,
+          fit: fit,
+          errorBuilder: (context, error, stackTrace) => fallback,
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return fallback;
+          },
+        );
       },
     );
   }

@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../utils/genesis_image_resource.dart';
+
 const String genesisDefaultListImageAsset =
     'assets/images/default_list_image.png';
 
@@ -22,30 +24,43 @@ class GenesisListImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolved = imageUrl.trim();
-    final image = resolved.isEmpty
-        ? _placeholder()
-        : resolved.startsWith('assets/')
-        ? Image.asset(
-            resolved,
-            width: _finite(width),
-            height: _finite(height),
-            fit: fit,
-            errorBuilder: (context, error, stackTrace) => _placeholder(),
-          )
-        : CachedNetworkImage(
-            imageUrl: resolved,
-            width: _finite(width),
-            height: _finite(height),
-            fit: fit,
-            placeholder: (context, url) => _placeholder(),
-            errorWidget: (context, url, error) => _placeholder(),
-          );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final resolved = _selectUrl(context, constraints);
+        final image = resolved.isEmpty
+            ? _placeholder()
+            : resolved.startsWith('assets/')
+            ? Image.asset(
+                resolved,
+                width: _finite(width),
+                height: _finite(height),
+                fit: fit,
+                errorBuilder: (context, error, stackTrace) => _placeholder(),
+              )
+            : CachedNetworkImage(
+                imageUrl: resolved,
+                width: _finite(width),
+                height: _finite(height),
+                fit: fit,
+                placeholder: (context, url) => _placeholder(),
+                errorWidget: (context, url, error) => _placeholder(),
+              );
 
-    return ClipRRect(
-      borderRadius: borderRadius,
-      child: SizedBox(width: width, height: height, child: image),
+        return ClipRRect(
+          borderRadius: borderRadius,
+          child: SizedBox(width: width, height: height, child: image),
+        );
+      },
     );
+  }
+
+  String _selectUrl(BuildContext context, BoxConstraints constraints) {
+    return selectGenesisImageUrl(
+      imageUrl,
+      logicalWidth: _finite(width) ?? _finite(constraints.maxWidth),
+      logicalHeight: _finite(height) ?? _finite(constraints.maxHeight),
+      devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+    ).trim();
   }
 
   Widget _placeholder() {

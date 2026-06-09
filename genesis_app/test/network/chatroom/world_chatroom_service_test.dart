@@ -40,19 +40,16 @@ void main() {
       service.state.entitiesByLocation['loc-2']!.map((entity) => entity.id),
       contains('user-1'),
     );
-    expect(service.state.messagesByLocation['loc-1'], hasLength(1));
-    expect(service.state.messagesByLocation['loc-2'], hasLength(1));
+    expect(service.state.messagesByLocation, isEmpty);
     expect(http.detailRequests, 1);
     expect(http.userLocationRequests, 1);
-    expect(http.messagesRequestsByLocation['loc-1'], 1);
-    expect(http.messagesRequestsByLocation['loc-2'], 1);
-    expect(http.messagesRequestsByLocation.containsKey('loc-root'), isFalse);
+    expect(http.messagesRequestsByLocation, isEmpty);
 
     await service.dispose();
   });
 
   test(
-    'connect loads cached messages before refreshing latest history',
+    'connect does not warm message caches before opening a location',
     () async {
       final socket = _FakeChatroomSocket();
       final http = _WorldChatroomHttpTransport();
@@ -80,53 +77,333 @@ void main() {
 
       await service.connect(worldId: 'world-1', identity: _identity());
 
-      expect(
-        service.state.messagesByLocation['loc-1']!
-            .map((message) => message.content)
-            .toList(),
-        ['cached', 'remote'],
-      );
+      expect(service.state.messagesByLocation['loc-1'], isNull);
+      expect(http.messagesRequestsByLocation, isEmpty);
       final cached = await storage.loadLatestMessages(
         ownerUid: 'user-1',
         worldId: 'world-1',
         locationId: 'loc-1',
         limit: 20,
       );
-      expect(cached.map((message) => message['content']).toList(), [
-        'cached',
-        'remote',
-      ]);
+      expect(cached.map((message) => message['content']).toList(), ['cached']);
       await service.dispose();
     },
   );
 
   test(
-    'connect keeps hydrating when a location history request fails',
+    'join loads cached location messages before websocket connects',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final connectCompleter = Completer<void>();
+      final socketTransport = _BlockingChatroomTransport(
+        socket,
+        connectCompleter,
+      );
+      final storage = MemoryChatroomMessageStorage();
+      await storage.mergeMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        messages: [
+          _httpMessageJson(
+            messageId: 1,
+            locationId: 'loc-1',
+            content: 'cached before socket',
+          ),
+        ],
+      );
+      final service = await _service(
+        socketTransport: socketTransport,
+        messageStorage: storage,
+      );
+
+      final connectFuture = service.connect(
+        worldId: 'world-1',
+        identity: _identity(),
+      );
+      await _waitFor(() => socketTransport.connectStarted);
+
+      final joinFuture = service.join(locationId: 'loc-1');
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.any(
+              (message) => message.content == 'cached before socket',
+            ) ??
+            false,
+      );
+
+      expect(socket.sentTypes, isNot(contains('join')));
+
+      connectCompleter.complete();
+      await _waitFor(() => socket.sentTypes.contains('join'));
+      socket.serverJoinAck();
+      await joinFuture;
+      await connectFuture;
+      await service.dispose();
+    },
+  );
+
+  test(
+    'join fetches current location history without warming every location',
     () async {
       final socket = _FakeChatroomSocket();
       final http = _WorldChatroomHttpTransport()
-        ..failedMessageLocationIds.add('loc-1');
+        ..messagesByLocation['loc-1'] = [
+          _httpMessageJson(
+            messageId: 10,
+            locationId: 'loc-1',
+            content: 'joined history 1',
+          ),
+          _httpMessageJson(
+            messageId: 11,
+            locationId: 'loc-1',
+            content: 'joined history 2',
+          ),
+          _httpMessageJson(
+            messageId: 12,
+            locationId: 'loc-1',
+            content: 'joined history 3',
+          ),
+        ];
       final service = await _service(
         socketTransport: _FakeChatroomTransport(socket),
         httpTransport: http,
       );
-      final failures = <ChatroomFailureEvent>[];
-      final failureSub = service.failures.listen(failures.add);
 
       await service.connect(worldId: 'world-1', identity: _identity());
+      final historyStateLengths = <int>[];
+      final stateSub = service.states.listen((state) {
+        final length = state.messagesByLocation['loc-1']?.length;
+        if (length != null) historyStateLengths.add(length);
+      });
+      final joinFuture = service.join(locationId: 'loc-1');
+      await _waitFor(() => socket.sentTypes.contains('join'));
+      socket.serverJoinAck();
+      await joinFuture;
+
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.any(
+              (message) => message.content == 'joined history 3',
+            ) ??
+            false,
+      );
 
       expect(http.messagesRequestsByLocation['loc-1'], 1);
-      expect(http.messagesRequestsByLocation['loc-2'], 1);
+      expect(http.messagesRequestsByLocation.containsKey('loc-2'), isFalse);
       expect(http.messagesRequestsByLocation.containsKey('loc-root'), isFalse);
-      expect(http.userLocationRequests, 1);
-      expect(
-        failures.where((failure) => failure.code == 'snapshot_failed'),
-        isEmpty,
-      );
-      await failureSub.cancel();
+      expect(historyStateLengths.where((length) => length > 0).toList(), [3]);
+      await stateSub.cancel();
       await service.dispose();
     },
   );
+
+  test(
+    'hydrateLocalMessages maps cached location aliases into target queue',
+    () async {
+      final storage = MemoryChatroomMessageStorage();
+      await storage.mergeMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'point-loc-1',
+        messages: [
+          _httpMessageJson(
+            messageId: 1,
+            locationId: 'point-loc-1',
+            content: 'cached alias message',
+          ),
+        ],
+      );
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        messageStorage: storage,
+      );
+
+      await service.hydrateLocalMessages(
+        worldId: 'world-1',
+        locationId: 'scene-loc-1',
+        ownerUid: 'user-1',
+        locationAliases: const ['point-loc-1'],
+      );
+
+      expect(
+        service.state.messagesByLocation['scene-loc-1']!
+            .map((message) => '${message.locationId}:${message.content}')
+            .toList(),
+        ['scene-loc-1:cached alias message'],
+      );
+      expect(service.state.messagesByLocation['point-loc-1'], isNull);
+      expect(socket.sentTypes, isEmpty);
+      await service.dispose();
+    },
+  );
+
+  test(
+    'hydrateLocalMessages publishes an alias before a slower empty alias',
+    () async {
+      final storage = _BlockingChatroomMessageStorage('scene-loc-1');
+      await storage.mergeMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'point-loc-1',
+        messages: [
+          _httpMessageJson(
+            messageId: 1,
+            locationId: 'point-loc-1',
+            content: 'cached fast alias message',
+          ),
+        ],
+      );
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        messageStorage: storage,
+      );
+
+      var hydrateCompleted = false;
+      final hydrate = service
+          .hydrateLocalMessages(
+            worldId: 'world-1',
+            locationId: 'scene-loc-1',
+            ownerUid: 'user-1',
+            locationAliases: const ['point-loc-1'],
+          )
+          .then((_) => hydrateCompleted = true);
+
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['scene-loc-1']?.any(
+              (message) => message.content == 'cached fast alias message',
+            ) ??
+            false,
+      );
+
+      expect(hydrateCompleted, false);
+      expect(storage.blockingLoadStarted, true);
+      expect(socket.sentTypes, isEmpty);
+
+      storage.completeBlockingLoad();
+      await hydrate;
+      expect(hydrateCompleted, true);
+      await service.dispose();
+    },
+  );
+
+  test('hydrateLocalMessages waits for an in-flight cache load', () async {
+    final storage = _BlockingChatroomMessageStorage('point-loc-1');
+    await storage.mergeMessages(
+      ownerUid: 'user-1',
+      worldId: 'world-1',
+      locationId: 'point-loc-1',
+      messages: [
+        _httpMessageJson(
+          messageId: 1,
+          locationId: 'point-loc-1',
+          content: 'cached after blocking load',
+        ),
+      ],
+    );
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      messageStorage: storage,
+    );
+
+    final firstHydrate = service.hydrateLocalMessages(
+      worldId: 'world-1',
+      locationId: 'scene-loc-1',
+      ownerUid: 'user-1',
+      locationAliases: const ['point-loc-1'],
+    );
+    await _waitFor(() => storage.blockingLoadStarted);
+
+    var secondCompleted = false;
+    final secondHydrate = service
+        .hydrateLocalMessages(
+          worldId: 'world-1',
+          locationId: 'scene-loc-1',
+          ownerUid: 'user-1',
+          locationAliases: const ['point-loc-1'],
+        )
+        .then((_) => secondCompleted = true);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(secondCompleted, false);
+
+    storage.completeBlockingLoad();
+    await firstHydrate;
+    await secondHydrate;
+
+    expect(
+      service.state.messagesByLocation['scene-loc-1']!
+          .map((message) => message.content)
+          .toList(),
+      ['cached after blocking load'],
+    );
+    expect(secondCompleted, true);
+    expect(socket.sentTypes, isEmpty);
+    await service.dispose();
+  });
+
+  test('hydrateLocalMessages loads cache before connect starts', () async {
+    final storage = MemoryChatroomMessageStorage();
+    await storage.mergeMessages(
+      ownerUid: 'user-1',
+      worldId: 'world-1',
+      locationId: 'loc-1',
+      messages: [
+        _httpMessageJson(
+          messageId: 1,
+          locationId: 'loc-1',
+          content: 'cached before connect',
+        ),
+      ],
+    );
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      messageStorage: storage,
+    );
+
+    await service.hydrateLocalMessages(
+      worldId: 'world-1',
+      locationId: 'loc-1',
+      ownerUid: 'user-1',
+    );
+
+    expect(
+      service.state.messagesByLocation['loc-1']!
+          .map((message) => message.content)
+          .toList(),
+      ['cached before connect'],
+    );
+    expect(socket.sentTypes, isEmpty);
+    await service.dispose();
+  });
+
+  test('connect skips location history warmup', () async {
+    final socket = _FakeChatroomSocket();
+    final http = _WorldChatroomHttpTransport()
+      ..failedMessageLocationIds.add('loc-1');
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      httpTransport: http,
+    );
+    final failures = <ChatroomFailureEvent>[];
+    final failureSub = service.failures.listen(failures.add);
+
+    await service.connect(worldId: 'world-1', identity: _identity());
+
+    expect(http.messagesRequestsByLocation, isEmpty);
+    expect(http.userLocationRequests, 1);
+    expect(
+      failures.where((failure) => failure.code == 'snapshot_failed'),
+      isEmpty,
+    );
+    await failureSub.cancel();
+    await service.dispose();
+  });
 
   test(
     'history messages use requested location when response omits location id',
@@ -149,10 +426,16 @@ void main() {
       );
 
       await service.connect(worldId: 'world-1', identity: _identity());
+      final page = await service.loadOlderMessages(
+        locationId: 'loc-1',
+        beforeMessageId: 100,
+        limit: 20,
+      );
 
       final message = service.state.messagesByLocation['loc-1']!.singleWhere(
         (message) => message.messageId == 11,
       );
+      expect(page.loadedCount, 1);
       expect(message.locationId, 'loc-1');
       final cached = await storage.loadLatestMessages(
         ownerUid: 'user-1',
@@ -247,13 +530,13 @@ void main() {
     await service.connect(worldId: 'world-1', identity: _identity());
     final page = await service.loadOlderMessages(
       locationId: 'loc-1',
-      beforeMessageId: 2,
+      beforeMessageId: 3,
       limit: 20,
     );
 
-    expect(page.loadedCount, 1);
+    expect(page.loadedCount, 2);
     expect(page.hasMore, isFalse);
-    expect(http.messageSinceByLocation['loc-1']?.last, 2);
+    expect(http.messageSinceByLocation['loc-1']?.last, 3);
     expect(
       service.state.messagesByLocation['loc-1']!
           .map((message) => message.content)
@@ -263,7 +546,7 @@ void main() {
     await service.dispose();
   });
 
-  test('user message keeps user id when sender id is omitted', () async {
+  test('user message uses required top-level sender id', () async {
     final socket = _FakeChatroomSocket();
     final http = _WorldChatroomHttpTransport()
       ..messagesByLocation['loc-1'] = const <Map<String, dynamic>>[]
@@ -279,6 +562,7 @@ void main() {
       'session_id': 'sess-1',
       'location_id': 'loc-1',
       'user_id': 'user-1',
+      'sender_id': 'user-1',
       'sender_name': 'Player One',
       'msg_id': 61,
       'conversation_round_id': 1280,
@@ -296,10 +580,58 @@ void main() {
       (message) => message.messageId == 61,
     );
     expect(message.userId, 'user-1');
-    expect(message.senderId, isEmpty);
+    expect(message.senderId, 'user-1');
     expect(message.clientMsgId, 'client-1');
     await service.dispose();
   });
+
+  test(
+    'tick advance push enters every leaf location queue as system time message',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport()
+        ..messagesByLocation['loc-1'] = const <Map<String, dynamic>>[]
+        ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+      );
+
+      await service.connect(worldId: 'world-1', identity: _identity());
+      socket.serverFrame('tick_advance', {
+        'ts': 1780840607650,
+        'world_id': 'world-1',
+        'msg_id': 154,
+        'conversation_round_id': 1348,
+        'current_time': 'Day 45, 19:30',
+        'payload': {'content': 'Day 45, 19:30', 'tick_no': 7},
+      });
+
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.any(
+                  (message) => message.messageId == 154,
+                ) ==
+                true &&
+            service.state.messagesByLocation['loc-2']?.any(
+                  (message) => message.messageId == 154,
+                ) ==
+                true,
+      );
+      for (final locationId in const ['loc-1', 'loc-2']) {
+        final message = service.state.messagesByLocation[locationId]!
+            .singleWhere((message) => message.messageId == 154);
+        expect(message.locationId, locationId);
+        expect(message.senderType, 'tick');
+        expect(message.senderId, 'tick');
+        expect(message.senderName, 'Time');
+        expect(message.tickNo, 7);
+        expect(message.content, 'Day 45, 19:30');
+      }
+      expect(service.state.messagesByLocation.containsKey('loc-root'), isFalse);
+      await service.dispose();
+    },
+  );
 
   test('narrator push with top-level fields enters location queue', () async {
     final socket = _FakeChatroomSocket();
@@ -417,7 +749,7 @@ void main() {
     await service.dispose();
   });
 
-  test('heartbeat ack failure reconnects', () async {
+  test('heartbeat sends frames without ack timeout reconnects', () async {
     final firstSocket = _FakeChatroomSocket();
     final secondSocket = _FakeChatroomSocket();
     final transport = _SequencedChatroomTransport([firstSocket, secondSocket]);
@@ -430,10 +762,11 @@ void main() {
 
     await service.connect(worldId: 'world-1', identity: _identity());
 
-    await _waitFor(() => transport.connectCount == 2);
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+    expect(transport.connectCount, 1);
     expect(
       firstSocket.sentTypes.where((type) => type == 'heartbeat').length,
-      3,
+      greaterThanOrEqualTo(1),
     );
     await service.dispose();
   });
@@ -826,6 +1159,37 @@ class _FakeDeviceIdService implements DeviceIdService {
   Future<String> getDeviceId() async => 'test-device-id';
 }
 
+class _BlockingChatroomMessageStorage extends MemoryChatroomMessageStorage {
+  _BlockingChatroomMessageStorage(this.blockingLocationId);
+
+  final String blockingLocationId;
+  final Completer<void> _loadCompleter = Completer<void>();
+  bool blockingLoadStarted = false;
+
+  void completeBlockingLoad() {
+    if (!_loadCompleter.isCompleted) _loadCompleter.complete();
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> loadLatestMessages({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int limit,
+  }) async {
+    if (locationId == blockingLocationId) {
+      blockingLoadStarted = true;
+      await _loadCompleter.future;
+    }
+    return super.loadLatestMessages(
+      ownerUid: ownerUid,
+      worldId: worldId,
+      locationId: locationId,
+      limit: limit,
+    );
+  }
+}
+
 class _SequencedChatroomTransport implements ChatroomSocketTransport {
   _SequencedChatroomTransport(this.results);
 
@@ -855,6 +1219,24 @@ class _FakeChatroomTransport implements ChatroomSocketTransport {
     Uri uri, {
     Map<String, String>? headers,
   }) async {
+    return socket;
+  }
+}
+
+class _BlockingChatroomTransport implements ChatroomSocketTransport {
+  _BlockingChatroomTransport(this.socket, this.connectCompleter);
+
+  final _FakeChatroomSocket socket;
+  final Completer<void> connectCompleter;
+  bool connectStarted = false;
+
+  @override
+  Future<ChatroomSocket> connect(
+    Uri uri, {
+    Map<String, String>? headers,
+  }) async {
+    connectStarted = true;
+    await connectCompleter.future;
     return socket;
   }
 }
@@ -893,6 +1275,19 @@ class _FakeChatroomSocket implements ChatroomSocket {
 
   void serverFrame(String type, Map<String, Object?> fields) {
     _messages.add(jsonEncode(<String, Object?>{'type': type, ...fields}));
+  }
+
+  void serverJoinAck() {
+    final joinFrame = sent
+        .map((raw) => jsonDecode(raw) as Map<String, dynamic>)
+        .lastWhere((frame) => frame['type'] == 'join');
+    serverFrame('ack', {
+      'world_id': 'world-1',
+      'session_id': 'sess-1',
+      'location_id': joinFrame['location_id'],
+      'user_id': 'user-1',
+      'payload': {'client_msg_id': joinFrame['client_msg_id']},
+    });
   }
 
   void serverUserMessage({

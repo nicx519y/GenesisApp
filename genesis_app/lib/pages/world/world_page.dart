@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
 import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
@@ -52,8 +53,8 @@ class _WorldPageState extends State<WorldPage>
   Map<String, _LocationChatPanelDescriptor> _locationChatDescriptors =
       <String, _LocationChatPanelDescriptor>{};
   final Set<String> _cachedLocationChatIds = <String>{};
+  final Set<String> _readyLocationChatIds = <String>{};
   String _activeChatLocationId = '';
-  int _locationChatPrecacheGeneration = 0;
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
 
@@ -72,7 +73,6 @@ class _WorldPageState extends State<WorldPage>
 
   @override
   void dispose() {
-    _locationChatPrecacheGeneration += 1;
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
     final chatroom = _worldChatroom;
@@ -115,7 +115,6 @@ class _WorldPageState extends State<WorldPage>
   void _stopWorldChatroom() {
     final chatroom = _worldChatroom;
     if (chatroom == null) return;
-    _locationChatPrecacheGeneration += 1;
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
     _worldChatroomSub = null;
@@ -125,6 +124,7 @@ class _WorldPageState extends State<WorldPage>
       setState(() {
         _activeChatLocationId = '';
         _cachedLocationChatIds.clear();
+        _readyLocationChatIds.clear();
       });
     }
     unawaited(_disposeWorldChatroom(chatroom));
@@ -327,19 +327,28 @@ class _WorldPageState extends State<WorldPage>
         : pointId;
     if (locationId.isEmpty) return;
 
-    try {
-      await AppServicesScope.of(
-        context,
-      ).api.updateUserPosition(wid: widget.wid, locationId: locationId);
-    } catch (_) {}
-
-    if (!mounted) return;
     final descriptor = _LocationChatPanelDescriptor(
       locationId: locationId,
       locationName: point.name,
       isLeafLocation: point.isLeafLocation,
+      localMessageLocationIds: _orderedNonEmptyStrings([
+        pointId,
+        locationId,
+        point.id,
+      ]),
     );
+    unawaited(_updateUserPositionForLocation(locationId));
     await _showCachedLocationChat(descriptor);
+  }
+
+  Future<void> _updateUserPositionForLocation(String locationId) async {
+    try {
+      await AppServicesScope.of(
+        context,
+      ).api.updateUserPosition(wid: widget.wid, locationId: locationId);
+    } catch (_) {
+      // Position updates are opportunistic and must not delay opening chat.
+    }
   }
 
   Future<void> _showCachedLocationChat(
@@ -352,25 +361,79 @@ class _WorldPageState extends State<WorldPage>
         ? (Stopwatch()..start())
         : null;
     final previousActiveId = _activeChatLocationId;
+    _logLocationChatMetric(
+      'open start location=$locationId cached=$wasCached '
+      'previous=${previousActiveId.isEmpty ? 'none' : previousActiveId} '
+      'aliases=${descriptor.localMessageLocationIds.join(',')}',
+    );
     if (previousActiveId.isNotEmpty && previousActiveId != locationId) {
-      await _leaveCachedLocationChat(previousActiveId);
-      if (!mounted) return;
-      setState(() {
-        _activeChatLocationId = '';
-      });
-      await WidgetsBinding.instance.endOfFrame;
-      if (!mounted) return;
+      if (!descriptor.isLeafLocation) {
+        unawaited(_leaveCachedLocationChat(previousActiveId));
+      }
     }
     setState(() {
       _locationChatDescriptors[locationId] = descriptor;
-      _cachedLocationChatIds.add(locationId);
+      if (wasCached) {
+        _cachedLocationChatIds.add(locationId);
+      } else {
+        _readyLocationChatIds.remove(locationId);
+      }
       _activeChatLocationId = locationId;
     });
+    unawaited(_hydrateActiveLocationChatMessages(descriptor));
     await WidgetsBinding.instance.endOfFrame;
+    if (!wasCached && mounted && _activeChatLocationId == locationId) {
+      _logLocationChatMetric(
+        'build panel after first frame location=$locationId',
+      );
+      setState(() {
+        _cachedLocationChatIds.add(locationId);
+      });
+      await WidgetsBinding.instance.endOfFrame;
+    }
     _logLocationChatMetric(
       'open location=$locationId cached=$wasCached '
       'previous=${previousActiveId.isEmpty ? 'none' : previousActiveId} '
       'active=$_activeChatLocationId elapsed=${stopwatch?.elapsedMilliseconds}ms',
+    );
+  }
+
+  Future<void> _hydrateActiveLocationChatMessages(
+    _LocationChatPanelDescriptor descriptor,
+  ) async {
+    final stopwatch = _locationChatMetricsEnabled
+        ? (Stopwatch()..start())
+        : null;
+    final chatroom = _worldChatroom;
+    final identity = chatroom?.identity;
+    if (chatroom == null || identity == null) {
+      _logLocationChatMetric(
+        'active hydrate skipped location=${descriptor.locationId} '
+        'hasChatroom=${chatroom != null} hasIdentity=${identity != null}',
+      );
+      return;
+    }
+    final ownerUid = _firstNonEmpty([identity.userId, identity.senderId]);
+    if (ownerUid.isEmpty) {
+      _logLocationChatMetric(
+        'active hydrate skipped location=${descriptor.locationId} noOwner',
+      );
+      return;
+    }
+    _logLocationChatMetric(
+      'active hydrate start location=${descriptor.locationId} '
+      'aliases=${descriptor.localMessageLocationIds.join(',')}',
+    );
+    await chatroom.hydrateLocalMessages(
+      worldId: widget.wid,
+      locationId: descriptor.locationId,
+      ownerUid: ownerUid,
+      locationAliases: descriptor.localMessageLocationIds,
+    );
+    _logLocationChatMetric(
+      'active hydrate done location=${descriptor.locationId} '
+      'stateCount=${chatroom.state.messagesByLocation[descriptor.locationId]?.length ?? 0} '
+      'elapsed=${stopwatch?.elapsedMilliseconds}ms',
     );
   }
 
@@ -404,6 +467,9 @@ class _WorldPageState extends State<WorldPage>
     final descriptors = _locationChatDescriptorsForWorld(world);
     _locationChatDescriptors = descriptors;
     _cachedLocationChatIds.removeWhere(
+      (locationId) => !descriptors.containsKey(locationId),
+    );
+    _readyLocationChatIds.removeWhere(
       (locationId) => !descriptors.containsKey(locationId),
     );
     if (!_locationChatDescriptors.containsKey(_activeChatLocationId)) {
@@ -444,32 +510,10 @@ class _WorldPageState extends State<WorldPage>
   }
 
   void _scheduleLocationChatPrecache(List<String> locationIds) {
-    _locationChatPrecacheGeneration += 1;
-    final generation = _locationChatPrecacheGeneration;
     _logLocationChatMetric(
-      'precache scheduled count=${locationIds.length} '
+      'panel precache skipped count=${locationIds.length} '
       'cached=${_cachedLocationChatIds.length}',
     );
-    void scheduleNext(int index) {
-      if (index >= locationIds.length) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || generation != _locationChatPrecacheGeneration) {
-          return;
-        }
-        final locationId = locationIds[index];
-        if (_locationChatDescriptors.containsKey(locationId) &&
-            _cachedLocationChatIds.add(locationId)) {
-          setState(() {});
-          _logLocationChatMetric(
-            'precache panel location=$locationId '
-            'cached=${_cachedLocationChatIds.length}/${locationIds.length}',
-          );
-        }
-        scheduleNext(index + 1);
-      });
-    }
-
-    scheduleNext(0);
   }
 
   bool get _locationChatMetricsEnabled => kDebugMode || kProfileMode;
@@ -481,21 +525,35 @@ class _WorldPageState extends State<WorldPage>
 
   Widget? _buildLocationChatOverlay() {
     final chatroom = _worldChatroom;
-    if (chatroom == null || _cachedLocationChatIds.isEmpty) return null;
+    final activeLocationId = _activeChatLocationId;
+    final activeDescriptor = _locationChatDescriptors[activeLocationId];
+    final showSkeleton =
+        activeLocationId.isNotEmpty &&
+        activeDescriptor != null &&
+        !_readyLocationChatIds.contains(activeLocationId);
+    if (chatroom == null && !showSkeleton) return null;
     final cachedIds = _cachedLocationChatIds
         .where(_locationChatDescriptors.containsKey)
         .toList(growable: false);
-    if (cachedIds.isEmpty) return null;
+    if (cachedIds.isEmpty && !showSkeleton) return null;
 
     return Positioned.fill(
       child: IgnorePointer(
-        ignoring: _activeChatLocationId.isEmpty,
+        ignoring: activeLocationId.isEmpty,
         child: Stack(
           children: [
-            for (final locationId in cachedIds)
-              _buildCachedLocationChatPanel(
-                _locationChatDescriptors[locationId]!,
-                chatroom,
+            if (chatroom != null)
+              for (final locationId in cachedIds)
+                _buildCachedLocationChatPanel(
+                  _locationChatDescriptors[locationId]!,
+                  chatroom,
+                ),
+            if (showSkeleton)
+              Positioned.fill(
+                child: _LocationChatPanelSkeleton(
+                  title: activeDescriptor.locationName,
+                  onBack: _closeCachedLocationChat,
+                ),
               ),
           ],
         ),
@@ -508,12 +566,14 @@ class _WorldPageState extends State<WorldPage>
     WorldChatroomService chatroom,
   ) {
     final active = descriptor.locationId == _activeChatLocationId;
+    final visible =
+        active && _readyLocationChatIds.contains(descriptor.locationId);
     return IgnorePointer(
       ignoring: !active,
       child: ExcludeSemantics(
         excluding: !active,
         child: Opacity(
-          opacity: active ? 1 : 0,
+          opacity: visible ? 1 : 0,
           child: TickerMode(
             enabled: active,
             child: SizedBox.expand(
@@ -523,10 +583,13 @@ class _WorldPageState extends State<WorldPage>
                 locationId: descriptor.locationId,
                 locationName: descriptor.locationName,
                 isLeafLocation: descriptor.isLeafLocation,
+                localMessageLocationIds: descriptor.localMessageLocationIds,
                 service: chatroom,
                 active: active,
                 leaveOnInactive: false,
                 onBack: _closeCachedLocationChat,
+                onInitialContentReady: () =>
+                    _markLocationChatPanelReady(descriptor.locationId),
               ),
             ),
           ),
@@ -535,8 +598,15 @@ class _WorldPageState extends State<WorldPage>
     );
   }
 
+  void _markLocationChatPanelReady(String locationId) {
+    if (!mounted || !_locationChatDescriptors.containsKey(locationId)) return;
+    if (!_readyLocationChatIds.add(locationId)) return;
+    _logLocationChatMetric('panel ready location=$locationId');
+    setState(() {});
+  }
+
   bool _canOpenLocationChat(WorldChatroomService? service) {
-    return service?.state.connected == true;
+    return service != null;
   }
 
   String _chatroomStatusLabel(WorldChatroomState? state) {
@@ -682,6 +752,7 @@ class _LocationChatPanelDescriptor {
     required this.locationId,
     required this.locationName,
     required this.isLeafLocation,
+    this.localMessageLocationIds = const <String>[],
   });
 
   factory _LocationChatPanelDescriptor.fromNode(
@@ -689,6 +760,8 @@ class _LocationChatPanelDescriptor {
   ) {
     final value = node.value;
     final locationId = node.id.trim();
+    final valueLocationId = _mapString(value, const ['location_id', 'id']);
+    final pointId = _mapString(value, const ['point_id']);
     return _LocationChatPanelDescriptor(
       locationId: locationId,
       locationName: _mapString(value, const [
@@ -696,6 +769,11 @@ class _LocationChatPanelDescriptor {
         'name',
       ], fallback: locationId),
       isLeafLocation: node.children.isEmpty,
+      localMessageLocationIds: _orderedNonEmptyStrings([
+        pointId,
+        locationId,
+        valueLocationId,
+      ]),
     );
   }
 
@@ -704,6 +782,7 @@ class _LocationChatPanelDescriptor {
     required bool isLeafLocation,
   }) {
     final locationId = _mapString(location, const ['location_id', 'id']);
+    final pointId = _mapString(location, const ['point_id']);
     return _LocationChatPanelDescriptor(
       locationId: locationId,
       locationName: _mapString(location, const [
@@ -711,12 +790,344 @@ class _LocationChatPanelDescriptor {
         'name',
       ], fallback: locationId),
       isLeafLocation: isLeafLocation,
+      localMessageLocationIds: _orderedNonEmptyStrings([pointId, locationId]),
     );
   }
 
   final String locationId;
   final String locationName;
   final bool isLeafLocation;
+  final List<String> localMessageLocationIds;
+}
+
+class _LocationChatPanelSkeleton extends StatelessWidget {
+  const _LocationChatPanelSkeleton({required this.title, required this.onBack});
+
+  final String title;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = ChatUiStyleConfig.standard;
+    return ColoredBox(
+      color: style.conversationBackgroundColor,
+      child: Column(
+        children: [
+          ChatHeader(
+            title: '$title (1)',
+            subtitle: 'Loading',
+            connected: false,
+            connecting: true,
+            onBack: onBack,
+            showMoreButton: true,
+          ),
+          Expanded(child: _LocationChatMessageSkeletonList(style: style)),
+          _LocationChatComposerSkeleton(style: style),
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationChatMessageSkeletonList extends StatelessWidget {
+  const _LocationChatMessageSkeletonList({required this.style});
+
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: style.messageListPadding,
+      child: Column(
+        children: [
+          const Spacer(),
+          _LocationChatDateSkeleton(style: style),
+          _LocationChatOtherMessageSkeleton(
+            style: style,
+            bubbleWidthFactor: 0.62,
+            lineWidths: const [0.74, 0.46],
+          ),
+          _LocationChatSelfMessageSkeleton(
+            style: style,
+            bubbleWidthFactor: 0.50,
+            lineWidths: const [0.68],
+          ),
+          _LocationChatOtherMessageSkeleton(
+            style: style,
+            bubbleWidthFactor: 0.70,
+            lineWidths: const [0.86, 0.58],
+            showAiBadge: true,
+          ),
+          SizedBox(height: style.topTitleEmptyHeight),
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationChatDateSkeleton extends StatelessWidget {
+  const _LocationChatDateSkeleton({required this.style});
+
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: style.dateDividerBottomPadding),
+      child: const Center(
+        child: _LocationChatSkeletonBone(
+          width: 72,
+          height: 10,
+          radius: 5,
+          color: Color(0x33777777),
+        ),
+      ),
+    );
+  }
+}
+
+class _LocationChatOtherMessageSkeleton extends StatelessWidget {
+  const _LocationChatOtherMessageSkeleton({
+    required this.style,
+    required this.bubbleWidthFactor,
+    required this.lineWidths,
+    this.showAiBadge = false,
+  });
+
+  final ChatUiStyleConfig style;
+  final double bubbleWidthFactor;
+  final List<double> lineWidths;
+  final bool showAiBadge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: style.rowBottomPadding),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ChatAvatar(
+                label: '',
+                colors: style.otherAvatarColors,
+                style: style,
+              ),
+              if (showAiBadge)
+                Positioned(
+                  right: -8,
+                  top: -9,
+                  child: ChatAiBadge(style: style),
+                ),
+            ],
+          ),
+          SizedBox(width: style.avatarBubbleGap),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (style.showSenderNameAboveOtherBubble) ...[
+                  const _LocationChatSkeletonBone(
+                    width: 76,
+                    height: 12,
+                    radius: 6,
+                    color: Color(0x33222222),
+                  ),
+                  SizedBox(height: style.senderNameBottomGap),
+                ],
+                FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: bubbleWidthFactor,
+                  child: _LocationChatBubbleSkeleton(
+                    style: style,
+                    color: style.otherBubbleColor,
+                    lineColor: const Color(0xFFE5E8EC),
+                    lineWidths: lineWidths,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: style.avatarSize + style.avatarBubbleGap),
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationChatSelfMessageSkeleton extends StatelessWidget {
+  const _LocationChatSelfMessageSkeleton({
+    required this.style,
+    required this.bubbleWidthFactor,
+    required this.lineWidths,
+  });
+
+  final ChatUiStyleConfig style;
+  final double bubbleWidthFactor;
+  final List<double> lineWidths;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: style.rowBottomPadding),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: style.avatarSize + style.avatarBubbleGap),
+          Flexible(
+            child: FractionallySizedBox(
+              alignment: Alignment.centerRight,
+              widthFactor: bubbleWidthFactor,
+              child: _LocationChatBubbleSkeleton(
+                style: style,
+                color: style.selfBubbleColor,
+                lineColor: const Color(0x661A6B28),
+                lineWidths: lineWidths,
+              ),
+            ),
+          ),
+          SizedBox(width: style.avatarBubbleGap),
+          ChatAvatar(label: '', colors: style.selfAvatarColors, style: style),
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationChatBubbleSkeleton extends StatelessWidget {
+  const _LocationChatBubbleSkeleton({
+    required this.style,
+    required this.color,
+    required this.lineColor,
+    required this.lineWidths,
+  });
+
+  final ChatUiStyleConfig style;
+  final Color color;
+  final Color lineColor;
+  final List<double> lineWidths;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(style.bubbleBorderRadius),
+      ),
+      child: Padding(
+        padding: style.bubblePadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < lineWidths.length; i += 1) ...[
+              _LocationChatSkeletonBone(
+                widthFactor: lineWidths[i],
+                height: 12,
+                radius: 6,
+                color: lineColor,
+              ),
+              if (i != lineWidths.length - 1) const SizedBox(height: 8),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LocationChatComposerSkeleton extends StatelessWidget {
+  const _LocationChatComposerSkeleton({required this.style});
+
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    return Container(
+      padding: style.composerPadding.copyWith(
+        bottom: style.composerPadding.bottom + bottomInset,
+      ),
+      color: style.composerBackgroundColor,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Container(
+              constraints: BoxConstraints(
+                minHeight: style.inputMinHeight,
+                maxHeight: style.inputMaxHeight,
+              ),
+              decoration: BoxDecoration(
+                color: style.inputBackgroundColor,
+                borderRadius: BorderRadius.circular(style.inputBorderRadius),
+              ),
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: style.inputHorizontalPadding,
+                  vertical: style.inputVerticalPadding,
+                ),
+                child: const _LocationChatSkeletonBone(
+                  widthFactor: 0.34,
+                  height: 14,
+                  radius: 7,
+                  color: Color(0xFFE5E8EC),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: style.composerActionGap),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: style.composerSendButtonDisabledColor,
+              borderRadius: BorderRadius.circular(
+                style.composerSendButtonBorderRadius,
+              ),
+            ),
+            child: SizedBox(
+              width: style.composerSendButtonWidth,
+              height: style.composerSendButtonHeight,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationChatSkeletonBone extends StatelessWidget {
+  const _LocationChatSkeletonBone({
+    this.width,
+    this.widthFactor,
+    required this.height,
+    required this.radius,
+    required this.color,
+  });
+
+  final double? width;
+  final double? widthFactor;
+  final double height;
+  final double radius;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = DecoratedBox(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: SizedBox(width: width, height: height),
+    );
+    final widthFactor = this.widthFactor;
+    if (widthFactor == null) return child;
+    return FractionallySizedBox(
+      alignment: Alignment.centerLeft,
+      widthFactor: widthFactor,
+      child: child,
+    );
+  }
 }
 
 class _WorldDetailsLoadingContent extends StatelessWidget {
@@ -2289,4 +2700,15 @@ String _firstNonEmpty(List<String?> values) {
     if (trimmed != null && trimmed.isNotEmpty) return trimmed;
   }
   return '';
+}
+
+List<String> _orderedNonEmptyStrings(Iterable<String?> values) {
+  final seen = <String>{};
+  final result = <String>[];
+  for (final value in values) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty || !seen.add(trimmed)) continue;
+    result.add(trimmed);
+  }
+  return result;
 }

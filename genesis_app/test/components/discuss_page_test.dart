@@ -12,6 +12,7 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storag
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/pages/discuss/discuss_page.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
+import 'package:genesis_flutter_android/routers/app_router.dart';
 
 void main() {
   testWidgets('shows skeleton instead of progress indicator while loading', (
@@ -23,7 +24,7 @@ void main() {
     await tester.pumpWidget(
       AppServicesScope(
         services: _servicesWithTransport(transport),
-        child: const MaterialApp(home: DiscussPage(oid: 'o_auto')),
+        child: _discussTestApp(),
       ),
     );
     await tester.pump();
@@ -55,7 +56,7 @@ void main() {
     await tester.pumpWidget(
       AppServicesScope(
         services: _servicesWithTransport(transport),
-        child: const MaterialApp(home: DiscussPage(oid: 'o_auto')),
+        child: _discussTestApp(),
       ),
     );
     await tester.pumpAndSettle();
@@ -101,7 +102,7 @@ void main() {
     await tester.pumpWidget(
       AppServicesScope(
         services: _servicesWithTransport(transport),
-        child: const MaterialApp(home: DiscussPage(oid: 'o_auto')),
+        child: _discussTestApp(),
       ),
     );
     await tester.pumpAndSettle();
@@ -125,7 +126,7 @@ void main() {
     expect(inputRect.bottom, lessThanOrEqualTo(760 - 34));
   });
 
-  testWidgets('reply list item opens composer for its root discuss', (
+  testWidgets('reply action opens post detail before showing composer', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -136,12 +137,45 @@ void main() {
     await tester.pumpWidget(
       AppServicesScope(
         services: _servicesWithTransport(transport),
-        child: const MaterialApp(home: DiscussPage(oid: 'o_auto')),
+        child: _discussTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('origin-discuss-reply-dis_1')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Post Detail'), findsOneWidget);
+    expect(find.text('Add a comment'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Write a reply'), findsNothing);
+  });
+
+  testWidgets('post detail bottom input opens composer for its root discuss', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 760);
+    addTearDown(tester.view.reset);
+
+    final transport = _DiscussPageTransport(includeReplies: true);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
+        child: _discussTestApp(),
       ),
     );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Reply User: Reply target'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Post Detail'), findsOneWidget);
+    expect(find.text('All Replies 1'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Write a reply'), findsNothing);
+
+    await tester.tap(find.text('Add a comment'));
     await tester.pumpAndSettle();
 
     expect(find.widgetWithText(TextField, 'Write a reply'), findsOneWidget);
@@ -169,6 +203,13 @@ void main() {
     expect(postBody['parent_discuss_id'], isNot('reply_1'));
     expect(postBody['content'], 'reply from list item');
   });
+}
+
+Widget _discussTestApp() {
+  return MaterialApp(
+    onGenerateRoute: AppRouter.onGenerateRoute,
+    home: const DiscussPage(oid: 'o_auto'),
+  );
 }
 
 AppServices _servicesWithTransport(_DiscussPageTransport transport) {
@@ -275,7 +316,7 @@ class _DiscussPageTransport implements HttpTransport {
                     'name': 'User ${index + 1}',
                   },
                   'content': 'Discuss item ${index + 1}',
-                  'reply_cnt': index,
+                  'reply_cnt': includeReplies && index == 0 ? 1 : index,
                   'like_cnt': index,
                   'is_liked': false,
                   'created_at': '2026-02-09T00:00:00Z',
@@ -303,6 +344,34 @@ class _DiscussPageTransport implements HttpTransport {
           'total_all': 40,
           'pn': page,
           'rn': rn,
+        },
+      });
+    }
+    if (request.uri.path.endsWith('/discuss/replies')) {
+      return _jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'list': [
+            {
+              'discuss_id': 'reply_1',
+              'biz_id': 'o_auto',
+              'world_id': 'w_reply',
+              'author': {'uid': 'u_reply_1', 'name': 'Reply User'},
+              'content': 'Reply target',
+              'images': <String>[],
+              'root_discuss_id': 'dis_1',
+              'parent_discuss_id': 'dis_1',
+              'level': 2,
+              'reply_cnt': 0,
+              'like_cnt': 0,
+              'is_liked': false,
+              'created_at': '2026-02-09T00:00:00Z',
+            },
+          ],
+          'total': 1,
+          'pn': 1,
+          'rn': 20,
         },
       });
     }

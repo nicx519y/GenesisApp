@@ -1,3 +1,5 @@
+import '../utils/genesis_image_resource.dart';
+
 Object? jsonValue(Object? v) => v;
 
 Map<String, dynamic> asJsonMap(Object? v) {
@@ -16,6 +18,22 @@ List asJsonList(Object? v) {
 String asString(Object? v, {String fallback = ''}) {
   if (v == null) return fallback;
   return v.toString();
+}
+
+String asImageUrl(Object? v, {Object? fallback}) {
+  return GenesisImageResourceRegistry.register(
+    GenesisImageResource.fromJson(v, fallback: fallback),
+  ).displayUrl;
+}
+
+String asResolvedImageUrl(
+  Object? v,
+  String Function(String url) resolver, {
+  Object? fallback,
+}) {
+  return GenesisImageResourceRegistry.register(
+    GenesisImageResource.fromJson(v, fallback: fallback).mapUrls(resolver),
+  ).displayUrl;
 }
 
 int asInt(Object? v, {int fallback = 0}) {

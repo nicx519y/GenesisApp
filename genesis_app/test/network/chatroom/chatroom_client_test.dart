@@ -52,6 +52,9 @@ void main() {
       'client_msg_id': isA<String>(),
       'world_id': 'world-1',
       'location_id': 'loc-1',
+      'user_id': 'u_1',
+      'sender_id': 'u_1',
+      'sender_name': 'u_1',
     });
 
     socket.serverJoinAck();
@@ -59,6 +62,34 @@ void main() {
     final joined = await joinFuture;
     expect(joined.sessionId, 'sess-1');
     expect(session.joined!.sessionId, 'sess-1');
+    await session.close();
+  });
+
+  test('join sends a new join frame when switching locations', () async {
+    final socket = _FakeChatroomSocket();
+    final transport = _FakeChatroomTransport(socket);
+    final client = await _client(transport);
+    final session = await client.connect(
+      worldId: 'world-1',
+      locationId: 'loc-1',
+    );
+
+    final firstJoin = session.join();
+    await _tick();
+    socket.serverJoinAck();
+    await firstJoin;
+
+    final secondJoin = session.join(locationId: 'loc-2');
+    await _tick();
+
+    final joinFrames = socket.sentFrames('join');
+    expect(joinFrames, hasLength(2));
+    expect(joinFrames.last['location_id'], 'loc-2');
+
+    socket.serverJoinAck();
+    final joined = await secondJoin;
+    expect(joined.locationId, 'loc-2');
+    expect(session.joined!.locationId, 'loc-2');
     await session.close();
   });
 
@@ -163,6 +194,8 @@ void main() {
       'location_id': 'loc-1',
       'msg_id': 1001,
       'conversation_round_id': 201,
+      'err_no': '',
+      'err_msg': '',
       'payload': {'client_msg_id': 'client-1'},
     });
 
@@ -185,6 +218,7 @@ void main() {
       'session_id': 'sess-1',
       'location_id': 'loc-1',
       'user_id': 'user-1',
+      'sender_id': 'user-1',
       'sender_name': 'Player One',
       'msg_id': 126,
       'conversation_round_id': 1317,
@@ -215,6 +249,8 @@ void main() {
       'location_id': 'loc-1',
       'msg_id': 1001,
       'conversation_round_id': 201,
+      'err_no': '',
+      'err_msg': '',
       'payload': <String, Object?>{},
     });
 
@@ -280,6 +316,8 @@ void main() {
       'session_id': 'sess-1',
       'location_id': 'loc-1',
       'user_id': 'u_1',
+      'err_no': '',
+      'err_msg': '',
       'payload': {'client_msg_id': 'client-retry'},
     });
 
@@ -356,22 +394,23 @@ void main() {
     await session.close();
   });
 
-  test('routes protocol errors to common error stream', () async {
+  test('routes error ack to common failure stream', () async {
     final socket = _FakeChatroomSocket();
     final client = await _client(_FakeChatroomTransport(socket));
     final session = await _connectedSession(client, socket);
 
-    final errorFuture = session.errors.first;
-    socket.serverFrame('error', {
+    final failureFuture = session.failures.first;
+    socket.serverFrame('ack', {
       'session_id': 'sess-1',
-      'err_code': 'tick_locked',
+      'err_no': '2006',
       'err_msg': '当前 Tick 正在推进，请稍后',
+      'world_id': 'world-1',
       'payload': <String, Object?>{},
     });
 
-    final error = await errorFuture;
-    expect(error.code, 'tick_locked');
-    expect(error.message, '当前 Tick 正在推进，请稍后');
+    final failure = await failureFuture;
+    expect(failure.code, '2006');
+    expect(failure.message, '当前 Tick 正在推进，请稍后');
     await session.close();
   });
 
@@ -404,9 +443,17 @@ void main() {
       'msg_id': 1002,
       'conversation_round_id': 201,
       'user_id': 'u_1',
+      'sender_id': 'u_1',
       'sender_name': 'Alice',
       'location_id': 'loc-1',
       'payload': {'content': '你好'},
+    });
+    socket.serverFrame('tick_advance', {
+      'world_id': 'world-1',
+      'msg_id': 156,
+      'conversation_round_id': 1350,
+      'current_time': 'Day 45, 19:30',
+      'payload': {'content': 'Day 45, 19:30', 'tick_no': 7},
     });
     socket.serverFrame('nar_new_message', {
       'world_id': 'world-1',
@@ -426,6 +473,10 @@ void main() {
       containsAll(['tick_start', 'world_change']),
     );
     expect(events.whereType<ChatroomUserMessage>().single.content, '你好');
+    final tick = events.whereType<ChatroomTickAdvanceMessage>().single;
+    expect(tick.currentTime, 'Day 45, 19:30');
+    expect(tick.tickNo, 7);
+    expect(tick.content, 'Day 45, 19:30');
     final narrator = events.whereType<ChatroomNarratorMessage>().single;
     expect(narrator.messageId, 155);
     expect(narrator.conversationRoundId, '1349');
@@ -463,23 +514,16 @@ void main() {
     expect(socket.closed, true);
   });
 
-  test('heartbeat completes with the matching ack', () async {
+  test('heartbeat sends a protocol heartbeat without client msg id', () async {
     final socket = _FakeChatroomSocket();
     final client = await _client(_FakeChatroomTransport(socket));
     final session = await _connectedSession(client, socket);
     final before = socket.sentTypes.where((type) => type == 'heartbeat').length;
 
-    final heartbeatFuture = session.heartbeat();
+    await session.heartbeat();
     await _tick();
     final heartbeat = socket.sentFrame('heartbeat');
-    socket.serverFrame('ack', {
-      'world_id': 'world-1',
-      'session_id': 'sess-1',
-      'location_id': 'loc-1',
-      'user_id': 'u_1',
-      'payload': {'client_msg_id': heartbeat['client_msg_id']},
-    });
-    await heartbeatFuture;
+    expect(heartbeat, {'type': 'heartbeat'});
 
     expect(
       socket.sentTypes.where((type) => type == 'heartbeat').length,
@@ -520,24 +564,24 @@ void main() {
     expect(socket.sentTypes, isNot(contains('disconnect')));
   });
 
-  test('server errors are routed to unified failure stream once', () async {
+  test('server error acks are routed to unified failure stream once', () async {
     final socket = _FakeChatroomSocket();
     final client = await _client(_FakeChatroomTransport(socket));
     final session = await _connectedSession(client, socket);
 
     final failures = <ChatroomFailureEvent>[];
     final sub = session.failures.listen(failures.add);
-    socket.serverFrame('error', {
+    socket.serverFrame('ack', {
       'world_id': 'world-1',
       'session_id': 'sess-1',
-      'err_code': 'tick_locked',
+      'err_no': '2006',
       'err_msg': '当前 Tick 正在推进，请稍后',
       'payload': <String, Object?>{},
     });
     await _tick();
 
     expect(failures, hasLength(1));
-    expect(failures.single.code, 'tick_locked');
+    expect(failures.single.code, '2006');
     expect(failures.single.message, '当前 Tick 正在推进，请稍后');
     await sub.cancel();
     await session.close();
@@ -566,10 +610,10 @@ void main() {
       final sub = session.listenMessages(
         ChatroomMessageHandlers(
           onAck: (_) => handled.add('ack'),
-          onError: (_) => handled.add('error'),
           onFailure: (_) => handled.add('failure'),
           onWorldNotification: (_) => handled.add('world_notification'),
           onUserMessage: (_) => handled.add('user_message'),
+          onTickAdvanceMessage: (_) => handled.add('tick_advance'),
           onAiStreamStart: (_) => handled.add('llm_stream_start'),
           onAiStreamChunk: (_) => handled.add('llm_chunk'),
           onAiStreamEnd: (_) => handled.add('llm_stream_end'),
@@ -582,12 +626,14 @@ void main() {
         'location_id': 'loc-1',
         'msg_id': 1001,
         'conversation_round_id': 201,
+        'err_no': '',
+        'err_msg': '',
         'payload': {'client_msg_id': 'client-handler'},
       });
-      socket.serverFrame('error', {
+      socket.serverFrame('ack', {
         'world_id': 'world-1',
         'session_id': 'sess-1',
-        'err_code': 'tick_locked',
+        'err_no': '2006',
         'err_msg': '当前 Tick 正在推进，请稍后',
         'payload': <String, Object?>{},
       });
@@ -612,10 +658,18 @@ void main() {
         'session_id': 'sess-1',
         'location_id': 'loc-1',
         'user_id': 'u_1',
+        'sender_id': 'u_1',
         'sender_name': 'Alice',
         'msg_id': 1001,
         'conversation_round_id': 201,
         'payload': {'content': '你好'},
+      });
+      socket.serverFrame('tick_advance', {
+        'world_id': 'world-1',
+        'msg_id': 1003,
+        'conversation_round_id': 202,
+        'current_time': 'Day 45, 19:30',
+        'payload': {'content': 'Day 45, 19:30', 'tick_no': 7},
       });
       socket.serverFrame('llm_stream_start', {
         'world_id': 'world-1',
@@ -659,10 +713,10 @@ void main() {
         handled,
         containsAll(<String>[
           'ack',
-          'error',
           'failure',
           'world_notification',
           'user_message',
+          'tick_advance',
           'llm_stream_start',
           'llm_chunk',
           'llm_stream_end',
@@ -978,6 +1032,8 @@ class _FakeChatroomSocket implements ChatroomSocket {
       'session_id': 'sess-1',
       'location_id': sentFrame('join')['location_id'],
       'user_id': 'u_1',
+      'err_no': '',
+      'err_msg': '',
       'payload': {'client_msg_id': clientMsgId},
     });
   }
