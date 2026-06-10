@@ -5,6 +5,7 @@ import 'package:genesis_flutter_android/components/home/popular_origin_list.dart
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 
 const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
 
@@ -88,6 +89,18 @@ void main() {
     expect(find.image(const AssetImage(discussIconAsset)), findsOneWidget);
     expect(requestedDiscussOid, 'o_alpha');
     expect(find.text('Shawn'), findsOneWidget);
+    final thumbnails = tester.widgetList<GenesisListImage>(
+      find.byType(GenesisListImage),
+    );
+    expect(
+      thumbnails.any(
+        (image) =>
+            image.width == 60 &&
+            image.height == 60 &&
+            image.borderRadius == BorderRadius.zero,
+      ),
+      isTrue,
+    );
     expect(find.text('36'), findsNothing);
     expect(find.text('2-9 00:00'), findsOneWidget);
     expect(
