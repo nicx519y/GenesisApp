@@ -19,11 +19,13 @@ class _FakeTransport implements HttpTransport {
         'locations': [
           {
             'location_id': 'loc_1',
-            'users': [
+            'characters': [
               {
-                'user_id': 'u_1',
-                'user_name': 'A',
-                'avatar': 'https://example.com/u_1.jpg',
+                'char_id': 'char_1',
+                'player_uid': 'u_1',
+                'player_username': 'A',
+                'name': '勇者小明',
+                'location_id': 'loc_1',
               },
             ],
           },
@@ -118,7 +120,12 @@ void main() {
 
     final userLocations = await api.getUserLocations(worldId: 'w_1');
     expect(userLocations.worldId, 'w_1');
-    expect(userLocations.locations.single.users.single.userId, 'u_1');
+    final character = userLocations.locations.single.characters.single;
+    expect(character.charId, 'char_1');
+    expect(character.playerUid, 'u_1');
+    expect(character.playerUsername, 'A');
+    expect(character.name, '勇者小明');
+    expect(character.locationId, 'loc_1');
 
     final worldMessages = await api.getWorldMessages(worldId: 'w_1');
     expect(worldMessages.locations.single.locationId, 'loc_1');

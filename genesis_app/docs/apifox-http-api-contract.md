@@ -13,21 +13,23 @@
 - Apifox notify 通知列表页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463874828e0
 - Apifox notify 标记已读页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463874829e0
 - Apifox search 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/465724653e0
+- Apifox chatroom 获取角色位置列表页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/470909609e0
 - Apifox chatroom 世界最近消息页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/465850374e0
 - Apifox chatroom 历史消息页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446394e0
 - Apifox chatroom tick lock 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446395e0
 - Apifox chatroom tick progress 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446396e0
 - Apifox chatroom tick unlock 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446397e0
 - Apifox chatroom narrator write 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446399e0
+- Apifox 获取 Origin 原始编辑数据页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/470977899e0
 - Apifox LLM 索引：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/llms.txt
 
-提取时间：2026-06-05
+提取时间：2026-06-09
 
 本文档记录 Flutter 项目当前对齐或待替换的 Apifox HTTP 接口，并对比当前 Flutter 项目中的 `lib/network` HTTP 设计。字段后带 `*` 表示 Apifox 标记为必填。
 
 ## 总览
 
-本文档当前覆盖 41 个接口，分为 `用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify` 和 `upload` 九组：
+本文档当前覆盖 43 个接口，分为 `用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify` 和 `upload` 九组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -44,6 +46,7 @@
 | world | GET | `/api/v1/world/tick/list` | 分页获取 world 下的 tick 列表 |
 | world | GET | `/api/v1/world/origin_progress` | 用户在某 origin 下的最大 world tick 进度 |
 | world | POST | `/api/v1/world/tick` | world owner 触发一次 tick |
+| chatroom | GET | `/aitown-chat/api/ulocation` | 获取角色位置列表 |
 | chatroom | GET | `/aitown-chat/internal/world/messages` | 获取世界最近消息 |
 | chatroom | GET | `/aitown-chat/api/messages` | 获取历史消息 |
 | chatroom | POST | `/aitown-chat/internal/tick/lock` | 锁定 World |
@@ -53,6 +56,7 @@
 | search | GET | `/api/v1/search` | 全局搜索 |
 | origin | GET | `/api/v1/origin/list` | Origin 模板列表 |
 | origin | GET | `/api/v1/origin/detail` | Origin 模板详情 |
+| origin | GET | `/api/v1/origin/foredit` | 获取 Origin 原始编辑数据 |
 | origin | POST | `/api/v1/origin/launch` | 基于 origin 创建 world |
 | discuss | GET | `/api/v1/discuss/list` | 顶级评论分页列表 |
 | discuss | GET | `/api/v1/discuss/replies` | 顶级评论下的回复分页列表 |
@@ -695,6 +699,37 @@ Query：
 - `locations*`: `Location[]`
 - `ticks*`: `Tick[]`
 
+### GET `/api/v1/origin/foredit`
+
+返回 owner 编辑 origin 时需要的原始可编辑数据。接口需要登录，且当前用户必须是该 origin 的 owner。与 `origin/detail` 不同，响应 `data` 是平铺的编辑模型，不包含 `stats` 和 `ticks`。
+
+Query：
+
+- `origin_id*`: string
+
+响应 `data`（`OriginForEditResp`）：
+
+- `origin_id*`: string
+- `origin_name*`: string
+- `origin_version`: string
+- `brief`: string
+- `setting`: string
+- `events`: string[]
+- `tags`: string[]
+- `metric`: `WorldMetric`
+- `started_at`: string，故事内起始时间文本
+- `tick_duration_days`: integer
+- `cover`: string 或 `ImageResource`
+- `map_url`: string
+- `characters`: `OriginCharacterUpsert[]`
+- `locations`: `OriginLocationUpsert[]`
+
+错误码：
+
+- `10001`: ErrorUserNotLogin
+- `10011`: ErrorUserNotAccess，当前用户不是该 origin 的 owner
+- `20101`: ErrorOriginNotExist，`origin_id` 不存在或已软删除
+
 ### POST `/api/v1/origin/create`
 
 登录用户基于完整的 `info + characters + locations` 创建新的 origin 模板。服务端生成 `origin_id`（前缀 `o_`），`owner_uid` 取自 session，不接受请求体覆盖；`tags` 会去除首尾空白、过滤空值、去重后写入 `tbl_origin.tags`，并同步 `tbl_tag` / `tbl_origin_tag`。
@@ -703,8 +738,8 @@ Query：
 
 - 批量插入 `tbl_world_character(world_id=origin_id)` 与 `tbl_world_location(world_id=origin_id)`。
 - 同步 `character_cnt` / `location_cnt` 初值到主表。
-- 按 `location_pid` 树形重写 location id：一级 `loc_1`，二级 `loc_1_1`，三级 `loc_1_1_1`。
-- 按数组顺序将 `char_id` 重写为 `char_1...`，并同步重写 `character.initial_location_id` 与 `location.location_pid` 中的临时引用。
+- `locations` 作为用户平级编辑 location 入参；服务端忽略 `level` / `location_pid`，再调用 `origin_init_tags_locations` 生成入库用三级树。
+- 按数组顺序将 `char_id` 重写为 `char_1...`，并同步重写 `character.initial_location_id` 中的临时 location 引用。
 - `ticks` 不在 create 范围内。
 
 请求 body（`OriginCreateReq`）：
@@ -737,8 +772,8 @@ Query：
 `OriginLocationUpsert`：
 
 - `location_id`: string，请求内临时引用 id
-- `level`: integer，不传时服务端会根据 `location_id` 粗略推断，兜底为 `1`
-- `location_pid`: string，父 location id；顶层为空字符串
+- `level`: integer，兼容字段；create/update 时服务端忽略
+- `location_pid`: string，兼容字段；create/update 时服务端忽略，当前客户端不发送该字段，也不再为了提交强制补 root 或组织成树
 - `location_name*`: string
 - `location_description`: string，固定描述，tick 不会修改
 - `location_summary`: string，兼容旧请求；当 `location_description` 为空时用于回填固定描述
@@ -759,6 +794,53 @@ Query：
 
 - `4004`
 - `10001`
+
+### POST `/api/v1/origin/update`
+
+登录用户更新自己创建的 origin 模板。服务端校验 `origin_id` 存在且 `owner_uid == session uid`；`origin_id` / `owner_uid` 不允许通过请求体变更。更新成功后服务端自动切到下一数字版本，并返回最新的 `info + stats + characters + locations + ticks`。
+
+服务端行为：
+
+- 使用 `origin_name` / `brief` / `setting` / `characters` / `locations.location_name` 调用 `origin_init_tags_locations`，在请求 `tags` 基础上追加生成 tags，再去空、去重、校验长度。
+- `locations` 作为用户平级编辑 location 入参；服务端忽略 `level` / `location_pid` 并重新生成入库三级树。
+- `characters` 只 upsert 请求列表中的项，不按缺失项推断删除；已有 `char_id` 保留，新增角色临时 id 会重写为下一个 `char_N`。
+- `deleted_char_ids` / `deleted_location_ids` 显式软删命中的活跃角色或地点。
+- `tbl_origin.edit_data` 保存可编辑的平级原始数据，用于 `/api/v1/origin/foredit`。
+- `ticks` 不在 update 范围内。
+
+请求 body（`OriginUpdateReq`）：
+
+- `origin_id*`: string
+- `origin_name*`: string
+- `origin_version`: string，服务端控制；每次更新成功自动进入下一数字版本
+- `brief`: string
+- `setting`: string
+- `events`: string[]
+- `tags`: string[]
+- `metric`: `WorldMetric`
+- `started_at`: string，故事内起始时间文本
+- `tick_duration_days`: integer
+- `cover`: string
+- `map_url`: string
+- `characters`: `OriginCharacterUpsert[]`
+- `locations`: `OriginLocationUpsert[]`
+- `deleted_char_ids`: string[]，显式删除的角色 id
+- `deleted_location_ids`: string[]，显式删除的 location id
+
+响应 `data`：
+
+- `info*`: `OriginInfo`
+- `stats*`: `OriginStats`
+- `characters*`: `Character[]`
+- `locations*`: `Location[]`
+- `ticks*`: `Tick[]`
+
+错误码：
+
+- `4004`
+- `10001`
+- `10011`
+- `20101`
 
 ### POST `/api/v1/origin/launch`
 
@@ -800,7 +882,18 @@ Query：
 
 ### GET `/aitown-chat/api/ulocation`
 
-获取世界内所有已加入 location 的玩家位置信息，按地点分组返回。未加入任何 location 的用户不会出现在结果中。
+获取指定世界内所有角色（AI + 真实用户）的位置信息，按地点分组返回。
+
+数据来源：
+
+- 所有角色从 `world.detail` 接口的 `characters` 字段获取
+- 真实用户：`player_uid` 不为空，`location_id` 从在线 session 获取
+- AI 角色：`player_uid` 为空，`location_id` 从 `world.detail` 获取
+
+使用场景：
+
+- 客户端收到 `world_change` 消息后，调用此接口刷新世界状态
+- 客户端收到 `user_location_change` 消息后，调用此接口获取最新位置
 
 Query：
 
@@ -809,7 +902,21 @@ Query：
 响应 `data`：
 
 - `world_id`: string，世界实例 ID
-- `locations`: `{ location_id, users: { user_id, user_name, avatar }[] }[]`
+- `locations`: `{ location_id, characters: ChatroomLocationCharacter[] }[]`
+
+`ChatroomLocationCharacter`：
+
+- `char_id`: string，角色 ID
+- `player_uid`: string，真实用户 UID；AI 角色为空字符串
+- `player_username`: string，真实用户名；AI 角色为空字符串
+- `name`: string，角色名称
+- `location_id`: string，当前地点 ID
+
+错误响应示例：
+
+```json
+{ "err_no": 400, "err_msg": "world_id 不能为空" }
+```
 
 ### GET `/aitown-chat/internal/world/messages`
 
@@ -1334,7 +1441,7 @@ query：
 
 ## 当前代码对齐状态
 
-截至 2026-06-01，本文档覆盖的 40 个接口已完成主要 HTTP 契约对齐；本次新增记录的 chatroom HTTP 接口已按 Apifox 新契约补齐当前封装、本地 mock 与测试：
+截至 2026-06-09，本文档覆盖的 42 个接口已完成主要 HTTP 契约对齐；本次更新的 chatroom HTTP 接口已按 Apifox 新契约补齐当前封装、本地 mock 与测试：
 
 | Apifox 接口 | 当前实现状态 |
 | --- | --- |
@@ -1351,6 +1458,7 @@ query：
 | `GET /api/v1/world/tick/list` | 已新增 `WorldV1Api.tickList(worldId,pn,rn)` 与 `GenesisApi.getWorldTicks(wid,limit,offset)`；query 使用 `world_id/pn/rn`，响应按 `Tick` 列表规范化并保持最新 tick 在前。 |
 | `GET /api/v1/world/origin_progress` | 已新增 `WorldV1Api.originProgress(uid,originId)`，query 使用 `uid/origin_id`，响应消费 `world_id/tick_cnt`；origin discuss loader 会用该接口补齐每条评论作者在当前 origin 下的 world 与 tick 进度。 |
 | `POST /api/v1/world/tick` | 新契约替代旧 progress 触发接口；客户端应提交 `{ "world_id": "<world_id>" }` 并消费 `world_id/tick_cnt/last_tick`。 |
+| `GET /aitown-chat/api/ulocation` | `ChatroomHttpApi.getUserLocations(worldId)` query 使用 `world_id`，响应消费 `locations[].characters[]`，角色字段为 `char_id/player_uid/player_username/name/location_id`；`WorldChatroomService` 用 `player_uid` 识别真实用户并刷新所在 location，本地 mock 从 world detail 角色列表生成同形状响应。 |
 | `GET /aitown-chat/internal/world/messages` | 已新增 `ChatroomHttpApi.getWorldMessages(worldId)`，query 使用 `world_id`，响应消费 `locations[].location_id/messages[]`；本地 mock 按 location 分组返回最近消息。 |
 | `GET /aitown-chat/api/messages` | 已新增 `ChatroomHttpApi.getMessages(worldId,locationId,since,limit)`，query 使用 `world_id/location_id/since/limit`，响应消费 `messages/has_more/newest_message_id`。 |
 | `POST /aitown-chat/internal/tick/lock` | 已新增 `ChatroomHttpApi.lockWorld(worldId)`，按 Apifox 同时发送 query `world_id` 与 multipart form `world_id`，响应消费 `locked`。 |
@@ -1360,6 +1468,8 @@ query：
 | `GET /api/v1/search` | `SearchV1Api.search` 已改为发送 `keyword/type/pn/rn`；`type` 为空时不随 query 发送，表示全局搜索；`SearchPage` 已消费 `origins/worlds/users` 分类结果块。 |
 | `GET /api/v1/origin/list` | `OriginV1Api.list` query 已使用 `tag_id/keyword/uid/tag_name/pn/rn`；origin 页面和主 `getOrigins/getMyLaunchedOrigins` 可消费 `list[].info + stats`。 |
 | `GET /api/v1/origin/detail` | `OriginV1Api.detail` query 已使用必填 `origin_id`；详情 mapper 支持 `info.metric`、`info.events`、`info.started_at`、`locations[].location_description` 与 `ticks[].tick_result`，local mock 返回 `info/stats/characters/locations/ticks`。 |
+| `GET /api/v1/origin/foredit` | 已新增 `OriginV1Api.forEdit(originId)`，query 使用 `origin_id`，响应按平铺 `OriginForEditResp` 消费；`EditOriginPage` 进入编辑流时使用该接口，本地 mock 返回同形状 `characters/locations` 且不返回 `stats/ticks`。 |
+| `POST /api/v1/origin/update` | `OriginV1Api.update` body 已使用 `origin_id/origin_name/brief/setting/events/tags/metric/started_at/tick_duration_days/cover/map_url/characters/locations/deleted_char_ids/deleted_location_ids`；`EditOriginPage` 基于初始 `foredit` draft 计算显式删除 id，本地 mock 返回最新 `info/stats/characters/locations/ticks`。 |
 | `POST /api/v1/origin/launch` | `OriginV1Api.launch` body 已使用 `origin_id/preset_character_id/custom_role`；详情页 launch 发送 preset 或 custom 二选一 payload，并消费响应 `world_id`。 |
 | `GET /api/v1/discuss/list` | `DiscussV1Api.list` 已使用 `biz_type=1`、`biz_id/pn/rn`，并消费 `list[].comment/latest_replies/top_total/total_all`；本地 mock 会按业务对象分页并为每条顶级评论返回最新 3 条回复。 |
 | `GET /api/v1/discuss/replies` | 已新增 `DiscussV1Api.replies(rootDiscussId,pn,rn)`，query 使用 `root_discuss_id/pn/rn`，响应消费 `list/total/pn/rn`；本地 mock 会按 `root_discuss_id` 过滤并按创建时间倒序分页。 |
@@ -1406,8 +1516,6 @@ query：
 
 Origin：
 
-- `POST /api/v1/origin/create`
-- `POST /api/v1/origin/update`
 - `GET /api/v1/origin/versionlist`
 - `POST /api/v1/origin/publish`
 - `POST /api/v1/origin/del`

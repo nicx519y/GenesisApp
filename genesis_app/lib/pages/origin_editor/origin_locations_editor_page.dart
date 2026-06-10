@@ -92,7 +92,6 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
         .map(
           (form) => LocationDraft(
             locationId: form.locationId,
-            parentLocationId: form.parentLocationId,
             imageUrl: form.imageUrl.text.trim(),
             name: form.name.text.trim(),
             description: form.description.text.trim(),
@@ -102,27 +101,6 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
           ),
         )
         .toList(growable: false);
-  }
-
-  Future<void> _openParentLocationPicker(int locationIndex) async {
-    final form = _forms[locationIndex];
-    final options = _parentLocationOptions(locationIndex);
-    final selectedId = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return _ParentLocationPickerSheet(
-          options: options,
-          initialSelectedId: form.parentLocationId,
-        );
-      },
-    );
-    if (selectedId == null || !mounted) return;
-    setState(() {
-      form.parentLocationId = selectedId;
-    });
-    _onFormChanged();
   }
 
   Future<void> _openCharacterPicker(int locationIndex) async {
@@ -176,69 +154,12 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     return ids;
   }
 
-  List<_ParentLocationOption> _parentLocationOptions(int locationIndex) {
-    final options = <_ParentLocationOption>[
-      const _ParentLocationOption(id: '', label: 'World Root'),
-    ];
-    final childId = _forms[locationIndex].locationId.trim();
-    for (int i = 0; i < _forms.length; i++) {
-      if (i == locationIndex) continue;
-      final form = _forms[i];
-      final locationId = form.locationId.trim();
-      if (locationId.isEmpty) continue;
-      if (_wouldCreateParentCycle(childId: childId, parentId: locationId)) {
-        continue;
-      }
-      final name = form.name.text.trim();
-      options.add(
-        _ParentLocationOption(
-          id: locationId,
-          label: name.isEmpty ? 'Location ${i + 1}' : name,
-        ),
-      );
-    }
-    return options;
-  }
-
-  bool _wouldCreateParentCycle({
-    required String childId,
-    required String parentId,
-  }) {
-    if (childId.isEmpty || parentId.isEmpty) return false;
-    if (childId == parentId) return true;
-    final parentsById = <String, String>{
-      for (final form in _forms)
-        if (form.locationId.trim().isNotEmpty)
-          form.locationId.trim(): form.parentLocationId.trim(),
-    };
-    var current = parentId;
-    final seen = <String>{childId};
-    while (current.isNotEmpty) {
-      if (!seen.add(current)) return true;
-      current = parentsById[current] ?? '';
-    }
-    return false;
-  }
-
   Future<void> _saveLocations() async {
     for (int i = 0; i < _forms.length; i++) {
       final form = _forms[i];
       if (!form.hasContent) continue;
       if (form.name.text.trim().isEmpty) {
         _showError('Location ${i + 1}: Location Name is required.');
-        return;
-      }
-      final parentId = form.parentLocationId.trim();
-      if (parentId.isNotEmpty &&
-          !_forms.any((item) => item.locationId.trim() == parentId)) {
-        _showError('Location ${i + 1}: Parent Location is invalid.');
-        return;
-      }
-      if (_wouldCreateParentCycle(
-        childId: form.locationId.trim(),
-        parentId: parentId,
-      )) {
-        _showError('Location ${i + 1}: Parent Location creates a cycle.');
         return;
       }
     }
@@ -316,10 +237,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                           index: i + 1,
                           form: _forms[i],
                           characters: _finalCharacters,
-                          parentOptions: _parentLocationOptions(i),
                           onChanged: _onFormChanged,
-                          onPickParentLocation: () =>
-                              _openParentLocationPicker(i),
                           onPickCharacters: () => _openCharacterPicker(i),
                           onDelete: () {
                             _requestRemoveLocation(i);

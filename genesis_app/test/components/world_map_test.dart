@@ -135,6 +135,15 @@ void main() {
     expect(_assetImageFinder(kWorldMapFallbackBackgroundAsset), findsOneWidget);
   });
 
+  testWidgets('world map can keep empty URL in loading placeholder state', (
+    tester,
+  ) async {
+    await _pumpWorldMap(tester, users: const [], fallbackOnEmptyMapUrl: false);
+
+    expect(_assetImageFinder(kWorldMapFallbackBackgroundAsset), findsNothing);
+    expect(_mapPlaceholderFinder(), findsOneWidget);
+  });
+
   testWidgets('world map uses fallback background when map asset fails', (
     tester,
   ) async {
@@ -1160,6 +1169,7 @@ Future<void> _pumpWorldMap(
   List<WorldPoint>? points,
   List<WorldPoint>? listPoints,
   List<WorldMapLocationNode> locationNodes = const <WorldMapLocationNode>[],
+  bool fallbackOnEmptyMapUrl = true,
   WorldPointTapCallback? onPointTap,
   VoidCallback? onDrillIntoLocation,
 }) async {
@@ -1179,6 +1189,7 @@ Future<void> _pumpWorldMap(
             child: WorldMap(
               mapImageUrl: mapImageUrl,
               preloadMapImageUrls: preloadMapImageUrls,
+              fallbackOnEmptyMapUrl: fallbackOnEmptyMapUrl,
               showPointsList: showPointsList,
               listPoints: listPoints,
               locationNodes: locationNodes,
@@ -1209,6 +1220,13 @@ Finder _assetImageFinder(String path, {bool skipOffstage = true}) {
         widget is Image &&
         widget.image is AssetImage &&
         (widget.image as AssetImage).assetName == path,
+    skipOffstage: skipOffstage,
+  );
+}
+
+Finder _mapPlaceholderFinder({bool skipOffstage = true}) {
+  return find.byWidgetPredicate(
+    (widget) => widget is ColoredBox && widget.color == const Color(0xFFF3F4F6),
     skipOffstage: skipOffstage,
   );
 }

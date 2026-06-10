@@ -95,9 +95,37 @@ class MemoryOriginDraftRepository extends OriginDraftRepository {
     return !originDraftContentEquals(_originalDraft, draft.normalized());
   }
 
+  List<String> deletedCharacterIds(CreateOriginDraft draft) {
+    return _deletedIds(
+      _originalDraft.characters.map((item) => item.charId),
+      draft.normalized().characters.map((item) => item.charId),
+    );
+  }
+
+  List<String> deletedLocationIds(CreateOriginDraft draft) {
+    return _deletedIds(
+      _originalDraft.locations.map((item) => item.locationId),
+      draft.normalized().locations.map((item) => item.locationId),
+    );
+  }
+
   void markCurrentAsOriginal() {
     _originalDraft = _draft.normalized();
   }
+}
+
+List<String> _deletedIds(
+  Iterable<String> originalIds,
+  Iterable<String> nextIds,
+) {
+  final next = nextIds
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toSet();
+  return originalIds
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty && !next.contains(item))
+      .toList(growable: false);
 }
 
 bool originDraftContentEquals(CreateOriginDraft a, CreateOriginDraft b) {
@@ -117,7 +145,9 @@ Map<String, dynamic> _contentJson(CreateOriginDraft draft) {
 CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
   final origin = raw['origin'] is Map
       ? asJsonMap(raw['origin'])
-      : asJsonMap(raw['info']);
+      : raw['info'] is Map
+      ? asJsonMap(raw['info'])
+      : raw;
   final originId = asString(
     origin['oid'],
     fallback: asString(origin['origin_id']),
@@ -162,7 +192,6 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
               (item) => _locationDraftFromV1(
                 item,
                 characterLocationIds: characterLocationIds,
-                rootLocationId: rootLocationId,
               ),
             )
             .toList(growable: false)
@@ -186,14 +215,17 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
       ),
       worldView: asString(
         origin['world_view'],
-        fallback: asString(origin['setting']),
+        fallback: asString(
+          origin['brief'],
+          fallback: asString(origin['setting']),
+        ),
       ),
       worldLogic: asString(
         origin['world_setting'],
         fallback: asString(
-          origin['display_subtitle'],
+          origin['setting'],
           fallback: asString(
-            origin['setting'],
+            origin['display_subtitle'],
             fallback: asString(origin['brief']),
           ),
         ),
@@ -201,6 +233,11 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
       metricJson: metric is Map && metric.isNotEmpty
           ? jsonEncode(asJsonMap(metric))
           : '',
+      startedAt: asString(
+        origin['started_at'],
+        fallback: asString(origin['start_time']),
+      ),
+      tickDurationDays: _nullableInt(origin['tick_duration_days']),
       coverImageUrl: asImageUrl(origin['cover'], fallback: origin['map_url']),
     ),
     characters: characters.isEmpty
@@ -219,16 +256,29 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
   ).normalized();
 }
 
+int? _nullableInt(Object? raw) {
+  if (raw == null) return null;
+  if (raw is int) return raw;
+  if (raw is num) return raw.toInt();
+  return int.tryParse(raw.toString().trim());
+}
+
 CharacterDraft _characterDraftFromV1(Map<String, dynamic> raw) {
   return CharacterDraft(
     charId: asString(raw['character_id'], fallback: asString(raw['char_id'])),
     avatarUrl: asImageUrl(raw['avatar']),
     name: asString(raw['name']),
     identity: asString(raw['identity']),
-    personality: asString(raw['tagline'], fallback: asString(raw['brief'])),
+    personality: asString(
+      raw['personality'],
+      fallback: asString(raw['tagline'], fallback: asString(raw['brief'])),
+    ),
     bio: asString(
-      raw['description'],
-      fallback: asString(raw['brief'], fallback: asString(raw['tagline'])),
+      raw['bio'],
+      fallback: asString(
+        raw['description'],
+        fallback: asString(raw['brief'], fallback: asString(raw['tagline'])),
+      ),
     ),
     goal: asString(raw['goal']),
   );
@@ -237,10 +287,8 @@ CharacterDraft _characterDraftFromV1(Map<String, dynamic> raw) {
 LocationDraft _locationDraftFromV1(
   Map<String, dynamic> raw, {
   required Map<String, List<String>> characterLocationIds,
-  required String rootLocationId,
 }) {
   final locationId = asString(raw['location_id']).trim();
-  final parentLocationId = asString(raw['location_pid']).trim();
   final initialCharacterIdsRaw = raw['initial_character_ids'];
   final initialCharacterIds = initialCharacterIdsRaw is List
       ? asJsonList(initialCharacterIdsRaw)
@@ -251,9 +299,6 @@ LocationDraft _locationDraftFromV1(
 
   return LocationDraft(
     locationId: locationId,
-    parentLocationId: parentLocationId == rootLocationId
-        ? ''
-        : parentLocationId,
     imageUrl: asImageUrl(raw['image'], fallback: raw['icon']),
     name: asString(raw['name'], fallback: asString(raw['location_name'])),
     description: asString(

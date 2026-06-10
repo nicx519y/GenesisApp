@@ -4,7 +4,6 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/page_header.dart';
 import '../../network/api_exception.dart';
 import '../create/create_origin_draft_store.dart';
-import '../create/create_origin_id_utils.dart';
 import '../origin_editor/origin_draft_repository.dart';
 import '../origin_editor/origin_editor_pages.dart';
 import 'edit_basics_page.dart';
@@ -49,7 +48,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
 
     try {
       final api = AppServicesScope.read(context).api;
-      final detail = await api.v1.origin.detail(originId: originId);
+      final detail = await api.v1.origin.forEdit(originId: originId);
       if (!mounted) return;
       setState(() {
         _repository = MemoryOriginDraftRepository(
@@ -137,11 +136,12 @@ class _EditOriginPageState extends State<EditOriginPage> {
   ) async {
     final originId = draft.basics.originId.trim();
     final api = AppServicesScope.read(context).api;
-    final uid = await readCreateOriginUid(context);
-    final result = await api.updateOrigin(
-      oid: originId,
-      payload: draft.toCreateOriginPayload(uid: uid),
-    );
+    final payload = draft.toCreateOriginPayload();
+    if (repository is MemoryOriginDraftRepository) {
+      payload['deleted_char_ids'] = repository.deletedCharacterIds(draft);
+      payload['deleted_location_ids'] = repository.deletedLocationIds(draft);
+    }
+    final result = await api.updateOrigin(oid: originId, payload: payload);
     if (repository is MemoryOriginDraftRepository) {
       repository.markCurrentAsOriginal();
     }

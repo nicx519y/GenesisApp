@@ -2,8 +2,6 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'create_origin_id_utils.dart';
-
 class CreateOriginDraftStore {
   static const String _storageKey = 'create_origin_draft_v1';
   static const String _tempTableKey = 'create_origin_temp_table_v1';
@@ -316,7 +314,7 @@ class CreateOriginDraft {
     return errors;
   }
 
-  Map<String, dynamic> toCreateOriginPayload({String uid = 'anonymous'}) {
+  Map<String, dynamic> toCreateOriginPayload() {
     final payload = <String, dynamic>{
       if (basics.originId.trim().isNotEmpty)
         'origin_id': basics.originId.trim(),
@@ -324,6 +322,10 @@ class CreateOriginDraft {
       'world_view': basics.worldView.trim(),
       'world_setting': basics.worldLogic.trim(),
       'cover': basics.coverImageUrl.trim(),
+      if (basics.startedAt.trim().isNotEmpty)
+        'started_at': basics.startedAt.trim(),
+      if (basics.tickDurationDays != null)
+        'tick_duration_days': basics.tickDurationDays,
       'character_list': characters
           .where(_characterHasContent)
           .map(
@@ -338,7 +340,7 @@ class CreateOriginDraft {
             },
           )
           .toList(growable: false),
-      'location_list': _createLocationPayloadList(uid: uid),
+      'location_list': _createLocationPayloadList(),
       'event_list': storyEvents
           .map((item) => item.event.trim())
           .where((text) => text.isNotEmpty)
@@ -357,67 +359,16 @@ class CreateOriginDraft {
     return payload;
   }
 
-  List<Map<String, dynamic>> _createLocationPayloadList({required String uid}) {
-    final originId = basics.originId.trim();
-    final rootId = 'root_${originId.isEmpty ? 'origin' : originId}';
+  List<Map<String, dynamic>> _createLocationPayloadList() {
     final userLocations = locations
         .where((item) => item.name.trim().isNotEmpty)
         .toList(growable: false);
-    final userLocationIds = userLocations
-        .map((item) => item.locationId.trim())
-        .where((id) => id.isNotEmpty && id != rootId)
-        .toSet();
-
-    final normalizedLocations = userLocations
-        .where((item) => item.locationId.trim() != rootId)
-        .map((item) {
-          final parentId = item.parentLocationId.trim();
-          return item.copyWith(
-            parentLocationId:
-                parentId.isEmpty || !userLocationIds.contains(parentId)
-                ? rootId
-                : parentId,
-          );
-        })
-        .toList(growable: true);
-
-    final childParentIds = normalizedLocations
-        .map((item) => item.parentLocationId.trim())
-        .where((id) => id.isNotEmpty)
-        .toSet();
-    var generatedIndex = 0;
-    for (final item in List<LocationDraft>.from(normalizedLocations)) {
-      if (item.parentLocationId.trim() != rootId) continue;
-      if (childParentIds.contains(item.locationId.trim())) continue;
-      final timestamp = DateTime.now().toUtc().add(
-        Duration(microseconds: generatedIndex++),
-      );
-      normalizedLocations.add(
-        item.copyWith(
-          locationId: createUidTimestampHashId(
-            uid: uid,
-            timestamp: timestamp,
-            prefix: 'location',
-          ),
-          parentLocationId: item.locationId.trim(),
-        ),
-      );
-    }
 
     return <Map<String, dynamic>>[
-      <String, dynamic>{
-        'location_id': rootId,
-        'location_pid': '',
-        'name': basics.originName.trim(),
-        'image': basics.coverImageUrl.trim(),
-        'description': basics.worldView.trim(),
-        'initial_character_ids': const <String>[],
-      },
-      for (final item in normalizedLocations)
+      for (final item in userLocations)
         <String, dynamic>{
           if (item.locationId.trim().isNotEmpty)
             'location_id': item.locationId.trim(),
-          'location_pid': item.parentLocationId.trim(),
           'name': item.name.trim(),
           'image': item.imageUrl.trim(),
           'description': item.description.trim(),
@@ -440,7 +391,6 @@ bool _locationHasContent(LocationDraft item) {
   return item.imageUrl.trim().isNotEmpty ||
       item.name.trim().isNotEmpty ||
       item.description.trim().isNotEmpty ||
-      item.parentLocationId.trim().isNotEmpty ||
       item.initialCharacterIds.isNotEmpty;
 }
 
@@ -451,6 +401,8 @@ class BasicsDraft {
     this.worldView = '',
     this.worldLogic = '',
     this.metricJson = '',
+    this.startedAt = '',
+    this.tickDurationDays,
     this.coverImageUrl = '',
   });
 
@@ -459,6 +411,8 @@ class BasicsDraft {
   final String worldView;
   final String worldLogic;
   final String metricJson;
+  final String startedAt;
+  final int? tickDurationDays;
   final String coverImageUrl;
 
   factory BasicsDraft.fromJson(Map<String, dynamic> json) {
@@ -468,6 +422,8 @@ class BasicsDraft {
       worldView: _asString(json['world_view']),
       worldLogic: _asString(json['world_logic']),
       metricJson: _asString(json['metric_json']),
+      startedAt: _asString(json['started_at']),
+      tickDurationDays: _asNullableInt(json['tick_duration_days']),
       coverImageUrl: _asString(json['cover_image_url']),
     );
   }
@@ -478,6 +434,8 @@ class BasicsDraft {
     String? worldView,
     String? worldLogic,
     String? metricJson,
+    String? startedAt,
+    int? tickDurationDays,
     String? coverImageUrl,
   }) {
     return BasicsDraft(
@@ -486,6 +444,8 @@ class BasicsDraft {
       worldView: worldView ?? this.worldView,
       worldLogic: worldLogic ?? this.worldLogic,
       metricJson: metricJson ?? this.metricJson,
+      startedAt: startedAt ?? this.startedAt,
+      tickDurationDays: tickDurationDays ?? this.tickDurationDays,
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,
     );
   }
@@ -497,6 +457,8 @@ class BasicsDraft {
       'world_view': worldView,
       'world_logic': worldLogic,
       'metric_json': metricJson,
+      'started_at': startedAt,
+      if (tickDurationDays != null) 'tick_duration_days': tickDurationDays,
       'cover_image_url': coverImageUrl,
     };
   }
@@ -569,7 +531,6 @@ class CharacterDraft {
 class LocationDraft {
   const LocationDraft({
     this.locationId = '',
-    this.parentLocationId = '',
     this.imageUrl = '',
     this.name = '',
     this.description = '',
@@ -577,7 +538,6 @@ class LocationDraft {
   });
 
   final String locationId;
-  final String parentLocationId;
   final String imageUrl;
   final String name;
   final String description;
@@ -586,7 +546,6 @@ class LocationDraft {
   factory LocationDraft.fromJson(Map<String, dynamic> json) {
     return LocationDraft(
       locationId: _asString(json['location_id']),
-      parentLocationId: _asString(json['location_pid']),
       imageUrl: _asString(json['image_url']),
       name: _asString(json['name']),
       description: _asString(json['description']),
@@ -599,7 +558,6 @@ class LocationDraft {
 
   LocationDraft copyWith({
     String? locationId,
-    String? parentLocationId,
     String? imageUrl,
     String? name,
     String? description,
@@ -607,7 +565,6 @@ class LocationDraft {
   }) {
     return LocationDraft(
       locationId: locationId ?? this.locationId,
-      parentLocationId: parentLocationId ?? this.parentLocationId,
       imageUrl: imageUrl ?? this.imageUrl,
       name: name ?? this.name,
       description: description ?? this.description,
@@ -626,7 +583,6 @@ class LocationDraft {
   Map<String, dynamic> toJson() {
     return {
       'location_id': locationId,
-      'location_pid': parentLocationId,
       'image_url': imageUrl,
       'name': name,
       'description': description,
@@ -662,5 +618,12 @@ Map<String, dynamic> _asMap(Object? raw) {
 }
 
 String _asString(Object? raw) => raw?.toString() ?? '';
+
+int? _asNullableInt(Object? raw) {
+  if (raw == null) return null;
+  if (raw is int) return raw;
+  if (raw is num) return raw.toInt();
+  return int.tryParse(raw.toString().trim());
+}
 
 bool _asBool(Object? raw) => raw == true;

@@ -340,6 +340,10 @@ class LocalMockGenesisTransport implements HttpTransport {
       );
     }
 
+    if (method == 'GET' && path == 'origin/foredit') {
+      return _v1Ok(_state.v1OriginForEdit(query['origin_id'] ?? query['oid']));
+    }
+
     if (method == 'POST' && path == 'origin/create') {
       return _v1Ok(_state.createV1Origin(body));
     }
@@ -1007,32 +1011,39 @@ class _MockState {
 
   Map<String, dynamic> chatroomUserLocations(String worldId) {
     final resolvedWorldId = _resolveChatroomWorldId(worldId);
-    final byLocation = <String, Map<String, Map<String, dynamic>>>{};
+    final playerLocations = <String, String>{};
     for (final message in _chatroomMessagesForWorld(resolvedWorldId)) {
       if (message['sender_type'] != 'user') continue;
       final locationId = asString(message['location_id']);
       final userId = asString(message['user_id'], fallback: asString(me['id']));
       if (locationId.isEmpty || userId.isEmpty) continue;
-      byLocation.putIfAbsent(
-        locationId,
-        () => <String, Map<String, dynamic>>{},
-      );
-      byLocation[locationId]!.putIfAbsent(userId, () {
-        return {
-          'user_id': userId,
-          'user_name': asString(
-            message['sender_name'],
-            fallback: asString(me['display_name']),
-          ),
-          'avatar': _mockImageObject(me['avatar_url']),
-        };
+      playerLocations[userId] = locationId;
+    }
+    final byLocation = <String, List<Map<String, dynamic>>>{};
+    for (final character in kMockV1Characters) {
+      final payload = _contractCharacter(character);
+      final playerUid = asString(payload['player_uid']);
+      final locationId = playerUid.isNotEmpty
+          ? playerLocations[playerUid] ?? asString(payload['location_id'])
+          : asString(payload['location_id']);
+      if (locationId.isEmpty) continue;
+      payload['location_id'] = locationId;
+      if (playerUid == asString(me['id'])) {
+        payload['player_username'] = asString(me['display_name']);
+      }
+      byLocation.putIfAbsent(locationId, () => <Map<String, dynamic>>[]).add({
+        'char_id': payload['char_id'],
+        'player_uid': payload['player_uid'],
+        'player_username': payload['player_username'],
+        'name': payload['name'],
+        'location_id': payload['location_id'],
       });
     }
     return {
       'world_id': resolvedWorldId,
       'locations': [
         for (final entry in byLocation.entries)
-          {'location_id': entry.key, 'users': entry.value.values.toList()},
+          {'location_id': entry.key, 'characters': entry.value},
       ],
     };
   }
@@ -1308,6 +1319,28 @@ class _MockState {
     };
   }
 
+  Map<String, dynamic> v1OriginForEdit(String? originId) {
+    final origin = _findV1Origin(originId);
+    final item = _v1OriginContractItem(origin);
+    final info = item['info'] as Map<String, dynamic>;
+    return {
+      'origin_id': info['origin_id'],
+      'origin_name': info['origin_name'],
+      'origin_version': info['origin_version'],
+      'brief': info['brief'],
+      'setting': info['setting'],
+      'events': info['events'],
+      'tags': info['tags'],
+      'metric': info['metric'],
+      'started_at': info['started_at'],
+      'tick_duration_days': info['tick_duration_days'],
+      'cover': info['cover'],
+      'map_url': info['map_url'],
+      'characters': kMockV1Characters.map(_contractCharacterForEdit).toList(),
+      'locations': kMockV1Locations.map(_contractLocationForEdit).toList(),
+    };
+  }
+
   Map<String, dynamic> createV1Origin(Map<String, dynamic> body) {
     final now = DateTime.now().toUtc().toIso8601String();
     final oid = 'o_mock_${DateTime.now().millisecondsSinceEpoch}';
@@ -1322,6 +1355,9 @@ class _MockState {
       'cover': '${body['cover'] ?? _v1Origin['cover']}',
       'map_url': '${body['map_url'] ?? body['cover'] ?? _v1Origin['map_url']}',
       'tags': body['tags'] is List ? body['tags'] : const <Object?>[],
+      'metric': body['metric'] is Map
+          ? _deepCopyMap(_mapFromObject(body['metric']))
+          : _deepCopyMap(kMockV1Metric),
       'start_time': '${body['started_at'] ?? _v1Origin['start_time']}',
       'tick_duration_days':
           (body['tick_duration_days'] as num?)?.toInt() ??
@@ -1353,13 +1389,42 @@ class _MockState {
   }
 
   Map<String, dynamic> updateV1Origin(Map<String, dynamic> body) {
-    final origin = _findV1Origin('${body['oid'] ?? ''}');
-    for (final key in ['name', 'world_view', 'world_setting', 'cover']) {
-      final value = body[key];
-      if (value != null) origin[key] = value;
+    final origin = _findV1Origin('${body['origin_id'] ?? body['oid'] ?? ''}');
+    final originName = body['origin_name'] ?? body['name'];
+    final brief = body['brief'] ?? body['world_view'];
+    final setting = body['setting'] ?? body['world_setting'];
+    if (originName != null) origin['name'] = originName;
+    if (brief != null) origin['display_subtitle'] = brief;
+    if (setting != null) {
+      origin['world_view'] = setting;
+      origin['world_setting'] = setting;
+    }
+    if (body['cover'] != null) origin['cover'] = body['cover'];
+    if (body['map_url'] != null) origin['map_url'] = body['map_url'];
+    if (body['tags'] is List) origin['tags'] = body['tags'];
+    if (body['metric'] is Map) {
+      origin['metric'] = _deepCopyMap(_mapFromObject(body['metric']));
+    }
+    if (body['started_at'] != null) origin['start_time'] = body['started_at'];
+    if (body['tick_duration_days'] is num) {
+      origin['tick_duration_days'] = (body['tick_duration_days'] as num)
+          .toInt();
     }
     origin['updated_at'] = DateTime.now().toUtc().toIso8601String();
-    return _originDetailPayload(origin);
+    return {
+      ..._v1OriginContractItem(origin),
+      'characters': body['characters'] is List
+          ? (body['characters'] as List)
+                .map((item) => _contractCharacter(_mapFromObject(item)))
+                .toList(growable: false)
+          : kMockV1Characters.map(_contractCharacter).toList(),
+      'locations': body['locations'] is List
+          ? (body['locations'] as List)
+                .map((item) => _contractLocation(_mapFromObject(item)))
+                .toList(growable: false)
+          : kMockV1Locations.map(_contractLocation).toList(),
+      'ticks': const <Map<String, dynamic>>[],
+    };
   }
 
   Map<String, dynamic> publishV1Origin(String oid) {
@@ -2754,7 +2819,9 @@ class _MockState {
         'setting': origin['world_setting'],
         'events': kMockV1Events.map((event) => event['content']).toList(),
         'tags': origin['tags'],
-        'metric': _deepCopyMap(kMockV1Metric),
+        'metric': origin['metric'] is Map
+            ? _deepCopyMap(_mapFromObject(origin['metric']))
+            : _deepCopyMap(kMockV1Metric),
         'created_at': _mockEpoch(origin['created_at']),
         'started_at': origin['start_time'],
         'tick_duration_days': origin['tick_duration_days'],
@@ -2825,6 +2892,22 @@ class _MockState {
     };
   }
 
+  Map<String, dynamic> _contractCharacterForEdit(
+    Map<String, dynamic> character,
+  ) {
+    return {
+      'char_id': character['character_id'] ?? character['char_id'],
+      'name': character['name'],
+      'identity': character['identity'],
+      'personality': character['tagline'] ?? character['personality'],
+      'bio': character['description'] ?? character['bio'],
+      'goal': character['goal'],
+      'avatar': _mockImageObject(character['avatar']),
+      'initial_location_id':
+          character['initial_location_id'] ?? character['location_id'] ?? '',
+    };
+  }
+
   Map<String, dynamic> _contractLocation(Map<String, dynamic> location) {
     return {
       'location_id': location['location_id'],
@@ -2842,6 +2925,23 @@ class _MockState {
       'y_percent': location['y_percent'],
       'map_url': location['map_url'] ?? location['image'],
       'dialogue': location['dialogue'] ?? const <Map<String, dynamic>>[],
+    };
+  }
+
+  Map<String, dynamic> _contractLocationForEdit(Map<String, dynamic> location) {
+    return {
+      'location_id': location['location_id'],
+      'level': location['level'] ?? 1,
+      'location_pid': location['location_pid'] ?? '',
+      'location_name': location['location_name'] ?? location['name'],
+      'location_description':
+          location['location_description'] ?? location['description'],
+      'location_summary':
+          location['location_summary'] ?? location['description'] ?? '',
+      'image': _mockImageObject(location['image']),
+      'x_percent': location['x_percent'],
+      'y_percent': location['y_percent'],
+      'map_url': location['map_url'] ?? location['image'],
     };
   }
 

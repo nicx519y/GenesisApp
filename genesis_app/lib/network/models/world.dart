@@ -101,6 +101,78 @@ class WorldDetail {
   final List<Map<String, dynamic>> characterPositions;
   final List<Map<String, dynamic>> userPositions;
 
+  WorldDetail copyWith({
+    int? id,
+    String? worldId,
+    int? originId,
+    String? ownerUid,
+    String? name,
+    int? tickCount,
+    int? connectCount,
+    int? characterCount,
+    int? playerCount,
+    DateTime? latestTickAt,
+    String? latestNarrator,
+    bool? isProgressing,
+    String? relationStatus,
+    Map<String, dynamic>? metric,
+    String? inviteToken,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    OriginSummary? origin,
+    List<Map<String, dynamic>>? characters,
+    List<Map<String, dynamic>>? ticks,
+    List<Map<String, dynamic>>? locations,
+    List<LocationTreeNode<Map<String, dynamic>>>? locationTree,
+    ProcessedLocationTree<Map<String, dynamic>>? processedLocationTree,
+    List<Map<String, dynamic>>? characterPositions,
+    List<Map<String, dynamic>>? userPositions,
+  }) {
+    final nextLocations = locations ?? this.locations;
+    List<LocationTreeNode<Map<String, dynamic>>>? nextLocationTree =
+        locationTree;
+    if (nextLocationTree == null && locations != null) {
+      nextLocationTree = buildLocationTree(
+        nextLocations,
+        idOf: (location) => asString(location['location_id']),
+        parentIdOf: (location) => asString(location['location_pid']),
+      );
+    }
+    final resolvedLocationTree = nextLocationTree ?? this.locationTree;
+    final resolvedProcessedLocationTree =
+        processedLocationTree ??
+        (nextLocationTree == null
+            ? this.processedLocationTree
+            : processLocationTree(resolvedLocationTree));
+    return WorldDetail(
+      id: id ?? this.id,
+      worldId: worldId ?? this.worldId,
+      originId: originId ?? this.originId,
+      ownerUid: ownerUid ?? this.ownerUid,
+      name: name ?? this.name,
+      tickCount: tickCount ?? this.tickCount,
+      connectCount: connectCount ?? this.connectCount,
+      characterCount: characterCount ?? this.characterCount,
+      playerCount: playerCount ?? this.playerCount,
+      latestTickAt: latestTickAt ?? this.latestTickAt,
+      latestNarrator: latestNarrator ?? this.latestNarrator,
+      isProgressing: isProgressing ?? this.isProgressing,
+      relationStatus: relationStatus ?? this.relationStatus,
+      metric: metric ?? this.metric,
+      inviteToken: inviteToken ?? this.inviteToken,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      origin: origin ?? this.origin,
+      characters: characters ?? this.characters,
+      ticks: ticks ?? this.ticks,
+      locations: nextLocations,
+      locationTree: resolvedLocationTree,
+      processedLocationTree: resolvedProcessedLocationTree,
+      characterPositions: characterPositions ?? this.characterPositions,
+      userPositions: userPositions ?? this.userPositions,
+    );
+  }
+
   factory WorldDetail.fromJson(Map<String, dynamic> json) {
     final rawWorldLocations = (json['locations'] is List)
         ? asJsonList(
