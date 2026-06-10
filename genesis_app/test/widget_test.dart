@@ -2371,6 +2371,66 @@ void main() {
     );
   });
 
+  testWidgets('logout clears messages badge and signed-in tab caches', (
+    WidgetTester tester,
+  ) async {
+    final sessionStore = MemoryUserSessionStore();
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: true,
+      sessionStore: sessionStore,
+    );
+    final transport = _RecordingMessagesDataPollTransport();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      sessionStoreOverride: sessionStore,
+      backendAuth: backendAuth,
+      initialUid: 'u_cached',
+      initialAuthToken: 'backend-token',
+      initialUserInfo: const {'uid': 'u_cached', 'name': 'Cached User'},
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const AppShellPage(initialIndex: 0),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
+        matching: find.text('4'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.settings));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Log out'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Log out').last);
+    await tester.pumpAndSettle();
+
+    expect(await sessionStore.readUid(), isNull);
+    expect(
+      find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('Messages'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Private chats'), findsNothing);
+  });
+
   testWidgets('messages action button navigates to list page', (
     WidgetTester tester,
   ) async {
@@ -2653,7 +2713,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(
-            services: await _testServices(transport: transport, useMock: false),
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'backend-token',
+            ),
             child: const HomePage(),
           ),
         ),
@@ -2695,7 +2759,7 @@ void main() {
     },
   );
 
-  testWidgets('Home My World tab is empty without local uid', (
+  testWidgets('Home defaults to Popular tab while signed out', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -2714,7 +2778,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-    expect(find.text('No data'), findsOneWidget);
+    final originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(1));
+    expect(originRequests.single.uri.queryParameters['pn'], '1');
+    expect(originRequests.single.uri.queryParameters['rn'], '20');
+    expect(find.text('#Origin 1'), findsWidgets);
   });
 
   testWidgets('Origin list item opens origin detail with current oid', (

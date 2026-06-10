@@ -35,4 +35,35 @@ void main() {
 
     expect(history, <String>['origin']);
   });
+
+  test('stores search history per uid', () async {
+    const aliceStore = SearchHistoryStore(ownerUid: 'u_alice');
+    const bobStore = SearchHistoryStore(ownerUid: 'u_bob');
+
+    await aliceStore.add('alice query');
+    await bobStore.add('bob query');
+
+    expect(await aliceStore.load(), <String>['alice query']);
+    expect(await bobStore.load(), <String>['bob query']);
+  });
+
+  test(
+    'reads legacy global history as fallback without writing to it',
+    () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        SearchHistoryStore.storageKey: <String>['legacy query'],
+      });
+      const store = SearchHistoryStore(ownerUid: 'u_alice');
+
+      expect(await store.load(), <String>['legacy query']);
+
+      await store.add('new query');
+
+      expect(await store.load(), <String>['new query', 'legacy query']);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList(SearchHistoryStore.storageKey), <String>[
+        'legacy query',
+      ]);
+    },
+  );
 }
