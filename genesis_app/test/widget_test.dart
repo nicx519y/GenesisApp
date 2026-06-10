@@ -2785,6 +2785,49 @@ void main() {
     expect(find.text('#Origin 1'), findsWidgets);
   });
 
+  testWidgets('Home My World signed-out refresh keeps empty state', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: null,
+          ),
+          child: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('My World'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No data'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+      findsNothing,
+    );
+
+    final refreshFuture = tester
+        .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
+        .show();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(find.text('No data'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+      findsNothing,
+    );
+
+    await refreshFuture;
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('Origin list item opens origin detail with current oid', (
     WidgetTester tester,
   ) async {
@@ -3892,7 +3935,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: AppServicesScope(
-          services: await _testServices(transport: transport, useMock: false),
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
           child: const HomePage(),
         ),
       ),

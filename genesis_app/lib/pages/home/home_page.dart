@@ -230,6 +230,21 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }
 
   Future<void> _refreshItems() async {
+    if (!await _hasLocalLoginSession()) {
+      if (!mounted) return;
+      setState(() {
+        _items.clear();
+        _nextPage = 1;
+        _total = 0;
+        _hasMore = false;
+        _error = null;
+        _isInitialLoading = false;
+        _isLoadingMore = false;
+        _isRefreshing = false;
+      });
+      return;
+    }
+
     setState(() {
       _error = null;
       _isInitialLoading = _items.isEmpty;
@@ -257,6 +272,14 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isRefreshing = false;
       });
     }
+  }
+
+  Future<bool> _hasLocalLoginSession() async {
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
   }
 
   Future<void> _loadNextPage() async {
