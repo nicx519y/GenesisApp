@@ -596,6 +596,9 @@ class _Preview extends StatelessWidget {
                 height: double.infinity,
                 fit: BoxFit.cover,
                 alignment: alignment,
+                fadeInDuration: Duration.zero,
+                fadeOutDuration: Duration.zero,
+                placeholderFadeInDuration: Duration.zero,
                 imageBuilder: (_, imageProvider) {
                   debugPrint(
                     '[CreateUploadBox] cached image ready: "$selectedUrl"',
@@ -612,7 +615,7 @@ class _Preview extends StatelessWidget {
                   debugPrint(
                     '[CreateUploadBox] cached image loading: "$selectedUrl"',
                   );
-                  return const _PreviewPlaceholder();
+                  return const _PreviewPlaceholder(showSpinner: false);
                 },
                 errorWidget: (_, __, error) {
                   debugPrint(

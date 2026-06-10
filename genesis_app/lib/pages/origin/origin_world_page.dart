@@ -1505,6 +1505,9 @@ class _OriginCharacterPortrait extends StatelessWidget {
             width: _width,
             fit: BoxFit.fitWidth,
             alignment: Alignment.topCenter,
+            fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
+            placeholderFadeInDuration: Duration.zero,
             placeholder: (context, url) => fallback,
             errorWidget: (context, url, error) => fallback,
           );

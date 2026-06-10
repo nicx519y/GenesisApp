@@ -84,11 +84,12 @@ void main() {
       ),
     );
 
-    expect(
-      tester
-          .widget<CachedNetworkImage>(find.byType(CachedNetworkImage))
-          .imageUrl,
-      'https://cdn.example.com/avatar_800_600.webp',
+    final image = tester.widget<CachedNetworkImage>(
+      find.byType(CachedNetworkImage),
     );
+    expect(image.imageUrl, 'https://cdn.example.com/avatar_800_600.webp');
+    expect(image.fadeInDuration, Duration.zero);
+    expect(image.fadeOutDuration, Duration.zero);
+    expect(image.placeholderFadeInDuration, Duration.zero);
   });
 }
