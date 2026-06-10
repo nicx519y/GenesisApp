@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../ui/components/genesis_fixed_underline_indicator.dart';
+import '../ui/components/genesis_tab_bar.dart';
 import '../ui/theme/genesis_ui_theme.dart';
 
 class WorldTopOverlayBar extends StatelessWidget {
@@ -37,7 +38,7 @@ class WorldTopOverlayBar extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Container(
-            height: kTextTabBarHeight,
+            height: genesisTabHeight,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.82),
               borderRadius: BorderRadius.circular(16),
@@ -54,7 +55,7 @@ class WorldTopOverlayBar extends StatelessWidget {
                 color: uiTheme.tabIndicatorColor,
                 width: uiTheme.tabIndicatorWidth,
                 height: uiTheme.tabIndicatorHeight,
-                bottomPadding: 7.5,
+                bottomPadding: genesisTabIndicatorBottomPadding,
               ),
               labelColor: uiTheme.tabSelectedColor,
               unselectedLabelColor: uiTheme.tabUnselectedColor,
@@ -62,6 +63,7 @@ class WorldTopOverlayBar extends StatelessWidget {
               unselectedLabelStyle: uiTheme.bodyStyle,
               tabs: [
                 const Tab(
+                  height: genesisTabHeight,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -72,6 +74,7 @@ class WorldTopOverlayBar extends StatelessWidget {
                   ),
                 ),
                 Tab(
+                  height: genesisTabHeight,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

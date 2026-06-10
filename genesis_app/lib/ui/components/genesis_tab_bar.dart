@@ -4,6 +4,9 @@ import '../tokens/genesis_spacing.dart';
 import '../theme/genesis_ui_theme.dart';
 import 'genesis_fixed_underline_indicator.dart';
 
+const double genesisTabHeight = 32;
+const double genesisTabIndicatorBottomPadding = 3;
+
 class GenesisTabBar extends StatelessWidget {
   const GenesisTabBar({
     super.key,
@@ -55,13 +58,16 @@ class GenesisTabBar extends StatelessWidget {
           color: indicatorColor ?? uiTheme.tabIndicatorColor,
           width: indicatorWidth ?? uiTheme.tabIndicatorWidth,
           height: indicatorHeight ?? uiTheme.tabIndicatorHeight,
-          bottomPadding: 7.5,
+          bottomPadding: genesisTabIndicatorBottomPadding,
         ),
         labelColor: uiTheme.tabSelectedColor,
         unselectedLabelColor: uiTheme.tabUnselectedColor,
         labelStyle: labelStyle,
         unselectedLabelStyle: unselectedLabelStyle,
-        tabs: [for (final label in labels) Tab(text: label)],
+        tabs: [
+          for (final label in labels)
+            Tab(height: genesisTabHeight, text: label),
+        ],
       ),
     );
   }
