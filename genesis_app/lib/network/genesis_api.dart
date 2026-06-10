@@ -421,7 +421,12 @@ class GenesisApi {
   }) async {
     final resolvedUid = uid ?? await _ensureUid();
     final page = _pageFromOffset(limit: limit, offset: offset);
-    final map = await v1.origin.list(uid: resolvedUid, pn: page, rn: limit);
+    final map = await v1.origin.list(
+      scene: 'uid',
+      uid: resolvedUid,
+      pn: page,
+      rn: limit,
+    );
     final originsRaw = map['list'];
     final origins = (originsRaw is List ? asJsonList(originsRaw) : const [])
         .map((e) => _originSummaryFromV1ListItem(asJsonMap(e)))

@@ -102,7 +102,7 @@ class _MePageState extends State<MePage> {
     final services = AppServicesScope.read(context);
     final api = services.api;
     final profile = services.identityAuth.currentProfile();
-    final localUid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final localUid = await _readCurrentBackendUid();
     final displayName = (profile?.displayName ?? '').trim().isNotEmpty
         ? profile!.displayName.trim()
         : ((profile?.email ?? '').trim().isNotEmpty
@@ -216,6 +216,29 @@ class _MePageState extends State<MePage> {
     }
   }
 
+  Future<String> _readCurrentBackendUid() async {
+    final services = AppServicesScope.read(context);
+    final cachedUser = await services.sessionStore.readUserInfo();
+    if (cachedUser != null) {
+      final cachedUid = _mapString(cachedUser, 'uid');
+      if (cachedUid.isNotEmpty) {
+        debugPrint('[MePage] current uid from cached userInfo: $cachedUid');
+        return cachedUid;
+      }
+    }
+
+    final sessionUid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (sessionUid.isNotEmpty) {
+      debugPrint('[MePage] current uid from sessionStore: $sessionUid');
+      return sessionUid;
+    }
+
+    final profileUid = (services.identityAuth.currentProfile()?.uid ?? '')
+        .trim();
+    debugPrint('[MePage] current uid from identity profile: $profileUid');
+    return profileUid;
+  }
+
   Future<Map<String, dynamic>?> _fetchAndCacheUserInfo(
     GenesisApi api,
     UserSessionStore sessionStore, {
@@ -277,7 +300,8 @@ class _MePageState extends State<MePage> {
 
   Future<void> _refreshOrigins() async {
     final services = AppServicesScope.read(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final uid = await _readCurrentBackendUid();
+    debugPrint('[MePage] refresh origins uid: $uid');
     final current = _originsState.value;
     _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
       items: current.items,
