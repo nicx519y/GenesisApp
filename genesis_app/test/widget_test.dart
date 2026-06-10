@@ -1825,6 +1825,37 @@ void main() {
     );
   });
 
+  testWidgets('messages data polling is skipped while signed out', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingMessagesDataPollTransport();
+    final services = await _testServices(transport: transport, useMock: false);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const AppShellPage(initialIndex: 0),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(transport.count('/api/v1/message/unread'), 0);
+    expect(transport.count('/api/v1/direct_message/conversations'), 0);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    expect(transport.count('/api/v1/message/unread'), 0);
+    expect(transport.count('/api/v1/direct_message/conversations'), 0);
+
+    await tester.tap(find.text('Messages'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(transport.count('/api/v1/message/unread'), 0);
+    expect(transport.count('/api/v1/direct_message/conversations'), 0);
+  });
+
   testWidgets('messages data polling shares one five second cadence', (
     WidgetTester tester,
   ) async {

@@ -79,11 +79,17 @@ class _AppShellPageState extends State<AppShellPage>
 
   Future<void> _refreshMessagesData() async {
     try {
+      if (!await _hasLocalLoginSession()) {
+        if (mounted && _unreadSummaryNotifier.value != UnreadSummary.zero) {
+          _unreadSummaryNotifier.value = UnreadSummary.zero;
+        }
+        return;
+      }
+      if (!mounted) return;
       final services = AppServicesScope.read(context);
       final requests = <Future<void>>[
         _refreshUnreadSummary(),
-        if (await _hasLocalLoginSession())
-          services.directMessageConversations.syncConversations(),
+        services.directMessageConversations.syncConversations(),
       ];
       await Future.wait(requests);
     } catch (e, st) {
