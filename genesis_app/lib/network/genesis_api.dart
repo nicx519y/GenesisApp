@@ -804,11 +804,14 @@ class GenesisApi {
     final events = _createOriginEventStrings(payload['event_list']);
     final created = await v1.origin.create(
       originName: asString(payload['name']),
+      originVersion: _createOriginOptionalString(payload['origin_version']),
       brief: asString(payload['world_view']),
       setting: asString(payload['world_setting']),
       events: events.isEmpty ? null : events,
       tags: _createOriginStringList(payload['tags']),
       metric: payload['metric'] is Map ? asJsonMap(payload['metric']) : null,
+      startedAt: _createOriginOptionalString(payload['started_at']),
+      tickDurationDays: _createOriginOptionalInt(payload['tick_duration_days']),
       cover: asString(payload['cover']),
       mapUrl: asString(
         payload['map_url'],
@@ -836,23 +839,43 @@ class GenesisApi {
     required String oid,
     required Map<String, dynamic> payload,
   }) async {
+    final events = _createOriginEventStrings(payload['event_list']);
     final updated = await v1.origin.update(
-      oid: oid,
-      name: asString(payload['name']),
-      worldView: asString(payload['world_view']),
-      worldSetting: asString(payload['world_setting']),
-      cover: asString(payload['cover']),
-      characterList: _payloadMapList(payload['character_list']),
-      locationList: _payloadMapList(payload['location_list']),
-      eventList: _payloadMapList(payload['event_list']),
+      originId: asString(payload['origin_id'], fallback: oid),
+      originName: asString(payload['name']),
+      originVersion: _createOriginOptionalString(payload['origin_version']),
+      brief: asString(payload['world_view']),
+      setting: asString(payload['world_setting']),
+      events: events.isEmpty ? null : events,
+      tags: _createOriginStringList(payload['tags']),
       metric: payload['metric'] is Map ? asJsonMap(payload['metric']) : null,
+      startedAt: _createOriginOptionalString(payload['started_at']),
+      tickDurationDays: _createOriginOptionalInt(payload['tick_duration_days']),
+      cover: asString(payload['cover']),
+      mapUrl: asString(
+        payload['map_url'],
+        fallback: asString(payload['cover']),
+      ),
+      characters: _createOriginCharacters(payload),
+      locations: _createOriginLocations(payload),
+      deletedCharIds:
+          _createOriginStringList(payload['deleted_char_ids']) ??
+          const <String>[],
+      deletedLocationIds:
+          _createOriginStringList(payload['deleted_location_ids']) ??
+          const <String>[],
     );
-    final detail = updated['origin'] is Map
+    final detail = updated['info'] is Map
+        ? asJsonMap(updated['info'])
+        : updated['origin'] is Map
         ? asJsonMap(updated['origin'])
         : updated;
     final updatedOid = asString(
-      detail['oid'],
-      fallback: asString(updated['oid'], fallback: oid),
+      detail['origin_id'],
+      fallback: asString(
+        detail['oid'],
+        fallback: asString(updated['origin_id'], fallback: oid),
+      ),
     );
     return CreateOriginResult(worldviewId: updatedOid, oid: updatedOid);
   }
@@ -973,6 +996,17 @@ List<String> _createOriginEventStrings(Object? raw) {
       .toList(growable: false);
 }
 
+String? _createOriginOptionalString(Object? raw) {
+  final value = asString(raw).trim();
+  return value.isEmpty ? null : value;
+}
+
+int? _createOriginOptionalInt(Object? raw) {
+  if (raw == null) return null;
+  if (raw is String && raw.trim().isEmpty) return null;
+  return asInt(raw);
+}
+
 List<Map<String, dynamic>> _createOriginCharacters(
   Map<String, dynamic> payload,
 ) {
@@ -1020,12 +1054,10 @@ List<Map<String, dynamic>> _createOriginLocations(
   final rawLocations = _payloadMapList(payload['location_list']);
   return rawLocations
       .map((item) {
-        final parentId = asString(item['location_pid']).trim();
         return <String, dynamic>{
           if (asString(item['location_id']).trim().isNotEmpty)
             'location_id': asString(item['location_id']).trim(),
           'level': asInt(item['level']),
-          'location_pid': parentId,
           'location_name': asString(
             item['location_name'],
             fallback: asString(item['name']),

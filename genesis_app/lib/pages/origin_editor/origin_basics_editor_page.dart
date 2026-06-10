@@ -29,6 +29,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
 
   bool _isSaving = false;
   bool _isFinalSynced = false;
+  String _metricMode = 'qualitative';
   String _selectedTimeProgress = '';
 
   @override
@@ -45,7 +46,11 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     _worldLogicController.text = draft.basics.worldLogic;
     _metricController.text = draft.basics.metricJson;
     _coverImageController.text = draft.basics.coverImageUrl;
-    _loadSimulationSettings(draft.basics.metricJson);
+    _loadSimulationSettings(
+      metricJson: draft.basics.metricJson,
+      startedAt: draft.basics.startedAt,
+      tickDurationDays: draft.basics.tickDurationDays,
+    );
     _isFinalSynced = draft.basicsSaved;
     setState(() {});
   }
@@ -66,6 +71,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
         worldView: _worldViewController.text.trim(),
         worldLogic: _worldLogicController.text.trim(),
         metricJson: _simulationSettingsJson(),
+        startedAt: _worldStartTimeController.text.trim(),
+        tickDurationDays: _tickDurationDays(),
         coverImageUrl: _coverImageController.text.trim(),
       ),
       basicsSaved: basicsSaved,
@@ -123,16 +130,35 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     showGenesisToast(context, message);
   }
 
-  void _loadSimulationSettings(String metricJson) {
+  void _loadSimulationSettings({
+    required String metricJson,
+    required String startedAt,
+    required int? tickDurationDays,
+  }) {
+    _worldStartTimeController.text = startedAt.trim();
+    if (tickDurationDays != null) {
+      _selectedTimeProgress = _timeProgressOptionForDays(tickDurationDays);
+      if (_selectedTimeProgress.isEmpty) {
+        _timeProgressCustomController.text = '$tickDurationDays';
+      }
+    }
+
     final raw = metricJson.trim();
     if (raw.isEmpty) return;
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return;
-      _worldStartTimeController.text = decoded['start_time']?.toString() ?? '';
-      _selectedTimeProgress = decoded['time_per_progress']?.toString() ?? '';
-      _timeProgressCustomController.text =
-          decoded['time_per_progress_custom']?.toString() ?? '';
+      _worldStartTimeController.text = _worldStartTimeController.text.isNotEmpty
+          ? _worldStartTimeController.text
+          : decoded['start_time']?.toString() ?? '';
+      _metricMode = decoded['mode']?.toString().trim().isNotEmpty == true
+          ? decoded['mode'].toString().trim()
+          : _metricMode;
+      if (tickDurationDays == null) {
+        _selectedTimeProgress = decoded['time_per_progress']?.toString() ?? '';
+        _timeProgressCustomController.text =
+            decoded['time_per_progress_custom']?.toString() ?? '';
+      }
       _progressMetricController.text =
           decoded['label']?.toString() ??
           decoded['progress_metric']?.toString() ??
@@ -154,32 +180,73 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
 
   String _simulationSettingsJson() {
     final values = <String, String>{
-      'start_time': _worldStartTimeController.text.trim(),
-      'time_per_progress': _selectedTimeProgress.trim(),
-      'time_per_progress_custom': _timeProgressCustomController.text.trim(),
-      'progress_metric': _progressMetricController.text.trim(),
       'label': _progressMetricController.text.trim(),
       'unit': _unitController.text.trim(),
-      'starting_value': _startingValueController.text.trim(),
-      'min': _minValueController.text.trim(),
-      'max': _maxValueController.text.trim(),
     }..removeWhere((_, value) => value.isEmpty);
 
-    if (values.isEmpty) return _metricController.text.trim();
+    if (values.isEmpty) return _worldMetricFallbackJson();
 
     final payload = <String, dynamic>{
+      'mode': _metricMode.trim().isEmpty ? 'qualitative' : _metricMode.trim(),
       ...values,
-      'mode': 'quantitative',
-      if (_minValueController.text.trim().isNotEmpty ||
+      if (_minValueController.text.trim().isNotEmpty &&
           _maxValueController.text.trim().isNotEmpty)
         'range': [
-          _minValueController.text.trim(),
-          _maxValueController.text.trim(),
+          _numericSetting(_minValueController.text.trim()),
+          _numericSetting(_maxValueController.text.trim()),
         ],
       if (_startingValueController.text.trim().isNotEmpty)
-        'default': _startingValueController.text.trim(),
+        'default': _numericSetting(_startingValueController.text.trim()),
     };
     return jsonEncode(payload);
+  }
+
+  String _worldMetricFallbackJson() {
+    final raw = _metricController.text.trim();
+    if (raw.isEmpty) return '';
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return raw;
+      final payload = <String, dynamic>{
+        for (final key in const ['mode', 'label', 'unit', 'range', 'default'])
+          if (decoded[key] != null && decoded[key].toString().trim().isNotEmpty)
+            key: decoded[key],
+      };
+      return payload.isEmpty ? '' : jsonEncode(payload);
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  int? _tickDurationDays() {
+    final selected = _selectedTimeProgress.trim();
+    if (selected.isNotEmpty) return _daysForTimeProgressOption(selected);
+    return int.tryParse(_timeProgressCustomController.text.trim());
+  }
+
+  int _daysForTimeProgressOption(String option) {
+    return switch (option) {
+      'Half day' => 1,
+      '1 day' => 1,
+      '1 week' => 7,
+      '1 month' => 30,
+      _ => 0,
+    };
+  }
+
+  String _timeProgressOptionForDays(int days) {
+    return switch (days) {
+      1 => '1 day',
+      7 => '1 week',
+      30 => '1 month',
+      _ => '',
+    };
+  }
+
+  Object _numericSetting(String text) {
+    final intValue = int.tryParse(text);
+    if (intValue != null) return intValue;
+    return double.tryParse(text) ?? text;
   }
 
   @override
@@ -339,7 +406,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                       CreateTextFieldBlock(
                         label: '',
                         controller: _timeProgressCustomController,
-                        hintText: 'e.g. one season, one council meeting',
+                        hintText: 'Custom days, e.g. 14',
                         maxLines: 1,
                         onChanged: (_) => _onFormChanged(),
                       ),

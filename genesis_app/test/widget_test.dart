@@ -16,6 +16,7 @@ import 'package:genesis_flutter_android/components/common/copyable_id_label.dart
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
+import 'package:genesis_flutter_android/components/world_map.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
@@ -29,10 +30,12 @@ import 'package:genesis_flutter_android/pages/create/create_origin_draft_store.d
 import 'package:genesis_flutter_android/pages/create/create_origin_id_utils.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_story_events_page.dart';
+import 'package:genesis_flutter_android/pages/edit/edit_locations_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
+import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 import 'package:genesis_flutter_android/network/models/user.dart';
 import 'package:genesis_flutter_android/components/origin/stat_item.dart';
 import 'package:genesis_flutter_android/components/search_bar.dart';
@@ -48,6 +51,7 @@ import 'package:genesis_flutter_android/pages/messages/message_category_list_pag
 import 'package:genesis_flutter_android/pages/messages/messages_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
+import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
 import 'package:genesis_flutter_android/pages/world/world_page.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
@@ -264,13 +268,18 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldRelationStatus = 'owner',
     this.originDiscussCount = 9,
     this.discussTotalAll = 25,
+    this.originDetailCompleter,
     this.worldTickCompleter,
+    this.worldDetailCompleter,
     this.userInfoCompleter,
     this.originListCompleter,
     this.worldListCompleter,
     this.setPlayerSceneCompleter,
     this.worldMetricDefault = 0,
     this.worldCharacterMetricValue = 50,
+    this.originMapUrl = '',
+    this.originLocations,
+    this.worldMapUrl = '',
     this.worldCharacters,
     this.worldLocations,
     this.worldSummaryLatestItems,
@@ -280,13 +289,18 @@ class _RecordingV1ListTransport implements HttpTransport {
   String worldRelationStatus;
   final int originDiscussCount;
   final int discussTotalAll;
+  final Completer<TransportResponse>? originDetailCompleter;
   final Completer<TransportResponse>? worldTickCompleter;
+  final Completer<TransportResponse>? worldDetailCompleter;
   final Completer<TransportResponse>? userInfoCompleter;
   final Completer<TransportResponse>? originListCompleter;
   final Completer<TransportResponse>? worldListCompleter;
   final Completer<TransportResponse>? setPlayerSceneCompleter;
   final Object? worldMetricDefault;
   final Object? worldCharacterMetricValue;
+  final String originMapUrl;
+  final List<Map<String, Object?>>? originLocations;
+  final String worldMapUrl;
   final List<Map<String, Object?>>? worldCharacters;
   final List<Map<String, Object?>>? worldLocations;
   final List<Map<String, Object?>>? worldSummaryLatestItems;
@@ -295,6 +309,8 @@ class _RecordingV1ListTransport implements HttpTransport {
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
     if (request.uri.path.endsWith('/origin/detail')) {
+      final pendingResponse = originDetailCompleter;
+      if (pendingResponse != null) return pendingResponse.future;
       final oid =
           request.uri.queryParameters['origin_id'] ??
           request.uri.queryParameters['oid'] ??
@@ -306,6 +322,8 @@ class _RecordingV1ListTransport implements HttpTransport {
       });
     }
     if (request.uri.path.endsWith('/world/detail')) {
+      final pendingResponse = worldDetailCompleter;
+      if (pendingResponse != null) return pendingResponse.future;
       final wid =
           request.uri.queryParameters['world_id'] ??
           request.uri.queryParameters['wid'] ??
@@ -639,7 +657,7 @@ class _RecordingV1ListTransport implements HttpTransport {
         'started_at': 'Day 1',
         'tick_duration_days': 30,
         'cover': '',
-        'map_url': '',
+        'map_url': originMapUrl,
         'status': 10,
       },
       'stats': {
@@ -668,23 +686,25 @@ class _RecordingV1ListTransport implements HttpTransport {
           'delta': 0,
         },
       ],
-      'locations': [
-        {
-          'location_id': 'l_$fallback',
-          'level': 1,
-          'location_pid': '',
-          'location_name': 'Detail Location',
-          'location_description': 'A location from detail.',
-          'location_paragraph': 'Detail location launch paragraph.',
-          'location_timestamp': '',
-          'location_summary': '',
-          'image': '',
-          'x_percent': 30,
-          'y_percent': 40,
-          'map_url': '',
-          'dialogue': const <Object?>[],
-        },
-      ],
+      'locations':
+          originLocations ??
+          [
+            {
+              'location_id': 'l_$fallback',
+              'level': 1,
+              'location_pid': '',
+              'location_name': 'Detail Location',
+              'location_description': 'A location from detail.',
+              'location_paragraph': 'Detail location launch paragraph.',
+              'location_timestamp': '',
+              'location_summary': '',
+              'image': '',
+              'x_percent': 30,
+              'y_percent': 40,
+              'map_url': '',
+              'dialogue': const <Object?>[],
+            },
+          ],
       'ticks': const [
         {
           'tick_no': 1,
@@ -723,7 +743,7 @@ class _RecordingV1ListTransport implements HttpTransport {
         'started_at': '2026-05-01T00:00:00Z',
         'tick_duration_days': 30,
         'cover': '',
-        'map_url': '',
+        'map_url': worldMapUrl,
         'status': 1,
       },
       'relation_status': worldRelationStatus,
@@ -1500,52 +1520,37 @@ class _RecordingCreateOriginTransport implements HttpTransport {
       };
     }
     if (request.method == 'GET' &&
-        request.uri.path == '/api/v1/origin/detail') {
+        request.uri.path == '/api/v1/origin/foredit') {
       final oid = request.uri.queryParameters['origin_id'] ?? '';
       data = {
-        'info': {
-          'origin_id': oid,
-          'origin_name': 'Editable Origin',
-          'origin_version': '1',
-          'origin_version_time': 1777680000,
-          'owner_uid': 'u_test',
-          'owner_name': 'Tester',
-          'brief': 'Editable public view.',
-          'setting': 'Editable hidden rules.',
-          'events': ['The archive opens.'],
-          'tags': const <String>[],
-          'metric': {'mode': 'quantitative', 'label': 'Influence'},
-          'created_at': 1777593600,
-          'started_at': 'Day 1',
-          'tick_duration_days': 30,
-          'cover': 'assets/images/mock_maps/steam_kingdom_isometric.png',
-          'map_url': 'assets/images/mock_maps/steam_kingdom_isometric.png',
-          'status': 10,
+        'origin_id': oid,
+        'origin_name': 'Editable Origin',
+        'origin_version': '1',
+        'brief': 'Editable public view.',
+        'setting': 'Editable hidden rules.',
+        'events': ['The archive opens.'],
+        'tags': const <String>[],
+        'metric': {
+          'mode': 'qualitative',
+          'label': 'Influence',
+          'unit': '%',
+          'range': [0, 100],
+          'default': 0,
         },
-        'stats': const <String, Object?>{
-          'copy_cnt': 0,
-          'discuss_cnt': 0,
-          'character_cnt': 1,
-          'connect_cnt': 0,
-          'location_cnt': 1,
-          'max_tick_cnt': 0,
-        },
+        'started_at': 'Day 1',
+        'tick_duration_days': 30,
+        'cover': 'assets/images/mock_maps/steam_kingdom_isometric.png',
+        'map_url': 'assets/images/mock_maps/steam_kingdom_isometric.png',
         'characters': [
           {
             'char_id': 'char_edit_1',
-            'type': 'ai',
-            'player_uid': '',
-            'player_username': '',
             'name': 'Mira',
             'identity': 'Archivist',
-            'brief': 'Patient',
-            'description': 'Keeps the records.',
+            'personality': 'Patient',
+            'bio': 'Keeps the records.',
             'goal': 'Find the first page.',
             'avatar': '',
             'initial_location_id': 'location_edit_1',
-            'location_id': 'location_edit_1',
-            'metric_value': 0,
-            'delta': 0,
           },
         ],
         'locations': [
@@ -1562,26 +1567,25 @@ class _RecordingCreateOriginTransport implements HttpTransport {
             'x_percent': 0,
             'y_percent': 0,
             'map_url': '',
-            'dialogue': const <Object?>[],
           },
         ],
-        'ticks': const <Object?>[],
       };
     }
     if (request.method == 'POST' &&
         request.uri.path == '/api/v1/origin/update') {
       final body = decodedBody(request);
       data = {
-        'origin': {
-          'oid': body['oid'],
-          'name': body['name'],
+        'info': {
+          'origin_id': body['origin_id'],
+          'origin_name': body['origin_name'],
           'cover': body['cover'],
-          'world_view': body['world_view'],
-          'world_setting': body['world_setting'],
+          'brief': body['brief'],
+          'setting': body['setting'],
         },
-        'character_list': body['character_list'] ?? const <Object?>[],
-        'location_list': body['location_list'] ?? const <Object?>[],
-        'event_list': body['event_list'] ?? const <Object?>[],
+        'stats': const <String, Object?>{},
+        'characters': body['characters'] ?? const <Object?>[],
+        'locations': body['locations'] ?? const <Object?>[],
+        'ticks': const <Object?>[],
       };
     }
     return TransportResponse(
@@ -1819,6 +1823,37 @@ void main() {
       find.image(const AssetImage('assets/custom-icons/png/comment.png')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('messages data polling is skipped while signed out', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingMessagesDataPollTransport();
+    final services = await _testServices(transport: transport, useMock: false);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const AppShellPage(initialIndex: 0),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(transport.count('/api/v1/message/unread'), 0);
+    expect(transport.count('/api/v1/direct_message/conversations'), 0);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    expect(transport.count('/api/v1/message/unread'), 0);
+    expect(transport.count('/api/v1/direct_message/conversations'), 0);
+
+    await tester.tap(find.text('Messages'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(transport.count('/api/v1/message/unread'), 0);
+    expect(transport.count('/api/v1/direct_message/conversations'), 0);
   });
 
   testWidgets('messages data polling shares one five second cadence', (
@@ -2812,6 +2847,75 @@ void main() {
     expect(postBody['content'], 'First empty discuss post');
   });
 
+  testWidgets('Origin detail loading map does not show fallback background', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      originDetailCompleter: Completer<TransportResponse>(),
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(_assetImageFinder(kWorldMapFallbackBackgroundAsset), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Origin detail map starts with root location map url', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      originMapUrl: kMockV1SteamMapImage,
+      originLocations: const [
+        {
+          'location_id': 'l_o_test_1',
+          'level': 1,
+          'location_pid': '',
+          'location_name': 'Origin Root',
+          'location_description': 'The root location.',
+          'image': '',
+          'x_percent': 30,
+          'y_percent': 40,
+          'map_url': kMockV1LocationCentralHubMap,
+          'dialogue': <Object?>[],
+        },
+        {
+          'location_id': 'l_o_test_1_child',
+          'level': 2,
+          'location_pid': 'l_o_test_1',
+          'location_name': 'Origin Child',
+          'location_description': 'The child location.',
+          'image': '',
+          'x_percent': 55,
+          'y_percent': 45,
+          'map_url': kMockV1LocationRailGateMap,
+          'dialogue': <Object?>[],
+        },
+      ],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(_assetImageFinder(kMockV1LocationCentralHubMap), findsOneWidget);
+    expect(_assetImageFinder(kMockV1SteamMapImage), findsNothing);
+  });
+
   testWidgets('Origin detail launch bar launches a world', (
     WidgetTester tester,
   ) async {
@@ -3318,9 +3422,10 @@ void main() {
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'none',
       worldCharacters: [
         {
-          'type': 'ai',
+          'type': 'player',
           'player_uid': '',
           'player_username': '',
           'char_id': 'c_ai',
@@ -3335,7 +3440,7 @@ void main() {
           'metric_value': 12,
         },
         {
-          'type': 'player',
+          'type': 'ai',
           'player_uid': 'u_other',
           'player_username': 'Other User',
           'char_id': 'c_other',
@@ -3350,7 +3455,7 @@ void main() {
           'metric_value': 34,
         },
         {
-          'type': 'player',
+          'type': 'ai',
           'player_uid': 'u_mock',
           'player_username': 'Mock User',
           'char_id': 'c_self',
@@ -3385,10 +3490,14 @@ void main() {
     await tester.tap(find.text('Status'));
     await tester.pumpAndSettle();
     _expectCharacterNameOrder(tester);
+    expect(find.text('Player'), findsNWidgets(2));
+    expect(find.text('Character'), findsOneWidget);
 
     await tester.tap(find.text('Characters'));
     await tester.pumpAndSettle();
     _expectCharacterNameOrder(tester);
+    expect(find.text('Player'), findsNWidgets(2));
+    expect(find.text('Character'), findsOneWidget);
 
     final otherName = tester.widget<Text>(
       _richTextFinder('Other Hero (Other User)'),
@@ -3401,7 +3510,7 @@ void main() {
   testWidgets('World character row marks current player as Me', (
     WidgetTester tester,
   ) async {
-    final transport = _RecordingV1ListTransport();
+    final transport = _RecordingV1ListTransport(worldRelationStatus: 'none');
     await tester.pumpWidget(
       AppServicesScope(
         services: await _testServices(transport: transport, useMock: false),
@@ -3488,6 +3597,52 @@ void main() {
 
     expect(find.text('World detail w_test_1'), findsNothing);
     expect(find.text('World 1'), findsOneWidget);
+  });
+
+  testWidgets('World map starts with root location map url', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'none',
+      worldMapUrl: kMockV1SteamMapImage,
+      worldLocations: const [
+        {
+          'location_id': 'l_w_test_1',
+          'location_name': 'World Root',
+          'location_summary': 'The root location.',
+          'image': '',
+          'map_url': kMockV1LocationCentralHubMap,
+          'x_percent': 35,
+          'y_percent': 45,
+        },
+        {
+          'location_id': 'l_w_test_1_child',
+          'location_pid': 'l_w_test_1',
+          'location_name': 'Child Location',
+          'location_summary': 'A child world location.',
+          'image': '',
+          'map_url': kMockV1LocationRailGateMap,
+          'x_percent': 55,
+          'y_percent': 45,
+        },
+      ],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('World 1'));
+    await tester.pumpAndSettle();
+
+    expect(_assetImageFinder(kMockV1LocationCentralHubMap), findsOneWidget);
+    expect(_assetImageFinder(kMockV1SteamMapImage), findsNothing);
   });
 
   testWidgets('World Request button calls v1 apply for requestable statuses', (
@@ -4913,7 +5068,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('locations parent picker stores a single parent location', (
+  testWidgets('locations editor does not show parent location picker', (
     WidgetTester tester,
   ) async {
     await CreateOriginDraftStore.saveFinal(
@@ -4935,33 +5090,49 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
     await tester.pumpAndSettle();
 
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey('location-parent-picker')).first,
-      220,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(
-      find.byKey(const ValueKey('location-parent-picker')).first,
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Select Parent Location'), findsOneWidget);
-    expect(find.text('World Root'), findsWidgets);
-    expect(find.text('Tower'), findsWidgets);
-
-    await tester.tap(
-      find.byKey(const ValueKey('parent-location-option-loc_tower')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Select'));
-    await tester.pumpAndSettle();
+    expect(find.text('Parent Location'), findsNothing);
+    expect(find.byKey(const ValueKey('location-parent-picker')), findsNothing);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
 
     final draft = await CreateOriginDraftStore.load();
-    expect(draft.locations.first.parentLocationId, 'loc_tower');
-    expect(draft.locations.last.parentLocationId, isEmpty);
+    expect(draft.locations, hasLength(2));
+    expect(draft.locations.first.toJson().containsKey('location_pid'), isFalse);
+    expect(draft.locations.last.toJson().containsKey('location_pid'), isFalse);
+  });
+
+  testWidgets('edit locations editor does not show parent location picker', (
+    WidgetTester tester,
+  ) async {
+    final repository = MemoryOriginDraftRepository(
+      initialDraft: const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[CharacterDraft()],
+        locations: <LocationDraft>[
+          LocationDraft(locationId: 'loc_gate', name: 'Gate'),
+        ],
+        storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        basicsSaved: false,
+        charactersSaved: false,
+        locationsSaved: true,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: EditLocationsPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Parent Location'), findsNothing);
+    expect(find.byKey(const ValueKey('location-parent-picker')), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    final draft = await repository.loadDraft();
+    expect(draft.locations.single.toJson().containsKey('location_pid'), false);
   });
 
   testWidgets('locations character picker binds available character ids', (
@@ -5183,6 +5354,11 @@ void main() {
     expect(requests, hasLength(1));
     final body = transport.decodedBody(requests.single);
     expect(body.containsKey('origin_id'), isFalse);
+    expect(body.containsKey('name'), isFalse);
+    expect(body.containsKey('world_view'), isFalse);
+    expect(body.containsKey('world_setting'), isFalse);
+    expect(body.containsKey('character_list'), isFalse);
+    expect(body.containsKey('location_list'), isFalse);
     expect(body['origin_name'], 'Crystal City');
     expect(body['brief'], 'A public world view.');
     expect(body['setting'], 'Hidden rules.');
@@ -5193,16 +5369,10 @@ void main() {
     expect(characters.single['personality'], 'Calm');
     expect(body['locations'], isA<List>());
     final locationList = body['locations'] as List;
-    expect(locationList, hasLength(3));
-    expect(locationList[0]['location_id'], 'root_origin_local_1');
-    expect(locationList[0]['location_pid'], '');
-    expect(locationList[0]['location_name'], 'Crystal City');
-    expect(locationList[1]['location_id'], 'location_local_1');
-    expect(locationList[1]['location_pid'], 'root_origin_local_1');
-    expect(locationList[1]['location_name'], 'Gate');
-    expect(locationList[2]['location_id'], startsWith('location_'));
-    expect(locationList[2]['location_pid'], 'location_local_1');
-    expect(locationList[2]['location_name'], 'Gate');
+    expect(locationList, hasLength(1));
+    expect(locationList.single['location_id'], 'location_local_1');
+    expect(locationList.single.containsKey('location_pid'), isFalse);
+    expect(locationList.single['location_name'], 'Gate');
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
@@ -5228,7 +5398,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final detailRequests = transport.requestsFor('/api/v1/origin/detail');
+    final detailRequests = transport.requestsFor('/api/v1/origin/foredit');
     expect(detailRequests, hasLength(1));
     expect(detailRequests.single.uri.queryParameters['origin_id'], 'o_edit_1');
     expect(find.textContaining('World Name: Editable Origin'), findsOneWidget);
@@ -5279,22 +5449,50 @@ void main() {
     final updateRequests = transport.requestsFor('/api/v1/origin/update');
     expect(updateRequests, hasLength(1));
     final body = transport.decodedBody(updateRequests.single);
-    expect(body['oid'], 'o_edit_1');
-    expect(body['name'], 'Edited Origin');
+    expect(body.containsKey('oid'), isFalse);
+    expect(body.containsKey('name'), isFalse);
+    expect(body.containsKey('world_view'), isFalse);
+    expect(body.containsKey('world_setting'), isFalse);
+    expect(body.containsKey('character_list'), isFalse);
+    expect(body.containsKey('location_list'), isFalse);
+    expect(body.containsKey('event_list'), isFalse);
+    expect(body['origin_id'], 'o_edit_1');
+    expect(body['origin_name'], 'Edited Origin');
+    expect(body['brief'], 'Editable public view.');
+    expect(body['setting'], 'Editable hidden rules.');
+    expect(body['started_at'], 'Day 1');
+    expect(body['tick_duration_days'], 30);
+    expect(body['metric'], {
+      'mode': 'qualitative',
+      'label': 'Influence',
+      'unit': '%',
+      'range': [0, 100],
+      'default': 0,
+    });
+    final metric = body['metric'] as Map;
+    expect(metric.containsKey('progress_metric'), isFalse);
+    expect(metric.containsKey('starting_value'), isFalse);
+    expect(metric.containsKey('start_time'), isFalse);
+    expect(metric.containsKey('time_per_progress'), isFalse);
     expect(
       body['cover'],
       'assets/images/mock_maps/steam_kingdom_isometric.png',
     );
-    expect((body['character_list'] as List).single['char_id'], 'char_edit_1');
-    final editedLocations = body['location_list'] as List;
+    final editedCharacters = body['characters'] as List;
+    expect(editedCharacters.single['char_id'], 'char_edit_1');
+    expect(editedCharacters.single['initial_location_id'], 'location_edit_1');
+    expect(body['deleted_char_ids'], isEmpty);
+    expect(body['deleted_location_ids'], isEmpty);
+    final editedLocations = body['locations'] as List;
     expect(
       editedLocations
           .where(
             (item) => item is Map && item['location_id'] == 'location_edit_1',
           )
-          .single['initial_character_ids'],
-      contains('char_edit_1'),
+          .single['location_name'],
+      'Archive',
     );
+    expect(editedLocations.single.containsKey('location_pid'), isFalse);
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
@@ -6536,6 +6734,27 @@ void main() {
     },
   );
 
+  testWidgets('world page loading map does not show fallback background', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldDetailCompleter: Completer<TransportResponse>(),
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pump();
+
+    expect(_assetImageFinder(kWorldMapFallbackBackgroundAsset), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets(
     'world page events load from paged tick list and request next page near edge',
     (WidgetTester tester) async {
@@ -7653,6 +7872,16 @@ Finder _richTextFinder(String text) {
   return find.byWidgetPredicate((widget) {
     return widget is Text && widget.textSpan?.toPlainText() == text;
   });
+}
+
+Finder _assetImageFinder(String path, {bool skipOffstage = true}) {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is Image &&
+        widget.image is AssetImage &&
+        (widget.image as AssetImage).assetName == path,
+    skipOffstage: skipOffstage,
+  );
 }
 
 Finder _loginLegalTextFinder() {

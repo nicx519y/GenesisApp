@@ -319,9 +319,7 @@ class _LocationCard extends StatelessWidget {
     required this.index,
     required this.form,
     required this.characters,
-    required this.parentOptions,
     required this.onChanged,
-    required this.onPickParentLocation,
     required this.onPickCharacters,
     required this.onDelete,
   });
@@ -329,9 +327,7 @@ class _LocationCard extends StatelessWidget {
   final int index;
   final _LocationForm form;
   final List<CharacterDraft> characters;
-  final List<_ParentLocationOption> parentOptions;
   final VoidCallback onChanged;
-  final VoidCallback onPickParentLocation;
   final VoidCallback onPickCharacters;
   final VoidCallback onDelete;
 
@@ -379,12 +375,6 @@ class _LocationCard extends StatelessWidget {
             onChanged: (_) => onChanged(),
           ),
           const SizedBox(height: 22),
-          _ParentLocationField(
-            form: form,
-            options: parentOptions,
-            onPickParentLocation: onPickParentLocation,
-          ),
-          const SizedBox(height: 22),
           _InitialCharactersField(
             form: form,
             characters: characters,
@@ -392,79 +382,6 @@ class _LocationCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ParentLocationField extends StatelessWidget {
-  const _ParentLocationField({
-    required this.form,
-    required this.options,
-    required this.onPickParentLocation,
-  });
-
-  final _LocationForm form;
-  final List<_ParentLocationOption> options;
-  final VoidCallback onPickParentLocation;
-
-  @override
-  Widget build(BuildContext context) {
-    final selected = options.firstWhere(
-      (option) => option.id == form.parentLocationId.trim(),
-      orElse: () => options.first,
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Parent Location',
-          style: TextStyle(
-            color: createFormText,
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            height: 1.2,
-          ),
-        ),
-        const SizedBox(height: 10),
-        GestureDetector(
-          key: const ValueKey('location-parent-picker'),
-          behavior: HitTestBehavior.opaque,
-          onTap: onPickParentLocation,
-          child: Container(
-            height: 54,
-            decoration: BoxDecoration(
-              color: createFormFieldFill,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.only(left: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    selected.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: createFormText,
-                      fontSize: 14,
-                      height: 1.2,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: onPickParentLocation,
-                  icon: const Icon(
-                    Icons.keyboard_arrow_down,
-                    color: createFormGreen,
-                    size: 32,
-                  ),
-                  splashRadius: 22,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -557,114 +474,6 @@ class _CharacterPickerSheet extends StatefulWidget {
 
   @override
   State<_CharacterPickerSheet> createState() => _CharacterPickerSheetState();
-}
-
-class _ParentLocationOption {
-  const _ParentLocationOption({required this.id, required this.label});
-
-  final String id;
-  final String label;
-}
-
-class _ParentLocationPickerSheet extends StatefulWidget {
-  const _ParentLocationPickerSheet({
-    required this.options,
-    required this.initialSelectedId,
-  });
-
-  final List<_ParentLocationOption> options;
-  final String initialSelectedId;
-
-  @override
-  State<_ParentLocationPickerSheet> createState() =>
-      _ParentLocationPickerSheetState();
-}
-
-class _ParentLocationPickerSheetState
-    extends State<_ParentLocationPickerSheet> {
-  late String _selectedId = widget.initialSelectedId.trim();
-
-  @override
-  Widget build(BuildContext context) {
-    return GenesisBottomSheetPanel(
-      title: 'Select Parent Location',
-      height: MediaQuery.sizeOf(context).height * 0.58,
-      trailing: IconButton(
-        onPressed: () => Navigator.of(context).pop(),
-        icon: const Icon(Icons.close, size: 30, color: createFormMuted),
-        splashRadius: 24,
-      ),
-      child: Column(
-        children: [
-          Expanded(
-            child: ListView.separated(
-              padding: EdgeInsets.zero,
-              itemCount: widget.options.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, color: createFormBorder),
-              itemBuilder: (context, index) {
-                final option = widget.options[index];
-                final selected = option.id == _selectedId;
-                return ListTile(
-                  key: ValueKey('parent-location-option-${option.id}'),
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    option.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: createFormText,
-                      fontSize: 14,
-                      height: 1.2,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  trailing: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? createFormGreen
-                          : const Color(0xFF9B9B9B),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: selected
-                        ? const Icon(Icons.check, color: Colors.white, size: 16)
-                        : null,
-                  ),
-                  onTap: () => setState(() => _selectedId = option.id),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: GenesisPrimaryButton(
-                  label: 'Cancel',
-                  onPressed: () => Navigator.of(context).pop(),
-                  backgroundColor: Colors.white,
-                  foregroundColor: createFormText,
-                  side: const BorderSide(color: createFormBorder),
-                ),
-              ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: GenesisPrimaryButton(
-                  label: 'Select',
-                  onPressed: () => Navigator.of(context).pop(_selectedId),
-                  backgroundColor: createFormGreen,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _CharacterPickerSheetState extends State<_CharacterPickerSheet> {
@@ -829,7 +638,6 @@ class _CharacterPickerTile extends StatelessWidget {
 class _LocationForm {
   _LocationForm({
     required this.locationId,
-    required this.parentLocationId,
     required this.imageUrl,
     required this.name,
     required this.description,
@@ -839,7 +647,6 @@ class _LocationForm {
   factory _LocationForm.empty({required String locationId}) {
     return _LocationForm(
       locationId: locationId,
-      parentLocationId: '',
       imageUrl: TextEditingController(),
       name: TextEditingController(),
       description: TextEditingController(),
@@ -852,7 +659,6 @@ class _LocationForm {
       locationId: draft.locationId.trim().isEmpty
           ? createUidTimestampHashId(uid: uid, prefix: 'location')
           : draft.locationId.trim(),
-      parentLocationId: draft.parentLocationId.trim(),
       imageUrl: TextEditingController(text: draft.imageUrl),
       name: TextEditingController(text: draft.name),
       description: TextEditingController(text: draft.description),
@@ -861,7 +667,6 @@ class _LocationForm {
   }
 
   final String locationId;
-  String parentLocationId;
   final TextEditingController imageUrl;
   final TextEditingController name;
   final TextEditingController description;
@@ -879,12 +684,10 @@ class _LocationForm {
           name,
           description,
         ].any((controller) => controller.text.trim().isNotEmpty) ||
-        parentLocationId.trim().isNotEmpty ||
         selectedCharacterIds.isNotEmpty;
   }
 
   void clear() {
-    parentLocationId = '';
     imageUrl.clear();
     name.clear();
     description.clear();

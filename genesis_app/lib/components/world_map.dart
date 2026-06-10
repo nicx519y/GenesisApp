@@ -42,6 +42,7 @@ class WorldMap extends StatefulWidget {
     this.locationNodes = const <WorldMapLocationNode>[],
     this.mapImageUrl = '',
     this.preloadMapImageUrls = const <String>[],
+    this.fallbackOnEmptyMapUrl = true,
     this.dimmed = false,
     this.showPointsList = false,
     this.overlayTop = 0,
@@ -55,6 +56,7 @@ class WorldMap extends StatefulWidget {
   final List<WorldMapLocationNode> locationNodes;
   final String mapImageUrl;
   final List<String> preloadMapImageUrls;
+  final bool fallbackOnEmptyMapUrl;
   final bool dimmed;
   final bool showPointsList;
   final double overlayTop;
@@ -161,6 +163,7 @@ class _WorldMapState extends State<WorldMap> {
                           _MapBackgroundDeck(
                             currentUrl: backgroundUrl,
                             preloadUrls: preloadMapImageUrls,
+                            fallbackOnEmptyUrl: widget.fallbackOnEmptyMapUrl,
                           ),
                           IgnorePointer(
                             ignoring: widget.showPointsList,
@@ -692,10 +695,12 @@ class _MapBackgroundDeck extends StatelessWidget {
   const _MapBackgroundDeck({
     required this.currentUrl,
     required this.preloadUrls,
+    required this.fallbackOnEmptyUrl,
   });
 
   final String currentUrl;
   final List<String> preloadUrls;
+  final bool fallbackOnEmptyUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -709,7 +714,7 @@ class _MapBackgroundDeck extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _MapBackground(url: current),
+        _MapBackground(url: current, fallbackOnEmptyUrl: fallbackOnEmptyUrl),
         for (final url in urls)
           Offstage(offstage: true, child: _MapBackground(url: url)),
       ],
@@ -718,14 +723,19 @@ class _MapBackgroundDeck extends StatelessWidget {
 }
 
 class _MapBackground extends StatelessWidget {
-  const _MapBackground({required this.url});
+  const _MapBackground({required this.url, this.fallbackOnEmptyUrl = true});
 
   final String url;
+  final bool fallbackOnEmptyUrl;
 
   @override
   Widget build(BuildContext context) {
     final trimmedUrl = url.trim();
-    if (trimmedUrl.isEmpty) return const _FallbackMapBackground();
+    if (trimmedUrl.isEmpty) {
+      return fallbackOnEmptyUrl
+          ? const _FallbackMapBackground()
+          : const _MapBackgroundPlaceholder();
+    }
 
     if (trimmedUrl.startsWith('assets/')) {
       return Image.asset(
@@ -743,7 +753,7 @@ class _MapBackground extends StatelessWidget {
           const _FallbackMapBackground(),
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
-        return const _FallbackMapBackground();
+        return const _MapBackgroundPlaceholder();
       },
     );
   }
@@ -758,8 +768,17 @@ class _FallbackMapBackground extends StatelessWidget {
       kWorldMapFallbackBackgroundAsset,
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) =>
-          const ColoredBox(color: Color(0xFFF3F4F6)),
+          const _MapBackgroundPlaceholder(),
     );
+  }
+}
+
+class _MapBackgroundPlaceholder extends StatelessWidget {
+  const _MapBackgroundPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(color: Color(0xFFF3F4F6));
   }
 }
 

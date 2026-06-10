@@ -285,6 +285,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                 points: const <WorldPoint>[],
                 listPoints: const <WorldPoint>[],
                 locationNodes: const <WorldMapLocationNode>[],
+                fallbackOnEmptyMapUrl: false,
                 dimmed: pointMode,
                 showPointsList: pointMode,
                 overlayTop: topPadding + 8 + 48,
@@ -321,11 +322,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           return const Scaffold(body: Center(child: Text('No data')));
         }
 
-        final mapImageUrl = _resolveAssetUrl(
-          origin.worldMap.isEmpty ? origin.mapImage : origin.worldMap,
-        );
         final processedLocationTree = origin.processedLocationTree;
         final rootLocationNodes = processedLocationTree.mapRoots;
+        final mapImageUrl = _originRootMapImageUrl(rootLocationNodes);
         final renderLocationNodes = processedLocationTree.renderRoots;
         final allLocationNodes = processedLocationTree.flattened;
         final avatarsByLocation = _originAvatarsByLocation(
@@ -1704,6 +1703,14 @@ List<WorldMapLocationNode> _originMapLocationNodes(
         );
       })
       .toList(growable: false);
+}
+
+String _originRootMapImageUrl(List<LocationTreeNode<OriginLocation>> nodes) {
+  for (final node in nodes) {
+    final url = _resolveAssetUrl(node.value.mapUrl);
+    if (url.isNotEmpty) return url;
+  }
+  return '';
 }
 
 List<WorldPoint> _pointsFromLocations(

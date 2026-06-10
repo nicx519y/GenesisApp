@@ -285,6 +285,282 @@ void main() {
     expect(origin.locations.single.locationParagraph, 'Gate launch paragraph.');
   });
 
+  test('v1 origin forEdit uses Apifox query and flat edit response', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'origin_id': 'o_edit_1',
+            'origin_name': 'Editable Origin',
+            'brief': 'Editable public view.',
+            'setting': 'Editable rules.',
+            'events': ['The archive opens.'],
+            'tags': ['archive'],
+            'metric': const <String, Object?>{'label': 'Influence'},
+            'started_at': 'Day 1',
+            'tick_duration_days': 30,
+            'cover': 'cover.png',
+            'map_url': 'map.png',
+            'characters': const <Object?>[],
+            'locations': const <Object?>[],
+          },
+        }),
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    final edit = await api.v1.origin.forEdit(originId: 'o_edit_1');
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/foredit');
+    expect(
+      apiTransport.lastRequest!.uri.queryParameters['origin_id'],
+      'o_edit_1',
+    );
+    expect(edit['origin_id'], 'o_edit_1');
+    expect(edit['stats'], isNull);
+    expect(edit['ticks'], isNull);
+  });
+
+  test('createOrigin posts latest Apifox origin create body', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'info': {'origin_id': 'o_created_1'},
+            'stats': const <String, Object?>{},
+            'characters': const <Object?>[],
+            'locations': const <Object?>[],
+            'ticks': const <Object?>[],
+          },
+        }),
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    await api.createOrigin(
+      payload: {
+        'name': 'Crystal City',
+        'origin_version': 'draft-2',
+        'world_view': 'A public world view.',
+        'world_setting': 'Hidden rules.',
+        'event_list': const [
+          {'content': 'The gate opens.'},
+        ],
+        'tags': const ['city'],
+        'metric': const <String, Object?>{'label': 'Influence'},
+        'started_at': 'Day 1',
+        'tick_duration_days': 30,
+        'cover': 'cover.png',
+        'map_url': 'map.png',
+        'character_list': const [
+          {
+            'char_id': 'char_tmp_1',
+            'name': 'Ari',
+            'identity': 'Guide',
+            'tagline': 'Calm',
+            'description': 'Keeps the route.',
+            'goal': 'Open the city.',
+            'avatar': 'ari.png',
+          },
+        ],
+        'location_list': const [
+          {
+            'location_id': 'loc_tmp_1',
+            'location_pid': '',
+            'name': 'Gate',
+            'description': 'Entry point.',
+            'image': 'gate.png',
+            'initial_character_ids': ['char_tmp_1'],
+          },
+        ],
+      },
+    );
+
+    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/create');
+    final body =
+        jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!))
+            as Map<String, dynamic>;
+    expect(body.containsKey('name'), isFalse);
+    expect(body.containsKey('world_view'), isFalse);
+    expect(body.containsKey('world_setting'), isFalse);
+    expect(body.containsKey('character_list'), isFalse);
+    expect(body.containsKey('location_list'), isFalse);
+    expect(body.containsKey('event_list'), isFalse);
+    expect(body['origin_name'], 'Crystal City');
+    expect(body['origin_version'], 'draft-2');
+    expect(body['brief'], 'A public world view.');
+    expect(body['setting'], 'Hidden rules.');
+    expect(body['events'], ['The gate opens.']);
+    expect(body['tags'], ['city']);
+    expect(body['metric'], {'label': 'Influence'});
+    expect(body['started_at'], 'Day 1');
+    expect(body['tick_duration_days'], 30);
+    expect(body['cover'], 'cover.png');
+    expect(body['map_url'], 'map.png');
+
+    final characters = body['characters'] as List;
+    expect(characters, hasLength(1));
+    expect(characters.single['char_id'], 'char_tmp_1');
+    expect(characters.single['personality'], 'Calm');
+    expect(characters.single['bio'], 'Keeps the route.');
+    expect(characters.single['initial_location_id'], 'loc_tmp_1');
+
+    final locations = body['locations'] as List;
+    expect(locations, hasLength(1));
+    expect(locations.single['location_id'], 'loc_tmp_1');
+    expect(locations.single.containsKey('location_pid'), isFalse);
+    expect(locations.single['location_name'], 'Gate');
+    expect(locations.single['location_description'], 'Entry point.');
+  });
+
+  test('updateOrigin posts latest Apifox origin update body', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'info': {'origin_id': 'o_update_1'},
+            'stats': const <String, Object?>{},
+            'characters': const <Object?>[],
+            'locations': const <Object?>[],
+            'ticks': const <Object?>[],
+          },
+        }),
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    await api.updateOrigin(
+      oid: 'o_update_1',
+      payload: {
+        'origin_id': 'o_update_1',
+        'name': 'Updated Origin',
+        'world_view': 'Updated brief.',
+        'world_setting': 'Updated setting.',
+        'event_list': const [
+          {'content': 'The map changes.'},
+        ],
+        'tags': const ['updated'],
+        'metric': const <String, Object?>{
+          'mode': 'qualitative',
+          'label': 'Progress',
+          'unit': '%',
+          'range': [0, 100],
+          'default': 0,
+        },
+        'started_at': 'Day 2',
+        'tick_duration_days': 7,
+        'cover': 'updated-cover.png',
+        'map_url': 'updated-map.png',
+        'character_list': const [
+          {
+            'char_id': 'char_keep',
+            'name': 'Mira',
+            'identity': 'Archivist',
+            'personality': 'Patient',
+            'bio': 'Keeps the records.',
+            'goal': 'Find the first page.',
+            'avatar': 'mira.png',
+            'initial_location_id': 'loc_keep',
+          },
+        ],
+        'location_list': const [
+          {
+            'location_id': 'loc_keep',
+            'name': 'Archive',
+            'description': 'A quiet tower.',
+            'image': 'archive.png',
+          },
+        ],
+        'deleted_char_ids': const ['char_removed'],
+        'deleted_location_ids': const ['loc_removed'],
+      },
+    );
+
+    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/update');
+    final body =
+        jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!))
+            as Map<String, dynamic>;
+    expect(body.containsKey('oid'), isFalse);
+    expect(body.containsKey('name'), isFalse);
+    expect(body.containsKey('world_view'), isFalse);
+    expect(body.containsKey('world_setting'), isFalse);
+    expect(body.containsKey('character_list'), isFalse);
+    expect(body.containsKey('location_list'), isFalse);
+    expect(body.containsKey('event_list'), isFalse);
+    expect(body['origin_id'], 'o_update_1');
+    expect(body['origin_name'], 'Updated Origin');
+    expect(body['brief'], 'Updated brief.');
+    expect(body['setting'], 'Updated setting.');
+    expect(body['events'], ['The map changes.']);
+    expect(body['tags'], ['updated']);
+    expect(body['metric'], {
+      'mode': 'qualitative',
+      'label': 'Progress',
+      'unit': '%',
+      'range': [0, 100],
+      'default': 0,
+    });
+    final metric = body['metric'] as Map;
+    expect(metric.containsKey('progress_metric'), isFalse);
+    expect(metric.containsKey('starting_value'), isFalse);
+    expect(metric.containsKey('start_time'), isFalse);
+    expect(metric.containsKey('time_per_progress'), isFalse);
+    expect(body['started_at'], 'Day 2');
+    expect(body['tick_duration_days'], 7);
+    expect(body['cover'], 'updated-cover.png');
+    expect(body['map_url'], 'updated-map.png');
+    expect(body['deleted_char_ids'], ['char_removed']);
+    expect(body['deleted_location_ids'], ['loc_removed']);
+
+    final characters = body['characters'] as List;
+    expect(characters.single['char_id'], 'char_keep');
+    expect(characters.single['personality'], 'Patient');
+    expect(characters.single['bio'], 'Keeps the records.');
+    expect(characters.single['initial_location_id'], 'loc_keep');
+
+    final locations = body['locations'] as List;
+    expect(locations.single['location_id'], 'loc_keep');
+    expect(locations.single.containsKey('location_pid'), isFalse);
+    expect(locations.single['location_name'], 'Archive');
+    expect(locations.single['location_description'], 'A quiet tower.');
+  });
+
   test('getWorld maps tick_result narrator paragraphs from detail', () async {
     final apiTransport = _FakeTransport(
       handler: (request) => TransportResponse(
