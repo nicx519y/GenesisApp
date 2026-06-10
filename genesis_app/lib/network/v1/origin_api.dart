@@ -3,6 +3,17 @@ import 'v1_api_resource.dart';
 class OriginV1Api extends V1ApiResource {
   const OriginV1Api(super.client);
 
+  /// GET /api/v1/origin/homenav
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":[{"name":"For you","scene":"foryou"}]}
+  /// ```
+  Future<List<Object?>> homeNav() async {
+    final data = await getData('origin/homenav');
+    return data is List ? data : const <Object?>[];
+  }
+
   /// GET /api/v1/origin/list
   ///
   /// 提交参数:
@@ -28,10 +39,11 @@ class OriginV1Api extends V1ApiResource {
       'origin/list',
       v1Query({
         'scene': scene,
+        'tag': tag,
         'tag_id': tagId,
         'keyword': keyword,
         'uid': uid,
-        'tag_name': tagName ?? tag,
+        'tag_name': tagName,
         'pn': pn,
         'rn': rn,
       }),

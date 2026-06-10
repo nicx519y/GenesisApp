@@ -9,46 +9,106 @@ import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/secend_tabs.dart';
 
-class OriginPage extends StatelessWidget {
+class OriginPage extends StatefulWidget {
   const OriginPage({super.key});
 
-  static const List<String> categories = [
-    'For you',
-    'Billionare',
-    'Destroyed',
-    'End World',
-    'Vam',
+  //兜底数据
+  static const List<_OriginCategory> _fallbackCategories = [
+    _OriginCategory(name: 'For you', scene: 'foryou'),
+    _OriginCategory(name: 'adventure', scene: 'tag'),
+    _OriginCategory(name: 'drama', scene: 'tag'),
+    _OriginCategory(name: 'fantasy', scene: 'tag'),
+    _OriginCategory(name: 'identity', scene: 'tag'),
   ];
 
   @override
+  State<OriginPage> createState() => _OriginPageState();
+}
+
+class _OriginPageState extends State<OriginPage> {
+  late Future<List<_OriginCategory>> _categoriesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _categoriesFuture = _loadCategories();
+  }
+
+  Future<List<_OriginCategory>> _loadCategories() async {
+    try {
+      final list = await AppServicesScope.read(context).api.v1.origin.homeNav();
+      final categories = list
+          .whereType<Map>()
+          .map((item) => _OriginCategory.fromJson(asJsonMap(item)))
+          .where((item) => item.name.isNotEmpty && item.scene.isNotEmpty)
+          .toList(growable: false);
+      return categories.isNotEmpty
+          ? categories
+          : OriginPage._fallbackCategories;
+    } catch (_) {
+      return OriginPage._fallbackCategories;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: categories.length,
-      child: Column(
-        children: [
-          const PageHeader(pageName: 'Origin'),
-          const SizedBox(height: 4),
-          SecendTabs(labels: categories),
-          const SizedBox(height: 4),
-          Expanded(
-            child: TabBarView(
-              children: [
-                for (final entry in categories.indexed)
-                  _OriginFeed(index: entry.$1, category: entry.$2),
-              ],
-            ),
+    return FutureBuilder<List<_OriginCategory>>(
+      future: _categoriesFuture,
+      builder: (context, snapshot) {
+        final categories = snapshot.data;
+        if (categories == null || categories.isEmpty) {
+          return const Column(
+            children: [
+              PageHeader(pageName: 'Origin'),
+              SizedBox(height: 4),
+              Expanded(child: GenesisListLoadingSkeleton.originGrid()),
+            ],
+          );
+        }
+
+        return DefaultTabController(
+          length: categories.length,
+          child: Column(
+            children: [
+              const PageHeader(pageName: 'Origin'),
+              const SizedBox(height: 4),
+              SecendTabs(labels: categories.map((item) => item.name).toList()),
+              const SizedBox(height: 4),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    for (final entry in categories.indexed)
+                      _OriginFeed(index: entry.$1, category: entry.$2),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
+}
+
+class _OriginCategory {
+  const _OriginCategory({required this.name, required this.scene});
+
+  factory _OriginCategory.fromJson(Map<String, dynamic> json) {
+    return _OriginCategory(
+      name: asString(json['name']).trim(),
+      scene: asString(json['scene']).trim(),
+    );
+  }
+
+  final String name;
+  final String scene;
 }
 
 class _OriginFeed extends StatefulWidget {
   const _OriginFeed({required this.index, required this.category});
 
   final int index;
-  final String category;
+  final _OriginCategory category;
 
   @override
   State<_OriginFeed> createState() => _OriginFeedState();
@@ -145,8 +205,10 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   Future<_OriginListPage> _fetchPage(int page) async {
+    final scene = widget.category.scene;
     final data = await AppServicesScope.of(context).api.v1.origin.list(
-      scene: _sceneForCategory(widget.category),
+      scene: scene,
+      tag: scene == 'tag' ? widget.category.name : null,
       pn: page,
       rn: _pageSize,
     );
@@ -218,10 +280,6 @@ class _OriginFeedState extends State<_OriginFeed>
     }
   }
 
-  String _sceneForCategory(String category) {
-    return category.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -246,7 +304,9 @@ class _OriginFeedState extends State<_OriginFeed>
       onRefresh: _refreshItems,
       child: _items.isEmpty
           ? ListView(
-              key: PageStorageKey<String>('origin-feed-${widget.category}'),
+              key: PageStorageKey<String>(
+                'origin-feed-${widget.category.name}-${widget.category.scene}',
+              ),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 SizedBox(
@@ -256,7 +316,9 @@ class _OriginFeedState extends State<_OriginFeed>
               ],
             )
           : MasonryGridView.builder(
-              key: PageStorageKey<String>('origin-feed-${widget.category}'),
+              key: PageStorageKey<String>(
+                'origin-feed-${widget.category.name}-${widget.category.scene}',
+              ),
               controller: _scrollController,
               primary: false,
               cacheExtent: 900,
