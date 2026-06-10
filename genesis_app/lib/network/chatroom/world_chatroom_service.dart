@@ -38,17 +38,20 @@ class WorldChatroomService {
     required ChatroomMessageStorage messageStorage,
     Duration heartbeatInterval = const Duration(seconds: 10),
     Duration reconnectInterval = const Duration(seconds: 5),
+    bool refreshInitialSnapshotOnConnect = true,
   }) : _api = api,
        _client = client,
        _messageStorage = messageStorage,
        _heartbeatInterval = heartbeatInterval,
-       _reconnectInterval = reconnectInterval;
+       _reconnectInterval = reconnectInterval,
+       _refreshInitialSnapshotOnConnect = refreshInitialSnapshotOnConnect;
 
   final GenesisApi _api;
   final ChatroomClient _client;
   final ChatroomMessageStorage _messageStorage;
   final Duration _heartbeatInterval;
   final Duration _reconnectInterval;
+  final bool _refreshInitialSnapshotOnConnect;
   final _states = StreamController<WorldChatroomState>.broadcast();
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();
 
@@ -81,6 +84,20 @@ class WorldChatroomService {
   WorldChatroomState get state => _state;
 
   ChatroomConnectionIdentity? get identity => _identity;
+
+  void applyWorldSnapshot(WorldDetail world) {
+    _throwIfDisposed();
+    final entities = _entitiesFromWorld(world);
+    _setState(
+      _state.copyWith(
+        world: world,
+        locationTree: world.locationTree,
+        processedLocationTree: world.processedLocationTree,
+        entitiesById: entities,
+        entitiesByLocation: _entitiesByLocation(entities),
+      ),
+    );
+  }
 
   Future<void> connect({
     required String worldId,
@@ -334,7 +351,9 @@ class WorldChatroomService {
       _session = session;
       _attachSession(session);
       _setState(_state.copyWith(connected: true));
-      await _refreshInitialSnapshot();
+      if (_refreshInitialSnapshotOnConnect) {
+        await _refreshInitialSnapshot();
+      }
       final desiredLocationId = _desiredLocationId;
       if (desiredLocationId.isNotEmpty && _joinCompleter == null) {
         await _joinSession(session, desiredLocationId);
@@ -599,25 +618,138 @@ class WorldChatroomService {
           entry.key: entry.value,
     };
     for (final group in response.locations) {
-      for (final user in group.users) {
-        final id = user.userId.trim();
+      for (final character in group.characters) {
+        final isPlayer = character.playerUid.trim().isNotEmpty;
+        final id = isPlayer
+            ? character.playerUid.trim()
+            : character.charId.trim();
         if (id.isEmpty) continue;
         final existing = _state.entitiesById[id];
+        final locationId = _firstNonEmpty([
+          character.locationId,
+          group.locationId,
+        ]);
         entities[id] = WorldChatroomEntity(
           id: id,
-          name: _firstNonEmpty([existing?.name, user.userName]),
-          avatarUrl: _firstNonEmpty([user.avatar, existing?.avatarUrl]),
-          type: WorldChatroomEntityType.player,
-          locationId: group.locationId,
+          name: _firstNonEmpty([
+            existing?.name,
+            isPlayer ? character.playerUsername : '',
+            character.name,
+          ]),
+          avatarUrl: existing?.avatarUrl ?? '',
+          type: isPlayer
+              ? WorldChatroomEntityType.player
+              : WorldChatroomEntityType.character,
+          locationId: locationId,
+          isAi: !isPlayer,
         );
       }
     }
+    final world = _state.world;
+    final updatedWorld = world == null
+        ? null
+        : _worldWithEntityLocations(world, entities);
     _setState(
       _state.copyWith(
+        world: updatedWorld,
         entitiesById: entities,
         entitiesByLocation: _entitiesByLocation(entities),
       ),
     );
+  }
+
+  WorldDetail _worldWithEntityLocations(
+    WorldDetail world,
+    Map<String, WorldChatroomEntity> entities,
+  ) {
+    final characters = world.characters
+        .map((character) {
+          final copy = Map<String, dynamic>.from(character);
+          final playerUid = _firstString(copy, const ['player_uid', 'user_id']);
+          final charId = _firstString(copy, const [
+            'char_id',
+            'character_id',
+            'id',
+          ]);
+          final entity = _firstEntity(entities, [
+            if (playerUid.isNotEmpty) playerUid,
+            if (charId.isNotEmpty) charId,
+          ]);
+          if (entity == null || entity.locationId.trim().isEmpty) {
+            return copy;
+          }
+          copy['location_id'] = entity.locationId;
+          return copy;
+        })
+        .toList(growable: false);
+    return world.copyWith(
+      characters: characters,
+      locations: _locationsWithCharacters(world.locations, characters),
+      characterPositions: characters
+          .map(_characterPositionFromWorldCharacter)
+          .whereType<Map<String, dynamic>>()
+          .toList(growable: false),
+      userPositions: characters
+          .map(_userPositionFromWorldCharacter)
+          .whereType<Map<String, dynamic>>()
+          .toList(growable: false),
+    );
+  }
+
+  WorldChatroomEntity? _firstEntity(
+    Map<String, WorldChatroomEntity> entities,
+    Iterable<String> ids,
+  ) {
+    for (final id in ids) {
+      final entity = entities[id.trim()];
+      if (entity != null) return entity;
+    }
+    return null;
+  }
+
+  List<Map<String, dynamic>> _locationsWithCharacters(
+    List<Map<String, dynamic>> locations,
+    List<Map<String, dynamic>> characters,
+  ) {
+    return locations
+        .map((location) {
+          final copy = Map<String, dynamic>.from(location);
+          final locationId = _locationIdFromMap(copy);
+          copy['characters'] = characters
+              .where((character) => _locationIdFromMap(character) == locationId)
+              .map((character) => Map<String, dynamic>.from(character))
+              .toList(growable: false);
+          return copy;
+        })
+        .toList(growable: false);
+  }
+
+  Map<String, dynamic>? _characterPositionFromWorldCharacter(
+    Map<String, dynamic> character,
+  ) {
+    final locationId = _locationIdFromMap(character);
+    if (locationId.isEmpty) return null;
+    return {
+      'location_id': locationId,
+      'character': {
+        'id': _firstString(character, const ['char_id', 'character_id', 'id']),
+        'name': _firstString(character, const ['name']),
+        'type': _firstString(character, const ['type']),
+        'identity': _firstString(character, const ['identity']),
+        'tagline': _firstString(character, const ['brief', 'tagline']),
+        'description': _firstString(character, const ['description']),
+        'avatar': _firstString(character, const ['avatar']),
+      },
+    };
+  }
+
+  Map<String, dynamic>? _userPositionFromWorldCharacter(
+    Map<String, dynamic> character,
+  ) {
+    final playerUid = _firstString(character, const ['player_uid', 'user_id']);
+    final locationId = _locationIdFromMap(character);
+    if (playerUid.isEmpty || locationId.isEmpty) return null;
+    return {'uid': playerUid, 'location_id': locationId};
   }
 
   Future<void> _hydrateLocalMessagesForLocation(

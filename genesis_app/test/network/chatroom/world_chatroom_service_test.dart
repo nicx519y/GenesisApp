@@ -10,6 +10,8 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_socket_transpo
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
+import 'package:genesis_flutter_android/network/models/origin.dart';
+import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
@@ -803,6 +805,59 @@ void main() {
   });
 
   test(
+    'snapshot-seeded connect waits for push events before refetching',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      service.applyWorldSnapshot(_worldSnapshot());
+
+      await service.connect(worldId: 'world-1', identity: _identity());
+      expect(http.detailRequests, 0);
+      expect(http.userLocationRequests, 0);
+
+      http.worldName = 'World Changed';
+      socket.serverFrame('world_change', {
+        'world_id': 'world-1',
+        'payload': {'event_type': 'world_change'},
+      });
+      await _waitFor(() => service.state.world?.name == 'World Changed');
+      expect(http.detailRequests, 1);
+      expect(http.userLocationRequests, 0);
+
+      http.userLocationId = 'loc-1';
+      socket.serverFrame('user_location_change', {
+        'world_id': 'world-1',
+        'payload': {'event_type': 'user_location_change'},
+      });
+      await _waitFor(
+        () =>
+            service.state.world?.characters.any(
+              (character) =>
+                  character['player_uid'] == 'user-1' &&
+                  character['location_id'] == 'loc-1',
+            ) ==
+            true,
+      );
+      expect(http.detailRequests, 1);
+      expect(http.userLocationRequests, 1);
+      expect(
+        service.state.world?.characterPositions.any(
+          (position) =>
+              position['location_id'] == 'loc-1' &&
+              (position['character'] as Map?)?['name'] == 'Role One',
+        ),
+        true,
+      );
+      await service.dispose();
+    },
+  );
+
+  test(
     'message id gaps fetch missing messages and keep queues sorted',
     () async {
       final socket = _FakeChatroomSocket();
@@ -919,6 +974,7 @@ Future<WorldChatroomService> _service({
   Duration reconnectInterval = const Duration(milliseconds: 20),
   Duration ackTimeout = const Duration(milliseconds: 20),
   ChatroomMessageStorage? messageStorage,
+  bool refreshInitialSnapshotOnConnect = true,
 }) async {
   final store = MemoryUserSessionStore();
   await store.saveUid('user-1');
@@ -945,6 +1001,82 @@ Future<WorldChatroomService> _service({
     messageStorage: messageStorage ?? MemoryChatroomMessageStorage(),
     heartbeatInterval: heartbeatInterval,
     reconnectInterval: reconnectInterval,
+    refreshInitialSnapshotOnConnect: refreshInitialSnapshotOnConnect,
+  );
+}
+
+WorldDetail _worldSnapshot() {
+  return WorldDetail(
+    id: 1,
+    worldId: 'world-1',
+    originId: 1,
+    ownerUid: 'owner-1',
+    name: 'World Snapshot',
+    tickCount: 0,
+    connectCount: 1,
+    characterCount: 2,
+    playerCount: 1,
+    latestTickAt: null,
+    latestNarrator: '',
+    isProgressing: false,
+    relationStatus: 'owner',
+    metric: const <String, dynamic>{},
+    inviteToken: 'world-1',
+    createdAt: null,
+    updatedAt: null,
+    origin: const OriginSummary(
+      id: 1,
+      oid: 'origin-1',
+      name: 'World Snapshot',
+      description: '',
+      mapImage: '',
+      worldMap: '',
+      worldView: '',
+      copyCount: 0,
+      interactCount: 1,
+      tags: <String>[],
+      createdAt: null,
+      updatedAt: null,
+      characters: <OriginCharacter>[],
+      locations: <OriginLocation>[],
+    ),
+    characters: const [
+      {
+        'char_id': 'char-1',
+        'type': 'ai',
+        'name': 'Alice',
+        'location_id': 'loc-1',
+      },
+      {
+        'char_id': 'char-user-1',
+        'type': 'player',
+        'player_uid': 'user-1',
+        'name': 'Role One',
+        'location_id': 'loc-2',
+      },
+    ],
+    ticks: const <Map<String, dynamic>>[],
+    locations: const [
+      {'location_id': 'loc-1', 'location_pid': '', 'location_name': 'Square'},
+      {'location_id': 'loc-2', 'location_pid': '', 'location_name': 'Cafe'},
+    ],
+    characterPositions: const [
+      {
+        'location_id': 'loc-1',
+        'character': {'id': 'char-1', 'name': 'Alice', 'type': 'ai'},
+      },
+      {
+        'location_id': 'loc-2',
+        'character': {
+          'id': 'char-user-1',
+          'name': 'Role One',
+          'type': 'player',
+        },
+      },
+    ],
+    userPositions: const [
+      {'uid': 'user-1', 'location_id': 'loc-2'},
+    ],
   );
 }
 
@@ -1024,11 +1156,13 @@ class _WorldChatroomHttpTransport implements HttpTransport {
           'locations': [
             {
               'location_id': userLocationId,
-              'users': [
+              'characters': [
                 {
-                  'user_id': 'user-1',
-                  'user_name': 'Player One',
-                  'avatar': 'player.png',
+                  'char_id': 'char-player-1',
+                  'player_uid': 'user-1',
+                  'player_username': 'Player One',
+                  'name': 'Role One',
+                  'location_id': userLocationId,
                 },
               ],
             },

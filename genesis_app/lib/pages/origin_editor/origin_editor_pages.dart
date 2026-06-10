@@ -33,7 +33,6 @@ bool _locationDraftHasContent(LocationDraft item) {
   return item.imageUrl.trim().isNotEmpty ||
       item.name.trim().isNotEmpty ||
       item.description.trim().isNotEmpty ||
-      item.parentLocationId.trim().isNotEmpty ||
       item.initialCharacterIds.isNotEmpty;
 }
 
@@ -261,7 +260,6 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
 
   bool _locationHasContent(LocationDraft item) {
     return item.locationId.trim().isNotEmpty ||
-        item.parentLocationId.trim().isNotEmpty ||
         item.imageUrl.trim().isNotEmpty ||
         item.name.trim().isNotEmpty ||
         item.description.trim().isNotEmpty ||

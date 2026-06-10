@@ -5,7 +5,6 @@ import '../origin_editor/origin_draft_repository.dart';
 import '../origin_editor/origin_editor_pages.dart';
 import 'create_basics_page.dart';
 import 'create_characters_page.dart';
-import 'create_origin_id_utils.dart';
 import 'create_locations_page.dart';
 import 'create_origin_draft_store.dart';
 import 'create_story_events_page.dart';
@@ -41,9 +40,8 @@ class CreateOriginPage extends StatelessWidget {
     CreateOriginDraft draft,
   ) async {
     final api = AppServicesScope.read(context).api;
-    final uid = await readCreateOriginUid(context);
     final result = await api.createOrigin(
-      payload: draft.toCreateOriginPayload(uid: uid),
+      payload: draft.toCreateOriginPayload(),
     );
     await CreateOriginDraftStore.clear();
     return OriginSubmitResult(

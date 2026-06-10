@@ -91,17 +91,36 @@ class _WorldPageState extends State<WorldPage>
       api: services.api,
       client: services.chatroom,
       messageStorage: services.chatroomMessages,
+      refreshInitialSnapshotOnConnect: false,
     );
     _worldChatroom = service;
-    _worldChatroomSub = service.states.listen((_) {
-      if (mounted) setState(() {});
-    });
+    _worldChatroomSub = service.states.listen(_handleWorldChatroomState);
     _worldChatroomFailureSub = bindChatroomFailureToast(
       context,
       service.failures,
       shouldShow: (failure) => failure.code != 'snapshot_failed',
     );
+    final world = _world;
+    if (world != null) {
+      service.applyWorldSnapshot(world);
+    }
     unawaited(_connectWorldChatroom(service, services));
+  }
+
+  void _handleWorldChatroomState(WorldChatroomState state) {
+    if (!mounted) return;
+    final world = state.world;
+    var shouldSyncRelationStatus = false;
+    setState(() {
+      if (world != null && !identical(_world, world)) {
+        _world = world;
+        _syncLocationChatDescriptors(world);
+        shouldSyncRelationStatus = true;
+      }
+    });
+    if (shouldSyncRelationStatus) {
+      _syncWorldChatroomForRelationStatus(world!.relationStatus);
+    }
   }
 
   void _syncWorldChatroomForRelationStatus(String relationStatus) {
@@ -658,6 +677,7 @@ class _WorldPageState extends State<WorldPage>
             points: const <WorldPoint>[],
             listPoints: const <WorldPoint>[],
             locationNodes: const <WorldMapLocationNode>[],
+            fallbackOnEmptyMapUrl: false,
             dimmed: pointMode,
             showPointsList: pointMode,
             overlayTop: topPadding + 8 + 48,
@@ -668,12 +688,12 @@ class _WorldPageState extends State<WorldPage>
       );
     }
 
-    final rootMapImageUrl = _rootWorldMapImageUrl(world);
     final avatarsByLocation = _avatarsByLocationFromCharacterPositions(
       world.characterPositions,
     );
     final processedLocationTree = world.processedLocationTree;
     final rootLocationNodes = processedLocationTree.mapRoots;
+    final rootMapImageUrl = _rootWorldMapImageUrl(rootLocationNodes);
     final renderLocationNodes = processedLocationTree.renderRoots;
     final allLocationNodes = processedLocationTree.flattened;
     final locationNodes = _worldMapLocationNodes(
@@ -2123,14 +2143,11 @@ class _CharacterList extends StatelessWidget {
     if (characters.isEmpty) {
       return _EmptySection(text: emptyText);
     }
-    final hasAiCharacter = characters.any(
-      (character) =>
-          _mapString(character, const ['type']).toLowerCase() == 'ai',
-    );
+    final hasCharacterRole = characters.any(_isCharacterRole);
     final sortedCharacters = _sortedCharacters(characters, currentUid);
 
     return Padding(
-      padding: EdgeInsets.only(top: hasAiCharacter ? 5 : 0),
+      padding: EdgeInsets.only(top: hasCharacterRole ? 5 : 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2169,19 +2186,18 @@ class _CharacterRow extends StatelessWidget {
       playerUid: playerUid,
       username: username,
     );
-    final type = _mapString(character, const ['type']).toLowerCase();
-    final isAi = type == 'ai';
-    final roleLabel = isAi ? 'Character' : 'Player';
+    final isCharacterRole = _isCharacterRole(character);
+    final roleLabel = isCharacterRole ? 'Character' : 'Player';
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: EdgeInsets.only(right: isAi ? 6 : 0),
+          padding: EdgeInsets.only(right: isCharacterRole ? 6 : 0),
           child: GenesisCharacterAvatar(
             url: _mapString(character, const ['avatar']),
             name: name,
-            showStar: isAi,
+            showStar: isCharacterRole,
           ),
         ),
         const SizedBox(width: 12),
@@ -2272,7 +2288,7 @@ List<Map<String, dynamic>> _sortedCharacters(
 
 int _characterSortRank(Map<String, dynamic> character, String currentUid) {
   if (_isCurrentUserCharacter(character, currentUid)) return 0;
-  return _isAiCharacter(character) ? 2 : 1;
+  return _isCharacterRole(character) ? 2 : 1;
 }
 
 bool _isCurrentUserCharacter(
@@ -2285,8 +2301,8 @@ bool _isCurrentUserCharacter(
       playerUid == currentUid;
 }
 
-bool _isAiCharacter(Map<String, dynamic> character) {
-  return _mapString(character, const ['type']).toLowerCase() == 'ai';
+bool _isCharacterRole(Map<String, dynamic> character) {
+  return _mapString(character, const ['player_uid']).isEmpty;
 }
 
 String _characterNameSuffix({
@@ -2437,17 +2453,18 @@ List<OriginCharacter> _worldPresetRoleCharacters(WorldDetail world) {
 bool _isAvailablePresetWorldRole(Map<String, dynamic> character) {
   final charId = _mapString(character, const ['char_id', 'character_id', 'id']);
   if (charId.isEmpty) return false;
-  final type = _mapString(character, const ['type']).toLowerCase();
   final playerUid = _mapString(character, const ['player_uid']);
-  return playerUid.isEmpty && (type.isEmpty || type == 'ai');
+  return playerUid.isEmpty;
 }
 
-String _rootWorldMapImageUrl(WorldDetail world) {
-  return _resolveAssetUrl(
-    world.origin.worldMap.isEmpty
-        ? world.origin.mapImage
-        : world.origin.worldMap,
-  );
+String _rootWorldMapImageUrl(
+  List<LocationTreeNode<Map<String, dynamic>>> rootLocationNodes,
+) {
+  for (final node in rootLocationNodes) {
+    final url = _locationMapImageUrl(node.value);
+    if (url.isNotEmpty) return url;
+  }
+  return '';
 }
 
 List<WorldPoint> _pointsFromWorldLocationNodes(

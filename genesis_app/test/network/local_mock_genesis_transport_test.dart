@@ -229,6 +229,11 @@ void main() {
       contains('location_description'),
     );
     expect(((detail['ticks'] as List).first as Map), contains('tick_result'));
+    final edit = await api.v1.origin.forEdit(originId: origin);
+    expect(edit['origin_id'], origin);
+    expect(edit, contains('characters'));
+    expect(edit, isNot(contains('stats')));
+    expect(((edit['characters'] as List).first as Map), contains('bio'));
     final created = await api.v1.origin.create(
       originName: 'Created Mock Origin',
       brief: 'Created from a local mock test.',
@@ -237,7 +242,12 @@ void main() {
       characters: const [],
     );
     final createdOrigin = (created['info'] as Map)['origin_id'] as String;
-    await api.v1.origin.update(oid: createdOrigin, name: 'Updated Mock Origin');
+    await api.v1.origin.update(
+      originId: createdOrigin,
+      originName: 'Updated Mock Origin',
+      cover: '',
+      characters: const [],
+    );
     await api.v1.origin.launch(
       oid: createdOrigin,
       presetCharacterId: 'char_mock_001',
@@ -369,6 +379,11 @@ void main() {
     );
     expect(userLocations.worldId, world);
     expect(userLocations.locations, isNotEmpty);
+    final firstLocationCharacter =
+        userLocations.locations.first.characters.first;
+    expect(firstLocationCharacter.charId, isNotEmpty);
+    expect(firstLocationCharacter.name, isNotEmpty);
+    expect(firstLocationCharacter.locationId, isNotEmpty);
     final history = await api.chatroomHttp.getMessages(
       worldId: world,
       locationId: worldMessages.locations.first.locationId,
