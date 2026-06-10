@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../network/genesis_api.dart';
@@ -37,16 +39,35 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
 
   @override
   Future<void> signOut() async {
+    final authToken = (await _sessionStore.readAuthToken())?.trim();
+    unawaited(_logoutBackend(authToken: authToken));
+    await _sessionStore.clearUid();
+    unawaited(_signOutIdentity());
+  }
+
+  Future<void> _logoutBackend({String? authToken}) async {
     try {
-      await _api.logout();
+      await _api.logout(headers: _authHeadersFromToken(authToken));
     } catch (e) {
       debugPrint('[Auth][BackendAuthCoordinator] backend logout failed: $e');
     }
+  }
 
+  Future<void> _signOutIdentity() async {
     try {
       await _identityAuth.signOutIdentity();
-    } finally {
-      await _sessionStore.clearUid();
+    } catch (e) {
+      debugPrint('[Auth][BackendAuthCoordinator] identity sign out failed: $e');
     }
+  }
+
+  Map<String, String>? _authHeadersFromToken(String? authToken) {
+    final value = (authToken ?? '').trim();
+    if (value.isEmpty) return null;
+    return {
+      'authorization': value.toLowerCase().startsWith('bearer ')
+          ? value
+          : 'Bearer $value',
+    };
   }
 }

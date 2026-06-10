@@ -115,40 +115,38 @@ class LoginProviderButton extends StatelessWidget {
           ),
           alignment: Alignment.center,
         ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: isLoading
-                  ? SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.4,
-                        color: foregroundColor.withValues(alpha: 0.75),
-                      ),
-                    )
-                  : _LoginProviderIcon(provider: provider),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 42),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isLoading)
+                  SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: foregroundColor.withValues(alpha: 0.75),
+                    ),
+                  )
+                else
+                  _LoginProviderIcon(provider: provider),
+                const SizedBox(width: 10),
+                Text(
                   label,
                   maxLines: 1,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
                     height: 1.1,
                     color: foregroundColor,
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

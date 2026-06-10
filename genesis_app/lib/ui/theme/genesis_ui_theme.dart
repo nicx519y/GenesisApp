@@ -86,7 +86,7 @@ class GenesisUiTheme extends ThemeExtension<GenesisUiTheme> {
       // 二级 tab 选中颜色。
       tabSelectedColor: GenesisColors.textPrimary,
       // 二级 tab 未选中颜色。
-      tabUnselectedColor: GenesisColors.textTertiary,
+      tabUnselectedColor: const Color(0xFF666666),
       // 二级 tab 指示器使用状态红。
       tabIndicatorColor: GenesisColors.danger,
       // 二级 tab 指示器固定宽度，保持和现有视觉一致。

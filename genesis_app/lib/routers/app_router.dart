@@ -133,17 +133,22 @@ class _PostDetailRouteArgs {
 }
 
 class _WorldRouteArgs {
-  const _WorldRouteArgs({required this.wid});
+  const _WorldRouteArgs({required this.wid, required this.waitForTick1});
 
   factory _WorldRouteArgs.from(Object? raw) {
     final args = _RouteArgs(raw);
     final direct = args.directString();
     return _WorldRouteArgs(
       wid: direct.isNotEmpty ? direct : args.string(const ['wid']),
+      waitForTick1: args.boolean(const [
+        'wait_for_tick1',
+        'waitForTick1',
+      ], fallback: false),
     );
   }
 
   final String wid;
+  final bool waitForTick1;
 }
 
 class _ChatRouteArgs {
@@ -329,7 +334,8 @@ sealed class AppRouter {
         final args = _WorldRouteArgs.from(settings.arguments);
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => WorldPage(wid: args.wid),
+          builder: (_) =>
+              WorldPage(wid: args.wid, waitForTick1: args.waitForTick1),
         );
       case RouteNames.chat:
         final args = _ChatRouteArgs.from(settings.arguments);

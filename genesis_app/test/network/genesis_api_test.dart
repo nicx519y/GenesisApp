@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -16,7 +17,7 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 class _FakeTransport implements HttpTransport {
   _FakeTransport({required this.handler});
 
-  final TransportResponse Function(TransportRequest request) handler;
+  final FutureOr<TransportResponse> Function(TransportRequest request) handler;
   TransportRequest? lastRequest;
   final List<TransportRequest> requests = <TransportRequest>[];
 
@@ -1136,12 +1137,66 @@ void main() {
       );
 
       await coordinator.signOut();
+      await Future<void>.delayed(Duration.zero);
 
       expect(apiTransport.requests.single.uri.path, '/api/v1/user/logout');
+      expect(
+        apiTransport.requests.single.headers['authorization'],
+        'Bearer backend-token',
+      );
       expect(identityAuth.signOutCount, 1);
       expect(await sessionStore.readUid(), isNull);
       expect(await sessionStore.readAuthToken(), isNull);
       expect(await sessionStore.readUserInfo(), isNull);
+    },
+  );
+
+  test(
+    'backend signOut clears local session without waiting for logout response',
+    () async {
+      final logoutResponse = Completer<TransportResponse>();
+      final apiTransport = _FakeTransport(
+        handler: (_) => logoutResponse.future,
+      );
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_2');
+      await sessionStore.saveAuthToken('backend-token');
+      await sessionStore.saveUserInfo({'uid': 'u_2'});
+      final identityAuth = _FakeIdentityAuthService();
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+        identityAuthService: identityAuth,
+      );
+      final coordinator = GenesisBackendAuthCoordinator(
+        api: api,
+        identityAuth: identityAuth,
+        sessionStore: sessionStore,
+      );
+
+      await coordinator.signOut();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(logoutResponse.isCompleted, isFalse);
+      expect(apiTransport.requests.single.uri.path, '/api/v1/user/logout');
+      expect(
+        apiTransport.requests.single.headers['authorization'],
+        'Bearer backend-token',
+      );
+      expect(await sessionStore.readUid(), isNull);
+      expect(await sessionStore.readAuthToken(), isNull);
+      expect(await sessionStore.readUserInfo(), isNull);
+
+      logoutResponse.complete(
+        const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":0,"err_msg":"succ","data":{}}',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
     },
   );
 
@@ -1173,6 +1228,7 @@ void main() {
       );
 
       await coordinator.signOut();
+      await Future<void>.delayed(Duration.zero);
 
       expect(identityAuth.signOutCount, 1);
       expect(await sessionStore.readUid(), isNull);

@@ -38,8 +38,8 @@ class StatItem extends StatelessWidget {
                   offset: const Offset(0, -0.8),
                   child: Image.asset(
                     asset,
-                    width: iconSize * 1.25,
-                    height: iconSize * 1.25,
+                    width: iconSize,
+                    height: iconSize,
                     fit: BoxFit.contain,
                     excludeFromSemantics: true,
                   ),

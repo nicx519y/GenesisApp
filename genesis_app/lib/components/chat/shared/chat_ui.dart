@@ -16,6 +16,7 @@ class ChatMessageVm {
     this.tickNo = 0,
     required this.senderId,
     required this.senderName,
+    this.avatarUrl = '',
     required this.text,
     required this.isMe,
     required this.status,
@@ -42,6 +43,7 @@ class ChatMessageVm {
   int tickNo;
   final String senderId;
   String senderName;
+  String avatarUrl;
   String text;
   final bool isMe;
   String status;
@@ -614,6 +616,7 @@ class ChatMessageRow extends StatelessWidget {
           SizedBox(width: style.avatarBubbleGap),
           ChatAvatar(
             label: chatInitials(message.senderName),
+            imageUrl: message.avatarUrl,
             colors: style.selfAvatarColors,
             seed: message.senderName,
             style: style,
@@ -638,17 +641,12 @@ class ChatMessageRow extends StatelessWidget {
                 onTap: onAvatarTap,
                 child: ChatAvatar(
                   label: chatInitials(message.senderName),
+                  imageUrl: message.avatarUrl,
                   colors: style.otherAvatarColors,
                   seed: message.senderName,
                   style: style,
                 ),
               ),
-              if (message.senderType == 'character')
-                Positioned(
-                  right: -8,
-                  top: -9,
-                  child: ChatAiBadge(style: style),
-                ),
             ],
           ),
           SizedBox(width: style.avatarBubbleGap),
@@ -721,7 +719,10 @@ class ChatMessageBubble extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(style.bubbleBorderRadius),
       ),
-      child: Text(text.isEmpty ? '...' : text, style: style.bubbleTextStyle),
+      child: _InlineMarkdownText(
+        text: text.isEmpty ? '...' : text,
+        style: style.bubbleTextStyle,
+      ),
     );
   }
 }
@@ -731,12 +732,14 @@ class ChatAvatar extends StatelessWidget {
     super.key,
     required this.label,
     required this.colors,
+    this.imageUrl = '',
     this.seed,
     this.style,
   });
 
   final String label;
   final List<Color> colors;
+  final String imageUrl;
   final String? seed;
   final ChatUiStyleConfig? style;
 
@@ -744,6 +747,16 @@ class ChatAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
     final seed = this.seed?.trim();
+    final imageUrl = this.imageUrl.trim();
+    if (imageUrl.isNotEmpty) {
+      return GenesisAvatar(
+        name: seed == null || seed.isEmpty ? label : seed,
+        url: imageUrl,
+        size: style.avatarSize,
+        borderRadius: style.avatarBorderRadius,
+        textStyle: style.avatarTextStyle,
+      );
+    }
     return Container(
       width: style.avatarSize,
       height: style.avatarSize,
@@ -899,8 +912,8 @@ class ChatSystemMessage extends StatelessWidget {
                   style.systemMessageBorderRadius,
                 ),
               ),
-              child: Text(
-                text,
+              child: _InlineMarkdownText(
+                text: text,
                 maxLines: singleLine ? 1 : null,
                 overflow: singleLine ? TextOverflow.ellipsis : null,
                 textAlign: textAlign,
@@ -912,6 +925,91 @@ class ChatSystemMessage extends StatelessWidget {
       },
     );
   }
+}
+
+class _InlineMarkdownText extends StatelessWidget {
+  const _InlineMarkdownText({
+    required this.text,
+    required this.style,
+    this.maxLines,
+    this.overflow,
+    this.textAlign,
+  });
+
+  final String text;
+  final TextStyle style;
+  final int? maxLines;
+  final TextOverflow? overflow;
+  final TextAlign? textAlign;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(style: style, children: _inlineMarkdownSpans(text, style)),
+      maxLines: maxLines,
+      overflow: overflow,
+      textAlign: textAlign,
+    );
+  }
+}
+
+List<InlineSpan> _inlineMarkdownSpans(String text, TextStyle baseStyle) {
+  final spans = <InlineSpan>[];
+  final buffer = StringBuffer();
+  var index = 0;
+
+  void flushPlain() {
+    if (buffer.isEmpty) return;
+    spans.add(TextSpan(text: buffer.toString()));
+    buffer.clear();
+  }
+
+  while (index < text.length) {
+    final marker = text[index];
+    if (marker == '\\' && index + 1 < text.length) {
+      buffer.write(text[index + 1]);
+      index += 2;
+      continue;
+    }
+    if ((marker == '*' || marker == '_') &&
+        !_isRepeatedMarker(text, index, marker)) {
+      final end = _findInlineItalicEnd(text, index + 1, marker);
+      if (end != -1 && end > index + 1) {
+        flushPlain();
+        spans.add(
+          TextSpan(
+            text: text.substring(index + 1, end),
+            style: baseStyle.copyWith(fontStyle: FontStyle.italic),
+          ),
+        );
+        index = end + 1;
+        continue;
+      }
+    }
+    buffer.write(marker);
+    index += 1;
+  }
+
+  flushPlain();
+  return spans;
+}
+
+bool _isRepeatedMarker(String text, int index, String marker) {
+  return (index > 0 && text[index - 1] == marker) ||
+      (index + 1 < text.length && text[index + 1] == marker);
+}
+
+int _findInlineItalicEnd(String text, int start, String marker) {
+  for (var index = start; index < text.length; index += 1) {
+    if (text[index] == '\\') {
+      index += 1;
+      continue;
+    }
+    if (text[index] == marker && !_isRepeatedMarker(text, index, marker)) {
+      return index;
+    }
+  }
+  return -1;
 }
 
 String _tickAdvanceText(ChatMessageVm message) {

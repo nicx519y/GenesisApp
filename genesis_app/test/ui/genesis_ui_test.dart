@@ -85,20 +85,11 @@ void main() {
   ) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(
-          body: SizedBox(
-            width: 180,
-            child: GenesisSearchField(
-              hintText: 'Search origins, worlds, users...',
-            ),
-          ),
-        ),
+        home: Scaffold(body: SizedBox(width: 180, child: GenesisSearchField())),
       ),
     );
 
-    final placeholder = tester.widget<Text>(
-      find.text('Search origins, worlds, users...'),
-    );
+    final placeholder = tester.widget<Text>(find.text('Explore'));
     expect(placeholder.maxLines, 1);
     expect(placeholder.overflow, TextOverflow.ellipsis);
     expect(placeholder.softWrap, isFalse);
@@ -120,9 +111,9 @@ void main() {
     );
 
     expect(find.text('Origin'), findsOneWidget);
-    expect(find.text('Search origins, worlds, users...'), findsOneWidget);
+    expect(find.text('Explore'), findsOneWidget);
 
-    await tester.tap(find.text('Search origins, worlds, users...'));
+    await tester.tap(find.text('Explore'));
     expect(tapped, isTrue);
   });
 
@@ -165,6 +156,11 @@ void main() {
   testWidgets('GenesisActionBox attaches cancel for a single action', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 600);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     bool? result;
     await tester.pumpWidget(
       MaterialApp(
@@ -199,7 +195,22 @@ void main() {
       find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
       findsOneWidget,
     );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
+      ),
+      const Size(700, 184),
+    );
     expect(find.text('Log out of your account?'), findsOneWidget);
+    final title = tester.widget<Text>(find.text('Log out of your account?'));
+    final action = tester.widget<Text>(find.text('Log out'));
+    final cancel = tester.widget<Text>(find.text('Cancel'));
+    expect(title.style?.fontSize, 15);
+    expect(title.style?.fontWeight, FontWeight.w700);
+    expect(action.style?.fontSize, 15);
+    expect(action.style?.fontWeight, FontWeight.w700);
+    expect(cancel.style?.fontSize, 15);
+    expect(cancel.style?.fontWeight, FontWeight.w400);
 
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
@@ -210,6 +221,11 @@ void main() {
   testWidgets('GenesisActionBox detaches cancel for multiple actions', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1600, 900);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     String? result;
     await tester.pumpWidget(
       MaterialApp(
@@ -248,7 +264,21 @@ void main() {
       find.byKey(const ValueKey('genesis-action-box-detached-cancel')),
       findsOneWidget,
     );
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('genesis-action-box-detached-cancel')),
+          )
+          .width,
+      800,
+    );
     expect(find.text('Save the draft before leaving?'), findsOneWidget);
+    final firstAction = tester.widget<Text>(find.text('Save'));
+    final secondAction = tester.widget<Text>(find.text('Discard'));
+    expect(firstAction.style?.fontSize, 15);
+    expect(firstAction.style?.fontWeight, FontWeight.w700);
+    expect(secondAction.style?.fontSize, 15);
+    expect(secondAction.style?.fontWeight, FontWeight.w400);
 
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
@@ -342,6 +372,8 @@ void main() {
 
     expect(find.text('Latest'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+    expect(tabBar.unselectedLabelColor, const Color(0xFF666666));
   });
 
   testWidgets('SecendTabs supports an explicit controller', (tester) async {

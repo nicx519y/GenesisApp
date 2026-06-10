@@ -42,6 +42,9 @@ void main() {
     final shape = itemMaterial.shape as RoundedRectangleBorder;
     expect(shape.side, BorderSide.none);
     expect(shape.borderRadius, const BorderRadius.all(Radius.circular(14)));
+    final imageTop = tester.getTopLeft(find.byType(GenesisListImage).first).dy;
+    final titleTop = tester.getTopLeft(find.text('Origin 0')).dy;
+    expect(titleTop, closeTo(imageTop, 0.1));
 
     await tester.drag(find.byType(ListView), const Offset(0, -90));
     await tester.pump();

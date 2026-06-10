@@ -47,9 +47,9 @@ class GenesisActionBox<T> extends StatelessWidget {
     this.cancelLabel = 'Cancel',
   });
 
-  static const double _rowHeight = 62;
-  static const double _titleHeight = 74;
-  static const double _maxWidth = 318;
+  static const double _rowHeight = 56;
+  static const double _titleHeight = 70;
+  static const double _maxWidth = 800;
   static const BorderRadius _borderRadius = BorderRadius.all(
     Radius.circular(18),
   );
@@ -63,18 +63,18 @@ class GenesisActionBox<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasMultipleActions = actions.length > 1;
+    final dialogWidth = (MediaQuery.sizeOf(context).width * 0.7)
+        .clamp(0.0, _maxWidth)
+        .toDouble();
     return Dialog(
       elevation: 0,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      insetPadding: EdgeInsets.zero,
       backgroundColor: Colors.transparent,
-      child: FractionallySizedBox(
-        widthFactor: 0.72,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _maxWidth),
-          child: hasMultipleActions
-              ? _buildDetachedCancelStyle()
-              : _buildAttachedCancelStyle(),
-        ),
+      child: SizedBox(
+        width: dialogWidth,
+        child: hasMultipleActions
+            ? _buildDetachedCancelStyle()
+            : _buildAttachedCancelStyle(),
       ),
     );
   }
@@ -163,7 +163,7 @@ class _TitleRow extends StatelessWidget {
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: _genesisActionBoxText,
-              fontSize: 14,
+              fontSize: 15,
               height: 1.16,
               fontWeight: FontWeight.w700,
             ),
@@ -204,9 +204,9 @@ class _ActionRow<T> extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: color,
-                fontSize: 14,
+                fontSize: 15,
                 height: 1.2,
-                fontWeight: FontWeight.w700,
+                fontWeight: isPreferred ? FontWeight.w700 : FontWeight.w400,
               ),
             ),
           ),
@@ -238,7 +238,7 @@ class _CancelRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: _genesisActionBoxText,
-                fontSize: 14,
+                fontSize: 15,
                 height: 1.2,
                 fontWeight: FontWeight.w400,
               ),

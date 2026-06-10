@@ -18,6 +18,7 @@ const Color createFormText = Color(0xFF111111);
 const Color createFormMuted = Color(0xFF6F6F6F);
 const Color createFormBorder = Color(0xFFE1E1E6);
 const Color createFormDash = Color(0xFFB8CDBF);
+const Color createFormDanger = Color(0xFFE14949);
 
 final Object createFormTextFieldTapRegionGroup = Object();
 
@@ -292,12 +293,6 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
 
   void _handleControllerChanged() {
     if (!mounted || _isUploading) return;
-    final imageUrl = widget.controller.text.trim();
-    debugPrint(
-      '[CreateUploadBox] controller changed: '
-      'imageUrl="$imageUrl", '
-      'hasPreviewBytes=${_previewBytes != null}',
-    );
     if (_previewBytes != null) {
       _progressTimer?.cancel();
       setState(() {
@@ -357,7 +352,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
           key: const ValueKey('create-upload-remove'),
           onPressed: _isUploading ? null : _removeImage,
           style: TextButton.styleFrom(
-            foregroundColor: createFormGreen,
+            foregroundColor: createFormDanger,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -547,12 +542,6 @@ class _Preview extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = imageUrl.trim();
     final bytes = imageBytes;
-    debugPrint(
-      '[CreateUploadBox] preview build: '
-      'imageUrl="$url", '
-      'hasBytes=${bytes != null}, '
-      'isUploading=$isUploading',
-    );
     return LayoutBuilder(
       builder: (context, constraints) {
         final selectedUrl = selectGenesisImageUrl(
@@ -583,10 +572,6 @@ class _Preview extends StatelessWidget {
                 fit: BoxFit.cover,
                 alignment: alignment,
                 errorBuilder: (_, error, ___) {
-                  debugPrint(
-                    '[CreateUploadBox] asset image failed: '
-                    'url="$selectedUrl", error="$error"',
-                  );
                   return const _PreviewErrorIcon();
                 },
               )
@@ -596,31 +581,15 @@ class _Preview extends StatelessWidget {
                 height: double.infinity,
                 fit: BoxFit.cover,
                 alignment: alignment,
-                imageBuilder: (_, imageProvider) {
-                  debugPrint(
-                    '[CreateUploadBox] cached image ready: "$selectedUrl"',
-                  );
-                  return Image(
-                    image: imageProvider,
-                    width: double.infinity,
-                    height: double.infinity,
-                    fit: BoxFit.cover,
-                    alignment: alignment,
-                  );
-                },
-                placeholder: (_, __) {
-                  debugPrint(
-                    '[CreateUploadBox] cached image loading: "$selectedUrl"',
-                  );
-                  return const _PreviewPlaceholder();
-                },
-                errorWidget: (_, __, error) {
-                  debugPrint(
-                    '[CreateUploadBox] cached image failed: '
-                    'url="$selectedUrl", error="$error"',
-                  );
-                  return const _PreviewErrorIcon();
-                },
+                imageBuilder: (_, imageProvider) => Image(
+                  image: imageProvider,
+                  width: double.infinity,
+                  height: double.infinity,
+                  fit: BoxFit.cover,
+                  alignment: alignment,
+                ),
+                placeholder: (_, __) => const _PreviewPlaceholder(),
+                errorWidget: (_, __, ___) => const _PreviewErrorIcon(),
               );
         return Stack(
           fit: StackFit.expand,

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
-import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
 void main() {
   testWidgets('chat message list shows first divider and long gaps', (
@@ -114,6 +113,71 @@ void main() {
     expect(avatarLeft, greaterThan(bubbleRight));
   });
 
+  testWidgets('chat message avatar renders image url before fallback', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'peer',
+              senderName: 'Peer',
+              avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+              text: 'hello',
+              isMe: false,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/images/mock_avatars/avatar_iris.png',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('chat message bubble parses markdown italic text', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'peer',
+              senderName: 'Peer',
+              text: 'hello *quietly*',
+              isMe: false,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('hello quietly'), findsOneWidget);
+    final bubbleText = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(ChatMessageBubble),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(_textHasItalicFragment(bubbleText, 'quietly'), isTrue);
+  });
+
   testWidgets('chat rows reserve matching avatar space on both sides', (
     WidgetTester tester,
   ) async {
@@ -170,7 +234,7 @@ void main() {
     expect(meBubble.left, greaterThanOrEqualTo(meRow.left + reservedWidth));
   });
 
-  testWidgets('character chat avatar uses redstar icon badge', (
+  testWidgets('character chat avatar omits redstar icon badge', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -192,7 +256,7 @@ void main() {
       ),
     );
 
-    expect(find.byIcon(MyFlutterApp.redstarCharIcon), findsOneWidget);
+    expect(find.byType(ChatAiBadge), findsNothing);
   });
 
   testWidgets('system chat message uses normal bubble width and centers', (
@@ -232,6 +296,38 @@ void main() {
     );
     expect(text.maxLines, isNull);
     expect(text.overflow, isNull);
+  });
+
+  testWidgets('narrator system message parses markdown italic text', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'narrator',
+              senderName: 'Narrator',
+              text: 'The room grows _cold_.',
+              isMe: false,
+              status: 'sent',
+              senderType: 'narrator',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('The room grows cold.'), findsOneWidget);
+    final systemText = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(ChatSystemMessage),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(_textHasItalicFragment(systemText, 'cold'), isTrue);
   });
 
   testWidgets('narrator system message text is left aligned', (
@@ -556,4 +652,20 @@ void main() {
     final bubbleCenter = tester.getCenter(find.byType(ChatMessageBubble));
     expect(badgeCenter.dy, closeTo(bubbleCenter.dy, 1));
   });
+}
+
+bool _textHasItalicFragment(Text text, String value) {
+  final span = text.textSpan;
+  if (span == null) return false;
+  var found = false;
+  span.visitChildren((child) {
+    if (child is TextSpan &&
+        child.text == value &&
+        child.style?.fontStyle == FontStyle.italic) {
+      found = true;
+      return false;
+    }
+    return true;
+  });
+  return found;
 }

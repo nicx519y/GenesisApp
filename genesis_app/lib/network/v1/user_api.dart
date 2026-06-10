@@ -71,7 +71,9 @@ class UserV1Api extends V1ApiResource {
   /// ```json
   /// {"err_no":0,"err_msg":"succ","data":{}}
   /// ```
-  Future<void> logout() => postVoid('user/logout');
+  Future<void> logout({Map<String, String>? headers}) async {
+    await postData('user/logout', const <String, Object?>{}, headers);
+  }
 
   /// GET /api/v1/user/info
   ///

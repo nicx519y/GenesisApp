@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
-import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
 import '../../network/genesis_api.dart';
+import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/secend_tabs.dart';
@@ -374,7 +374,10 @@ class _FollowUserTile extends StatelessWidget {
                     key: ValueKey('follows-name-uid-gap-${item.uid}'),
                     height: 4,
                   ),
-                  CopyableIdLabel(label: 'UID', value: item.uid),
+                  Text(
+                    'UID: ${formatUidForDisplay(item.uid)}',
+                    style: _uidTextStyle,
+                  ),
                 ],
               ),
             ),
@@ -433,6 +436,13 @@ class _FollowUserTile extends StatelessWidget {
   }
 }
 
+const TextStyle _uidTextStyle = TextStyle(
+  fontSize: 12,
+  height: 1.1,
+  fontWeight: FontWeight.w400,
+  color: Color(0xFF8A8A8A),
+);
+
 class _FollowAvatar extends StatelessWidget {
   const _FollowAvatar({super.key, required this.url, required this.name});
 
@@ -478,8 +488,11 @@ class _FollowUserItem {
         _mapString(user, 'display_name') ??
         _mapString(user, 'nickname') ??
         formatUidForDisplay(uid);
-    final avatar =
-        _mapString(user, 'avatar') ?? _mapString(user, 'avatar_url') ?? '';
+    final avatar = asResolvedImageUrl(
+      user['avatar'],
+      resolveAssetUrl,
+      fallback: user['avatar_url'],
+    );
     final isFollowed =
         type == _FollowListType.following ||
         _mapBool(relation, 'i_followed') ||
@@ -489,7 +502,7 @@ class _FollowUserItem {
     return _FollowUserItem(
       uid: uid,
       displayName: formatUidForDisplay(displayName, fallback: 'User'),
-      avatarUrl: resolveAssetUrl(avatar),
+      avatarUrl: avatar,
       isFollowed: isFollowed,
     );
   }

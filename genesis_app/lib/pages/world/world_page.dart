@@ -6,8 +6,10 @@ import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
 import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/common/genesis_action_box.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
+import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/world_details_shell.dart';
@@ -18,9 +20,11 @@ import '../../icons/custom_icon_assets.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_api.dart';
+import '../../network/json_utils.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/origin.dart';
 import '../../network/models/world.dart';
+import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_character_avatar.dart';
@@ -32,11 +36,14 @@ import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
 const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
+const Duration _tick1WaitPollInterval = Duration(seconds: 2);
+const Duration _tick1WaitDotsInterval = Duration(milliseconds: 400);
 
 class WorldPage extends StatefulWidget {
-  const WorldPage({super.key, required this.wid});
+  const WorldPage({super.key, required this.wid, this.waitForTick1 = false});
 
   final String wid;
+  final bool waitForTick1;
 
   @override
   State<WorldPage> createState() => _WorldPageState();
@@ -57,12 +64,17 @@ class _WorldPageState extends State<WorldPage>
   String _activeChatLocationId = '';
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
+  bool _tick1WaitDialogStarted = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    unawaited(_fetchWorld(isInitial: true));
+    unawaited(
+      _fetchWorld(isInitial: true).then((_) {
+        if (mounted) _maybeShowTick1WaitDialog();
+      }),
+    );
   }
 
   @override
@@ -207,12 +219,7 @@ class _WorldPageState extends State<WorldPage>
         context,
       ).api.getWorld(widget.wid);
       if (!mounted) return;
-      setState(() {
-        _world = world;
-        if (isInitial) _initialLoadError = null;
-        _syncLocationChatDescriptors(world);
-      });
-      _syncWorldChatroomForRelationStatus(world.relationStatus);
+      _applyWorldDetail(world, clearInitialLoadError: isInitial);
     } catch (e) {
       if (!mounted) return;
       if (isInitial) {
@@ -225,8 +232,49 @@ class _WorldPageState extends State<WorldPage>
     }
   }
 
+  void _applyWorldDetail(
+    WorldDetail world, {
+    bool clearInitialLoadError = false,
+  }) {
+    setState(() {
+      _world = world;
+      if (clearInitialLoadError) _initialLoadError = null;
+      _syncLocationChatDescriptors(world);
+    });
+    _syncWorldChatroomForRelationStatus(world.relationStatus);
+  }
+
+  void _maybeShowTick1WaitDialog() {
+    if (!widget.waitForTick1 || _tick1WaitDialogStarted) return;
+    final world = _world;
+    if (world == null || _worldHasTick1(world)) return;
+    _tick1WaitDialogStarted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => _Tick1WaitDialog(
+            loadWorld: _loadWorldForTick1Wait,
+            onWorldReady: (world) =>
+                _applyWorldDetail(world, clearInitialLoadError: true),
+          ),
+        ),
+      );
+    });
+  }
+
+  Future<WorldDetail> _loadWorldForTick1Wait() async {
+    return AppServicesScope.read(context).api.getWorld(widget.wid);
+  }
+
   Future<void> _runWorldAction(_WorldHeaderActionKind action) async {
     if (_worldActionRunning) return;
+    if (action == _WorldHeaderActionKind.request) {
+      final confirmed = await _confirmWorldRequest();
+      if (!mounted || !confirmed) return;
+    }
     if (action == _WorldHeaderActionKind.launch) {
       final world = _world;
       if (world == null) return;
@@ -252,6 +300,21 @@ class _WorldPageState extends State<WorldPage>
     } finally {
       if (mounted) setState(() => _worldActionRunning = false);
     }
+  }
+
+  Future<bool> _confirmWorldRequest() async {
+    final result = await showGenesisActionBox<bool>(
+      context: context,
+      title: 'Request to join this World?',
+      actions: const [
+        GenesisActionBoxAction<bool>(
+          label: 'Request',
+          value: true,
+          color: Color(0xFF2F9663),
+        ),
+      ],
+    );
+    return result ?? false;
   }
 
   Future<void> _showLaunchRoleSheet(WorldDetail world) async {
@@ -292,6 +355,8 @@ class _WorldPageState extends State<WorldPage>
   }
 
   Future<OriginCustomRoleDraft?> _customRoleFromProfile() async {
+    if (!await _ensureProfileFillLogin()) return null;
+    if (!mounted) return null;
     final services = AppServicesScope.read(context);
     final userInfo = await services.sessionStore.readUserInfo();
     final profile = services.identityAuth.currentProfile();
@@ -302,13 +367,6 @@ class _WorldPageState extends State<WorldPage>
       return null;
     }
     final cachedUser = userInfo ?? const <String, dynamic>{};
-    final cachedAvatar = _mapString(cachedUser, const [
-      'avatar',
-      'avatar_url',
-      'photoUrl',
-      'photo_url',
-      'picture',
-    ]);
     final profileAvatar = profile?.photoUrl.trim() ?? '';
     final cachedName = _mapString(cachedUser, const [
       'name',
@@ -321,13 +379,52 @@ class _WorldPageState extends State<WorldPage>
         ? profile!.displayName.trim()
         : (profile?.email.trim() ?? '');
     return OriginCustomRoleDraft(
-      avatarUrl: _resolveAssetUrl(
-        cachedAvatar.isNotEmpty ? cachedAvatar : profileAvatar,
-      ),
+      avatarUrl: _resolvedProfileAvatar(cachedUser, profileAvatar),
       name: cachedName.isNotEmpty ? cachedName : profileName,
       identity: _mapString(cachedUser, const ['identity']),
       bio: _mapString(cachedUser, const ['bio', 'description']),
     );
+  }
+
+  Future<bool> _ensureProfileFillLogin() async {
+    if (await _hasLocalLoginSession()) return true;
+    if (!mounted) return false;
+    final loggedIn = await showLoginSheet(
+      context: context,
+      onLogin: _loginWithProvider,
+    );
+    if (!mounted || !loggedIn) return false;
+    return _hasLocalLoginSession();
+  }
+
+  Future<bool> _hasLocalLoginSession() async {
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
+  }
+
+  Future<bool> _loginWithProvider(IdentityProvider provider) async {
+    final services = AppServicesScope.read(context);
+    final session = await services.identityAuth.signIn(provider);
+    final user = await services.backendAuth.loginWithIdentity(session);
+    if (user.uid.trim().isNotEmpty) {
+      await services.sessionStore.saveUid(user.uid);
+    }
+    final cachedUserInfo = await services.sessionStore.readUserInfo();
+    final loginUserInfo = <String, dynamic>{
+      if (cachedUserInfo != null) ...cachedUserInfo,
+      'uid': user.uid,
+    };
+    if (user.nickname.trim().isNotEmpty) {
+      loginUserInfo['name'] = user.nickname;
+    }
+    if (user.avatar.trim().isNotEmpty) {
+      loginUserInfo['avatar'] = user.avatar;
+    }
+    await services.sessionStore.saveUserInfo(loginUserInfo);
+    return true;
   }
 
   Future<void> _openChatForPoint(WorldPoint point) async {
@@ -672,7 +769,7 @@ class _WorldPageState extends State<WorldPage>
         map: WorldMapStage(
           controller: _tabController,
           pointsCount: 0,
-          top: topPadding + 20,
+          top: topPadding + 8,
           mapBuilder: (context, pointMode) => WorldMap(
             points: const <WorldPoint>[],
             listPoints: const <WorldPoint>[],
@@ -741,7 +838,7 @@ class _WorldPageState extends State<WorldPage>
         map: WorldMapStage(
           controller: _tabController,
           pointsCount: listPoints.length,
-          top: topPadding + 20,
+          top: topPadding + 8,
           mapBuilder: (context, pointMode) => WorldMap(
             points: points,
             listPoints: listPoints,
@@ -1697,6 +1794,106 @@ class _MeasureSizeState extends State<_MeasureSize> {
   }
 }
 
+class _Tick1WaitDialog extends StatefulWidget {
+  const _Tick1WaitDialog({required this.loadWorld, required this.onWorldReady});
+
+  final Future<WorldDetail> Function() loadWorld;
+  final ValueChanged<WorldDetail> onWorldReady;
+
+  @override
+  State<_Tick1WaitDialog> createState() => _Tick1WaitDialogState();
+}
+
+class _Tick1WaitDialogState extends State<_Tick1WaitDialog> {
+  Timer? _pollTimer;
+  Timer? _dotsTimer;
+  bool _loading = true;
+  bool _hasError = false;
+  int _dotCount = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _dotsTimer = Timer.periodic(_tick1WaitDotsInterval, (_) {
+      if (!mounted || _hasError) return;
+      setState(() => _dotCount = _dotCount == 6 ? 1 : _dotCount + 1);
+    });
+    unawaited(_poll());
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    _dotsTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _poll() async {
+    _pollTimer?.cancel();
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _hasError = false;
+      });
+    }
+    try {
+      final world = await widget.loadWorld();
+      if (!mounted) return;
+      if (_worldHasTick1(world)) {
+        widget.onWorldReady(world);
+        Navigator.of(context).pop();
+        return;
+      }
+      setState(() => _loading = false);
+      _pollTimer = Timer(_tick1WaitPollInterval, () => unawaited(_poll()));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _hasError = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const ValueKey('world-tick1-wait-dialog'),
+      title: const Text(
+        'Generating first tick',
+        style: TextStyle(fontSize: 16, height: 1.2),
+      ),
+      content: SizedBox(
+        width: 260,
+        child: Text(
+          _hasError
+              ? 'Generation status could not be loaded.'
+              : 'LLM is generating your first tick. This may take a moment${List.filled(_dotCount, '.').join()}',
+          style: const TextStyle(fontSize: 14, height: 1.35),
+        ),
+      ),
+      actions: _hasError
+          ? [
+              TextButton(
+                key: const ValueKey('world-tick1-wait-cancel'),
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                key: const ValueKey('world-tick1-wait-retry'),
+                onPressed: _loading ? null : () => unawaited(_poll()),
+                child: const Text('Retry'),
+              ),
+            ]
+          : null,
+    );
+  }
+}
+
+bool _worldHasTick1(WorldDetail? world) {
+  return (world?.tickCount ?? 0) >= 1;
+}
+
 extension on double {
   double frac() {
     return this - floorToDouble();
@@ -1806,7 +2003,7 @@ class _WorldInfoHeader extends StatelessWidget {
                       textStyle: const TextStyle(
                         fontSize: 14,
                         height: 1,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w400,
                         color: Colors.black,
                       ),
                     ),
@@ -1815,7 +2012,7 @@ class _WorldInfoHeader extends StatelessWidget {
             ),
             // const Spacer(),
             SizedBox(
-              height: 32,
+              height: 40,
               child: FilledButton(
                 onPressed: actionEnabled
                     ? () => onWorldAction(action.kind)
@@ -1890,7 +2087,7 @@ _WorldHeaderAction _worldHeaderActionFor(String relationStatus) {
     case 'pending':
       return const _WorldHeaderAction(
         _WorldHeaderActionKind.pending,
-        'pending',
+        'Requested',
         false,
       );
     case 'approved':
@@ -1934,7 +2131,7 @@ String _worldHeaderActionLabel(_WorldHeaderActionKind action) {
     case _WorldHeaderActionKind.progress:
       return 'Progress';
     case _WorldHeaderActionKind.pending:
-      return 'pending';
+      return 'Requested';
     case _WorldHeaderActionKind.unavailable:
       return 'Unavailable';
   }
@@ -1972,7 +2169,15 @@ class _OwnerMetaLink extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 22, color: Color(0xFF8A8A8A)),
+            const Text(
+              '>',
+              style: TextStyle(
+                fontSize: 14,
+                height: 1,
+                fontWeight: FontWeight.w400,
+                color: Color(0xFF8A8A8A),
+              ),
+            ),
           ],
         ),
       ),
@@ -2358,7 +2563,7 @@ String _eventBody(WorldDetail world) {
 
 String _characterDescriptionText(Map<String, dynamic> character) {
   return _mapString(character, const [
-    'brief',
+    'identity',
   ], fallback: 'No character details yet.');
 }
 
@@ -2411,6 +2616,34 @@ String _mapString(
     if (text.isNotEmpty) return text;
   }
   return fallback;
+}
+
+String _resolvedProfileAvatar(
+  Map<String, dynamic> userInfo,
+  String profileAvatar,
+) {
+  final resolved = asResolvedImageUrl(
+    _mapValue(userInfo, const ['avatar']),
+    resolveAssetUrl,
+    fallback: _mapValue(userInfo, const [
+      'avatar_url',
+      'photoUrl',
+      'photo_url',
+      'picture',
+    ]),
+  );
+  if (resolved.isNotEmpty) return resolved;
+  return asResolvedImageUrl(profileAvatar, resolveAssetUrl);
+}
+
+Object? _mapValue(Map<String, dynamic> map, List<String> keys) {
+  for (final key in keys) {
+    final value = map[key];
+    if (value == null) continue;
+    if (value is String && value.trim().isEmpty) continue;
+    return value;
+  }
+  return null;
 }
 
 String _resolveAssetUrl(String raw) {

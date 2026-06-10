@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/local_image_crop_page.dart';
+import '../../components/page_header.dart';
 import '../../components/me/signed_out_me_view.dart';
 import '../../components/me/user_profile_content.dart';
 import '../../network/genesis_api.dart';
@@ -20,10 +21,16 @@ import '../../utils/relative_time_formatter.dart';
 import 'settings_page.dart';
 
 class MePage extends StatefulWidget {
-  const MePage({super.key, this.onLoggedOut, this.onLogin});
+  const MePage({
+    super.key,
+    this.onLoggedOut,
+    this.onLogin,
+    this.activationListenable,
+  });
 
   final VoidCallback? onLoggedOut;
   final Future<bool> Function(IdentityProvider provider)? onLogin;
+  final ValueListenable<int>? activationListenable;
 
   @override
   State<MePage> createState() => _MePageState();
@@ -52,15 +59,28 @@ class _MePageState extends State<MePage> {
         ),
       );
   int _loadGeneration = 0;
+  UserProfileData? _renderedData;
+  bool _profileCollapsed = false;
 
   @override
   void initState() {
     super.initState();
     _future = _loadData();
+    widget.activationListenable?.addListener(_handleTabActivated);
+  }
+
+  @override
+  void didUpdateWidget(covariant MePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.activationListenable != widget.activationListenable) {
+      oldWidget.activationListenable?.removeListener(_handleTabActivated);
+      widget.activationListenable?.addListener(_handleTabActivated);
+    }
   }
 
   @override
   void dispose() {
+    widget.activationListenable?.removeListener(_handleTabActivated);
     _isUpdatingProfile.dispose();
     _avatarUrl.dispose();
     _displayName.dispose();
@@ -82,6 +102,7 @@ class _MePageState extends State<MePage> {
             items: <UserProfileWorldItem>[],
             isLoading: false,
           );
+      _renderedData = null;
       return const _MePageContent.signedOut();
     }
     return _MePageContent.signedIn(await _loadProfileData());
@@ -154,6 +175,7 @@ class _MePageState extends State<MePage> {
     );
     _avatarUrl.value = data.avatarUrl;
     _displayName.value = data.displayName;
+    _renderedData = data;
     unawaited(
       remoteUserFuture.then((remoteUser) {
         _applyRemoteUserInfo(generation, data, remoteUser);
@@ -192,6 +214,32 @@ class _MePageState extends State<MePage> {
             isLoading: false,
           );
     }
+  }
+
+  void _handleTabActivated() {
+    unawaited(_refreshUserInfoOnActivation());
+  }
+
+  Future<void> _refreshUserInfoOnActivation() async {
+    if (!mounted) return;
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    if (uid.isEmpty || uid.startsWith('guest_') || authToken.isEmpty) return;
+    final currentData = _renderedData;
+    if (currentData == null) return;
+    final remoteUser = await _fetchAndCacheUserInfo(
+      services.api,
+      services.sessionStore,
+      fallbackUid: currentData.uid,
+    );
+    _applyRemoteUserInfo(_loadGeneration, currentData, remoteUser);
+  }
+
+  void _handleProfileCollapsedChanged(bool collapsed) {
+    if (_profileCollapsed == collapsed) return;
+    setState(() => _profileCollapsed = collapsed);
   }
 
   Future<void> _loadWorlds(int generation, GenesisApi api, String uid) async {
@@ -273,6 +321,7 @@ class _MePageState extends State<MePage> {
   ) {
     if (remoteUser == null || !mounted || generation != _loadGeneration) return;
     final nextData = _mergeRemoteUserInfoForRender(currentData, remoteUser);
+    _renderedData = nextData;
     if (currentData.avatarUrl != nextData.avatarUrl) {
       _avatarUrl.value = nextData.avatarUrl;
     }
@@ -565,15 +614,26 @@ class _MePageState extends State<MePage> {
           child: Column(
             children: [
               const SizedBox(height: 4),
-              Row(
-                children: [
-                  const Spacer(),
-                  IconButton(
-                    onPressed: _openSettings,
-                    icon: const Icon(Icons.settings, size: 24),
-                    color: Colors.black,
-                  ),
-                ],
+              SizedBox(
+                height: 48,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    AnimatedOpacity(
+                      opacity: _profileCollapsed ? 1 : 0,
+                      duration: const Duration(milliseconds: 120),
+                      child: const PageTitleText(pageName: 'Me'),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        onPressed: _openSettings,
+                        icon: const Icon(Icons.settings, size: 24),
+                        color: Colors.black,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               Expanded(
                 child: UserProfileContent(
@@ -587,6 +647,7 @@ class _MePageState extends State<MePage> {
                   onEditDisplayName: _editNickName,
                   onRefreshOrigins: _refreshOrigins,
                   onRefreshWorlds: _refreshWorlds,
+                  onCollapsedChanged: _handleProfileCollapsedChanged,
                 ),
               ),
             ],

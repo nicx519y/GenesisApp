@@ -28,6 +28,7 @@ class _AppShellPageState extends State<AppShellPage>
   late int _selectedIndex;
   late final Set<int> _visitedTabIndexes;
   late final ValueNotifier<bool> _messagesTabActiveNotifier;
+  late final ValueNotifier<int> _meTabActivationNotifier;
   final Map<int, Widget> _tabPageCache = <int, Widget>{};
   final ValueNotifier<UnreadSummary> _unreadSummaryNotifier =
       ValueNotifier<UnreadSummary>(UnreadSummary.zero);
@@ -40,6 +41,7 @@ class _AppShellPageState extends State<AppShellPage>
     WidgetsBinding.instance.addObserver(this);
     _selectedIndex = _normalTabIndex(widget.initialIndex);
     _messagesTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 3);
+    _meTabActivationNotifier = ValueNotifier<int>(0);
     _visitedTabIndexes = <int>{_selectedIndex};
     _messagesPoller = GenesisPollingScheduler(
       interval: _messagesPollInterval,
@@ -55,6 +57,7 @@ class _AppShellPageState extends State<AppShellPage>
     WidgetsBinding.instance.removeObserver(this);
     _stopMessagesPolling();
     _messagesTabActiveNotifier.dispose();
+    _meTabActivationNotifier.dispose();
     _unreadSummaryNotifier.dispose();
     super.dispose();
   }
@@ -152,13 +155,11 @@ class _AppShellPageState extends State<AppShellPage>
   Future<bool> _ensureMainTabLogin() async {
     if (await _hasLocalLoginSession()) return true;
     if (!mounted) return false;
-    final loggedIn = await showModalBottomSheet<bool>(
+    final loggedIn = await showLoginSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => LoginSheet(onLogin: _loginWithProvider),
+      onLogin: _loginWithProvider,
     );
-    if (!mounted || loggedIn != true) return false;
+    if (!mounted || !loggedIn) return false;
     return _hasLocalLoginSession();
   }
 
@@ -205,11 +206,15 @@ class _AppShellPageState extends State<AppShellPage>
     if (_selectedIndex == index && _visitedTabIndexes.contains(index)) {
       return;
     }
+    final previousIndex = _selectedIndex;
     setState(() {
       _selectedIndex = index;
       _visitedTabIndexes.add(index);
     });
     _messagesTabActiveNotifier.value = _selectedIndex == 3;
+    if (index == 4 && previousIndex != 4) {
+      _meTabActivationNotifier.value += 1;
+    }
   }
 
   void _handleMeLoggedOut() {
@@ -240,6 +245,7 @@ class _AppShellPageState extends State<AppShellPage>
         4 => MePage(
           onLoggedOut: _handleMeLoggedOut,
           onLogin: _loginWithProvider,
+          activationListenable: _meTabActivationNotifier,
         ),
         _ => const SizedBox.shrink(),
       };

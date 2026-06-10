@@ -162,10 +162,6 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
       if (identity.isNotEmpty) _customForm.identity.text = identity;
       if (bio.isNotEmpty) _customForm.bio.text = bio;
       _customForm.avatarUrl.text = avatar;
-      debugPrint(
-        '[OriginRoleLaunch] Applied profile avatar to custom form: '
-        'avatar="$avatar"',
-      );
     } finally {
       if (mounted) setState(() => _fillingProfile = false);
     }
@@ -238,8 +234,8 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
                   key: const ValueKey('origin-role-sheet'),
                   title: 'Setup Your Role',
                   height: targetHeight,
-                  padding: const EdgeInsets.fromLTRB(20, 21, 20, 14),
-                  titleBottomSpacing: 12,
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+                  titleBottomSpacing: 8,
                   titleTextStyle: const TextStyle(
                     fontSize: 16,
                     height: 1.1,
@@ -267,41 +263,27 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
                         index: _tabIndex,
                         onChanged: _selectTab,
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 12),
                       Expanded(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 140),
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeOutCubic,
-                          layoutBuilder: (currentChild, previousChildren) {
-                            return Stack(
-                              alignment: Alignment.topCenter,
-                              children: <Widget>[
-                                ...previousChildren,
-                                if (currentChild != null) currentChild,
-                              ],
-                            );
-                          },
-                          child: _tabIndex == 0
-                              ? _PresetRoleGrid(
-                                  key: const ValueKey('origin-role-preset-tab'),
-                                  characters: widget.characters,
-                                  selectedId: _selectedPresetId,
-                                  resolveAvatarUrl: widget.resolveAvatarUrl,
-                                  onSelected: (id) {
-                                    setState(() => _selectedPresetId = id);
-                                  },
-                                )
-                              : _CustomRoleForm(
-                                  key: const ValueKey('origin-role-custom-tab'),
-                                  form: _customForm,
-                                  fillingProfile: _fillingProfile,
-                                  canFillProfile:
-                                      widget.onFillFromProfile != null,
-                                  onChanged: _handleTextChanged,
-                                  onFillFromProfile: _fillFromProfile,
-                                ),
-                        ),
+                        child: _tabIndex == 0
+                            ? _PresetRoleGrid(
+                                key: const ValueKey('origin-role-preset-tab'),
+                                characters: widget.characters,
+                                selectedId: _selectedPresetId,
+                                resolveAvatarUrl: widget.resolveAvatarUrl,
+                                onSelected: (id) {
+                                  setState(() => _selectedPresetId = id);
+                                },
+                              )
+                            : _CustomRoleForm(
+                                key: const ValueKey('origin-role-custom-tab'),
+                                form: _customForm,
+                                fillingProfile: _fillingProfile,
+                                canFillProfile:
+                                    widget.onFillFromProfile != null,
+                                onChanged: _handleTextChanged,
+                                onFillFromProfile: _fillFromProfile,
+                              ),
                       ),
                       const SizedBox(height: 14),
                       _SheetActions(
@@ -588,7 +570,7 @@ class _CustomRoleForm extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFFE1E1E6), width: 1.2),
@@ -603,9 +585,7 @@ class _CustomRoleForm extends StatelessWidget {
               avatarCropSize: const Size(512, 512),
               showAvatarRemoveLink: true,
               topSpacing: 0,
-              fieldGap: 22,
-              sectionGap: 28,
-              bioMaxLines: 4,
+              bioMaxLines: 3,
             ),
           ),
           if (canFillProfile) ...[
@@ -657,7 +637,7 @@ class _SheetActions extends StatelessWidget {
       children: [
         Expanded(
           child: SizedBox(
-            height: 32,
+            height: 35,
             child: OutlinedButton(
               key: const ValueKey('origin-role-cancel'),
               onPressed: onCancel,
@@ -665,7 +645,7 @@ class _SheetActions extends StatelessWidget {
                 foregroundColor: const Color(0xFF111111),
                 side: const BorderSide(color: Color(0xFFD9D9DF), width: 1.2),
                 textStyle: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 16,
                   height: 1,
                   fontWeight: FontWeight.w800,
                 ),
@@ -680,7 +660,7 @@ class _SheetActions extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: SizedBox(
-            height: 32,
+            height: 35,
             child: FilledButton(
               key: const ValueKey('origin-role-launch'),
               onPressed: onLaunch,
@@ -690,7 +670,7 @@ class _SheetActions extends StatelessWidget {
                     : const Color(0xFFC8D9D1),
                 foregroundColor: Colors.white,
                 textStyle: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 16,
                   height: 1,
                   fontWeight: FontWeight.w700,
                 ),

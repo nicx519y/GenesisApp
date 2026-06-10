@@ -76,6 +76,7 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 15,
+                      height: 1,
                       fontWeight: FontWeight.w700,
                       color: Color(0xFF4B6192),
                     ),

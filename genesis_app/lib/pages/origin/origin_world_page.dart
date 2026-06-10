@@ -7,6 +7,7 @@ import '../../components/common/copyable_id_label.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/world_map.dart';
@@ -16,8 +17,10 @@ import '../../components/world_tick_event_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
+import '../../network/json_utils.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/origin.dart';
+import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_primary_button.dart';
@@ -209,9 +212,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         showGenesisToast(context, 'Launch failed');
         return;
       }
-      Navigator.of(
-        context,
-      ).pushNamed(RouteNames.world, arguments: {'wid': wid});
+      Navigator.of(context).pushNamed(
+        RouteNames.world,
+        arguments: {'wid': wid, 'wait_for_tick1': true},
+      );
     } catch (_) {
       if (!mounted) return;
       showGenesisToast(context, 'Launch failed');
@@ -221,6 +225,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 
   Future<OriginCustomRoleDraft?> _customRoleFromProfile() async {
+    if (!await _ensureProfileFillLogin()) return null;
+    if (!mounted) return null;
     final services = AppServicesScope.read(context);
     final userInfo = await services.sessionStore.readUserInfo();
     final profile = services.identityAuth.currentProfile();
@@ -231,13 +237,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       return null;
     }
     final cachedUser = userInfo ?? const <String, dynamic>{};
-    final cachedAvatar = _mapString(cachedUser, const [
-      'avatar',
-      'avatar_url',
-      'photoUrl',
-      'photo_url',
-      'picture',
-    ]);
     final profileAvatar = profile?.photoUrl.trim() ?? '';
     final cachedName = _mapString(cachedUser, const [
       'name',
@@ -249,15 +248,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     final profileName = (profile?.displayName.trim().isNotEmpty ?? false)
         ? profile!.displayName.trim()
         : (profile?.email.trim() ?? '');
-    final resolvedAvatar = _resolveAssetUrl(
-      cachedAvatar.isNotEmpty ? cachedAvatar : profileAvatar,
-    );
-    debugPrint(
-      '[OriginRoleLaunch] Fill from profile avatar: '
-      'cached="$cachedAvatar", '
-      'identity="$profileAvatar", '
-      'resolved="$resolvedAvatar"',
-    );
+    final resolvedAvatar = _resolvedProfileAvatar(cachedUser, profileAvatar);
 
     return OriginCustomRoleDraft(
       avatarUrl: resolvedAvatar,
@@ -265,6 +256,47 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       identity: _mapString(cachedUser, const ['identity']),
       bio: _mapString(cachedUser, const ['bio', 'description']),
     );
+  }
+
+  Future<bool> _ensureProfileFillLogin() async {
+    if (await _hasLocalLoginSession()) return true;
+    if (!mounted) return false;
+    final loggedIn = await showLoginSheet(
+      context: context,
+      onLogin: _loginWithProvider,
+    );
+    if (!mounted || !loggedIn) return false;
+    return _hasLocalLoginSession();
+  }
+
+  Future<bool> _hasLocalLoginSession() async {
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
+  }
+
+  Future<bool> _loginWithProvider(IdentityProvider provider) async {
+    final services = AppServicesScope.read(context);
+    final session = await services.identityAuth.signIn(provider);
+    final user = await services.backendAuth.loginWithIdentity(session);
+    if (user.uid.trim().isNotEmpty) {
+      await services.sessionStore.saveUid(user.uid);
+    }
+    final cachedUserInfo = await services.sessionStore.readUserInfo();
+    final loginUserInfo = <String, dynamic>{
+      if (cachedUserInfo != null) ...cachedUserInfo,
+      'uid': user.uid,
+    };
+    if (user.nickname.trim().isNotEmpty) {
+      loginUserInfo['name'] = user.nickname;
+    }
+    if (user.avatar.trim().isNotEmpty) {
+      loginUserInfo['avatar'] = user.avatar;
+    }
+    await services.sessionStore.saveUserInfo(loginUserInfo);
+    return true;
   }
 
   @override
@@ -781,7 +813,7 @@ class _OriginBottomLaunchBar extends StatelessWidget {
               ),
               const SizedBox(width: 18),
               SizedBox(
-                height: 32,
+                height: 40,
                 child: FilledButton(
                   onPressed: launching ? null : onLaunch,
                   style: FilledButton.styleFrom(
@@ -795,7 +827,7 @@ class _OriginBottomLaunchBar extends StatelessWidget {
                     textStyle: const TextStyle(
                       fontSize: 14,
                       height: 1,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -1604,6 +1636,34 @@ List<String> _splitTags(String tags) {
 
 String _resolveAssetUrl(String raw) {
   return resolveAssetUrl(raw);
+}
+
+String _resolvedProfileAvatar(
+  Map<String, dynamic> userInfo,
+  String profileAvatar,
+) {
+  final resolved = asResolvedImageUrl(
+    _mapValue(userInfo, const ['avatar']),
+    resolveAssetUrl,
+    fallback: _mapValue(userInfo, const [
+      'avatar_url',
+      'photoUrl',
+      'photo_url',
+      'picture',
+    ]),
+  );
+  if (resolved.isNotEmpty) return resolved;
+  return asResolvedImageUrl(profileAvatar, resolveAssetUrl);
+}
+
+Object? _mapValue(Map<dynamic, dynamic> map, List<String> keys) {
+  for (final key in keys) {
+    final value = map[key];
+    if (value == null) continue;
+    if (value is String && value.trim().isEmpty) continue;
+    return value;
+  }
+  return null;
 }
 
 String _mapString(Map<dynamic, dynamic> map, List<String> keys) {

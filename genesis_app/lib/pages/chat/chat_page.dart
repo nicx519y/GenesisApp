@@ -6,6 +6,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/polling_scheduler.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../network/direct_message_message_store.dart';
+import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../utils/display_name_formatter.dart';
@@ -47,6 +48,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   String _lastDraftPeerUid = '';
   String _lastSavedDraft = '';
   String _myUid = '';
+  String _myAvatarUrl = '';
 
   String get _peerUid => widget.peerUid.trim();
 
@@ -121,9 +123,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Future<void> _bootstrap() async {
     final services = AppServicesScope.read(context);
     final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final userInfo = await services.sessionStore.readUserInfo();
+    final profile = services.identityAuth.currentProfile();
+    final myAvatarUrl = _resolvedProfileAvatar(
+      userInfo ?? const <String, dynamic>{},
+      profile?.photoUrl ?? '',
+    );
     if (!mounted) return;
     setState(() {
       _myUid = uid;
+      _myAvatarUrl = myAvatarUrl;
       _failedLocalMessages.clear();
       _readMarkedIncomingMessageIds.clear();
       _unseenIncomingCount = 0;
@@ -720,12 +729,41 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       messageId: messageId,
       senderId: record.senderUid,
       senderName: senderName,
+      avatarUrl: isMe ? _myAvatarUrl : widget.peerAvatar,
       text: record.content,
       isMe: isMe,
       status: record.sendStatus,
       createdAt: record.createdAt,
     );
   }
+}
+
+String _resolvedProfileAvatar(
+  Map<dynamic, dynamic> userInfo,
+  String profileAvatar,
+) {
+  final resolved = asResolvedImageUrl(
+    _mapValue(userInfo, const ['avatar']),
+    resolveAssetUrl,
+    fallback: _mapValue(userInfo, const [
+      'avatar_url',
+      'photoUrl',
+      'photo_url',
+      'picture',
+    ]),
+  );
+  if (resolved.isNotEmpty) return resolved;
+  return asResolvedImageUrl(profileAvatar, resolveAssetUrl);
+}
+
+Object? _mapValue(Map<dynamic, dynamic> map, List<String> keys) {
+  for (final key in keys) {
+    final value = map[key];
+    if (value == null) continue;
+    final text = '$value'.trim();
+    if (text.isNotEmpty) return value;
+  }
+  return null;
 }
 
 class _NewIncomingMessageNotice extends StatelessWidget {
