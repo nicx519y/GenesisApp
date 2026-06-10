@@ -672,7 +672,7 @@ class _WorldPageState extends State<WorldPage>
         map: WorldMapStage(
           controller: _tabController,
           pointsCount: 0,
-          top: topPadding + 20,
+          top: topPadding + 8,
           mapBuilder: (context, pointMode) => WorldMap(
             points: const <WorldPoint>[],
             listPoints: const <WorldPoint>[],
@@ -741,7 +741,7 @@ class _WorldPageState extends State<WorldPage>
         map: WorldMapStage(
           controller: _tabController,
           pointsCount: listPoints.length,
-          top: topPadding + 20,
+          top: topPadding + 8,
           mapBuilder: (context, pointMode) => WorldMap(
             points: points,
             listPoints: listPoints,

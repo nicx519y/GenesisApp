@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../ui/components/genesis_fixed_underline_indicator.dart';
+import '../ui/components/genesis_search_field.dart';
 import '../ui/components/genesis_tab_bar.dart';
 import '../ui/theme/genesis_ui_theme.dart';
+
+const _worldTopTabTextColor = Color(0xFF111111);
+const _worldTopOverlayHeight = genesisSearchFieldHeight;
 
 class WorldTopOverlayBar extends StatelessWidget {
   const WorldTopOverlayBar({
@@ -22,8 +26,8 @@ class WorldTopOverlayBar extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 36,
-          height: 36,
+          width: _worldTopOverlayHeight,
+          height: _worldTopOverlayHeight,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.82),
             borderRadius: BorderRadius.circular(12),
@@ -38,16 +42,18 @@ class WorldTopOverlayBar extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Container(
-            height: genesisTabHeight,
+            height: _worldTopOverlayHeight,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.82),
               borderRadius: BorderRadius.circular(16),
             ),
             child: TabBar(
               controller: controller,
+              isScrollable: true,
+              tabAlignment: TabAlignment.center,
               dividerColor: Colors.transparent,
               padding: EdgeInsets.zero,
-              labelPadding: EdgeInsets.zero,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 12),
               splashFactory: NoSplash.splashFactory,
               overlayColor: WidgetStateProperty.all(Colors.transparent),
               indicatorSize: TabBarIndicatorSize.label,
@@ -57,14 +63,15 @@ class WorldTopOverlayBar extends StatelessWidget {
                 height: uiTheme.tabIndicatorHeight,
                 bottomPadding: genesisTabIndicatorBottomPadding,
               ),
-              labelColor: uiTheme.tabSelectedColor,
-              unselectedLabelColor: uiTheme.tabUnselectedColor,
-              labelStyle: uiTheme.bodyStrongStyle,
-              unselectedLabelStyle: uiTheme.bodyStyle,
+              labelColor: _worldTopTabTextColor,
+              unselectedLabelColor: _worldTopTabTextColor,
+              labelStyle: uiTheme.bodyStrongStyle.copyWith(fontSize: 16),
+              unselectedLabelStyle: uiTheme.bodyStyle.copyWith(fontSize: 16),
               tabs: [
                 const Tab(
-                  height: genesisTabHeight,
+                  height: _worldTopOverlayHeight,
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.map_outlined, size: 16),
@@ -74,8 +81,9 @@ class WorldTopOverlayBar extends StatelessWidget {
                   ),
                 ),
                 Tab(
-                  height: genesisTabHeight,
+                  height: _worldTopOverlayHeight,
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Icon(Icons.place_outlined, size: 16),
