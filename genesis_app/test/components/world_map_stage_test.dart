@@ -59,6 +59,32 @@ void main() {
     expect(find.byType(WorldTopOverlayBar), findsOneWidget);
   });
 
+  testWidgets('world map stage can hide internal overlay tabs', (tester) async {
+    final controller = TabController(length: 2, vsync: tester);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 480,
+            height: 300,
+            child: WorldMapStage(
+              controller: controller,
+              pointsCount: 3,
+              top: 44,
+              showTopOverlay: false,
+              mapBuilder: (context, pointMode) =>
+                  const ColoredBox(color: Colors.green),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(WorldTopOverlayBar), findsNothing);
+  });
+
   testWidgets('world map stage keeps overlay tab text colors unchanged', (
     tester,
   ) async {
@@ -184,5 +210,46 @@ void main() {
     expect(tabBarRect.height, genesisSearchFieldHeight);
     expect(backButtonRect.width, genesisSearchFieldHeight);
     expect(backButtonRect.height, genesisSearchFieldHeight);
+  });
+
+  testWidgets('world map stage uses transparent overlay backgrounds', (
+    tester,
+  ) async {
+    final controller = TabController(length: 2, vsync: tester);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 480,
+            height: 300,
+            child: WorldMapStage(
+              controller: controller,
+              pointsCount: 3,
+              top: 44,
+              mapBuilder: (context, pointMode) =>
+                  const ColoredBox(color: Colors.green),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final decoratedContainers = tester
+        .widgetList<Container>(
+          find.descendant(
+            of: find.byType(WorldTopOverlayBar),
+            matching: find.byType(Container),
+          ),
+        )
+        .where((container) => container.decoration is BoxDecoration)
+        .toList();
+    final colors = decoratedContainers
+        .map((container) => (container.decoration! as BoxDecoration).color)
+        .whereType<Color>()
+        .toList();
+
+    expect(colors.where((color) => color == Colors.transparent), hasLength(2));
   });
 }

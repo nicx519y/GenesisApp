@@ -843,7 +843,7 @@ class GenesisApi {
     final updated = await v1.origin.update(
       originId: asString(payload['origin_id'], fallback: oid),
       originName: asString(payload['name']),
-      originVersion: _createOriginOptionalString(payload['origin_version']),
+      originVersion: null,
       brief: asString(payload['world_view']),
       setting: asString(payload['world_setting']),
       events: events.isEmpty ? null : events,

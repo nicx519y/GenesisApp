@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../icons/custom_icon_assets.dart';
-import '../../icons/my_flutter_app_icons.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
@@ -16,6 +15,7 @@ import '../common/genesis_center_toast.dart';
 import '../common/genesis_image_viewer_overlay.dart';
 import 'discuss_post_input.dart';
 import 'origin_discuss_replies_list.dart';
+import 'story_badge.dart';
 
 typedef OriginDiscussPageLoader =
     Future<OriginDiscussPage> Function({
@@ -1378,40 +1378,6 @@ Map<String, dynamic> _localReplyJson({
   };
 }
 
-class _StoryBadge extends StatelessWidget {
-  const _StoryBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF6CF),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(MyFlutterApp.pregress, size: 14, color: Color(0xFFF42C47)),
-          const SizedBox(width: 4),
-          Text(
-            '$count',
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFFF42C47),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _DiscussImageThumbnail extends StatelessWidget {
   const _DiscussImageThumbnail({
     required this.url,
@@ -1473,7 +1439,7 @@ class _DiscussPreviewMeta extends StatelessWidget {
         const SizedBox(height: 8),
         Row(
           children: [
-            _StoryBadge(count: item.storyCount),
+            DiscussStoryBadge(count: item.storyCount),
             if (item.worldId.isNotEmpty) ...[
               const SizedBox(width: 10),
               Flexible(

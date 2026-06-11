@@ -328,6 +328,44 @@ void main() {
     expect(selectedIndex, 1);
   });
 
+  testWidgets('GenesisBottomNavigation keeps minimum bottom padding', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(padding: EdgeInsets.zero),
+          child: Scaffold(
+            bottomNavigationBar: GenesisBottomNavigation(
+              currentIndex: 0,
+              onTap: (_) {},
+              items: const [
+                GenesisBottomNavigationItem(
+                  label: 'Home',
+                  icon: Icons.home_outlined,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final padding = tester.widget<Padding>(
+      find.descendant(
+        of: find.byType(GenesisBottomNavigation),
+        matching: find.byType(Padding),
+      ),
+    );
+    expect(
+      padding.padding,
+      const EdgeInsets.only(
+        top: GenesisSpacing.sm,
+        bottom: GenesisBottomNavigation.minBottomPadding,
+      ),
+    );
+  });
+
   testWidgets('GenesisTabBar renders labels inside a DefaultTabController', (
     tester,
   ) async {

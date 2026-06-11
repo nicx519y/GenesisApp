@@ -279,6 +279,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldCharacterMetricValue = 50,
     this.originMapUrl = '',
     this.originLocations,
+    this.originTicks,
     this.worldMapUrl = '',
     this.worldCharacters,
     this.worldLocations,
@@ -300,6 +301,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final Object? worldCharacterMetricValue;
   final String originMapUrl;
   final List<Map<String, Object?>>? originLocations;
+  final List<Map<String, Object?>>? originTicks;
   final String worldMapUrl;
   final List<Map<String, Object?>>? worldCharacters;
   final List<Map<String, Object?>>? worldLocations;
@@ -705,16 +707,24 @@ class _RecordingV1ListTransport implements HttpTransport {
               'dialogue': const <Object?>[],
             },
           ],
-      'ticks': const [
-        {
-          'tick_no': 1,
-          'created_at': 1777680000,
-          'tick_result': {
-            'narrator': 'Origin launch tick narrator.',
-            'paragraphs': <Object?>[],
-          },
-        },
-      ],
+      'ticks':
+          originTicks ??
+          const [
+            {
+              'tick_no': 1,
+              'created_at': 1777680000,
+              'tick_result': {
+                'narrator': 'Origin launch tick narrator.',
+                'paragraphs': [
+                  {
+                    'location_id': 'l_o_test_1',
+                    'text': 'Detail location launch paragraph.',
+                  },
+                  {'location_id': 'l_o_test_1_empty', 'text': ''},
+                ],
+              },
+            },
+          ],
     };
   }
 
@@ -3111,7 +3121,7 @@ void main() {
     );
     final chatLaunch = find.descendant(
       of: chatPanel,
-      matching: find.text('Launch'),
+      matching: find.text('Launch to send'),
     );
     expect(chatLaunch, findsOneWidget);
 
@@ -3150,6 +3160,28 @@ void main() {
     expect(find.text('Origin launch tick narrator.'), findsOneWidget);
     expect(find.text('Detail Location'), findsWidgets);
     expect(find.text('Detail location launch paragraph.'), findsOneWidget);
+  });
+
+  testWidgets('Origin detail hides launch preview without tick1 data', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      originTicks: const <Map<String, Object?>>[],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Launch Preview'), findsNothing);
+    expect(find.text('Origin launch tick narrator.'), findsNothing);
+    expect(find.text('Detail location launch paragraph.'), findsNothing);
   });
 
   testWidgets(
@@ -3410,6 +3442,8 @@ void main() {
       containsPair('identity', 'Saved explorer'),
     );
     expect(launchBody['custom_role'], containsPair('bio', 'Profile biography'));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
   });
 
   testWidgets(
@@ -3458,6 +3492,8 @@ void main() {
         launchBody['custom_role'],
         containsPair('identity', 'Saved explorer'),
       );
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
     },
   );
 
@@ -5472,6 +5508,7 @@ void main() {
     expect(body.containsKey('name'), isFalse);
     expect(body.containsKey('world_view'), isFalse);
     expect(body.containsKey('world_setting'), isFalse);
+    expect(body.containsKey('origin_version'), isFalse);
     expect(body.containsKey('character_list'), isFalse);
     expect(body.containsKey('location_list'), isFalse);
     expect(body['origin_name'], 'Crystal City');

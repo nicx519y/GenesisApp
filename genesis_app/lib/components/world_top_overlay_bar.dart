@@ -29,7 +29,7 @@ class WorldTopOverlayBar extends StatelessWidget {
           width: _worldTopOverlayHeight,
           height: _worldTopOverlayHeight,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.82),
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
           child: IconButton(
@@ -44,7 +44,7 @@ class WorldTopOverlayBar extends StatelessWidget {
           child: Container(
             height: _worldTopOverlayHeight,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.82),
+              color: Colors.transparent,
               borderRadius: BorderRadius.circular(16),
             ),
             child: TabBar(

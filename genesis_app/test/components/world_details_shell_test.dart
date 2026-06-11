@@ -32,6 +32,13 @@ void main() {
             height: 56,
             child: Text('Launch'),
           ),
+          persistentTopOverlay: Positioned(
+            key: ValueKey('persistent-tabs'),
+            left: 12,
+            right: 12,
+            top: 32,
+            child: SizedBox(height: 38),
+          ),
         ),
       ),
     );
@@ -40,10 +47,14 @@ void main() {
     expect(find.byType(WorldDetailsDragHandle), findsNothing);
     expect(find.text('Details'), findsOneWidget);
     expect(find.byKey(const ValueKey('bottom-bar')), findsOneWidget);
+    expect(find.byKey(const ValueKey('persistent-tabs')), findsOneWidget);
     expect(find.byType(CustomScrollView), findsOneWidget);
     expect(find.byType(DraggableScrollableSheet), findsNothing);
 
     final mapRect = tester.getRect(find.byKey(const ValueKey('map')));
+    final persistentTabsTop = tester
+        .getTopLeft(find.byKey(const ValueKey('persistent-tabs')))
+        .dy;
     final titleRect = tester.getRect(
       find.byKey(const ValueKey('details-title')),
     );
@@ -61,6 +72,10 @@ void main() {
     await tester.pump();
 
     expect(tester.getRect(find.byKey(const ValueKey('map'))).top, lessThan(0));
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('persistent-tabs'))).dy,
+      persistentTabsTop,
+    );
   });
 
   testWidgets('world details page scaffold uses explicit map height settings', (

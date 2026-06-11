@@ -10,6 +10,7 @@ class WorldMapStage extends StatelessWidget {
     required this.top,
     required this.mapBuilder,
     this.onBack,
+    this.showTopOverlay = true,
   });
 
   final TabController controller;
@@ -17,6 +18,7 @@ class WorldMapStage extends StatelessWidget {
   final double top;
   final Widget Function(BuildContext context, bool pointMode) mapBuilder;
   final VoidCallback? onBack;
+  final bool showTopOverlay;
 
   @override
   Widget build(BuildContext context) {
@@ -28,16 +30,17 @@ class WorldMapStage extends StatelessWidget {
             builder: (context, _) => mapBuilder(context, controller.index == 1),
           ),
         ),
-        Positioned(
-          left: 12,
-          right: 12,
-          top: top,
-          child: WorldTopOverlayBar(
-            pointsCount: pointsCount,
-            controller: controller,
-            onBack: onBack,
+        if (showTopOverlay)
+          Positioned(
+            left: 12,
+            right: 12,
+            top: top,
+            child: WorldTopOverlayBar(
+              pointsCount: pointsCount,
+              controller: controller,
+              onBack: onBack,
+            ),
           ),
-        ),
       ],
     );
   }

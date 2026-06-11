@@ -7,8 +7,8 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/discuss/origin_discuss_list.dart';
+import '../../components/discuss/story_badge.dart';
 import '../../components/page_header.dart';
-import '../../icons/my_flutter_app_icons.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
@@ -254,7 +254,7 @@ class _PostHeaderMeta extends StatelessWidget {
         const SizedBox(height: 10),
         Row(
           children: [
-            _StoryBadge(count: item.storyCount),
+            DiscussStoryBadge(count: item.storyCount),
             if (item.worldId.isNotEmpty) ...[
               const SizedBox(width: 12),
               Flexible(
@@ -504,7 +504,7 @@ class _PostReplyRow extends StatelessWidget {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  _StoryBadge(count: data.storyCount),
+                  DiscussStoryBadge(count: data.storyCount),
                   if (data.worldId.isNotEmpty) ...[
                     const SizedBox(width: 12),
                     Flexible(
@@ -726,40 +726,6 @@ class _PostImageGrid extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _StoryBadge extends StatelessWidget {
-  const _StoryBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF6CF),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(MyFlutterApp.pregress, size: 14, color: Color(0xFFF42C47)),
-          const SizedBox(width: 4),
-          Text(
-            '$count',
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFFF42C47),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

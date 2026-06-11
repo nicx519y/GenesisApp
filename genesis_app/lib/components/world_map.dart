@@ -216,7 +216,6 @@ class _WorldMapState extends State<WorldMap> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 150),
                   ],
                 ),
               ),

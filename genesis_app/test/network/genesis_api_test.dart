@@ -407,6 +407,7 @@ void main() {
     expect(body.containsKey('name'), isFalse);
     expect(body.containsKey('world_view'), isFalse);
     expect(body.containsKey('world_setting'), isFalse);
+    expect(body.containsKey('origin_version'), isFalse);
     expect(body.containsKey('character_list'), isFalse);
     expect(body.containsKey('location_list'), isFalse);
     expect(body.containsKey('event_list'), isFalse);

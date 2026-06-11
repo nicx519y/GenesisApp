@@ -11,6 +11,7 @@ class WorldDetailsPageScaffold extends StatefulWidget {
     this.panelCollapsedHeightOffset = defaultPanelCollapsedHeightOffset,
     this.bottomBar,
     this.topOverlay,
+    this.persistentTopOverlay,
   });
 
   static const double defaultPanelTopGap = 30;
@@ -26,6 +27,7 @@ class WorldDetailsPageScaffold extends StatefulWidget {
   final double panelCollapsedHeightOffset;
   final Widget? bottomBar;
   final Widget? topOverlay;
+  final Widget? persistentTopOverlay;
 
   @override
   State<WorldDetailsPageScaffold> createState() =>
@@ -117,6 +119,8 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
               ),
               if (bottomBar != null)
                 Positioned(left: 0, right: 0, bottom: 0, child: bottomBar),
+              if (widget.persistentTopOverlay != null)
+                widget.persistentTopOverlay!,
               if (topOverlay != null) topOverlay,
             ],
           );

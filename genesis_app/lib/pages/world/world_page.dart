@@ -13,6 +13,7 @@ import '../../components/origin/stat_item.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
 import '../../components/world_map_stage.dart';
+import '../../components/world_top_overlay_bar.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
@@ -669,10 +670,12 @@ class _WorldPageState extends State<WorldPage>
       return WorldDetailsPageScaffold(
         panelTopGap: 50,
         panelCollapsedHeightOffset: 100,
+        persistentTopOverlay: _buildPersistentMapTabs(0, topPadding + 8),
         map: WorldMapStage(
           controller: _tabController,
           pointsCount: 0,
           top: topPadding + 8,
+          showTopOverlay: false,
           mapBuilder: (context, pointMode) => WorldMap(
             points: const <WorldPoint>[],
             listPoints: const <WorldPoint>[],
@@ -738,10 +741,15 @@ class _WorldPageState extends State<WorldPage>
         panelTopGap: 50,
         panelCollapsedHeightOffset: 100,
         topOverlay: _buildLocationChatOverlay(),
+        persistentTopOverlay: _buildPersistentMapTabs(
+          listPoints.length,
+          topPadding + 8,
+        ),
         map: WorldMapStage(
           controller: _tabController,
           pointsCount: listPoints.length,
           top: topPadding + 8,
+          showTopOverlay: false,
           mapBuilder: (context, pointMode) => WorldMap(
             points: points,
             listPoints: listPoints,
@@ -762,6 +770,18 @@ class _WorldPageState extends State<WorldPage>
             onWorldAction: _runWorldAction,
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPersistentMapTabs(int pointsCount, double top) {
+    return Positioned(
+      left: 12,
+      right: 12,
+      top: top,
+      child: WorldTopOverlayBar(
+        pointsCount: pointsCount,
+        controller: _tabController,
       ),
     );
   }

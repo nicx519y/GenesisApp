@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/world_details_shell.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
 import 'package:genesis_flutter_android/components/world_map_interaction_notification.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
@@ -430,7 +431,7 @@ void main() {
     expect(find.byIcon(Icons.place), findsNWidgets(3));
     expect(_assetImageFinder(aiCharacterIconAsset), findsOneWidget);
     expect(find.byIcon(MyFlutterApp.user), findsOneWidget);
-    expect(find.byIcon(Icons.schedule), findsNWidgets(3));
+    expect(find.byIcon(Icons.schedule), findsOneWidget);
     expect(find.text('Ada, Bert'), findsOneWidget);
     expect(find.text('Cara, Drew'), findsOneWidget);
     expect(find.text('Gate checkpoint description.'), findsOneWidget);
@@ -445,35 +446,110 @@ void main() {
     );
   });
 
-  testWidgets('points list uses location description', (tester) async {
-    await _pumpWorldMap(
-      tester,
-      users: const [],
-      showPointsList: true,
-      points: const [
-        WorldPoint(
-          id: 'summary',
-          name: 'Summary Point',
-          type: WorldPointType.portal,
-          position: _pointPosition,
-          users: [],
-          description: 'Preferred current summary.',
-          locationDescription: 'Older location description.',
-        ),
-        WorldPoint(
-          id: 'description',
-          name: 'Description Point',
-          type: WorldPointType.shop,
-          position: _pointPosition,
-          users: [],
-          locationDescription: 'Fallback location description.',
-        ),
-      ],
+  testWidgets(
+    'points list uses location description and hides empty summary row',
+    (tester) async {
+      await _pumpWorldMap(
+        tester,
+        users: const [],
+        showPointsList: true,
+        points: const [
+          WorldPoint(
+            id: 'summary',
+            name: 'Summary Point',
+            type: WorldPointType.portal,
+            position: _pointPosition,
+            users: [],
+            description: 'Preferred current summary.',
+            locationDescription: 'Older location description.',
+          ),
+          WorldPoint(
+            id: 'empty-location-description',
+            name: 'Empty Location Description Point',
+            type: WorldPointType.shop,
+            position: _pointPosition,
+            users: [],
+            description: 'Unused summary description.',
+          ),
+        ],
+      );
+
+      expect(find.text('Older location description.'), findsOneWidget);
+      expect(find.text('Preferred current summary.'), findsNothing);
+      expect(find.text('Unused summary description.'), findsNothing);
+      expect(find.byIcon(Icons.schedule), findsOneWidget);
+    },
+  );
+
+  testWidgets('points list hands bottom overscroll to details page', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final points = List<WorldPoint>.generate(
+      18,
+      (index) => WorldPoint(
+        id: 'point-$index',
+        name: 'Location $index',
+        type: WorldPointType.portal,
+        position: _pointPosition,
+        users: const [],
+      ),
     );
 
-    expect(find.text('Older location description.'), findsOneWidget);
-    expect(find.text('Fallback location description.'), findsOneWidget);
-    expect(find.text('Preferred current summary.'), findsNothing);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WorldDetailsPageScaffold(
+          panelTopGap: 50,
+          panelCollapsedHeightOffset: 100,
+          map: WorldMap(points: points, showPointsList: true),
+          slivers: const [
+            SliverToBoxAdapter(
+              child: SizedBox(key: ValueKey('details-content'), height: 900),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final listView = tester.widget<ListView>(find.byType(ListView));
+    expect(listView.padding, const EdgeInsets.fromLTRB(12, 8, 12, 12));
+
+    final detailsTopBefore = tester
+        .getTopLeft(find.byKey(const ValueKey('details-content')))
+        .dy;
+
+    await tester.drag(find.byType(ListView), const Offset(0, -940));
+    await tester.pump();
+    await tester.drag(find.byType(ListView), const Offset(0, -80));
+    await tester.pump();
+
+    final detailsTopAfter = tester
+        .getTopLeft(find.byKey(const ValueKey('details-content')))
+        .dy;
+    expect(detailsTopAfter, lessThan(detailsTopBefore));
+
+    final listFinder = find.byType(ListView, skipOffstage: false);
+    final listOffsetBefore = tester
+        .widget<ListView>(listFinder)
+        .controller!
+        .offset;
+
+    await tester.drag(listFinder, const Offset(0, 140));
+    await tester.pump();
+
+    final listOffsetAfter = tester
+        .widget<ListView>(listFinder)
+        .controller!
+        .offset;
+    final detailsTopAfterReturn = tester
+        .getTopLeft(find.byKey(const ValueKey('details-content')))
+        .dy;
+    expect(listOffsetAfter, closeTo(listOffsetBefore, 0.5));
+    expect(detailsTopAfterReturn, greaterThan(detailsTopAfter));
   });
 
   testWidgets('world map preloads next-level location maps', (tester) async {

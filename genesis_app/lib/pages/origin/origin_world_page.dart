@@ -6,12 +6,14 @@ import 'package:flutter/material.dart';
 import '../../components/common/copyable_id_label.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
+import '../../components/discuss/story_badge.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/world_map.dart';
 import '../../components/world_map_stage.dart';
 import '../../components/world_details_shell.dart';
+import '../../components/world_top_overlay_bar.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
@@ -102,6 +104,12 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     return future;
   }
 
+  void _refreshOriginDetail() {
+    setState(() {
+      _future = _loadOriginDetail();
+    });
+  }
+
   Future<void> _loadCurrentUid() async {
     final uid =
         (await AppServicesScope.of(context).sessionStore.readUid())?.trim() ??
@@ -175,6 +183,18 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           launching: _launching,
           onLaunch: () => _showLaunchRoleSheet(origin),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPersistentMapTabs(int pointsCount, double top) {
+    return Positioned(
+      left: 12,
+      right: 12,
+      top: top,
+      child: WorldTopOverlayBar(
+        pointsCount: pointsCount,
+        controller: _tabController,
       ),
     );
   }
@@ -277,10 +297,12 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           return WorldDetailsPageScaffold(
             panelTopGap: 50,
             panelCollapsedHeightOffset: 100,
+            persistentTopOverlay: _buildPersistentMapTabs(0, topPadding + 8),
             map: WorldMapStage(
               controller: _tabController,
               pointsCount: 0,
               top: topPadding + 8,
+              showTopOverlay: false,
               mapBuilder: (context, pointMode) => WorldMap(
                 points: const <WorldPoint>[],
                 listPoints: const <WorldPoint>[],
@@ -400,10 +422,15 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             panelTopGap: 50,
             panelCollapsedHeightOffset: 100,
             topOverlay: _buildLocationChatOverlay(origin),
+            persistentTopOverlay: _buildPersistentMapTabs(
+              listPoints.length,
+              topPadding + 8,
+            ),
             map: WorldMapStage(
               controller: _tabController,
               pointsCount: listPoints.length,
               top: topPadding + 8,
+              showTopOverlay: false,
               mapBuilder: (context, pointMode) => WorldMap(
                 points: points,
                 listPoints: listPoints,
@@ -422,6 +449,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                 origin: origin,
                 currentUid: _currentUid,
                 discussController: _discussController,
+                onOriginChanged: _refreshOriginDetail,
               ),
             ],
             bottomBar: _OriginBottomLaunchBar(
@@ -467,7 +495,7 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomInset),
         child: GenesisPrimaryButton(
-          label: launching ? 'Launching...' : 'Launch',
+          label: launching ? 'Launching...' : 'Launch to send',
           onPressed: launching ? null : onLaunch,
           backgroundColor: const Color(0xFF238861),
           disabledBackgroundColor: const Color(
@@ -710,21 +738,30 @@ class _WorldDetailsContent extends StatelessWidget {
     required this.origin,
     required this.currentUid,
     required this.discussController,
+    required this.onOriginChanged,
   });
 
   final OriginDetail origin;
   final String currentUid;
   final OriginDiscussListController discussController;
+  final VoidCallback onOriginChanged;
 
   @override
   Widget build(BuildContext context) {
+    final previewTick = _originPreviewTick(origin);
     return SliverList.list(
       children: [
-        _OriginHeader(origin: origin, currentUid: currentUid),
+        _OriginHeader(
+          origin: origin,
+          currentUid: currentUid,
+          onOriginChanged: onOriginChanged,
+        ),
         const SizedBox(height: 22),
         _WorldViewSection(origin: origin),
-        const SizedBox(height: 26),
-        _LaunchPreviewSection(origin: origin),
+        if (previewTick != null) ...[
+          const SizedBox(height: 26),
+          _LaunchPreviewSection(origin: origin, previewTick: previewTick),
+        ],
         const SizedBox(height: 28),
         CopyWorldProgressSection(originId: origin.oid),
         const SizedBox(height: 18),
@@ -854,10 +891,15 @@ class _LaunchBarStat extends StatelessWidget {
 }
 
 class _OriginHeader extends StatelessWidget {
-  const _OriginHeader({required this.origin, required this.currentUid});
+  const _OriginHeader({
+    required this.origin,
+    required this.currentUid,
+    required this.onOriginChanged,
+  });
 
   final OriginDetail origin;
   final String currentUid;
+  final VoidCallback onOriginChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -917,9 +959,14 @@ class _OriginHeader extends StatelessWidget {
           const SizedBox(height: 12),
           GenesisPrimaryButton(
             label: 'Edit Origin',
-            onPressed: () => Navigator.of(
-              context,
-            ).pushNamed(RouteNames.edit, arguments: {'origin_id': origin.oid}),
+            onPressed: () async {
+              await Navigator.of(context).pushNamed(
+                RouteNames.edit,
+                arguments: {'origin_id': origin.oid},
+              );
+              if (!context.mounted) return;
+              onOriginChanged();
+            },
             backgroundColor: const Color(0xFF3B2468),
             foregroundColor: Colors.white,
           ),
@@ -1000,6 +1047,9 @@ class _WorldViewSection extends StatelessWidget {
 class _PreviewImage extends StatelessWidget {
   const _PreviewImage({required this.url});
 
+  static const double _maxHeight = 360;
+  static const double _aspectRatio = 2 / 3;
+
   final String url;
 
   @override
@@ -1010,55 +1060,82 @@ class _PreviewImage extends StatelessWidget {
       child: const Icon(Icons.image_outlined, color: Color(0xFF9A9A9A)),
     );
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(2),
-      child: AspectRatio(
-        aspectRatio: 2 / 3,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final imageUrl = selectGenesisImageUrl(
-              url,
-              logicalWidth: constraints.maxWidth.isFinite
-                  ? constraints.maxWidth
-                  : null,
-              logicalHeight: constraints.maxHeight.isFinite
-                  ? constraints.maxHeight
-                  : null,
-              devicePixelRatio:
-                  MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
-            );
-            return imageUrl.isEmpty
-                ? fallback
-                : imageUrl.startsWith('assets/')
-                ? Image.asset(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => fallback,
-                  )
-                : Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => fallback,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return fallback;
-                    },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mediaHeight = MediaQuery.sizeOf(context).height;
+        final maxHeight = mediaHeight.isFinite
+            ? _maxHeight.clamp(0.0, mediaHeight * 0.46).toDouble()
+            : _maxHeight;
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : maxHeight * _aspectRatio;
+        final width = maxWidth.clamp(0.0, maxHeight * _aspectRatio).toDouble();
+        final height = width / _aspectRatio;
+
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final imageUrl = selectGenesisImageUrl(
+                    url,
+                    logicalWidth: constraints.maxWidth.isFinite
+                        ? constraints.maxWidth
+                        : null,
+                    logicalHeight: constraints.maxHeight.isFinite
+                        ? constraints.maxHeight
+                        : null,
+                    devicePixelRatio:
+                        MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
                   );
-          },
-        ),
-      ),
+                  return imageUrl.isEmpty
+                      ? fallback
+                      : imageUrl.startsWith('assets/')
+                      ? Image.asset(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              fallback,
+                        )
+                      : Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              fallback,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return fallback;
+                          },
+                        );
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
 
 class _LaunchPreviewSection extends StatelessWidget {
-  const _LaunchPreviewSection({required this.origin});
+  const _LaunchPreviewSection({
+    required this.origin,
+    required this.previewTick,
+  });
 
   final OriginDetail origin;
+  final Map<String, dynamic> previewTick;
 
   @override
   Widget build(BuildContext context) {
-    final globalBody = _originPreviewNarrator(origin);
+    final tickResult = previewTick['tick_result'] is Map
+        ? (previewTick['tick_result'] as Map).cast<String, dynamic>()
+        : const <String, dynamic>{};
+    final globalBody = _mapString(tickResult, const ['narrator']);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1070,9 +1147,10 @@ class _LaunchPreviewSection extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         WorldTickEventItem(
-          tick: _originPreviewTick(origin: origin, globalBody: globalBody),
+          tick: previewTick,
           tickNumber: 1,
           fallbackBody: globalBody,
+          locationsById: _originLocationsById(origin.locations),
           dateLabel: origin.startTime.trim().isEmpty
               ? 'Day 1, 18:00'
               : origin.startTime.trim(),
@@ -1215,6 +1293,15 @@ class _CopyWorldProgressCard extends StatelessWidget {
             duration: const Duration(milliseconds: 520),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
+            layoutBuilder: (currentChild, previousChildren) {
+              return Stack(
+                alignment: Alignment.topLeft,
+                children: [
+                  ...previousChildren,
+                  if (currentChild != null) currentChild,
+                ],
+              );
+            },
             child: Text(
               body,
               key: ValueKey(item.worldId),
@@ -1247,9 +1334,13 @@ class _CopyWorldProgressMeta extends StatelessWidget {
     if (item == null) {
       return const SizedBox(height: 18);
     }
+    final timestamp = _formatSummaryTimestamp(
+      item.tickTime == 0 ? item.createdAt : item.tickTime,
+    );
     return Row(
       children: [
-        Expanded(
+        Flexible(
+          fit: FlexFit.loose,
           child: Text(
             'WID: ${item.worldId}',
             maxLines: 1,
@@ -1257,22 +1348,21 @@ class _CopyWorldProgressMeta extends StatelessWidget {
             style: _copyWorldProgressMetaStyle,
           ),
         ),
-        const SizedBox(width: 12),
-        Icon(
-          MyFlutterApp.lastProgress,
-          size: 14,
-          color: _copyWorldProgressMetaStyle.color,
-        ),
-        const SizedBox(width: 4),
-        Text('${item.tickNo}', style: _copyWorldProgressMetaStyle),
-        const SizedBox(width: 16),
-        Text(
-          _formatSummaryTimestamp(
-            item.tickTime == 0 ? item.createdAt : item.tickTime,
+        const SizedBox(width: 8),
+        DiscussStoryBadge(count: item.tickNo),
+        if (timestamp.isNotEmpty) ...[
+          const Spacer(),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              timestamp,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: _copyWorldProgressMetaStyle,
+            ),
           ),
-          textAlign: TextAlign.right,
-          style: _copyWorldProgressMetaStyle,
-        ),
+        ],
       ],
     );
   }
@@ -1619,40 +1709,73 @@ String _mapString(Map<dynamic, dynamic> map, List<String> keys) {
   return '';
 }
 
-Map<String, dynamic> _originPreviewTick({
-  required OriginDetail origin,
-  required String globalBody,
-}) {
+Map<String, dynamic>? _originPreviewTick(OriginDetail origin) {
+  final tick = _originTick1(origin);
+  if (tick == null) return null;
+  final result = tick['tick_result'] is Map
+      ? (tick['tick_result'] as Map).cast<String, dynamic>()
+      : const <String, dynamic>{};
+  final narrator = _mapString(result, const ['narrator']);
+  final paragraphsRaw = result['paragraphs'];
+  final paragraphs = paragraphsRaw is List
+      ? paragraphsRaw
+            .whereType<Map>()
+            .map((item) => item.cast<String, dynamic>())
+            .where(_originPreviewParagraphHasText)
+            .toList(growable: false)
+      : const <Map<String, dynamic>>[];
+
   return <String, dynamic>{
-    'created_at': origin.updatedAt,
+    'created_at': tick['created_at'] ?? origin.updatedAt,
     'tick_result': <String, dynamic>{
-      'narrator': globalBody,
-      'paragraphs': [
-        for (final location in origin.locations)
-          <String, dynamic>{
-            'location_id': location.locationId,
-            'label': location.name.trim().isEmpty
-                ? 'Location'
-                : location.name.trim(),
-            'text': location.locationParagraph,
-          },
-      ],
+      'narrator': narrator,
+      'paragraphs': paragraphs,
     },
   };
 }
 
-String _originPreviewNarrator(OriginDetail origin) {
-  if (origin.ticks.isNotEmpty) {
-    final tick = origin.ticks.first;
-    final result = tick['tick_result'] is Map
-        ? (tick['tick_result'] as Map).cast<String, dynamic>()
-        : tick;
-    final narrator = _mapString(result, const ['narrator']);
-    if (narrator.isNotEmpty) return narrator;
+Map<String, dynamic>? _originTick1(OriginDetail origin) {
+  for (final tick in origin.ticks) {
+    if (_mapInt(tick, const ['tick_no']) == 1) return tick;
   }
-  final description = origin.description.trim();
-  if (description.isNotEmpty) return description;
-  return origin.worldView.trim();
+  return null;
+}
+
+bool _originPreviewParagraphHasText(Map<String, dynamic> paragraph) {
+  return _mapString(paragraph, const [
+    'text',
+    'content',
+    'summary',
+    'paragraph',
+  ]).isNotEmpty;
+}
+
+Map<String, Map<String, dynamic>> _originLocationsById(
+  List<OriginLocation> locations,
+) {
+  final out = <String, Map<String, dynamic>>{};
+  for (final location in locations) {
+    final locationId = location.locationId.trim();
+    if (locationId.isEmpty) continue;
+    out[locationId] = <String, dynamic>{
+      'location_name': location.name,
+      'name': location.name,
+    };
+  }
+  return out;
+}
+
+int _mapInt(Map<dynamic, dynamic> map, List<String> keys) {
+  for (final key in keys) {
+    final value = map[key];
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      final parsed = int.tryParse(value.trim());
+      if (parsed != null) return parsed;
+    }
+  }
+  return 0;
 }
 
 String _formatSummaryTimestamp(int seconds) {
