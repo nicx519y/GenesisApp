@@ -735,7 +735,7 @@ class _ZoomableMapContent extends StatefulWidget {
   });
 
   static const double minScale = 1;
-  static const double maxScale = 4;
+  static const double maxScale = 6;
   static const double doubleTapScale = 2;
 
   final Widget background;
