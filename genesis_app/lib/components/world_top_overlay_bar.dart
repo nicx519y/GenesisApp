@@ -7,6 +7,7 @@ import '../ui/theme/genesis_ui_theme.dart';
 
 const _worldTopTabTextColor = Color(0xFF111111);
 const _worldTopOverlayHeight = genesisSearchFieldHeight;
+const _worldTopOverlayBackground = Color(0xE6FFFFFF);
 
 class WorldTopOverlayBar extends StatelessWidget {
   const WorldTopOverlayBar({
@@ -29,7 +30,7 @@ class WorldTopOverlayBar extends StatelessWidget {
           width: _worldTopOverlayHeight,
           height: _worldTopOverlayHeight,
           decoration: BoxDecoration(
-            color: Colors.transparent,
+            color: _worldTopOverlayBackground,
             borderRadius: BorderRadius.circular(12),
           ),
           child: IconButton(
@@ -44,7 +45,7 @@ class WorldTopOverlayBar extends StatelessWidget {
           child: Container(
             height: _worldTopOverlayHeight,
             decoration: BoxDecoration(
-              color: Colors.transparent,
+              color: _worldTopOverlayBackground,
               borderRadius: BorderRadius.circular(16),
             ),
             child: TabBar(
