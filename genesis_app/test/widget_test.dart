@@ -13,6 +13,7 @@ import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/copyable_id_label.dart';
+import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
@@ -2932,7 +2933,11 @@ void main() {
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'test-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -3228,6 +3233,10 @@ void main() {
       );
       expect(find.text('WID: w_summary_1'), findsOneWidget);
       expect(find.text('4'), findsWidgets);
+      expect(find.byType(DiscussStoryBadge), findsOneWidget);
+      final widRight = tester.getTopRight(find.text('WID: w_summary_1')).dx;
+      final chipLeft = tester.getTopLeft(find.byType(DiscussStoryBadge)).dx;
+      expect(chipLeft - widRight, closeTo(8, 0.1));
       expect(
         tester
             .getSize(find.byKey(const ValueKey('copy-world-progress-body')))

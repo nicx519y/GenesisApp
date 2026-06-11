@@ -15,6 +15,7 @@ class OriginListItem {
     required this.oid,
     required this.status,
     required this.versionNum,
+    this.tickCount = 0,
     required this.name,
     required this.cover,
     required this.displaySubtitle,
@@ -47,6 +48,13 @@ class OriginListItem {
         info['version_num'],
         fallback: asInt(info['origin_version']),
       ),
+      tickCount: asInt(
+        stats['story_cnt'],
+        fallback: asInt(
+          stats['tick_cnt'],
+          fallback: asInt(stats['max_tick_cnt']),
+        ),
+      ),
       name: name.trim().isEmpty ? oid : name,
       cover: resolveAssetUrl(
         asImageUrl(info['cover'], fallback: info['map_url']),
@@ -76,6 +84,7 @@ class OriginListItem {
   final String oid;
   final int status;
   final int versionNum;
+  final int tickCount;
   final String name;
   final String cover;
   final String displaySubtitle;

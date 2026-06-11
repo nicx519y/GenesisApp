@@ -232,6 +232,8 @@ AppServices _servicesWithTransport(_DiscussPageTransport transport) {
         ApiClient.defaultResponseProcessor(response),
   );
   final sessionStore = MemoryUserSessionStore();
+  unawaited(sessionStore.saveUid('u_test'));
+  unawaited(sessionStore.saveAuthToken('test-token'));
   return AppServices(
     config: base.config,
     platformConfig: base.platformConfig,

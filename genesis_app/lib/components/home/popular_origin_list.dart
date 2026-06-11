@@ -387,14 +387,49 @@ class _MetaRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 9),
-              const Icon(Icons.skip_next, size: 15, color: Color(0xFF8B8B8B)),
-              const SizedBox(width: 4),
-              Text('v${item.versionNum}', style: _metaStyle),
+              _OriginTickChip(count: item.tickCount),
             ],
           ),
         ),
         if (timeText.isNotEmpty) Text(timeText, style: _metaStyle),
       ],
+    );
+  }
+}
+
+class _OriginTickChip extends StatelessWidget {
+  const _OriginTickChip({required this.count});
+
+  final int count;
+
+  static const Color _chipBackground = Color(0xFFFEF3C7);
+  static const Color _chipForeground = Color(0xFF92400E);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: ValueKey('popular-origin-tick-chip-$count'),
+      padding: const EdgeInsetsDirectional.fromSTEB(5, 2, 7, 2),
+      decoration: BoxDecoration(
+        color: _chipBackground,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(MyFlutterApp.pregress, size: 9, color: _chipForeground),
+          const SizedBox(width: 3),
+          Text(
+            '$count',
+            style: const TextStyle(
+              color: _chipForeground,
+              fontSize: 11,
+              height: 1,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

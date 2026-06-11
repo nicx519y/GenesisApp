@@ -15,6 +15,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
+            requireLogin: false,
             imagePicker: (limit) async => const <DiscussPickedImage>[],
             submitter: (content, images) async => <String, dynamic>{},
           ),
@@ -61,6 +62,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
+            requireLogin: false,
             imagePicker: (limit) async => const <DiscussPickedImage>[],
             submitter: (content, images) async => <String, dynamic>{},
           ),
@@ -102,6 +104,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
+            requireLogin: false,
             imagePicker: (limit) async => const <DiscussPickedImage>[],
             submitter: (content, images) async => <String, dynamic>{},
           ),
@@ -142,6 +145,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
+            requireLogin: false,
             imagePicker: (limit) async => const <DiscussPickedImage>[],
             submitter: (content, images) async => <String, dynamic>{},
           ),
@@ -186,6 +190,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
+            requireLogin: false,
             imagePicker: (limit) async => List<DiscussPickedImage>.generate(
               8,
               (index) => _pickedImage(index),
@@ -272,6 +277,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
+            requireLogin: false,
             imagePicker: (limit) async => <DiscussPickedImage>[_pickedImage(0)],
             imageUploader: (image) async => 'https://cdn.example.com/0.jpg',
             submitter: (content, images) async => <String, dynamic>{},
@@ -312,6 +318,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
+            requireLogin: false,
             imagePicker: (limit) async {
               pickCount += 1;
               requestedLimits.add(limit);
@@ -377,6 +384,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
+            requireLogin: false,
             imagePicker: (limit) {
               pickerStarted = true;
               return pickerCompleter.future;
@@ -428,6 +436,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
+            requireLogin: false,
             imagePicker: (limit) async => <DiscussPickedImage>[_pickedImage(0)],
             imageUploader: (image) async => 'https://cdn.example.com/0.jpg',
             submitter: (content, images) async => <String, dynamic>{},
@@ -468,6 +477,7 @@ void main() {
         home: Scaffold(
           body: DiscussPostInput(
             bizId: 'o_test_1',
+            requireLogin: false,
             imagePicker: (limit) async {
               tester.view.viewInsets = const FakeViewPadding(bottom: 80);
               return const <DiscussPickedImage>[];
@@ -515,6 +525,7 @@ void main() {
           home: Scaffold(
             body: DiscussPostInput(
               bizId: 'o_test_1',
+              requireLogin: false,
               imagePicker: (limit) async {
                 tester.view.viewInsets = const FakeViewPadding(bottom: 80);
                 tester.binding.handleMetricsChanged();

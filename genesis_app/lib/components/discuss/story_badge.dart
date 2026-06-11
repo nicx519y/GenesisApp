@@ -7,27 +7,29 @@ class DiscussStoryBadge extends StatelessWidget {
 
   final int count;
 
+  static const Color _chipBackground = Color(0xFFFEF3C7);
+  static const Color _chipForeground = Color(0xFF92400E);
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsetsDirectional.fromSTEB(5, 2, 7, 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF6CF),
-        borderRadius: BorderRadius.circular(6),
+        color: _chipBackground,
+        borderRadius: BorderRadius.circular(5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(MyFlutterApp.pregress, size: 14, color: Color(0xFFF42C47)),
-          const SizedBox(width: 4),
+          const Icon(MyFlutterApp.pregress, size: 9, color: _chipForeground),
+          const SizedBox(width: 3),
           Text(
             '$count',
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               height: 1,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFFF42C47),
+              fontWeight: FontWeight.w500,
+              color: _chipForeground,
             ),
           ),
         ],

@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/discuss/origin_discuss_list.dart';
@@ -352,6 +353,8 @@ class _PostActionRow extends StatelessWidget {
   Future<void> _toggleLike(BuildContext context) async {
     final discussId = item.discussId.trim();
     if (discussId.isEmpty || controller.isLikePending(discussId)) return;
+    if (!await ensureGenesisLogin(context)) return;
+    if (!context.mounted) return;
 
     final previousLiked = item.isLiked;
     final previousCount = item.likeCount;

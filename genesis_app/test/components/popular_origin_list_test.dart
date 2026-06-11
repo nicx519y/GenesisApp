@@ -17,6 +17,7 @@ void main() {
       oid: 'o_alpha',
       status: 1,
       versionNum: 3,
+      tickCount: 8,
       name: 'Alpha Empire',
       cover: '',
       displaySubtitle: 'Tycoon idols compete for the crown.',
@@ -84,7 +85,28 @@ void main() {
     expect(find.text('#Alpha Empire'), findsWidgets);
     expect(find.text('Copy World Progress'), findsOneWidget);
     expect(find.text('OID: o_alpha'), findsOneWidget);
-    expect(find.text('v3'), findsOneWidget);
+    expect(find.text('v3'), findsNothing);
+    expect(find.text('8'), findsOneWidget);
+    final versionChip = find.byKey(
+      const ValueKey('popular-origin-tick-chip-8'),
+    );
+    final versionChipContainer = tester.widget<Container>(versionChip);
+    final versionChipDecoration =
+        versionChipContainer.decoration! as BoxDecoration;
+    final versionChipRadius =
+        versionChipDecoration.borderRadius! as BorderRadius;
+    final versionIcon = tester.widget<Icon>(
+      find.descendant(of: versionChip, matching: find.byType(Icon)),
+    );
+    final versionText = tester.widget<Text>(find.text('8'));
+    expect(versionChipDecoration.color, const Color(0xFFFEF3C7));
+    expect(versionChipRadius.topLeft.x, 5);
+    expect(versionIcon.icon, MyFlutterApp.pregress);
+    expect(versionIcon.size, 9);
+    expect(versionIcon.color, const Color(0xFF92400E));
+    expect(versionText.style?.fontSize, 11);
+    expect(versionText.style?.fontWeight, FontWeight.w500);
+    expect(versionText.style?.color, const Color(0xFF92400E));
     expect(find.text('Discuss (128)'), findsOneWidget);
     expect(find.image(const AssetImage(discussIconAsset)), findsOneWidget);
     expect(requestedDiscussOid, 'o_alpha');

@@ -1348,20 +1348,27 @@ class _CopyWorldProgressMeta extends StatelessWidget {
       item.tickTime == 0 ? item.createdAt : item.tickTime,
     );
     return Row(
+      key: const ValueKey('copy-world-progress-meta'),
       children: [
-        Flexible(
-          fit: FlexFit.loose,
-          child: Text(
-            'WID: ${item.worldId}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: _copyWorldProgressMetaStyle,
+        Expanded(
+          child: Row(
+            key: const ValueKey('copy-world-progress-left-meta'),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  'WID: ${item.worldId}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _copyWorldProgressMetaStyle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              DiscussStoryBadge(count: item.tickNo),
+            ],
           ),
         ),
-        const SizedBox(width: 8),
-        DiscussStoryBadge(count: item.tickNo),
         if (timestamp.isNotEmpty) ...[
-          const Spacer(),
           const SizedBox(width: 12),
           Flexible(
             child: Text(
@@ -1425,6 +1432,10 @@ class _DiscussSection extends StatelessWidget {
       animation: controller,
       builder: (context, _) {
         final hasDiscussContent = _hasDiscussContent;
+        final showDiscussList =
+            hasDiscussContent ||
+            controller.isInitialLoading ||
+            controller.error != null;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1432,27 +1443,32 @@ class _DiscussSection extends StatelessWidget {
               key: const ValueKey('origin-discuss-summary-area'),
               behavior: HitTestBehavior.opaque,
               onTap: () => unawaited(_handleDiscussAreaTap(context)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SectionTitle(
-                    iconAsset: discussIconAsset,
-                    title: 'Discuss (${origin.discussCount})',
-                  ),
-                  const SizedBox(height: 14),
-                  OriginDiscussList(
-                    controller: controller,
-                    count: origin.discussCount,
-                    showHeader: false,
-                    showActions: false,
-                    showReplies: false,
-                    onViewMoreTap: () => _openDiscussPage(context),
-                  ),
-                ],
+              child: SizedBox(
+                width: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SectionTitle(
+                      iconAsset: discussIconAsset,
+                      title: 'Discuss (${origin.discussCount})',
+                    ),
+                    if (showDiscussList) ...[
+                      const SizedBox(height: 14),
+                      OriginDiscussList(
+                        controller: controller,
+                        count: origin.discussCount,
+                        showHeader: false,
+                        showActions: false,
+                        showReplies: false,
+                        onViewMoreTap: () => _openDiscussPage(context),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
             if (!hasDiscussContent) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: 8),
               DiscussPostInput(
                 bizId: origin.oid,
                 onSubmitted: () => unawaited(controller.refreshFirstPage()),
