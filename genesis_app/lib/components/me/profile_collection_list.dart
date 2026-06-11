@@ -13,6 +13,8 @@ class ProfileCollectionList extends StatelessWidget {
     this.refreshKey,
   });
 
+  static const double minSystemNavigationBottomPadding = 56;
+
   final List<GenesisProfileCollectionItemData> items;
   final String emptyText;
   final bool isLoading;
@@ -22,6 +24,14 @@ class ProfileCollectionList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final bottomInset = [
+      mediaQuery.padding.bottom,
+      mediaQuery.viewPadding.bottom,
+      minSystemNavigationBottomPadding,
+    ].reduce((a, b) => a > b ? a : b);
+    final listPadding = EdgeInsets.only(top: 12, bottom: 16 + bottomInset);
+
     if (items.isEmpty && isLoading) {
       final loading = SizedBox(
         key: loadingKey,
@@ -53,7 +63,7 @@ class ProfileCollectionList extends StatelessWidget {
               parent: AlwaysScrollableScrollPhysics(),
             ),
       clipBehavior: Clip.hardEdge,
-      padding: const EdgeInsets.only(top: 12, bottom: 16),
+      padding: listPadding,
       separatorBuilder: (_, __) => const SizedBox(height: 24),
       itemBuilder: (context, index) =>
           GenesisProfileCollectionListItem(item: items[index]),

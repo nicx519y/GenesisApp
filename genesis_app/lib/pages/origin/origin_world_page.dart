@@ -796,24 +796,31 @@ class _OriginBottomLaunchBar extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Row(
-                  children: [
-                    _LaunchBarStat(
-                      icon: MyFlutterApp.save,
-                      value: origin.copyCount,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox(
+                    height: 32,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        _LaunchBarStat(
+                          icon: MyFlutterApp.save,
+                          value: origin.copyCount,
+                        ),
+                        const SizedBox(width: 20),
+                        _LaunchBarStat(
+                          iconAsset: _connectIconAsset,
+                          value: origin.interactCount,
+                        ),
+                        const SizedBox(width: 20),
+                        _LaunchBarStat(
+                          iconAsset: aiCharacterIconAsset,
+                          preserveIconAssetColor: true,
+                          value: origin.characterCount,
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 20),
-                    _LaunchBarStat(
-                      iconAsset: _connectIconAsset,
-                      value: origin.interactCount,
-                    ),
-                    const SizedBox(width: 20),
-                    _LaunchBarStat(
-                      iconAsset: aiCharacterIconAsset,
-                      preserveIconAssetColor: true,
-                      value: origin.characterCount,
-                    ),
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(width: 18),
@@ -830,7 +837,7 @@ class _OriginBottomLaunchBar extends StatelessWidget {
                     disabledForegroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 35),
                     textStyle: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 16,
                       height: 1,
                       fontWeight: FontWeight.w600,
                     ),
@@ -877,6 +884,8 @@ class _LaunchBarStat extends StatelessWidget {
       iconAsset: iconAsset,
       preserveIconAssetColor: preserveIconAssetColor,
       iconSize: 14,
+      iconAssetScale: 1,
+      iconVerticalOffset: 0,
       iconColor: const Color(0xFF171717),
       gap: 4,
       text: formatStatCount(value),

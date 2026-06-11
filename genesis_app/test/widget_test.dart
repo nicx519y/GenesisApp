@@ -3053,6 +3053,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Launch'), findsOneWidget);
+    final launchButtonFinder = find.widgetWithText(FilledButton, 'Launch');
+    final launchButton = tester.widget<FilledButton>(launchButtonFinder);
+    expect(
+      launchButton.style?.textStyle?.resolve(<WidgetState>{})?.fontSize,
+      16,
+    );
     await tester.tap(find.text('Launch'));
     await tester.pumpAndSettle();
     expect(find.text('Setup Your Role'), findsOneWidget);

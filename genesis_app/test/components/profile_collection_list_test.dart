@@ -31,6 +31,13 @@ void main() {
 
     final listView = tester.widget<ListView>(find.byType(ListView));
     expect(listView.clipBehavior, Clip.hardEdge);
+    expect(
+      listView.padding,
+      const EdgeInsets.only(
+        top: 12,
+        bottom: 16 + ProfileCollectionList.minSystemNavigationBottomPadding,
+      ),
+    );
 
     final firstItem = find.byType(GenesisProfileCollectionListItem).first;
     final itemMaterial = find
