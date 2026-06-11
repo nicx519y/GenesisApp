@@ -33,6 +33,32 @@ void main() {
     expect(tester.getTopLeft(find.byType(WorldTopOverlayBar)).dy, overlayTop);
   });
 
+  testWidgets('world map stage does not zoom overlay controls', (tester) async {
+    final controller = TabController(length: 2, vsync: tester);
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 480,
+            height: 300,
+            child: WorldMapStage(
+              controller: controller,
+              pointsCount: 3,
+              top: 44,
+              mapBuilder: (context, pointMode) =>
+                  const ColoredBox(color: Colors.green),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(InteractiveViewer), findsNothing);
+    expect(find.byType(WorldTopOverlayBar), findsOneWidget);
+  });
+
   testWidgets('world map stage keeps overlay tab text colors unchanged', (
     tester,
   ) async {

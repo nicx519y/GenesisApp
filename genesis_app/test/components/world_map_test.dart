@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
+import 'package:genesis_flutter_android/components/world_map_interaction_notification.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
@@ -107,6 +108,119 @@ void main() {
     expect(third.dy, first.dy);
     expect(second.dx, greaterThan(first.dx));
     expect(third.dx, greaterThan(second.dx));
+  });
+
+  testWidgets(
+    'world map moves point anchors with zoom without scaling markers',
+    (tester) async {
+      await _pumpWorldMap(
+        tester,
+        mapImageUrl: kMockV1SteamMapImage,
+        users: const [
+          UserAvatar(
+            'AA',
+            name: 'Ada',
+            avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+          ),
+        ],
+      );
+
+      final interactiveViewer = tester.widget<InteractiveViewer>(
+        find.byType(InteractiveViewer),
+      );
+
+      expect(interactiveViewer.minScale, 1);
+      expect(interactiveViewer.maxScale, 4);
+      expect(interactiveViewer.panEnabled, isTrue);
+      expect(
+        find.descendant(
+          of: find.byType(InteractiveViewer),
+          matching: find.byType(GenesisCharacterAvatar),
+        ),
+        findsNothing,
+      );
+      final avatar = find.byType(GenesisCharacterAvatar);
+      expect(avatar, findsOneWidget);
+
+      final initialAvatarTopLeft = tester.getTopLeft(avatar);
+      final initialAvatarSize = tester.getSize(avatar);
+      final first = await tester.createGesture(pointer: 1);
+      final second = await tester.createGesture(pointer: 2);
+
+      await first.down(const Offset(110, 520));
+      await second.down(const Offset(250, 520));
+      await tester.pump();
+      await first.moveTo(const Offset(70, 560));
+      await second.moveTo(const Offset(290, 480));
+      await tester.pump();
+      await second.up();
+      await first.up();
+      await tester.pump();
+
+      expect(tester.getSize(avatar), initialAvatarSize);
+      expect(tester.getTopLeft(avatar), isNot(initialAvatarTopLeft));
+    },
+  );
+
+  testWidgets('world map double tap toggles zoom around tap position', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      mapImageUrl: kMockV1SteamMapImage,
+      users: const [
+        UserAvatar(
+          'AA',
+          name: 'Ada',
+          avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+        ),
+      ],
+    );
+
+    final avatar = find.byType(GenesisCharacterAvatar);
+    final initialAvatarTopLeft = tester.getTopLeft(avatar);
+    final initialAvatarSize = tester.getSize(avatar);
+
+    await tester.tapAt(const Offset(150, 520));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(const Offset(150, 520));
+    await tester.pump();
+
+    expect(tester.getSize(avatar), initialAvatarSize);
+    expect(tester.getTopLeft(avatar), isNot(initialAvatarTopLeft));
+
+    await tester.tapAt(const Offset(150, 520));
+    await tester.pump(const Duration(milliseconds: 80));
+    await tester.tapAt(const Offset(150, 520));
+    await tester.pump();
+
+    expect(tester.getSize(avatar), initialAvatarSize);
+    expect(tester.getTopLeft(avatar), initialAvatarTopLeft);
+  });
+
+  testWidgets('world map notifies parent scrolling on second pointer down', (
+    tester,
+  ) async {
+    final states = <bool>[];
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      onMapInteractionChanged: states.add,
+    );
+
+    final first = await tester.createGesture(pointer: 1);
+    final second = await tester.createGesture(pointer: 2);
+    await first.down(const Offset(100, 100));
+    await second.down(const Offset(140, 140));
+    await tester.pump();
+
+    expect(states, contains(true));
+
+    await second.up();
+    await first.up();
+    await tester.pump();
+
+    expect(states.last, isFalse);
   });
 
   testWidgets('world map renders local asset map background', (tester) async {
@@ -1172,6 +1286,7 @@ Future<void> _pumpWorldMap(
   bool fallbackOnEmptyMapUrl = true,
   WorldPointTapCallback? onPointTap,
   VoidCallback? onDrillIntoLocation,
+  ValueChanged<bool>? onMapInteractionChanged,
 }) async {
   tester.view.physicalSize = const Size(430, 820);
   tester.view.devicePixelRatio = 1;
@@ -1183,29 +1298,35 @@ Future<void> _pumpWorldMap(
       home: Scaffold(
         body: Align(
           alignment: Alignment.topLeft,
-          child: SizedBox(
-            width: size.width,
-            height: size.height,
-            child: WorldMap(
-              mapImageUrl: mapImageUrl,
-              preloadMapImageUrls: preloadMapImageUrls,
-              fallbackOnEmptyMapUrl: fallbackOnEmptyMapUrl,
-              showPointsList: showPointsList,
-              listPoints: listPoints,
-              locationNodes: locationNodes,
-              onDrillIntoLocation: onDrillIntoLocation,
-              onPointTap: onPointTap,
-              points:
-                  points ??
-                  [
-                    WorldPoint(
-                      id: 'point-1',
-                      name: 'Gate',
-                      type: WorldPointType.portal,
-                      position: _pointPosition,
-                      users: users,
-                    ),
-                  ],
+          child: NotificationListener<WorldMapInteractionNotification>(
+            onNotification: (notification) {
+              onMapInteractionChanged?.call(notification.active);
+              return onMapInteractionChanged != null;
+            },
+            child: SizedBox(
+              width: size.width,
+              height: size.height,
+              child: WorldMap(
+                mapImageUrl: mapImageUrl,
+                preloadMapImageUrls: preloadMapImageUrls,
+                fallbackOnEmptyMapUrl: fallbackOnEmptyMapUrl,
+                showPointsList: showPointsList,
+                listPoints: listPoints,
+                locationNodes: locationNodes,
+                onDrillIntoLocation: onDrillIntoLocation,
+                onPointTap: onPointTap,
+                points:
+                    points ??
+                    [
+                      WorldPoint(
+                        id: 'point-1',
+                        name: 'Gate',
+                        type: WorldPointType.portal,
+                        position: _pointPosition,
+                        users: users,
+                      ),
+                    ],
+              ),
             ),
           ),
         ),
