@@ -143,6 +143,7 @@
 - `biz_type*`: integer
 - `biz_id*`: string
 - `obj_id*`: string
+- `origin_name*`: string，`notice_block=interaction` 时返回，对应评论所在 Origin 名称
 - `content*`: string
 - `is_read*`: boolean
 - `created_at*`: integer，Unix 秒时间戳

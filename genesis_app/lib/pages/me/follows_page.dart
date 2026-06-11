@@ -3,12 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
-import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/me/genesis_follow_user_list_tile.dart';
 import '../../components/page_header.dart';
 import '../../network/genesis_api.dart';
-import '../../routers/app_router.dart';
-import '../../ui/components/genesis_avatar.dart';
+import '../../network/json_utils.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -236,8 +235,6 @@ class _FollowUsersPane extends StatelessWidget {
     required this.onToggleFollow,
   });
 
-  static const double _itemExtent = 66;
-
   final Future<List<_FollowUserItem>> future;
   final String emptyText;
   final bool defaultFollowed;
@@ -296,7 +293,7 @@ class _FollowUsersPane extends StatelessWidget {
           onRefresh: onRefresh,
           child: ListView.builder(
             cacheExtent: 0,
-            itemExtent: _itemExtent,
+            itemExtent: GenesisFollowUserListTile.itemExtent,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
             itemCount: items.length,
@@ -305,8 +302,10 @@ class _FollowUsersPane extends StatelessWidget {
               final isFollowed =
                   followStateOverrides[item.uid] ??
                   (defaultFollowed || item.isFollowed);
-              return _FollowUserTile(
-                item: item,
+              return GenesisFollowUserListTile(
+                uid: item.uid,
+                displayName: item.displayName,
+                avatarUrl: item.avatarUrl,
                 isFollowed: isFollowed,
                 isLoading: loadingUids.contains(item.uid),
                 onToggleFollow: () => onToggleFollow(item, isFollowed),
@@ -316,134 +315,6 @@ class _FollowUsersPane extends StatelessWidget {
         );
       },
     );
-  }
-}
-
-class _FollowUserTile extends StatelessWidget {
-  const _FollowUserTile({
-    required this.item,
-    required this.isFollowed,
-    required this.isLoading,
-    required this.onToggleFollow,
-  });
-
-  static const double _avatarSize = 48;
-  static const double _actionWidth = 86;
-  static const double _actionHeight = 28;
-
-  final _FollowUserItem item;
-  final bool isFollowed;
-  final bool isLoading;
-  final VoidCallback onToggleFollow;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () => Navigator.of(
-        context,
-      ).pushNamed(RouteNames.userInfo, arguments: {'uid': item.uid}),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _FollowAvatar(
-              key: ValueKey('follows-avatar-${item.uid}'),
-              url: item.avatarUrl,
-              name: item.displayName,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    item.displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      height: 1.2,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black,
-                    ),
-                  ),
-                  SizedBox(
-                    key: ValueKey('follows-name-uid-gap-${item.uid}'),
-                    height: 4,
-                  ),
-                  CopyableIdLabel(label: 'UID', value: item.uid),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: _actionWidth,
-              height: _avatarSize,
-              child: Center(
-                child: SizedBox(
-                  width: _actionWidth,
-                  height: _actionHeight,
-                  child: FilledButton(
-                    key: ValueKey('follows-action-${item.uid}'),
-                    onPressed: isLoading ? null : onToggleFollow,
-                    style: FilledButton.styleFrom(
-                      fixedSize: const Size(_actionWidth, _actionHeight),
-                      minimumSize: const Size(_actionWidth, _actionHeight),
-                      backgroundColor: isFollowed
-                          ? const Color(0xFFE5E5E5)
-                          : const Color(0xFFF42C47),
-                      disabledBackgroundColor: isFollowed
-                          ? const Color(0xFFE5E5E5)
-                          : const Color(0xFFF42C47).withValues(alpha: 0.55),
-                      foregroundColor: isFollowed ? Colors.black : Colors.white,
-                      disabledForegroundColor: isFollowed
-                          ? Colors.black54
-                          : Colors.white,
-                      alignment: Alignment.center,
-                      padding: EdgeInsets.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    child: isLoading
-                        ? SizedBox(
-                            width: 15,
-                            height: 15,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: isFollowed ? Colors.black54 : Colors.white,
-                            ),
-                          )
-                        : Text(
-                            isFollowed ? 'Following' : 'Follow',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FollowAvatar extends StatelessWidget {
-  const _FollowAvatar({super.key, required this.url, required this.name});
-
-  static const double _size = 48;
-
-  final String url;
-  final String name;
-
-  @override
-  Widget build(BuildContext context) {
-    return GenesisAvatar(url: url, name: name, size: _size, borderRadius: 5);
   }
 }
 
@@ -478,8 +349,11 @@ class _FollowUserItem {
         _mapString(user, 'display_name') ??
         _mapString(user, 'nickname') ??
         formatUidForDisplay(uid);
-    final avatar =
-        _mapString(user, 'avatar') ?? _mapString(user, 'avatar_url') ?? '';
+    final avatar = asResolvedImageUrl(
+      user['avatar'],
+      resolveAssetUrl,
+      fallback: user['avatar_url'],
+    );
     final isFollowed =
         type == _FollowListType.following ||
         _mapBool(relation, 'i_followed') ||
@@ -489,7 +363,7 @@ class _FollowUserItem {
     return _FollowUserItem(
       uid: uid,
       displayName: formatUidForDisplay(displayName, fallback: 'User'),
-      avatarUrl: resolveAssetUrl(avatar),
+      avatarUrl: avatar,
       isFollowed: isFollowed,
     );
   }

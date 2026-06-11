@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
-
-const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
 
 void main() {
   test('parses tick count for shared origin tick chip', () {
@@ -46,7 +45,6 @@ void main() {
       discussCnt: 0,
       characterCnt: 0,
       locationCnt: 0,
-      coverHeight: 260,
     );
 
     await tester.pumpWidget(
@@ -58,18 +56,25 @@ void main() {
     );
 
     expect(find.byIcon(MyFlutterApp.save), findsOneWidget);
-    expect(_findConnectImageIcon(), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(AspectRatio).first),
+      const Size(180, 270),
+    );
+    final connectIcon = tester.widget<ImageIcon>(
+      _assetImageIconFinder(connectIconAsset),
+    );
+    expect(connectIcon.size, 13);
     expect(find.text('2.3K'), findsOneWidget);
     expect(find.text('4.4M'), findsOneWidget);
     expect(find.text('v3'), findsNothing);
   });
 }
 
-Finder _findConnectImageIcon() {
+Finder _assetImageIconFinder(String assetName) {
   return find.byWidgetPredicate(
     (widget) =>
         widget is ImageIcon &&
         widget.image is AssetImage &&
-        (widget.image as AssetImage).assetName == _connectIconAsset,
+        (widget.image as AssetImage).assetName == assetName,
   );
 }

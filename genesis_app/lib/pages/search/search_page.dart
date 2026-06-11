@@ -15,10 +15,9 @@ import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/relative_time_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import 'search_history_store.dart';
-
-const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
 
 enum _SearchTab {
   all('', 'All', 'Results'),
@@ -398,14 +397,14 @@ class _SearchPageState extends State<SearchPage>
         bottom: false,
         child: Column(
           children: [
-            const SizedBox(height: 8),
+            const SizedBox(height: kSearchBarTopPadding),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: SearchBarPlaceholder(
-                      hintText: 'Search origins, worlds, users...',
                       controller: _controller,
                       focusNode: _focusNode,
                       onChanged: _onQueryChanged,
@@ -420,14 +419,16 @@ class _SearchPageState extends State<SearchPage>
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => Navigator.of(context).pop(),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Color(0xFF222222),
-                          fontWeight: FontWeight.w400,
+                    child: const SizedBox(
+                      height: 28,
+                      child: Center(
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF222222),
+                            fontWeight: FontWeight.w400,
+                          ),
                         ),
                       ),
                     ),
@@ -700,7 +701,7 @@ class _SearchResultListState extends State<_SearchResultList>
       controller: _scrollController,
       primary: false,
       cacheExtent: 900,
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
@@ -737,6 +738,7 @@ class _SearchResultListState extends State<_SearchResultList>
     List<_SearchResultItem> items,
   ) {
     if (tab != _SearchTab.all) {
+      if (items.isEmpty) return const [];
       return [
         _SearchSectionRow(tab.sectionTitle),
         ...items.map(_SearchItemRow.new),
@@ -834,7 +836,11 @@ class _SearchResultTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 9),
                   if (isUser)
-                    CopyableIdLabel(label: 'UID', value: item.displaySubtitle)
+                    CopyableIdLabel(
+                      label: 'UID',
+                      value: item.displaySubtitle,
+                      showCopyIcon: false,
+                    )
                   else
                     Text(
                       item.displaySubtitle,
@@ -895,7 +901,7 @@ class _ResultStats extends StatelessWidget {
     final stats = item.tab == _SearchTab.origin
         ? [
             _StatData(icon: MyFlutterApp.save, value: item.copyCount),
-            _StatData(iconAsset: _connectIconAsset, value: item.connectCount),
+            _StatData(iconAsset: connectIconAsset, value: item.connectCount),
             _StatData(
               iconAsset: aiCharacterIconAsset,
               preserveIconAssetColor: true,
@@ -903,8 +909,8 @@ class _ResultStats extends StatelessWidget {
             ),
           ]
         : [
-            _StatData(icon: MyFlutterApp.pregress, value: item.tickCount),
-            _StatData(iconAsset: _connectIconAsset, value: item.connectCount),
+            _StatData(iconAsset: playIconAsset, value: item.tickCount),
+            _StatData(iconAsset: connectIconAsset, value: item.connectCount),
             _StatData(
               iconAsset: aiCharacterIconAsset,
               preserveIconAssetColor: true,
@@ -1020,12 +1026,17 @@ class _SearchResultItem {
     };
     final title = asString(json['title']);
     final shortCode = asString(json['short_code']);
+    final entityId = asString(json['entity_id'], fallback: shortCode);
     return _SearchResultItem(
       tab: tab,
-      entityId: asString(json['entity_id'], fallback: shortCode),
+      entityId: entityId,
       shortCode: shortCode,
       title: title,
-      subtitle: asString(json['subtitle']),
+      subtitle: switch (tab) {
+        _SearchTab.origin => _originSearchSubtitle(json, fallbackId: entityId),
+        _SearchTab.world => _worldSearchSubtitle(json, fallbackId: entityId),
+        _ => asString(json['subtitle']),
+      },
       coverImage: asImageUrl(json['cover_image']),
       copyCount: asInt(json['copy_cnt']),
       connectCount: asInt(json['connect_cnt']),
@@ -1068,14 +1079,22 @@ class _SearchResultItem {
     final stats = json['stats'] is Map
         ? asJsonMap(json['stats'])
         : const <String, dynamic>{};
-    if (fallbackTab == _SearchTab.world || info.containsKey('world_id')) {
-      final worldId = asString(info['world_id']);
+    if (fallbackTab == _SearchTab.world ||
+        info.containsKey('world_id') ||
+        info.containsKey('wid')) {
+      final worldId = asString(
+        info['world_id'],
+        fallback: asString(info['wid']),
+      );
       return _SearchResultItem(
         tab: _SearchTab.world,
         entityId: worldId,
         shortCode: worldId,
-        title: asString(info['world_name'], fallback: worldId),
-        subtitle: asString(info['brief']),
+        title: asString(
+          info['world_name'],
+          fallback: asString(info['name'], fallback: worldId),
+        ),
+        subtitle: _worldSearchSubtitle(info, fallbackId: worldId),
         coverImage: asImageUrl(info['cover']),
         copyCount: 0,
         connectCount: asInt(stats['connect_cnt']),
@@ -1085,13 +1104,19 @@ class _SearchResultItem {
       );
     }
 
-    final originId = asString(info['origin_id']);
+    final originId = asString(
+      info['origin_id'],
+      fallback: asString(info['oid']),
+    );
     return _SearchResultItem(
       tab: _SearchTab.origin,
       entityId: originId,
       shortCode: originId,
-      title: asString(info['origin_name'], fallback: originId),
-      subtitle: asString(info['brief']),
+      title: asString(
+        info['origin_name'],
+        fallback: asString(info['name'], fallback: originId),
+      ),
+      subtitle: _originSearchSubtitle(info, fallbackId: originId),
       coverImage: asImageUrl(info['cover']),
       copyCount: asInt(stats['copy_cnt']),
       connectCount: asInt(stats['connect_cnt']),
@@ -1128,4 +1153,65 @@ class _SearchResultItem {
     }
     return subtitle.trim().isNotEmpty ? subtitle : shortCode;
   }
+}
+
+String _originSearchSubtitle(
+  Map<dynamic, dynamic> raw, {
+  required String fallbackId,
+}) {
+  final oid = _firstSearchString(raw, const ['oid', 'origin_id']);
+  final displayOid = oid.trim().isEmpty ? _dashOrValue(fallbackId) : oid;
+  final originator = _firstSearchString(raw, const [
+    'owner_name',
+    'created_user_name',
+    'originator',
+    'owner_uid',
+    'created_uid',
+  ]);
+  final versionNum = _firstSearchInt(raw, const [
+    'version_num',
+    'origin_version',
+    'origin_version_num',
+  ]);
+  final version = versionNum <= 0 ? '-' : 'V$versionNum';
+  final updated = formatRelativeTime(asDateTime(raw['updated_at']));
+  return 'OID: $displayOid  Originator: '
+      '${formatUidForDisplay(originator, fallback: '-')}\n'
+      'Latest Version: $version · $updated';
+}
+
+String _worldSearchSubtitle(
+  Map<dynamic, dynamic> raw, {
+  required String fallbackId,
+}) {
+  final wid = _firstSearchString(raw, const ['wid', 'world_id']);
+  final displayWid = wid.trim().isEmpty ? _dashOrValue(fallbackId) : wid;
+  final owner = _firstSearchString(raw, const [
+    'owner_name',
+    'created_user_name',
+    'owner_uid',
+    'created_uid',
+  ]);
+  return 'WID: $displayWid  Owner: ${formatUidForDisplay(owner, fallback: '-')}';
+}
+
+String _firstSearchString(Map<dynamic, dynamic> raw, List<String> keys) {
+  for (final key in keys) {
+    final value = asString(raw[key]).trim();
+    if (value.isNotEmpty) return value;
+  }
+  return '';
+}
+
+int _firstSearchInt(Map<dynamic, dynamic> raw, List<String> keys) {
+  for (final key in keys) {
+    final value = asInt(raw[key], fallback: -1);
+    if (value > 0) return value;
+  }
+  return 0;
+}
+
+String _dashOrValue(String value) {
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? '-' : trimmed;
 }

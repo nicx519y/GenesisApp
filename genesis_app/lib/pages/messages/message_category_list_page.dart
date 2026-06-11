@@ -3,10 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/discuss/origin_discuss_list.dart';
+import '../../components/me/genesis_follow_user_list_tile.dart';
 import '../../components/page_header.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
+import '../../utils/display_name_formatter.dart';
 
 class MessageCategoryListPage extends StatefulWidget {
   const MessageCategoryListPage({
@@ -32,6 +36,9 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
 
   final _scrollController = ScrollController();
   final _items = <_NotificationItem>[];
+  final _initialUnreadIds = <String>{};
+  final _loadingFollowUids = <String>{};
+  final _followStateOverrides = <String, bool>{};
   var _page = 1;
   var _total = 0;
   var _loading = true;
@@ -40,13 +47,13 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   Object? _error;
 
   bool get _hasMore => _items.length < _total;
+  bool get _isCommentsBlock => widget.block == 'interaction';
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
     unawaited(_loadFirstPage());
-    unawaited(_markCategoryRead());
   }
 
   @override
@@ -112,6 +119,11 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
           .map((item) => _NotificationItem.fromJson(asJsonMap(item)))
           .toList(growable: false);
       if (!mounted) return;
+      if (replace) {
+        _initialUnreadIds
+          ..clear()
+          ..addAll(items.where((item) => !item.isRead).map((item) => item.id));
+      }
       setState(() {
         if (replace) {
           _items
@@ -127,6 +139,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
         _refreshing = false;
         _error = null;
       });
+      if (replace) unawaited(_markCategoryRead());
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -139,13 +152,70 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   }
 
   Future<void> _openJoinRequestActions(_NotificationItem item) async {
-    final action = await showDialog<_JoinRequestAction>(
+    if (item.joinRequestApprovalStatus != _JoinRequestApprovalStatus.pending) {
+      await _openJoinRequestView(item);
+      return;
+    }
+
+    final action = await showGenesisActionBox<_JoinRequestAction>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.32),
-      builder: (_) => _JoinRequestDialog(item: item),
+      title: 'Join request',
+      content: _JoinRequestDialogContent(
+        item: item,
+        statusOnly: false,
+        onOpenUser: () => _openUserFromDialog(item.senderUid),
+        onOpenWorld: () => _openWorldFromDialog(item.bizId),
+      ),
+      actions: const [
+        GenesisActionBoxAction<_JoinRequestAction>(
+          label: 'Approve',
+          value: _JoinRequestAction.approve,
+        ),
+        GenesisActionBoxAction<_JoinRequestAction>(
+          label: 'Reject',
+          value: _JoinRequestAction.reject,
+          color: Color(0xFF111111),
+        ),
+      ],
     );
     if (action == null || !mounted) return;
     await _reviewJoinRequest(item, action);
+  }
+
+  Future<void> _openJoinRequestView(_NotificationItem item) {
+    return showGenesisActionBox<void>(
+      context: context,
+      title: 'Join request',
+      content: _JoinRequestDialogContent(
+        item: item,
+        statusOnly: true,
+        onOpenUser: () => _openUserFromDialog(item.senderUid),
+        onOpenWorld: () => _openWorldFromDialog(item.bizId),
+      ),
+      actions: const <GenesisActionBoxAction<void>>[],
+    );
+  }
+
+  void _openUserFromDialog(String uid) {
+    final cleanUid = uid.trim();
+    Navigator.of(context, rootNavigator: true).pop();
+    if (cleanUid.isEmpty || !mounted) return;
+    unawaited(
+      Navigator.of(
+        context,
+      ).pushNamed(RouteNames.userInfo, arguments: {'uid': cleanUid}),
+    );
+  }
+
+  void _openWorldFromDialog(String wid) {
+    final cleanWid = wid.trim();
+    Navigator.of(context, rootNavigator: true).pop();
+    if (cleanWid.isEmpty || !mounted) return;
+    unawaited(
+      Navigator.of(
+        context,
+      ).pushNamed(RouteNames.world, arguments: {'wid': cleanWid}),
+    );
   }
 
   Future<void> _reviewJoinRequest(
@@ -176,6 +246,54 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
       if (!mounted) return;
       showGenesisToast(context, 'Review failed');
     }
+  }
+
+  Future<void> _toggleFollow(_NotificationItem item, bool isFollowed) async {
+    final uid = item.followUserUid.trim();
+    if (uid.isEmpty || _loadingFollowUids.contains(uid)) return;
+    setState(() => _loadingFollowUids.add(uid));
+    try {
+      final api = AppServicesScope.read(context).api.v1.follow;
+      if (isFollowed) {
+        await api.unfollow(uid: uid);
+      } else {
+        await api.follow(uid: uid);
+      }
+      if (!mounted) return;
+      setState(() {
+        _followStateOverrides[uid] = !isFollowed;
+        _loadingFollowUids.remove(uid);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingFollowUids.remove(uid));
+      showGenesisToast(context, 'Follow update failed');
+    }
+  }
+
+  void _openNotification(_NotificationItem item) {
+    if (item.isJoinRequest) {
+      unawaited(_openJoinRequestActions(item));
+      return;
+    }
+    if (item.isJoinRequestReview) {
+      _openWorld(item.bizId);
+      return;
+    }
+    if (item.isDiscussNotification) {
+      Navigator.of(context).pushNamed(
+        RouteNames.postDetail,
+        arguments: {'item': item.toDiscussListItem()},
+      );
+    }
+  }
+
+  void _openWorld(String wid) {
+    final cleanWid = wid.trim();
+    if (cleanWid.isEmpty) return;
+    Navigator.of(
+      context,
+    ).pushNamed(RouteNames.world, arguments: {'wid': cleanWid});
   }
 
   @override
@@ -238,12 +356,17 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(
         left: 20,
-        right: 32,
-        top: 26,
+        right: 20,
+        top: 14,
         bottom: 18 + MediaQuery.paddingOf(context).bottom,
       ),
       itemCount: _items.length + (_loadingMore ? 1 : 0),
-      separatorBuilder: (_, _) => const SizedBox(height: 24),
+      separatorBuilder: (_, index) {
+        if (index < _items.length && _items[index].isFollowNotification) {
+          return const SizedBox.shrink();
+        }
+        return const SizedBox(height: 24);
+      },
       itemBuilder: (context, index) {
         if (index >= _items.length) {
           return const Padding(
@@ -251,12 +374,24 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
             child: Center(child: CircularProgressIndicator()),
           );
         }
+        final item = _items[index];
+        final showUnreadDot = _initialUnreadIds.contains(item.id);
+        if (_isCommentsBlock) {
+          return _CommentNotificationRow(
+            key: ValueKey(item.id),
+            item: item,
+            showUnreadDot: showUnreadDot,
+            onTap: () => _openNotification(item),
+          );
+        }
         return _NotificationListItem(
-          key: ValueKey(_items[index].id),
-          item: _items[index],
-          onTap: _items[index].isJoinRequest
-              ? () => _openJoinRequestActions(_items[index])
-              : null,
+          key: ValueKey(item.id),
+          item: item,
+          showUnreadDot: showUnreadDot,
+          followIsLoading: _loadingFollowUids.contains(item.followUserUid),
+          followStateOverride: _followStateOverrides[item.followUserUid],
+          onTap: () => _openNotification(item),
+          onToggleFollow: (isFollowed) => _toggleFollow(item, isFollowed),
         );
       },
     );
@@ -267,23 +402,127 @@ class _NotificationListItem extends StatelessWidget {
   const _NotificationListItem({
     super.key,
     required this.item,
+    required this.showUnreadDot,
+    required this.followIsLoading,
+    required this.followStateOverride,
+    required this.onTap,
+    required this.onToggleFollow,
+  });
+
+  final _NotificationItem item;
+  final bool showUnreadDot;
+  final bool followIsLoading;
+  final bool? followStateOverride;
+  final VoidCallback onTap;
+  final ValueChanged<bool> onToggleFollow;
+
+  @override
+  Widget build(BuildContext context) {
+    if (item.isFollowNotification) {
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          SizedBox(
+            key: ValueKey('message-follow-row-${item.followUserUid}'),
+            height: GenesisFollowUserListTile.itemExtent,
+            child: GenesisFollowUserListTile(
+              uid: item.followUserUid,
+              displayName: item.followUserName,
+              avatarUrl: item.senderAvatar,
+              isFollowed: followStateOverride ?? item.isFollowed,
+              isLoading: followIsLoading,
+              keyPrefix: 'message-follow',
+              onToggleFollow: () =>
+                  onToggleFollow(followStateOverride ?? item.isFollowed),
+            ),
+          ),
+          if (showUnreadDot)
+            const Positioned(
+              right: -13,
+              top: (GenesisFollowUserListTile.itemExtent - 7) / 2,
+              child: _UnreadDot(),
+            ),
+        ],
+      );
+    }
+
+    final content = InkWell(
+      onTap: onTap,
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      child: item.isJoinRequest || item.isJoinRequestReview
+          ? _JoinRequestListItem(item: item)
+          : _CommentNotificationListItem(item: item),
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: content),
+        const SizedBox(width: 10),
+        SizedBox(
+          width: 8,
+          height: item.isFollowNotification
+              ? GenesisFollowUserListTile.itemExtent
+              : null,
+          child: Align(
+            alignment: item.isFollowNotification
+                ? Alignment.center
+                : Alignment.topCenter,
+            child: showUnreadDot ? const _UnreadDot() : const SizedBox.shrink(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _UnreadDot extends StatelessWidget {
+  const _UnreadDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('message-category-unread-dot'),
+      width: 7,
+      height: 7,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF42C47),
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+}
+
+class _CommentNotificationRow extends StatelessWidget {
+  const _CommentNotificationRow({
+    super.key,
+    required this.item,
+    required this.showUnreadDot,
     required this.onTap,
   });
 
   final _NotificationItem item;
-  final VoidCallback? onTap;
+  final bool showUnreadDot;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final child = item.isJoinRequest
-        ? _JoinRequestListItem(item: item)
-        : _CommentStyleListItem(item: item);
-    if (onTap == null) return child;
     return InkWell(
       onTap: onTap,
       splashColor: Colors.transparent,
       highlightColor: Colors.transparent,
-      child: child,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(right: showUnreadDot ? 18 : 0),
+            child: _CommentNotificationListItem(item: item, isComments: true),
+          ),
+          if (showUnreadDot)
+            const Positioned(right: 0, top: 5, child: _UnreadDot()),
+        ],
+      ),
     );
   }
 }
@@ -295,141 +534,158 @@ class _JoinRequestListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isReview = item.isJoinRequestReview;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Join request',
-          style: TextStyle(
-            color: Colors.black,
+        Text(
+          isReview ? item.reviewTitleText : 'Join request',
+          style: const TextStyle(
+            color: Color(0xFF111111),
             fontSize: 14,
             height: 1.2,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          item.joinRequestSummary,
-          style: const TextStyle(
-            color: Color(0xFF5A6075),
-            fontSize: 12,
-            height: 1.2,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          item.joinRequestStatusText,
-          style: TextStyle(
-            color: item.joinRequestStatusColor,
-            fontSize: 12,
-            height: 1.2,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        if (isReview)
+          _StatusText(item: item)
+        else ...[
+          _JoinRequestSummaryText(item: item),
+          const SizedBox(height: 8),
+          _StatusText(item: item),
+        ],
       ],
     );
   }
 }
 
-class _CommentStyleListItem extends StatelessWidget {
-  const _CommentStyleListItem({required this.item});
+class _JoinRequestSummaryText extends StatelessWidget {
+  const _JoinRequestSummaryText({required this.item});
 
   final _NotificationItem item;
 
   @override
   Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        style: const TextStyle(
+          color: Color(0xFF111111),
+          fontSize: 12,
+          height: 1.25,
+          fontWeight: FontWeight.w400,
+        ),
+        children: [
+          TextSpan(text: item.requesterName, style: _originBlueTextStyle),
+          const TextSpan(text: ' request to join '),
+          TextSpan(text: item.requestWorldName, style: _originBlueTextStyle),
+          if (item.bizId.trim().isNotEmpty) TextSpan(text: '(${item.bizId})'),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusText extends StatelessWidget {
+  const _StatusText({required this.item});
+
+  final _NotificationItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      item.joinRequestStatusText,
+      style: TextStyle(
+        color: item.joinRequestStatusColor,
+        fontSize: 12,
+        height: 1.2,
+        fontWeight: FontWeight.w400,
+      ),
+    );
+  }
+}
+
+class _CommentNotificationListItem extends StatelessWidget {
+  const _CommentNotificationListItem({
+    required this.item,
+    this.isComments = false,
+  });
+
+  final _NotificationItem item;
+  final bool isComments;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleStyle = isComments
+        ? _commentNotificationTitleStyle
+        : _notificationTitleStyle;
+    final bodyStyle = isComments
+        ? _commentNotificationBodyStyle
+        : _notificationBodyStyle;
+    final metaStyle = isComments
+        ? _commentNotificationMetaStyle
+        : _notificationMetaStyle;
+    final verticalGap = 8.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        item.isFollowNotification
-            ? _FollowNotificationTitle(item: item)
-            : Text(
-                item.titleText,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 14,
-                  height: 1.18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+        Text(item.titleText, style: titleStyle),
         if (item.bodyText.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(
-            item.bodyText,
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 12,
-              height: 1.25,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
+          SizedBox(height: verticalGap),
+          Text(item.bodyText, style: bodyStyle),
         ],
         if (item.metaText.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(
-            item.metaText,
-            style: const TextStyle(
-              color: Color(0xFF8A8D93),
-              fontSize: 12,
-              height: 1.2,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
+          SizedBox(height: verticalGap),
+          Text(item.metaText, style: metaStyle),
         ],
       ],
     );
   }
 }
 
-class _FollowNotificationTitle extends StatelessWidget {
-  const _FollowNotificationTitle({required this.item});
+const _notificationTitleStyle = TextStyle(
+  color: Color(0xFF111111),
+  fontSize: 14,
+  height: 1.18,
+  fontWeight: FontWeight.w700,
+);
 
-  final _NotificationItem item;
+const _notificationBodyStyle = TextStyle(
+  color: Color(0xFF111111),
+  fontSize: 12,
+  height: 1.25,
+  fontWeight: FontWeight.w400,
+);
 
-  @override
-  Widget build(BuildContext context) {
-    final userName = item.followUserName;
-    if (userName.isEmpty) {
-      return Text(item.titleText, style: _titleStyle);
-    }
+const _notificationMetaStyle = TextStyle(
+  color: Color(0xFF8A8D93),
+  fontSize: 12,
+  height: 1.2,
+  fontWeight: FontWeight.w400,
+);
 
-    final uid = item.followUserUid;
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        InkWell(
-          onTap: uid.isEmpty
-              ? null
-              : () {
-                  Navigator.of(
-                    context,
-                  ).pushNamed(RouteNames.userInfo, arguments: {'uid': uid});
-                },
-          child: Text(
-            userName,
-            style: const TextStyle(
-              color: Color(0xFF5A6075),
-              decoration: TextDecoration.underline,
-              decorationColor: Color(0xFF5A6075),
-              fontSize: 14,
-              height: 1.18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-        Text(item.followTitleSuffix, style: _titleStyle),
-      ],
-    );
-  }
+const _commentNotificationTitleStyle = TextStyle(
+  color: Color(0xFF111111),
+  fontSize: 14,
+  height: 1.18,
+  fontWeight: FontWeight.w700,
+);
 
-  static const _titleStyle = TextStyle(
-    color: Colors.black,
-    fontSize: 14,
-    height: 1.18,
-    fontWeight: FontWeight.w800,
-  );
-}
+const _commentNotificationBodyStyle = TextStyle(
+  color: Color(0xFF111111),
+  fontSize: 12,
+  height: 1.25,
+  fontWeight: FontWeight.w400,
+);
+
+const _commentNotificationMetaStyle = TextStyle(
+  color: Color(0xFF8A8D93),
+  fontSize: 12,
+  height: 1.2,
+  fontWeight: FontWeight.w400,
+);
+
+const _originBlueTextStyle = TextStyle(color: Color(0xFF2F4F7A));
 
 class _NotificationItem {
   const _NotificationItem({
@@ -438,12 +694,14 @@ class _NotificationItem {
     required this.type,
     required this.senderName,
     required this.senderUid,
+    required this.senderAvatar,
     required this.bizId,
     required this.objId,
     required this.content,
     required this.worldName,
     required this.originName,
     required this.commentText,
+    required this.isFollowed,
     required this.isRead,
     required this.createdAt,
     required this.approvalStatus,
@@ -451,6 +709,11 @@ class _NotificationItem {
 
   factory _NotificationItem.fromJson(Map<String, dynamic> json) {
     final sender = _optionalJsonMap(json['sender']);
+    final user = _optionalJsonMap(json['user']);
+    final relation = _optionalJsonMap(json['relation']);
+    final comment = _optionalJsonMap(json['comment']);
+    final reply = _optionalJsonMap(json['reply']);
+    final target = _optionalJsonMap(json['target']);
     final type = asString(json['notice_type']);
     final block = asString(json['notice_block']);
     final content = asString(
@@ -487,16 +750,36 @@ class _NotificationItem {
         _mapString(sender, 'name'),
         _mapString(sender, 'username'),
         _mapString(sender, 'nick_name'),
+        _mapString(user, 'name'),
+        _mapString(user, 'display_name'),
+        _mapString(user, 'nickname'),
         asString(json['sender_name']),
       ]),
       senderUid: _firstNonEmpty([
         _mapString(sender, 'uid'),
         _mapString(sender, 'user_id'),
+        _mapString(user, 'uid'),
+        _mapString(user, 'target_user_id'),
         asString(json['sender_uid']),
         asString(json['applicant_uid']),
       ]),
+      senderAvatar: asImageUrl(
+        _firstNonNull([
+          sender?['avatar'],
+          sender?['avatar_url'],
+          user?['avatar'],
+          user?['avatar_url'],
+          json['avatar'],
+          json['avatar_url'],
+        ]),
+      ),
       bizId: bizId,
-      objId: asString(json['obj_id'], fallback: asString(json['apply_id'])),
+      objId: _firstNonEmpty([
+        asString(json['obj_id']),
+        asString(json['apply_id']),
+        asString(json['discuss_id']),
+        asString(json['root_discuss_id']),
+      ]),
       content: content,
       worldName: worldName,
       originName: originName,
@@ -504,9 +787,23 @@ class _NotificationItem {
         asString(json['comment_content']),
         asString(json['comment_text']),
         asString(json['discuss_content']),
+        asString(json['target_content']),
+        asString(json['target_text']),
+        _mapString(comment, 'content'),
+        _mapString(reply, 'content'),
+        _mapString(target, 'comment_content'),
+        _mapString(target, 'content'),
         asString(json['text']),
+        _extractCommentBodyFromContent(content),
         content,
       ]),
+      isFollowed:
+          asBool(relation?['i_followed']) ||
+          asBool(relation?['is_followed']) ||
+          asBool(user?['i_followed']) ||
+          asBool(user?['is_followed']) ||
+          asBool(json['i_followed']) ||
+          asBool(json['is_followed']),
       isRead: asBool(json['is_read']),
       createdAt: asDateTime(json['created_at']),
       approvalStatus: _approvalStatusFromJson(json),
@@ -518,12 +815,14 @@ class _NotificationItem {
   final String type;
   final String senderName;
   final String senderUid;
+  final String senderAvatar;
   final String bizId;
   final String objId;
   final String content;
   final String worldName;
   final String originName;
   final String commentText;
+  final bool isFollowed;
   final bool isRead;
   final DateTime? createdAt;
   final _JoinRequestApprovalStatus? approvalStatus;
@@ -538,37 +837,63 @@ class _NotificationItem {
       type: type,
       senderName: senderName,
       senderUid: senderUid,
+      senderAvatar: senderAvatar,
       bizId: bizId,
       objId: objId,
       content: content,
       worldName: worldName,
       originName: originName,
       commentText: commentText,
+      isFollowed: isFollowed,
       isRead: isRead ?? this.isRead,
       createdAt: createdAt,
       approvalStatus: approvalStatus ?? this.approvalStatus,
     );
   }
 
-  bool get isJoinRequest => block == 'world_apply' || type == 'world_apply';
+  bool get isJoinRequestReview => type == 'world_apply_review';
+
+  bool get isJoinRequest {
+    if (isJoinRequestReview) return false;
+    return type == 'world_apply' || block == 'world_apply';
+  }
 
   bool get isFollowNotification => block == 'follow' || type == 'follow';
 
+  bool get isDiscussNotification =>
+      block == 'interaction' || type.startsWith('discuss_');
+
   String get applyId => objId;
 
+  String get senderDisplayName =>
+      senderName.isEmpty ? 'Someone' : formatUidForDisplay(senderName);
+
   String get requesterName {
-    if (senderName.isNotEmpty) return senderName;
-    return _firstNonEmpty([_extractRequesterNameFromJoinContent(content)]);
+    if (senderName.isNotEmpty) return formatUidForDisplay(senderName);
+    return _firstNonEmpty([
+      _extractRequesterNameFromJoinContent(content),
+      'Someone',
+    ]);
   }
 
   String get requestWorldName => _firstNonEmpty([worldName, bizId]);
 
   String get joinRequestSummary {
-    final name = requesterName.isEmpty ? 'Someone' : requesterName;
+    final name = requesterName;
     final world = requestWorldName.isEmpty ? 'this world' : requestWorldName;
     final id = bizId.trim();
-    final suffix = id.isEmpty ? '' : '\n($id)';
+    final suffix = id.isEmpty ? '' : '($id)';
     return '$name request to join $world$suffix';
+  }
+
+  String get reviewTitleText {
+    final world = requestWorldName.isEmpty ? 'this world' : requestWorldName;
+    final id = bizId.trim();
+    return 'request to $world${id.isEmpty ? '' : '($id)'}';
+  }
+
+  _JoinRequestApprovalStatus get joinRequestApprovalStatus {
+    return approvalStatus ?? _JoinRequestApprovalStatus.pending;
   }
 
   String get joinRequestStatusText {
@@ -577,9 +902,10 @@ class _NotificationItem {
         return 'Approved';
       case _JoinRequestApprovalStatus.rejected:
         return 'Rejected';
-      case null:
       case _JoinRequestApprovalStatus.pending:
         return 'Awaiting your approval';
+      case null:
+        return isJoinRequestReview ? 'Approved' : 'Awaiting your approval';
     }
   }
 
@@ -589,35 +915,58 @@ class _NotificationItem {
         return const Color(0xFF25845C);
       case _JoinRequestApprovalStatus.rejected:
         return const Color(0xFF8A8D93);
-      case null:
       case _JoinRequestApprovalStatus.pending:
+        return const Color(0xFF25845C);
+      case null:
         return const Color(0xFF25845C);
     }
   }
 
-  String get titleText {
-    final name = senderName.isEmpty ? 'Someone' : senderName;
-    switch (type) {
-      case 'discuss_like':
-        return '$name liked your comment';
-      case 'discuss_reply':
-        return '$name replied to your comment';
-      case 'discuss_comment':
-        return '$name commented';
-      case 'follow':
-        return content.isEmpty ? '$name started following you' : content;
+  String get discussTitleSuffix {
+    final normalizedType = type.toLowerCase();
+    final normalizedContent = content.toLowerCase();
+    if (normalizedType == 'discuss_comment') {
+      return ' comment your origin';
     }
-    return content;
+    if (normalizedType == 'discuss_reply') {
+      return ' reply to you';
+    }
+    if (normalizedType == 'discuss_like') {
+      return ' like your comment';
+    }
+    if (normalizedType.contains('like') ||
+        normalizedContent.contains('liked your comment') ||
+        normalizedContent.contains('like your comment')) {
+      return ' like your comment';
+    }
+    if (normalizedType.contains('reply') ||
+        normalizedContent.contains('replied to you') ||
+        normalizedContent.contains('reply to you')) {
+      return ' reply to you';
+    }
+    if (normalizedType.contains('comment') ||
+        normalizedContent.contains('commented on your origin') ||
+        normalizedContent.contains('comment your origin')) {
+      return ' comment your origin';
+    }
+    return content.isEmpty ? ' sent you a message' : ' $content';
   }
+
+  String get titleText => '$senderDisplayName$discussTitleSuffix';
 
   String get followUserName {
     if (!isFollowNotification) return '';
-    if (senderName.isNotEmpty) return senderName;
+    if (senderName.isNotEmpty) {
+      return formatUidForDisplay(senderName, fallback: 'User');
+    }
     final suffix = ' started following you.';
     if (content.endsWith(suffix)) {
-      return content.substring(0, content.length - suffix.length).trim();
+      return formatUidForDisplay(
+        content.substring(0, content.length - suffix.length).trim(),
+        fallback: 'User',
+      );
     }
-    return '';
+    return formatUidForDisplay(followUserUid, fallback: 'User');
   }
 
   String get followUserUid {
@@ -625,24 +974,22 @@ class _NotificationItem {
     return _firstNonEmpty([senderUid, objId, bizId]);
   }
 
-  String get followTitleSuffix {
-    if (!isFollowNotification) return '';
-    final userName = followUserName;
-    if (userName.isNotEmpty && content.startsWith(userName)) {
-      final suffix = content.substring(userName.length);
-      return suffix.isEmpty ? ' started following you.' : suffix;
-    }
-    return ' started following you.';
-  }
-
   String get bodyText {
-    if (type == 'follow') return '';
-    if (type.startsWith('discuss_')) return commentText;
-    return content == titleText ? '' : content;
+    if (isDiscussNotification) {
+      final trimmedComment = commentText.trim();
+      if (trimmedComment.isEmpty) return '';
+      final normalizedComment = trimmedComment.toLowerCase();
+      final normalizedTitle = titleText.toLowerCase();
+      if (normalizedComment == normalizedTitle) return '';
+      return trimmedComment;
+    }
+    return content;
   }
 
   String get metaText {
-    final source = _firstNonEmpty([originName, worldName, bizId]);
+    final source = isDiscussNotification
+        ? _firstNonEmpty([originName, worldName])
+        : _firstNonEmpty([originName, worldName, bizId]);
     final time = createdAtText;
     if (source.isEmpty) return time;
     if (time.isEmpty) return '#$source';
@@ -658,6 +1005,21 @@ class _NotificationItem {
     final hour = local.hour.toString().padLeft(2, '0');
     final minute = local.minute.toString().padLeft(2, '0');
     return '$month-$day $hour:$minute';
+  }
+
+  OriginDiscussListItem toDiscussListItem() {
+    return OriginDiscussListItem(
+      discussId: objId,
+      bizId: bizId,
+      authorUid: senderUid,
+      authorName: senderDisplayName,
+      avatar: senderAvatar,
+      content: commentText,
+      replyCount: 0,
+      createdAt: createdAt,
+      seed: senderUid.isEmpty ? senderDisplayName : senderUid,
+      latestReplies: const <Map<String, dynamic>>[],
+    );
   }
 }
 
@@ -695,184 +1057,99 @@ enum _JoinRequestAction {
 
 enum _JoinRequestApprovalStatus { pending, approved, rejected }
 
-class _JoinRequestDialog extends StatelessWidget {
-  const _JoinRequestDialog({required this.item});
-
-  static const _maxWidth = 318.0;
-  static const _radius = BorderRadius.all(Radius.circular(18));
-  static const _divider = Color(0xFFE8E8EA);
+class _JoinRequestDialogContent extends StatelessWidget {
+  const _JoinRequestDialogContent({
+    required this.item,
+    required this.statusOnly,
+    required this.onOpenUser,
+    required this.onOpenWorld,
+  });
 
   final _NotificationItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      elevation: 0,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-      backgroundColor: Colors.transparent,
-      child: FractionallySizedBox(
-        widthFactor: 0.72,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _maxWidth),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ClipRRect(
-                borderRadius: _radius,
-                child: Material(
-                  color: Colors.white,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: 26),
-                      const Text(
-                        'Join request',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 18,
-                          height: 1.2,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      _JoinRequestInfoRow(
-                        title: item.requesterName.isEmpty
-                            ? 'Someone'
-                            : item.requesterName,
-                        subtitle: item.senderUid,
-                      ),
-                      const SizedBox(height: 18),
-                      _JoinRequestInfoRow(
-                        title: item.requestWorldName.isEmpty
-                            ? 'this world'
-                            : item.requestWorldName,
-                        subtitle: item.bizId,
-                      ),
-                      const SizedBox(height: 18),
-                      const Divider(height: 1, thickness: 1, color: _divider),
-                      _JoinRequestDialogButton(
-                        label: 'Approve',
-                        color: Color(0xFFF42C47),
-                        onTap: () => Navigator.of(
-                          context,
-                        ).pop(_JoinRequestAction.approve),
-                      ),
-                      const Divider(height: 1, thickness: 1, color: _divider),
-                      _JoinRequestDialogButton(
-                        label: 'Reject',
-                        color: Colors.black,
-                        onTap: () => Navigator.of(
-                          context,
-                        ).pop(_JoinRequestAction.reject),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              ClipRRect(
-                borderRadius: _radius,
-                child: Material(
-                  color: Colors.white,
-                  child: _JoinRequestDialogButton(
-                    label: 'Cancel',
-                    color: Colors.black,
-                    onTap: () => Navigator.of(context).pop(),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _JoinRequestInfoRow extends StatelessWidget {
-  const _JoinRequestInfoRow({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
+  final bool statusOnly;
+  final VoidCallback onOpenUser;
+  final VoidCallback onOpenWorld;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 8,
-              runSpacing: 3,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 16,
-                    height: 1.2,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                if (subtitle.isNotEmpty)
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: Color(0xFF8A8D93),
-                      fontSize: 16,
-                      height: 1.2,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-              ],
-            ),
+          _JoinRequestDialogInfoRow(
+            title: item.requesterName,
+            subtitle: item.senderUid,
+            onTap: onOpenUser,
           ),
-          const SizedBox(width: 12),
-          const Text(
-            '>',
-            style: TextStyle(
-              color: Color(0xFF8A8D93),
-              fontSize: 18,
-              height: 1,
-              fontWeight: FontWeight.w700,
-            ),
+          const SizedBox(height: 4),
+          _JoinRequestDialogInfoRow(
+            title: item.requestWorldName.isEmpty
+                ? 'this world'
+                : item.requestWorldName,
+            subtitle: item.bizId,
+            onTap: onOpenWorld,
           ),
+          if (statusOnly) ...[
+            const SizedBox(height: 12),
+            _StatusText(item: item),
+          ],
         ],
       ),
     );
   }
 }
 
-class _JoinRequestDialogButton extends StatelessWidget {
-  const _JoinRequestDialogButton({
-    required this.label,
-    required this.color,
+class _JoinRequestDialogInfoRow extends StatelessWidget {
+  const _JoinRequestDialogInfoRow({
+    required this.title,
+    required this.subtitle,
     required this.onTap,
   });
 
-  final String label;
-  final Color color;
+  final String title;
+  final String subtitle;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      child: SizedBox(
-        height: 62,
-        width: double.infinity,
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 18,
-              height: 1.2,
-              fontWeight: FontWeight.w800,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: title, style: _originBlueTextStyle),
+                    if (subtitle.trim().isNotEmpty)
+                      TextSpan(text: ' $subtitle'),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF111111),
+                  fontSize: 12,
+                  height: 1.2,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            const Text(
+              '>',
+              style: TextStyle(
+                color: Color(0xFF8A8D93),
+                fontSize: 12,
+                height: 1,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -900,6 +1177,13 @@ String _firstNonEmpty(Iterable<String> values, {String fallback = ''}) {
   return fallback;
 }
 
+Object? _firstNonNull(Iterable<Object?> values) {
+  for (final value in values) {
+    if (value != null) return value;
+  }
+  return null;
+}
+
 _JoinRequestApprovalStatus? _approvalStatusFromJson(Map<String, dynamic> json) {
   final raw = _firstNonEmpty([
     asString(json['apply_status']),
@@ -924,6 +1208,16 @@ String _extractRequesterNameFromJoinContent(String content) {
     caseSensitive: false,
   ).firstMatch(content.trim());
   return match?.group(1)?.trim() ?? '';
+}
+
+String _extractCommentBodyFromContent(String content) {
+  final trimmed = content.trim();
+  if (trimmed.isEmpty) return '';
+  final quoted = RegExp(r'["“](.+?)["”]').firstMatch(trimmed);
+  if (quoted != null) return quoted.group(1)?.trim() ?? '';
+  final colonIndex = trimmed.indexOf(':');
+  if (colonIndex == -1 || colonIndex == trimmed.length - 1) return '';
+  return trimmed.substring(colonIndex + 1).trim();
 }
 
 String _extractWorldNameFromJoinContent(String content) {

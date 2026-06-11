@@ -375,13 +375,46 @@ class OriginDiscussListController extends ChangeNotifier {
     required bool isLiked,
     required int likeCount,
   }) {
-    _replaceItem(
-      discussId,
-      (item) => item.copyWith(
-        isLiked: isLiked,
-        likeCount: likeCount < 0 ? 0 : likeCount,
-      ),
-    );
+    final normalizedDiscussId = discussId.trim();
+    if (normalizedDiscussId.isEmpty) return;
+    final normalizedLikeCount = likeCount < 0 ? 0 : likeCount;
+    var changed = false;
+
+    for (var index = 0; index < _items.length; index += 1) {
+      final item = _items[index];
+      if (item.discussId == normalizedDiscussId) {
+        _items[index] = item.copyWith(
+          isLiked: isLiked,
+          likeCount: normalizedLikeCount,
+        );
+        changed = true;
+        continue;
+      }
+
+      final replies = item.latestReplies;
+      var replyChanged = false;
+      final nextReplies = replies
+          .map((reply) {
+            if (asString(reply['discuss_id']) != normalizedDiscussId) {
+              return reply;
+            }
+            replyChanged = true;
+            return {
+              ...reply,
+              'is_liked': isLiked,
+              'like_cnt': normalizedLikeCount,
+              'like_count': normalizedLikeCount,
+            };
+          })
+          .toList(growable: false);
+
+      if (replyChanged) {
+        _items[index] = item.copyWith(latestReplies: nextReplies);
+        changed = true;
+      }
+    }
+
+    if (changed) notifyListeners();
   }
 
   Future<void> loadProgressForItem({
@@ -825,7 +858,7 @@ class OriginDiscussList extends StatelessWidget {
                 child: Column(
                   children: [
                     for (final entry in comments.indexed) ...[
-                      _DiscussPreviewRow(
+                      OriginDiscussCommentRow(
                         controller: controller,
                         item: entry.$2,
                         showActions: showActions,
@@ -925,8 +958,9 @@ class _DiscussHeader extends StatelessWidget {
   }
 }
 
-class _DiscussPreviewRow extends StatefulWidget {
-  const _DiscussPreviewRow({
+class OriginDiscussCommentRow extends StatefulWidget {
+  const OriginDiscussCommentRow({
+    super.key,
     required this.controller,
     required this.item,
     required this.showActions,
@@ -947,10 +981,11 @@ class _DiscussPreviewRow extends StatefulWidget {
   final OriginDiscussReplyTap? onReplyTap;
 
   @override
-  State<_DiscussPreviewRow> createState() => _DiscussPreviewRowState();
+  State<OriginDiscussCommentRow> createState() =>
+      _OriginDiscussCommentRowState();
 }
 
-class _DiscussPreviewRowState extends State<_DiscussPreviewRow> {
+class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
   static const double _progressPrefetchExtent = 600;
 
   ScrollPosition? _scrollPosition;
@@ -975,7 +1010,7 @@ class _DiscussPreviewRowState extends State<_DiscussPreviewRow> {
   }
 
   @override
-  void didUpdateWidget(covariant _DiscussPreviewRow oldWidget) {
+  void didUpdateWidget(covariant OriginDiscussCommentRow oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.item.discussId != widget.item.discussId ||
         oldWidget.item.authorUid != widget.item.authorUid ||
@@ -1332,30 +1367,48 @@ Future<bool> showOriginDiscussReplyComposer({
     context: context,
     title: 'Reply',
     placeholder: 'Write a reply',
-    submitter: (content, images) async {
-      final services = AppServicesScope.read(context);
-      final created = await services.api.v1.discuss.post(
-        bizId: bizId,
-        content: content,
-        images: images,
-        rootDiscussId: discussId,
-        parentDiscussId: discussId,
-      );
-      final userInfo = await services.sessionStore.readUserInfo();
-      controller.insertReply(
-        discussId,
-        _localReplyJson(
-          created: created,
-          content: content,
-          images: images,
-          bizId: bizId,
-          rootDiscussId: discussId,
-          parentDiscussId: discussId,
-          replyToUid: item.authorUid,
-          userInfo: userInfo,
-        ),
-      );
-    },
+    submitter: (content, images) => submitOriginDiscussReply(
+      context: context,
+      controller: controller,
+      item: item,
+      content: content,
+      images: images,
+    ),
+  );
+}
+
+Future<void> submitOriginDiscussReply({
+  required BuildContext context,
+  required OriginDiscussListController controller,
+  required OriginDiscussListItem item,
+  required String content,
+  required List<String> images,
+}) async {
+  final discussId = item.discussId.trim();
+  final bizId = item.bizId.trim();
+  if (discussId.isEmpty || bizId.isEmpty) return;
+
+  final services = AppServicesScope.read(context);
+  final created = await services.api.v1.discuss.post(
+    bizId: bizId,
+    content: content,
+    images: images,
+    rootDiscussId: discussId,
+    parentDiscussId: discussId,
+  );
+  final userInfo = await services.sessionStore.readUserInfo();
+  controller.insertReply(
+    discussId,
+    _localReplyJson(
+      created: created,
+      content: content,
+      images: images,
+      bizId: bizId,
+      rootDiscussId: discussId,
+      parentDiscussId: discussId,
+      replyToUid: item.authorUid,
+      userInfo: userInfo,
+    ),
   );
 }
 
@@ -1524,7 +1577,7 @@ class _DiscussAvatar extends StatelessWidget {
       url: avatar,
       name: item.authorName,
       size: _discussAvatarSize,
-      borderRadius: 8,
+      borderRadius: _discussAvatarSize / 2,
     );
   }
 }

@@ -9,8 +9,6 @@ import '../../utils/display_name_formatter.dart';
 import '../../utils/relative_time_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
-const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
-
 @immutable
 class WorldListItem {
   const WorldListItem({
@@ -171,9 +169,28 @@ class WorldItemCard extends StatelessWidget {
         ),
         const SizedBox(width: 14),
         Expanded(
-          child: _WorldItemBody(
-            item: item,
-            showPreviewImages: showPreviewImages,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _WorldSummary(item: item),
+              const SizedBox(height: 16),
+              _ProgressHeader(
+                timeText: formatRelativeTimestamp(item.lastProgressAt),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                item.progressSummary,
+                maxLines: 5,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF111111),
+                  fontSize: 12,
+                  height: 1.4,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              if (showPreviewImages) _WorldPreviewImages(item: item),
+            ],
           ),
         ),
       ],
@@ -181,15 +198,13 @@ class WorldItemCard extends StatelessWidget {
   }
 }
 
-class _WorldItemBody extends StatelessWidget {
-  const _WorldItemBody({required this.item, required this.showPreviewImages});
+class _WorldSummary extends StatelessWidget {
+  const _WorldSummary({required this.item});
 
   final WorldListItem item;
-  final bool showPreviewImages;
 
   @override
   Widget build(BuildContext context) {
-    final previewImages = item.resolvedPreviewImages.take(2).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -205,52 +220,59 @@ class _WorldItemBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          'WID: ${item.wid}   Owner: ${item.ownerLabel}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF8B8B8B),
-            fontSize: 12,
-            height: 1.2,
-            fontWeight: FontWeight.w400,
-          ),
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                'WID: ${item.wid}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _worldMetaStyle,
+              ),
+            ),
+            const SizedBox(width: 24),
+            Flexible(
+              child: Text(
+                'Owner: ${item.ownerLabel}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _worldMetaStyle,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         _WorldStatsRow(item: item),
-        const SizedBox(height: 12),
-        _ProgressHeader(timeText: formatRelativeTimestamp(item.lastProgressAt)),
-        const SizedBox(height: 10),
-        Text(
-          item.progressSummary,
-          maxLines: 5,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF111111),
-            fontSize: 12,
-            height: 1.33,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-        if (showPreviewImages && previewImages.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              for (final entry in previewImages.indexed) ...[
-                Expanded(
-                  child: _WorldImage(
-                    imageUrl: entry.$2,
-                    height: 120,
-                    borderRadius: 5,
-                  ),
-                ),
-                if (entry.$1 != previewImages.length - 1)
-                  const SizedBox(width: 10),
-              ],
-            ],
-          ),
-        ],
       ],
+    );
+  }
+}
+
+class _WorldPreviewImages extends StatelessWidget {
+  const _WorldPreviewImages({required this.item});
+
+  final WorldListItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final previewImages = item.resolvedPreviewImages.take(2).toList();
+    if (previewImages.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Row(
+        children: [
+          for (final entry in previewImages.indexed) ...[
+            Expanded(
+              child: _WorldImage(
+                imageUrl: entry.$2,
+                height: 120,
+                borderRadius: 8,
+              ),
+            ),
+            if (entry.$1 != previewImages.length - 1) const SizedBox(width: 10),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -267,8 +289,8 @@ class _WorldStatsRow extends StatelessWidget {
       runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        _Stat(icon: MyFlutterApp.pregress, value: item.tickCnt),
-        _Stat(iconAsset: _connectIconAsset, value: item.connectCnt),
+        _Stat(iconAsset: playIconAsset, value: item.tickCnt),
+        _Stat(iconAsset: connectIconAsset, value: item.connectCnt),
         _Stat(
           iconAsset: aiCharacterIconAsset,
           preserveIconAssetColor: true,
@@ -304,13 +326,17 @@ class _Stat extends StatelessWidget {
                   offset: const Offset(0, -0.8),
                   child: Image.asset(
                     asset,
-                    width: 13.75,
-                    height: 13.75,
+                    width: customIconAssetRenderSize(asset, 13.75),
+                    height: customIconAssetRenderSize(asset, 13.75),
                     fit: BoxFit.contain,
                     excludeFromSemantics: true,
                   ),
                 )
-              : ImageIcon(AssetImage(asset), size: 11, color: Colors.black)
+              : ImageIcon(
+                  AssetImage(asset),
+                  size: customIconAssetRenderSize(asset, 11),
+                  color: Colors.black,
+                )
         else
           Icon(icon, size: 11, color: Colors.black),
         const SizedBox(width: 4),
@@ -343,28 +369,30 @@ class _ProgressHeader extends StatelessWidget {
           size: 14,
         ),
         const SizedBox(width: 5),
-        const Text(
-          'Last Progress',
-          style: TextStyle(
-            color: Color(0xFF1D1D1D),
-            fontSize: 14,
-            height: 1,
-            fontWeight: FontWeight.w500,
+        const Expanded(
+          child: Text(
+            'Last Progress',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Color(0xFF1D1D1D),
+              fontSize: 14,
+              height: 1,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         if (timeText.isNotEmpty) ...[
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              timeText,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF8B8B8B),
-                fontSize: 12,
-                height: 1.1,
-                fontWeight: FontWeight.w400,
-              ),
+          const SizedBox(width: 10),
+          Text(
+            timeText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF8B8B8B),
+              fontSize: 12,
+              height: 1.1,
+              fontWeight: FontWeight.w400,
             ),
           ),
         ],
@@ -396,6 +424,13 @@ class _WorldImage extends StatelessWidget {
     );
   }
 }
+
+const _worldMetaStyle = TextStyle(
+  color: Color(0xFF8B8B8B),
+  fontSize: 12,
+  height: 1.2,
+  fontWeight: FontWeight.w400,
+);
 
 List<String> _tagsFromJson(Object? value) {
   if (value is! List) return const <String>[];

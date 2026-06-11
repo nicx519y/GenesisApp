@@ -26,7 +26,6 @@ class SettingsPage extends StatelessWidget {
   Future<void> _logout(BuildContext context) async {
     final services = AppServicesScope.read(context);
     await services.backendAuth.signOut();
-    await services.sessionStore.clearUid();
     if (!context.mounted) return;
     Navigator.of(context).pop(true);
   }

@@ -20,6 +20,7 @@ Future<T?> showGenesisActionBox<T>({
   required BuildContext context,
   required String title,
   required List<GenesisActionBoxAction<T>> actions,
+  Widget? content,
   String cancelLabel = 'Cancel',
 }) {
   return showDialog<T>(
@@ -28,6 +29,7 @@ Future<T?> showGenesisActionBox<T>({
     builder: (dialogContext) {
       return GenesisActionBox<T>(
         title: title,
+        content: content,
         actions: actions,
         cancelLabel: cancelLabel,
         onActionSelected: (value) => Navigator.of(dialogContext).pop(value),
@@ -44,17 +46,19 @@ class GenesisActionBox<T> extends StatelessWidget {
     required this.actions,
     required this.onActionSelected,
     required this.onCancel,
+    this.content,
     this.cancelLabel = 'Cancel',
   });
 
-  static const double _rowHeight = 62;
-  static const double _titleHeight = 74;
-  static const double _maxWidth = 318;
+  static const double _rowHeight = 56;
+  static const double _titleHeight = 70;
+  static const double _maxWidth = 800;
   static const BorderRadius _borderRadius = BorderRadius.all(
     Radius.circular(18),
   );
 
   final String title;
+  final Widget? content;
   final List<GenesisActionBoxAction<T>> actions;
   final ValueChanged<T> onActionSelected;
   final VoidCallback onCancel;
@@ -63,18 +67,18 @@ class GenesisActionBox<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasMultipleActions = actions.length > 1;
+    final dialogWidth = (MediaQuery.sizeOf(context).width * 0.7)
+        .clamp(0.0, _maxWidth)
+        .toDouble();
     return Dialog(
       elevation: 0,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      insetPadding: EdgeInsets.zero,
       backgroundColor: Colors.transparent,
-      child: FractionallySizedBox(
-        widthFactor: 0.72,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: _maxWidth),
-          child: hasMultipleActions
-              ? _buildDetachedCancelStyle()
-              : _buildAttachedCancelStyle(),
-        ),
+      child: SizedBox(
+        width: dialogWidth,
+        child: hasMultipleActions
+            ? _buildDetachedCancelStyle()
+            : _buildAttachedCancelStyle(),
       ),
     );
   }
@@ -89,6 +93,7 @@ class GenesisActionBox<T> extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _TitleRow(title: title),
+            if (content case final content?) content,
             const _Divider(),
             for (final action in actions) ...[
               _ActionRow<T>(
@@ -118,6 +123,7 @@ class GenesisActionBox<T> extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _TitleRow(title: title),
+                if (content case final content?) content,
                 const _Divider(),
                 for (var index = 0; index < actions.length; index++) ...[
                   _ActionRow<T>(
@@ -163,7 +169,7 @@ class _TitleRow extends StatelessWidget {
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: _genesisActionBoxText,
-              fontSize: 14,
+              fontSize: 15,
               height: 1.16,
               fontWeight: FontWeight.w700,
             ),
@@ -204,9 +210,9 @@ class _ActionRow<T> extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: color,
-                fontSize: 14,
+                fontSize: 15,
                 height: 1.2,
-                fontWeight: FontWeight.w700,
+                fontWeight: isPreferred ? FontWeight.w700 : FontWeight.w400,
               ),
             ),
           ),
@@ -238,7 +244,7 @@ class _CancelRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: _genesisActionBoxText,
-                fontSize: 14,
+                fontSize: 15,
                 height: 1.2,
                 fontWeight: FontWeight.w400,
               ),

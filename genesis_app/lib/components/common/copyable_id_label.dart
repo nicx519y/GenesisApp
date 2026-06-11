@@ -4,7 +4,12 @@ import 'package:flutter/services.dart';
 import 'genesis_center_toast.dart';
 
 class CopyableIdLabel extends StatelessWidget {
-  const CopyableIdLabel({super.key, required this.label, required this.value});
+  const CopyableIdLabel({
+    super.key,
+    required this.label,
+    required this.value,
+    this.showCopyIcon = true,
+  });
 
   static const TextStyle textStyle = TextStyle(
     fontSize: 12,
@@ -17,6 +22,7 @@ class CopyableIdLabel extends StatelessWidget {
 
   final String label;
   final String value;
+  final bool showCopyIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -38,8 +44,10 @@ class CopyableIdLabel extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 6),
-            const Icon(Icons.copy_outlined, size: 16, color: iconColor),
+            if (showCopyIcon) ...[
+              const SizedBox(width: 6),
+              const Icon(Icons.copy_outlined, size: 16, color: iconColor),
+            ],
           ],
         ),
       ),

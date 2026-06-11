@@ -543,8 +543,13 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
       placeholder: widget.placeholder,
       maxWidth: composerContentWidth,
     );
+    final hasImages = _images.isNotEmpty;
     final sheetHeight = math.min(
-      _discussComposerPreferredSheetHeight(media.size.width, composerTextLines),
+      _discussComposerPreferredSheetHeight(
+        media.size.width,
+        composerTextLines,
+        hasImages: hasImages,
+      ),
       maxSheetHeight,
     );
     if (_closing) return const SizedBox.shrink();
@@ -608,16 +613,17 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
                           ),
                         ),
                         const SizedBox(height: 14),
-                        _DiscussImageStrip(
-                          images: _images,
-                          showAddButton:
-                              _images.isNotEmpty &&
-                              _images.length < discussPostMaxImages,
-                          submitting: _submitting,
-                          onAdd: _pickAndUploadImages,
-                          onRemove: _removeImage,
-                        ),
-                        const SizedBox(height: 14),
+                        if (hasImages) ...[
+                          _DiscussImageStrip(
+                            images: _images,
+                            showAddButton:
+                                _images.length < discussPostMaxImages,
+                            submitting: _submitting,
+                            onAdd: _pickAndUploadImages,
+                            onRemove: _removeImage,
+                          ),
+                          const SizedBox(height: 14),
+                        ],
                         Row(
                           children: [
                             IconButton(
@@ -887,13 +893,20 @@ double _keyboardInsetBottom(BuildContext context, MediaQueryData media) {
   );
 }
 
-double _discussComposerPreferredSheetHeight(double screenWidth, int textLines) {
+double _discussComposerPreferredSheetHeight(
+  double screenWidth,
+  int textLines, {
+  required bool hasImages,
+}) {
   final contentWidth = math.max(0.0, screenWidth - 32);
   final gap = _discussImageGap(contentWidth);
-  final imageStripHeight = _discussImageTileSize(contentWidth, gap) + 8;
+  final imageStripHeight = hasImages
+      ? _discussImageTileSize(contentWidth, gap) + 8
+      : 0.0;
   final textHeight =
       _discussComposerFontSize * _discussComposerLineHeight * textLines +
       _discussComposerTextHeightAllowance;
+  final imageSectionHeight = hasImages ? imageStripHeight + 14 : 0.0;
 
   return 22 +
       GenesisBottomSheetPanel.titleStyle.fontSize! *
@@ -901,8 +914,7 @@ double _discussComposerPreferredSheetHeight(double screenWidth, int textLines) {
       18 +
       textHeight +
       14 +
-      imageStripHeight +
-      14 +
+      imageSectionHeight +
       _discussComposerActionHeight +
       14;
 }

@@ -7,8 +7,6 @@ import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 
-const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
-
 void main() {
   testWidgets('renders popular origin feed fields and handles taps', (
     WidgetTester tester,
@@ -24,6 +22,7 @@ void main() {
       worldView: 'A city powered by celebrity markets.',
       createdUid: 'u_1',
       createdUserName: 'Shawn',
+      ownerName: 'Origin Owner',
       createdAt: '2026-05-01T00:00:00Z',
       updatedAt: '2026-05-02T00:00:00Z',
       tags: <String>['romance', 'tycoon'],
@@ -32,7 +31,6 @@ void main() {
       discussCnt: 128,
       characterCnt: 6,
       locationCnt: 3,
-      coverHeight: 260,
     );
     var tappedOid = '';
     var requestedDiscussOid = '';
@@ -84,7 +82,8 @@ void main() {
 
     expect(find.text('#Alpha Empire'), findsWidgets);
     expect(find.text('Copy World Progress'), findsOneWidget);
-    expect(find.text('OID: o_alpha'), findsOneWidget);
+    expect(find.text('OID: o_alpha'), findsNWidgets(2));
+    expect(find.text('Originator: Origin Owner'), findsOneWidget);
     expect(find.text('v3'), findsNothing);
     expect(find.text('8'), findsOneWidget);
     final versionChip = find.byKey(
@@ -107,6 +106,7 @@ void main() {
     expect(versionText.style?.fontSize, 11);
     expect(versionText.style?.fontWeight, FontWeight.w500);
     expect(versionText.style?.color, const Color(0xFF92400E));
+    expect(find.byIcon(Icons.skip_next), findsNothing);
     expect(find.text('Discuss (128)'), findsOneWidget);
     expect(find.image(const AssetImage(discussIconAsset)), findsOneWidget);
     expect(requestedDiscussOid, 'o_alpha');
@@ -137,7 +137,10 @@ void main() {
       findsOneWidget,
     );
     expect(find.byIcon(MyFlutterApp.save), findsOneWidget);
-    expect(_findConnectImageIcon(), findsOneWidget);
+    final connectIcon = tester.widget<ImageIcon>(
+      _assetImageIconFinder(connectIconAsset),
+    );
+    expect(connectIcon.size, 13);
     expect(find.text('2.3K'), findsOneWidget);
     expect(find.text('4.4M'), findsOneWidget);
     expect(
@@ -155,11 +158,11 @@ void main() {
   });
 }
 
-Finder _findConnectImageIcon() {
+Finder _assetImageIconFinder(String assetName) {
   return find.byWidgetPredicate(
     (widget) =>
         widget is ImageIcon &&
         widget.image is AssetImage &&
-        (widget.image as AssetImage).assetName == _connectIconAsset,
+        (widget.image as AssetImage).assetName == assetName,
   );
 }

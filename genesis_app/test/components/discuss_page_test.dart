@@ -148,8 +148,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Post Detail'), findsOneWidget);
-    expect(find.text('Add a comment'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'Write a reply'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('post-detail-post-input-bar')),
+      findsOneWidget,
+    );
+    final bottomInput = tester.widget<TextField>(
+      find.widgetWithText(TextField, 'Write a reply'),
+    );
+    expect(bottomInput.minLines, 1);
+    expect(bottomInput.maxLines, 3);
   });
 
   testWidgets('post detail bottom input opens composer for its root discuss', (
@@ -173,23 +180,31 @@ void main() {
 
     expect(find.text('Post Detail'), findsOneWidget);
     expect(find.text('All Replies 1'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'Write a reply'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('post-detail-reply-reply_1')),
+      findsOneWidget,
+    );
+    expect(find.text('Reply User: Reply target'), findsNothing);
+    expect(find.text('Reply target'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Write a reply'), findsOneWidget);
 
-    await tester.tap(find.text('Add a comment'));
+    await tester.tap(find.widgetWithText(TextField, 'Write a reply'));
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(TextField, 'Write a reply'), findsOneWidget);
-    final replyInput = tester.widget<TextField>(
-      find.widgetWithText(TextField, 'Write a reply'),
+    final composerInputFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          widget.decoration?.hintText == 'Write a reply' &&
+          widget.minLines == 3 &&
+          widget.maxLines == 6,
     );
+    expect(composerInputFinder, findsOneWidget);
+    final replyInput = tester.widget<TextField>(composerInputFinder);
     expect(replyInput.minLines, 3);
     expect(replyInput.maxLines, 6);
     expect(replyInput.expands, isFalse);
 
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Write a reply'),
-      'reply from list item',
-    );
+    await tester.enterText(composerInputFinder, 'reply from list item');
     await tester.pump();
     await tester.tap(find.text('Send'));
     await tester.pumpAndSettle();

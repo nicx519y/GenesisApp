@@ -8,8 +8,6 @@ import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../origin/origin_item_card.dart';
 
-const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
-
 class PopularOriginList extends StatefulWidget {
   const PopularOriginList({
     super.key,
@@ -141,17 +139,7 @@ class PopularOriginListItem extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                originDisplayName(title),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF4B6192),
-                  fontSize: 14,
-                  height: 1.1,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              _OriginSummary(item: item, title: title),
               const SizedBox(height: 10),
               Text(
                 item.subtitle,
@@ -188,6 +176,81 @@ class PopularOriginListItem extends StatelessWidget {
   }
 }
 
+class _OriginSummary extends StatelessWidget {
+  const _OriginSummary({required this.item, required this.title});
+
+  final OriginListItem item;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          originDisplayName(title),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Color(0xFF4B6192),
+            fontSize: 14,
+            height: 1.1,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                'OID: ${item.oid}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _metaStyle,
+              ),
+            ),
+            const SizedBox(width: 24),
+            Flexible(
+              child: Text(
+                'Originator: ${_originatorLabel(item)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _metaStyle,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        _OriginStatsRow(item: item),
+      ],
+    );
+  }
+}
+
+class _OriginStatsRow extends StatelessWidget {
+  const _OriginStatsRow({required this.item});
+
+  final OriginListItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 24,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _OriginStat(icon: MyFlutterApp.save, value: item.copyCnt),
+        _OriginStat(iconAsset: connectIconAsset, value: item.connectCnt),
+        _OriginStat(
+          iconAsset: aiCharacterIconAsset,
+          preserveIconAssetColor: true,
+          value: item.characterCnt,
+        ),
+      ],
+    );
+  }
+}
+
 class _OriginHeroImage extends StatelessWidget {
   const _OriginHeroImage({required this.item});
 
@@ -195,47 +258,9 @@ class _OriginHeroImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _OriginImage(imageUrl: item.cover, borderRadius: 0),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                height: 26,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                color: Colors.black.withValues(alpha: 0.3),
-                child: Row(
-                  children: [
-                    _OverlayStat(icon: MyFlutterApp.save, value: item.copyCnt),
-                    const SizedBox(width: 10),
-                    _OverlayStat(
-                      iconAsset: _connectIconAsset,
-                      value: item.connectCnt,
-                    ),
-                    const SizedBox(width: 10),
-                    _OverlayStat(
-                      iconAsset: aiCharacterIconAsset,
-                      value: item.characterCnt,
-                    ),
-                    const SizedBox(width: 10),
-                    _OverlayStat(
-                      icon: MyFlutterApp.user,
-                      value: item.locationCnt,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: _OriginImage(imageUrl: item.cover, width: 107, borderRadius: 8),
     );
   }
 }
@@ -264,40 +289,56 @@ class _OriginImage extends StatelessWidget {
   }
 }
 
-class _OverlayStat extends StatelessWidget {
-  const _OverlayStat({this.icon, this.iconAsset, required this.value})
-    : assert(icon != null || iconAsset != null);
+class _OriginStat extends StatelessWidget {
+  const _OriginStat({
+    this.icon,
+    this.iconAsset,
+    this.preserveIconAssetColor = false,
+    required this.value,
+  }) : assert(icon != null || iconAsset != null);
 
   final IconData? icon;
   final String? iconAsset;
+  final bool preserveIconAssetColor;
   final int value;
 
   @override
   Widget build(BuildContext context) {
-    return Flexible(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (iconAsset case final asset?)
-            ImageIcon(AssetImage(asset), size: 11, color: Colors.white)
-          else
-            Icon(icon, size: 11, color: Colors.white),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              formatStatCount(value),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                height: 1,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (iconAsset case final asset?)
+          preserveIconAssetColor
+              ? Transform.translate(
+                  offset: const Offset(0, -0.8),
+                  child: Image.asset(
+                    asset,
+                    width: customIconAssetRenderSize(asset, 13.75),
+                    height: customIconAssetRenderSize(asset, 13.75),
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  ),
+                )
+              : ImageIcon(
+                  AssetImage(asset),
+                  size: customIconAssetRenderSize(asset, 11),
+                  color: Colors.black,
+                )
+        else
+          Icon(icon, size: 11, color: Colors.black),
+        const SizedBox(width: 4),
+        Text(
+          formatStatCount(value),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Colors.black,
+            fontSize: 12,
+            height: 1,
+            fontWeight: FontWeight.w400,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -441,49 +482,50 @@ class _EnterOriginRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-        color: const Color(0xFFF2F4F7),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 170),
-              child: Text(
-                originDisplayName(title),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF1D1D1D),
-                  fontSize: 12,
-                  height: 1.4,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            originDisplayName(title),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF4B6192),
+              fontSize: 14,
+              height: 1.2,
+              fontWeight: FontWeight.w600,
             ),
-            const SizedBox(width: 12),
-            const Text(
-              'Enter',
-              style: TextStyle(
-                color: Color(0xFF4B6192),
-                fontSize: 15,
-                height: 1.1,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(width: 12),
+        const Text(
+          'Enter',
+          style: TextStyle(
+            color: Color(0xFF4B6192),
+            fontSize: 14,
+            height: 1.2,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(width: 4),
+        const Icon(Icons.chevron_right, color: Color(0xFF4B6192), size: 20),
+      ],
     );
   }
 }
 
+String _originatorLabel(OriginListItem item) {
+  final owner = item.ownerName.trim();
+  if (owner.isNotEmpty) return formatUidForDisplay(owner);
+  final name = item.createdUserName.trim();
+  if (name.isNotEmpty) return formatUidForDisplay(name);
+  return formatUidForDisplay(item.createdUid, fallback: '-');
+}
+
 const _bodyStyle = TextStyle(
   color: Color(0xFF1D1D1D),
-  fontSize: 11,
-  height: 1.32,
+  fontSize: 12,
+  height: 1.42,
   fontWeight: FontWeight.w400,
 );
 

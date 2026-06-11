@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../icons/my_flutter_app_icons.dart';
+import '../icons/custom_icon_assets.dart';
 import '../ui/genesis_ui.dart';
 
 class BottomTabs extends StatelessWidget {
@@ -23,23 +23,30 @@ class BottomTabs extends StatelessWidget {
       items: [
         const GenesisBottomNavigationItem(
           label: 'Home',
-          icon: MyFlutterApp.home,
+          iconAsset: bottomNavHomeIconAsset,
+          selectedIconAsset: bottomNavHomePressIconAsset,
         ),
         const GenesisBottomNavigationItem(
           label: 'Origin',
-          icon: MyFlutterApp.origin,
+          iconAsset: bottomNavOriginIconAsset,
+          selectedIconAsset: bottomNavOriginPressIconAsset,
         ),
         const GenesisBottomNavigationItem(
           label: 'Create',
-          icon: MyFlutterApp.create,
+          iconAsset: bottomNavCreateIconAsset,
           prominent: true,
         ),
         GenesisBottomNavigationItem(
           label: 'Messages',
-          icon: MyFlutterApp.messages,
+          iconAsset: bottomNavMessagesIconAsset,
+          selectedIconAsset: bottomNavMessagesPressIconAsset,
           badgeCount: messagesUnreadCount,
         ),
-        const GenesisBottomNavigationItem(label: 'Me', icon: MyFlutterApp.me),
+        const GenesisBottomNavigationItem(
+          label: 'Me',
+          iconAsset: bottomNavMeIconAsset,
+          selectedIconAsset: bottomNavMePressIconAsset,
+        ),
       ],
     );
   }

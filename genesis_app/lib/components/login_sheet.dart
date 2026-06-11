@@ -52,15 +52,15 @@ class _LoginSheetState extends State<LoginSheet> {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final maxHeight = media.size.height - media.padding.top - 18;
-    final targetHeight = maxHeight < 360 ? maxHeight : 360.0;
+    final targetHeight = maxHeight < 326 ? maxHeight : 326.0;
 
     return GenesisBottomSheetPanel(
       title: 'Sign in to continue',
       height: targetHeight,
-      titleBottomSpacing: 14,
+      titleBottomSpacing: 10,
       titleTextStyle: const TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w700,
+        fontSize: 22,
+        fontWeight: FontWeight.w400,
         color: Color(0xFF111111),
       ),
       trailing: IconButton(
@@ -76,19 +76,20 @@ class _LoginSheetState extends State<LoginSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Use your Google or Apple account to continue.',
+            'Create origin, launch worlds and invite friends',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               color: Color(0xFF666666),
               height: 1.35,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           LoginProviderButtons(
             loggingInProvider: _submittingProvider,
             onLogin: _submit,
+            spacing: 12,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           const Center(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 22),
@@ -99,4 +100,17 @@ class _LoginSheetState extends State<LoginSheet> {
       ),
     );
   }
+}
+
+Future<bool> showLoginSheet({
+  required BuildContext context,
+  required Future<bool> Function(IdentityProvider provider) onLogin,
+}) async {
+  final loggedIn = await showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (context) => LoginSheet(onLogin: onLogin),
+  );
+  return loggedIn == true;
 }

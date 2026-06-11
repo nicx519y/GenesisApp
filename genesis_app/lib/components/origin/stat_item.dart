@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../icons/custom_icon_assets.dart';
+
 class StatItem extends StatelessWidget {
   const StatItem({
     super.key,
@@ -43,13 +45,17 @@ class StatItem extends StatelessWidget {
                   offset: Offset(0, iconVerticalOffset),
                   child: Image.asset(
                     asset,
-                    width: iconSize * iconAssetScale,
-                    height: iconSize * iconAssetScale,
+                    width: customIconAssetRenderSize(asset, iconSize),
+                    height: customIconAssetRenderSize(asset, iconSize),
                     fit: BoxFit.contain,
                     excludeFromSemantics: true,
                   ),
                 )
-              : ImageIcon(AssetImage(asset), size: iconSize, color: color)
+              : ImageIcon(
+                  AssetImage(asset),
+                  size: customIconAssetRenderSize(asset, iconSize),
+                  color: color,
+                )
         else
           Icon(icon, size: iconSize, color: color),
         SizedBox(width: gap),

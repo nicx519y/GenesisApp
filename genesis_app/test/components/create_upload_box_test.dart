@@ -67,6 +67,13 @@ void main() {
     expect(find.text('AVATAR\n(Optional)'), findsNothing);
     expect(find.text('Remove'), findsOneWidget);
     expect(find.byType(Image), findsOneWidget);
+    final removeButton = tester.widget<TextButton>(
+      find.byKey(const ValueKey('create-upload-remove')),
+    );
+    expect(
+      removeButton.style?.foregroundColor?.resolve(const <WidgetState>{}),
+      createFormDanger,
+    );
 
     await tester.tap(find.byKey(const ValueKey('create-upload-remove')));
     await tester.pump();

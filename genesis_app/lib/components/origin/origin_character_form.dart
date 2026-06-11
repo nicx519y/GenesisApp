@@ -107,8 +107,8 @@ class OriginCharacterFormFields extends StatelessWidget {
     this.showAvatarRemoveLink = false,
     this.topSpacing = 12,
     this.horizontalGap = 14,
-    this.fieldGap = 18,
-    this.sectionGap = 22,
+    this.fieldGap = 14,
+    this.sectionGap = 16,
     this.labelSize = 14,
     this.bioMaxLines,
   });

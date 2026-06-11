@@ -12,8 +12,6 @@ import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import 'profile_collection_list.dart';
 
-const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
-
 class UserProfileContent extends StatefulWidget {
   const UserProfileContent({
     super.key,
@@ -30,6 +28,7 @@ class UserProfileContent extends StatefulWidget {
     this.onEditDisplayName,
     this.onRefreshOrigins,
     this.onRefreshWorlds,
+    this.onCollapsedChanged,
     this.nameUidGap = 4,
     this.tabLabelFontSize = 16,
   });
@@ -49,6 +48,7 @@ class UserProfileContent extends StatefulWidget {
   final VoidCallback? onEditDisplayName;
   final Future<void> Function()? onRefreshOrigins;
   final Future<void> Function()? onRefreshWorlds;
+  final ValueChanged<bool>? onCollapsedChanged;
   final double nameUidGap;
   final double? tabLabelFontSize;
 
@@ -59,14 +59,20 @@ class UserProfileContent extends StatefulWidget {
 class _UserProfileContentState extends State<UserProfileContent>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  late final ScrollController _scrollController;
+  final GlobalKey _profileHeaderKey = GlobalKey();
   bool? _isFollowedOverride;
   int? _followerCountOverride;
   bool _followLoading = false;
+  bool _lastCollapsed = false;
+  double _profileHeaderHeight = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _scrollController = ScrollController();
+    _scrollController.addListener(_updateCollapsedState);
   }
 
   @override
@@ -81,6 +87,8 @@ class _UserProfileContentState extends State<UserProfileContent>
 
   @override
   void dispose() {
+    _scrollController.removeListener(_updateCollapsedState);
+    _scrollController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -90,115 +98,160 @@ class _UserProfileContentState extends State<UserProfileContent>
     final data = widget.data;
     final isFollowed = _isFollowedOverride ?? data.isFollowed;
     final followerCount = _followerCountOverride ?? data.followerCount;
-    return Column(
-      children: [
-        const SizedBox(height: 10),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _Avatar(
-                url: data.avatarUrl,
-                name: data.displayName,
-                urlListenable: widget.avatarUrlListenable,
-                nameListenable: widget.displayNameListenable,
-                isUpdating: widget.isUpdatingProfile,
-                updatingListenable: widget.isUpdatingProfileListenable,
-                onEdit: widget.onEditAvatar,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          fit: FlexFit.loose,
-                          child: _DisplayNameText(
-                            displayName: data.displayName,
-                            displayNameListenable: widget.displayNameListenable,
-                          ),
-                        ),
-                        if (widget.onEditDisplayName != null) ...[
-                          const SizedBox(width: 4),
-                          _ProfileEditButton(
-                            isUpdating: widget.isUpdatingProfile,
-                            updatingListenable:
-                                widget.isUpdatingProfileListenable,
-                            onTap: widget.onEditDisplayName!,
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (widget.nameUidGap > 0)
-                      SizedBox(height: widget.nameUidGap),
-                    CopyableIdLabel(
-                      label: 'UID',
-                      value: formatUidForDisplay(data.uid),
-                    ),
-                  ],
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _measureProfileHeader();
+      _updateCollapsedState();
+    });
+
+    return NestedScrollView(
+      controller: _scrollController,
+      headerSliverBuilder: (context, innerBoxIsScrolled) {
+        return [
+          SliverToBoxAdapter(
+            child: _buildProfileHeader(data, isFollowed, followerCount),
+          ),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _ProfileTabsHeaderDelegate(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: SecendTabs(
+                  controller: _tabController,
+                  labels: const ['Origin', 'World'],
+                  labelFontSize: widget.tabLabelFontSize,
                 ),
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: _FollowStats(
-            followingCount: data.followingCount,
-            followerCount: followerCount,
-            onFollowingTap: () => _openFollows(0),
-            onFollowersTap: () => _openFollows(1),
-          ),
-        ),
-        if (!data.isSelf) ...[
-          const SizedBox(height: 20),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _ProfileActionButtons(
-              isFollowed: isFollowed,
-              followLoading: _followLoading,
-              onFollowToggle: () => _toggleFollow(isFollowed),
-              onMessage: _openMessages,
             ),
           ),
-        ],
-        const SizedBox(height: 5),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: SecendTabs(
-            controller: _tabController,
-            labels: const ['Origin', 'World'],
-            labelFontSize: widget.tabLabelFontSize,
-          ),
+        ];
+      },
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            _OriginProfileCollectionList(
+              items: data.origins,
+              isLoading: widget.originsLoading,
+              listenable: widget.originsListenable,
+              onRefresh: widget.onRefreshOrigins,
+            ),
+            _WorldProfileCollectionList(
+              items: data.worlds,
+              isLoading: widget.worldsLoading,
+              listenable: widget.worldsListenable,
+              onRefresh: widget.onRefreshWorlds,
+            ),
+          ],
         ),
-        Expanded(
-          child: Padding(
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader(
+    UserProfileData data,
+    bool isFollowed,
+    int followerCount,
+  ) {
+    return KeyedSubtree(
+      key: _profileHeaderKey,
+      child: Column(
+        children: [
+          const SizedBox(height: 10),
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TabBarView(
-              controller: _tabController,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _OriginProfileCollectionList(
-                  items: data.origins,
-                  isLoading: widget.originsLoading,
-                  listenable: widget.originsListenable,
-                  onRefresh: widget.onRefreshOrigins,
+                _Avatar(
+                  url: data.avatarUrl,
+                  name: data.displayName,
+                  urlListenable: widget.avatarUrlListenable,
+                  nameListenable: widget.displayNameListenable,
+                  isUpdating: widget.isUpdatingProfile,
+                  updatingListenable: widget.isUpdatingProfileListenable,
+                  onEdit: widget.onEditAvatar,
                 ),
-                _WorldProfileCollectionList(
-                  items: data.worlds,
-                  isLoading: widget.worldsLoading,
-                  listenable: widget.worldsListenable,
-                  onRefresh: widget.onRefreshWorlds,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            fit: FlexFit.loose,
+                            child: _DisplayNameText(
+                              displayName: data.displayName,
+                              displayNameListenable:
+                                  widget.displayNameListenable,
+                            ),
+                          ),
+                          if (widget.onEditDisplayName != null) ...[
+                            const SizedBox(width: 4),
+                            _ProfileEditButton(
+                              isUpdating: widget.isUpdatingProfile,
+                              updatingListenable:
+                                  widget.isUpdatingProfileListenable,
+                              onTap: widget.onEditDisplayName!,
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (widget.nameUidGap > 0)
+                        SizedBox(height: widget.nameUidGap),
+                      CopyableIdLabel(
+                        label: 'UID',
+                        value: formatUidForDisplay(data.uid),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _FollowStats(
+              followingCount: data.followingCount,
+              followerCount: followerCount,
+              onFollowingTap: () => _openFollows(0),
+              onFollowersTap: () => _openFollows(1),
+            ),
+          ),
+          if (!data.isSelf) ...[
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _ProfileActionButtons(
+                isFollowed: isFollowed,
+                followLoading: _followLoading,
+                onFollowToggle: () => _toggleFollow(isFollowed),
+                onMessage: _openMessages,
+              ),
+            ),
+          ],
+          const SizedBox(height: 5),
+        ],
+      ),
     );
+  }
+
+  void _measureProfileHeader() {
+    final context = _profileHeaderKey.currentContext;
+    final renderObject = context?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return;
+    _profileHeaderHeight = renderObject.size.height;
+  }
+
+  void _updateCollapsedState() {
+    if (!_scrollController.hasClients) return;
+    final threshold = _profileHeaderHeight > 0 ? _profileHeaderHeight - 1 : 120;
+    final collapsed = _scrollController.offset >= threshold;
+    if (collapsed == _lastCollapsed) return;
+    _lastCollapsed = collapsed;
+    widget.onCollapsedChanged?.call(collapsed);
   }
 
   Future<void> _toggleFollow(bool isFollowed) async {
@@ -261,6 +314,42 @@ class _UserProfileContentState extends State<UserProfileContent>
 
   int _decrementCount(int value) {
     return value > 0 ? value - 1 : 0;
+  }
+}
+
+class _ProfileTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _ProfileTabsHeaderDelegate({required this.child});
+
+  static const double _height = 5 + genesisTabHeight;
+
+  final Widget child;
+
+  @override
+  double get minExtent => _height;
+
+  @override
+  double get maxExtent => _height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return ColoredBox(
+      color: Colors.white,
+      child: Column(
+        children: [
+          const SizedBox(height: 5),
+          SizedBox(height: genesisTabHeight, child: child),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _ProfileTabsHeaderDelegate oldDelegate) {
+    return child != oldDelegate.child;
   }
 }
 
@@ -370,7 +459,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
                   value: item.copyCount,
                 ),
                 GenesisProfileCollectionStat(
-                  iconAsset: _connectIconAsset,
+                  iconAsset: connectIconAsset,
                   value: item.interactCount,
                 ),
                 GenesisProfileCollectionStat(
@@ -439,11 +528,11 @@ class _WorldProfileCollectionList extends StatelessWidget {
               subtitle: item.subtitle,
               stats: [
                 GenesisProfileCollectionStat(
-                  icon: MyFlutterApp.pregress,
+                  iconAsset: playIconAsset,
                   value: item.progressCount,
                 ),
                 GenesisProfileCollectionStat(
-                  iconAsset: _connectIconAsset,
+                  iconAsset: connectIconAsset,
                   value: item.interactCount,
                 ),
                 GenesisProfileCollectionStat(
@@ -630,7 +719,7 @@ class _ProfileActionButtons extends StatelessWidget {
       children: [
         Expanded(
           child: SizedBox(
-            height: 38,
+            height: 42,
             child: FilledButton(
               key: const ValueKey('user-profile-follow-button'),
               onPressed: followLoading ? null : onFollowToggle,
@@ -653,7 +742,7 @@ class _ProfileActionButtons extends StatelessWidget {
                       ),
                     )
                   : Text(
-                      isFollowed ? 'Unfollow' : 'Follow',
+                      isFollowed ? 'Following' : 'Follow',
                       style: actionTextStyle,
                     ),
             ),
@@ -662,7 +751,7 @@ class _ProfileActionButtons extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: SizedBox(
-            height: 38,
+            height: 42,
             child: FilledButton(
               key: const ValueKey('user-profile-message-button'),
               onPressed: onMessage,

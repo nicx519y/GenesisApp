@@ -21,6 +21,8 @@ class UserInfoPage extends StatefulWidget {
 class _UserInfoPageState extends State<UserInfoPage> {
   late Future<UserProfileData> _future;
   String _profileUid = '';
+  String _profileTitle = '';
+  bool _profileCollapsed = false;
   final ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>
   _originsState =
       ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>(
@@ -65,6 +67,9 @@ class _UserInfoPageState extends State<UserInfoPage> {
         : const <String, dynamic>{};
     final resolvedUid = _mapString(user, 'uid', fallback: uid);
     final displayName = _mapString(user, 'name', fallback: 'User');
+    if (mounted && _profileTitle != displayName) {
+      setState(() => _profileTitle = displayName);
+    }
     final avatarUrl = asResolvedImageUrl(
       user['avatar'],
       resolveAssetUrl,
@@ -172,6 +177,11 @@ class _UserInfoPageState extends State<UserInfoPage> {
     }
   }
 
+  void _handleProfileCollapsedChanged(bool collapsed) {
+    if (_profileCollapsed == collapsed) return;
+    setState(() => _profileCollapsed = collapsed);
+  }
+
   Future<List<UserProfileOriginItem>> _loadOriginItems(
     GenesisApi api,
     String uid,
@@ -222,7 +232,9 @@ class _UserInfoPageState extends State<UserInfoPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const GenesisBackAppBar(pageName: ''),
+      appBar: GenesisBackAppBar(
+        pageName: _profileCollapsed ? _profileTitle : '',
+      ),
       body: SafeArea(
         bottom: false,
         child: FutureBuilder<UserProfileData>(
@@ -255,6 +267,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
               worldsListenable: _worldsState,
               onRefreshOrigins: _refreshOrigins,
               onRefreshWorlds: _refreshWorlds,
+              onCollapsedChanged: _handleProfileCollapsedChanged,
             );
           },
         ),

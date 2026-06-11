@@ -331,9 +331,9 @@ class GenesisApi {
     return user;
   }
 
-  Future<void> logout() async {
+  Future<void> logout({Map<String, String>? headers}) async {
     debugPrint('[Auth][GenesisApi] POST /api/v1/user/logout start');
-    await v1.user.logout();
+    await v1.user.logout(headers: headers);
     debugPrint('[Auth][GenesisApi] POST /api/v1/user/logout success');
   }
 

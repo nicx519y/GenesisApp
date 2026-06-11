@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../routers/app_router.dart';
 import '../ui/genesis_ui.dart';
+import 'search_bar.dart';
 
 class PageHeader extends StatelessWidget {
   const PageHeader({
@@ -19,14 +20,29 @@ class PageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GenesisPageHeader(
-      title: pageName,
-      horizontalPadding: horizontalPadding,
-      topPadding: topPadding,
-      showSearchField: showSearchBar,
-      onSearchTap: () {
-        Navigator.of(context).pushNamed(RouteNames.search);
-      },
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
+          topPadding,
+          horizontalPadding,
+          0,
+        ),
+        child: Column(
+          children: [
+            GenesisPageTitle(text: pageName),
+            if (showSearchBar) ...[
+              const SizedBox(height: GenesisSpacing.sm),
+              SearchBarPlaceholder(
+                onTap: () {
+                  Navigator.of(context).pushNamed(RouteNames.search);
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -70,10 +86,7 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
         child: Align(
           alignment: Alignment.centerLeft,
           child: IconButton(
-            constraints: const BoxConstraints.tightFor(
-              width: 17,
-              height: 17,
-            ),
+            constraints: const BoxConstraints.tightFor(width: 17, height: 17),
             padding: EdgeInsets.zero,
             icon: const Icon(
               Icons.arrow_back_ios_new,

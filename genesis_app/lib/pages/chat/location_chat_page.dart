@@ -10,6 +10,8 @@ import '../../components/chat/shared/chat_ui.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
+import '../../network/genesis_api.dart';
+import '../../network/json_utils.dart';
 import '../../utils/display_name_formatter.dart';
 
 class LocationChatPage extends StatelessWidget {
@@ -109,6 +111,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   String _myUserId = '';
   String _mySenderId = '';
   String _mySenderName = '';
+  String _myAvatarUrl = '';
   bool _ownsService = false;
   bool _joinedLocation = false;
   bool _sending = false;
@@ -276,6 +279,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       final userInfo = await services.sessionStore.readUserInfo();
       final cachedUid = _mapString(userInfo, 'uid');
       final profile = services.identityAuth.currentProfile();
+      _myAvatarUrl = _resolvedProfileAvatar(
+        userInfo ?? const <String, dynamic>{},
+        profile?.photoUrl ?? '',
+      );
       final senderId = firstNonEmpty([
         uid,
         cachedUid,
@@ -532,6 +539,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       final status = message.streaming ? 'streaming' : 'sent';
       final isMe = _isMineMessage(message);
       final senderName = _messageSenderDisplayName(message);
+      final avatarUrl = _messageAvatarUrl(message);
       final clientMsgId = message.clientMsgId.trim();
       final existing =
           (clientMsgId.isEmpty ? null : existingByClientMsgId[clientMsgId]) ??
@@ -555,6 +563,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             existing.roundId != message.conversationRoundId ||
             existing.tickNo != message.tickNo ||
             existing.senderName != senderName ||
+            existing.avatarUrl != avatarUrl ||
             existing.text != message.content ||
             existing.status != status ||
             existing.localId != localId) {
@@ -564,6 +573,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         existing.roundId = message.conversationRoundId;
         existing.tickNo = message.tickNo;
         existing.senderName = senderName;
+        existing.avatarUrl = avatarUrl;
         existing.text = message.content;
         existing.status = status;
         existing.error = null;
@@ -578,6 +588,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           tickNo: message.tickNo,
           senderId: message.senderId,
           senderName: senderName,
+          avatarUrl: avatarUrl,
           text: message.content,
           isMe: isMe,
           status: status,
@@ -665,10 +676,17 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final userInfo = await services.sessionStore.readUserInfo();
     final cachedUid = _mapString(userInfo, 'uid');
     final profile = services.identityAuth.currentProfile();
+    final avatarUrl = _resolvedProfileAvatar(
+      userInfo ?? const <String, dynamic>{},
+      profile?.photoUrl ?? '',
+    );
+    final avatarChanged = avatarUrl != _myAvatarUrl;
+    _myAvatarUrl = avatarUrl;
     final changed =
         _rememberMyUserId(uid) |
         _rememberMyUserId(cachedUid) |
-        _rememberMyUserId(profile?.uid);
+        _rememberMyUserId(profile?.uid) |
+        avatarChanged;
     if (!changed || !mounted) return;
     final changedMessages = _reconcileMessages(
       _chatroomState.messagesByLocation[widget.locationId] ??
@@ -722,6 +740,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       clientMsgId: clientMsgId,
       senderId: _mySenderId,
       senderName: _localSelfDisplayName(),
+      avatarUrl: _localSelfAvatarUrl(),
       text: text,
       isMe: true,
       status: 'sending',
@@ -854,6 +873,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     ]);
   }
 
+  String _messageAvatarUrl(WorldChatroomMessage message) {
+    return firstNonEmpty([
+      _entityAvatarForIdentity(message.userId),
+      _entityAvatarForIdentity(message.senderId),
+    ]);
+  }
+
   String _localSelfDisplayName() {
     return firstNonEmpty([
       _roleNameForIdentityCandidates([_myUserId, _mySenderId]),
@@ -863,12 +889,30 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     ]);
   }
 
+  String _localSelfAvatarUrl() {
+    return firstNonEmpty([
+      _entityAvatarForIdentity(_myUserId),
+      _entityAvatarForIdentity(_mySenderId),
+      _myAvatarUrl,
+    ]);
+  }
+
   String _entityNameForIdentity(String value) {
     final key = _chatroomIdentityKey(value);
     if (key.isEmpty) return '';
     for (final entry in _chatroomState.entitiesById.entries) {
       if (_chatroomIdentityKey(entry.key) != key) continue;
       return entry.value.name;
+    }
+    return '';
+  }
+
+  String _entityAvatarForIdentity(String value) {
+    final key = _chatroomIdentityKey(value);
+    if (key.isEmpty) return '';
+    for (final entry in _chatroomState.entitiesById.entries) {
+      if (_chatroomIdentityKey(entry.key) != key) continue;
+      return entry.value.avatarUrl;
     }
     return '';
   }
@@ -1085,6 +1129,34 @@ String _mapString(Map<String, dynamic>? map, String key) {
   final value = map[key];
   if (value == null) return '';
   return '$value'.trim();
+}
+
+String _resolvedProfileAvatar(
+  Map<dynamic, dynamic> userInfo,
+  String profileAvatar,
+) {
+  final resolved = asResolvedImageUrl(
+    _mapValue(userInfo, const ['avatar']),
+    resolveAssetUrl,
+    fallback: _mapValue(userInfo, const [
+      'avatar_url',
+      'photoUrl',
+      'photo_url',
+      'picture',
+    ]),
+  );
+  if (resolved.isNotEmpty) return resolved;
+  return asResolvedImageUrl(profileAvatar, resolveAssetUrl);
+}
+
+Object? _mapValue(Map<dynamic, dynamic> map, List<String> keys) {
+  for (final key in keys) {
+    final value = map[key];
+    if (value == null) continue;
+    final text = '$value'.trim();
+    if (text.isNotEmpty) return value;
+  }
+  return null;
 }
 
 bool _senderIdIsNarrator(String senderId) {

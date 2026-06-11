@@ -1,4 +1,9 @@
+import 'package:flutter/material.dart';
+
+import '../icons/custom_icon_assets.dart';
 import '../ui/genesis_ui.dart';
+
+const double kSearchBarTopPadding = 8;
 
 class SearchBarPlaceholder extends GenesisSearchField {
   const SearchBarPlaceholder({
@@ -12,12 +17,14 @@ class SearchBarPlaceholder extends GenesisSearchField {
     super.textInputAction,
     super.readOnly,
     super.autofocus,
-    super.height,
+    super.height = 28,
     super.padding,
-    super.backgroundColor,
-    super.borderRadius,
+    super.backgroundColor = const Color(0xFFFAFAFA),
+    super.borderColor = const Color(0xFFEBEBEB),
+    super.borderRadius = const BorderRadius.all(Radius.circular(12)),
     super.iconColor,
     super.iconSize,
+    super.iconAsset = searchIconAsset,
     super.hintStyle,
     super.textStyle,
   });
