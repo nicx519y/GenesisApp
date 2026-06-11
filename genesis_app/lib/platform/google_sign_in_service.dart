@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,7 +11,6 @@ class GoogleSignInService {
   static const MethodChannel _deviceChannel = MethodChannel(
     'com.genesis.ai/device',
   );
-  static const Duration _credentialManagerTimeout = Duration(seconds: 8);
 
   static const String _serverClientId = String.fromEnvironment(
     'GOOGLE_SERVER_CLIENT_ID',
@@ -62,6 +60,10 @@ class GoogleSignInService {
         '未找到 Web Client ID。请在 Firebase 启用 Google 登录、补齐 SHA-1 后重新下载 google-services.json。',
       );
     }
+    if (!kIsWeb && Platform.isAndroid) {
+      debugPrint('[Auth][GoogleSignInService] using legacy Android sign-in');
+      return _signInWithLegacyAndroid(serverClientId);
+    }
 
     debugPrint('[Auth][GoogleSignInService] initializing GoogleSignIn');
     await _ensureInitialized(serverClientId: serverClientId);
@@ -72,20 +74,9 @@ class GoogleSignInService {
       throw const _GoogleSignInFailure('当前端不支持直接拉起 Google 登录');
     }
     debugPrint('[Auth][GoogleSignInService] launching authenticate');
-    late final GoogleSignInAccount account;
-    try {
-      account = await GoogleSignIn.instance
-          .authenticate(scopeHint: _scopeHint)
-          .timeout(_credentialManagerTimeout);
-    } on TimeoutException {
-      if (!kIsWeb && Platform.isAndroid) {
-        debugPrint(
-          '[Auth][GoogleSignInService] authenticate timed out, using legacy Android sign-in',
-        );
-        return _signInWithLegacyAndroid(serverClientId);
-      }
-      rethrow;
-    }
+    final account = await GoogleSignIn.instance.authenticate(
+      scopeHint: _scopeHint,
+    );
 
     final googleIdToken = account.authentication.idToken?.trim() ?? '';
     if (googleIdToken.isEmpty) {
