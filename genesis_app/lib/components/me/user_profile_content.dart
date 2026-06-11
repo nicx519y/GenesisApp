@@ -115,9 +115,11 @@ class _UserProfileContentState extends State<UserProfileContent>
             delegate: _ProfileTabsHeaderDelegate(
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: SecendTabs(
+                child: GenesisTabBar(
                   controller: _tabController,
                   labels: const ['Origin', 'World'],
+                  horizontalPadding: 8,
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 8),
                   labelFontSize: widget.tabLabelFontSize,
                 ),
               ),
