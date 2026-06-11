@@ -151,6 +151,7 @@ class _DiscussPageState extends State<DiscussPage> {
                         enableViewMore: false,
                         showActions: true,
                         showReplies: true,
+                        imageTapOpensViewer: true,
                         onItemReplyTap: _openPostDetail,
                         onReplyTap: _handleReplyListItemTap,
                       ),

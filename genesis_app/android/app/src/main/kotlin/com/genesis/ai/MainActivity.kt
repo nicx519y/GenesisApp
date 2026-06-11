@@ -12,6 +12,9 @@ import android.webkit.MimeTypeMap
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -23,12 +26,14 @@ class MainActivity : FlutterActivity() {
     private val channel = "com.genesis.ai/device"
     private val discussImagePickerChannel = "com.genesis.ai/discuss_image_picker"
     private val discussImagePickerRequestCode = 43021
+    private val googleSignInRequestCode = 43022
     private val uidKey = "uid"
     private val authTokenKey = "auth_token"
     private val userInfoKey = "user_info"
     private val prefsName = "genesis"
     private var pendingDiscussImagePickerResult: MethodChannel.Result? = null
     private var pendingDiscussImagePickerLimit = 0
+    private var pendingGoogleSignInResult: MethodChannel.Result? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -78,6 +83,10 @@ class MainActivity : FlutterActivity() {
                 "getSignInDiagnostics" -> {
                     result.success(buildSignInDiagnostics())
                 }
+                "signInGoogleLegacy" -> {
+                    val serverClientId = call.argument<String>("serverClientId") ?: ""
+                    signInGoogleLegacy(serverClientId, result)
+                }
                 "clearUid" -> {
                     val prefs = getSharedPreferences(prefsName, Context.MODE_PRIVATE)
                     prefs.edit().remove(uidKey).remove(authTokenKey).remove(userInfoKey).apply()
@@ -98,6 +107,31 @@ class MainActivity : FlutterActivity() {
                 }
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    private fun signInGoogleLegacy(serverClientId: String, result: MethodChannel.Result) {
+        if (pendingGoogleSignInResult != null) {
+            result.error("google_sign_in_active", "Google sign-in is already active.", null)
+            return
+        }
+        if (serverClientId.isBlank()) {
+            result.error("missing_server_client_id", "Missing Google server client id.", null)
+            return
+        }
+
+        pendingGoogleSignInResult = result
+        val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+            .requestProfile()
+            .requestIdToken(serverClientId)
+            .build()
+        val client = GoogleSignIn.getClient(this, options)
+        try {
+            startActivityForResult(client.signInIntent, googleSignInRequestCode)
+        } catch (error: Exception) {
+            pendingGoogleSignInResult = null
+            result.error("google_sign_in_unavailable", error.message ?: "Cannot open Google sign-in.", null)
         }
     }
 
@@ -129,6 +163,11 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == googleSignInRequestCode) {
+            handleGoogleSignInResult(resultCode, data)
+            return
+        }
+
         if (requestCode != discussImagePickerRequestCode) {
             super.onActivityResult(requestCode, resultCode, data)
             return
@@ -159,6 +198,38 @@ class MainActivity : FlutterActivity() {
         }
 
         result.success(paths)
+    }
+
+    private fun handleGoogleSignInResult(resultCode: Int, data: Intent?) {
+        val result = pendingGoogleSignInResult ?: return
+        pendingGoogleSignInResult = null
+
+        if (resultCode != Activity.RESULT_OK || data == null) {
+            result.error("google_sign_in_cancelled", "Google sign-in cancelled.", null)
+            return
+        }
+
+        try {
+            val account = GoogleSignIn.getSignedInAccountFromIntent(data)
+                .getResult(ApiException::class.java)
+            val idToken = account.idToken.orEmpty()
+            if (idToken.isBlank()) {
+                result.error("empty_google_id_token", "Google did not return an idToken.", null)
+                return
+            }
+            result.success(
+                mapOf(
+                    "idToken" to idToken,
+                    "email" to account.email.orEmpty(),
+                    "displayName" to account.displayName.orEmpty(),
+                    "photoUrl" to (account.photoUrl?.toString() ?: ""),
+                )
+            )
+        } catch (error: ApiException) {
+            result.error("google_sign_in_failed", "Google sign-in failed: ${error.statusCode}", null)
+        } catch (error: Exception) {
+            result.error("google_sign_in_failed", error.message ?: "Google sign-in failed.", null)
+        }
     }
 
     private fun selectedImageUris(data: Intent): List<Uri> {

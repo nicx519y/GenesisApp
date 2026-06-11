@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../ui/components/genesis_character_avatar.dart';
+import 'world_map_interaction_notification.dart';
 import 'world_location_list.dart';
 import 'world_point.dart';
 
@@ -157,40 +158,43 @@ class _WorldMapState extends State<WorldMap> {
                       top: viewport.top,
                       width: viewport.width,
                       height: viewport.height,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          _MapBackgroundDeck(
-                            currentUrl: backgroundUrl,
-                            preloadUrls: preloadMapImageUrls,
-                            fallbackOnEmptyUrl: widget.fallbackOnEmptyMapUrl,
-                          ),
-                          IgnorePointer(
-                            ignoring: widget.showPointsList,
-                            child: Opacity(
-                              opacity: widget.showPointsList ? 0.6 : 1,
-                              child: Stack(
-                                children: [
-                                  for (final p in visiblePoints)
-                                    _WorldPointPositioned(
-                                      point: p,
-                                      width: viewport.width,
-                                      height: viewport.height,
-                                      onTap: _pointTapHandler(p),
-                                    ),
-                                ],
+                      child: _ZoomableMapContent(
+                        background: _MapBackgroundDeck(
+                          currentUrl: backgroundUrl,
+                          preloadUrls: preloadMapImageUrls,
+                          fallbackOnEmptyUrl: widget.fallbackOnEmptyMapUrl,
+                        ),
+                        overlayBuilder: (context, transform) => Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            IgnorePointer(
+                              ignoring: widget.showPointsList,
+                              child: Opacity(
+                                opacity: widget.showPointsList ? 0.6 : 1,
+                                child: Stack(
+                                  children: [
+                                    for (final p in visiblePoints)
+                                      _WorldPointPositioned(
+                                        point: p,
+                                        width: viewport.width,
+                                        height: viewport.height,
+                                        transform: transform,
+                                        onTap: _pointTapHandler(p),
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                          IgnorePointer(
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              color: widget.dimmed
-                                  ? Colors.black.withValues(alpha: 0.08)
-                                  : Colors.transparent,
+                            IgnorePointer(
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 220),
+                                color: widget.dimmed
+                                    ? Colors.black.withValues(alpha: 0.08)
+                                    : Colors.transparent,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -212,7 +216,6 @@ class _WorldMapState extends State<WorldMap> {
                         },
                       ),
                     ),
-                    const SizedBox(height: 150),
                   ],
                 ),
               ),
@@ -722,6 +725,148 @@ class _MapBackgroundDeck extends StatelessWidget {
   }
 }
 
+typedef _MapOverlayBuilder =
+    Widget Function(BuildContext context, Matrix4 transform);
+
+class _ZoomableMapContent extends StatefulWidget {
+  const _ZoomableMapContent({
+    required this.background,
+    required this.overlayBuilder,
+  });
+
+  static const double minScale = 1;
+  static const double maxScale = 4;
+  static const double doubleTapScale = 2;
+
+  final Widget background;
+  final _MapOverlayBuilder overlayBuilder;
+
+  @override
+  State<_ZoomableMapContent> createState() => _ZoomableMapContentState();
+}
+
+class _ZoomableMapContentState extends State<_ZoomableMapContent> {
+  late final TransformationController _transformationController =
+      TransformationController();
+  final Set<int> _activePointers = <int>{};
+  bool _interactionActive = false;
+  Duration? _lastTapTime;
+  Offset? _lastTapLocalPosition;
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  bool get _isZoomed {
+    return _transformationController.value.getMaxScaleOnAxis() >
+        _ZoomableMapContent.minScale + 0.01;
+  }
+
+  void _dispatchMapInteraction(bool active) {
+    if (_interactionActive == active) return;
+    _interactionActive = active;
+    WorldMapInteractionNotification(active: active).dispatch(context);
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    if (_activePointers.isEmpty) _handlePossibleDoubleTap(event);
+    _activePointers.add(event.pointer);
+    if (_activePointers.length >= 2 || _isZoomed) {
+      _dispatchMapInteraction(true);
+    }
+  }
+
+  void _handlePointerEnd(PointerEvent event) {
+    _activePointers.remove(event.pointer);
+    if (_activePointers.isEmpty) _dispatchMapInteraction(false);
+  }
+
+  void _handlePossibleDoubleTap(PointerDownEvent event) {
+    final lastTapTime = _lastTapTime;
+    final lastTapLocalPosition = _lastTapLocalPosition;
+    final currentPosition = event.localPosition;
+    final isDoubleTap =
+        lastTapTime != null &&
+        lastTapLocalPosition != null &&
+        event.timeStamp - lastTapTime <= const Duration(milliseconds: 300) &&
+        (currentPosition - lastTapLocalPosition).distance <= 48;
+
+    if (isDoubleTap) {
+      _lastTapTime = null;
+      _lastTapLocalPosition = null;
+      _toggleDoubleTapZoom(currentPosition);
+      return;
+    }
+
+    _lastTapTime = event.timeStamp;
+    _lastTapLocalPosition = currentPosition;
+  }
+
+  void _toggleDoubleTapZoom(Offset focalPoint) {
+    if (_isZoomed) {
+      _transformationController.value = Matrix4.identity();
+      _dispatchMapInteraction(false);
+      return;
+    }
+
+    final scale = _ZoomableMapContent.doubleTapScale;
+    _transformationController.value = Matrix4.identity()
+      ..translateByDouble(
+        focalPoint.dx - focalPoint.dx * scale,
+        focalPoint.dy - focalPoint.dy * scale,
+        0,
+        1,
+      )
+      ..scaleByDouble(scale, scale, 1, 1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: _handlePointerDown,
+      onPointerUp: _handlePointerEnd,
+      onPointerCancel: _handlePointerEnd,
+      child: ClipRect(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            InteractiveViewer(
+              transformationController: _transformationController,
+              minScale: _ZoomableMapContent.minScale,
+              maxScale: _ZoomableMapContent.maxScale,
+              boundaryMargin: EdgeInsets.zero,
+              onInteractionStart: (details) {
+                if (details.pointerCount > 1 || _isZoomed) {
+                  _dispatchMapInteraction(true);
+                }
+              },
+              onInteractionUpdate: (details) {
+                if (details.pointerCount > 1 || _isZoomed) {
+                  _dispatchMapInteraction(true);
+                }
+              },
+              onInteractionEnd: (_) {
+                if (_activePointers.isEmpty) _dispatchMapInteraction(false);
+              },
+              child: SizedBox.expand(child: widget.background),
+            ),
+            AnimatedBuilder(
+              animation: _transformationController,
+              builder: (context, _) => widget.overlayBuilder(
+                context,
+                _transformationController.value,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MapBackground extends StatelessWidget {
   const _MapBackground({required this.url, this.fallbackOnEmptyUrl = true});
 
@@ -787,12 +932,14 @@ class _WorldPointPositioned extends StatelessWidget {
     required this.point,
     required this.width,
     required this.height,
+    this.transform,
     required this.onTap,
   });
 
   final WorldPoint point;
   final double width;
   final double height;
+  final Matrix4? transform;
   final VoidCallback? onTap;
 
   static const double _labelHeight = 20;
@@ -849,14 +996,20 @@ class _WorldPointPositioned extends StatelessWidget {
     final markerHeight = _markerHeight();
     final pointCenterY = _labelHeight + _labelToPointSpacing + _pointSize / 2;
 
-    final x = (point.position.dx * width).clamp(0, width);
-    final y = (point.position.dy * height).clamp(0, height);
+    final baseX = (point.position.dx * width).clamp(0, width).toDouble();
+    final baseY = (point.position.dy * height).clamp(0, height).toDouble();
+    final transformedAnchor = _transformedAnchor(baseX, baseY);
+    final x = transformedAnchor.dx;
+    final y = transformedAnchor.dy;
 
+    final shouldClamp = transform == null;
     final maxLeft = (width - markerWidth) > 0 ? (width - markerWidth) : 0.0;
     final maxTop = (height - markerHeight) > 0 ? (height - markerHeight) : 0.0;
 
-    final left = (x - markerWidth / 2).clamp(0.0, maxLeft).toDouble();
-    final top = (y - pointCenterY).clamp(0.0, maxTop).toDouble();
+    final rawLeft = x - markerWidth / 2;
+    final rawTop = y - pointCenterY;
+    final left = shouldClamp ? rawLeft.clamp(0.0, maxLeft).toDouble() : rawLeft;
+    final top = shouldClamp ? rawTop.clamp(0.0, maxTop).toDouble() : rawTop;
 
     return Positioned(
       left: left,
@@ -870,6 +1023,16 @@ class _WorldPointPositioned extends StatelessWidget {
         pointCenterY: pointCenterY,
         onTap: onTap,
       ),
+    );
+  }
+
+  Offset _transformedAnchor(double x, double y) {
+    final matrix = transform;
+    if (matrix == null) return Offset(x, y);
+    final values = matrix.storage;
+    return Offset(
+      values[0] * x + values[4] * y + values[12],
+      values[1] * x + values[5] * y + values[13],
     );
   }
 }

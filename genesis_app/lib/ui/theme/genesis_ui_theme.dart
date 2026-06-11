@@ -78,15 +78,15 @@ class GenesisUiTheme extends ThemeExtension<GenesisUiTheme> {
       // 底部导航背景色。
       bottomNavigationBackgroundColor: GenesisColors.surfaceMuted,
       // 底部导航选中态颜色。
-      bottomNavigationSelectedColor: GenesisColors.textPrimary,
+      bottomNavigationSelectedColor: GenesisColors.tabSelected,
       // 底部导航未选中态颜色。
-      bottomNavigationUnselectedColor: GenesisColors.textDisabled,
+      bottomNavigationUnselectedColor: GenesisColors.tabUnselected,
       // 底部导航突出项颜色，例如 Create。
       bottomNavigationProminentColor: GenesisColors.create,
       // 二级 tab 选中颜色。
-      tabSelectedColor: GenesisColors.textPrimary,
+      tabSelectedColor: GenesisColors.tabSelected,
       // 二级 tab 未选中颜色。
-      tabUnselectedColor: const Color(0xFF666666),
+      tabUnselectedColor: GenesisColors.tabUnselected,
       // 二级 tab 指示器使用状态红。
       tabIndicatorColor: GenesisColors.danger,
       // 二级 tab 指示器固定宽度，保持和现有视觉一致。

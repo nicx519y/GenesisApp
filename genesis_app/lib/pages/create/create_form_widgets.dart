@@ -581,15 +581,34 @@ class _Preview extends StatelessWidget {
                 height: double.infinity,
                 fit: BoxFit.cover,
                 alignment: alignment,
-                imageBuilder: (_, imageProvider) => Image(
-                  image: imageProvider,
-                  width: double.infinity,
-                  height: double.infinity,
-                  fit: BoxFit.cover,
-                  alignment: alignment,
-                ),
-                placeholder: (_, __) => const _PreviewPlaceholder(),
-                errorWidget: (_, __, ___) => const _PreviewErrorIcon(),
+                fadeInDuration: Duration.zero,
+                fadeOutDuration: Duration.zero,
+                placeholderFadeInDuration: Duration.zero,
+                imageBuilder: (_, imageProvider) {
+                  debugPrint(
+                    '[CreateUploadBox] cached image ready: "$selectedUrl"',
+                  );
+                  return Image(
+                    image: imageProvider,
+                    width: double.infinity,
+                    height: double.infinity,
+                    fit: BoxFit.cover,
+                    alignment: alignment,
+                  );
+                },
+                placeholder: (_, __) {
+                  debugPrint(
+                    '[CreateUploadBox] cached image loading: "$selectedUrl"',
+                  );
+                  return const _PreviewPlaceholder(showSpinner: false);
+                },
+                errorWidget: (_, __, error) {
+                  debugPrint(
+                    '[CreateUploadBox] cached image failed: '
+                    'url="$selectedUrl", error="$error"',
+                  );
+                  return const _PreviewErrorIcon();
+                },
               );
         return Stack(
           fit: StackFit.expand,

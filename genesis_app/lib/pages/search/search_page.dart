@@ -47,7 +47,6 @@ class _SearchPageState extends State<SearchPage>
   static const int _pageSize = 20;
   static const int _minSearchLength = 1;
 
-  final SearchHistoryStore _historyStore = const SearchHistoryStore();
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   late final TabController _tabController;
@@ -87,7 +86,7 @@ class _SearchPageState extends State<SearchPage>
   }
 
   Future<void> _loadSearchHistory() async {
-    final history = await _historyStore.load();
+    final history = await (await _historyStore()).load();
     if (!mounted) return;
     setState(() {
       _searchHistory = history;
@@ -97,11 +96,18 @@ class _SearchPageState extends State<SearchPage>
   Future<void> _recordActiveSearchQuery() async {
     final query = _activeQuery.trim();
     if (query.isEmpty) return;
-    final history = await _historyStore.add(query);
+    final history = await (await _historyStore()).add(query);
     if (!mounted) return;
     setState(() {
       _searchHistory = history;
     });
+  }
+
+  Future<SearchHistoryStore> _historyStore() async {
+    final uid =
+        (await AppServicesScope.read(context).sessionStore.readUid())?.trim() ??
+        '';
+    return SearchHistoryStore(ownerUid: uid);
   }
 
   void _onQueryChanged(String raw) {

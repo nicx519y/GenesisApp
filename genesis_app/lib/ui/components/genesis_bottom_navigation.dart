@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../tokens/genesis_spacing.dart';
@@ -32,6 +34,8 @@ class GenesisBottomNavigation extends StatelessWidget {
     this.height = 49,
   });
 
+  static const double minBottomPadding = 4;
+
   final List<GenesisBottomNavigationItem> items;
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -39,7 +43,10 @@ class GenesisBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final bottomPadding = math.max(
+      MediaQuery.paddingOf(context).bottom,
+      minBottomPadding,
+    );
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: Colors.white,

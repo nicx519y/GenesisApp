@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_details_shell.dart';
 
 void main() {
-  testWidgets('world details page scaffold owns shared floating layout', (
+  testWidgets('world details page scaffold owns one continuous scroll layout', (
     tester,
   ) async {
     const viewportSize = Size(400, 800);
@@ -25,76 +25,60 @@ void main() {
                 child: Text('Details'),
               ),
             ),
+            SliverToBoxAdapter(child: SizedBox(height: 300)),
           ],
           bottomBar: SizedBox(
             key: ValueKey('bottom-bar'),
             height: 56,
             child: Text('Launch'),
           ),
+          persistentTopOverlay: Positioned(
+            key: ValueKey('persistent-tabs'),
+            left: 12,
+            right: 12,
+            top: 32,
+            child: SizedBox(height: 38),
+          ),
         ),
       ),
     );
 
     expect(find.byKey(const ValueKey('map')), findsOneWidget);
-    expect(find.byType(WorldDetailsDragHandle), findsOneWidget);
+    expect(find.byType(WorldDetailsDragHandle), findsNothing);
     expect(find.text('Details'), findsOneWidget);
     expect(find.byKey(const ValueKey('bottom-bar')), findsOneWidget);
+    expect(find.byKey(const ValueKey('persistent-tabs')), findsOneWidget);
+    expect(find.byType(CustomScrollView), findsOneWidget);
+    expect(find.byType(DraggableScrollableSheet), findsNothing);
 
-    final sheet = tester.widget<DraggableScrollableSheet>(
-      find.byType(DraggableScrollableSheet),
-    );
-    expect(
-      sheet.maxChildSize,
-      closeTo(
-        (viewportSize.height - WorldDetailsPageScaffold.defaultPanelTopGap) /
-            viewportSize.height,
-        0.01,
-      ),
-    );
-
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Container &&
-            widget.padding ==
-                const EdgeInsets.fromLTRB(
-                  WorldDetailsPageScaffold.contentHorizontalPadding,
-                  0,
-                  WorldDetailsPageScaffold.contentHorizontalPadding,
-                  0,
-                ),
-      ),
-      findsOneWidget,
-    );
-    final handleRect = tester.getRect(find.byType(WorldDetailsDragHandle));
+    final mapRect = tester.getRect(find.byKey(const ValueKey('map')));
+    final persistentTabsTop = tester
+        .getTopLeft(find.byKey(const ValueKey('persistent-tabs')))
+        .dy;
     final titleRect = tester.getRect(
       find.byKey(const ValueKey('details-title')),
     );
-    expect(handleRect.width, WorldDetailsShell.dragHandleWidth);
-    expect(handleRect.height, WorldDetailsShell.dragHandleHeight);
+    final expectedMapHeight =
+        viewportSize.height * (1 - WorldDetailsPanel.defaultExposedChildSize) +
+        WorldDetailsPageScaffold.defaultPanelCollapsedHeightOffset;
+
+    expect(mapRect.top, 0);
+    expect(mapRect.height, closeTo(expectedMapHeight, 0.01));
     expect(
-      titleRect.top - handleRect.bottom,
-      closeTo(
-        (WorldDetailsPanel.contentTopPadding -
-                    WorldDetailsShell.dragHandleHeight) /
-                2 +
-            WorldDetailsShell.dragHandleTitleGap,
-        0.01,
-      ),
+      titleRect.top - mapRect.bottom,
+      WorldDetailsPageScaffold.inlineContentTopPadding,
     );
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -120));
+    await tester.pump();
+
+    expect(tester.getRect(find.byKey(const ValueKey('map'))).top, lessThan(0));
     expect(
-      tester
-          .widgetList<SizedBox>(find.byType(SizedBox))
-          .any(
-            (widget) =>
-                widget.height ==
-                WorldDetailsPageScaffold.contentBottomPaddingWithBottomBar,
-          ),
-      isTrue,
+      tester.getTopLeft(find.byKey(const ValueKey('persistent-tabs'))).dy,
+      persistentTabsTop,
     );
   });
 
-  testWidgets('world details page scaffold uses explicit height settings', (
+  testWidgets('world details page scaffold uses explicit map height settings', (
     tester,
   ) async {
     const viewportSize = Size(400, 800);
@@ -111,25 +95,21 @@ void main() {
         home: WorldDetailsPageScaffold(
           panelTopGap: panelTopGap,
           panelCollapsedHeightOffset: panelCollapsedHeightOffset,
-          map: ColoredBox(color: Colors.green),
+          map: ColoredBox(key: ValueKey('explicit-map'), color: Colors.green),
           slivers: [SliverToBoxAdapter(child: Text('Details'))],
         ),
       ),
     );
 
-    final sheet = tester.widget<DraggableScrollableSheet>(
-      find.byType(DraggableScrollableSheet),
-    );
-    final expectedDefaultSize =
-        (WorldDetailsPanel.defaultExposedChildSize * viewportSize.height -
-            panelCollapsedHeightOffset) /
-        viewportSize.height;
-    final expectedMaxSize =
-        (viewportSize.height - panelTopGap) / viewportSize.height;
+    final mapRect = tester.getRect(find.byKey(const ValueKey('explicit-map')));
+    final expectedMapHeight =
+        (viewportSize.height * (1 - WorldDetailsPanel.defaultExposedChildSize) +
+                panelCollapsedHeightOffset)
+            .clamp(0.0, viewportSize.height - panelTopGap)
+            .toDouble();
 
-    expect(sheet.initialChildSize, closeTo(expectedDefaultSize, 0.01));
-    expect(sheet.minChildSize, closeTo(expectedDefaultSize, 0.01));
-    expect(sheet.maxChildSize, closeTo(expectedMaxSize, 0.01));
+    expect(find.byType(DraggableScrollableSheet), findsNothing);
+    expect(mapRect.height, closeTo(expectedMapHeight, 0.01));
   });
 
   testWidgets('world details panel owns title offset and horizontal padding', (

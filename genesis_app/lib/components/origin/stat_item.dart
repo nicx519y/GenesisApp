@@ -12,6 +12,8 @@ class StatItem extends StatelessWidget {
     this.iconSize = 14,
     this.iconColor,
     this.gap = 4,
+    this.iconAssetScale = 1.25,
+    this.iconVerticalOffset = -0.8,
     this.textStyle = const TextStyle(
       fontSize: 12,
       fontWeight: FontWeight.w400,
@@ -26,6 +28,8 @@ class StatItem extends StatelessWidget {
   final double iconSize;
   final Color? iconColor;
   final double gap;
+  final double iconAssetScale;
+  final double iconVerticalOffset;
   final TextStyle textStyle;
 
   @override
@@ -33,11 +37,12 @@ class StatItem extends StatelessWidget {
     final color = iconColor ?? Colors.black.withValues(alpha: 0.75);
     return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (iconAsset case final asset?)
           preserveIconAssetColor
               ? Transform.translate(
-                  offset: const Offset(0, -0.8),
+                  offset: Offset(0, iconVerticalOffset),
                   child: Image.asset(
                     asset,
                     width: customIconAssetRenderSize(asset, iconSize),

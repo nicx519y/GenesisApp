@@ -5,6 +5,25 @@ import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
 void main() {
+  test('parses tick count for shared origin tick chip', () {
+    final item = OriginListItem.fromJson({
+      'info': {'oid': 'o_alpha', 'name': 'Alpha', 'version_num': 3},
+      'stats': {'tick_cnt': 8, 'max_tick_cnt': 11},
+    });
+
+    expect(item.versionNum, 3);
+    expect(item.tickCount, 8);
+  });
+
+  test('falls back to max tick count when tick count is absent', () {
+    final item = OriginListItem.fromJson({
+      'info': {'oid': 'o_alpha', 'name': 'Alpha', 'version_num': 3},
+      'stats': {'max_tick_cnt': 11},
+    });
+
+    expect(item.tickCount, 11);
+  });
+
   testWidgets('renders image stats on the cover overlay', (
     WidgetTester tester,
   ) async {

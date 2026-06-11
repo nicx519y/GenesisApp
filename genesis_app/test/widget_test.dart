@@ -13,6 +13,7 @@ import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/copyable_id_label.dart';
+import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
@@ -288,6 +289,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldCharacterMetricValue = 50,
     this.originMapUrl = '',
     this.originLocations,
+    this.originTicks,
     this.worldMapUrl = '',
     this.worldCharacters,
     this.worldLocations,
@@ -311,6 +313,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final Object? worldCharacterMetricValue;
   final String originMapUrl;
   final List<Map<String, Object?>>? originLocations;
+  final List<Map<String, Object?>>? originTicks;
   final String worldMapUrl;
   final List<Map<String, Object?>>? worldCharacters;
   final List<Map<String, Object?>>? worldLocations;
@@ -735,16 +738,24 @@ class _RecordingV1ListTransport implements HttpTransport {
               'dialogue': const <Object?>[],
             },
           ],
-      'ticks': const [
-        {
-          'tick_no': 1,
-          'created_at': 1777680000,
-          'tick_result': {
-            'narrator': 'Origin launch tick narrator.',
-            'paragraphs': <Object?>[],
-          },
-        },
-      ],
+      'ticks':
+          originTicks ??
+          const [
+            {
+              'tick_no': 1,
+              'created_at': 1777680000,
+              'tick_result': {
+                'narrator': 'Origin launch tick narrator.',
+                'paragraphs': [
+                  {
+                    'location_id': 'l_o_test_1',
+                    'text': 'Detail location launch paragraph.',
+                  },
+                  {'location_id': 'l_o_test_1_empty', 'text': ''},
+                ],
+              },
+            },
+          ],
     };
   }
 
@@ -2449,6 +2460,66 @@ void main() {
     );
   });
 
+  testWidgets('logout clears messages badge and signed-in tab caches', (
+    WidgetTester tester,
+  ) async {
+    final sessionStore = MemoryUserSessionStore();
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: true,
+      sessionStore: sessionStore,
+    );
+    final transport = _RecordingMessagesDataPollTransport();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      sessionStoreOverride: sessionStore,
+      backendAuth: backendAuth,
+      initialUid: 'u_cached',
+      initialAuthToken: 'backend-token',
+      initialUserInfo: const {'uid': 'u_cached', 'name': 'Cached User'},
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const AppShellPage(initialIndex: 0),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
+        matching: find.text('4'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.settings));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Log out'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Log out').last);
+    await tester.pumpAndSettle();
+
+    expect(await sessionStore.readUid(), isNull);
+    expect(
+      find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('Messages'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Private chats'), findsNothing);
+  });
+
   testWidgets('messages action button navigates to list page', (
     WidgetTester tester,
   ) async {
@@ -3080,7 +3151,11 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(
-            services: await _testServices(transport: transport, useMock: false),
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'backend-token',
+            ),
             child: const HomePage(),
           ),
         ),
@@ -3122,7 +3197,7 @@ void main() {
     },
   );
 
-  testWidgets('Home My World tab is empty without local uid', (
+  testWidgets('Home defaults to Popular tab while signed out', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -3141,7 +3216,54 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    final originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(1));
+    expect(originRequests.single.uri.queryParameters['pn'], '1');
+    expect(originRequests.single.uri.queryParameters['rn'], '20');
+    expect(find.text('#Origin 1'), findsWidgets);
+  });
+
+  testWidgets('Home My World signed-out refresh keeps empty state', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: null,
+          ),
+          child: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('My World'));
+    await tester.pumpAndSettle();
+
     expect(find.text('No data'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+      findsNothing,
+    );
+
+    final refreshFuture = tester
+        .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
+        .show();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(find.text('No data'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+      findsNothing,
+    );
+
+    await refreshFuture;
+    await tester.pumpAndSettle();
   });
 
   testWidgets('Origin list item opens origin detail with current oid', (
@@ -3238,7 +3360,11 @@ void main() {
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'test-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -3358,24 +3484,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final launchButton = find.widgetWithText(FilledButton, 'Launch');
-    expect(launchButton, findsOneWidget);
-    expect(tester.getSize(launchButton).height, 40);
-    final launchButtonStyle = tester.widget<FilledButton>(launchButton).style;
-    final launchTextStyle = launchButtonStyle?.textStyle?.resolve(
-      <WidgetState>{},
+    expect(find.text('Launch'), findsOneWidget);
+    final launchButtonFinder = find.widgetWithText(FilledButton, 'Launch');
+    expect(tester.getSize(launchButtonFinder), const Size(140, 35));
+    final launchButton = tester.widget<FilledButton>(launchButtonFinder);
+    expect(
+      launchButton.style?.textStyle?.resolve(<WidgetState>{})?.fontSize,
+      16,
     );
-    expect(launchTextStyle?.fontSize, 14);
-    expect(launchTextStyle?.fontWeight, FontWeight.w500);
-    final launchBarStats = tester.widgetList<StatItem>(find.byType(StatItem));
-    expect(launchBarStats, hasLength(3));
-    for (final stat in launchBarStats) {
-      expect(stat.iconSize, 14);
-      expect(stat.textStyle.fontSize, 14);
-      expect(stat.textStyle.fontWeight, FontWeight.w400);
-    }
-
-    await tester.tap(launchButton);
+    await tester.tap(find.text('Launch'));
     await tester.pumpAndSettle();
     expect(find.text('Setup Your Role'), findsOneWidget);
     expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
@@ -3546,7 +3663,7 @@ void main() {
     );
     final chatLaunch = find.descendant(
       of: chatPanel,
-      matching: find.text('Launch'),
+      matching: find.text('Launch to send'),
     );
     expect(chatLaunch, findsOneWidget);
 
@@ -3587,6 +3704,28 @@ void main() {
     expect(find.text('Detail location launch paragraph.'), findsOneWidget);
   });
 
+  testWidgets('Origin detail hides launch preview without tick1 data', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      originTicks: const <Map<String, Object?>>[],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Launch Preview'), findsNothing);
+    expect(find.text('Origin launch tick narrator.'), findsNothing);
+    expect(find.text('Detail location launch paragraph.'), findsNothing);
+  });
+
   testWidgets(
     'Origin detail copy world progress rotates summary latest items',
     (WidgetTester tester) async {
@@ -3624,6 +3763,10 @@ void main() {
       );
       expect(find.text('WID: w_summary_1'), findsOneWidget);
       expect(find.text('4'), findsWidgets);
+      expect(find.byType(DiscussStoryBadge), findsOneWidget);
+      final widRight = tester.getTopRight(find.text('WID: w_summary_1')).dx;
+      final chipLeft = tester.getTopLeft(find.byType(DiscussStoryBadge)).dx;
+      expect(chipLeft - widRight, closeTo(8, 0.1));
       expect(
         tester
             .getSize(find.byKey(const ValueKey('copy-world-progress-body')))
@@ -4470,7 +4613,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: AppServicesScope(
-          services: await _testServices(transport: transport, useMock: false),
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
           child: const HomePage(),
         ),
       ),
@@ -6158,6 +6305,7 @@ void main() {
     expect(body.containsKey('name'), isFalse);
     expect(body.containsKey('world_view'), isFalse);
     expect(body.containsKey('world_setting'), isFalse);
+    expect(body.containsKey('origin_version'), isFalse);
     expect(body.containsKey('character_list'), isFalse);
     expect(body.containsKey('location_list'), isFalse);
     expect(body['origin_name'], 'Crystal City');

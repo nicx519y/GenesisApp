@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-class WorldDetailsPageScaffold extends StatelessWidget {
+import 'world_map_interaction_notification.dart';
+
+class WorldDetailsPageScaffold extends StatefulWidget {
   const WorldDetailsPageScaffold({
     super.key,
     required this.map,
@@ -9,11 +11,13 @@ class WorldDetailsPageScaffold extends StatelessWidget {
     this.panelCollapsedHeightOffset = defaultPanelCollapsedHeightOffset,
     this.bottomBar,
     this.topOverlay,
+    this.persistentTopOverlay,
   });
 
   static const double defaultPanelTopGap = 30;
   static const double defaultPanelCollapsedHeightOffset = 50;
   static const double contentHorizontalPadding = 12;
+  static const double inlineContentTopPadding = 14;
   static const double contentBottomPadding = 20;
   static const double contentBottomPaddingWithBottomBar = 126;
 
@@ -23,28 +27,104 @@ class WorldDetailsPageScaffold extends StatelessWidget {
   final double panelCollapsedHeightOffset;
   final Widget? bottomBar;
   final Widget? topOverlay;
+  final Widget? persistentTopOverlay;
+
+  @override
+  State<WorldDetailsPageScaffold> createState() =>
+      _WorldDetailsPageScaffoldState();
+}
+
+class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
+  late final ScrollController _scrollController = ScrollController();
+  bool _mapInteractionActive = false;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final bottomBar = this.bottomBar;
-    final topOverlay = this.topOverlay;
+    final bottomBar = widget.bottomBar;
+    final topOverlay = widget.topOverlay;
     return Scaffold(
-      body: Stack(
-        children: [
-          map,
-          WorldDetailsPanel(
-            topGap: panelTopGap,
-            collapsedHeightOffset: panelCollapsedHeightOffset,
-            horizontalPadding: contentHorizontalPadding,
-            bottomPadding: bottomBar == null
-                ? contentBottomPadding
-                : contentBottomPaddingWithBottomBar,
-            slivers: slivers,
-          ),
-          if (bottomBar != null)
-            Positioned(left: 0, right: 0, bottom: 0, child: bottomBar),
-          if (topOverlay != null) topOverlay,
-        ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final viewportHeight = constraints.maxHeight;
+          final mapHeight =
+              (viewportHeight *
+                          (1 - WorldDetailsPanel.defaultExposedChildSize) +
+                      widget.panelCollapsedHeightOffset)
+                  .clamp(
+                    0.0,
+                    (viewportHeight - widget.panelTopGap).clamp(
+                      0.0,
+                      viewportHeight,
+                    ),
+                  )
+                  .toDouble();
+          final bottomPadding = bottomBar == null
+              ? WorldDetailsPageScaffold.contentBottomPadding
+              : WorldDetailsPageScaffold.contentBottomPaddingWithBottomBar;
+          final bottomSafeArea = MediaQuery.paddingOf(context).bottom;
+
+          return Stack(
+            children: [
+              NotificationListener<WorldMapInteractionNotification>(
+                onNotification: (notification) {
+                  if (_mapInteractionActive != notification.active) {
+                    setState(() => _mapInteractionActive = notification.active);
+                  }
+                  return false;
+                },
+                child: WorldDetailsPanelScrollControllerScope(
+                  controller: _scrollController,
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    physics: _mapInteractionActive
+                        ? const NeverScrollableScrollPhysics()
+                        : null,
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: SizedBox(height: mapHeight, child: widget.map),
+                      ),
+                      SliverToBoxAdapter(
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(8),
+                            ),
+                          ),
+                          child: const SizedBox(
+                            height: WorldDetailsPageScaffold
+                                .inlineContentTopPadding,
+                          ),
+                        ),
+                      ),
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal:
+                              WorldDetailsPageScaffold.contentHorizontalPadding,
+                        ),
+                        sliver: SliverMainAxisGroup(slivers: widget.slivers),
+                      ),
+                      SliverToBoxAdapter(
+                        child: SizedBox(height: bottomPadding + bottomSafeArea),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (bottomBar != null)
+                Positioned(left: 0, right: 0, bottom: 0, child: bottomBar),
+              if (widget.persistentTopOverlay != null)
+                widget.persistentTopOverlay!,
+              if (topOverlay != null) topOverlay,
+            ],
+          );
+        },
       ),
     );
   }

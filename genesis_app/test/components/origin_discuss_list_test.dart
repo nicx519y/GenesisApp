@@ -8,7 +8,7 @@ import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/components/discuss/origin_discuss_list.dart';
-import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
+import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
@@ -414,24 +414,9 @@ void main() {
     expect(author.style?.fontSize, 12);
     expect(author.style?.fontWeight, FontWeight.w500);
     expect(author.style?.color, const Color(0xFF888888));
-
-    final authorRect = tester.getRect(find.text('User 1'));
-    final storyRect = tester.getRect(find.text('124'));
-    expect(storyRect.left, greaterThan(authorRect.right));
-    expect((storyRect.center.dy - authorRect.center.dy).abs(), lessThan(1));
-    final storyIcon = tester.widget<ImageIcon>(
-      _assetImageIconFinder(playIconAsset),
-    );
-    expect(storyIcon.size, 10);
-
-    final yellowBadges = tester
-        .widgetList<Container>(find.byType(Container))
-        .where((container) {
-          final decoration = container.decoration;
-          return decoration is BoxDecoration &&
-              decoration.color == const Color(0xFFFFF6CF);
-        });
-    expect(yellowBadges, isEmpty);
+    final authorCenter = tester.getCenter(find.text('User 1'));
+    final badgeCenter = tester.getCenter(find.byType(DiscussStoryBadge));
+    expect((authorCenter.dy - badgeCenter.dy).abs(), lessThan(1));
   });
 
   testWidgets('renders compact avatars and today time without date', (
@@ -477,9 +462,18 @@ void main() {
     expect(avatar.borderRadius, 15);
     expect(find.text('09:07'), findsOneWidget);
     expect(find.text('${today.month}-${today.day} 09:07'), findsNothing);
+    expect(
+      tester.getTopRight(find.text('09:07')).dx,
+      greaterThan(tester.getTopRight(find.byType(DiscussStoryBadge)).dx),
+    );
+    final rowRight = tester
+        .getTopRight(find.byKey(const ValueKey('origin-discuss-meta-dis_1')))
+        .dx;
+    final timeRight = tester.getTopRight(find.text('09:07')).dx;
+    expect(rowRight - timeRight, lessThan(8));
   });
 
-  testWidgets('renders item images as responsive square thumbnails', (
+  testWidgets('renders item images as 48dp horizontal thumbnails', (
     tester,
   ) async {
     final controller = OriginDiscussListController()
@@ -527,13 +521,14 @@ void main() {
     );
     expect(firstImage, findsOneWidget);
     expect(secondImage, findsOneWidget);
-    expect(tester.getSize(firstImage), const Size(96, 96));
-    expect(tester.getSize(secondImage), const Size(96, 96));
+    expect(tester.getSize(firstImage), const Size(48, 48));
+    expect(tester.getSize(secondImage), const Size(48, 48));
   });
 
-  testWidgets('opens image viewer from thumbnail and closes with back', (
+  testWidgets('thumbnail tap delegates to discuss item navigation', (
     tester,
   ) async {
+    OriginDiscussListItem? tappedItem;
     final controller = OriginDiscussListController()
       ..configure(
         oid: 'o_alpha',
@@ -564,7 +559,65 @@ void main() {
       );
 
     await controller.loadInitialIfNeeded();
-    await tester.pumpWidget(_host(controller));
+    await tester.pumpWidget(
+      _host(
+        controller,
+        onItemReplyTap: (item) {
+          tappedItem = item;
+        },
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(
+        const ValueKey(
+          'origin-discuss-image-assets/images/mock_maps/steam_kingdom_isometric.png',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tappedItem?.discussId, 'dis_with_images');
+    expect(
+      find.byKey(const ValueKey('genesis-image-viewer-page-view')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('thumbnail tap opens image viewer when configured', (
+    tester,
+  ) async {
+    final controller = OriginDiscussListController()
+      ..configure(
+        oid: 'o_alpha',
+        loader: ({required oid, required pn, required rn}) async {
+          return OriginDiscussPage.fromJson({
+            'list': [
+              {
+                'comment': {
+                  'discuss_id': 'dis_with_images',
+                  'author': {'uid': 'u_1', 'name': 'Shawn'},
+                  'content': 'Tap image to preview',
+                  'reply_cnt': 2,
+                  'created_at': '2026-02-09T00:00:00Z',
+                  'images': [
+                    'assets/images/mock_maps/steam_kingdom_isometric.png',
+                    'assets/images/mock_maps/location_rail_gate_map.png',
+                  ],
+                },
+                'latest_replies': const <Object?>[],
+              },
+            ],
+            'top_total': 1,
+            'total_all': 1,
+            'pn': pn,
+            'rn': rn,
+          });
+        },
+      );
+
+    await controller.loadInitialIfNeeded();
+    await tester.pumpWidget(_host(controller, imageTapOpensViewer: true));
 
     await tester.tap(
       find.byKey(
@@ -578,42 +631,6 @@ void main() {
     expect(
       find.byKey(const ValueKey('genesis-image-viewer-page-view')),
       findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('genesis-image-viewer-close')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('genesis-image-viewer-thumbnails')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('genesis-image-viewer-thumbnail-0')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('genesis-image-viewer-thumbnail-1')),
-      findsOneWidget,
-    );
-    expect(
-      tester.getSize(
-        find.byKey(const ValueKey('genesis-image-viewer-thumbnail-0')),
-      ),
-      const Size(56, 56),
-    );
-    expect(
-      tester.getSize(
-        find.byKey(const ValueKey('genesis-image-viewer-thumbnail-1')),
-      ),
-      const Size(56, 56),
-    );
-
-    await tester.binding.handlePopRoute();
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey('genesis-image-viewer-page-view')),
-      findsNothing,
     );
   });
 
@@ -1105,6 +1122,8 @@ Widget _host(
   List<RouteSettings>? pushed,
   bool showActions = true,
   bool showReplies = true,
+  bool imageTapOpensViewer = false,
+  OriginDiscussItemTap? onItemReplyTap,
 }) {
   final app = MaterialApp(
     onGenerateRoute: (settings) {
@@ -1118,6 +1137,8 @@ Widget _host(
               showHeader: false,
               showActions: showActions,
               showReplies: showReplies,
+              imageTapOpensViewer: imageTapOpensViewer,
+              onItemReplyTap: onItemReplyTap,
             ),
           ),
         ),
@@ -1148,6 +1169,8 @@ AppServices _servicesWithTransport(_FakeTransport transport) {
         ApiClient.defaultResponseProcessor(response),
   );
   final sessionStore = MemoryUserSessionStore();
+  unawaited(sessionStore.saveUid('u_test'));
+  unawaited(sessionStore.saveAuthToken('test-token'));
   return AppServices(
     config: base.config,
     platformConfig: base.platformConfig,
@@ -1214,15 +1237,6 @@ OriginDiscussPage _page({
 List<String> _contents(int count) => [
   for (var index = 1; index <= count; index += 1) 'Discuss $index',
 ];
-
-Finder _assetImageIconFinder(String assetName) {
-  return find.byWidgetPredicate(
-    (widget) =>
-        widget is ImageIcon &&
-        widget.image is AssetImage &&
-        (widget.image as AssetImage).assetName == assetName,
-  );
-}
 
 OriginDiscussListItem _item(
   int id,

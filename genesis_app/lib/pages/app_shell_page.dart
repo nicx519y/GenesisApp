@@ -191,6 +191,8 @@ class _AppShellPageState extends State<AppShellPage>
       loginUserInfo['avatar'] = user.avatar;
     }
     await services.sessionStore.saveUserInfo(loginUserInfo);
+    _resetSessionBoundState(selectedIndex: _selectedIndex);
+    unawaited(_messagesPoller.runNow());
     debugPrint('[Auth][AppShell] backend login success uid=${user.uid}');
     return true;
   }
@@ -218,13 +220,22 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   void _handleMeLoggedOut() {
+    _resetSessionBoundState(selectedIndex: 1);
+    unawaited(
+      AppServicesScope.read(context).directMessageConversations.loadFromDb(),
+    );
+  }
+
+  void _resetSessionBoundState({required int selectedIndex}) {
     setState(() {
-      _tabPageCache.remove(4);
-      _visitedTabIndexes.remove(4);
-      _selectedIndex = 1;
-      _visitedTabIndexes.add(1);
+      _tabPageCache.clear();
+      _visitedTabIndexes
+        ..clear()
+        ..add(selectedIndex);
+      _selectedIndex = selectedIndex;
     });
-    _messagesTabActiveNotifier.value = false;
+    _unreadSummaryNotifier.value = UnreadSummary.zero;
+    _messagesTabActiveNotifier.value = _selectedIndex == 3;
   }
 
   Widget _cachedTabPage(int index) {

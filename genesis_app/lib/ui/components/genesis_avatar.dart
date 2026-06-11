@@ -68,6 +68,9 @@ class GenesisAvatar extends StatelessWidget {
             height: imageHeight,
             fit: fit,
             alignment: alignment,
+            fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
+            placeholderFadeInDuration: Duration.zero,
             placeholder: (context, url) => fallback,
             errorWidget: (context, url, error) => fallback,
           );

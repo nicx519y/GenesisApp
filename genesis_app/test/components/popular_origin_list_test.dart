@@ -5,6 +5,7 @@ import 'package:genesis_flutter_android/components/home/popular_origin_list.dart
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 
 void main() {
   testWidgets('renders popular origin feed fields and handles taps', (
@@ -14,6 +15,7 @@ void main() {
       oid: 'o_alpha',
       status: 1,
       versionNum: 3,
+      tickCount: 8,
       name: 'Alpha Empire',
       cover: '',
       displaySubtitle: 'Tycoon idols compete for the crown.',
@@ -82,17 +84,45 @@ void main() {
     expect(find.text('Copy World Progress'), findsOneWidget);
     expect(find.text('OID: o_alpha'), findsNWidgets(2));
     expect(find.text('Originator: Origin Owner'), findsOneWidget);
-    expect(find.text('v3'), findsOneWidget);
-    expect(find.byIcon(Icons.skip_next), findsNothing);
-    final progressTickIcons = tester.widgetList<Icon>(
-      find.byIcon(MyFlutterApp.pregress),
+    expect(find.text('v3'), findsNothing);
+    expect(find.text('8'), findsOneWidget);
+    final versionChip = find.byKey(
+      const ValueKey('popular-origin-tick-chip-8'),
     );
-    expect(progressTickIcons, isNotEmpty);
-    expect(progressTickIcons.map((icon) => icon.size), everyElement(10));
+    final versionChipContainer = tester.widget<Container>(versionChip);
+    final versionChipDecoration =
+        versionChipContainer.decoration! as BoxDecoration;
+    final versionChipRadius =
+        versionChipDecoration.borderRadius! as BorderRadius;
+    final versionIcon = tester.widget<Icon>(
+      find.descendant(of: versionChip, matching: find.byType(Icon)),
+    );
+    final versionText = tester.widget<Text>(find.text('8'));
+    expect(versionChipDecoration.color, const Color(0xFFFEF3C7));
+    expect(versionChipRadius.topLeft.x, 5);
+    expect(versionIcon.icon, MyFlutterApp.pregress);
+    expect(versionIcon.size, 9);
+    expect(versionIcon.color, const Color(0xFF92400E));
+    expect(versionText.style?.fontSize, 11);
+    expect(versionText.style?.fontWeight, FontWeight.w500);
+    expect(versionText.style?.color, const Color(0xFF92400E));
+    expect(find.byIcon(Icons.skip_next), findsNothing);
     expect(find.text('Discuss (128)'), findsOneWidget);
     expect(find.image(const AssetImage(discussIconAsset)), findsOneWidget);
     expect(requestedDiscussOid, 'o_alpha');
     expect(find.text('Shawn'), findsOneWidget);
+    final thumbnails = tester.widgetList<GenesisListImage>(
+      find.byType(GenesisListImage),
+    );
+    expect(
+      thumbnails.any(
+        (image) =>
+            image.width == 60 &&
+            image.height == 60 &&
+            image.borderRadius == BorderRadius.zero,
+      ),
+      isTrue,
+    );
     expect(find.text('36'), findsNothing);
     expect(find.text('2-9 00:00'), findsOneWidget);
     expect(

@@ -42,6 +42,9 @@ class GenesisListImage extends StatelessWidget {
                 width: _finite(width),
                 height: _finite(height),
                 fit: fit,
+                fadeInDuration: Duration.zero,
+                fadeOutDuration: Duration.zero,
+                placeholderFadeInDuration: Duration.zero,
                 placeholder: (context, url) => _placeholder(),
                 errorWidget: (context, url, error) => _placeholder(),
               );

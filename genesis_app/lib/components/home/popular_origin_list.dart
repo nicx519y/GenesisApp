@@ -17,7 +17,7 @@ class PopularOriginList extends StatefulWidget {
     this.storageKey,
     this.isLoadingMore = false,
     this.discussLoader,
-    this.thumbnailBorderRadius = 8,
+    this.thumbnailBorderRadius = 0,
   });
 
   final List<OriginListItem> items;
@@ -113,7 +113,7 @@ class PopularOriginListItem extends StatelessWidget {
     super.key,
     required this.item,
     this.discussLoader,
-    this.thumbnailBorderRadius = 8,
+    this.thumbnailBorderRadius = 0,
   });
 
   final OriginListItem item;
@@ -125,52 +125,52 @@ class PopularOriginListItem extends StatelessWidget {
     final title = item.title;
     final metaTime = _relativeTime(item.updatedAt);
 
-    return Column(
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _OriginImage(
-              imageUrl: item.cover,
-              width: 60,
-              height: 60,
-              borderRadius: thumbnailBorderRadius,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _OriginSummary(item: item, title: title),
-            ),
-          ],
+        _OriginImage(
+          imageUrl: item.cover,
+          width: 60,
+          height: 60,
+          borderRadius: thumbnailBorderRadius,
         ),
-        const SizedBox(height: 12),
-        Text(
-          item.subtitle,
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF111111),
-            fontSize: 12,
-            height: 1.4,
-            fontWeight: FontWeight.w400,
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _OriginSummary(item: item, title: title),
+              const SizedBox(height: 10),
+              Text(
+                item.subtitle,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF111111),
+                  fontSize: 12,
+                  height: 1.33,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _OriginHeroImage(item: item),
+              const SizedBox(height: 16),
+              _ProgressHeader(),
+              const SizedBox(height: 6),
+              _ProgressBody(item: item),
+              const SizedBox(height: 6),
+              _MetaRow(item: item, timeText: metaTime),
+              const SizedBox(height: 6),
+              OriginDiscussPreviewList(
+                oid: item.oid,
+                count: item.discussCnt,
+                loader: discussLoader,
+              ),
+              const SizedBox(height: 14),
+              _EnterOriginRow(title: title),
+            ],
           ),
         ),
-        const SizedBox(height: 14),
-        _OriginHeroImage(item: item),
-        const SizedBox(height: 16),
-        _ProgressHeader(),
-        const SizedBox(height: 12),
-        _ProgressBody(item: item),
-        const SizedBox(height: 12),
-        _MetaRow(item: item, timeText: metaTime),
-        const SizedBox(height: 12),
-        OriginDiscussPreviewList(
-          oid: item.oid,
-          count: item.discussCnt,
-          loader: discussLoader,
-        ),
-        const SizedBox(height: 14),
-        _EnterOriginRow(title: title),
       ],
     );
   }
@@ -428,18 +428,49 @@ class _MetaRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 9),
-              const Icon(
-                MyFlutterApp.pregress,
-                size: 10,
-                color: Color(0xFF8B8B8B),
-              ),
-              const SizedBox(width: 4),
-              Text('v${item.versionNum}', style: _metaStyle),
+              _OriginTickChip(count: item.tickCount),
             ],
           ),
         ),
         if (timeText.isNotEmpty) Text(timeText, style: _metaStyle),
       ],
+    );
+  }
+}
+
+class _OriginTickChip extends StatelessWidget {
+  const _OriginTickChip({required this.count});
+
+  final int count;
+
+  static const Color _chipBackground = Color(0xFFFEF3C7);
+  static const Color _chipForeground = Color(0xFF92400E);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: ValueKey('popular-origin-tick-chip-$count'),
+      padding: const EdgeInsetsDirectional.fromSTEB(5, 2, 7, 2),
+      decoration: BoxDecoration(
+        color: _chipBackground,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(MyFlutterApp.pregress, size: 9, color: _chipForeground),
+          const SizedBox(width: 3),
+          Text(
+            '$count',
+            style: const TextStyle(
+              color: _chipForeground,
+              fontSize: 11,
+              height: 1,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

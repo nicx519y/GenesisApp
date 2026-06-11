@@ -15,6 +15,8 @@ abstract final class GenesisColors {
   static const Color textSecondary = Color(0xFF6F6F6F);
   static const Color textTertiary = Color(0xFF8D8D8D);
   static const Color textDisabled = Color(0xFF9E9E9E);
+  static const Color tabSelected = Color(0xFF000000);
+  static const Color tabUnselected = Color(0xFF666666);
 
   static const Color border = Color(0xFFE6E6E8);
   static const Color borderStrong = Color(0xFFDCDCDC);

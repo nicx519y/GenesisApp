@@ -15,6 +15,8 @@ import '../common/genesis_center_toast.dart';
 import '../common/genesis_image_viewer_overlay.dart';
 import 'discuss_post_input.dart';
 import 'origin_discuss_replies_list.dart';
+import 'story_badge.dart';
+import '../auth/login_guard.dart';
 
 typedef OriginDiscussPageLoader =
     Future<OriginDiscussPage> Function({
@@ -799,6 +801,7 @@ class OriginDiscussList extends StatelessWidget {
     this.collapseInitialItems = true,
     this.showActions = false,
     this.showReplies = false,
+    this.imageTapOpensViewer = false,
     this.onViewMoreTap,
     this.onItemReplyTap,
     this.onReplyTap,
@@ -811,6 +814,7 @@ class OriginDiscussList extends StatelessWidget {
   final bool collapseInitialItems;
   final bool showActions;
   final bool showReplies;
+  final bool imageTapOpensViewer;
   final Future<void> Function()? onViewMoreTap;
   final OriginDiscussItemTap? onItemReplyTap;
   final OriginDiscussReplyTap? onReplyTap;
@@ -859,6 +863,8 @@ class OriginDiscussList extends StatelessWidget {
                         item: entry.$2,
                         showActions: showActions,
                         showReplies: showReplies,
+                        imageTapOpensViewer: imageTapOpensViewer,
+                        onViewMoreTap: onViewMoreTap,
                         onItemReplyTap: onItemReplyTap,
                         onReplyTap: onReplyTap,
                       ),
@@ -959,6 +965,8 @@ class OriginDiscussCommentRow extends StatefulWidget {
     required this.item,
     required this.showActions,
     required this.showReplies,
+    required this.imageTapOpensViewer,
+    this.onViewMoreTap,
     this.onItemReplyTap,
     this.onReplyTap,
   });
@@ -967,6 +975,8 @@ class OriginDiscussCommentRow extends StatefulWidget {
   final OriginDiscussListItem item;
   final bool showActions;
   final bool showReplies;
+  final bool imageTapOpensViewer;
+  final Future<void> Function()? onViewMoreTap;
   final OriginDiscussItemTap? onItemReplyTap;
   final OriginDiscussReplyTap? onReplyTap;
 
@@ -1099,8 +1109,11 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
                 ),
               ),
               if (widget.item.imageUrls.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                _DiscussImageThumbnails(urls: widget.item.imageUrls),
+                const SizedBox(height: 6),
+                _DiscussImageThumbnails(
+                  urls: widget.item.imageUrls,
+                  onTap: (index) => _handleImageTap(context, index),
+                ),
               ],
               if (widget.showActions) ...[
                 const SizedBox(height: 12),
@@ -1126,39 +1139,50 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
       ],
     );
   }
+
+  void _handleImageTap(BuildContext context, int index) {
+    if (widget.imageTapOpensViewer) {
+      showGenesisImageViewer(
+        context,
+        imageUrls: widget.item.imageUrls,
+        initialIndex: index,
+      );
+      return;
+    }
+    final itemHandler = widget.onItemReplyTap;
+    if (itemHandler != null) {
+      itemHandler(widget.item);
+      return;
+    }
+    final viewMoreHandler = widget.onViewMoreTap;
+    if (viewMoreHandler != null) {
+      unawaited(viewMoreHandler());
+    }
+  }
 }
 
 class _DiscussImageThumbnails extends StatelessWidget {
-  const _DiscussImageThumbnails({required this.urls});
+  const _DiscussImageThumbnails({required this.urls, required this.onTap});
 
   final List<String> urls;
+  final ValueChanged<int> onTap;
 
   @override
   Widget build(BuildContext context) {
-    final visibleUrls = urls.take(6).toList(growable: false);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : 288.0;
-        final resolvedTileSize = ((maxWidth - 16) / 3).clamp(72.0, 96.0);
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final entry in visibleUrls.indexed)
-              _DiscussImageThumbnail(
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final entry in urls.indexed)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: _DiscussImageThumbnail(
                 url: entry.$2,
-                size: resolvedTileSize,
-                onTap: () => showGenesisImageViewer(
-                  context,
-                  imageUrls: urls,
-                  initialIndex: entry.$1,
-                ),
+                onTap: () => onTap(entry.$1),
               ),
-          ],
-        );
-      },
+            ),
+        ],
+      ),
     );
   }
 }
@@ -1251,6 +1275,8 @@ class _DiscussActions extends StatelessWidget {
   Future<void> _toggleLike(BuildContext context) async {
     final discussId = item.discussId.trim();
     if (discussId.isEmpty || controller.isLikePending(discussId)) return;
+    if (!await ensureGenesisLogin(context)) return;
+    if (!context.mounted) return;
 
     final previousLiked = item.isLiked;
     final previousCount = item.likeCount;
@@ -1430,45 +1456,10 @@ Map<String, dynamic> _localReplyJson({
   };
 }
 
-class _StoryBadge extends StatelessWidget {
-  const _StoryBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ImageIcon(
-          const AssetImage(playIconAsset),
-          size: 10,
-          color: const Color(0xFF9A9A9A),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          '$count',
-          style: const TextStyle(
-            fontSize: 12,
-            height: 1.18,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF888888),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _DiscussImageThumbnail extends StatelessWidget {
-  const _DiscussImageThumbnail({
-    required this.url,
-    required this.size,
-    required this.onTap,
-  });
+  const _DiscussImageThumbnail({required this.url, required this.onTap});
 
   final String url;
-  final double size;
   final VoidCallback onTap;
 
   @override
@@ -1481,9 +1472,9 @@ class _DiscussImageThumbnail extends StatelessWidget {
       onTap: onTap,
       child: GenesisListImage(
         imageUrl: imageUrl,
-        width: size,
-        height: size,
-        borderRadius: BorderRadius.circular(4),
+        width: 48,
+        height: 48,
+        borderRadius: BorderRadius.zero,
       ),
     );
   }
@@ -1497,53 +1488,59 @@ class _DiscussPreviewMeta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final date = _dateLabel(item.createdAt);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Row(
-                children: [
+    return SizedBox(
+      key: ValueKey('origin-discuss-meta-${item.discussId}'),
+      width: double.infinity,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    item.authorName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF888888),
+                      fontSize: 12,
+                      height: 1.18,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                DiscussStoryBadge(count: item.storyCount),
+                if (item.worldId.isNotEmpty) ...[
+                  const SizedBox(width: 10),
                   Flexible(
-                    child: Text(
-                      item.authorName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF888888),
-                        fontSize: 12,
-                        height: 1.18,
-                        fontWeight: FontWeight.w500,
+                    child: GestureDetector(
+                      key: ValueKey('origin-discuss-world-${item.worldId}'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => Navigator.of(context).pushNamed(
+                        RouteNames.world,
+                        arguments: {'wid': item.worldId},
+                      ),
+                      child: Text(
+                        'WID: ${item.worldId}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _subtleStyle,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  _StoryBadge(count: item.storyCount),
                 ],
-              ),
-            ),
-            if (date.isNotEmpty) const SizedBox(width: 8),
-            if (date.isNotEmpty) Text(date, style: _subtleStyle),
-          ],
-        ),
-        if (item.worldId.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          GestureDetector(
-            key: ValueKey('origin-discuss-world-${item.worldId}'),
-            behavior: HitTestBehavior.opaque,
-            onTap: () => Navigator.of(
-              context,
-            ).pushNamed(RouteNames.world, arguments: {'wid': item.worldId}),
-            child: Text(
-              'WID: ${item.worldId}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: _subtleStyle,
+              ],
             ),
           ),
+          if (date.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Text(date, style: _subtleStyle),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

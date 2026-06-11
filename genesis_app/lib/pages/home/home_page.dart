@@ -11,28 +11,73 @@ import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/secend_tabs.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   static const List<String> tabs = ['My Worlds', 'Popular'];
 
   @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  late final Future<int> _initialTabIndexFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialTabIndexFuture = _initialTabIndex();
+  }
+
+  Future<int> _initialTabIndex() async {
+    return await _hasLocalLoginSession() ? 0 : 1;
+  }
+
+  Future<bool> _hasLocalLoginSession() async {
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: tabs.length,
-      child: Column(
-        children: [
-          const _HomeHeader(),
-          const SizedBox(height: 4),
-          SecendTabs(labels: tabs),
-          const SizedBox(height: 4),
-          const Expanded(
-            child: TabBarView(
-              children: [_MyWorldFeed(index: 0), _PopularOriginFeed(index: 1)],
-            ),
+    return FutureBuilder<int>(
+      future: _initialTabIndexFuture,
+      builder: (context, snapshot) {
+        final initialIndex = snapshot.data;
+        if (initialIndex == null) {
+          return const Column(
+            children: [
+              _HomeHeader(),
+              SizedBox(height: 4),
+              Expanded(child: GenesisListLoadingSkeleton.popularOriginList()),
+            ],
+          );
+        }
+
+        return DefaultTabController(
+          length: HomePage.tabs.length,
+          initialIndex: initialIndex,
+          child: Column(
+            children: [
+              const _HomeHeader(),
+              const SizedBox(height: 4),
+              SecendTabs(labels: HomePage.tabs),
+              const SizedBox(height: 4),
+              const Expanded(
+                child: TabBarView(
+                  children: [
+                    _MyWorldFeed(index: 0),
+                    _PopularOriginFeed(index: 1),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -185,6 +230,21 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }
 
   Future<void> _refreshItems() async {
+    if (!await _hasLocalLoginSession()) {
+      if (!mounted) return;
+      setState(() {
+        _items.clear();
+        _nextPage = 1;
+        _total = 0;
+        _hasMore = false;
+        _error = null;
+        _isInitialLoading = false;
+        _isLoadingMore = false;
+        _isRefreshing = false;
+      });
+      return;
+    }
+
     setState(() {
       _error = null;
       _isInitialLoading = _items.isEmpty;
@@ -212,6 +272,14 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isRefreshing = false;
       });
     }
+  }
+
+  Future<bool> _hasLocalLoginSession() async {
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
   }
 
   Future<void> _loadNextPage() async {

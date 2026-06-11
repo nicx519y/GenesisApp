@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../auth/login_guard.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_upload_progress_overlay.dart';
@@ -43,6 +44,7 @@ class DiscussPostInput extends StatefulWidget {
     this.imagePicker,
     this.imageUploader,
     this.onSubmitted,
+    this.requireLogin = true,
   });
 
   final String bizId;
@@ -53,6 +55,7 @@ class DiscussPostInput extends StatefulWidget {
   final DiscussImagePicker? imagePicker;
   final DiscussImageUploader? imageUploader;
   final VoidCallback? onSubmitted;
+  final bool requireLogin;
 
   @override
   State<DiscussPostInput> createState() => _DiscussPostInputState();
@@ -65,7 +68,11 @@ Future<bool> showDiscussPostComposer({
   required DiscussComposerSubmitter submitter,
   DiscussImagePicker? imagePicker,
   DiscussImageUploader? imageUploader,
+  bool requireLogin = true,
 }) async {
+  if (requireLogin && !await ensureGenesisLogin(context)) return false;
+  if (!context.mounted) return false;
+
   final submitted = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
@@ -142,6 +149,7 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
       imagePicker: widget.imagePicker ?? _pickImages,
       imageUploader: widget.imageUploader ?? _uploadImage,
       submitter: _submit,
+      requireLogin: widget.requireLogin,
     );
 
     _composerOpen = false;

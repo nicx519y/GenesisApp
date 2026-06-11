@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../tokens/genesis_spacing.dart';
 import '../theme/genesis_ui_theme.dart';
 
+const genesisSearchFieldHeight = 38.0;
+
 class GenesisSearchField extends StatelessWidget {
   const GenesisSearchField({
     super.key,
@@ -15,7 +17,7 @@ class GenesisSearchField extends StatelessWidget {
     this.textInputAction = TextInputAction.search,
     this.readOnly = false,
     this.autofocus = false,
-    this.height = 38,
+    this.height = genesisSearchFieldHeight,
     this.padding = const EdgeInsets.symmetric(horizontal: GenesisSpacing.xl),
     this.backgroundColor,
     this.borderColor,
