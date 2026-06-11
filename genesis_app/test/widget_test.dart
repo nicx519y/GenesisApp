@@ -3054,6 +3054,7 @@ void main() {
 
     expect(find.text('Launch'), findsOneWidget);
     final launchButtonFinder = find.widgetWithText(FilledButton, 'Launch');
+    expect(tester.getSize(launchButtonFinder), const Size(140, 35));
     final launchButton = tester.widget<FilledButton>(launchButtonFinder);
     expect(
       launchButton.style?.textStyle?.resolve(<WidgetState>{})?.fontSize,

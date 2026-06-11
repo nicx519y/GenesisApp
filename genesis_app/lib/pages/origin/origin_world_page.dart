@@ -692,7 +692,7 @@ class _OriginBottomLaunchBarSkeleton extends StatelessWidget {
               SizedBox(width: 20),
               _OriginLoadingBone(width: 36, height: 12),
               Spacer(),
-              _OriginLoadingBone(width: 148, height: 30, radius: 8),
+              _OriginLoadingBone(width: 140, height: 35, radius: 8),
             ],
           ),
         ),
@@ -825,7 +825,8 @@ class _OriginBottomLaunchBar extends StatelessWidget {
               ),
               const SizedBox(width: 18),
               SizedBox(
-                height: 32,
+                width: 140,
+                height: 35,
                 child: FilledButton(
                   onPressed: launching ? null : onLaunch,
                   style: FilledButton.styleFrom(
@@ -835,7 +836,7 @@ class _OriginBottomLaunchBar extends StatelessWidget {
                     ).withValues(alpha: 0.62),
                     foregroundColor: Colors.white,
                     disabledForegroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 35),
+                    padding: EdgeInsets.zero,
                     textStyle: const TextStyle(
                       fontSize: 16,
                       height: 1,
