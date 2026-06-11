@@ -25,7 +25,7 @@ class MessagesV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"notification_id":"ntf_AB12CD34","notice_block":"world_apply","notice_type":"world_apply","sender":{},"biz_type":2,"biz_id":"w_a1b2c3","obj_id":"apl_a1b2c3","content":"string","is_read":true,"created_at":0}],"total":0,"pn":1,"rn":20}}
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"notification_id":"ntf_AB12CD34","notice_block":"interaction","notice_type":"discuss_comment","sender":{},"biz_type":1,"biz_id":"o_a1b2c3","obj_id":"dis_a1b2c3","origin_name":"Origin name","content":"string","is_read":true,"created_at":0}],"total":0,"pn":1,"rn":20}}
   /// ```
   Future<Map<String, dynamic>> notifications({
     required String block,

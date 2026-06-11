@@ -293,31 +293,31 @@ class _MessageMenuButton extends StatelessWidget {
           child: Column(
             children: [
               SizedBox(
-                width: 62,
-                height: 62,
+                width: 54,
+                height: 54,
                 child: Stack(
                   clipBehavior: Clip.none,
                   alignment: Alignment.center,
                   children: [
                     Container(
-                      width: 56,
-                      height: 56,
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
                         color: backgroundColor,
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(15),
                       ),
                       alignment: Alignment.center,
                       child: Image.asset(
                         iconAsset,
-                        width: 31,
-                        height: 31,
+                        width: 25,
+                        height: 25,
                         fit: BoxFit.contain,
                         filterQuality: FilterQuality.high,
                       ),
                     ),
                     Positioned(
-                      top: 1,
-                      right: 1,
+                      top: 0,
+                      right: 0,
                       child: _UnreadBadge(
                         key: ValueKey('message-menu-$routeName-unread-badge'),
                         count: unreadCount,

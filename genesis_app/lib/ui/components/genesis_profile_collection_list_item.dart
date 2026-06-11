@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../icons/custom_icon_assets.dart';
 import '../../utils/stat_count_formatter.dart';
 import 'genesis_list_image.dart';
 
@@ -155,13 +156,17 @@ class _Stat extends StatelessWidget {
                   offset: const Offset(0, -0.8),
                   child: Image.asset(
                     asset,
-                    width: 13.75,
-                    height: 13.75,
+                    width: customIconAssetRenderSize(asset, 13.75),
+                    height: customIconAssetRenderSize(asset, 13.75),
                     fit: BoxFit.contain,
                     excludeFromSemantics: true,
                   ),
                 )
-              : ImageIcon(AssetImage(asset), size: 11, color: Colors.black)
+              : ImageIcon(
+                  AssetImage(asset),
+                  size: customIconAssetRenderSize(asset, 11),
+                  color: Colors.black,
+                )
         else
           Icon(icon, size: 11, color: Colors.black),
         const SizedBox(width: 4),

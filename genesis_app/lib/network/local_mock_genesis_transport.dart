@@ -1652,6 +1652,23 @@ class _MockState {
     apply['reviewer_uid'] = _v1User['uid'];
     apply['review_msg'] = reviewMsg ?? '';
     apply['reviewed_at'] = _unixSeconds();
+    final world = _findV1World('${apply['world_id']}');
+    _v1Notifications.add({
+      'notification_id':
+          'ntf_mock_world_apply_review_${DateTime.now().microsecondsSinceEpoch}',
+      'notice_block': 'world_apply',
+      'notice_type': 'world_apply_review',
+      'sender': _deepCopyMap(_v1User),
+      'biz_type': 2,
+      'biz_id': apply['world_id'],
+      'obj_id': apply['apply_id'],
+      'world_name': world['name'] ?? world['world_name'] ?? world['wid'],
+      'status': status,
+      'content':
+          'request to ${world['name'] ?? world['world_name'] ?? world['wid']}',
+      'is_read': false,
+      'created_at': _unixSeconds(),
+    });
     return {'apply_id': apply['apply_id'], 'status': status};
   }
 
@@ -1752,7 +1769,17 @@ class _MockState {
   }
 
   List<Map<String, dynamic>> v1Notifications() {
-    return _v1Notifications.map(_deepCopyMap).toList();
+    return _v1Notifications.map(_v1NotificationPayload).toList();
+  }
+
+  Map<String, dynamic> _v1NotificationPayload(Map<String, dynamic> item) {
+    final payload = _deepCopyMap(item);
+    if (payload['notice_block'] == 'interaction' &&
+        '${payload['origin_name'] ?? ''}'.trim().isEmpty) {
+      final origin = _findV1Origin('${payload['biz_id'] ?? ''}');
+      payload['origin_name'] = origin['name'] ?? origin['origin_name'] ?? '';
+    }
+    return payload;
   }
 
   Map<String, dynamic> v1UnreadSummary() {

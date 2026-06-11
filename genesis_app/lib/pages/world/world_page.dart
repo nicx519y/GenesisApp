@@ -35,7 +35,6 @@ import '../chat/location_chat_page.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
-const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
 const Duration _tick1WaitPollInterval = Duration(seconds: 2);
 const Duration _tick1WaitDotsInterval = Duration(milliseconds: 400);
 
@@ -2188,7 +2187,7 @@ class _OwnerMetaLink extends StatelessWidget {
 IconData? _counterIcon(String key) {
   switch (key) {
     case 'tick':
-      return MyFlutterApp.pregress;
+      return null;
     case 'connect':
       return null;
     case 'character':
@@ -2202,7 +2201,8 @@ IconData? _counterIcon(String key) {
 
 String? _counterIconAsset(String key) {
   return switch (key) {
-    'connect' => _connectIconAsset,
+    'tick' => playIconAsset,
+    'connect' => connectIconAsset,
     'character' => aiCharacterIconAsset,
     _ => null,
   };

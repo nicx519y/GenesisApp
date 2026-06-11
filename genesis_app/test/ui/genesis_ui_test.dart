@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
+import 'package:genesis_flutter_android/components/page_header.dart';
 import 'package:genesis_flutter_android/components/search_bar.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
@@ -130,7 +132,21 @@ void main() {
       tester.widget<SearchBarPlaceholder>(find.byType(SearchBarPlaceholder)),
       isA<GenesisSearchField>(),
     );
+    final image = tester.widget<Image>(find.byType(Image));
+    expect((image.image as AssetImage).assetName, searchIconAsset);
+    expect(find.byIcon(Icons.search), findsNothing);
     expect(find.text('Explore'), findsOneWidget);
+  });
+
+  testWidgets('PageHeader reuses SearchBarPlaceholder', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: PageHeader(pageName: 'Origin')),
+      ),
+    );
+
+    expect(find.text('Origin'), findsOneWidget);
+    expect(find.byType(SearchBarPlaceholder), findsOneWidget);
   });
 
   testWidgets('GenesisPrimaryButton uses the shared filled-button surface', (
@@ -286,6 +302,58 @@ void main() {
     expect(result, 'save');
   });
 
+  testWidgets('GenesisActionBox renders optional content below title', (
+    tester,
+  ) async {
+    String? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return FilledButton(
+                onPressed: () async {
+                  result = await showGenesisActionBox<String>(
+                    context: context,
+                    title: 'Join request',
+                    content: const Text(
+                      'Requester U_001',
+                      key: ValueKey('action-box-custom-content'),
+                    ),
+                    actions: const [
+                      GenesisActionBoxAction<String>(
+                        label: 'Approve',
+                        value: 'approve',
+                      ),
+                      GenesisActionBoxAction<String>(
+                        label: 'Reject',
+                        value: 'reject',
+                      ),
+                    ],
+                  );
+                },
+                child: const Text('Open'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('action-box-custom-content')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Approve'));
+    await tester.pumpAndSettle();
+
+    expect(result, 'approve');
+  });
+
   testWidgets('GenesisPrimaryButton supports action-specific styling', (
     tester,
   ) async {
@@ -356,6 +424,96 @@ void main() {
 
     await tester.tap(find.text('Create'));
     expect(selectedIndex, 1);
+  });
+
+  testWidgets('GenesisBottomNavigation switches asset icon by selection', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: GenesisBottomNavigation(
+            currentIndex: 1,
+            onTap: (_) {},
+            items: const [
+              GenesisBottomNavigationItem(
+                label: 'Home',
+                iconAsset: bottomNavHomeIconAsset,
+                selectedIconAsset: bottomNavHomePressIconAsset,
+              ),
+              GenesisBottomNavigationItem(
+                label: 'Messages',
+                iconAsset: bottomNavMessagesIconAsset,
+                selectedIconAsset: bottomNavMessagesPressIconAsset,
+                badgeCount: 4,
+              ),
+              GenesisBottomNavigationItem(
+                label: 'Create',
+                iconAsset: bottomNavCreateIconAsset,
+                prominent: true,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final images = tester.widgetList<Image>(find.byType(Image)).toList();
+    expect(images, hasLength(3));
+    expect(images[0].width, 24);
+    expect(images[0].height, 24);
+    expect((images[0].image as AssetImage).assetName, bottomNavHomeIconAsset);
+    expect(
+      (images[1].image as AssetImage).assetName,
+      bottomNavMessagesPressIconAsset,
+    );
+    expect(images[2].width, 28);
+    expect(images[2].height, 28);
+    expect((images[2].image as AssetImage).assetName, bottomNavCreateIconAsset);
+
+    final spacingBoxes = tester
+        .widgetList<SizedBox>(
+          find.descendant(
+            of: find.byType(GenesisBottomNavigation),
+            matching: find.byType(SizedBox),
+          ),
+        )
+        .where((box) => box.width == null)
+        .map((box) => box.height)
+        .toList();
+    expect(spacingBoxes.where((height) => height == 2), hasLength(2));
+    expect(spacingBoxes.where((height) => height == 1), hasLength(1));
+
+    final navSizedBoxes = tester.widgetList<SizedBox>(
+      find.descendant(
+        of: find.byType(GenesisBottomNavigation),
+        matching: find.byType(SizedBox),
+      ),
+    );
+    expect(navSizedBoxes.any((box) => box.height == 49), isTrue);
+
+    final decoration = tester
+        .widgetList<DecoratedBox>(
+          find.descendant(
+            of: find.byType(GenesisBottomNavigation),
+            matching: find.byType(DecoratedBox),
+          ),
+        )
+        .map((box) => box.decoration)
+        .whereType<BoxDecoration>()
+        .singleWhere((decoration) => decoration.boxShadow != null);
+    expect(decoration.color, Colors.white);
+    expect(decoration.boxShadow, isNotNull);
+    expect(decoration.boxShadow!.single.offset.dy, lessThan(0));
+
+    final badgePosition = tester.widget<Positioned>(
+      find.ancestor(
+        of: find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
+        matching: find.byType(Positioned),
+      ),
+    );
+    expect(badgePosition.top, 1);
+    expect(badgePosition.right, -11);
   });
 
   testWidgets('GenesisTabBar renders labels inside a DefaultTabController', (

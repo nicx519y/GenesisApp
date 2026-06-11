@@ -421,16 +421,20 @@ void main() {
     expect(narratorMessageId, greaterThan(0));
 
     var unreadSummary = await api.v1.messages.unreadSummary();
-    expect(unreadSummary.systemUnread, 1);
+    expect(unreadSummary.systemUnread, greaterThanOrEqualTo(1));
     final systemMessages = await api.v1.messages.notifications(
       block: 'world_apply',
       pn: 1,
       rn: 20,
     );
-    expect(systemMessages['total'], 1);
+    final systemItems = systemMessages['list'] as List;
+    expect(systemMessages['total'], systemItems.length);
+    expect(systemItems, isNotEmpty);
     expect(
-      ((systemMessages['list'] as List).single as Map)['notice_block'],
-      'world_apply',
+      systemItems.every(
+        (item) => (item as Map)['notice_block'] == 'world_apply',
+      ),
+      isTrue,
     );
     final followerMessages = await api.v1.messages.notifications(
       block: 'follow',
@@ -449,6 +453,10 @@ void main() {
     expect(
       ((commentMessages['list'] as List).single as Map)['notice_block'],
       'interaction',
+    );
+    expect(
+      ((commentMessages['list'] as List).single as Map)['origin_name'],
+      'Steam Kingdom',
     );
     await api.v1.messages.markNotificationsRead(block: 'world_apply');
     unreadSummary = await api.v1.messages.unreadSummary();

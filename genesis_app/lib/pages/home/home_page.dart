@@ -14,7 +14,7 @@ import '../../ui/components/secend_tabs.dart';
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
-  static const List<String> tabs = ['My World', 'Popular'];
+  static const List<String> tabs = ['My Worlds', 'Popular'];
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +45,7 @@ class _HomeHeader extends StatelessWidget {
     return SafeArea(
       bottom: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        padding: const EdgeInsets.fromLTRB(16, kSearchBarTopPadding, 16, 0),
         child: Row(
           children: [
             const GenesisLogo(height: 26.2),
@@ -310,11 +310,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                   ).pushNamed(RouteNames.world, arguments: {'wid': vm.wid}),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: WorldItemCard(
-                      item: vm,
-                      thumbnailBorderRadius: 0,
-                      showPreviewImages: false,
-                    ),
+                    child: WorldItemCard(item: vm, showPreviewImages: false),
                   ),
                 );
               },
@@ -538,7 +534,6 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
               items: _items,
               controller: _scrollController,
               isLoadingMore: _isLoadingMore,
-              thumbnailBorderRadius: 0,
               onItemTap: (item) {
                 Navigator.of(context).pushNamed(
                   RouteNames.originWorld,

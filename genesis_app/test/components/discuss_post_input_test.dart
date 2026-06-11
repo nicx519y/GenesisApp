@@ -210,6 +210,8 @@ void main() {
     final sheetSizeBeforeImages = tester.getSize(
       find.byKey(const ValueKey('discuss-composer-sheet')),
     );
+    expect(find.byKey(const ValueKey('discuss-image-strip')), findsNothing);
+
     await tester.tap(find.byKey(const ValueKey('discuss-image-picker-button')));
     await tester.pump();
     await tester.pump();
@@ -218,9 +220,12 @@ void main() {
     for (var i = 0; i < discussPostMaxImages; i++) {
       expect(find.byKey(ValueKey('discuss-image-thumb-$i')), findsOneWidget);
     }
+    final sheetSizeAfterImages = tester.getSize(
+      find.byKey(const ValueKey('discuss-composer-sheet')),
+    );
     expect(
-      tester.getSize(find.byKey(const ValueKey('discuss-composer-sheet'))),
-      sheetSizeBeforeImages,
+      sheetSizeAfterImages.height,
+      greaterThan(sheetSizeBeforeImages.height),
     );
     final stripRect = tester.getRect(
       find.byKey(const ValueKey('discuss-image-strip')),
@@ -452,7 +457,10 @@ void main() {
       find.byKey(const ValueKey('discuss-composer-sheet')),
     );
     expect(sheetRectAfterImages.bottom, lessThanOrEqualTo(keyboardTop));
-    expect(sheetRectAfterImages.height, sheetRectBeforeImages.height);
+    expect(
+      sheetRectAfterImages.height,
+      greaterThan(sheetRectBeforeImages.height),
+    );
   });
 
   testWidgets('resyncs composer position when keyboard settles after picker', (
@@ -498,7 +506,14 @@ void main() {
       sheetRectAfterKeyboardSettles.bottom,
       lessThanOrEqualTo(keyboardTop),
     );
-    expect(sheetRectAfterKeyboardSettles.size, sheetSizeBeforePicker);
+    expect(
+      sheetRectAfterKeyboardSettles.width,
+      closeTo(sheetSizeBeforePicker.width, 0.01),
+    );
+    expect(
+      sheetRectAfterKeyboardSettles.height,
+      closeTo(sheetSizeBeforePicker.height, 0.01),
+    );
   });
 
   testWidgets(

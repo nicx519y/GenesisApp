@@ -50,6 +50,7 @@ import 'package:genesis_flutter_android/pages/me/settings_page.dart';
 import 'package:genesis_flutter_android/pages/me/user_info_page.dart';
 import 'package:genesis_flutter_android/pages/messages/message_category_list_page.dart';
 import 'package:genesis_flutter_android/pages/messages/messages_page.dart';
+import 'package:genesis_flutter_android/pages/discuss/post_detail_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
@@ -62,6 +63,13 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
+
+Finder _richTextWithPlainText(String text) {
+  return find.byWidgetPredicate(
+    (widget) => widget is RichText && widget.text.toPlainText() == text,
+    description: 'RichText with plain text "$text"',
+  );
+}
 
 Future<AppServices> _testServices({
   bool backendAuthenticated = false,
@@ -1001,13 +1009,16 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
     this.readCompleter,
     this.notificationIsRead = true,
     this.notification,
+    this.notifications,
   });
 
   final requests = <TransportRequest>[];
   final Completer<TransportResponse>? readCompleter;
   final bool notificationIsRead;
   final Map<String, Object?>? notification;
+  final List<Map<String, Object?>>? notifications;
   var commentRead = false;
+  final readBlocks = <String>{};
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -1016,7 +1027,11 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
     Object? data = <String, Object?>{};
     if (request.method == 'POST' && path == '/api/v1/message/read') {
       final body = decodedBody(request);
-      if (body['block'] == 'interaction') commentRead = true;
+      final block = body['block'];
+      if (block is String && block.isNotEmpty) {
+        readBlocks.add(block);
+      }
+      if (block == 'interaction') commentRead = true;
       final completer = readCompleter;
       if (completer != null) return completer.future;
     } else if (request.method == 'GET' && path == '/api/v1/message/unread') {
@@ -1030,8 +1045,9 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
     } else if (request.method == 'GET' &&
         path == '/api/v1/message/notifications') {
       data = {
-        'list': [notification ?? _defaultNotification(request)],
-        'total': 1,
+        'list':
+            notifications ?? [notification ?? _defaultNotification(request)],
+        'total': notifications?.length ?? 1,
       };
     } else if (request.method == 'POST' &&
         path == '/api/v1/world/apply/review') {
@@ -1050,17 +1066,18 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
   }
 
   Map<String, Object?> _defaultNotification(TransportRequest request) {
+    final block = request.uri.queryParameters['block'] ?? '';
     return {
       'id': 99,
       'notification_id': 'ntf_recorded_001',
-      'notice_block': request.uri.queryParameters['block'],
+      'notice_block': block,
       'notice_type': 'discuss_comment',
       'sender': const <String, Object?>{},
       'biz_type': 1,
       'biz_id': 'o_recorded_001',
       'obj_id': 'd_recorded_001',
       'content': 'Recorded block message',
-      'is_read': notificationIsRead,
+      'is_read': readBlocks.contains(block) ? true : notificationIsRead,
       'created_at': '2026-05-20T10:00:00Z',
     };
   }
@@ -1652,12 +1669,19 @@ void main() {
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
+    final homeSearchTop = tester
+        .getTopLeft(find.byType(SearchBarPlaceholder).first)
+        .dy;
 
     await tester.tap(find.text('Explore').first);
     await tester.pumpAndSettle();
 
     expect(find.text('Cancel'), findsOneWidget);
     expect(find.text('Explore'), findsOneWidget);
+    final searchPageSearchTop = tester
+        .getTopLeft(find.byType(SearchBarPlaceholder).first)
+        .dy;
+    expect(searchPageSearchTop, homeSearchTop);
   });
 
   testWidgets('search bar placeholder stays single line with ellipsis', (
@@ -2439,8 +2463,8 @@ void main() {
     expect(find.text('Notifications'), findsWidgets);
     expect(find.text('Join request'), findsOneWidget);
     expect(
-      find.text(
-        'Penny Hardaway request to join Steam Kingdom Live\n(w_mock_001)',
+      _richTextWithPlainText(
+        'Penny Hardaway request to join Steam Kingdom Live(w_mock_001)',
       ),
       findsOneWidget,
     );
@@ -2459,7 +2483,31 @@ void main() {
 
     expect(find.text('New followers'), findsWidgets);
     expect(find.text('Penny Hardaway'), findsOneWidget);
-    expect(find.text(' started following you.'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('message-follow-action-u_mock_peer')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .getTopRight(
+            find.byKey(const ValueKey('message-follow-action-u_mock_peer')),
+          )
+          .dx,
+      closeTo(
+        tester
+            .getTopRight(
+              find.byKey(const ValueKey('message-follow-row-u_mock_peer')),
+            )
+            .dx,
+        0.1,
+      ),
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('message-follow-row-u_mock_peer')))
+          .height,
+      66,
+    );
 
     await tester.tap(find.text('Penny Hardaway'));
     await tester.pumpAndSettle();
@@ -2478,9 +2526,14 @@ void main() {
 
     expect(find.text('Comments'), findsWidgets);
     expect(
-      find.text('Penny commented: "Love this world setting!"'),
+      find.text('Penny Hardaway commented on your origin'),
       findsOneWidget,
     );
+    expect(find.text('Love this world setting!'), findsOneWidget);
+    await tester.tap(find.text('Penny Hardaway commented on your origin'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PostDetailPage), findsOneWidget);
   });
 
   testWidgets(
@@ -2514,6 +2567,10 @@ void main() {
       await tester.pump();
 
       expect(find.text('Recorded block message'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('message-category-unread-dot')),
+        findsOneWidget,
+      );
 
       final readRequest = transport.requests.firstWhere(
         (request) => request.uri.path == '/api/v1/message/read',
@@ -2564,6 +2621,127 @@ void main() {
     },
   );
 
+  testWidgets('new followers action button aligns with row trailing edge', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingMessageCategoryTransport(
+      notificationIsRead: false,
+      notification: const {
+        'notification_id': 'ntf_follow_align',
+        'notice_block': 'follow',
+        'notice_type': 'follow',
+        'sender': {
+          'uid': 'u_follow_align',
+          'name': 'Aligned User',
+          'avatar': '',
+        },
+        'relation': {'i_followed': false},
+        'content': 'Aligned User started following you.',
+        'is_read': false,
+        'created_at': '2026-05-20T10:00:00Z',
+      },
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const MessageCategoryListPage(
+            title: 'New followers',
+            block: 'follow',
+            emptyText: 'No new followers yet.',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    final action = find.byKey(
+      const ValueKey('message-follow-action-u_follow_align'),
+    );
+    final row = find.byKey(const ValueKey('message-follow-row-u_follow_align'));
+    final unreadDot = find.byKey(const ValueKey('message-category-unread-dot'));
+
+    expect(action, findsOneWidget);
+    expect(row, findsOneWidget);
+    expect(unreadDot, findsOneWidget);
+
+    final rowRight = tester.getTopRight(row).dx;
+    expect(tester.getTopRight(action).dx, closeTo(rowRight, 0.1));
+    expect(tester.getTopLeft(unreadDot).dx, greaterThan(rowRight));
+  });
+
+  testWidgets('message category unread dots clear after reopening lists', (
+    WidgetTester tester,
+  ) async {
+    const cases = [
+      (title: 'Notifications', block: 'world_apply'),
+      (title: 'New followers', block: 'follow'),
+      (title: 'Comments', block: 'interaction'),
+    ];
+
+    for (final testCase in cases) {
+      final transport = _RecordingMessageCategoryTransport(
+        notificationIsRead: false,
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: MessageCategoryListPage(
+              title: testCase.title,
+              block: testCase.block,
+              emptyText: 'No messages yet.',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('message-category-unread-dot')),
+        findsOneWidget,
+        reason: testCase.block,
+      );
+      expect(transport.readBlocks, contains(testCase.block));
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: MessageCategoryListPage(
+              title: testCase.title,
+              block: testCase.block,
+              emptyText: 'No messages yet.',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('message-category-unread-dot')),
+        findsNothing,
+        reason: testCase.block,
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    }
+  });
+
   testWidgets('join request notification approves world apply', (
     WidgetTester tester,
   ) async {
@@ -2601,7 +2779,7 @@ void main() {
 
     expect(find.text('Join request'), findsOneWidget);
     expect(
-      find.text('Hushie request to join 重生 2005 测试时间设置\n(W_G9B5TK)'),
+      _richTextWithPlainText('Hushie request to join 重生 2005 测试时间设置(W_G9B5TK)'),
       findsOneWidget,
     );
 
@@ -2622,6 +2800,199 @@ void main() {
     expect(body['action'], 'approve');
     expect(find.text('Approved'), findsWidgets);
     await tester.pump(const Duration(seconds: 3));
+
+    await tester.tap(find.text('Join request').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Approve'), findsNothing);
+    expect(find.text('Reject'), findsNothing);
+    expect(find.text('Approved'), findsWidgets);
+  });
+
+  testWidgets('world apply review notification opens world', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingMessageCategoryTransport(
+      notification: const {
+        'notification_id': 'ntf_apply_review_001',
+        'notice_block': 'world_apply',
+        'notice_type': 'world_apply_review',
+        'sender': {'uid': 'U_REVIEWER', 'name': 'Reviewer'},
+        'biz_type': 2,
+        'biz_id': 'W_REVIEW',
+        'obj_id': 'apl_review_001',
+        'world_name': 'Review World',
+        'status': 30,
+        'content': 'request to Review World',
+        'is_read': false,
+        'created_at': '2026-05-20T10:00:00Z',
+      },
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+    await tester.pumpWidget(
+      MaterialApp(
+        onGenerateRoute: (settings) {
+          if (settings.name == RouteNames.world) {
+            final args = settings.arguments as Map;
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (_) => Text('World route ${args['wid']}'),
+            );
+          }
+          return null;
+        },
+        home: AppServicesScope(
+          services: services,
+          child: const MessageCategoryListPage(
+            title: 'Notifications',
+            block: 'world_apply',
+            emptyText: 'No notifications yet.',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(
+      _richTextWithPlainText('request to Review World(W_REVIEW)'),
+      findsOneWidget,
+    );
+    expect(find.text('Rejected'), findsOneWidget);
+
+    await tester.tap(
+      _richTextWithPlainText('request to Review World(W_REVIEW)'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('World route W_REVIEW'), findsOneWidget);
+  });
+
+  testWidgets('comment notifications render interaction categories', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingMessageCategoryTransport(
+      notifications: const [
+        {
+          'notification_id': 'ntf_comment_001',
+          'notice_block': 'interaction',
+          'notice_type': 'discuss_comment',
+          'sender': {'uid': 'U_ALEX', 'name': 'Alex'},
+          'biz_type': 1,
+          'biz_id': 'O_COMMENT',
+          'obj_id': 'D_COMMENT',
+          'origin_name': 'Comment Origin',
+          'content': 'Alex commented: "Comment text"',
+          'is_read': false,
+          'created_at': '2026-05-20T10:00:00Z',
+        },
+        {
+          'notification_id': 'ntf_reply_001',
+          'notice_block': 'interaction',
+          'notice_type': 'discuss_reply',
+          'sender': {'uid': 'U_BLAIR', 'name': 'Blair'},
+          'biz_type': 1,
+          'biz_id': 'O_REPLY',
+          'obj_id': 'D_REPLY',
+          'origin_name': 'Reply Origin',
+          'comment_text': 'Reply text',
+          'content': 'Reply text',
+          'is_read': false,
+          'created_at': '2026-05-20T10:00:00Z',
+        },
+        {
+          'notification_id': 'ntf_like_001',
+          'notice_block': 'interaction',
+          'notice_type': 'discuss_like',
+          'sender': {'uid': 'U_CASEY', 'name': 'Casey'},
+          'biz_type': 1,
+          'biz_id': 'O_LIKE',
+          'obj_id': 'D_LIKE',
+          'origin_name': 'Like Origin',
+          'comment_text': 'Liked comment',
+          'content': 'Liked comment',
+          'is_read': false,
+          'created_at': '2026-05-20T10:00:00Z',
+        },
+      ],
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+    await tester.pumpWidget(
+      MaterialApp(
+        onGenerateRoute: (settings) {
+          if (settings.name == RouteNames.postDetail) {
+            final args = settings.arguments as Map;
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (_) => AppServicesScope(
+                services: services,
+                child: PostDetailPage(item: args['item'] as dynamic),
+              ),
+            );
+          }
+          return null;
+        },
+        home: AppServicesScope(
+          services: services,
+          child: const MessageCategoryListPage(
+            title: 'Comments',
+            block: 'interaction',
+            emptyText: 'No comments yet.',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alex comment your origin'), findsOneWidget);
+    expect(find.text('Blair reply to you'), findsOneWidget);
+    expect(find.text('Casey like your comment'), findsOneWidget);
+    expect(find.textContaining('#Comment Origin'), findsOneWidget);
+    expect(find.textContaining('#Reply Origin'), findsOneWidget);
+    expect(find.textContaining('#Like Origin'), findsOneWidget);
+    expect(find.textContaining('#O_COMMENT'), findsNothing);
+    expect(find.textContaining('#O_REPLY'), findsNothing);
+    expect(find.textContaining('#O_LIKE'), findsNothing);
+
+    final title = tester.widget<Text>(find.text('Alex comment your origin'));
+    expect(title.style?.fontSize, 14);
+    expect(title.style?.fontWeight, FontWeight.w700);
+    expect(title.style?.color, const Color(0xFF111111));
+
+    final body = tester.widget<Text>(find.text('Comment text'));
+    expect(body.style?.fontSize, 12);
+    expect(body.style?.fontWeight, FontWeight.w400);
+    expect(body.style?.color, const Color(0xFF111111));
+
+    final meta = tester.widget<Text>(find.textContaining('#Comment Origin'));
+    expect(meta.style?.fontSize, 12);
+    expect(meta.style?.fontWeight, FontWeight.w400);
+    expect(meta.style?.color, const Color(0xFF8A8D93));
+
+    final itemRect = tester.getRect(
+      find.byKey(const ValueKey('ntf_comment_001')),
+    );
+    final titleRect = tester.getRect(find.text('Alex comment your origin'));
+    final bodyRect = tester.getRect(find.text('Comment text'));
+    final metaRect = tester.getRect(find.textContaining('#Comment Origin'));
+    expect(itemRect.left, 20);
+    expect(titleRect.left, itemRect.left);
+    expect(bodyRect.left, itemRect.left);
+    expect(metaRect.left, itemRect.left);
+    expect((bodyRect.top - titleRect.bottom).round(), 8);
+    expect((metaRect.top - bodyRect.bottom).round(), 8);
+
+    for (final title in [
+      'Alex comment your origin',
+      'Blair reply to you',
+      'Casey like your comment',
+    ]) {
+      await tester.tap(find.text(title));
+      await tester.pumpAndSettle();
+      expect(find.byType(PostDetailPage), findsOneWidget);
+      Navigator.of(tester.element(find.byType(PostDetailPage))).pop();
+      await tester.pumpAndSettle();
+    }
   });
 
   testWidgets('tap Origin switches to Origin page', (

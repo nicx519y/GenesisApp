@@ -18,9 +18,11 @@ class GenesisSearchField extends StatelessWidget {
     this.height = 38,
     this.padding = const EdgeInsets.symmetric(horizontal: GenesisSpacing.xl),
     this.backgroundColor,
+    this.borderColor,
     this.borderRadius,
     this.iconColor,
     this.iconSize = 20,
+    this.iconAsset,
     this.hintStyle,
     this.textStyle,
   });
@@ -37,9 +39,11 @@ class GenesisSearchField extends StatelessWidget {
   final double height;
   final EdgeInsetsGeometry padding;
   final Color? backgroundColor;
+  final Color? borderColor;
   final BorderRadius? borderRadius;
   final Color? iconColor;
   final double iconSize;
+  final String? iconAsset;
   final TextStyle? hintStyle;
   final TextStyle? textStyle;
 
@@ -54,15 +58,25 @@ class GenesisSearchField extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: backgroundColor ?? uiTheme.searchBackgroundColor,
+        border: borderColor == null ? null : Border.all(color: borderColor!),
         borderRadius: borderRadius ?? uiTheme.searchBorderRadius,
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.search,
-            color: iconColor ?? uiTheme.searchIconColor,
-            size: iconSize,
-          ),
+          if (iconAsset == null)
+            Icon(
+              Icons.search,
+              color: iconColor ?? uiTheme.searchIconColor,
+              size: iconSize,
+            )
+          else
+            Image.asset(
+              iconAsset!,
+              width: iconSize,
+              height: iconSize,
+              color: iconColor,
+              excludeFromSemantics: true,
+            ),
           const SizedBox(width: GenesisSpacing.md),
           Expanded(
             child: editable
@@ -74,9 +88,15 @@ class GenesisSearchField extends StatelessWidget {
                     readOnly: readOnly,
                     autofocus: autofocus,
                     maxLines: 1,
+                    textAlignVertical: TextAlignVertical.center,
                     decoration: InputDecoration(
                       hintText: hintText,
                       hintStyle: effectiveHintStyle,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      isCollapsed: true,
+                      contentPadding: EdgeInsets.zero,
                     ),
                     style: effectiveTextStyle,
                   )
@@ -91,9 +111,20 @@ class GenesisSearchField extends StatelessWidget {
           if (editable &&
               onClear != null &&
               (controller?.text.trim().isNotEmpty ?? false))
-            IconButton(
-              icon: const Icon(Icons.close, size: 18),
-              onPressed: onClear,
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onClear,
+              child: SizedBox(
+                width: height,
+                height: height,
+                child: Center(
+                  child: Icon(
+                    Icons.close,
+                    size: 18,
+                    color: iconColor ?? uiTheme.searchIconColor,
+                  ),
+                ),
+              ),
             ),
         ],
       ),

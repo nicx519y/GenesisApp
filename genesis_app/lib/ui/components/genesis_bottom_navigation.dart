@@ -6,14 +6,18 @@ import '../theme/genesis_ui_theme.dart';
 class GenesisBottomNavigationItem {
   const GenesisBottomNavigationItem({
     required this.label,
-    required this.icon,
+    this.icon,
+    this.iconAsset,
+    this.selectedIconAsset,
     this.enabled = true,
     this.prominent = false,
     this.badgeCount = 0,
-  });
+  }) : assert(icon != null || iconAsset != null);
 
   final String label;
-  final IconData icon;
+  final IconData? icon;
+  final String? iconAsset;
+  final String? selectedIconAsset;
   final bool enabled;
   final bool prominent;
   final int badgeCount;
@@ -25,7 +29,7 @@ class GenesisBottomNavigation extends StatelessWidget {
     required this.items,
     required this.currentIndex,
     required this.onTap,
-    this.height = 58,
+    this.height = 49,
   });
 
   final List<GenesisBottomNavigationItem> items;
@@ -35,12 +39,20 @@ class GenesisBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final uiTheme = GenesisUiTheme.of(context);
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
     return DecoratedBox(
-      decoration: BoxDecoration(color: uiTheme.bottomNavigationBackgroundColor),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 8,
+            offset: Offset(0, -2),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: EdgeInsets.only(bottom: bottomPadding, top: GenesisSpacing.sm),
+        padding: EdgeInsets.only(bottom: bottomPadding),
         child: SizedBox(
           height: height,
           child: Row(
@@ -80,7 +92,14 @@ class GenesisBottomNavigationTile extends StatelessWidget {
         : selected
         ? uiTheme.bottomNavigationSelectedColor
         : uiTheme.bottomNavigationUnselectedColor;
-    final iconSize = item.prominent ? 36.0 : 20.0;
+    final iconSize = item.prominent
+        ? 28.0
+        : item.iconAsset == null
+        ? 20.0
+        : 24.0;
+    final iconAsset = selected
+        ? item.selectedIconAsset ?? item.iconAsset
+        : item.iconAsset;
 
     return Expanded(
       child: GestureDetector(
@@ -91,14 +110,13 @@ class GenesisBottomNavigationTile extends StatelessWidget {
           children: [
             _BadgedIcon(
               icon: item.icon,
+              assetName: iconAsset,
               color: color,
               size: iconSize,
               badgeCount: item.badgeCount,
               badgeKey: ValueKey('bottom-nav-${item.label}-unread-badge'),
             ),
-            SizedBox(
-              height: item.prominent ? GenesisSpacing.xxs : GenesisSpacing.xs,
-            ),
+            SizedBox(height: item.prominent ? 1 : GenesisSpacing.xxs),
             Text(
               item.label,
               maxLines: 1,
@@ -118,13 +136,15 @@ class GenesisBottomNavigationTile extends StatelessWidget {
 class _BadgedIcon extends StatelessWidget {
   const _BadgedIcon({
     required this.icon,
+    required this.assetName,
     required this.color,
     required this.size,
     required this.badgeCount,
     required this.badgeKey,
   });
 
-  final IconData icon;
+  final IconData? icon;
+  final String? assetName;
   final Color color;
   final double size;
   final int badgeCount;
@@ -132,18 +152,29 @@ class _BadgedIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final boxSize = size + 12;
     return SizedBox(
-      width: size + 18,
+      width: boxSize,
       height: size,
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.center,
         children: [
-          Icon(icon, color: color, size: size),
+          if (assetName != null)
+            Image.asset(
+              assetName!,
+              width: size,
+              height: size,
+              fit: BoxFit.contain,
+            )
+          else if (icon != null)
+            Icon(icon, color: color, size: size)
+          else
+            SizedBox.square(dimension: size),
           if (badgeCount > 0)
             Positioned(
-              top: 0,
-              right: 0,
+              top: 1,
+              right: -11,
               child: _UnreadBadge(key: badgeKey, count: badgeCount),
             ),
         ],

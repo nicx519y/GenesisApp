@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../icons/custom_icon_assets.dart';
-import '../../icons/my_flutter_app_icons.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
@@ -374,13 +373,46 @@ class OriginDiscussListController extends ChangeNotifier {
     required bool isLiked,
     required int likeCount,
   }) {
-    _replaceItem(
-      discussId,
-      (item) => item.copyWith(
-        isLiked: isLiked,
-        likeCount: likeCount < 0 ? 0 : likeCount,
-      ),
-    );
+    final normalizedDiscussId = discussId.trim();
+    if (normalizedDiscussId.isEmpty) return;
+    final normalizedLikeCount = likeCount < 0 ? 0 : likeCount;
+    var changed = false;
+
+    for (var index = 0; index < _items.length; index += 1) {
+      final item = _items[index];
+      if (item.discussId == normalizedDiscussId) {
+        _items[index] = item.copyWith(
+          isLiked: isLiked,
+          likeCount: normalizedLikeCount,
+        );
+        changed = true;
+        continue;
+      }
+
+      final replies = item.latestReplies;
+      var replyChanged = false;
+      final nextReplies = replies
+          .map((reply) {
+            if (asString(reply['discuss_id']) != normalizedDiscussId) {
+              return reply;
+            }
+            replyChanged = true;
+            return {
+              ...reply,
+              'is_liked': isLiked,
+              'like_cnt': normalizedLikeCount,
+              'like_count': normalizedLikeCount,
+            };
+          })
+          .toList(growable: false);
+
+      if (replyChanged) {
+        _items[index] = item.copyWith(latestReplies: nextReplies);
+        changed = true;
+      }
+    }
+
+    if (changed) notifyListeners();
   }
 
   Future<void> loadProgressForItem({
@@ -822,7 +854,7 @@ class OriginDiscussList extends StatelessWidget {
                 child: Column(
                   children: [
                     for (final entry in comments.indexed) ...[
-                      _DiscussPreviewRow(
+                      OriginDiscussCommentRow(
                         controller: controller,
                         item: entry.$2,
                         showActions: showActions,
@@ -920,8 +952,9 @@ class _DiscussHeader extends StatelessWidget {
   }
 }
 
-class _DiscussPreviewRow extends StatefulWidget {
-  const _DiscussPreviewRow({
+class OriginDiscussCommentRow extends StatefulWidget {
+  const OriginDiscussCommentRow({
+    super.key,
     required this.controller,
     required this.item,
     required this.showActions,
@@ -938,10 +971,11 @@ class _DiscussPreviewRow extends StatefulWidget {
   final OriginDiscussReplyTap? onReplyTap;
 
   @override
-  State<_DiscussPreviewRow> createState() => _DiscussPreviewRowState();
+  State<OriginDiscussCommentRow> createState() =>
+      _OriginDiscussCommentRowState();
 }
 
-class _DiscussPreviewRowState extends State<_DiscussPreviewRow> {
+class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
   static const double _progressPrefetchExtent = 600;
 
   ScrollPosition? _scrollPosition;
@@ -966,7 +1000,7 @@ class _DiscussPreviewRowState extends State<_DiscussPreviewRow> {
   }
 
   @override
-  void didUpdateWidget(covariant _DiscussPreviewRow oldWidget) {
+  void didUpdateWidget(covariant OriginDiscussCommentRow oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.item.discussId != widget.item.discussId ||
         oldWidget.item.authorUid != widget.item.authorUid ||
@@ -1307,30 +1341,48 @@ Future<bool> showOriginDiscussReplyComposer({
     context: context,
     title: 'Reply',
     placeholder: 'Write a reply',
-    submitter: (content, images) async {
-      final services = AppServicesScope.read(context);
-      final created = await services.api.v1.discuss.post(
-        bizId: bizId,
-        content: content,
-        images: images,
-        rootDiscussId: discussId,
-        parentDiscussId: discussId,
-      );
-      final userInfo = await services.sessionStore.readUserInfo();
-      controller.insertReply(
-        discussId,
-        _localReplyJson(
-          created: created,
-          content: content,
-          images: images,
-          bizId: bizId,
-          rootDiscussId: discussId,
-          parentDiscussId: discussId,
-          replyToUid: item.authorUid,
-          userInfo: userInfo,
-        ),
-      );
-    },
+    submitter: (content, images) => submitOriginDiscussReply(
+      context: context,
+      controller: controller,
+      item: item,
+      content: content,
+      images: images,
+    ),
+  );
+}
+
+Future<void> submitOriginDiscussReply({
+  required BuildContext context,
+  required OriginDiscussListController controller,
+  required OriginDiscussListItem item,
+  required String content,
+  required List<String> images,
+}) async {
+  final discussId = item.discussId.trim();
+  final bizId = item.bizId.trim();
+  if (discussId.isEmpty || bizId.isEmpty) return;
+
+  final services = AppServicesScope.read(context);
+  final created = await services.api.v1.discuss.post(
+    bizId: bizId,
+    content: content,
+    images: images,
+    rootDiscussId: discussId,
+    parentDiscussId: discussId,
+  );
+  final userInfo = await services.sessionStore.readUserInfo();
+  controller.insertReply(
+    discussId,
+    _localReplyJson(
+      created: created,
+      content: content,
+      images: images,
+      bizId: bizId,
+      rootDiscussId: discussId,
+      parentDiscussId: discussId,
+      replyToUid: item.authorUid,
+      userInfo: userInfo,
+    ),
   );
 }
 
@@ -1385,29 +1437,25 @@ class _StoryBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF6CF),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(MyFlutterApp.pregress, size: 14, color: Color(0xFFF42C47)),
-          const SizedBox(width: 4),
-          Text(
-            '$count',
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFFF42C47),
-            ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ImageIcon(
+          const AssetImage(playIconAsset),
+          size: 10,
+          color: const Color(0xFF9A9A9A),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '$count',
+          style: const TextStyle(
+            fontSize: 12,
+            height: 1.18,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF888888),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -1455,46 +1503,46 @@ class _DiscussPreviewMeta extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(
-                item.authorName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF888888),
-                  fontSize: 12,
-                  height: 1.18,
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      item.authorName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF888888),
+                        fontSize: 12,
+                        height: 1.18,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _StoryBadge(count: item.storyCount),
+                ],
               ),
             ),
+            if (date.isNotEmpty) const SizedBox(width: 8),
             if (date.isNotEmpty) Text(date, style: _subtleStyle),
           ],
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            _StoryBadge(count: item.storyCount),
-            if (item.worldId.isNotEmpty) ...[
-              const SizedBox(width: 10),
-              Flexible(
-                child: GestureDetector(
-                  key: ValueKey('origin-discuss-world-${item.worldId}'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => Navigator.of(context).pushNamed(
-                    RouteNames.world,
-                    arguments: {'wid': item.worldId},
-                  ),
-                  child: Text(
-                    'WID: ${item.worldId}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: _subtleStyle,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
+        if (item.worldId.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          GestureDetector(
+            key: ValueKey('origin-discuss-world-${item.worldId}'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => Navigator.of(
+              context,
+            ).pushNamed(RouteNames.world, arguments: {'wid': item.worldId}),
+            child: Text(
+              'WID: ${item.worldId}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _subtleStyle,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1532,7 +1580,7 @@ class _DiscussAvatar extends StatelessWidget {
       url: avatar,
       name: item.authorName,
       size: _discussAvatarSize,
-      borderRadius: 8,
+      borderRadius: _discussAvatarSize / 2,
     );
   }
 }

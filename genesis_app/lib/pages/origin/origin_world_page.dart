@@ -31,8 +31,6 @@ import '../../utils/relative_time_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_page.dart';
 
-const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
-
 class OriginWorldPage extends StatefulWidget {
   const OriginWorldPage({super.key, required this.oid, required this.originId});
 
@@ -799,7 +797,7 @@ class _OriginBottomLaunchBar extends StatelessWidget {
                     ),
                     const SizedBox(width: 20),
                     _LaunchBarStat(
-                      iconAsset: _connectIconAsset,
+                      iconAsset: connectIconAsset,
                       value: origin.interactCount,
                     ),
                     const SizedBox(width: 20),

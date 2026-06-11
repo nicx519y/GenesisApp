@@ -20,6 +20,7 @@ Future<T?> showGenesisActionBox<T>({
   required BuildContext context,
   required String title,
   required List<GenesisActionBoxAction<T>> actions,
+  Widget? content,
   String cancelLabel = 'Cancel',
 }) {
   return showDialog<T>(
@@ -28,6 +29,7 @@ Future<T?> showGenesisActionBox<T>({
     builder: (dialogContext) {
       return GenesisActionBox<T>(
         title: title,
+        content: content,
         actions: actions,
         cancelLabel: cancelLabel,
         onActionSelected: (value) => Navigator.of(dialogContext).pop(value),
@@ -44,6 +46,7 @@ class GenesisActionBox<T> extends StatelessWidget {
     required this.actions,
     required this.onActionSelected,
     required this.onCancel,
+    this.content,
     this.cancelLabel = 'Cancel',
   });
 
@@ -55,6 +58,7 @@ class GenesisActionBox<T> extends StatelessWidget {
   );
 
   final String title;
+  final Widget? content;
   final List<GenesisActionBoxAction<T>> actions;
   final ValueChanged<T> onActionSelected;
   final VoidCallback onCancel;
@@ -89,6 +93,7 @@ class GenesisActionBox<T> extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _TitleRow(title: title),
+            if (content case final content?) content,
             const _Divider(),
             for (final action in actions) ...[
               _ActionRow<T>(
@@ -118,6 +123,7 @@ class GenesisActionBox<T> extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _TitleRow(title: title),
+                if (content case final content?) content,
                 const _Divider(),
                 for (var index = 0; index < actions.length; index++) ...[
                   _ActionRow<T>(

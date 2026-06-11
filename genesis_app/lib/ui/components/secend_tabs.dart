@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'genesis_tab_bar.dart';
 
+const double secendTabsVerticalPadding = 3;
+
 class SecendTabs extends StatelessWidget {
   const SecendTabs({
     super.key,
@@ -22,13 +24,16 @@ class SecendTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GenesisTabBar(
-      labels: labels,
-      controller: controller,
-      horizontalPadding: horizontalPadding,
-      labelPadding: labelPadding,
-      labelFontSize: labelFontSize,
-      expanded: expanded,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: secendTabsVerticalPadding),
+      child: GenesisTabBar(
+        labels: labels,
+        controller: controller,
+        horizontalPadding: horizontalPadding,
+        labelPadding: labelPadding,
+        labelFontSize: labelFontSize,
+        expanded: expanded,
+      ),
     );
   }
 }

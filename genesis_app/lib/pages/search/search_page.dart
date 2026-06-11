@@ -19,8 +19,6 @@ import '../../utils/relative_time_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import 'search_history_store.dart';
 
-const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
-
 enum _SearchTab {
   all('', 'All', 'Results'),
   origin('origin', 'Origin', 'Origins'),
@@ -393,10 +391,11 @@ class _SearchPageState extends State<SearchPage>
         bottom: false,
         child: Column(
           children: [
-            const SizedBox(height: 8),
+            const SizedBox(height: kSearchBarTopPadding),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: SearchBarPlaceholder(
@@ -414,14 +413,16 @@ class _SearchPageState extends State<SearchPage>
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => Navigator.of(context).pop(),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Color(0xFF222222),
-                          fontWeight: FontWeight.w400,
+                    child: const SizedBox(
+                      height: 28,
+                      child: Center(
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF222222),
+                            fontWeight: FontWeight.w400,
+                          ),
                         ),
                       ),
                     ),
@@ -894,7 +895,7 @@ class _ResultStats extends StatelessWidget {
     final stats = item.tab == _SearchTab.origin
         ? [
             _StatData(icon: MyFlutterApp.save, value: item.copyCount),
-            _StatData(iconAsset: _connectIconAsset, value: item.connectCount),
+            _StatData(iconAsset: connectIconAsset, value: item.connectCount),
             _StatData(
               iconAsset: aiCharacterIconAsset,
               preserveIconAssetColor: true,
@@ -902,8 +903,8 @@ class _ResultStats extends StatelessWidget {
             ),
           ]
         : [
-            _StatData(icon: MyFlutterApp.pregress, value: item.tickCount),
-            _StatData(iconAsset: _connectIconAsset, value: item.connectCount),
+            _StatData(iconAsset: playIconAsset, value: item.tickCount),
+            _StatData(iconAsset: connectIconAsset, value: item.connectCount),
             _StatData(
               iconAsset: aiCharacterIconAsset,
               preserveIconAssetColor: true,

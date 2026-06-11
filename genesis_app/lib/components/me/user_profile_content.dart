@@ -12,8 +12,6 @@ import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import 'profile_collection_list.dart';
 
-const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
-
 class UserProfileContent extends StatefulWidget {
   const UserProfileContent({
     super.key,
@@ -461,7 +459,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
                   value: item.copyCount,
                 ),
                 GenesisProfileCollectionStat(
-                  iconAsset: _connectIconAsset,
+                  iconAsset: connectIconAsset,
                   value: item.interactCount,
                 ),
                 GenesisProfileCollectionStat(
@@ -530,11 +528,11 @@ class _WorldProfileCollectionList extends StatelessWidget {
               subtitle: item.subtitle,
               stats: [
                 GenesisProfileCollectionStat(
-                  icon: MyFlutterApp.pregress,
+                  iconAsset: playIconAsset,
                   value: item.progressCount,
                 ),
                 GenesisProfileCollectionStat(
-                  iconAsset: _connectIconAsset,
+                  iconAsset: connectIconAsset,
                   value: item.interactCount,
                 ),
                 GenesisProfileCollectionStat(

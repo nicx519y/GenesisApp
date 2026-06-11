@@ -8,12 +8,14 @@ import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/components/discuss/origin_discuss_list.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 
 void main() {
   testWidgets(
@@ -396,7 +398,7 @@ void main() {
         oid: 'o_alpha',
         loader: ({required oid, required pn, required rn}) async {
           return OriginDiscussPage(
-            items: [_item(1, 'Discuss with styled author')],
+            items: [_item(1, 'Discuss with styled author', storyCount: 124)],
             topTotal: 1,
             totalAll: 1,
             pn: pn,
@@ -412,6 +414,24 @@ void main() {
     expect(author.style?.fontSize, 12);
     expect(author.style?.fontWeight, FontWeight.w500);
     expect(author.style?.color, const Color(0xFF888888));
+
+    final authorRect = tester.getRect(find.text('User 1'));
+    final storyRect = tester.getRect(find.text('124'));
+    expect(storyRect.left, greaterThan(authorRect.right));
+    expect((storyRect.center.dy - authorRect.center.dy).abs(), lessThan(1));
+    final storyIcon = tester.widget<ImageIcon>(
+      _assetImageIconFinder(playIconAsset),
+    );
+    expect(storyIcon.size, 10);
+
+    final yellowBadges = tester
+        .widgetList<Container>(find.byType(Container))
+        .where((container) {
+          final decoration = container.decoration;
+          return decoration is BoxDecoration &&
+              decoration.color == const Color(0xFFFFF6CF);
+        });
+    expect(yellowBadges, isEmpty);
   });
 
   testWidgets('renders compact avatars and today time without date', (
@@ -448,6 +468,13 @@ void main() {
       ),
       const Size(30, 30),
     );
+    final avatar = tester.widget<GenesisAvatar>(
+      find.descendant(
+        of: find.byKey(const ValueKey('origin-discuss-avatar-u_today')),
+        matching: find.byType(GenesisAvatar),
+      ),
+    );
+    expect(avatar.borderRadius, 15);
     expect(find.text('09:07'), findsOneWidget);
     expect(find.text('${today.month}-${today.day} 09:07'), findsNothing);
   });
@@ -1187,6 +1214,15 @@ OriginDiscussPage _page({
 List<String> _contents(int count) => [
   for (var index = 1; index <= count; index += 1) 'Discuss $index',
 ];
+
+Finder _assetImageIconFinder(String assetName) {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is ImageIcon &&
+        widget.image is AssetImage &&
+        (widget.image as AssetImage).assetName == assetName,
+  );
+}
 
 OriginDiscussListItem _item(
   int id,

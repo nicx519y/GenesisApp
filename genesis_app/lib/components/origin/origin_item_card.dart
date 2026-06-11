@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
@@ -7,7 +8,7 @@ import '../../ui/components/genesis_list_image.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
-const String _connectIconAsset = 'assets/custom-icons/png/connect.png';
+const double _coverAspectRatio = 2 / 3;
 
 @immutable
 class OriginListItem {
@@ -21,6 +22,7 @@ class OriginListItem {
     required this.worldView,
     required this.createdUid,
     required this.createdUserName,
+    this.ownerName = '',
     required this.createdAt,
     required this.updatedAt,
     required this.tags,
@@ -29,7 +31,6 @@ class OriginListItem {
     required this.discussCnt,
     required this.characterCnt,
     required this.locationCnt,
-    required this.coverHeight,
   });
 
   factory OriginListItem.fromJson(Map<String, dynamic> json) {
@@ -61,6 +62,7 @@ class OriginListItem {
       ),
       createdUid: asString(info['created_uid']),
       createdUserName: asString(info['created_user_name']),
+      ownerName: asString(info['owner_name']),
       createdAt: asString(info['created_at']),
       updatedAt: asString(info['updated_at']),
       tags: _tagsFromJson(info['tags']),
@@ -69,7 +71,6 @@ class OriginListItem {
       discussCnt: asInt(stats['discuss_cnt']),
       characterCnt: asInt(stats['character_cnt']),
       locationCnt: asInt(stats['location_cnt']),
-      coverHeight: _coverHeightFor(oid.isEmpty ? name : oid),
     );
   }
 
@@ -82,6 +83,7 @@ class OriginListItem {
   final String worldView;
   final String createdUid;
   final String createdUserName;
+  final String ownerName;
   final String createdAt;
   final String updatedAt;
   final List<String> tags;
@@ -90,7 +92,6 @@ class OriginListItem {
   final int discussCnt;
   final int characterCnt;
   final int locationCnt;
-  final double coverHeight;
 
   String get title => name.trim().isEmpty ? oid : name.trim();
   String get subtitle {
@@ -114,9 +115,8 @@ class OriginItemCard extends StatelessWidget {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(14),
-          child: SizedBox(
-            height: item.coverHeight,
-            width: double.infinity,
+          child: AspectRatio(
+            aspectRatio: _coverAspectRatio,
             child: Stack(
               children: [
                 Positioned.fill(child: GenesisListImage(imageUrl: item.cover)),
@@ -136,7 +136,7 @@ class OriginItemCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         _ImageStat(
-                          iconAsset: _connectIconAsset,
+                          iconAsset: connectIconAsset,
                           value: item.connectCnt,
                         ),
                       ],
@@ -193,7 +193,11 @@ class _ImageStat extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (iconAsset case final asset?)
-            ImageIcon(AssetImage(asset), size: 11, color: Colors.white)
+            ImageIcon(
+              AssetImage(asset),
+              size: customIconAssetRenderSize(asset, 11),
+              color: Colors.white,
+            )
           else
             Icon(icon, size: 11, color: Colors.white),
           const SizedBox(width: 4),
@@ -256,9 +260,4 @@ List<String> _tagsFromJson(Object? value) {
       .map((e) => e.toString().trim())
       .where((e) => e.isNotEmpty)
       .toList(growable: false);
-}
-
-double _coverHeightFor(String seed) {
-  final hash = seed.codeUnits.fold<int>(0, (a, b) => (a * 31 + b) & 0x7fffffff);
-  return (160 + (hash % 120)).clamp(140, 260).toDouble();
 }

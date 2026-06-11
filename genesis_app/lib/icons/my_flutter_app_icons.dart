@@ -60,5 +60,10 @@ class MyFlutterApp {
     0xe81d,
     fontFamily: 'MyFlutterApp',
   );
+  static const IconData playIcon = IconData(0xe81e, fontFamily: 'MyFlutterApp');
+  static const IconData connectIcon = IconData(
+    0xe81f,
+    fontFamily: 'MyFlutterApp',
+  );
   static const IconData check = IconData(0xf00c, fontFamily: 'MyFlutterApp');
 }
