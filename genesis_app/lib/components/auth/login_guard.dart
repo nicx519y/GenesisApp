@@ -7,19 +7,20 @@ import '../login_sheet.dart';
 Future<bool> ensureGenesisLogin(BuildContext context) async {
   if (await hasGenesisLoginSession(context)) return true;
   if (!context.mounted) return false;
+  final loginContext = context;
 
   final loggedIn = await showModalBottomSheet<bool>(
-    context: context,
+    context: loginContext,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => LoginSheet(
+    builder: (_) => LoginSheet(
       onLogin: (provider) {
-        return _loginWithProvider(context, provider);
+        return _loginWithProvider(loginContext, provider);
       },
     ),
   );
-  if (!context.mounted || loggedIn != true) return false;
-  return hasGenesisLoginSession(context);
+  if (!loginContext.mounted || loggedIn != true) return false;
+  return hasGenesisLoginSession(loginContext);
 }
 
 Future<bool> hasGenesisLoginSession(BuildContext context) async {
