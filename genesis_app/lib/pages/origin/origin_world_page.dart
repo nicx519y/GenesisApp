@@ -842,7 +842,7 @@ class _OriginBottomLaunchBar extends StatelessWidget {
                         ),
                         const SizedBox(width: 20),
                         _LaunchBarStat(
-                          iconAsset: _connectIconAsset,
+                          iconAsset: connectIconAsset,
                           value: origin.interactCount,
                         ),
                         const SizedBox(width: 20),

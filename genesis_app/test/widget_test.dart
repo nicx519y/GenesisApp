@@ -3272,7 +3272,11 @@ void main() {
     final transport = _RecordingV1ListTransport();
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginPage(),
@@ -3321,7 +3325,11 @@ void main() {
     final transport = _RecordingV1ListTransport();
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -3472,10 +3480,16 @@ void main() {
   testWidgets('Origin detail launch bar launches a world', (
     WidgetTester tester,
   ) async {
-    final transport = _RecordingV1ListTransport();
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+    );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -4028,12 +4042,6 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Launch'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Custom'));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Fill from my profile'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Fill from my profile'));
     await tester.pumpAndSettle();
 
     expect(find.text('Sign in to continue'), findsOneWidget);
