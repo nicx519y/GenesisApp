@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,6 +12,7 @@ class GoogleSignInService {
   static const MethodChannel _deviceChannel = MethodChannel(
     'com.genesis.ai/device',
   );
+  static const Duration _credentialManagerTimeout = Duration(seconds: 8);
 
   static const String _serverClientId = String.fromEnvironment(
     'GOOGLE_SERVER_CLIENT_ID',
@@ -70,9 +72,20 @@ class GoogleSignInService {
       throw const _GoogleSignInFailure('当前端不支持直接拉起 Google 登录');
     }
     debugPrint('[Auth][GoogleSignInService] launching authenticate');
-    final account = await GoogleSignIn.instance.authenticate(
-      scopeHint: _scopeHint,
-    );
+    late final GoogleSignInAccount account;
+    try {
+      account = await GoogleSignIn.instance
+          .authenticate(scopeHint: _scopeHint)
+          .timeout(_credentialManagerTimeout);
+    } on TimeoutException {
+      if (!kIsWeb && Platform.isAndroid) {
+        debugPrint(
+          '[Auth][GoogleSignInService] authenticate timed out, using legacy Android sign-in',
+        );
+        return _signInWithLegacyAndroid(serverClientId);
+      }
+      rethrow;
+    }
 
     final googleIdToken = account.authentication.idToken?.trim() ?? '';
     if (googleIdToken.isEmpty) {
@@ -91,6 +104,53 @@ class GoogleSignInService {
       '[Auth][GoogleSignInService] signInToFirebase success uid=${session.firebaseUid}',
     );
     return session;
+  }
+
+  static Future<GoogleFirebaseSession> _signInWithLegacyAndroid(
+    String serverClientId,
+  ) async {
+    final Object? raw;
+    try {
+      raw = await _deviceChannel.invokeMethod<Object?>('signInGoogleLegacy', {
+        'serverClientId': serverClientId,
+      });
+    } on PlatformException catch (error) {
+      if (error.code == 'google_sign_in_cancelled') {
+        throw const GoogleSignInException(
+          code: GoogleSignInExceptionCode.canceled,
+          description: 'Google sign-in cancelled.',
+        );
+      }
+      rethrow;
+    }
+    final result = raw is Map
+        ? raw.map((key, value) => MapEntry(key.toString(), value))
+        : const <String, Object?>{};
+    final googleIdToken = (result['idToken'] ?? '').toString().trim();
+    if (googleIdToken.isEmpty) {
+      throw const _GoogleSignInFailure('Google 未返回 idToken，请稍后重试');
+    }
+    final session = await _signInToFirebaseWithGoogleIdToken(
+      googleIdToken,
+      forceRefreshFirebaseIdToken: false,
+    );
+    debugPrint(
+      '[Auth][GoogleSignInService] legacy Android sign-in success uid=${session.firebaseUid}',
+    );
+    return GoogleFirebaseSession(
+      googleIdToken: googleIdToken,
+      firebaseIdToken: session.firebaseIdToken,
+      firebaseUid: session.firebaseUid,
+      email: session.email.isNotEmpty
+          ? session.email
+          : (result['email'] ?? '').toString().trim(),
+      displayName: session.displayName.isNotEmpty
+          ? session.displayName
+          : (result['displayName'] ?? '').toString().trim(),
+      photoUrl: session.photoUrl.isNotEmpty
+          ? session.photoUrl
+          : (result['photoUrl'] ?? '').toString().trim(),
+    );
   }
 
   static Future<String> signInAndGetIdToken() async {

@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../components/common/copyable_id_label.dart';
+import '../../components/auth/login_guard.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
@@ -201,6 +202,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   Future<void> _showLaunchRoleSheet(OriginDetail origin) async {
     if (_launching) return;
+    if (!await ensureGenesisLogin(context)) return;
+    if (!mounted) return;
     final selection = await showOriginRoleLaunchSheet(
       context: context,
       characters: origin.characters,

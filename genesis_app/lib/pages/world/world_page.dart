@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
 import '../../components/common/copyable_id_label.dart';
+import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
@@ -257,6 +258,8 @@ class _WorldPageState extends State<WorldPage>
 
   Future<void> _showLaunchRoleSheet(WorldDetail world) async {
     if (_worldActionRunning) return;
+    if (!await ensureGenesisLogin(context)) return;
+    if (!mounted) return;
     final selection = await showOriginRoleLaunchSheet(
       context: context,
       characters: _worldPresetRoleCharacters(world),
