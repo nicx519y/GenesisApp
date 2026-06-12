@@ -119,10 +119,15 @@ void main() {
         (image) =>
             image.width == 60 &&
             image.height == 60 &&
-            image.borderRadius == BorderRadius.zero,
+            image.borderRadius == BorderRadius.circular(8),
       ),
       isTrue,
     );
+    final titleLeft = tester.getTopLeft(find.text('#Alpha Empire').first).dx;
+    final subtitleLeft = tester
+        .getTopLeft(find.text('Tycoon idols compete for the crown.'))
+        .dx;
+    expect(subtitleLeft, lessThan(titleLeft));
     expect(find.text('36'), findsNothing);
     expect(find.text('2-9 00:00'), findsOneWidget);
     expect(

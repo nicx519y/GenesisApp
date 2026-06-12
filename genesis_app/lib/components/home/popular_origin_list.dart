@@ -17,7 +17,7 @@ class PopularOriginList extends StatefulWidget {
     this.storageKey,
     this.isLoadingMore = false,
     this.discussLoader,
-    this.thumbnailBorderRadius = 0,
+    this.thumbnailBorderRadius = 8,
   });
 
   final List<OriginListItem> items;
@@ -113,7 +113,7 @@ class PopularOriginListItem extends StatelessWidget {
     super.key,
     required this.item,
     this.discussLoader,
-    this.thumbnailBorderRadius = 0,
+    this.thumbnailBorderRadius = 8,
   });
 
   final OriginListItem item;
@@ -125,52 +125,52 @@ class PopularOriginListItem extends StatelessWidget {
     final title = item.title;
     final metaTime = _relativeTime(item.updatedAt);
 
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _OriginImage(
-          imageUrl: item.cover,
-          width: 60,
-          height: 60,
-          borderRadius: thumbnailBorderRadius,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _OriginImage(
+              imageUrl: item.cover,
+              width: 60,
+              height: 60,
+              borderRadius: thumbnailBorderRadius,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: _OriginSummary(item: item, title: title),
+            ),
+          ],
         ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _OriginSummary(item: item, title: title),
-              const SizedBox(height: 10),
-              Text(
-                item.subtitle,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF111111),
-                  fontSize: 12,
-                  height: 1.33,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              const SizedBox(height: 14),
-              _OriginHeroImage(item: item),
-              const SizedBox(height: 16),
-              _ProgressHeader(),
-              const SizedBox(height: 6),
-              _ProgressBody(item: item),
-              const SizedBox(height: 6),
-              _MetaRow(item: item, timeText: metaTime),
-              const SizedBox(height: 6),
-              OriginDiscussPreviewList(
-                oid: item.oid,
-                count: item.discussCnt,
-                loader: discussLoader,
-              ),
-              const SizedBox(height: 14),
-              _EnterOriginRow(title: title),
-            ],
+        const SizedBox(height: 10),
+        Text(
+          item.subtitle,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Color(0xFF111111),
+            fontSize: 12,
+            height: 1.33,
+            fontWeight: FontWeight.w400,
           ),
         ),
+        const SizedBox(height: 14),
+        _OriginHeroImage(item: item),
+        const SizedBox(height: 16),
+        _ProgressHeader(),
+        const SizedBox(height: 6),
+        _ProgressBody(item: item),
+        const SizedBox(height: 6),
+        _MetaRow(item: item, timeText: metaTime),
+        const SizedBox(height: 6),
+        OriginDiscussPreviewList(
+          oid: item.oid,
+          count: item.discussCnt,
+          loader: discussLoader,
+        ),
+        const SizedBox(height: 14),
+        _EnterOriginRow(title: title),
       ],
     );
   }

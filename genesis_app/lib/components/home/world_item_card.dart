@@ -148,7 +148,7 @@ class WorldItemCard extends StatelessWidget {
   const WorldItemCard({
     super.key,
     required this.item,
-    this.thumbnailBorderRadius = 0,
+    this.thumbnailBorderRadius = 8,
     this.showPreviewImages = true,
   });
 
@@ -158,41 +158,37 @@ class WorldItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _WorldImage(
-          imageUrl: item.cover,
-          width: 60,
-          height: 60,
-          borderRadius: thumbnailBorderRadius,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _WorldImage(
+              imageUrl: item.cover,
+              width: 60,
+              height: 60,
+              borderRadius: thumbnailBorderRadius,
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: _WorldSummary(item: item)),
+          ],
         ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _WorldSummary(item: item),
-              const SizedBox(height: 16),
-              _ProgressHeader(
-                timeText: formatRelativeTimestamp(item.lastProgressAt),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                item.progressSummary,
-                maxLines: 5,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF111111),
-                  fontSize: 12,
-                  height: 1.4,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              if (showPreviewImages) _WorldPreviewImages(item: item),
-            ],
+        const SizedBox(height: 12),
+        _ProgressHeader(timeText: formatRelativeTimestamp(item.lastProgressAt)),
+        const SizedBox(height: 10),
+        Text(
+          item.progressSummary,
+          maxLines: 5,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            color: Color(0xFF111111),
+            fontSize: 12,
+            height: 1.4,
+            fontWeight: FontWeight.w400,
           ),
         ),
+        if (showPreviewImages) _WorldPreviewImages(item: item),
       ],
     );
   }

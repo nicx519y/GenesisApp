@@ -45,6 +45,26 @@ void main() {
     },
   );
 
+  testWidgets('uses 12px spacing between discuss items', (tester) async {
+    final controller = OriginDiscussListController()
+      ..configure(
+        oid: 'o_alpha',
+        loader: ({required oid, required pn, required rn}) async =>
+            _page(pn: pn, rn: rn, totalAll: 2, contents: _contents(2)),
+      );
+
+    await controller.loadInitialIfNeeded();
+    await tester.pumpWidget(
+      _host(controller, showActions: false, showReplies: false),
+    );
+
+    final rows = find.byType(OriginDiscussCommentRow);
+    expect(rows, findsNWidgets(2));
+    final firstBottom = tester.getBottomLeft(rows.first).dy;
+    final secondTop = tester.getTopLeft(rows.last).dy;
+    expect(secondTop - firstBottom, closeTo(12, 0.1));
+  });
+
   testWidgets('hides View More when total_all is not greater than two', (
     tester,
   ) async {
@@ -417,6 +437,13 @@ void main() {
     final authorCenter = tester.getCenter(find.text('User 1'));
     final badgeCenter = tester.getCenter(find.byType(DiscussStoryBadge));
     expect((authorCenter.dy - badgeCenter.dy).abs(), lessThan(1));
+    final metaBottom = tester
+        .getBottomLeft(find.byKey(const ValueKey('origin-discuss-meta-dis_1')))
+        .dy;
+    final contentTop = tester
+        .getTopLeft(find.text('Discuss with styled author'))
+        .dy;
+    expect(contentTop - metaBottom, closeTo(8, 0.1));
   });
 
   testWidgets('renders compact avatars and today time without date', (

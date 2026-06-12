@@ -45,9 +45,15 @@ void main() {
         (image) =>
             image.width == 60 &&
             image.height == 60 &&
-            image.borderRadius == BorderRadius.zero,
+            image.borderRadius == BorderRadius.circular(8),
       ),
       isTrue,
     );
+
+    final titleLeft = tester.getTopLeft(find.text('Alpha World')).dx;
+    final bodyLeft = tester
+        .getTopLeft(find.text('The city chooses a new route.'))
+        .dx;
+    expect(bodyLeft, lessThan(titleLeft));
   });
 }

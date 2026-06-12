@@ -869,7 +869,7 @@ class OriginDiscussList extends StatelessWidget {
                         onReplyTap: onReplyTap,
                       ),
                       if (entry.$1 != comments.length - 1)
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 12),
                     ],
                   ],
                 ),
@@ -1098,7 +1098,7 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _DiscussPreviewMeta(item: widget.item),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Text(
                 widget.item.content,
                 style: const TextStyle(
