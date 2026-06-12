@@ -17,7 +17,7 @@ class SearchBarPlaceholder extends GenesisSearchField {
     super.textInputAction,
     super.readOnly,
     super.autofocus,
-    super.height = 28,
+    super.height = 36,
     super.padding,
     super.backgroundColor = const Color(0xFFFAFAFA),
     super.borderColor = const Color(0xFFEBEBEB),
