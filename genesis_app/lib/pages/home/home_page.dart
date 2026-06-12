@@ -64,8 +64,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               const _HomeHeader(),
               const SizedBox(height: 4),
-              SecendTabs(labels: HomePage.tabs),
-              const SizedBox(height: 4),
+              SecendTabs(labels: HomePage.tabs, verticalPadding: 0),
               const Expanded(
                 child: TabBarView(
                   children: [

@@ -1683,7 +1683,9 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
     latestNarrator: asString(lastTickResult['narrator']),
     isProgressing: asInt(world['status']) == 20,
     relationStatus: asString(raw['relation_status']),
-    metric: asJsonMap(world['metric']),
+    metric: world['metric'] is Map
+        ? asJsonMap(world['metric'])
+        : const <String, dynamic>{},
     inviteToken: wid,
     createdAt: _apiDateTime(world['created_at']),
     updatedAt: _apiDateTime(world['updated_at']),

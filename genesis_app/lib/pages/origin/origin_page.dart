@@ -72,8 +72,10 @@ class _OriginPageState extends State<OriginPage> {
             children: [
               const PageHeader(pageName: 'Origin'),
               const SizedBox(height: 4),
-              SecendTabs(labels: categories.map((item) => item.name).toList()),
-              const SizedBox(height: 4),
+              SecendTabs(
+                labels: categories.map((item) => item.name).toList(),
+                verticalPadding: 0,
+              ),
               Expanded(
                 child: TabBarView(
                   children: [

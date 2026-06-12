@@ -659,6 +659,47 @@ void main() {
     });
   });
 
+  test('getWorld treats missing detail metric as empty map', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'info': {
+              'world_id': 'w_1',
+              'world_name': 'World One',
+              'origin_id': 'o_1',
+              'owner_uid': 'u_1',
+              'owner_name': 'Tester',
+              'created_at': 1716000000,
+              'status': 10,
+            },
+            'stats': const <String, Object?>{},
+            'relation_status': 'anonymous',
+            'characters': const <Object?>[],
+            'locations': const <Object?>[],
+            'ticks': const <Object?>[],
+          },
+        }),
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    final world = await api.getWorld('w_1');
+
+    expect(world.metric, isEmpty);
+  });
+
   test(
     'getWorld accepts Apifox image objects except location map url',
     () async {

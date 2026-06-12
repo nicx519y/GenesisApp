@@ -597,4 +597,30 @@ void main() {
     expect(find.text('Origin'), findsOneWidget);
     expect(find.text('World'), findsOneWidget);
   });
+
+  testWidgets('SecendTabs can remove vertical padding', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            body: Column(
+              children: [
+                SecendTabs(labels: ['Origin', 'World'], verticalPadding: 0),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final element = tester.element(find.byType(SecendTabs));
+    late Widget child;
+    element.visitChildren((childElement) {
+      child = childElement.widget;
+    });
+
+    final padding = child as Padding;
+    expect(padding.padding, EdgeInsets.zero);
+  });
 }

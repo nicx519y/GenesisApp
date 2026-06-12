@@ -224,6 +224,7 @@ class _WorldPageState extends State<WorldPage>
       _applyWorldDetail(world, clearInitialLoadError: isInitial);
     } catch (e) {
       if (!mounted) return;
+      debugPrint('[WorldPage] load failed wid="${widget.wid}": $e');
       if (isInitial) {
         setState(() {
           _initialLoadError = e;
