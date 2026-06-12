@@ -13,6 +13,7 @@ import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_image_viewer_overlay.dart';
+import '../common/genesis_timestamp_text.dart';
 import 'discuss_post_input.dart';
 import 'origin_discuss_replies_list.dart';
 import 'story_badge.dart';
@@ -1487,7 +1488,6 @@ class _DiscussPreviewMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = _dateLabel(item.createdAt);
     return SizedBox(
       key: ValueKey('origin-discuss-meta-${item.discussId}'),
       width: double.infinity,
@@ -1535,9 +1535,12 @@ class _DiscussPreviewMeta extends StatelessWidget {
               ],
             ),
           ),
-          if (date.isNotEmpty) ...[
+          if (item.createdAt != null) ...[
             const SizedBox(width: 8),
-            Text(date, style: _subtleStyle),
+            GenesisTimestampText(
+              timestamp: item.createdAt,
+              style: _subtleStyle,
+            ),
           ],
         ],
       ),
@@ -1596,21 +1599,6 @@ DateTime? _parseDateTime(Object? value) {
   if (text.isEmpty) return null;
   return DateTime.tryParse(text) ??
       DateTime.tryParse(text.replaceFirst(' ', 'T'));
-}
-
-String _dateLabel(DateTime? value) {
-  if (value == null) return '';
-  final local = value.toLocal();
-  final hour = local.hour.toString().padLeft(2, '0');
-  final minute = local.minute.toString().padLeft(2, '0');
-  final time = '$hour:$minute';
-  final now = DateTime.now();
-  if (local.year == now.year &&
-      local.month == now.month &&
-      local.day == now.day) {
-    return time;
-  }
-  return '${local.month}-${local.day} $time';
 }
 
 List<String> _imageUrlsFrom(Object? value) {

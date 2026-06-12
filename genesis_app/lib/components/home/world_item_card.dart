@@ -4,9 +4,10 @@ import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../components/common/genesis_timestamp_text.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../utils/display_name_formatter.dart';
-import '../../utils/relative_time_formatter.dart';
+import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
 @immutable
@@ -131,7 +132,7 @@ class WorldListItem {
   }
 
   String get subtitle => displaySubtitle.trim().isEmpty
-      ? 'Updated $updatedAt'
+      ? 'Updated ${formatGenesisTimestamp(updatedAt)}'
       : displaySubtitle.trim();
 
   String get progressSummary => lastProgressSummary.trim();
@@ -175,7 +176,7 @@ class WorldItemCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        _ProgressHeader(timeText: formatRelativeTimestamp(item.lastProgressAt)),
+        _ProgressHeader(timestamp: item.lastProgressAt),
         const SizedBox(height: 10),
         Text(
           item.progressSummary,
@@ -351,9 +352,9 @@ class _Stat extends StatelessWidget {
 }
 
 class _ProgressHeader extends StatelessWidget {
-  const _ProgressHeader({required this.timeText});
+  const _ProgressHeader({required this.timestamp});
 
-  final String timeText;
+  final Object? timestamp;
 
   @override
   Widget build(BuildContext context) {
@@ -378,10 +379,10 @@ class _ProgressHeader extends StatelessWidget {
             ),
           ),
         ),
-        if (timeText.isNotEmpty) ...[
+        if (formatGenesisTimestamp(timestamp).isNotEmpty) ...[
           const SizedBox(width: 10),
-          Text(
-            timeText,
+          GenesisTimestampText(
+            timestamp: timestamp,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(

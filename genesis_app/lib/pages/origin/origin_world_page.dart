@@ -30,7 +30,7 @@ import '../../ui/components/genesis_primary_button.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
-import '../../utils/relative_time_formatter.dart';
+import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_page.dart';
 
@@ -953,7 +953,7 @@ class _OriginHeader extends StatelessWidget {
     final canEditOrigin =
         currentUid.trim().isNotEmpty && currentUid.trim() == ownerUid;
     final version = origin.versionNum <= 0 ? 1 : origin.versionNum;
-    final age = formatRelativeTime(origin.updatedAt, fallback: '');
+    final age = formatGenesisDateTime(origin.updatedAt, fallback: '');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1196,7 +1196,7 @@ class _LaunchPreviewSection extends StatelessWidget {
           locationsById: _originLocationsById(origin.locations),
           dateLabel: origin.startTime.trim().isEmpty
               ? 'Day 1, 18:00'
-              : origin.startTime.trim(),
+              : formatGenesisTimestamp(origin.startTime),
           timeAgoLabel: '',
         ),
       ],
@@ -1867,13 +1867,7 @@ int _mapInt(Map<dynamic, dynamic> map, List<String> keys) {
 
 String _formatSummaryTimestamp(int seconds) {
   if (seconds <= 0) return '';
-  final local = DateTime.fromMillisecondsSinceEpoch(
-    seconds * 1000,
-    isUtc: true,
-  ).toLocal();
-  String two(int value) => value.toString().padLeft(2, '0');
-  return '${local.year}/${two(local.month)}/${two(local.day)} '
-      '${two(local.hour)}:${two(local.minute)}';
+  return formatGenesisTimestamp(seconds);
 }
 
 List<OriginLocation> _rootOriginLocations(List<OriginLocation> locations) {

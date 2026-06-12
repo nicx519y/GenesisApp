@@ -7,7 +7,7 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
 import '../../utils/display_name_formatter.dart';
-import '../../utils/relative_time_formatter.dart';
+import '../../utils/genesis_timestamp_formatter.dart';
 
 class UserInfoPage extends StatefulWidget {
   const UserInfoPage({super.key, required this.uid});
@@ -548,7 +548,7 @@ String _originSubtitle(OriginSummary item) {
       ? '-'
       : formatUidForDisplay(item.originator);
   final version = item.versionNum <= 0 ? '-' : 'V${item.versionNum}';
-  final updated = formatRelativeTime(item.updatedAt);
+  final updated = formatGenesisDateTime(item.updatedAt);
   return 'OID: $oid  Originator: $originator\n'
       'Latest Version: $version · $updated';
 }

@@ -34,7 +34,7 @@ void main() {
     );
 
     expect(find.text('Last Progress'), findsOneWidget);
-    expect(find.text('just now'), findsOneWidget);
+    expect(find.text('2999-1-1'), findsOneWidget);
     expect(find.text('The city chooses a new route.'), findsOneWidget);
 
     final thumbnails = tester.widgetList<GenesisListImage>(

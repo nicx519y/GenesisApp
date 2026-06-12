@@ -5,6 +5,7 @@ import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../origin/origin_item_card.dart';
 
@@ -123,7 +124,7 @@ class PopularOriginListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = item.title;
-    final metaTime = _relativeTime(item.updatedAt);
+    final metaTime = formatGenesisTimestamp(item.updatedAt);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -535,17 +536,3 @@ const _metaStyle = TextStyle(
   height: 1.1,
   fontWeight: FontWeight.w400,
 );
-
-String _relativeTime(String raw) {
-  final value = raw.trim();
-  if (value.isEmpty) return '';
-  final parsed = DateTime.tryParse(value);
-  if (parsed == null) return value;
-  final diff = DateTime.now().difference(parsed.toLocal());
-  if (diff.inMinutes < 1) return 'just now';
-  if (diff.inHours < 1) return '${diff.inMinutes} mins ago';
-  if (diff.inDays < 1) return '${diff.inHours} hrs ago';
-  if (diff.inDays < 30) return '${diff.inDays} days ago';
-  if (diff.inDays < 365) return '${(diff.inDays / 30).floor()} mos ago';
-  return '${(diff.inDays / 365).floor()} yrs ago';
-}

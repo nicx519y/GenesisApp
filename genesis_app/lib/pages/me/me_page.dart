@@ -17,7 +17,7 @@ import '../../platform/auth/auth_cancelled_exception.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../utils/display_name_formatter.dart';
-import '../../utils/relative_time_formatter.dart';
+import '../../utils/genesis_timestamp_formatter.dart';
 import 'settings_page.dart';
 
 class MePage extends StatefulWidget {
@@ -768,7 +768,7 @@ String _originSubtitle(OriginSummary item) {
       ? '-'
       : formatUidForDisplay(item.originator);
   final version = item.versionNum <= 0 ? '-' : 'V${item.versionNum}';
-  final updated = formatRelativeTime(item.updatedAt);
+  final updated = formatGenesisDateTime(item.updatedAt);
   return 'OID: $oid  Originator: $originator\n'
       'Latest Version: $version · $updated';
 }

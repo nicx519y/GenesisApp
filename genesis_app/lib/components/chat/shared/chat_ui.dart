@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+import '../../../components/common/genesis_timestamp_text.dart';
 import '../../../icons/my_flutter_app_icons.dart';
 import '../../../ui/components/genesis_avatar.dart';
 import 'chat_ui_style_config.dart';
@@ -859,7 +860,10 @@ class ChatDateDivider extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(bottom: style.dateDividerBottomPadding),
       child: Center(
-        child: Text(_dateLabel(time), style: style.dateDividerTextStyle),
+        child: GenesisTimestampText(
+          timestamp: time,
+          style: style.dateDividerTextStyle,
+        ),
       ),
     );
   }
@@ -1029,17 +1033,4 @@ String firstNonEmpty(List<String?> values) {
     if (trimmed.isNotEmpty) return trimmed;
   }
   return '';
-}
-
-String _dateLabel(DateTime time) {
-  final local = time.toLocal();
-  final hour = local.hour.toString().padLeft(2, '0');
-  final minute = local.minute.toString().padLeft(2, '0');
-  final now = DateTime.now();
-  if (local.year == now.year &&
-      local.month == now.month &&
-      local.day == now.day) {
-    return 'today $hour:$minute';
-  }
-  return '${local.month}/${local.day} $hour:$minute';
 }

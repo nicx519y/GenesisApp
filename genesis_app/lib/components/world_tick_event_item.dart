@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/genesis_timestamp_formatter.dart';
+
 class WorldTickEventItem extends StatelessWidget {
   const WorldTickEventItem({
     super.key,
@@ -24,8 +26,8 @@ class WorldTickEventItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final tickResult = _tickResult(tick);
     final createdAt = _tickDateTime(tick['created_at']);
-    final date = dateLabel ?? _formatShortDate(createdAt);
-    final timeAgo = timeAgoLabel ?? _relativeTime(createdAt);
+    final date = dateLabel ?? formatGenesisDateTime(createdAt);
+    final timeAgo = timeAgoLabel ?? '';
     final body = _mapString(tickResult, const [
       'narrator',
     ], fallback: fallbackBody);
@@ -226,21 +228,6 @@ class _TickParagraphRow extends StatelessWidget {
       ),
     );
   }
-}
-
-String _formatShortDate(DateTime? value) {
-  if (value == null) return '';
-  return value.toLocal().toIso8601String().split('T').first;
-}
-
-String _relativeTime(DateTime? value) {
-  if (value == null) return '';
-  final diff = DateTime.now().difference(value.toLocal());
-  if (diff.inMinutes < 1) return 'just now';
-  if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-  if (diff.inDays < 1) return '${diff.inHours}h ago';
-  if (diff.inDays == 1) return '1 day ago';
-  return '${diff.inDays} days ago';
 }
 
 DateTime? _tickDateTime(Object? value) {

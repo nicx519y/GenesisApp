@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/polling_scheduler.dart';
+import '../../components/common/genesis_timestamp_text.dart';
 import '../../components/page_header.dart';
 import '../../network/direct_message_conversation_store.dart';
 import '../../network/models/unread_summary.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../utils/display_name_formatter.dart';
-import '../../utils/relative_time_formatter.dart';
 import 'message_category_list_page.dart';
 
 class MessagesPage extends StatefulWidget {
@@ -415,11 +415,9 @@ class _ConversationList extends StatelessWidget {
           builder: (context, item, _) => _ConversationTile(
             item: item,
             onTap: onTap,
-            displayTime: formatRelativeTime(
-              item.lastMessageAtTime,
-              fallback: item.lastMessageAt,
-              now: timeLabelNow,
-            ),
+            displayTime: item.lastMessageAtTime,
+            displayTimeFallback: item.lastMessageAt,
+            displayTimeNow: timeLabelNow,
           ),
         );
       },
@@ -432,6 +430,8 @@ class _ConversationTile extends StatelessWidget {
     required this.item,
     required this.onTap,
     required this.displayTime,
+    required this.displayTimeFallback,
+    required this.displayTimeNow,
   });
 
   static const double _avatarSize = 48;
@@ -439,7 +439,9 @@ class _ConversationTile extends StatelessWidget {
 
   final DirectMessageConversationRecord item;
   final Future<void> Function(DirectMessageConversationRecord item) onTap;
-  final String displayTime;
+  final DateTime? displayTime;
+  final String displayTimeFallback;
+  final DateTime? displayTimeNow;
 
   @override
   Widget build(BuildContext context) {
@@ -489,8 +491,10 @@ class _ConversationTile extends StatelessWidget {
                         const SizedBox(width: 8),
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 112),
-                          child: Text(
-                            displayTime,
+                          child: GenesisTimestampText(
+                            timestamp: displayTime,
+                            fallback: displayTimeFallback,
+                            now: displayTimeNow,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.right,

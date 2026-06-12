@@ -6,6 +6,7 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
 const double _coverAspectRatio = 2 / 3;
@@ -108,7 +109,7 @@ class OriginListItem {
     if (display.isNotEmpty) return display;
     final view = worldView.trim();
     if (view.isNotEmpty) return view;
-    return 'Updated $updatedAt';
+    return 'Updated ${formatGenesisTimestamp(updatedAt)}';
   }
 }
 

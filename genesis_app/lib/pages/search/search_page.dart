@@ -15,7 +15,7 @@ import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../utils/display_name_formatter.dart';
-import '../../utils/relative_time_formatter.dart';
+import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import 'search_history_store.dart';
 
@@ -1174,7 +1174,7 @@ String _originSearchSubtitle(
     'origin_version_num',
   ]);
   final version = versionNum <= 0 ? '-' : 'V$versionNum';
-  final updated = formatRelativeTime(asDateTime(raw['updated_at']));
+  final updated = formatGenesisDateTime(asDateTime(raw['updated_at']));
   return 'OID: $displayOid  Originator: '
       '${formatUidForDisplay(originator, fallback: '-')}\n'
       'Latest Version: $version · $updated';

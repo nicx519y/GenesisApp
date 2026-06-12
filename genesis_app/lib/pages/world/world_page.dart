@@ -35,6 +35,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../chat/location_chat_page.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
 const Duration _tick1WaitPollInterval = Duration(seconds: 2);
@@ -2292,7 +2293,7 @@ String? _tickParagraphTimestamp(Map<String, dynamic> tick) {
   for (final paragraph in paragraphs) {
     if (paragraph is! Map) continue;
     final timestamp = '${paragraph['timestamp'] ?? ''}'.trim();
-    if (timestamp.isNotEmpty) return timestamp;
+    if (timestamp.isNotEmpty) return formatGenesisTimestamp(timestamp);
   }
   return null;
 }

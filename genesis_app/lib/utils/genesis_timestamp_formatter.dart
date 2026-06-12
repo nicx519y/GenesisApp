@@ -1,26 +1,6 @@
 import '../network/json_utils.dart';
 
-String formatRelativeTime(
-  DateTime? time, {
-  String fallback = '-',
-  DateTime? now,
-}) {
-  if (time == null) return fallback;
-  final diff = (now ?? DateTime.now()).difference(time.toLocal());
-  if (diff.isNegative || diff.inMinutes < 1) return 'just now';
-  if (diff.inHours < 1) return _plural(diff.inMinutes, 'minute');
-  if (diff.inDays < 1) return _plural(diff.inHours, 'hour');
-  if (diff.inDays < 7) return _plural(diff.inDays, 'day');
-  if (diff.inDays < 30) return _plural(diff.inDays ~/ 7, 'week');
-  if (diff.inDays < 365) {
-    final months = diff.inDays ~/ 30;
-    if (months == 6) return 'half a year ago';
-    return _plural(months, 'month');
-  }
-  return _plural(diff.inDays ~/ 365, 'year');
-}
-
-String formatRelativeTimestamp(
+String formatGenesisTimestamp(
   Object? raw, {
   String fallback = '',
   DateTime? now,
@@ -30,7 +10,25 @@ String formatRelativeTimestamp(
     final text = asString(raw).trim();
     return text.isEmpty || text == 'null' ? fallback : text;
   }
-  return formatRelativeTime(time, fallback: fallback, now: now);
+  return formatGenesisDateTime(time, fallback: fallback, now: now);
+}
+
+String formatGenesisDateTime(
+  DateTime? time, {
+  String fallback = '',
+  DateTime? now,
+}) {
+  if (time == null) return fallback;
+  final local = time.toLocal();
+  final localNow = (now ?? DateTime.now()).toLocal();
+  if (_isSameDay(local, localNow)) {
+    return '${_twoDigits(local.hour)}:${_twoDigits(local.minute)}';
+  }
+  if (local.year == localNow.year) {
+    return '${local.month}-${local.day} '
+        '${_twoDigits(local.hour)}:${_twoDigits(local.minute)}';
+  }
+  return '${local.year}-${local.month}-${local.day}';
 }
 
 DateTime? parseFlexibleTimestamp(Object? raw) {
@@ -51,6 +49,8 @@ DateTime _dateTimeFromEpoch(num value) {
   return DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
 }
 
-String _plural(int value, String unit) {
-  return '$value $unit${value == 1 ? '' : 's'} ago';
+bool _isSameDay(DateTime a, DateTime b) {
+  return a.year == b.year && a.month == b.month && a.day == b.day;
 }
+
+String _twoDigits(int value) => value.toString().padLeft(2, '0');

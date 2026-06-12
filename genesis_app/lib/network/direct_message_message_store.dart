@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../platform/platform_services.dart';
-import '../utils/relative_time_formatter.dart';
+import '../utils/genesis_timestamp_formatter.dart';
 import 'direct_message_database.dart';
 import 'genesis_api.dart';
 import 'json_utils.dart';

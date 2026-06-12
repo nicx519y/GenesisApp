@@ -7,6 +7,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
+import '../../components/common/genesis_timestamp_text.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
 import '../../components/page_header.dart';
@@ -15,6 +16,7 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/genesis_timestamp_formatter.dart';
 
 const String _postDetailLikeFilledAsset =
     'assets/custom-icons/png/discuss_like_filled.png';
@@ -221,7 +223,6 @@ class _PostHeaderMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final date = _dateLabel(item.createdAt);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -240,9 +241,9 @@ class _PostHeaderMeta extends StatelessWidget {
                 ),
               ),
             ),
-            if (date.isNotEmpty)
-              Text(
-                date,
+            if (item.createdAt != null)
+              GenesisTimestampText(
+                timestamp: item.createdAt,
                 style: const TextStyle(
                   color: Color(0xFF888888),
                   fontSize: 14,
@@ -780,7 +781,7 @@ class _ReplyViewData {
       replyCount: asInt(json['reply_cnt']),
       isLiked: asBool(json['is_liked']),
       imageUrls: _imageUrlsFrom(json['images'] ?? json['image_urls']),
-      dateLabel: _dateLabel(_parseDateTime(json['created_at'])),
+      dateLabel: formatGenesisDateTime(_parseDateTime(json['created_at'])),
     );
   }
 
@@ -811,21 +812,6 @@ DateTime? _parseDateTime(Object? value) {
   if (text.isEmpty) return null;
   return DateTime.tryParse(text) ??
       DateTime.tryParse(text.replaceFirst(' ', 'T'));
-}
-
-String _dateLabel(DateTime? value) {
-  if (value == null) return '';
-  final local = value.toLocal();
-  final hour = local.hour.toString().padLeft(2, '0');
-  final minute = local.minute.toString().padLeft(2, '0');
-  final time = '$hour:$minute';
-  final now = DateTime.now();
-  if (local.year == now.year &&
-      local.month == now.month &&
-      local.day == now.day) {
-    return time;
-  }
-  return '${local.month}-${local.day} $time';
 }
 
 List<String> _imageUrlsFrom(Object? value) {

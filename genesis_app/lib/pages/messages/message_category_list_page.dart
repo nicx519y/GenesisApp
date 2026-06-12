@@ -11,6 +11,7 @@ import '../../components/page_header.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/genesis_timestamp_formatter.dart';
 
 class MessageCategoryListPage extends StatefulWidget {
   const MessageCategoryListPage({
@@ -997,14 +998,7 @@ class _NotificationItem {
   }
 
   String get createdAtText {
-    final value = createdAt;
-    if (value == null) return '';
-    final local = value.toLocal();
-    final month = local.month.toString();
-    final day = local.day.toString();
-    final hour = local.hour.toString().padLeft(2, '0');
-    final minute = local.minute.toString().padLeft(2, '0');
-    return '$month-$day $hour:$minute';
+    return formatGenesisDateTime(createdAt);
   }
 
   OriginDiscussListItem toDiscussListItem() {

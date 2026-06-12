@@ -64,6 +64,7 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
+import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
 
 Finder _richTextWithPlainText(String text) {
   return find.byWidgetPredicate(
@@ -2087,7 +2088,10 @@ void main() {
 
     expect(find.text('Penny Direct'), findsOneWidget);
     expect(find.text('First direct message preview'), findsOneWidget);
-    expect(find.text('2 hours ago'), findsOneWidget);
+    expect(
+      find.text(formatGenesisTimestamp(transport.lastMessageAt)),
+      findsOneWidget,
+    );
     final dmAvatar = find.byKey(const ValueKey('dm-avatar-dm_test_001'));
     final dmName = find.text('Penny Direct');
     expect(dmAvatar, findsOneWidget);
@@ -2130,12 +2134,13 @@ void main() {
     expect(deltaRequest.uri.queryParameters.containsKey('rn'), isFalse);
   });
 
-  testWidgets('direct messages time labels refresh every minute', (
+  testWidgets('direct messages use shared absolute time labels', (
     WidgetTester tester,
   ) async {
-    var now = DateTime.utc(2026, 6, 5, 10);
+    var now = DateTime(2026, 6, 5, 10);
+    final lastMessageAt = now.subtract(const Duration(seconds: 30));
     final services = await _messagesServicesWithCachedConversation(
-      lastMessageAt: now.subtract(const Duration(seconds: 30)),
+      lastMessageAt: lastMessageAt,
     );
 
     await tester.pumpWidget(
@@ -2152,22 +2157,28 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Penny Direct'), findsOneWidget);
-    expect(find.text('just now'), findsOneWidget);
+    expect(
+      find.text(formatGenesisDateTime(lastMessageAt, now: now)),
+      findsOneWidget,
+    );
 
     now = now.add(const Duration(minutes: 1));
     await tester.pump(const Duration(minutes: 1));
 
-    expect(find.text('just now'), findsNothing);
-    expect(find.text('1 minute ago'), findsOneWidget);
+    expect(
+      find.text(formatGenesisDateTime(lastMessageAt, now: now)),
+      findsOneWidget,
+    );
   });
 
   testWidgets('direct messages time labels refresh when tab becomes active', (
     WidgetTester tester,
   ) async {
     final isActive = ValueNotifier<bool>(false);
-    var now = DateTime.utc(2026, 6, 5, 10);
+    var now = DateTime(2026, 6, 5, 23, 59, 30);
+    final lastMessageAt = now.subtract(const Duration(seconds: 30));
     final services = await _messagesServicesWithCachedConversation(
-      lastMessageAt: now.subtract(const Duration(seconds: 30)),
+      lastMessageAt: lastMessageAt,
     );
 
     await tester.pumpWidget(
@@ -2185,19 +2196,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Penny Direct'), findsOneWidget);
-    expect(find.text('just now'), findsOneWidget);
+    expect(
+      find.text(formatGenesisDateTime(lastMessageAt, now: now)),
+      findsOneWidget,
+    );
 
     now = now.add(const Duration(seconds: 75));
     await tester.pump(const Duration(seconds: 75));
 
-    expect(find.text('just now'), findsOneWidget);
-    expect(find.text('1 minute ago'), findsNothing);
+    expect(find.text('23:59'), findsOneWidget);
+    expect(find.text('6-5 23:59'), findsNothing);
 
     isActive.value = true;
     await tester.pump();
 
-    expect(find.text('just now'), findsNothing);
-    expect(find.text('1 minute ago'), findsOneWidget);
+    expect(find.text('23:59'), findsNothing);
+    expect(find.text('6-5 23:59'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     isActive.dispose();
