@@ -6,6 +6,7 @@ import '../../components/genesis_logo.dart';
 import '../../components/home/popular_origin_list.dart';
 import '../../components/home/world_item_card.dart';
 import '../../components/origin/origin_item_card.dart';
+import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
@@ -89,20 +90,26 @@ class _HomeHeader extends StatelessWidget {
     return SafeArea(
       bottom: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, kSearchBarTopPadding, 16, 0),
-        child: Row(
-          children: [
-            const GenesisLogo(height: 26.2),
-            const SizedBox(width: 12),
-            Expanded(
-              child: SearchBarPlaceholder(
-                hintText: 'Explore',
-                onTap: () {
-                  Navigator.of(context).pushNamed(RouteNames.search);
-                },
-              ),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: SizedBox(
+          height: kGenesisTopBarHeight,
+          child: Transform.translate(
+            offset: const Offset(0, 5),
+            child: Row(
+              children: [
+                const GenesisLogo(height: 32),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SearchBarPlaceholder(
+                    hintText: 'Explore',
+                    onTap: () {
+                      Navigator.of(context).pushNamed(RouteNames.search);
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

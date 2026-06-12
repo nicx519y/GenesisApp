@@ -160,11 +160,7 @@ class _MessagesPageState extends State<MessagesPage> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const PageHeader(
-            pageName: 'Messages',
-            showSearchBar: false,
-            topPadding: 18,
-          ),
+          const PageHeader(pageName: 'Messages', showSearchBar: false),
           const SizedBox(height: 28),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
