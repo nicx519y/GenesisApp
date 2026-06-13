@@ -71,7 +71,7 @@ class _PopularOriginListState extends State<PopularOriginList> {
       controller: widget.controller,
       primary: false,
       cacheExtent: 900,
-      padding: const EdgeInsets.only(top: 4, bottom: 24),
+      padding: const EdgeInsets.only(bottom: 24),
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),

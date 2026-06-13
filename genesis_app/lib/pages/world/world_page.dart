@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
 import '../../components/common/copyable_id_label.dart';
@@ -40,6 +41,86 @@ import '../../utils/stat_count_formatter.dart';
 
 const Duration _tick1WaitPollInterval = Duration(seconds: 2);
 const Duration _tick1WaitDotsInterval = Duration(milliseconds: 400);
+final SystemUiOverlayStyle _worldDetailStatusBarStyle = SystemUiOverlayStyle
+    .light
+    .copyWith(statusBarColor: Colors.transparent);
+final SystemUiOverlayStyle _worldDetailScrolledStatusBarStyle =
+    SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent);
+
+Widget _withWorldDetailStatusBar(
+  Widget child, {
+  required double? switchOffset,
+}) {
+  return _WorldDetailStatusBarRegion(switchOffset: switchOffset, child: child);
+}
+
+double _worldDetailStatusBarSwitchOffset(
+  BuildContext context, {
+  required double panelTopGap,
+  required double panelCollapsedHeightOffset,
+}) {
+  final viewportHeight = MediaQuery.sizeOf(context).height;
+  final topPadding = MediaQuery.paddingOf(context).top;
+  final mapHeight =
+      (viewportHeight * (1 - WorldDetailsPanel.defaultExposedChildSize) +
+              panelCollapsedHeightOffset)
+          .clamp(0.0, (viewportHeight - panelTopGap).clamp(0.0, viewportHeight))
+          .toDouble();
+  return (mapHeight - topPadding).clamp(0.0, mapHeight).toDouble();
+}
+
+class _WorldDetailStatusBarRegion extends StatefulWidget {
+  const _WorldDetailStatusBarRegion({
+    required this.switchOffset,
+    required this.child,
+  });
+
+  final double? switchOffset;
+  final Widget child;
+
+  @override
+  State<_WorldDetailStatusBarRegion> createState() =>
+      _WorldDetailStatusBarRegionState();
+}
+
+class _WorldDetailStatusBarRegionState
+    extends State<_WorldDetailStatusBarRegion> {
+  var _scrolledPastMap = false;
+
+  @override
+  void didUpdateWidget(covariant _WorldDetailStatusBarRegion oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.switchOffset == null && _scrolledPastMap) {
+      _scrolledPastMap = false;
+    }
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    final switchOffset = widget.switchOffset;
+    if (switchOffset == null) return false;
+    final next = notification.metrics.pixels >= switchOffset;
+    if (next != _scrolledPastMap) {
+      setState(() => _scrolledPastMap = next);
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = widget.switchOffset == null
+        ? _worldDetailScrolledStatusBarStyle
+        : _scrolledPastMap
+        ? _worldDetailScrolledStatusBarStyle
+        : _worldDetailStatusBarStyle;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: style,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _handleScrollNotification,
+        child: widget.child,
+      ),
+    );
+  }
+}
 
 class WorldPage extends StatefulWidget {
   const WorldPage({super.key, required this.wid, this.waitForTick1 = false});
@@ -87,6 +168,7 @@ class _WorldPageState extends State<WorldPage>
 
   @override
   void dispose() {
+    SystemChrome.setSystemUIOverlayStyle(_worldDetailScrolledStatusBarStyle);
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
     final chatroom = _worldChatroom;
@@ -748,46 +830,57 @@ class _WorldPageState extends State<WorldPage>
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.paddingOf(context).top;
+    final statusBarSwitchOffset = _worldDetailStatusBarSwitchOffset(
+      context,
+      panelTopGap: 50,
+      panelCollapsedHeightOffset: 100,
+    );
     final world = _world;
     if (world == null) {
       if (_initialLoadError != null) {
-        return Scaffold(
-          body: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Load failed'),
-                const SizedBox(height: 10),
-                FilledButton(
-                  onPressed: () => _fetchWorld(isInitial: true),
-                  child: const Text('Retry'),
-                ),
-              ],
+        return _withWorldDetailStatusBar(
+          Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Load failed'),
+                  const SizedBox(height: 10),
+                  FilledButton(
+                    onPressed: () => _fetchWorld(isInitial: true),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
             ),
           ),
+          switchOffset: null,
         );
       }
-      return WorldDetailsPageScaffold(
-        panelTopGap: 50,
-        panelCollapsedHeightOffset: 100,
-        persistentTopOverlay: _buildPersistentMapTabs(0, topPadding + 8),
-        map: WorldMapStage(
-          controller: _tabController,
-          pointsCount: 0,
-          top: topPadding + 8,
-          showTopOverlay: false,
-          mapBuilder: (context, pointMode) => WorldMap(
-            points: const <WorldPoint>[],
-            listPoints: const <WorldPoint>[],
-            locationNodes: const <WorldMapLocationNode>[],
-            fallbackOnEmptyMapUrl: false,
-            dimmed: pointMode,
-            showPointsList: pointMode,
-            overlayTop: topPadding + 8 + 48,
-            drillExitTop: topPadding + 68,
+      return _withWorldDetailStatusBar(
+        WorldDetailsPageScaffold(
+          panelTopGap: 50,
+          panelCollapsedHeightOffset: 100,
+          persistentTopOverlay: _buildPersistentMapTabs(0, topPadding + 8),
+          map: WorldMapStage(
+            controller: _tabController,
+            pointsCount: 0,
+            top: topPadding + 8,
+            showTopOverlay: false,
+            mapBuilder: (context, pointMode) => WorldMap(
+              points: const <WorldPoint>[],
+              listPoints: const <WorldPoint>[],
+              locationNodes: const <WorldMapLocationNode>[],
+              fallbackOnEmptyMapUrl: false,
+              dimmed: pointMode,
+              showPointsList: pointMode,
+              overlayTop: topPadding + 8 + 48,
+              drillExitTop: topPadding + 68,
+            ),
           ),
+          slivers: const [_WorldDetailsLoadingContent()],
         ),
-        slivers: const [_WorldDetailsLoadingContent()],
+        switchOffset: statusBarSwitchOffset,
       );
     }
 
@@ -831,46 +924,49 @@ class _WorldPageState extends State<WorldPage>
         : world.locations.isNotEmpty
         ? _pointsFromWorldLocations(world.locations, avatarsByLocation)
         : points;
-    return PopScope(
-      canPop: _activeChatLocationId.isEmpty,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        _handleWorldPopBlocked();
-      },
-      child: WorldDetailsPageScaffold(
-        panelTopGap: 50,
-        panelCollapsedHeightOffset: 100,
-        topOverlay: _buildLocationChatOverlay(),
-        persistentTopOverlay: _buildPersistentMapTabs(
-          listPoints.length,
-          topPadding + 8,
-        ),
-        map: WorldMapStage(
-          controller: _tabController,
-          pointsCount: listPoints.length,
-          top: topPadding + 8,
-          showTopOverlay: false,
-          mapBuilder: (context, pointMode) => WorldMap(
-            points: points,
-            listPoints: listPoints,
-            locationNodes: locationNodes,
-            mapImageUrl: rootMapImageUrl,
-            dimmed: pointMode,
-            showPointsList: pointMode,
-            overlayTop: topPadding + 8 + 48,
-            drillExitTop: topPadding + 68,
-            onDrillIntoLocation: _showMapTab,
-            onPointTap: _openChatForPoint,
+    return _withWorldDetailStatusBar(
+      PopScope(
+        canPop: _activeChatLocationId.isEmpty,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          _handleWorldPopBlocked();
+        },
+        child: WorldDetailsPageScaffold(
+          panelTopGap: 50,
+          panelCollapsedHeightOffset: 100,
+          topOverlay: _buildLocationChatOverlay(),
+          persistentTopOverlay: _buildPersistentMapTabs(
+            listPoints.length,
+            topPadding + 8,
           ),
-        ),
-        slivers: [
-          _WorldFeedContent(
-            world: world,
-            worldActionRunning: _worldActionRunning,
-            onWorldAction: _runWorldAction,
+          map: WorldMapStage(
+            controller: _tabController,
+            pointsCount: listPoints.length,
+            top: topPadding + 8,
+            showTopOverlay: false,
+            mapBuilder: (context, pointMode) => WorldMap(
+              points: points,
+              listPoints: listPoints,
+              locationNodes: locationNodes,
+              mapImageUrl: rootMapImageUrl,
+              dimmed: pointMode,
+              showPointsList: pointMode,
+              overlayTop: topPadding + 8 + 48,
+              drillExitTop: topPadding + 68,
+              onDrillIntoLocation: _showMapTab,
+              onPointTap: _openChatForPoint,
+            ),
           ),
-        ],
+          slivers: [
+            _WorldFeedContent(
+              world: world,
+              worldActionRunning: _worldActionRunning,
+              onWorldAction: _runWorldAction,
+            ),
+          ],
+        ),
       ),
+      switchOffset: statusBarSwitchOffset,
     );
   }
 

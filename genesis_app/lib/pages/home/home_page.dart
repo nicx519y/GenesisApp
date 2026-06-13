@@ -64,8 +64,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               const _HomeHeader(),
               const SizedBox(height: 4),
-              SecendTabs(labels: HomePage.tabs),
-              const SizedBox(height: 4),
+              SecendTabs(labels: HomePage.tabs, bottomPadding: 0),
               const Expanded(
                 child: TabBarView(
                   children: [
@@ -348,7 +347,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
               controller: _scrollController,
               primary: false,
               cacheExtent: 900,
-              padding: const EdgeInsets.only(top: 4),
+              padding: EdgeInsets.zero,
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),

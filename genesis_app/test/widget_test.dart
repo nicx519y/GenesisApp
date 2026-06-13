@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
@@ -71,6 +72,32 @@ Finder _richTextWithPlainText(String text) {
     (widget) => widget is RichText && widget.text.toPlainText() == text,
     description: 'RichText with plain text "$text"',
   );
+}
+
+SystemUiOverlayStyle _pageStatusBarStyle(WidgetTester tester) {
+  return tester
+      .widgetList<AnnotatedRegion<SystemUiOverlayStyle>>(
+        find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+      )
+      .last
+      .value;
+}
+
+List<Map<dynamic, dynamic>> _captureSystemUiOverlayStyleCalls() {
+  final calls = <Map<dynamic, dynamic>>[];
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'SystemChrome.setSystemUIOverlayStyle') {
+          calls.add(Map<dynamic, dynamic>.from(call.arguments as Map));
+        }
+        return null;
+      });
+  return calls;
+}
+
+void _clearPlatformChannelHandler() {
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(SystemChannels.platform, null);
 }
 
 Future<AppServices> _testServices({
@@ -3371,6 +3398,57 @@ void main() {
     expect(find.text('Discuss'), findsOneWidget);
     final discussRequests = transport.requestsFor('/api/v1/discuss/list');
     expect(discussRequests.last.uri.queryParameters['biz_id'], 'o_test_1');
+  });
+
+  testWidgets('Origin detail status bar switches after map scrolls out', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    final systemUiOverlayStyleCalls = _captureSystemUiOverlayStyleCalls();
+    addTearDown(_clearPlatformChannelHandler);
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+    await tester.pump();
+    systemUiOverlayStyleCalls.clear();
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      _pageStatusBarStyle(tester).statusBarIconBrightness,
+      Brightness.light,
+    );
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -720));
+    await tester.pumpAndSettle();
+
+    expect(
+      _pageStatusBarStyle(tester).statusBarIconBrightness,
+      Brightness.dark,
+    );
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 720));
+    await tester.pumpAndSettle();
+
+    expect(
+      _pageStatusBarStyle(tester).statusBarIconBrightness,
+      Brightness.light,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(
+      systemUiOverlayStyleCalls.last['statusBarIconBrightness'],
+      Brightness.dark.toString(),
+    );
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('Origin detail empty discuss area opens post composer', (
@@ -7825,6 +7903,54 @@ void main() {
     expect(_assetImageFinder(kWorldMapFallbackBackgroundAsset), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('world detail status bar switches after map scrolls out', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    final systemUiOverlayStyleCalls = _captureSystemUiOverlayStyleCalls();
+    addTearDown(_clearPlatformChannelHandler);
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
+    await tester.pump();
+    systemUiOverlayStyleCalls.clear();
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      _pageStatusBarStyle(tester).statusBarIconBrightness,
+      Brightness.light,
+    );
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -720));
+    await tester.pumpAndSettle();
+
+    expect(
+      _pageStatusBarStyle(tester).statusBarIconBrightness,
+      Brightness.dark,
+    );
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 720));
+    await tester.pumpAndSettle();
+
+    expect(
+      _pageStatusBarStyle(tester).statusBarIconBrightness,
+      Brightness.light,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    expect(
+      systemUiOverlayStyleCalls.last['statusBarIconBrightness'],
+      Brightness.dark.toString(),
+    );
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets(

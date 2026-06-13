@@ -60,7 +60,6 @@ class _OriginPageState extends State<OriginPage> {
           return const Column(
             children: [
               PageHeader(pageName: 'Origin'),
-              SizedBox(height: 4),
               Expanded(child: GenesisListLoadingSkeleton.originGrid()),
             ],
           );
@@ -72,8 +71,10 @@ class _OriginPageState extends State<OriginPage> {
             children: [
               const PageHeader(pageName: 'Origin'),
               const SizedBox(height: 4),
-              SecendTabs(labels: categories.map((item) => item.name).toList()),
-              const SizedBox(height: 4),
+              SecendTabs(
+                labels: categories.map((item) => item.name).toList(),
+                bottomPadding: 0,
+              ),
               Expanded(
                 child: TabBarView(
                   children: [

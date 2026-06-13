@@ -13,6 +13,8 @@ class SecendTabs extends StatelessWidget {
     this.labelPadding = const EdgeInsets.symmetric(horizontal: 8),
     this.labelFontSize,
     this.expanded = false,
+    this.topPadding = secendTabsVerticalPadding,
+    this.bottomPadding = secendTabsVerticalPadding,
   });
 
   final List<String> labels;
@@ -21,11 +23,13 @@ class SecendTabs extends StatelessWidget {
   final EdgeInsets labelPadding;
   final double? labelFontSize;
   final bool expanded;
+  final double topPadding;
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: secendTabsVerticalPadding),
+      padding: EdgeInsets.only(top: topPadding, bottom: bottomPadding),
       child: GenesisTabBar(
         labels: labels,
         controller: controller,

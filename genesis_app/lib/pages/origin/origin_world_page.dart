@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../components/common/copyable_id_label.dart';
 import '../../components/auth/login_guard.dart';
@@ -33,6 +34,87 @@ import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_page.dart';
+
+final SystemUiOverlayStyle _originDetailStatusBarStyle = SystemUiOverlayStyle
+    .light
+    .copyWith(statusBarColor: Colors.transparent);
+final SystemUiOverlayStyle _originDetailScrolledStatusBarStyle =
+    SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent);
+
+Widget _withOriginDetailStatusBar(
+  Widget child, {
+  required double? switchOffset,
+}) {
+  return _OriginDetailStatusBarRegion(switchOffset: switchOffset, child: child);
+}
+
+double _originDetailStatusBarSwitchOffset(
+  BuildContext context, {
+  required double panelTopGap,
+  required double panelCollapsedHeightOffset,
+}) {
+  final viewportHeight = MediaQuery.sizeOf(context).height;
+  final topPadding = MediaQuery.paddingOf(context).top;
+  final mapHeight =
+      (viewportHeight * (1 - WorldDetailsPanel.defaultExposedChildSize) +
+              panelCollapsedHeightOffset)
+          .clamp(0.0, (viewportHeight - panelTopGap).clamp(0.0, viewportHeight))
+          .toDouble();
+  return (mapHeight - topPadding).clamp(0.0, mapHeight).toDouble();
+}
+
+class _OriginDetailStatusBarRegion extends StatefulWidget {
+  const _OriginDetailStatusBarRegion({
+    required this.switchOffset,
+    required this.child,
+  });
+
+  final double? switchOffset;
+  final Widget child;
+
+  @override
+  State<_OriginDetailStatusBarRegion> createState() =>
+      _OriginDetailStatusBarRegionState();
+}
+
+class _OriginDetailStatusBarRegionState
+    extends State<_OriginDetailStatusBarRegion> {
+  var _scrolledPastMap = false;
+
+  @override
+  void didUpdateWidget(covariant _OriginDetailStatusBarRegion oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.switchOffset == null && _scrolledPastMap) {
+      _scrolledPastMap = false;
+    }
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    final switchOffset = widget.switchOffset;
+    if (switchOffset == null) return false;
+    final next = notification.metrics.pixels >= switchOffset;
+    if (next != _scrolledPastMap) {
+      setState(() => _scrolledPastMap = next);
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = widget.switchOffset == null
+        ? _originDetailScrolledStatusBarStyle
+        : _scrolledPastMap
+        ? _originDetailScrolledStatusBarStyle
+        : _originDetailStatusBarStyle;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: style,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _handleScrollNotification,
+        child: widget.child,
+      ),
+    );
+  }
+}
 
 class OriginWorldPage extends StatefulWidget {
   const OriginWorldPage({super.key, required this.oid, required this.originId});
@@ -90,6 +172,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   @override
   void dispose() {
+    SystemChrome.setSystemUIOverlayStyle(_originDetailScrolledStatusBarStyle);
     _discussController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -323,176 +406,184 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.paddingOf(context).top;
-    return FutureBuilder<OriginDetail>(
-      future: _future,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return WorldDetailsPageScaffold(
-            panelTopGap: 50,
-            panelCollapsedHeightOffset: 100,
-            persistentTopOverlay: _buildPersistentMapTabs(0, topPadding + 8),
-            map: WorldMapStage(
-              controller: _tabController,
-              pointsCount: 0,
-              top: topPadding + 8,
-              showTopOverlay: false,
-              mapBuilder: (context, pointMode) => WorldMap(
-                points: const <WorldPoint>[],
-                listPoints: const <WorldPoint>[],
-                locationNodes: const <WorldMapLocationNode>[],
-                fallbackOnEmptyMapUrl: false,
-                dimmed: pointMode,
-                showPointsList: pointMode,
-                overlayTop: topPadding + 8 + 48,
-                drillExitTop: topPadding + 68,
+    final statusBarSwitchOffset = _originDetailStatusBarSwitchOffset(
+      context,
+      panelTopGap: 50,
+      panelCollapsedHeightOffset: 100,
+    );
+    return _withOriginDetailStatusBar(
+      FutureBuilder<OriginDetail>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return WorldDetailsPageScaffold(
+              panelTopGap: 50,
+              panelCollapsedHeightOffset: 100,
+              persistentTopOverlay: _buildPersistentMapTabs(0, topPadding + 8),
+              map: WorldMapStage(
+                controller: _tabController,
+                pointsCount: 0,
+                top: topPadding + 8,
+                showTopOverlay: false,
+                mapBuilder: (context, pointMode) => WorldMap(
+                  points: const <WorldPoint>[],
+                  listPoints: const <WorldPoint>[],
+                  locationNodes: const <WorldMapLocationNode>[],
+                  fallbackOnEmptyMapUrl: false,
+                  dimmed: pointMode,
+                  showPointsList: pointMode,
+                  overlayTop: topPadding + 8 + 48,
+                  drillExitTop: topPadding + 68,
+                ),
               ),
-            ),
-            slivers: const [_OriginDetailsLoadingContent()],
-            bottomBar: const _OriginBottomLaunchBarSkeleton(),
+              slivers: const [_OriginDetailsLoadingContent()],
+              bottomBar: const _OriginBottomLaunchBarSkeleton(),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Load failed'),
+                    const SizedBox(height: 10),
+                    FilledButton(
+                      onPressed: () => setState(() {
+                        _future = _loadOriginDetail();
+                      }),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          final origin = snapshot.data;
+          if (origin == null) {
+            return const Scaffold(body: Center(child: Text('No data')));
+          }
+
+          final processedLocationTree = origin.processedLocationTree;
+          final rootLocationNodes = processedLocationTree.mapRoots;
+          final mapImageUrl = _originRootMapImageUrl(rootLocationNodes);
+          final renderLocationNodes = processedLocationTree.renderRoots;
+          final allLocationNodes = processedLocationTree.flattened;
+          final avatarsByLocation = _originAvatarsByLocation(
+            origin.characters,
+            origin.locations,
           );
-        }
-
-        if (snapshot.hasError) {
-          return Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Load failed'),
-                  const SizedBox(height: 10),
-                  FilledButton(
-                    onPressed: () => setState(() {
-                      _future = _loadOriginDetail();
-                    }),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            ),
+          final locationNodes = _originMapLocationNodes(
+            rootLocationNodes,
+            avatarsByLocation,
+            processedLocationTree,
           );
-        }
+          final points = renderLocationNodes.isNotEmpty
+              ? _pointsFromLocations(
+                  renderLocationNodes
+                      .map((node) => node.value)
+                      .toList(growable: false),
+                  avatarsByLocation,
+                  depths: renderLocationNodes
+                      .map((node) => node.depth)
+                      .toList(growable: false),
+                  isLeafLocations: renderLocationNodes
+                      .map((node) => node.children.isEmpty)
+                      .toList(growable: false),
+                  usersByIndex: renderLocationNodes
+                      .map(
+                        (node) =>
+                            processedLocationTree.aggregateValues<UserAvatar>(
+                              node.id,
+                              avatarsByLocation,
+                              idOf: _userAvatarStableId,
+                            ),
+                      )
+                      .toList(growable: false),
+                )
+              : _pointsFromLocations(
+                  _rootOriginLocations(origin.locations),
+                  avatarsByLocation,
+                );
+          final listPoints = allLocationNodes.isNotEmpty
+              ? _pointsFromLocations(
+                  allLocationNodes
+                      .map((node) => node.value)
+                      .toList(growable: false),
+                  avatarsByLocation,
+                  depths: allLocationNodes
+                      .map((node) => node.depth)
+                      .toList(growable: false),
+                  isLeafLocations: allLocationNodes
+                      .map((node) => node.children.isEmpty)
+                      .toList(growable: false),
+                  usersByIndex: allLocationNodes
+                      .map(
+                        (node) =>
+                            processedLocationTree.aggregateValues<UserAvatar>(
+                              node.id,
+                              avatarsByLocation,
+                              idOf: _userAvatarStableId,
+                            ),
+                      )
+                      .toList(growable: false),
+                )
+              : origin.locations.isNotEmpty
+              ? _pointsFromLocations(origin.locations, avatarsByLocation)
+              : points;
 
-        final origin = snapshot.data;
-        if (origin == null) {
-          return const Scaffold(body: Center(child: Text('No data')));
-        }
-
-        final processedLocationTree = origin.processedLocationTree;
-        final rootLocationNodes = processedLocationTree.mapRoots;
-        final mapImageUrl = _originRootMapImageUrl(rootLocationNodes);
-        final renderLocationNodes = processedLocationTree.renderRoots;
-        final allLocationNodes = processedLocationTree.flattened;
-        final avatarsByLocation = _originAvatarsByLocation(
-          origin.characters,
-          origin.locations,
-        );
-        final locationNodes = _originMapLocationNodes(
-          rootLocationNodes,
-          avatarsByLocation,
-          processedLocationTree,
-        );
-        final points = renderLocationNodes.isNotEmpty
-            ? _pointsFromLocations(
-                renderLocationNodes
-                    .map((node) => node.value)
-                    .toList(growable: false),
-                avatarsByLocation,
-                depths: renderLocationNodes
-                    .map((node) => node.depth)
-                    .toList(growable: false),
-                isLeafLocations: renderLocationNodes
-                    .map((node) => node.children.isEmpty)
-                    .toList(growable: false),
-                usersByIndex: renderLocationNodes
-                    .map(
-                      (node) =>
-                          processedLocationTree.aggregateValues<UserAvatar>(
-                            node.id,
-                            avatarsByLocation,
-                            idOf: _userAvatarStableId,
-                          ),
-                    )
-                    .toList(growable: false),
-              )
-            : _pointsFromLocations(
-                _rootOriginLocations(origin.locations),
-                avatarsByLocation,
-              );
-        final listPoints = allLocationNodes.isNotEmpty
-            ? _pointsFromLocations(
-                allLocationNodes
-                    .map((node) => node.value)
-                    .toList(growable: false),
-                avatarsByLocation,
-                depths: allLocationNodes
-                    .map((node) => node.depth)
-                    .toList(growable: false),
-                isLeafLocations: allLocationNodes
-                    .map((node) => node.children.isEmpty)
-                    .toList(growable: false),
-                usersByIndex: allLocationNodes
-                    .map(
-                      (node) =>
-                          processedLocationTree.aggregateValues<UserAvatar>(
-                            node.id,
-                            avatarsByLocation,
-                            idOf: _userAvatarStableId,
-                          ),
-                    )
-                    .toList(growable: false),
-              )
-            : origin.locations.isNotEmpty
-            ? _pointsFromLocations(origin.locations, avatarsByLocation)
-            : points;
-
-        return PopScope(
-          canPop: _activeChatLocation == null,
-          onPopInvokedWithResult: (didPop, result) {
-            if (didPop) return;
-            _handleOriginPopBlocked();
-          },
-          child: WorldDetailsPageScaffold(
-            panelTopGap: 50,
-            panelCollapsedHeightOffset: 100,
-            topOverlay: _buildLocationChatOverlay(origin),
-            persistentTopOverlay: _buildPersistentMapTabs(
-              listPoints.length,
-              topPadding + 8,
-            ),
-            map: WorldMapStage(
-              controller: _tabController,
-              pointsCount: listPoints.length,
-              top: topPadding + 8,
-              showTopOverlay: false,
-              mapBuilder: (context, pointMode) => WorldMap(
-                points: points,
-                listPoints: listPoints,
-                locationNodes: locationNodes,
-                mapImageUrl: mapImageUrl,
-                dimmed: pointMode,
-                showPointsList: pointMode,
-                overlayTop: topPadding + 8 + 48,
-                drillExitTop: topPadding + 68,
-                onDrillIntoLocation: _showMapTab,
-                onPointTap: (point) => _openChatForPoint(origin, point),
+          return PopScope(
+            canPop: _activeChatLocation == null,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              _handleOriginPopBlocked();
+            },
+            child: WorldDetailsPageScaffold(
+              panelTopGap: 50,
+              panelCollapsedHeightOffset: 100,
+              topOverlay: _buildLocationChatOverlay(origin),
+              persistentTopOverlay: _buildPersistentMapTabs(
+                listPoints.length,
+                topPadding + 8,
               ),
-            ),
-            slivers: [
-              _WorldDetailsContent(
+              map: WorldMapStage(
+                controller: _tabController,
+                pointsCount: listPoints.length,
+                top: topPadding + 8,
+                showTopOverlay: false,
+                mapBuilder: (context, pointMode) => WorldMap(
+                  points: points,
+                  listPoints: listPoints,
+                  locationNodes: locationNodes,
+                  mapImageUrl: mapImageUrl,
+                  dimmed: pointMode,
+                  showPointsList: pointMode,
+                  overlayTop: topPadding + 8 + 48,
+                  drillExitTop: topPadding + 68,
+                  onDrillIntoLocation: _showMapTab,
+                  onPointTap: (point) => _openChatForPoint(origin, point),
+                ),
+              ),
+              slivers: [
+                _WorldDetailsContent(
+                  origin: origin,
+                  currentUid: _currentUid,
+                  discussController: _discussController,
+                  onOriginChanged: _refreshOriginDetail,
+                ),
+              ],
+              bottomBar: _OriginBottomLaunchBar(
                 origin: origin,
-                currentUid: _currentUid,
-                discussController: _discussController,
-                onOriginChanged: _refreshOriginDetail,
+                launching: _launching,
+                onLaunch: () => _showLaunchRoleSheet(origin),
               ),
-            ],
-            bottomBar: _OriginBottomLaunchBar(
-              origin: origin,
-              launching: _launching,
-              onLaunch: () => _showLaunchRoleSheet(origin),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
+      switchOffset: statusBarSwitchOffset,
     );
   }
 }
