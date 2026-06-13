@@ -972,7 +972,7 @@ class _OriginHeader extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
@@ -990,7 +990,7 @@ class _OriginHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Text(
           'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
           style: const TextStyle(
