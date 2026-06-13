@@ -1103,7 +1103,7 @@ class _PreviewImage extends StatelessWidget {
       builder: (context, constraints) {
         final mediaHeight = MediaQuery.sizeOf(context).height;
         final maxHeight = mediaHeight.isFinite
-            ? _maxHeight.clamp(0.0, mediaHeight * 0.46).toDouble()
+            ? _maxHeight.clamp(0.0, mediaHeight * 0.35).toDouble()
             : _maxHeight;
         final maxWidth = constraints.maxWidth.isFinite
             ? constraints.maxWidth
