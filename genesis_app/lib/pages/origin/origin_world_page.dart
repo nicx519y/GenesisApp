@@ -993,12 +993,7 @@ class _OriginHeader extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
-          style: const TextStyle(
-            fontSize: 12,
-            height: 1.2,
-            fontWeight: FontWeight.w400,
-            color: Color(0xFF8C8C8C),
-          ),
+          style: CopyableIdLabel.textStyle,
         ),
         if (canEditOrigin) ...[
           const SizedBox(height: 12),
@@ -1042,18 +1037,17 @@ class _OriginatorMetaLink extends StatelessWidget {
               child: Text(
                 'Originator: ${formatUidForDisplay(originator)}',
                 textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 12,
-                  height: 1.2,
-                  fontWeight: FontWeight.w400,
-                  color: Color(0xFF8C8C8C),
-                ),
+                style: CopyableIdLabel.textStyle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 18, color: Color(0xFF8C8C8C)),
+            const Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: CopyableIdLabel.iconColor,
+            ),
           ],
         ),
       ),
