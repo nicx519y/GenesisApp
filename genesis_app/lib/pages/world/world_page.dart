@@ -840,7 +840,7 @@ class _WorldPageState extends State<WorldPage>
       },
       child: WorldDetailsPageScaffold(
         panelTopGap: 50,
-        panelCollapsedHeightOffset: 100,
+        panelCollapsedHeightOffset: 60,
         topOverlay: _buildLocationChatOverlay(),
         persistentTopOverlay: _buildPersistentMapTabs(
           listPoints.length,

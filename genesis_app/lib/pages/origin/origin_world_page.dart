@@ -455,7 +455,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           },
           child: WorldDetailsPageScaffold(
             panelTopGap: 50,
-            panelCollapsedHeightOffset: 100,
+            panelCollapsedHeightOffset: 60,
             topOverlay: _buildLocationChatOverlay(origin),
             persistentTopOverlay: _buildPersistentMapTabs(
               listPoints.length,
