@@ -18,7 +18,7 @@ class PopularOriginList extends StatefulWidget {
     this.storageKey,
     this.isLoadingMore = false,
     this.discussLoader,
-    this.thumbnailBorderRadius = 8,
+    this.thumbnailBorderRadius = 0,
   });
 
   final List<OriginListItem> items;
@@ -114,7 +114,7 @@ class PopularOriginListItem extends StatelessWidget {
     super.key,
     required this.item,
     this.discussLoader,
-    this.thumbnailBorderRadius = 8,
+    this.thumbnailBorderRadius = 0,
   });
 
   final OriginListItem item;
@@ -261,7 +261,7 @@ class _OriginHeroImage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: _OriginImage(imageUrl: item.cover, width: 107, borderRadius: 8),
+      child: _OriginImage(imageUrl: item.cover, width: 107, borderRadius: 0),
     );
   }
 }

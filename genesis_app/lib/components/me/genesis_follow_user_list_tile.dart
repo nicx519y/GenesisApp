@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 
 class GenesisFollowUserListTile extends StatelessWidget {
@@ -54,7 +55,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
                 url: avatarUrl,
                 name: displayName,
                 size: _avatarSize,
-                borderRadius: 5,
+                borderRadius: GenesisAvatarRadii.user,
               ),
             ),
             const SizedBox(width: 12),

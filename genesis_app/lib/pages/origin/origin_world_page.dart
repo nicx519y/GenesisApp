@@ -27,6 +27,7 @@ import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
@@ -1619,7 +1620,7 @@ class _OriginCharacterPortrait extends StatelessWidget {
   const _OriginCharacterPortrait({required this.url, required this.name});
 
   static const double _width = 86;
-  static const double _borderRadius = 6;
+  static const double _borderRadius = GenesisAvatarRadii.character;
   static const double _starSize = 22;
 
   final String url;

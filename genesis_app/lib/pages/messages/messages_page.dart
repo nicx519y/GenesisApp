@@ -11,6 +11,7 @@ import '../../network/direct_message_conversation_store.dart';
 import '../../network/models/unread_summary.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import 'message_category_list_page.dart';
 
@@ -431,7 +432,7 @@ class _ConversationTile extends StatelessWidget {
   });
 
   static const double _avatarSize = 48;
-  static const double _avatarBorderRadius = 5;
+  static const double _avatarBorderRadius = GenesisAvatarRadii.user;
 
   final DirectMessageConversationRecord item;
   final Future<void> Function(DirectMessageConversationRecord item) onTap;

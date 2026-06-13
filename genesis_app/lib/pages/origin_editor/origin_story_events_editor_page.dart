@@ -574,7 +574,9 @@ class _CharacterPickerTile extends StatelessWidget {
             child: Stack(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(
+                    GenesisAvatarRadii.character,
+                  ),
                   child: Container(
                     width: double.infinity,
                     height: double.infinity,
@@ -584,14 +586,14 @@ class _CharacterPickerTile extends StatelessWidget {
                             name: character.name,
                             width: double.infinity,
                             height: double.infinity,
-                            borderRadius: 8,
+                            borderRadius: GenesisAvatarRadii.character,
                           )
                         : GenesisAvatar(
                             url: character.avatarUrl.trim(),
                             name: character.name,
                             width: double.infinity,
                             height: double.infinity,
-                            borderRadius: 8,
+                            borderRadius: GenesisAvatarRadii.character,
                           ),
                   ),
                 ),

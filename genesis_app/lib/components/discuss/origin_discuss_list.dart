@@ -9,6 +9,7 @@ import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../common/genesis_center_toast.dart';
@@ -1580,7 +1581,7 @@ class _DiscussAvatar extends StatelessWidget {
       url: avatar,
       name: item.authorName,
       size: _discussAvatarSize,
-      borderRadius: _discussAvatarSize / 2,
+      borderRadius: GenesisAvatarRadii.user,
     );
   }
 }

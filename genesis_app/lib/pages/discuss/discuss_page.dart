@@ -10,6 +10,7 @@ import '../../network/genesis_api.dart';
 import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 
 class DiscussPage extends StatefulWidget {
@@ -287,7 +288,11 @@ class _DiscussCommentSkeleton extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _DiscussSkeletonBone(width: 30, height: 30, borderRadius: 15),
+        const _DiscussSkeletonBone(
+          width: 30,
+          height: 30,
+          borderRadius: GenesisAvatarRadii.user,
+        ),
         const SizedBox(width: 10),
         Expanded(
           child: Column(

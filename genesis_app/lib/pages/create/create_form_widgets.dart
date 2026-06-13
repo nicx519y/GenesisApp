@@ -240,6 +240,7 @@ class CreateUploadBox extends StatefulWidget {
     this.width = 132,
     this.height = 176,
     this.iconSize = 38,
+    this.borderRadius = 14,
     this.cropSize,
     this.previewAlignment = Alignment.center,
     this.showRemoveLinkWhenFilled = false,
@@ -251,6 +252,7 @@ class CreateUploadBox extends StatefulWidget {
   final double width;
   final double height;
   final double iconSize;
+  final double borderRadius;
   final Size? cropSize;
   final Alignment previewAlignment;
   final bool showRemoveLinkWhenFilled;
@@ -311,12 +313,12 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
     final uploadBox = Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(widget.borderRadius),
         onTap: _isUploading ? null : () => _pickCropAndUpload(context),
         child: CustomPaint(
           painter: CreateDashedRRectPainter(
             color: createFormDash,
-            radius: 14,
+            radius: widget.borderRadius,
             strokeWidth: 1.2,
           ),
           child: Container(
@@ -325,7 +327,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: const Color(0x6BF4F4F6),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(widget.borderRadius),
             ),
             clipBehavior: Clip.antiAlias,
             child: !hasImage

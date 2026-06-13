@@ -8,6 +8,7 @@ import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../routers/app_router.dart';
 import '../../ui/genesis_ui.dart';
+import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import 'profile_collection_list.dart';
@@ -787,7 +788,7 @@ class _Avatar extends StatelessWidget {
   });
 
   static const double _size = 80;
-  static const double _radius = 8;
+  static const double _radius = GenesisAvatarRadii.user;
 
   final String url;
   final String name;

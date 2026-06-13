@@ -14,6 +14,7 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/secend_tabs.dart';
+import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -880,7 +881,7 @@ class _ResultThumb extends StatelessWidget {
         url: item.coverImage,
         name: item.title,
         size: size,
-        borderRadius: 5,
+        borderRadius: GenesisAvatarRadii.user,
       );
     }
     return GenesisListImage(

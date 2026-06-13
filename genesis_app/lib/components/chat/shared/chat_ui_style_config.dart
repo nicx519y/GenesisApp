@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../ui/tokens/genesis_avatar_radii.dart';
+
 class ChatUiStyleConfig {
   const ChatUiStyleConfig({
     // 聊天页面整体背景色。
@@ -265,7 +267,7 @@ class ChatUiStyleConfig {
       fontWeight: FontWeight.w400, // 气泡文字字重。
     ),
     avatarSize: 40, // 头像尺寸。
-    avatarBorderRadius: 8, // 头像圆角。
+    avatarBorderRadius: GenesisAvatarRadii.user, // 头像圆角。
     selfAvatarColors: [Color(0xFFFFE7B0), Color(0xFF9ED7FF)], // 自己头像渐变色。
     otherAvatarColors: [Color(0xFFBFD7F2), Color(0xFF4F6D94)], // 对方头像渐变色。
     avatarTextStyle: TextStyle(

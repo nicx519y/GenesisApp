@@ -149,7 +149,7 @@ class WorldItemCard extends StatelessWidget {
   const WorldItemCard({
     super.key,
     required this.item,
-    this.thumbnailBorderRadius = 8,
+    this.thumbnailBorderRadius = 0,
     this.showPreviewImages = true,
   });
 
@@ -263,7 +263,7 @@ class _WorldPreviewImages extends StatelessWidget {
               child: _WorldImage(
                 imageUrl: entry.$2,
                 height: 120,
-                borderRadius: 8,
+                borderRadius: 0,
               ),
             ),
             if (entry.$1 != previewImages.length - 1) const SizedBox(width: 10),
