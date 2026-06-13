@@ -6,6 +6,7 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../components/common/genesis_timestamp_text.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -149,7 +150,7 @@ class WorldItemCard extends StatelessWidget {
   const WorldItemCard({
     super.key,
     required this.item,
-    this.thumbnailBorderRadius = 0,
+    this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
     this.showPreviewImages = true,
   });
 
@@ -263,7 +264,7 @@ class _WorldPreviewImages extends StatelessWidget {
               child: _WorldImage(
                 imageUrl: entry.$2,
                 height: 120,
-                borderRadius: 0,
+                borderRadius: GenesisImageRadii.contentValue,
               ),
             ),
             if (entry.$1 != previewImages.length - 1) const SizedBox(width: 10),

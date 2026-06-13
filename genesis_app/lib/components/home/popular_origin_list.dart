@@ -4,6 +4,7 @@ import '../discuss/origin_discuss_preview_list.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -18,7 +19,7 @@ class PopularOriginList extends StatefulWidget {
     this.storageKey,
     this.isLoadingMore = false,
     this.discussLoader,
-    this.thumbnailBorderRadius = 0,
+    this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
   });
 
   final List<OriginListItem> items;
@@ -114,7 +115,7 @@ class PopularOriginListItem extends StatelessWidget {
     super.key,
     required this.item,
     this.discussLoader,
-    this.thumbnailBorderRadius = 0,
+    this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
   });
 
   final OriginListItem item;
@@ -261,7 +262,11 @@ class _OriginHeroImage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: _OriginImage(imageUrl: item.cover, width: 107, borderRadius: 0),
+      child: _OriginImage(
+        imageUrl: item.cover,
+        width: 107,
+        borderRadius: GenesisImageRadii.contentValue,
+      ),
     );
   }
 }

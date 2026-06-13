@@ -11,6 +11,7 @@ import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 
 class DiscussPage extends StatefulWidget {
@@ -261,7 +262,11 @@ class _DiscussOriginSummarySkeleton extends StatelessWidget {
     return const Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _DiscussSkeletonBone(width: 48, height: 48, borderRadius: 2),
+        _DiscussSkeletonBone(
+          width: 48,
+          height: 48,
+          borderRadius: GenesisImageRadii.contentValue,
+        ),
         SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -487,9 +492,11 @@ class _OriginCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = resolveAssetUrl(url);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(2),
-      child: GenesisListImage(imageUrl: imageUrl, width: 48, height: 48),
+    return GenesisListImage(
+      imageUrl: imageUrl,
+      width: 48,
+      height: 48,
+      borderRadius: GenesisImageRadii.content,
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
 const String genesisDefaultListImageAsset =
@@ -13,7 +14,7 @@ class GenesisListImage extends StatelessWidget {
     this.width,
     this.height,
     this.fit = BoxFit.cover,
-    this.borderRadius = BorderRadius.zero,
+    this.borderRadius = GenesisImageRadii.content,
   });
 
   final String imageUrl;

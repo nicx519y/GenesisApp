@@ -10,6 +10,7 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../common/genesis_center_toast.dart';
@@ -1476,7 +1477,7 @@ class _DiscussImageThumbnail extends StatelessWidget {
         imageUrl: imageUrl,
         width: 48,
         height: 48,
-        borderRadius: BorderRadius.zero,
+        borderRadius: GenesisImageRadii.content,
       ),
     );
   }

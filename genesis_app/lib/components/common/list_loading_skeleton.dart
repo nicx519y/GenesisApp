@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
+import '../../ui/tokens/genesis_image_radii.dart';
+
 enum _GenesisListSkeletonType { world, popularOrigin, originGrid }
 
 class GenesisListLoadingSkeleton extends StatelessWidget {
@@ -78,7 +80,7 @@ class _WorldSkeletonItem extends StatelessWidget {
               key: ValueKey<String>('genesis-world-list-thumbnail-skeleton'),
               width: 60,
               height: 60,
-              borderRadius: 8,
+              borderRadius: GenesisImageRadii.contentValue,
             ),
             SizedBox(width: 12),
             Expanded(
@@ -152,7 +154,7 @@ class _PopularOriginSkeletonItem extends StatelessWidget {
               ),
               width: 60,
               height: 60,
-              borderRadius: 8,
+              borderRadius: GenesisImageRadii.contentValue,
             ),
             SizedBox(width: 12),
             Expanded(
@@ -180,7 +182,7 @@ class _PopularOriginSkeletonItem extends StatelessWidget {
           key: ValueKey<String>('genesis-popular-origin-hero-skeleton'),
           width: 107,
           height: 160.5,
-          borderRadius: 8,
+          borderRadius: GenesisImageRadii.contentValue,
         ),
         SizedBox(height: 16),
         _SkeletonProgressHeader(titleWidth: 144),
@@ -289,7 +291,7 @@ class _OriginGridSkeletonItem extends StatelessWidget {
           aspectRatio: 2 / 3,
           child: _SkeletonBone(
             key: ValueKey<String>('genesis-origin-grid-cover-skeleton'),
-            borderRadius: 14,
+            borderRadius: GenesisImageRadii.contentValue,
           ),
         ),
         const SizedBox(height: 8),

@@ -16,6 +16,7 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 
@@ -729,7 +730,7 @@ class _PostImageGrid extends StatelessWidget {
                   imageUrl: entry.$2,
                   width: tileSize,
                   height: tileSize,
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: GenesisImageRadii.content,
                 ),
               ),
           ],

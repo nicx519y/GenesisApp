@@ -28,6 +28,7 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
@@ -1122,7 +1123,7 @@ class _PreviewImage extends StatelessWidget {
             width: width,
             height: height,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: GenesisImageRadii.content,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final imageUrl = selectGenesisImageUrl(

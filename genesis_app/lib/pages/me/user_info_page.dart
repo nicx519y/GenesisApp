@@ -7,6 +7,7 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 
@@ -396,7 +397,11 @@ class _UserInfoCollectionSkeletonItem extends StatelessWidget {
     return const Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _UserInfoSkeletonBone(width: 52, height: 52, borderRadius: 0),
+        _UserInfoSkeletonBone(
+          width: 52,
+          height: 52,
+          borderRadius: GenesisImageRadii.contentValue,
+        ),
         SizedBox(width: 10),
         Expanded(
           child: Column(

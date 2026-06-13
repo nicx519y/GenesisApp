@@ -9,6 +9,7 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_upload_progress_overlay.dart';
 import '../../components/common/local_image_crop_page.dart';
 import '../../platform/native_image_picker.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
 const Color createFormGreen = Color(0xFF198B64);
@@ -240,7 +241,7 @@ class CreateUploadBox extends StatefulWidget {
     this.width = 132,
     this.height = 176,
     this.iconSize = 38,
-    this.borderRadius = 14,
+    this.borderRadius = GenesisImageRadii.contentValue,
     this.cropSize,
     this.previewAlignment = Alignment.center,
     this.showRemoveLinkWhenFilled = false,

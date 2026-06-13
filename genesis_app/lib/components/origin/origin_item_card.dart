@@ -5,6 +5,7 @@ import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -124,7 +125,7 @@ class OriginItemCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: GenesisImageRadii.content,
           child: AspectRatio(
             aspectRatio: _coverAspectRatio,
             child: Stack(

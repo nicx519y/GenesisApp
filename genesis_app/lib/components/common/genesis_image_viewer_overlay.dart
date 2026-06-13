@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
 Future<void> showGenesisImageViewer(
@@ -185,7 +186,7 @@ class _ViewerThumbnailStrip extends StatelessWidget {
                   ),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: GenesisImageRadii.content,
                   child: _ImageByUrl(url: imageUrls[index], fit: BoxFit.cover),
                 ),
               ),

@@ -10,6 +10,7 @@ import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_upload_progress_overlay.dart';
 import '../../platform/native_image_picker.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/image_upload_processing.dart';
 
@@ -806,7 +807,7 @@ class _DiscussImageTile extends StatelessWidget {
             left: 0,
             bottom: 0,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: GenesisImageRadii.content,
               child: SizedBox(
                 key: ValueKey('discuss-image-thumb-${attachment.id}'),
                 width: size,

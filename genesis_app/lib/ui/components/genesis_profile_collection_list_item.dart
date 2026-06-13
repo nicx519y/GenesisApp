@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../icons/custom_icon_assets.dart';
+import '../tokens/genesis_image_radii.dart';
 import '../../utils/stat_count_formatter.dart';
 import 'genesis_list_image.dart';
 
@@ -58,13 +59,11 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(0),
-              child: GenesisListImage(
-                imageUrl: item.imageUrl,
-                width: 52,
-                height: 52,
-              ),
+            GenesisListImage(
+              imageUrl: item.imageUrl,
+              width: 52,
+              height: 52,
+              borderRadius: GenesisImageRadii.content,
             ),
             const SizedBox(width: 10),
             Expanded(
