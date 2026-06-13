@@ -810,6 +810,19 @@ class _SearchResultTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUser = item.tab == _SearchTab.user;
+    final titleStyle = isUser
+        ? const TextStyle(
+            color: Color(0xFF4B6192),
+            fontSize: 14,
+            height: 1.1,
+            fontWeight: FontWeight.w600,
+          )
+        : const TextStyle(
+            color: Color(0xFF4B6192),
+            fontSize: 14,
+            height: 1.1,
+            fontWeight: FontWeight.w600,
+          );
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -828,12 +841,7 @@ class _SearchResultTile extends StatelessWidget {
                     item.displayTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF486284),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
-                    ),
+                    style: titleStyle,
                   ),
                   const SizedBox(height: 9),
                   if (isUser)

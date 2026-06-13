@@ -214,7 +214,7 @@ class _WorldSummary extends StatelessWidget {
             color: Color(0xFF4B6192),
             fontSize: 14,
             height: 1.1,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 4),
