@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../components/common/copyable_id_label.dart';
+import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
@@ -1093,6 +1094,7 @@ class _PreviewImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final viewerUrl = url.trim();
     final fallback = Container(
       color: const Color(0xFFEFF1F4),
       alignment: Alignment.center,
@@ -1111,7 +1113,7 @@ class _PreviewImage extends StatelessWidget {
         final width = maxWidth.clamp(0.0, maxHeight * _aspectRatio).toDouble();
         final height = width / _aspectRatio;
 
-        return Align(
+        final preview = Align(
           alignment: Alignment.centerLeft,
           child: SizedBox(
             width: width,
@@ -1154,6 +1156,12 @@ class _PreviewImage extends StatelessWidget {
               ),
             ),
           ),
+        );
+        if (viewerUrl.isEmpty) return preview;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => showGenesisImageViewer(context, imageUrls: [viewerUrl]),
+          child: preview,
         );
       },
     );
@@ -1517,6 +1525,10 @@ class _OriginCharactersSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final characterAvatarUrls = characters
+        .map((character) => _resolveAssetUrl(character.avatar).trim())
+        .where((url) => url.isNotEmpty)
+        .toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1530,7 +1542,10 @@ class _OriginCharactersSection extends StatelessWidget {
           const Text('No characters', style: _mutedBodyTextStyle)
         else
           for (int i = 0; i < characters.length; i++) ...[
-            _OriginCharacterRow(character: characters[i]),
+            _OriginCharacterRow(
+              character: characters[i],
+              imageUrls: characterAvatarUrls,
+            ),
             if (i != characters.length - 1) const SizedBox(height: 20),
           ],
       ],
@@ -1539,9 +1554,10 @@ class _OriginCharactersSection extends StatelessWidget {
 }
 
 class _OriginCharacterRow extends StatelessWidget {
-  const _OriginCharacterRow({required this.character});
+  const _OriginCharacterRow({required this.character, required this.imageUrls});
 
   final OriginCharacter character;
+  final List<String> imageUrls;
 
   @override
   Widget build(BuildContext context) {
@@ -1549,13 +1565,16 @@ class _OriginCharacterRow extends StatelessWidget {
     final tagline = character.tagline.trim();
     final description = character.description.trim();
     final goal = character.goal.trim();
+    final avatarUrl = _resolveAssetUrl(character.avatar);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _OriginCharacterPortrait(
-          url: _resolveAssetUrl(character.avatar),
+          characterId: _characterStableId(character),
+          url: avatarUrl,
           name: character.name,
+          imageUrls: imageUrls,
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -1612,14 +1631,21 @@ class _OriginCharacterRow extends StatelessWidget {
 }
 
 class _OriginCharacterPortrait extends StatelessWidget {
-  const _OriginCharacterPortrait({required this.url, required this.name});
+  const _OriginCharacterPortrait({
+    required this.characterId,
+    required this.url,
+    required this.name,
+    required this.imageUrls,
+  });
 
   static const double _width = 86;
   static const double _borderRadius = GenesisAvatarRadii.character;
   static const double _starSize = 22;
 
+  final String characterId;
   final String url;
   final String name;
+  final List<String> imageUrls;
 
   @override
   Widget build(BuildContext context) {
@@ -1657,13 +1683,18 @@ class _OriginCharacterPortrait extends StatelessWidget {
             errorWidget: (context, url, error) => fallback,
           );
 
-    return Stack(
+    final portraitImage = SizedBox(
+      width: _width,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_borderRadius),
+        child: image,
+      ),
+    );
+    final initialIndex = imageUrls.indexOf(url.trim());
+    final portrait = Stack(
       clipBehavior: Clip.none,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(_borderRadius),
-          child: image,
-        ),
+        portraitImage,
         Positioned(
           top: -_starSize / 4 - 2,
           right: -_starSize / 4 - 3,
@@ -1675,7 +1706,25 @@ class _OriginCharacterPortrait extends StatelessWidget {
         ),
       ],
     );
+    if (resolvedUrl.isEmpty) return portrait;
+    return GestureDetector(
+      key: ValueKey('origin-character-portrait-$characterId'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showGenesisImageViewer(
+        context,
+        imageUrls: imageUrls,
+        initialIndex: initialIndex < 0 ? 0 : initialIndex,
+      ),
+      child: portrait,
+    );
   }
+}
+
+String _characterStableId(OriginCharacter character) {
+  final explicitId = character.characterId.trim();
+  if (explicitId.isNotEmpty) return explicitId;
+  if (character.id > 0) return '${character.id}';
+  return character.name.trim();
 }
 
 class _SectionTitle extends StatelessWidget {

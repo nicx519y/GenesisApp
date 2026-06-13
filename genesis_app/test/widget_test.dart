@@ -289,6 +289,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldMetricDefault = 0,
     this.worldCharacterMetricValue = 50,
     this.originMapUrl = '',
+    this.originCharacters,
     this.originLocations,
     this.originTicks,
     this.worldMapUrl = '',
@@ -313,6 +314,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final Object? worldMetricDefault;
   final Object? worldCharacterMetricValue;
   final String originMapUrl;
+  final List<Map<String, Object?>>? originCharacters;
   final List<Map<String, Object?>>? originLocations;
   final List<Map<String, Object?>>? originTicks;
   final String worldMapUrl;
@@ -702,24 +704,26 @@ class _RecordingV1ListTransport implements HttpTransport {
         'location_cnt': 1,
         'max_tick_cnt': 0,
       },
-      'characters': [
-        {
-          'char_id': 'c_$fallback',
-          'type': 'ai',
-          'player_uid': '',
-          'player_username': '',
-          'name': 'Detail Character',
-          'identity': 'Guide',
-          'brief': 'Knows the path',
-          'description': 'A character from detail.',
-          'goal': '',
-          'avatar': '',
-          'initial_location_id': 'l_$fallback',
-          'location_id': 'l_$fallback',
-          'metric_value': 0,
-          'delta': 0,
-        },
-      ],
+      'characters':
+          originCharacters ??
+          [
+            {
+              'char_id': 'c_$fallback',
+              'type': 'ai',
+              'player_uid': '',
+              'player_username': '',
+              'name': 'Detail Character',
+              'identity': 'Guide',
+              'brief': 'Knows the path',
+              'description': 'A character from detail.',
+              'goal': '',
+              'avatar': '',
+              'initial_location_id': 'l_$fallback',
+              'location_id': 'l_$fallback',
+              'metric_value': 0,
+              'delta': 0,
+            },
+          ],
       'locations':
           originLocations ??
           [
@@ -3487,8 +3491,118 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(_assetImageFinder(kMockV1LocationCentralHubMap), findsOneWidget);
-    expect(_assetImageFinder(kMockV1SteamMapImage), findsNothing);
+    final mapStage = find.byType(WorldMapStage);
+    expect(
+      find.descendant(
+        of: mapStage,
+        matching: _assetImageFinder(kMockV1LocationCentralHubMap),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: mapStage,
+        matching: _assetImageFinder(kMockV1SteamMapImage),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('Origin detail worldview image opens image viewer', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      originMapUrl: kMockV1SteamMapImage,
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final worldviewImage = _assetImageFinder(kMockV1SteamMapImage);
+    await _dragOriginPanelUntilVisible(tester, worldviewImage);
+    await tester.tap(worldviewImage);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('genesis-image-viewer-page-view')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('genesis-image-viewer-close')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('Origin detail character portrait opens character image viewer', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      originCharacters: const [
+        {
+          'char_id': 'c_iris',
+          'name': 'Iris',
+          'identity': 'Guide',
+          'brief': 'Keeps the path',
+          'description': 'First character.',
+          'avatar': 'assets/images/mock_avatars/avatar_iris.png',
+          'initial_location_id': 'l_o_test_1',
+          'location_id': 'l_o_test_1',
+        },
+        {
+          'char_id': 'c_nia',
+          'name': 'Nia',
+          'identity': 'Scout',
+          'brief': 'Finds the signal',
+          'description': 'Second character.',
+          'avatar': 'assets/images/mock_avatars/avatar_nia.png',
+          'initial_location_id': 'l_o_test_1',
+          'location_id': 'l_o_test_1',
+        },
+      ],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final firstPortrait = find.byKey(
+      const ValueKey('origin-character-portrait-c_iris'),
+    );
+    await _dragOriginPanelUntilVisible(tester, firstPortrait);
+    tester.widget<GestureDetector>(firstPortrait).onTap?.call();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('genesis-image-viewer-page-view')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('genesis-image-viewer-page-dots')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('genesis-image-viewer-dot-0')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('genesis-image-viewer-dot-1')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('genesis-image-viewer-close')));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('Origin detail launch bar launches a world', (
