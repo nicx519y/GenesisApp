@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
@@ -1533,8 +1534,7 @@ class _OriginCharactersSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionTitle(
-          icon: MyFlutterApp.userStar,
-          iconColor: const Color(0xFFF42C47),
+          iconAsset: characterStatIconAsset,
           title: 'Characters (${characters.length})',
         ),
         const SizedBox(height: 14),
@@ -1742,15 +1742,29 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final asset = iconAsset;
+    final isCharacterIcon = asset == characterStatIconAsset;
+    const assetSize = 16.0;
     return Row(
       children: [
-        if (iconAsset case final asset?)
-          Image.asset(
-            asset,
-            width: 16,
-            height: 16,
-            fit: BoxFit.contain,
-            excludeFromSemantics: true,
+        if (asset case final asset?)
+          Transform.translate(
+            offset: Offset(0, isCharacterIcon ? -1.2 : 0),
+            child: asset.endsWith('.svg')
+                ? SvgPicture.asset(
+                    asset,
+                    width: assetSize,
+                    height: assetSize,
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  )
+                : Image.asset(
+                    asset,
+                    width: assetSize,
+                    height: assetSize,
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  ),
           )
         else
           Icon(icon, size: 14, color: iconColor),
