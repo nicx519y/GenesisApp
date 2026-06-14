@@ -12,6 +12,7 @@ class WorldTickEventItem extends StatelessWidget {
     this.isLast = true,
     this.dateLabel,
     this.timeAgoLabel,
+    this.stackedContent = false,
   });
 
   final Map<String, dynamic> tick;
@@ -21,6 +22,7 @@ class WorldTickEventItem extends StatelessWidget {
   final bool isLast;
   final String? dateLabel;
   final String? timeAgoLabel;
+  final bool stackedContent;
 
   @override
   Widget build(BuildContext context) {
@@ -40,12 +42,13 @@ class WorldTickEventItem extends StatelessWidget {
         children: [
           _TickHeader(tickNumber: tickNumber, date: date, timeAgo: timeAgo),
           const SizedBox(height: 6),
-          _GlobalEventCard(body: body),
+          _GlobalEventCard(body: body, stacked: stackedContent),
           const SizedBox(height: 6),
           for (final paragraph in paragraphs) ...[
             _TickParagraphRow(
               paragraph: paragraph,
               locationsById: locationsById,
+              stacked: stackedContent,
             ),
             const SizedBox(height: 6),
           ],
@@ -87,7 +90,7 @@ class _TickHeader extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 12,
                 height: 1.2,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 color: Color(0xFF111111),
               ),
               maxLines: 1,
@@ -113,12 +116,16 @@ class _TickHeader extends StatelessWidget {
 }
 
 class _GlobalEventCard extends StatelessWidget {
-  const _GlobalEventCard({required this.body});
+  const _GlobalEventCard({required this.body, required this.stacked});
 
   final String body;
+  final bool stacked;
 
   @override
   Widget build(BuildContext context) {
+    final label = Text('Global', style: _labelStyle);
+    final bodyText = Text(body, style: _bodyStyle);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
@@ -126,34 +133,18 @@ class _GlobalEventCard extends StatelessWidget {
         color: const Color(0xFFF0F8F4),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(
-            width: 82,
-            child: Text(
-              'Global',
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.6,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF111111),
-              ),
+      child: stacked
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [label, const SizedBox(height: 4), bodyText],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(width: 82, child: label),
+                Expanded(child: bodyText),
+              ],
             ),
-          ),
-          Expanded(
-            child: Text(
-              body,
-              style: const TextStyle(
-                fontSize: 12,
-                height: 1.6,
-                fontWeight: FontWeight.w400,
-                color: Color(0xFF111111),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -162,10 +153,12 @@ class _TickParagraphRow extends StatelessWidget {
   const _TickParagraphRow({
     required this.paragraph,
     required this.locationsById,
+    required this.stacked,
   });
 
   final Map<String, dynamic> paragraph;
   final Map<String, Map<String, dynamic>> locationsById;
+  final bool stacked;
 
   @override
   Widget build(BuildContext context) {
@@ -179,53 +172,77 @@ class _TickParagraphRow extends StatelessWidget {
     ], fallback: _mapString(paragraph, const ['content', 'summary']));
     final characterDetails = _characterDetails(paragraph);
 
+    final label = _LocationLabel(text: name.isEmpty ? 'Location' : name);
+    final bodyText = Text(body, style: _bodyStyle);
+    final characterDetailsText = characterDetails.isEmpty
+        ? null
+        : Text(characterDetails, style: _bodyStyle);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 82,
-            child: Text(
-              name.isEmpty ? 'Location' : name,
-              style: const TextStyle(
-                fontSize: 12,
-                height: 1.6,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF111111),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Column(
+      child: stacked
+          ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  body,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.6,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFF111111),
-                  ),
-                ),
-                if (characterDetails.isNotEmpty) ...[
-                  const SizedBox(height: 19.2),
-                  Text(
-                    characterDetails,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      height: 1.6,
-                      fontWeight: FontWeight.w400,
-                      color: Color(0xFF111111),
-                    ),
-                  ),
+                label,
+                const SizedBox(height: 4),
+                bodyText,
+                if (characterDetailsText != null) ...[
+                  const SizedBox(height: 6),
+                  characterDetailsText,
                 ],
               ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(width: 82, child: label),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      bodyText,
+                      if (characterDetailsText != null) ...[
+                        const SizedBox(height: 6),
+                        characterDetailsText,
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
+    );
+  }
+}
+
+const _labelStyle = TextStyle(
+  fontSize: 12,
+  height: 1.6,
+  fontWeight: FontWeight.w600,
+  color: Color(0xFF111111),
+);
+
+const _bodyStyle = TextStyle(
+  fontSize: 12,
+  height: 1.6,
+  fontWeight: FontWeight.w400,
+  color: Color(0xFF444444),
+);
+
+class _LocationLabel extends StatelessWidget {
+  const _LocationLabel({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.place_outlined, size: 12, color: Color(0xFF111111)),
+        const SizedBox(width: 4),
+        Flexible(child: Text(text, style: _labelStyle)),
+      ],
     );
   }
 }

@@ -71,57 +71,75 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
 
           return Stack(
             children: [
-              NotificationListener<WorldMapInteractionNotification>(
-                onNotification: (notification) {
-                  if (_mapInteractionActive != notification.active) {
-                    setState(() => _mapInteractionActive = notification.active);
-                  }
-                  return false;
-                },
-                child: WorldDetailsPanelScrollControllerScope(
-                  controller: _scrollController,
-                  child: CustomScrollView(
-                    controller: _scrollController,
-                    physics: _mapInteractionActive
-                        ? const NeverScrollableScrollPhysics()
-                        : null,
-                    slivers: [
-                      SliverToBoxAdapter(
-                        child: SizedBox(height: mapHeight, child: widget.map),
-                      ),
-                      SliverToBoxAdapter(
-                        child: DecoratedBox(
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.vertical(
-                              top: Radius.circular(8),
+              WorldDetailsPanelScrollControllerScope(
+                controller: _scrollController,
+                child: Stack(
+                  children: [
+                    NotificationListener<WorldMapInteractionNotification>(
+                      onNotification: (notification) {
+                        if (_mapInteractionActive != notification.active) {
+                          setState(
+                            () => _mapInteractionActive = notification.active,
+                          );
+                        }
+                        return false;
+                      },
+                      child: CustomScrollView(
+                        controller: _scrollController,
+                        physics: _mapInteractionActive
+                            ? const NeverScrollableScrollPhysics()
+                            : null,
+                        slivers: [
+                          SliverToBoxAdapter(
+                            child: SizedBox(
+                              height: mapHeight,
+                              child: widget.map,
                             ),
                           ),
-                          child: const SizedBox(
-                            height: WorldDetailsPageScaffold
-                                .inlineContentTopPadding,
+                          SliverToBoxAdapter(
+                            child: DecoratedBox(
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(8),
+                                ),
+                              ),
+                              child: const SizedBox(
+                                height: WorldDetailsPageScaffold
+                                    .inlineContentTopPadding,
+                              ),
+                            ),
                           ),
-                        ),
+                          SliverPadding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: WorldDetailsPageScaffold
+                                  .contentHorizontalPadding,
+                            ),
+                            sliver: SliverMainAxisGroup(
+                              slivers: widget.slivers,
+                            ),
+                          ),
+                          SliverToBoxAdapter(
+                            child: SizedBox(
+                              height: bottomPadding + bottomSafeArea,
+                            ),
+                          ),
+                        ],
                       ),
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal:
-                              WorldDetailsPageScaffold.contentHorizontalPadding,
-                        ),
-                        sliver: SliverMainAxisGroup(slivers: widget.slivers),
+                    ),
+                    if (bottomBar != null)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: bottomBar,
                       ),
-                      SliverToBoxAdapter(
-                        child: SizedBox(height: bottomPadding + bottomSafeArea),
-                      ),
-                    ],
-                  ),
+                    if (widget.persistentTopOverlay != null)
+                      widget.persistentTopOverlay!,
+                    if (topOverlay != null) topOverlay,
+                  ],
                 ),
               ),
-              if (bottomBar != null)
-                Positioned(left: 0, right: 0, bottom: 0, child: bottomBar),
-              if (widget.persistentTopOverlay != null)
-                widget.persistentTopOverlay!,
-              if (topOverlay != null) topOverlay,
             ],
           );
         },

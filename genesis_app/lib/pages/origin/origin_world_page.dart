@@ -1216,6 +1216,7 @@ class _LaunchPreviewSection extends StatelessWidget {
               ? 'Day 1, 18:00'
               : formatGenesisTimestamp(origin.startTime),
           timeAgoLabel: '',
+          stackedContent: true,
         ),
       ],
     );
