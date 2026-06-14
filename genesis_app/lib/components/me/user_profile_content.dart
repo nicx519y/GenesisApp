@@ -458,15 +458,15 @@ class _OriginProfileCollectionList extends StatelessWidget {
               subtitle: item.subtitle,
               stats: [
                 GenesisProfileCollectionStat(
-                  icon: MyFlutterApp.save,
+                  iconAsset: copyStatIconAsset,
                   value: item.copyCount,
                 ),
                 GenesisProfileCollectionStat(
-                  iconAsset: connectIconAsset,
+                  iconAsset: connectStatIconAsset,
                   value: item.interactCount,
                 ),
                 GenesisProfileCollectionStat(
-                  iconAsset: aiCharacterIconAsset,
+                  iconAsset: characterStatIconAsset,
                   preserveIconAssetColor: true,
                   value: item.characterCount,
                 ),
@@ -531,20 +531,20 @@ class _WorldProfileCollectionList extends StatelessWidget {
               subtitle: item.subtitle,
               stats: [
                 GenesisProfileCollectionStat(
-                  iconAsset: playIconAsset,
+                  iconAsset: tickStatIconAsset,
                   value: item.progressCount,
                 ),
                 GenesisProfileCollectionStat(
-                  iconAsset: connectIconAsset,
+                  iconAsset: connectStatIconAsset,
                   value: item.interactCount,
                 ),
                 GenesisProfileCollectionStat(
-                  iconAsset: aiCharacterIconAsset,
+                  iconAsset: characterStatIconAsset,
                   preserveIconAssetColor: true,
                   value: item.characterCount,
                 ),
                 GenesisProfileCollectionStat(
-                  icon: MyFlutterApp.user,
+                  iconAsset: userStatIconAsset,
                   value: item.playerCount,
                 ),
               ],

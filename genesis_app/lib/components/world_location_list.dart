@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../icons/custom_icon_assets.dart';
-import '../icons/my_flutter_app_icons.dart';
 import '../ui/components/genesis_list_image.dart';
 import 'world_details_shell.dart';
 import 'world_point.dart';
@@ -244,13 +244,16 @@ class _PointCharacterGroups extends StatelessWidget {
       children: [
         if (aiNames.isNotEmpty)
           _PointCharacterGroupRow(
-            iconAsset: aiCharacterIconAsset,
+            iconAsset: characterStatIconAsset,
             names: aiNames,
           ),
         if (aiNames.isNotEmpty && nonAiNames.isNotEmpty)
           const SizedBox(height: 2),
         if (nonAiNames.isNotEmpty)
-          _PointCharacterGroupRow(icon: MyFlutterApp.user, names: nonAiNames),
+          _PointCharacterGroupRow(
+            iconAsset: userStatIconAsset,
+            names: nonAiNames,
+          ),
       ],
     );
   }
@@ -261,14 +264,9 @@ class _PointCharacterGroups extends StatelessWidget {
 }
 
 class _PointCharacterGroupRow extends StatelessWidget {
-  const _PointCharacterGroupRow({
-    this.icon,
-    this.iconAsset,
-    required this.names,
-  }) : assert(icon != null || iconAsset != null);
+  const _PointCharacterGroupRow({required this.iconAsset, required this.names});
 
-  final IconData? icon;
-  final String? iconAsset;
+  final String iconAsset;
   final List<String> names;
 
   @override
@@ -276,19 +274,23 @@ class _PointCharacterGroupRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (iconAsset == null)
-          Icon(icon, size: 12, color: Colors.black)
-        else
-          Transform.translate(
-            offset: const Offset(0, -0.8),
-            child: Image.asset(
-              iconAsset!,
-              width: 14,
-              height: 15,
+        SizedBox(
+          width: 12,
+          height: 15,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SvgPicture.asset(
+              iconAsset,
+              width: 12,
+              height: 12,
               fit: BoxFit.contain,
               excludeFromSemantics: true,
+              colorFilter: iconAsset == userStatIconAsset
+                  ? const ColorFilter.mode(Colors.black, BlendMode.srcIn)
+                  : null,
             ),
           ),
+        ),
         const SizedBox(width: 4),
         Expanded(
           child: Text(

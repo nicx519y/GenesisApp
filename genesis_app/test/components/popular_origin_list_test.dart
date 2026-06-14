@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/components/origin/origin_item_card.dart'
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 void main() {
   testWidgets('renders popular origin feed fields and handles taps', (
@@ -141,11 +142,12 @@ void main() {
       find.text('The new sibling route is working nicely.'),
       findsOneWidget,
     );
-    expect(find.byIcon(MyFlutterApp.save), findsOneWidget);
-    final connectIcon = tester.widget<ImageIcon>(
-      _assetImageIconFinder(connectIconAsset),
+    expect(_assetSvgFinder(copyStatIconAsset), findsOneWidget);
+    final connectIcon = tester.widget<SvgPicture>(
+      _assetSvgFinder(connectStatIconAsset),
     );
-    expect(connectIcon.size, 13);
+    expect(connectIcon.width, 13);
+    expect(connectIcon.height, 13);
     expect(find.text('2.3K'), findsOneWidget);
     expect(find.text('4.4M'), findsOneWidget);
     expect(
@@ -163,11 +165,11 @@ void main() {
   });
 }
 
-Finder _assetImageIconFinder(String assetName) {
+Finder _assetSvgFinder(String assetName) {
   return find.byWidgetPredicate(
     (widget) =>
-        widget is ImageIcon &&
-        widget.image is AssetImage &&
-        (widget.image as AssetImage).assetName == assetName,
+        widget is SvgPicture &&
+        widget.bytesLoader is SvgAssetLoader &&
+        (widget.bytesLoader as SvgAssetLoader).assetName == assetName,
   );
 }

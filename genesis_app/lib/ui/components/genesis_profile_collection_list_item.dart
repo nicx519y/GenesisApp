@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../icons/custom_icon_assets.dart';
+import '../../components/origin/stat_item.dart';
 import '../tokens/genesis_image_radii.dart';
 import '../../utils/stat_count_formatter.dart';
 import 'genesis_list_image.dart';
@@ -146,39 +146,20 @@ class _Stat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (iconAsset case final asset?)
-          preserveIconAssetColor
-              ? Transform.translate(
-                  offset: const Offset(0, -0.8),
-                  child: Image.asset(
-                    asset,
-                    width: customIconAssetRenderSize(asset, 13.75),
-                    height: customIconAssetRenderSize(asset, 13.75),
-                    fit: BoxFit.contain,
-                    excludeFromSemantics: true,
-                  ),
-                )
-              : ImageIcon(
-                  AssetImage(asset),
-                  size: customIconAssetRenderSize(asset, 11),
-                  color: Colors.black,
-                )
-        else
-          Icon(icon, size: 11, color: Colors.black),
-        const SizedBox(width: 4),
-        Text(
-          formatStatCount(value),
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 12,
-            height: 1,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-      ],
+    return StatItem(
+      icon: icon,
+      iconAsset: iconAsset,
+      preserveIconAssetColor: preserveIconAssetColor,
+      iconSize: 11,
+      iconColor: Colors.black,
+      gap: 4,
+      text: formatStatCount(value),
+      textStyle: const TextStyle(
+        color: Colors.black,
+        fontSize: 12,
+        height: 1,
+        fontWeight: FontWeight.w400,
+      ),
     );
   }
 }

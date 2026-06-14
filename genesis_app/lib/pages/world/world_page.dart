@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
 import '../../components/common/copyable_id_label.dart';
 import '../../components/auth/login_guard.dart';
@@ -1321,7 +1320,7 @@ class _WorldHeaderLoadingSkeleton extends StatelessWidget {
           children: [
             Expanded(
               child: Wrap(
-                spacing: 8,
+                spacing: 20,
                 runSpacing: 8,
                 children: [
                   _WorldLoadingBone(width: 42, height: 12),
@@ -2005,7 +2004,7 @@ class _WorldInfoHeader extends StatelessWidget {
           children: [
             Expanded(
               child: Wrap(
-                spacing: 8,
+                spacing: 20,
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
@@ -2218,7 +2217,7 @@ IconData? _counterIcon(String key) {
     case 'character':
       return null;
     case 'player':
-      return MyFlutterApp.user;
+      return null;
     default:
       return Icons.circle_outlined;
   }
@@ -2226,9 +2225,10 @@ IconData? _counterIcon(String key) {
 
 String? _counterIconAsset(String key) {
   return switch (key) {
-    'tick' => playIconAsset,
-    'connect' => connectIconAsset,
-    'character' => aiCharacterIconAsset,
+    'tick' => tickStatIconAsset,
+    'connect' => connectStatIconAsset,
+    'character' => characterStatIconAsset,
+    'player' => userStatIconAsset,
     _ => null,
   };
 }

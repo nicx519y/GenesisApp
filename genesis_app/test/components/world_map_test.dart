@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_details_shell.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
@@ -429,8 +430,8 @@ void main() {
     expect(levelTwoTitle, findsOneWidget);
     expect(find.byType(Divider), findsNWidgets(2));
     expect(find.byIcon(Icons.place), findsNWidgets(3));
-    expect(_assetImageFinder(aiCharacterIconAsset), findsOneWidget);
-    expect(find.byIcon(MyFlutterApp.user), findsOneWidget);
+    expect(_assetSvgFinder(characterStatIconAsset), findsOneWidget);
+    expect(_assetSvgFinder(userStatIconAsset), findsOneWidget);
     expect(find.byIcon(Icons.schedule), findsOneWidget);
     expect(find.text('Ada, Bert'), findsOneWidget);
     expect(find.text('Cara, Drew'), findsOneWidget);
@@ -1417,6 +1418,16 @@ Finder _assetImageFinder(String path, {bool skipOffstage = true}) {
         widget is Image &&
         widget.image is AssetImage &&
         (widget.image as AssetImage).assetName == path,
+    skipOffstage: skipOffstage,
+  );
+}
+
+Finder _assetSvgFinder(String path, {bool skipOffstage = true}) {
+  return find.byWidgetPredicate(
+    (widget) =>
+        widget is SvgPicture &&
+        widget.bytesLoader is SvgAssetLoader &&
+        (widget.bytesLoader as SvgAssetLoader).assetName == path,
     skipOffstage: skipOffstage,
   );
 }

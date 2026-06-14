@@ -840,17 +840,17 @@ class _OriginBottomLaunchBar extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         _LaunchBarStat(
-                          icon: MyFlutterApp.save,
+                          iconAsset: copyStatIconAsset,
                           value: origin.copyCount,
                         ),
                         const SizedBox(width: 20),
                         _LaunchBarStat(
-                          iconAsset: connectIconAsset,
+                          iconAsset: connectStatIconAsset,
                           value: origin.interactCount,
                         ),
                         const SizedBox(width: 20),
                         _LaunchBarStat(
-                          iconAsset: aiCharacterIconAsset,
+                          iconAsset: characterStatIconAsset,
                           preserveIconAssetColor: true,
                           value: origin.characterCount,
                         ),

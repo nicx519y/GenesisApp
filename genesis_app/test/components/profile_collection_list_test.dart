@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/me/profile_collection_list.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
@@ -57,5 +59,42 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('renders profile collection stat assets through svg', (
+    WidgetTester tester,
+  ) async {
+    final items = [
+      GenesisProfileCollectionItemData(
+        imageUrl: '',
+        title: 'Origin',
+        subtitle: 'World seed',
+        stats: const [
+          GenesisProfileCollectionStat(
+            iconAsset: characterStatIconAsset,
+            preserveIconAssetColor: true,
+            value: 7,
+          ),
+        ],
+        onTap: () {},
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            height: 140,
+            child: ProfileCollectionList(items: items, emptyText: 'Empty'),
+          ),
+        ),
+      ),
+    );
+
+    final svg = tester.widget<SvgPicture>(find.byType(SvgPicture));
+    expect(svg.width, moreOrLessEquals(13.75));
+    expect(svg.height, moreOrLessEquals(13.75));
+    expect(find.text('7'), findsOneWidget);
   });
 }

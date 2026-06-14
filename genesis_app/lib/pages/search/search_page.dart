@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/copyable_id_label.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/search_bar.dart';
 import '../../icons/custom_icon_assets.dart';
-import '../../icons/my_flutter_app_icons.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
@@ -701,7 +701,7 @@ class _SearchResultListState extends State<_SearchResultList>
     return ListView.builder(
       controller: _scrollController,
       primary: false,
-      cacheExtent: 900,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(900),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
@@ -909,23 +909,29 @@ class _ResultStats extends StatelessWidget {
   Widget build(BuildContext context) {
     final stats = item.tab == _SearchTab.origin
         ? [
-            _StatData(icon: MyFlutterApp.save, value: item.copyCount),
-            _StatData(iconAsset: connectIconAsset, value: item.connectCount),
+            _StatData(iconAsset: copyStatIconAsset, value: item.copyCount),
             _StatData(
-              iconAsset: aiCharacterIconAsset,
+              iconAsset: connectStatIconAsset,
+              value: item.connectCount,
+            ),
+            _StatData(
+              iconAsset: characterStatIconAsset,
               preserveIconAssetColor: true,
               value: item.playerCount,
             ),
           ]
         : [
-            _StatData(iconAsset: playIconAsset, value: item.tickCount),
-            _StatData(iconAsset: connectIconAsset, value: item.connectCount),
+            _StatData(iconAsset: tickStatIconAsset, value: item.tickCount),
             _StatData(
-              iconAsset: aiCharacterIconAsset,
+              iconAsset: connectStatIconAsset,
+              value: item.connectCount,
+            ),
+            _StatData(
+              iconAsset: characterStatIconAsset,
               preserveIconAssetColor: true,
               value: item.playerCount,
             ),
-            _StatData(icon: MyFlutterApp.user, value: item.memberCount),
+            _StatData(iconAsset: userStatIconAsset, value: item.memberCount),
           ];
 
     return Wrap(

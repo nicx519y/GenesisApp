@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../discuss/origin_discuss_preview_list.dart';
+import '../origin/stat_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../ui/components/genesis_list_image.dart';
@@ -71,7 +73,7 @@ class _PopularOriginListState extends State<PopularOriginList> {
       key: widget.storageKey,
       controller: widget.controller,
       primary: false,
-      cacheExtent: 900,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(900),
       padding: const EdgeInsets.only(top: 4, bottom: 24),
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
@@ -237,14 +239,14 @@ class _OriginStatsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 24,
+      spacing: 10,
       runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        _OriginStat(icon: MyFlutterApp.save, value: item.copyCnt),
-        _OriginStat(iconAsset: connectIconAsset, value: item.connectCnt),
+        _OriginStat(iconAsset: copyStatIconAsset, value: item.copyCnt),
+        _OriginStat(iconAsset: connectStatIconAsset, value: item.connectCnt),
         _OriginStat(
-          iconAsset: aiCharacterIconAsset,
+          iconAsset: characterStatIconAsset,
           preserveIconAssetColor: true,
           value: item.characterCnt,
         ),
@@ -297,54 +299,30 @@ class _OriginImage extends StatelessWidget {
 
 class _OriginStat extends StatelessWidget {
   const _OriginStat({
-    this.icon,
-    this.iconAsset,
+    required this.iconAsset,
     this.preserveIconAssetColor = false,
     required this.value,
-  }) : assert(icon != null || iconAsset != null);
+  });
 
-  final IconData? icon;
-  final String? iconAsset;
+  final String iconAsset;
   final bool preserveIconAssetColor;
   final int value;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (iconAsset case final asset?)
-          preserveIconAssetColor
-              ? Transform.translate(
-                  offset: const Offset(0, -0.8),
-                  child: Image.asset(
-                    asset,
-                    width: customIconAssetRenderSize(asset, 13.75),
-                    height: customIconAssetRenderSize(asset, 13.75),
-                    fit: BoxFit.contain,
-                    excludeFromSemantics: true,
-                  ),
-                )
-              : ImageIcon(
-                  AssetImage(asset),
-                  size: customIconAssetRenderSize(asset, 11),
-                  color: Colors.black,
-                )
-        else
-          Icon(icon, size: 11, color: Colors.black),
-        const SizedBox(width: 4),
-        Text(
-          formatStatCount(value),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 12,
-            height: 1,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-      ],
+    return StatItem(
+      iconAsset: iconAsset,
+      preserveIconAssetColor: preserveIconAssetColor,
+      iconSize: 11,
+      iconColor: Colors.black,
+      gap: 4,
+      text: formatStatCount(value),
+      textStyle: const TextStyle(
+        color: Colors.black,
+        fontSize: 12,
+        height: 1,
+        fontWeight: FontWeight.w400,
+      ),
     );
   }
 }

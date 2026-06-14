@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
-import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 
 void main() {
   test('parses tick count for shared origin tick chip', () {
@@ -55,26 +55,27 @@ void main() {
       ),
     );
 
-    expect(find.byIcon(MyFlutterApp.save), findsOneWidget);
+    expect(_assetSvgFinder(copyStatIconAsset), findsOneWidget);
     expect(
       tester.getSize(find.byType(AspectRatio).first),
       const Size(180, 270),
     );
-    final connectIcon = tester.widget<ImageIcon>(
-      _assetImageIconFinder(connectIconAsset),
+    final connectIcon = tester.widget<SvgPicture>(
+      _assetSvgFinder(connectStatIconAsset),
     );
-    expect(connectIcon.size, 13);
+    expect(connectIcon.width, 13);
+    expect(connectIcon.height, 13);
     expect(find.text('2.3K'), findsOneWidget);
     expect(find.text('4.4M'), findsOneWidget);
     expect(find.text('v3'), findsNothing);
   });
 }
 
-Finder _assetImageIconFinder(String assetName) {
+Finder _assetSvgFinder(String assetName) {
   return find.byWidgetPredicate(
     (widget) =>
-        widget is ImageIcon &&
-        widget.image is AssetImage &&
-        (widget.image as AssetImage).assetName == assetName,
+        widget is SvgPicture &&
+        widget.bytesLoader is SvgAssetLoader &&
+        (widget.bytesLoader as SvgAssetLoader).assetName == assetName,
   );
 }

@@ -1,11 +1,27 @@
-const String aiCharacterIconAsset = 'assets/custom-icons/png/ai_char_icon.png';
 const String discussIconAsset = 'assets/custom-icons/png/discuss.png';
-const String playIconAsset = 'assets/custom-icons/png/play_icon.png';
-const String connectIconAsset = 'assets/custom-icons/png/connect_icon.png';
 const String searchIconAsset = 'assets/custom-icons/png/search_icon.png';
 
 double customIconAssetRenderSize(String assetName, double baseSize) {
-  return assetName == connectIconAsset ? baseSize + 2 : baseSize;
+  return assetName == connectStatIconAsset ? baseSize + 2 : baseSize;
+}
+
+const String copyStatIconAsset = 'assets/custom-icons/svg/copy_icon.svg';
+const String tickStatIconAsset = 'assets/custom-icons/svg/tick_icon.svg';
+const String connectStatIconAsset = 'assets/custom-icons/svg/connect_icon.svg';
+const String characterStatIconAsset =
+    'assets/custom-icons/svg/ai_char_icon.svg';
+const String userStatIconAsset = 'assets/custom-icons/svg/user_icon.svg';
+
+const double _characterIconBaseSize = 11;
+const double _characterIconVisualSize = 13.75;
+const double _characterIconVerticalOffset = -0.8;
+
+double customCharacterIconRenderSize(double baseSize) {
+  return baseSize * (_characterIconVisualSize / _characterIconBaseSize);
+}
+
+double customCharacterIconVerticalOffset(double baseSize) {
+  return baseSize * (_characterIconVerticalOffset / _characterIconBaseSize);
 }
 
 const String bottomNavHomeIconAsset =
