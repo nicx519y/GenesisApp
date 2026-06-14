@@ -45,7 +45,7 @@ void main() {
     },
   );
 
-  testWidgets('uses 12px spacing between discuss items', (tester) async {
+  testWidgets('uses 16px spacing between discuss items', (tester) async {
     final controller = OriginDiscussListController()
       ..configure(
         oid: 'o_alpha',
@@ -62,7 +62,7 @@ void main() {
     expect(rows, findsNWidgets(2));
     final firstBottom = tester.getBottomLeft(rows.first).dy;
     final secondTop = tester.getTopLeft(rows.last).dy;
-    expect(secondTop - firstBottom, closeTo(12, 0.1));
+    expect(secondTop - firstBottom, closeTo(16, 0.1));
   });
 
   testWidgets('hides View More when total_all is not greater than two', (
@@ -443,7 +443,7 @@ void main() {
     final contentTop = tester
         .getTopLeft(find.text('Discuss with styled author'))
         .dy;
-    expect(contentTop - metaBottom, closeTo(8, 0.1));
+    expect(contentTop - metaBottom, closeTo(4, 0.1));
   });
 
   testWidgets('renders compact avatars and today time without date', (
@@ -478,7 +478,7 @@ void main() {
       tester.getSize(
         find.byKey(const ValueKey('origin-discuss-avatar-u_today')),
       ),
-      const Size(30, 30),
+      const Size(36, 36),
     );
     final avatar = tester.widget<GenesisAvatar>(
       find.descendant(

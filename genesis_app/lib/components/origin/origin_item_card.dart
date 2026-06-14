@@ -16,6 +16,7 @@ const double _coverAspectRatio = 2 / 3;
 class OriginListItem {
   const OriginListItem({
     required this.oid,
+    this.wid = '',
     required this.status,
     required this.versionNum,
     this.tickCount = 0,
@@ -46,6 +47,7 @@ class OriginListItem {
     );
     return OriginListItem(
       oid: oid,
+      wid: asString(info['wid'], fallback: asString(info['world_id'])),
       status: asInt(info['status']),
       versionNum: asInt(
         info['version_num'],
@@ -85,6 +87,7 @@ class OriginListItem {
   }
 
   final String oid;
+  final String wid;
   final int status;
   final int versionNum;
   final int tickCount;

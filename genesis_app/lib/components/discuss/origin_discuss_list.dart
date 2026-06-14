@@ -38,7 +38,7 @@ const String _discussLikeFilledAsset =
 const String _discussLikeOutlineAsset =
     'assets/custom-icons/png/discuss_like_outline.png';
 const String _discussReplyAsset = 'assets/custom-icons/png/discuss_reply.png';
-const double _discussAvatarSize = 30;
+const double _discussAvatarSize = 36;
 
 Future<OriginDiscussPage> loadOriginDiscussPage(
   BuildContext context,
@@ -872,13 +872,13 @@ class OriginDiscussList extends StatelessWidget {
                         onReplyTap: onReplyTap,
                       ),
                       if (entry.$1 != comments.length - 1)
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                     ],
                   ],
                 ),
               ),
             if (enableViewMore && shouldShowViewMore) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               _ViewMoreButton(
                 controller: controller,
                 onTap: collapseInitialItems
@@ -908,7 +908,7 @@ class _ViewMoreButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: controller.isLoadingMore ? null : onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: controller.isLoadingMore
               ? const SizedBox.square(
                   key: ValueKey('origin-discuss-view-more-loading'),
@@ -950,7 +950,7 @@ class _DiscussHeader extends StatelessWidget {
         Text(
           'Discuss (${formatStatCount(count)})',
           style: const TextStyle(
-            color: Color(0xFF1D1D1D),
+            color: Color(0xFF111111),
             fontSize: 14,
             height: 1.1,
             fontWeight: FontWeight.w600,
@@ -1101,11 +1101,11 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _DiscussPreviewMeta(item: widget.item),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Text(
                 widget.item.content,
                 style: const TextStyle(
-                  color: Color(0xFF1D1D1D),
+                  color: Color(0xFF111111),
                   fontSize: 12,
                   height: 1.45,
                   fontWeight: FontWeight.w400,

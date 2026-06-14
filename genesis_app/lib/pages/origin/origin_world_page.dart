@@ -793,16 +793,21 @@ class _WorldDetailsContent extends StatelessWidget {
           currentUid: currentUid,
           onOriginChanged: onOriginChanged,
         ),
-        const SizedBox(height: 22),
+        // Section gap: header -> world view.
+        const SizedBox(height: 24),
         _WorldViewSection(origin: origin),
         if (previewTick != null) ...[
-          const SizedBox(height: 26),
+          // Section gap: world view -> launch preview.
+          const SizedBox(height: 24),
           _LaunchPreviewSection(origin: origin, previewTick: previewTick),
         ],
-        const SizedBox(height: 28),
+        // Section gap: previous content -> copy world progress.
+        const SizedBox(height: 24),
         CopyWorldProgressSection(originId: origin.oid),
-        const SizedBox(height: 18),
+        // Section gap: copy world progress -> discuss.
+        const SizedBox(height: 24),
         _DiscussSection(origin: origin, controller: discussController),
+        // Section gap: discuss -> characters.
         const SizedBox(height: 24),
         _OriginCharactersSection(characters: origin.characters),
       ],
@@ -924,14 +929,14 @@ class _LaunchBarStat extends StatelessWidget {
       iconSize: 14,
       iconAssetScale: 1,
       iconVerticalOffset: 0,
-      iconColor: const Color(0xFF171717),
+      iconColor: const Color(0xFF111111),
       gap: 4,
       text: formatStatCount(value),
       textStyle: const TextStyle(
         fontSize: 14,
         height: 1,
         fontWeight: FontWeight.w400,
-        color: Color(0xFF171717),
+        color: Color(0xFF111111),
       ),
     );
   }
@@ -974,12 +979,14 @@ class _OriginHeader extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        // Header inner spacing: title -> OID/originator row.
+        const SizedBox(height: 4),
         Row(
           children: [
             Expanded(
               child: CopyableIdLabel(label: 'OID', value: origin.oid),
             ),
+            // Header inner spacing: OID label -> originator link.
             const SizedBox(width: 12),
             _OriginatorMetaLink(
               originator: originator,
@@ -992,13 +999,15 @@ class _OriginHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        // Header inner spacing: OID/originator row -> latest version.
+        const SizedBox(height: 0),
         Text(
           'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
           style: CopyableIdLabel.textStyle,
         ),
         if (canEditOrigin) ...[
-          const SizedBox(height: 12),
+          // Header inner spacing: latest version -> edit button.
+          const SizedBox(height: 8),
           GenesisPrimaryButton(
             label: 'Edit Origin',
             onPressed: () async {
@@ -1044,6 +1053,7 @@ class _OriginatorMetaLink extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            // Originator link inner spacing: text -> chevron.
             const SizedBox(width: 4),
             const Icon(
               Icons.chevron_right,
@@ -1076,9 +1086,11 @@ class _WorldViewSection extends StatelessWidget {
           iconColor: Color(0xFFF42C47),
           title: 'World View',
         ),
-        const SizedBox(height: 12),
+        // World view inner spacing: section title -> body text.
+        const SizedBox(height: 8),
         Text(body, style: _bodyTextStyle),
-        const SizedBox(height: 12),
+        // World view inner spacing: body text -> preview image.
+        const SizedBox(height: 8),
         _PreviewImage(url: _resolveAssetUrl(origin.mapImage)),
       ],
     );
@@ -1193,7 +1205,8 @@ class _LaunchPreviewSection extends StatelessWidget {
           iconColor: Color(0xFF6554FF),
           title: 'Launch Preview',
         ),
-        const SizedBox(height: 16),
+        // Launch preview inner spacing: section title -> preview event item.
+        const SizedBox(height: 8),
         WorldTickEventItem(
           tick: previewTick,
           tickNumber: 1,
@@ -1220,7 +1233,7 @@ class CopyWorldProgressSection extends StatefulWidget {
 }
 
 class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
-  static const _rotationInterval = Duration(seconds: 5);
+  static const _rotationInterval = Duration(seconds: 8);
 
   Timer? _timer;
   var _summaries = const <WorldSummaryLatestItem>[];
@@ -1298,7 +1311,8 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
           iconColor: Color(0xFFF42C47),
           title: 'Copy World Progress',
         ),
-        const SizedBox(height: 12),
+        // Copy progress inner spacing: section title -> summary body.
+        const SizedBox(height: 8),
         _CopyWorldProgressCard(summary: summary),
       ],
     );
@@ -1308,9 +1322,17 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
 class _CopyWorldProgressCard extends StatelessWidget {
   const _CopyWorldProgressCard({required this.summary});
 
-  static const double _bodyFontSize = 14;
+  static const double _bodyFontSize = 12;
   static const double _bodyLineHeight = 1.45;
-  static const double _bodyHeight = _bodyFontSize * _bodyLineHeight * 5;
+  static const double _bodyHeight = _bodyFontSize * _bodyLineHeight * 5 + 6;
+  static final _bodyStyle = _bodyTextStyle.copyWith(
+    color: const Color(0xFF111111),
+  );
+  static const _bodyStrutStyle = StrutStyle(
+    fontSize: _bodyFontSize,
+    height: _bodyLineHeight,
+    forceStrutHeight: true,
+  );
 
   final WorldSummaryLatestItem? summary;
 
@@ -1331,42 +1353,46 @@ class _CopyWorldProgressCard extends StatelessWidget {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          key: const ValueKey('copy-world-progress-body'),
-          height: _bodyHeight,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 520),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            layoutBuilder: (currentChild, previousChildren) {
-              return Stack(
-                alignment: Alignment.topLeft,
-                children: [
-                  ...previousChildren,
-                  if (currentChild != null) currentChild,
-                ],
-              );
-            },
-            child: Text(
-              body,
-              key: ValueKey(item.worldId),
-              maxLines: 5,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: _bodyFontSize,
-                height: _bodyLineHeight,
-                fontWeight: FontWeight.w400,
-                color: Color(0xFF1E1E1E),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(
+        context,
+      ).pushNamed(RouteNames.world, arguments: {'wid': item.worldId}),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            key: const ValueKey('copy-world-progress-body'),
+            height: _bodyHeight,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 520),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              layoutBuilder: (currentChild, previousChildren) {
+                return Stack(
+                  alignment: Alignment.topLeft,
+                  clipBehavior: Clip.none,
+                  children: [
+                    ...previousChildren,
+                    if (currentChild != null) currentChild,
+                  ],
+                );
+              },
+              child: Text(
+                body,
+                key: ValueKey(item.worldId),
+                maxLines: 5,
+                overflow: TextOverflow.ellipsis,
+                strutStyle: _bodyStrutStyle,
+                style: _bodyStyle,
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 10),
-        _CopyWorldProgressMeta(summary: item),
-      ],
+          // Copy progress inner spacing: summary body -> WID/tick/time row.
+          const SizedBox(height: 0),
+          _CopyWorldProgressMeta(summary: item),
+        ],
+      ),
     );
   }
 }
@@ -1385,40 +1411,56 @@ class _CopyWorldProgressMeta extends StatelessWidget {
     final timestamp = _formatSummaryTimestamp(
       item.tickTime == 0 ? item.createdAt : item.tickTime,
     );
-    return Row(
+    return LayoutBuilder(
       key: const ValueKey('copy-world-progress-meta'),
-      children: [
-        Expanded(
-          child: Row(
-            key: const ValueKey('copy-world-progress-left-meta'),
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
+      builder: (context, constraints) {
+        const gap = 12.0;
+        final hasTimestamp = timestamp.isNotEmpty;
+        final timeWidth = hasTimestamp
+            ? constraints.maxWidth.clamp(0, 96).toDouble()
+            : 0.0;
+        final leftWidth =
+            (constraints.maxWidth - (hasTimestamp ? timeWidth + gap : 0))
+                .clamp(0.0, constraints.maxWidth)
+                .toDouble();
+        return Row(
+          children: [
+            SizedBox(
+              width: leftWidth,
+              child: Row(
+                key: const ValueKey('copy-world-progress-left-meta'),
+                children: [
+                  Flexible(
+                    child: Text(
+                      'WID: ${item.worldId}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _copyWorldProgressMetaStyle,
+                    ),
+                  ),
+                  // Copy progress meta spacing: WID -> tick badge.
+                  const SizedBox(width: 8),
+                  DiscussStoryBadge(count: item.tickNo),
+                ],
+              ),
+            ),
+            if (hasTimestamp) ...[
+              // Copy progress meta spacing: WID/tick area -> timestamp.
+              const SizedBox(width: gap),
+              SizedBox(
+                width: timeWidth,
                 child: Text(
-                  'WID: ${item.worldId}',
+                  timestamp,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
                   style: _copyWorldProgressMetaStyle,
                 ),
               ),
-              const SizedBox(width: 8),
-              DiscussStoryBadge(count: item.tickNo),
             ],
-          ),
-        ),
-        if (timestamp.isNotEmpty) ...[
-          const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              timestamp,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.right,
-              style: _copyWorldProgressMetaStyle,
-            ),
-          ),
-        ],
-      ],
+          ],
+        );
+      },
     );
   }
 }
@@ -1491,7 +1533,8 @@ class _DiscussSection extends StatelessWidget {
                       title: 'Discuss (${origin.discussCount})',
                     ),
                     if (showDiscussList) ...[
-                      const SizedBox(height: 14),
+                      // Discuss inner spacing: section title -> discuss list.
+                      const SizedBox(height: 8),
                       OriginDiscussList(
                         controller: controller,
                         count: origin.discussCount,
@@ -1506,6 +1549,7 @@ class _DiscussSection extends StatelessWidget {
               ),
             ),
             if (!hasDiscussContent) ...[
+              // Discuss inner spacing: empty discuss summary -> post input.
               const SizedBox(height: 8),
               DiscussPostInput(
                 bizId: origin.oid,
@@ -1537,6 +1581,7 @@ class _OriginCharactersSection extends StatelessWidget {
           iconAsset: characterStatIconAsset,
           title: 'Characters (${characters.length})',
         ),
+        // Characters inner spacing: section title -> first character row.
         const SizedBox(height: 14),
         if (characters.isEmpty)
           const Text('No characters', style: _mutedBodyTextStyle)
@@ -1546,6 +1591,7 @@ class _OriginCharactersSection extends StatelessWidget {
               character: characters[i],
               imageUrls: characterAvatarUrls,
             ),
+            // Characters inner spacing: one character row -> next row.
             if (i != characters.length - 1) const SizedBox(height: 20),
           ],
       ],
@@ -1576,6 +1622,7 @@ class _OriginCharacterRow extends StatelessWidget {
           name: character.name,
           imageUrls: imageUrls,
         ),
+        // Character row inner spacing: portrait -> text column.
         const SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -1587,10 +1634,11 @@ class _OriginCharacterRow extends StatelessWidget {
                   fontSize: 14,
                   height: 1.15,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF171717),
+                  color: Color(0xFF111111),
                 ),
               ),
               if (identity.isNotEmpty) ...[
+                // Character text spacing: name -> identity.
                 const SizedBox(height: 5),
                 Text(
                   identity,
@@ -1598,11 +1646,12 @@ class _OriginCharacterRow extends StatelessWidget {
                     fontSize: 12,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF202020),
+                    color: Color(0xFF111111),
                   ),
                 ),
               ],
               if (tagline.isNotEmpty) ...[
+                // Character text spacing: previous short line -> tagline.
                 const SizedBox(height: 5),
                 Text(
                   tagline,
@@ -1615,10 +1664,12 @@ class _OriginCharacterRow extends StatelessWidget {
                 ),
               ],
               if (description.isNotEmpty) ...[
+                // Character text spacing: previous line -> description.
                 const SizedBox(height: 9),
                 Text(description, style: _bodyTextStyle),
               ],
               if (goal.isNotEmpty) ...[
+                // Character text spacing: description/previous line -> goal.
                 const SizedBox(height: 9),
                 Text('Goal: $goal', style: _bodyTextStyle),
               ],
@@ -1769,13 +1820,17 @@ class _SectionTitle extends StatelessWidget {
         else
           Icon(icon, size: 14, color: iconColor),
         const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 14,
-            height: 1.2,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF151515),
+        Flexible(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.2,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF111111),
+            ),
           ),
         ),
       ],
@@ -1787,7 +1842,7 @@ const _bodyTextStyle = TextStyle(
   fontSize: 12,
   height: 1.45,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF3C3C3C),
+  color: Color(0xFF111111),
 );
 
 const _mutedBodyTextStyle = TextStyle(

@@ -3,14 +3,19 @@ import 'package:flutter/rendering.dart';
 
 import '../discuss/origin_discuss_preview_list.dart';
 import '../origin/stat_item.dart';
+import '../../app/bootstrap/app_services_scope.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
+import '../../network/genesis_api.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../origin/origin_item_card.dart';
+
+typedef PopularWorldSummaryLoader =
+    Future<List<WorldSummaryLatestItem>> Function(String originId);
 
 class PopularOriginList extends StatefulWidget {
   const PopularOriginList({
@@ -21,6 +26,7 @@ class PopularOriginList extends StatefulWidget {
     this.storageKey,
     this.isLoadingMore = false,
     this.discussLoader,
+    this.summaryLoader,
     this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
   });
 
@@ -30,6 +36,7 @@ class PopularOriginList extends StatefulWidget {
   final PageStorageKey<String>? storageKey;
   final bool isLoadingMore;
   final OriginDiscussPreviewLoader? discussLoader;
+  final PopularWorldSummaryLoader? summaryLoader;
   final double thumbnailBorderRadius;
 
   @override
@@ -39,17 +46,22 @@ class PopularOriginList extends StatefulWidget {
 class _PopularOriginListState extends State<PopularOriginList> {
   final Map<String, Future<List<OriginDiscussPreviewItem>>> _discussFutures =
       <String, Future<List<OriginDiscussPreviewItem>>>{};
+  final Map<String, Future<WorldSummaryLatestItem?>> _summaryFutures =
+      <String, Future<WorldSummaryLatestItem?>>{};
 
   @override
   void didUpdateWidget(covariant PopularOriginList oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.discussLoader != widget.discussLoader) {
       _discussFutures.clear();
-      return;
+    }
+    if (oldWidget.summaryLoader != widget.summaryLoader) {
+      _summaryFutures.clear();
     }
 
     final activeOids = widget.items.map((item) => item.oid.trim()).toSet();
     _discussFutures.removeWhere((oid, _) => !activeOids.contains(oid));
+    _summaryFutures.removeWhere((oid, _) => !activeOids.contains(oid));
   }
 
   Future<List<OriginDiscussPreviewItem>> _loadDiscuss(String oid) {
@@ -64,6 +76,25 @@ class _PopularOriginListState extends State<PopularOriginList> {
       if (loader != null) return loader(resolvedOid);
 
       return loadOriginDiscussPreviewItems(context, resolvedOid);
+    });
+  }
+
+  Future<WorldSummaryLatestItem?> _loadSummary(String oid) {
+    final resolvedOid = oid.trim();
+    if (resolvedOid.isEmpty) {
+      return Future<WorldSummaryLatestItem?>.value(null);
+    }
+    return _summaryFutures.putIfAbsent(resolvedOid, () async {
+      final loader = widget.summaryLoader;
+      final summaries = loader == null
+          ? await AppServicesScope.read(
+              context,
+            ).api.getLatestWorldSummaries(originId: resolvedOid)
+          : await loader(resolvedOid);
+      for (final summary in summaries) {
+        if (summary.summary.trim().isNotEmpty) return summary;
+      }
+      return null;
     });
   }
 
@@ -103,6 +134,7 @@ class _PopularOriginListState extends State<PopularOriginList> {
             child: PopularOriginListItem(
               item: item,
               discussLoader: _loadDiscuss,
+              summaryFuture: _loadSummary(item.oid),
               thumbnailBorderRadius: widget.thumbnailBorderRadius,
             ),
           ),
@@ -117,11 +149,13 @@ class PopularOriginListItem extends StatelessWidget {
     super.key,
     required this.item,
     this.discussLoader,
+    this.summaryFuture,
     this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
   });
 
   final OriginListItem item;
   final OriginDiscussPreviewLoader? discussLoader;
+  final Future<WorldSummaryLatestItem?>? summaryFuture;
   final double thumbnailBorderRadius;
 
   @override
@@ -164,9 +198,11 @@ class PopularOriginListItem extends StatelessWidget {
         const SizedBox(height: 16),
         _ProgressHeader(),
         const SizedBox(height: 6),
-        _ProgressBody(item: item),
-        const SizedBox(height: 6),
-        _MetaRow(item: item, timeText: metaTime),
+        _ProgressSummary(
+          item: item,
+          fallbackTimeText: metaTime,
+          future: summaryFuture,
+        ),
         const SizedBox(height: 6),
         OriginDiscussPreviewList(
           oid: item.oid,
@@ -352,72 +388,118 @@ class _ProgressHeader extends StatelessWidget {
   }
 }
 
-class _ProgressBody extends StatelessWidget {
-  const _ProgressBody({required this.item});
+class _ProgressSummary extends StatelessWidget {
+  const _ProgressSummary({
+    required this.item,
+    required this.fallbackTimeText,
+    this.future,
+  });
 
   final OriginListItem item;
+  final String fallbackTimeText;
+  final Future<WorldSummaryLatestItem?>? future;
+
+  static const _emptyText = 'No launched world';
 
   @override
   Widget build(BuildContext context) {
-    final creator = item.createdUserName.trim();
-    final body = item.worldView.trim().isEmpty ? item.subtitle : item.worldView;
-    if (creator.isEmpty) {
-      return Text(
-        body,
-        style: _bodyStyle,
-        maxLines: 4,
-        overflow: TextOverflow.ellipsis,
-      );
+    final summaryFuture = future;
+    if (summaryFuture == null) {
+      return _buildContent(null);
     }
+    return FutureBuilder<WorldSummaryLatestItem?>(
+      future: summaryFuture,
+      builder: (context, snapshot) {
+        return _buildContent(snapshot.data);
+      },
+    );
+  }
 
-    return RichText(
-      maxLines: 4,
-      overflow: TextOverflow.ellipsis,
-      text: TextSpan(
-        style: _bodyStyle,
-        children: [
-          TextSpan(
-            text: creator,
-            style: _bodyStyle.copyWith(
-              color: const Color(0xFF6A80AE),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          TextSpan(text: body.startsWith(' ') ? body : ' $body'),
-        ],
-      ),
+  Widget _buildContent(WorldSummaryLatestItem? summary) {
+    final body = summary?.summary.trim() ?? '';
+    final worldId = summary?.worldId.trim() ?? item.wid.trim();
+    final tickNo = summary?.tickNo ?? item.tickCount;
+    final timeText = summary == null
+        ? fallbackTimeText
+        : formatGenesisTimestamp(
+            summary.tickTime == 0 ? summary.createdAt : summary.tickTime,
+          );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          body.isEmpty ? _emptyText : body,
+          style: body.isEmpty ? _emptyBodyStyle : _bodyStyle,
+          maxLines: 4,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 6),
+        _MetaRow(worldId: worldId, tickCount: tickNo, timeText: timeText),
+      ],
     );
   }
 }
 
 class _MetaRow extends StatelessWidget {
-  const _MetaRow({required this.item, required this.timeText});
+  const _MetaRow({
+    required this.worldId,
+    required this.tickCount,
+    required this.timeText,
+  });
 
-  final OriginListItem item;
+  final String worldId;
+  final int tickCount;
   final String timeText;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Row(
-            children: [
-              Flexible(
+    final displayWorldId = worldId.trim();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 12.0;
+        final hasTime = timeText.isNotEmpty;
+        final timeWidth = hasTime
+            ? constraints.maxWidth.clamp(0, 96).toDouble()
+            : 0.0;
+        final leftWidth =
+            (constraints.maxWidth - (hasTime ? timeWidth + gap : 0))
+                .clamp(0.0, constraints.maxWidth)
+                .toDouble();
+        return Row(
+          children: [
+            SizedBox(
+              width: leftWidth,
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      'WID: ${displayWorldId.isEmpty ? '-' : displayWorldId}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _metaStyle,
+                    ),
+                  ),
+                  const SizedBox(width: 9),
+                  _OriginTickChip(count: tickCount),
+                ],
+              ),
+            ),
+            if (hasTime) ...[
+              const SizedBox(width: gap),
+              SizedBox(
+                width: timeWidth,
                 child: Text(
-                  'OID: ${item.oid}',
+                  timeText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
                   style: _metaStyle,
                 ),
               ),
-              const SizedBox(width: 9),
-              _OriginTickChip(count: item.tickCount),
             ],
-          ),
-        ),
-        if (timeText.isNotEmpty) Text(timeText, style: _metaStyle),
-      ],
+          ],
+        );
+      },
     );
   }
 }
@@ -511,6 +593,13 @@ const _bodyStyle = TextStyle(
   fontSize: 12,
   height: 1.42,
   fontWeight: FontWeight.w400,
+);
+
+const _emptyBodyStyle = TextStyle(
+  color: Color(0xFF999999),
+  fontSize: 12,
+  height: 1.3,
+  fontWeight: FontWeight.w500,
 );
 
 const _metaStyle = TextStyle(
