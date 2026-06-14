@@ -486,7 +486,7 @@ void main() {
         matching: find.byType(GenesisAvatar),
       ),
     );
-    expect(avatar.borderRadius, 15);
+    expect(avatar.borderRadius, 8);
     expect(find.text('09:07'), findsOneWidget);
     expect(find.text('${today.month}-${today.day} 09:07'), findsNothing);
     expect(
@@ -661,7 +661,9 @@ void main() {
     );
   });
 
-  testWidgets('avatar and WID taps push user and world pages', (tester) async {
+  testWidgets('avatar tap pushes user page and discuss meta hides WID', (
+    tester,
+  ) async {
     final pushed = <RouteSettings>[];
     final controller = OriginDiscussListController()
       ..configure(
@@ -715,14 +717,11 @@ void main() {
 
     expect(pushed.last.name, RouteNames.userInfo);
     expect(pushed.last.arguments, {'uid': 'u_alpha'});
-
-    await tester.tap(
+    expect(find.text('WID: w_alpha'), findsNothing);
+    expect(
       find.byKey(const ValueKey('origin-discuss-world-w_alpha')),
+      findsNothing,
     );
-    await tester.pumpAndSettle();
-
-    expect(pushed.last.name, RouteNames.world);
-    expect(pushed.last.arguments, {'wid': 'w_alpha'});
   });
 
   testWidgets('loadOriginDiscussPage does not request origin progress', (
@@ -829,7 +828,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('12'), findsOneWidget);
-    expect(find.text('WID: w_progress'), findsOneWidget);
+    expect(find.text('WID: w_progress'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('origin-discuss-world-w_progress')),
+      findsNothing,
+    );
     final progressRequest = transport.requests
         .where((request) => request.uri.path.endsWith('/world/origin_progress'))
         .single;
@@ -964,7 +967,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('34'), findsOneWidget);
-    expect(find.text('WID: w_late'), findsOneWidget);
+    expect(find.text('WID: w_late'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('origin-discuss-world-w_late')),
+      findsNothing,
+    );
     final progressRequest = transport.requests
         .where((request) => request.uri.path.endsWith('/world/origin_progress'))
         .single;

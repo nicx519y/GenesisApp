@@ -218,6 +218,32 @@ void main() {
     expect(postBody['parent_discuss_id'], isNot('reply_1'));
     expect(postBody['content'], 'reply from list item');
   });
+
+  testWidgets('post detail hides WID in root and reply discuss meta', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 760);
+    addTearDown(tester.view.reset);
+
+    final transport = _DiscussPageTransport(includeReplies: true);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
+        child: _discussTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Reply User: Reply target'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Post Detail'), findsOneWidget);
+    expect(find.text('Discuss item 1'), findsOneWidget);
+    expect(find.text('Reply target'), findsOneWidget);
+    expect(find.text('WID: w_auto'), findsNothing);
+    expect(find.text('WID: w_reply'), findsNothing);
+  });
 }
 
 Widget _discussTestApp() {

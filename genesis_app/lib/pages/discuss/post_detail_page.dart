@@ -260,29 +260,7 @@ class _PostHeaderMeta extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            DiscussStoryBadge(count: item.storyCount),
-            if (item.worldId.isNotEmpty) ...[
-              const SizedBox(width: 12),
-              Flexible(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => Navigator.of(context).pushNamed(
-                    RouteNames.world,
-                    arguments: {'wid': item.worldId},
-                  ),
-                  child: Text(
-                    'WID: ${item.worldId}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: _postMetaStyle,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
+        Row(children: [DiscussStoryBadge(count: item.storyCount)]),
       ],
     );
   }
@@ -512,22 +490,7 @@ class _PostReplyRow extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  DiscussStoryBadge(count: data.storyCount),
-                  if (data.worldId.isNotEmpty) ...[
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Text(
-                        'WID: ${data.worldId}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _postMetaStyle,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+              Row(children: [DiscussStoryBadge(count: data.storyCount)]),
               const SizedBox(height: 22),
               Text(
                 data.content,

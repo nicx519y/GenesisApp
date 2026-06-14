@@ -1515,25 +1515,6 @@ class _DiscussPreviewMeta extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 DiscussStoryBadge(count: item.storyCount),
-                if (item.worldId.isNotEmpty) ...[
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: GestureDetector(
-                      key: ValueKey('origin-discuss-world-${item.worldId}'),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => Navigator.of(context).pushNamed(
-                        RouteNames.world,
-                        arguments: {'wid': item.worldId},
-                      ),
-                      child: Text(
-                        'WID: ${item.worldId}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _subtleStyle,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
