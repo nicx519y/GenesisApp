@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
-import '../../platform/app/app_metadata_service.dart';
 import '../../routers/app_router.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../legal/legal_document_page.dart';
@@ -35,12 +34,7 @@ class AboutUsPage extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 40, 20, 24),
                 children: [
-                  FutureBuilder<String>(
-                    future: AppMetadataService.appName(),
-                    builder: (context, snapshot) {
-                      return _AboutBrandHeader(appName: snapshot.data ?? 'App');
-                    },
-                  ),
+                  const _AboutBrandHeader(),
                   const SizedBox(height: 8),
                   const Text(
                     _appVersion,
@@ -130,56 +124,17 @@ class _AboutDescriptionState extends State<_AboutDescription> {
 }
 
 class _AboutBrandHeader extends StatelessWidget {
-  const _AboutBrandHeader({required this.appName});
-
-  final String appName;
-
-  static const _nameStyle = TextStyle(
-    fontSize: 28,
-    height: 1.18,
-    fontWeight: FontWeight.w700,
-    color: Color(0xFF111111),
-  );
+  const _AboutBrandHeader();
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const iconSize = 42.0;
-        const iconGap = 12.0;
-        final textPainter = TextPainter(
-          text: TextSpan(text: appName, style: _nameStyle),
-          textDirection: TextDirection.ltr,
-        )..layout();
-        final textLeft = (constraints.maxWidth - textPainter.width) / 2;
-        final maxIconLeft = constraints.maxWidth - iconSize;
-        final iconLeft = (textLeft - iconGap - iconSize).clamp(
-          0.0,
-          maxIconLeft,
-        );
-
-        return SizedBox(
-          height: iconSize,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Text(appName, style: _nameStyle),
-              Positioned(
-                left: iconLeft,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(9),
-                  child: Image.asset(
-                    'assets/images/genesis_app_icon_source_1024.png',
-                    width: iconSize,
-                    height: iconSize,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+    return Center(
+      child: Image.asset(
+        'assets/images/genesis_launch_logo.png',
+        key: const Key('about_genesis_launch_logo'),
+        width: 236,
+        fit: BoxFit.contain,
+      ),
     );
   }
 }

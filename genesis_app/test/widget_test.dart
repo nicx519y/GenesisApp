@@ -7006,7 +7006,7 @@ void main() {
       GenesisMethodChannels.device,
       (call) async {
         if (call.method == GenesisMethodChannels.getAppName) {
-          return 'Genesis';
+          return 'worldo';
         }
         return null;
       },
@@ -7049,7 +7049,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('About'), findsOneWidget);
-    expect(find.text('Genesis'), findsOneWidget);
+    expect(
+      find.byKey(const Key('about_genesis_launch_logo'), skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(find.text('Genesis'), findsNothing);
     expect(find.text('v1.0.0'), findsOneWidget);
     expect(
       _richTextFinder(
