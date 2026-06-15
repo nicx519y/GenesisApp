@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
+import '../../platform/app/app_metadata_service.dart';
 import '../../routers/app_router.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../legal/legal_document_page.dart';
@@ -11,7 +12,7 @@ import '../legal/legal_document_page.dart';
 class AboutUsPage extends StatelessWidget {
   const AboutUsPage({super.key});
 
-  static const appVersion = 'v1.0.0';
+  static const _fallbackAppVersion = 'v1.0.0';
   static const _descriptionBeforeEmail =
       'Worldo lets you create, discover, and enter AI-powered worlds filled '
       'with characters, stories, and evolving events. Chat with AI characters, '
@@ -21,6 +22,11 @@ class AboutUsPage extends StatelessWidget {
       'as a reader, but as someone inside the world. If you have any questions, '
       'please contact us at ';
   static const _contactEmail = 'worldodeveloper@gmail.com';
+
+  static String versionLabel(String versionName) {
+    final trimmed = versionName.trim();
+    return trimmed.isEmpty ? _fallbackAppVersion : 'v$trimmed';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,16 +42,7 @@ class AboutUsPage extends StatelessWidget {
                 children: [
                   const _AboutBrandHeader(),
                   const SizedBox(height: 8),
-                  const Text(
-                    appVersion,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.2,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.black,
-                    ),
-                  ),
+                  const _AboutVersionText(),
                   const SizedBox(height: 34),
                   const _AboutDescription(),
                 ],
@@ -59,6 +56,31 @@ class AboutUsPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AboutVersionText extends StatelessWidget {
+  const _AboutVersionText();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<AppVersionInfo>(
+      future: AppMetadataService.appVersion(),
+      builder: (context, snapshot) {
+        final versionName = snapshot.data?.versionName.trim() ?? '';
+
+        return Text(
+          AboutUsPage.versionLabel(versionName),
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 13,
+            height: 1.2,
+            fontWeight: FontWeight.w400,
+            color: Colors.black,
+          ),
+        );
+      },
     );
   }
 }

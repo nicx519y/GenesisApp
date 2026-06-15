@@ -7,6 +7,7 @@ import '../../app/debug_floating_button_visibility.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
+import '../../platform/app/app_metadata_service.dart';
 import '../../ui/genesis_ui.dart';
 import 'about_us_page.dart';
 
@@ -97,12 +98,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
   static const double _itemGap = 8;
 
   late final Future<String> _deviceIdFuture;
+  late final Future<AppVersionInfo> _appVersionFuture;
   bool _clearingDirectMessageCache = false;
 
   @override
   void initState() {
     super.initState();
     _deviceIdFuture = AppServicesScope.read(context).deviceId.getDeviceId();
+    _appVersionFuture = AppMetadataService.appVersion();
   }
 
   Future<void> _clearDirectMessageCache() async {
@@ -149,9 +152,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             },
           ),
           const SizedBox(height: _itemGap),
-          const _DeveloperInfoRow(
-            title: 'Version',
-            content: AboutUsPage.appVersion,
+          FutureBuilder<AppVersionInfo>(
+            future: _appVersionFuture,
+            builder: (context, snapshot) {
+              final value = snapshot.connectionState == ConnectionState.done
+                  ? AboutUsPage.versionLabel(snapshot.data?.versionName ?? '')
+                  : 'Loading...';
+              return _DeveloperInfoRow(title: 'Version', content: value);
+            },
           ),
           const SizedBox(height: _itemGap),
           const _DeveloperInfoRow(title: 'Build', content: _buildModeLabel),

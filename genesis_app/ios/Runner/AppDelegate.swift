@@ -75,10 +75,21 @@ import UniformTypeIdentifiers
         let displayName = info?["CFBundleDisplayName"] as? String
         let bundleName = info?["CFBundleName"] as? String
         result(displayName ?? bundleName ?? "")
+      case "getAppVersion":
+        result(self.appVersionInfo())
       default:
         result(FlutterMethodNotImplemented)
       }
     }
+  }
+
+  private func appVersionInfo() -> [String: Any] {
+    let info = Bundle.main.infoDictionary
+    return [
+      "versionName": info?["CFBundleShortVersionString"] as? String ?? "",
+      "versionCode": info?["CFBundleVersion"] as? String ?? "",
+      "packageName": Bundle.main.bundleIdentifier ?? ""
+    ]
   }
 
   private func configureDiscussImagePickerChannel(messenger: FlutterBinaryMessenger) {
