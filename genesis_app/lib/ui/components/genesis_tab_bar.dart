@@ -21,6 +21,7 @@ class GenesisTabBar extends StatelessWidget {
     this.indicatorHeight,
     this.labelFontSize,
     this.expanded = false,
+    this.onTap,
   });
 
   final List<String> labels;
@@ -32,6 +33,7 @@ class GenesisTabBar extends StatelessWidget {
   final double? indicatorHeight;
   final double? labelFontSize;
   final bool expanded;
+  final ValueChanged<int>? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +55,7 @@ class GenesisTabBar extends StatelessWidget {
         labelPadding: labelPadding,
         splashFactory: NoSplash.splashFactory,
         overlayColor: WidgetStateProperty.all(Colors.transparent),
+        onTap: onTap,
         indicatorSize: TabBarIndicatorSize.label,
         indicator: GenesisFixedUnderlineIndicator(
           color: indicatorColor ?? uiTheme.tabIndicatorColor,

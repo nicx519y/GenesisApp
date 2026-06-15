@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/list_loading_skeleton.dart';
+import '../../components/auth/login_guard.dart';
 import '../../components/discuss/origin_discuss_preview_list.dart';
 import '../../components/genesis_logo.dart';
 import '../../components/home/popular_origin_list.dart';
@@ -66,7 +67,7 @@ class _HomePageState extends State<HomePage> {
             children: [
               const _HomeHeader(),
               const SizedBox(height: 4),
-              SecendTabs(labels: HomePage.tabs, verticalPadding: 0),
+              const _HomeTabs(),
               const Expanded(
                 child: TabBarView(
                   children: [
@@ -79,6 +80,49 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       },
+    );
+  }
+}
+
+class _HomeTabs extends StatefulWidget {
+  const _HomeTabs();
+
+  @override
+  State<_HomeTabs> createState() => _HomeTabsState();
+}
+
+class _HomeTabsState extends State<_HomeTabs> {
+  static const _myWorldsIndex = 0;
+  static const _popularIndex = 1;
+
+  bool _handlingLogin = false;
+
+  Future<void> _handleTap(int index) async {
+    if (index != _myWorldsIndex || _handlingLogin) return;
+    final controller = DefaultTabController.of(context);
+    final cameFromPopular =
+        controller.index == _popularIndex ||
+        controller.previousIndex == _popularIndex;
+    if (!cameFromPopular) return;
+
+    controller.animateTo(_popularIndex, duration: Duration.zero);
+
+    _handlingLogin = true;
+    try {
+      final loggedIn = await ensureGenesisLogin(context);
+      if (!mounted || !loggedIn) return;
+      controller.animateTo(_myWorldsIndex);
+    } finally {
+      _handlingLogin = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SecendTabs(
+      labels: HomePage.tabs,
+      verticalPadding: 0,
+      onTap: _handleTap,
     );
   }
 }
