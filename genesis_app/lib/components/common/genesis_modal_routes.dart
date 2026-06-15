@@ -52,12 +52,17 @@ class GenesisSystemUiChrome {
     final systemBarColor = color.a < 1
         ? Color.alphaBlend(color, _kGenesisSystemBarBaseColor)
         : color;
+    final useDarkIcons = systemBarColor.computeLuminance() > 0.5;
     return SystemUiOverlayStyle(
       statusBarColor: systemBarColor,
-      statusBarIconBrightness: Brightness.light,
-      statusBarBrightness: Brightness.dark,
+      statusBarIconBrightness: useDarkIcons
+          ? Brightness.dark
+          : Brightness.light,
+      statusBarBrightness: useDarkIcons ? Brightness.light : Brightness.dark,
       systemNavigationBarColor: systemBarColor,
-      systemNavigationBarIconBrightness: Brightness.light,
+      systemNavigationBarIconBrightness: useDarkIcons
+          ? Brightness.dark
+          : Brightness.light,
     );
   }
 }

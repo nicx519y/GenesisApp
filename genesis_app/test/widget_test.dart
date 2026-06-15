@@ -1815,7 +1815,11 @@ void main() {
     final transport = _RecordingSearchTransport();
     await tester.pumpWidget(
       GenesisApp(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'test-token',
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -3585,6 +3589,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
+    final chatroom = _FakeChatroomClient();
     final systemUiOverlayStyleCalls = _captureSystemUiOverlayStyleCalls();
     addTearDown(_clearPlatformChannelHandler);
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
@@ -3593,7 +3598,12 @@ void main() {
 
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'test-token',
+          chatroom: chatroom,
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -3606,6 +3616,7 @@ void main() {
       _pageStatusBarStyle(tester).statusBarIconBrightness,
       Brightness.light,
     );
+    expect(_pageStatusBarStyle(tester).statusBarColor, const Color(0x00FFFFFF));
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -720));
     await tester.pumpAndSettle();
@@ -3614,6 +3625,7 @@ void main() {
       _pageStatusBarStyle(tester).statusBarIconBrightness,
       Brightness.dark,
     );
+    expect(_pageStatusBarStyle(tester).statusBarColor, const Color(0xFFFFFFFF));
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, 720));
     await tester.pumpAndSettle();
@@ -3689,7 +3701,11 @@ void main() {
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'test-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -3789,6 +3805,11 @@ void main() {
       find.byKey(const ValueKey('genesis-image-viewer-page-view')),
       findsOneWidget,
     );
+    expect(
+      _pageStatusBarStyle(tester).statusBarIconBrightness,
+      Brightness.light,
+    );
+    expect(_pageStatusBarStyle(tester).statusBarColor, Colors.transparent);
 
     await tester.tap(find.byKey(const ValueKey('genesis-image-viewer-close')));
     await tester.pumpAndSettle();
@@ -4037,6 +4058,7 @@ void main() {
           transport: transport,
           useMock: false,
           chatroom: chatroom,
+          initialAuthToken: 'test-token',
         ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
@@ -4052,6 +4074,10 @@ void main() {
 
     expect(chatroom.connectCount, 0);
     expect(_visibleText('Detail Location (1)'), findsOneWidget);
+    expect(
+      _pageStatusBarStyle(tester).statusBarIconBrightness,
+      Brightness.dark,
+    );
     final chatPanel = find.byType(LocationChatPanel);
     expect(chatPanel, findsOneWidget);
     expect(
@@ -4351,9 +4377,17 @@ void main() {
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
+    final chatroom = _FakeChatroomClient();
+    final systemUiOverlayStyleCalls = _captureSystemUiOverlayStyleCalls();
+    addTearDown(_clearPlatformChannelHandler);
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'test-token',
+          chatroom: chatroom,
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -4364,6 +4398,11 @@ void main() {
 
     await tester.tap(find.text('Launch'));
     await tester.pumpAndSettle();
+    expect(find.text('Setup Your Role'), findsOneWidget);
+    expect(
+      systemUiOverlayStyleCalls.last['statusBarIconBrightness'],
+      Brightness.dark.toString(),
+    );
     await tester.tap(find.text('Custom'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'Custom Hero');
@@ -5210,14 +5249,12 @@ void main() {
 
     final eulaRecognizer = _recognizerForText(
       tester.widget<Text>(_loginLegalTextFinder()).textSpan!,
-      'EULA',
+      'End User License Agreement',
     );
     eulaRecognizer.onTap?.call();
     await tester.pumpAndSettle();
 
-    expect(find.text('EULA'), findsOneWidget);
-    expect(find.text('End User License Agreement ("EULA")'), findsOneWidget);
-    expect(find.text('Last updated: 2026-06-14'), findsOneWidget);
+    expect(find.text('End User License Agreement'), findsOneWidget);
   });
 
   testWidgets('signed-out Me view uses the current Genesis logo', (
@@ -7165,7 +7202,7 @@ void main() {
     eulaRecognizer.onTap?.call();
     await tester.pumpAndSettle();
 
-    expect(find.text('End User License Agreement ("EULA")'), findsOneWidget);
+    expect(find.text('End User License Agreement'), findsOneWidget);
   });
 
   testWidgets('settings reveals developer page after ten blank taps', (
@@ -8644,6 +8681,7 @@ void main() {
       _pageStatusBarStyle(tester).statusBarIconBrightness,
       Brightness.light,
     );
+    expect(_pageStatusBarStyle(tester).statusBarColor, const Color(0x00FFFFFF));
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -720));
     await tester.pumpAndSettle();
@@ -8652,6 +8690,7 @@ void main() {
       _pageStatusBarStyle(tester).statusBarIconBrightness,
       Brightness.dark,
     );
+    expect(_pageStatusBarStyle(tester).statusBarColor, const Color(0xFFFFFFFF));
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, 720));
     await tester.pumpAndSettle();
@@ -9817,7 +9856,7 @@ Finder _assetImageFinder(String path, {bool skipOffstage = true}) {
 
 Finder _loginLegalTextFinder() {
   return _richTextFinder(
-    'By continuing, you agree to our Terms, Privacy Policy, and EULA',
+    'By continuing, you agree to our Terms, Privacy Policy, and End User License Agreement',
   );
 }
 
