@@ -12,7 +12,7 @@ import '../../platform/native_image_picker.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
-const Color createFormGreen = Color(0xFF198B64);
+const Color createFormGreen = Color(0xFF338960);
 const Color createFormFieldFill = Color(0xFFF4F4F6);
 const Color createFormHint = Color(0xFFA8A8AD);
 const Color createFormText = Color(0xFF111111);

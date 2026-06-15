@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 abstract final class GenesisColors {
-  static const Color brand = Color(0xFF198B64);
+  static const Color brand = Color(0xFF338960);
   static const Color brandBright = Color(0xFF00C27A);
   static const Color brandSoft = Color(0xFFBFD8CD);
   static const Color create = Color(0xFFF42C47);

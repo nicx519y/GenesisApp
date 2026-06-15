@@ -33,6 +33,7 @@ import 'package:genesis_flutter_android/pages/create/create_origin_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_story_events_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_locations_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
@@ -6422,7 +6423,7 @@ void main() {
     expect(createButton.onPressed, isNotNull);
     expect(
       createButton.style?.backgroundColor?.resolve(<WidgetState>{}),
-      const Color(0xFF198B64),
+      GenesisColors.brand,
     );
 
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
@@ -6556,7 +6557,7 @@ void main() {
     expect(rootPublish.onPressed, isNotNull);
     expect(
       rootPublish.style?.backgroundColor?.resolve(<WidgetState>{}),
-      const Color(0xFF198B64),
+      GenesisColors.brand,
     );
 
     await tester.tap(find.widgetWithText(FilledButton, 'Publish'));

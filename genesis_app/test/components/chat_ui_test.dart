@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 
 void main() {
   testWidgets('chat message list shows first divider and long gaps', (
@@ -498,6 +499,10 @@ void main() {
     );
     expect(find.byType(TextButton), findsOneWidget);
     expect(find.byIcon(Icons.send), findsOneWidget);
+    expect(
+      ChatUiStyleConfig.standard.composerSendButtonColor,
+      GenesisColors.brand,
+    );
     expect(
       find.byWidgetPredicate((widget) {
         return widget is DecoratedBox &&

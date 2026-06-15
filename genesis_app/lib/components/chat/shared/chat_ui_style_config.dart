@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../ui/tokens/genesis_avatar_radii.dart';
+import '../../../ui/tokens/genesis_colors.dart';
 
 class ChatUiStyleConfig {
   const ChatUiStyleConfig({
@@ -212,7 +213,7 @@ class ChatUiStyleConfig {
     composerSendButtonWidth: 56, // 发送按钮宽度。
     composerSendButtonHeight: 40, // 发送按钮高度。
     composerSendButtonBorderRadius: 8, // 发送按钮圆角。
-    composerSendButtonColor: Color(0xFF20D844), // 发送按钮背景色。
+    composerSendButtonColor: GenesisColors.brand, // 发送按钮背景色。
     composerSendButtonDisabledColor: Color(0xFFBDBDBD), // 发送按钮禁用背景色。
     composerSendButtonIconColor: Colors.white, // 发送按钮图标颜色。
     composerSendButtonIconSize: 18, // 发送按钮图标尺寸。

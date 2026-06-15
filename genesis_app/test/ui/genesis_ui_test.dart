@@ -167,6 +167,14 @@ void main() {
 
     await tester.tap(find.text('Continue'));
     expect(tapped, isTrue);
+
+    final theme = tester.widget<MaterialApp>(find.byType(MaterialApp)).theme;
+    expect(
+      theme?.filledButtonTheme.style?.backgroundColor?.resolve(
+        const <WidgetState>{},
+      ),
+      const Color(0xFF338960),
+    );
   });
 
   testWidgets('GenesisActionBox attaches cancel for a single action', (

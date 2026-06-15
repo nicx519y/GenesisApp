@@ -8,6 +8,7 @@ import 'origin_character_form.dart';
 import '../../network/models/origin.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_colors.dart';
 
 typedef OriginRoleProfileLoader = Future<OriginCustomRoleDraft?> Function();
 typedef OriginRoleAvatarResolver = String Function(String avatar);
@@ -316,7 +317,7 @@ class _RoleSegmentedControl extends StatelessWidget {
       height: 40,
       decoration: BoxDecoration(
         color: const Color(0xFFEDEDEF),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
@@ -334,7 +335,7 @@ class _RoleSegmentedControl extends StatelessWidget {
                 margin: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: const Color(0xFFE3E3E7)),
                 ),
               ),
@@ -529,7 +530,7 @@ class _SelectionMark extends StatelessWidget {
       width: 26,
       height: 26,
       decoration: BoxDecoration(
-        color: selected ? const Color(0xFF198B64) : Colors.white10,
+        color: selected ? GenesisColors.brand : Colors.white10,
         borderRadius: BorderRadius.circular(7),
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: const [
@@ -608,7 +609,7 @@ class _CustomRoleForm extends StatelessWidget {
                       fontSize: 14,
                       height: 1.1,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF198B64),
+                      color: GenesisColors.brand,
                     ),
                   ),
                 ),
@@ -667,7 +668,7 @@ class _SheetActions extends StatelessWidget {
               onPressed: onLaunch,
               style: FilledButton.styleFrom(
                 backgroundColor: canLaunch
-                    ? const Color(0xFF198B64)
+                    ? GenesisColors.brand
                     : const Color(0xFFC8D9D1),
                 foregroundColor: Colors.white,
                 textStyle: const TextStyle(
