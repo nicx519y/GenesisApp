@@ -7084,15 +7084,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Email copied'), findsOneWidget);
     await tester.pump(const Duration(seconds: 2));
-    expect(find.text('Terms of Service'), findsOneWidget);
-    expect(find.text('Privacy Policy'), findsOneWidget);
+    final legalLinksFinder = _richTextFinder(
+      'Privacy Policy , Terms of Use and End User License Agreement',
+    );
+    expect(legalLinksFinder, findsOneWidget);
 
-    await tester.scrollUntilVisible(find.text('EULA'), 180);
-    await tester.drag(find.byType(ListView), const Offset(0, -80));
-    await tester.pumpAndSettle();
-    expect(find.text('EULA'), findsOneWidget);
-
-    await tester.tap(find.text('EULA'));
+    final eulaRecognizer = _recognizerForText(
+      tester.widget<Text>(legalLinksFinder).textSpan!,
+      'End User License Agreement',
+    );
+    eulaRecognizer.onTap?.call();
     await tester.pumpAndSettle();
 
     expect(find.text('End User License Agreement ("EULA")'), findsOneWidget);

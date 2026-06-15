@@ -6,6 +6,7 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../routers/app_router.dart';
+import '../../ui/tokens/genesis_colors.dart';
 import '../legal/legal_document_page.dart';
 
 class AboutUsPage extends StatelessWidget {
@@ -28,54 +29,43 @@ class AboutUsPage extends StatelessWidget {
       backgroundColor: Colors.white,
       appBar: const GenesisBackAppBar(pageName: 'About'),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 40, 20, 24),
+        child: Column(
           children: [
-            FutureBuilder<String>(
-              future: AppMetadataService.appName(),
-              builder: (context, snapshot) {
-                return _AboutBrandHeader(appName: snapshot.data ?? 'App');
-              },
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              _appVersion,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                height: 1.2,
-                fontWeight: FontWeight.w400,
-                color: Colors.black,
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 40, 20, 24),
+                children: [
+                  FutureBuilder<String>(
+                    future: AppMetadataService.appName(),
+                    builder: (context, snapshot) {
+                      return _AboutBrandHeader(appName: snapshot.data ?? 'App');
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    _appVersion,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.2,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 34),
+                  const _AboutDescription(),
+                ],
               ),
             ),
-            const SizedBox(height: 34),
-            const _AboutDescription(),
-            const SizedBox(height: 36),
-            _AboutLinkRow(
-              title: 'Terms of Service',
-              onTap: () => _openDocument(context, LegalDocument.terms),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: _AboutLegalLinks(),
             ),
-            const Divider(height: 1, color: Color(0xFFE7E7E7)),
-            _AboutLinkRow(
-              title: 'Privacy Policy',
-              onTap: () => _openDocument(context, LegalDocument.privacy),
-            ),
-            const Divider(height: 1, color: Color(0xFFE7E7E7)),
-            _AboutLinkRow(
-              title: 'EULA',
-              onTap: () => _openDocument(context, LegalDocument.eula),
-            ),
-            const Divider(height: 1, color: Color(0xFFE7E7E7)),
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
-  }
-
-  void _openDocument(BuildContext context, LegalDocument document) {
-    Navigator.of(
-      context,
-    ).pushNamed(RouteNames.legal, arguments: {'document': document.name});
   }
 }
 
@@ -194,33 +184,87 @@ class _AboutBrandHeader extends StatelessWidget {
   }
 }
 
-class _AboutLinkRow extends StatelessWidget {
-  const _AboutLinkRow({required this.title, required this.onTap});
+class _AboutLegalLinks extends StatefulWidget {
+  const _AboutLegalLinks();
 
-  final String title;
-  final VoidCallback onTap;
+  @override
+  State<_AboutLegalLinks> createState() => _AboutLegalLinksState();
+}
+
+class _AboutLegalLinksState extends State<_AboutLegalLinks> {
+  late final TapGestureRecognizer _privacyRecognizer;
+  late final TapGestureRecognizer _termsRecognizer;
+  late final TapGestureRecognizer _eulaRecognizer;
+
+  @override
+  void initState() {
+    super.initState();
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openDocument(LegalDocument.privacy);
+    _termsRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openDocument(LegalDocument.terms);
+    _eulaRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openDocument(LegalDocument.eula);
+  }
+
+  @override
+  void dispose() {
+    _privacyRecognizer.dispose();
+    _termsRecognizer.dispose();
+    _eulaRecognizer.dispose();
+    super.dispose();
+  }
+
+  void _openDocument(LegalDocument document) {
+    Navigator.of(
+      context,
+    ).pushNamed(RouteNames.legal, arguments: {'document': document.name});
+  }
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
+    const bodyStyle = TextStyle(
+      fontSize: 11,
+      height: 1.35,
+      color: Color(0xFF6F6F6F),
+      fontWeight: FontWeight.w400,
+    );
+    const linkStyle = TextStyle(
+      fontSize: 11,
+      height: 1.35,
+      color: GenesisColors.brand,
+      fontWeight: FontWeight.w500,
+    );
+
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Text.rich(
+        TextSpan(
+          style: bodyStyle,
           children: [
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.black,
-                ),
-              ),
+            TextSpan(
+              text: 'Privacy Policy',
+              style: linkStyle,
+              recognizer: _privacyRecognizer,
             ),
-            const Icon(Icons.chevron_right, size: 30, color: Color(0xFFB5B5B5)),
+            const TextSpan(text: ' , '),
+            TextSpan(
+              text: 'Terms of Use',
+              style: linkStyle,
+              recognizer: _termsRecognizer,
+            ),
+            const TextSpan(text: ' and '),
+            TextSpan(
+              text: 'End User License Agreement',
+              style: linkStyle,
+              recognizer: _eulaRecognizer,
+            ),
           ],
         ),
+        maxLines: 1,
+        softWrap: false,
+        textAlign: TextAlign.left,
       ),
     );
   }
