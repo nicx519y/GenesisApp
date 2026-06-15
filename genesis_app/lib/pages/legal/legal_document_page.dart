@@ -4,12 +4,9 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../components/page_header.dart';
 
 enum LegalDocument {
-  terms(title: 'Terms of Service', url: 'https://example.com/terms-of-service'),
-  privacy(title: 'Privacy Policy', url: 'https://example.com/privacy-policy'),
-  eula(
-    title: 'End User License Agreement',
-    url: 'https://example.com/end-user-license-agreement',
-  );
+  terms(title: 'Terms of Service', url: 'https://worldo.ai/terms/'),
+  privacy(title: 'Privacy Policy', url: 'https://worldo.ai/privacy/'),
+  eula(title: 'End User License Agreement', url: 'https://worldo.ai/eula/');
 
   const LegalDocument({required this.title, required this.url});
 
