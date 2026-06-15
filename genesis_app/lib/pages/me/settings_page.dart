@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
@@ -19,7 +20,7 @@ class _SettingsPageState extends State<SettingsPage> {
   static const int _developerUnlockTapCount = 10;
 
   int _blankTapCount = 0;
-  bool _showDeveloperPage = false;
+  bool _showDeveloperPage = !kReleaseMode;
 
   Future<void> _confirmLogout(BuildContext context) async {
     final confirmed = await showGenesisActionBox<bool>(
