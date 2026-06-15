@@ -98,6 +98,14 @@ class _OriginStoryEventsEditorPageState
     Navigator.of(context).pop(true);
   }
 
+  bool get _isEditMode => !widget.repository.supportsTempDrafts;
+
+  bool get _canUseSaveButton {
+    if (_isSaving) return false;
+    if (_isEditMode) return true;
+    return !_isFinalSynced;
+  }
+
   void _showError(String message) {
     showGenesisToast(context, message);
   }
@@ -169,7 +177,7 @@ class _OriginStoryEventsEditorPageState
                 minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
-                  onPressed: (_isSaving || _isFinalSynced) ? null : _saveEvents,
+                  onPressed: _canUseSaveButton ? _saveEvents : null,
                   backgroundColor: createFormGreen,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: const Color(0xFFBFD8CD),
@@ -190,6 +198,7 @@ class _SectionRow extends StatelessWidget {
     required this.summary,
     required this.completed,
     required this.onTap,
+    this.modified = false,
     this.showDivider = true,
   });
 
@@ -198,6 +207,7 @@ class _SectionRow extends StatelessWidget {
   final String summary;
   final bool completed;
   final VoidCallback onTap;
+  final bool modified;
   final bool showDivider;
 
   @override
@@ -256,6 +266,12 @@ class _SectionRow extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
+                          if (modified) ...[
+                            _ModifiedSectionBadge(
+                              key: ValueKey('section-modified-$title'),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
                           if (completed)
                             const Icon(
                               Icons.check_circle,
@@ -291,6 +307,24 @@ class _SectionRow extends StatelessWidget {
   }
 }
 
+class _ModifiedSectionBadge extends StatelessWidget {
+  const _ModifiedSectionBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 16,
+      height: 16,
+      decoration: const BoxDecoration(
+        color: Color(0xFFE53935),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: const Icon(Icons.priority_high, color: Colors.white, size: 12),
+    );
+  }
+}
+
 class _CharacterCard extends StatelessWidget {
   const _CharacterCard({
     required this.index,
@@ -321,6 +355,7 @@ class _LocationCard extends StatelessWidget {
     required this.characters,
     required this.onChanged,
     required this.onPickCharacters,
+    required this.onRemoveCharacter,
     required this.onDelete,
   });
 
@@ -329,6 +364,7 @@ class _LocationCard extends StatelessWidget {
   final List<CharacterDraft> characters;
   final VoidCallback onChanged;
   final VoidCallback onPickCharacters;
+  final ValueChanged<String> onRemoveCharacter;
   final VoidCallback onDelete;
 
   @override
@@ -379,6 +415,7 @@ class _LocationCard extends StatelessWidget {
             form: form,
             characters: characters,
             onPickCharacters: onPickCharacters,
+            onRemoveCharacter: onRemoveCharacter,
           ),
         ],
       ),
@@ -391,14 +428,18 @@ class _InitialCharactersField extends StatelessWidget {
     required this.form,
     required this.characters,
     required this.onPickCharacters,
+    required this.onRemoveCharacter,
   });
 
   final _LocationForm form;
   final List<CharacterDraft> characters;
   final VoidCallback onPickCharacters;
+  final ValueChanged<String> onRemoveCharacter;
 
   @override
   Widget build(BuildContext context) {
+    final selectedCharacters = _selectedCharacters;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -417,34 +458,86 @@ class _InitialCharactersField extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onPickCharacters,
           child: Container(
-            height: 54,
+            constraints: const BoxConstraints(minHeight: 54),
             decoration: BoxDecoration(
               color: createFormFieldFill,
               borderRadius: BorderRadius.circular(8),
             ),
-            padding: const EdgeInsets.only(left: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _selectedNames,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: _selectedNames.isEmpty
-                          ? createFormHint
-                          : createFormText,
-                      fontSize: 14,
-                      height: 1.2,
-                    ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final chipAreaWidth = constraints.maxWidth - 58;
+                final chipsWrap = _chipsWillWrap(
+                  context,
+                  selectedCharacters,
+                  chipAreaWidth <= 0 ? 0 : chipAreaWidth,
+                );
+                final contentPadding = chipsWrap
+                    ? const EdgeInsets.fromLTRB(12, 12, 4, 12)
+                    : const EdgeInsets.fromLTRB(12, 3, 4, 3);
+                return Padding(
+                  padding: contentPadding,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: selectedCharacters.isEmpty
+                            ? const SizedBox(
+                                height: 48,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Select initial characters',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: createFormHint,
+                                      fontSize: 14,
+                                      height: 1.2,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: chipsWrap ? 30 : 48,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Wrap(
+                                    spacing: 3,
+                                    runSpacing: 3,
+                                    children: [
+                                      for (final character
+                                          in selectedCharacters)
+                                        _InitialCharacterChip(
+                                          characterId: character.charId.trim(),
+                                          name: character.name.trim(),
+                                          onRemove: onRemoveCharacter,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        onPressed: onPickCharacters,
+                        icon: const Icon(
+                          Icons.add,
+                          color: createFormGreen,
+                          size: 32,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 38,
+                          height: 48,
+                        ),
+                        splashRadius: 22,
+                      ),
+                    ],
                   ),
-                ),
-                IconButton(
-                  onPressed: onPickCharacters,
-                  icon: const Icon(Icons.add, color: createFormGreen, size: 32),
-                  splashRadius: 22,
-                ),
-              ],
+                );
+              },
             ),
           ),
         ),
@@ -452,14 +545,100 @@ class _InitialCharactersField extends StatelessWidget {
     );
   }
 
-  String get _selectedNames {
-    final byId = {
-      for (final item in characters) item.charId.trim(): item.name.trim(),
-    };
+  bool _chipsWillWrap(
+    BuildContext context,
+    List<CharacterDraft> selectedCharacters,
+    double maxWidth,
+  ) {
+    if (selectedCharacters.length <= 1 || maxWidth <= 0) return false;
+    double lineWidth = 0;
+    for (final character in selectedCharacters) {
+      final chipWidth = _estimatedChipWidth(context, character.name.trim());
+      if (lineWidth == 0) {
+        lineWidth = chipWidth;
+      } else if (lineWidth + 3 + chipWidth > maxWidth) {
+        return true;
+      } else {
+        lineWidth += 3 + chipWidth;
+      }
+    }
+    return false;
+  }
+
+  double _estimatedChipWidth(BuildContext context, String name) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: name,
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+      ),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+    )..layout();
+    return (textPainter.width + 38).clamp(0.0, 180.0).toDouble();
+  }
+
+  List<CharacterDraft> get _selectedCharacters {
+    final byId = {for (final item in characters) item.charId.trim(): item};
     return form.selectedCharacterIds
-        .map((id) => byId[id] ?? '')
-        .where((name) => name.isNotEmpty)
-        .join(', ');
+        .map((id) => byId[id])
+        .whereType<CharacterDraft>()
+        .where((item) => item.name.trim().isNotEmpty)
+        .toList(growable: false);
+  }
+}
+
+class _InitialCharacterChip extends StatelessWidget {
+  const _InitialCharacterChip({
+    required this.characterId,
+    required this.name,
+    required this.onRemove,
+  });
+
+  final String characterId;
+  final String name;
+  final ValueChanged<String> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: ValueKey('initial-character-chip-$characterId'),
+      constraints: const BoxConstraints(maxWidth: 180),
+      height: 30,
+      padding: const EdgeInsets.only(left: 10, right: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFD9E5DF)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: createFormText,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            key: ValueKey('initial-character-chip-remove-$characterId'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onRemove(characterId),
+            child: const Padding(
+              padding: EdgeInsets.all(3),
+              child: Icon(Icons.close, size: 14, color: createFormMuted),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

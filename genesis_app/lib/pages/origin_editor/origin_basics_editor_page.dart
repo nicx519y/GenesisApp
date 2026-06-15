@@ -49,6 +49,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     _loadSimulationSettings(
       metricJson: draft.basics.metricJson,
       startedAt: draft.basics.startedAt,
+      tickDurationTime: draft.basics.tickDurationTime,
       tickDurationDays: draft.basics.tickDurationDays,
     );
     _isFinalSynced = draft.basicsSaved;
@@ -72,6 +73,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
         worldLogic: _worldLogicController.text.trim(),
         metricJson: _simulationSettingsJson(),
         startedAt: _worldStartTimeController.text.trim(),
+        tickDurationTime: _tickDurationTime(),
         tickDurationDays: _tickDurationDays(),
         coverImageUrl: _coverImageController.text.trim(),
       ),
@@ -126,6 +128,30 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     Navigator.of(context).pop(true);
   }
 
+  bool get _isEditMode => !widget.repository.supportsTempDrafts;
+
+  bool get _canSaveCurrentBasics {
+    if (_originNameController.text.trim().isEmpty ||
+        _worldViewController.text.trim().isEmpty ||
+        _coverImageController.text.trim().isEmpty) {
+      return false;
+    }
+    final metricJson = _simulationSettingsJson();
+    if (metricJson.trim().isEmpty) return true;
+    try {
+      jsonDecode(metricJson);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool get _canUseSaveButton {
+    if (_isSaving) return false;
+    if (_isEditMode) return _canSaveCurrentBasics;
+    return !_isFinalSynced;
+  }
+
   void _showError(String message) {
     showGenesisToast(context, message);
   }
@@ -133,13 +159,23 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
   void _loadSimulationSettings({
     required String metricJson,
     required String startedAt,
+    required String tickDurationTime,
     required int? tickDurationDays,
   }) {
     _worldStartTimeController.text = startedAt.trim();
-    if (tickDurationDays != null) {
-      _selectedTimeProgress = _timeProgressOptionForDays(tickDurationDays);
+    final durationText = tickDurationTime.trim();
+    if (durationText.isNotEmpty) {
+      _selectedTimeProgress = _timeProgressOptionForValue(durationText);
       if (_selectedTimeProgress.isEmpty) {
-        _timeProgressCustomController.text = '$tickDurationDays';
+        _timeProgressCustomController.text = durationText;
+      }
+    } else if (tickDurationDays != null) {
+      final legacyValue = tickDurationDays == 1
+          ? '1 day'
+          : '$tickDurationDays days';
+      _selectedTimeProgress = _timeProgressOptionForValue(legacyValue);
+      if (_selectedTimeProgress.isEmpty) {
+        _timeProgressCustomController.text = legacyValue;
       }
     }
 
@@ -154,7 +190,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
       _metricMode = decoded['mode']?.toString().trim().isNotEmpty == true
           ? decoded['mode'].toString().trim()
           : _metricMode;
-      if (tickDurationDays == null) {
+      if (durationText.isEmpty && tickDurationDays == null) {
         _selectedTimeProgress = decoded['time_per_progress']?.toString() ?? '';
         _timeProgressCustomController.text =
             decoded['time_per_progress_custom']?.toString() ?? '';
@@ -219,28 +255,62 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
   }
 
   int? _tickDurationDays() {
-    final selected = _selectedTimeProgress.trim();
-    if (selected.isNotEmpty) return _daysForTimeProgressOption(selected);
-    return int.tryParse(_timeProgressCustomController.text.trim());
+    final value = _tickDurationTime();
+    if (value == null) return null;
+    return _daysForTimeProgressValue(value);
   }
 
-  int _daysForTimeProgressOption(String option) {
-    return switch (option) {
-      'Half day' => 1,
+  String? _tickDurationTime() {
+    final selected = _selectedTimeProgress.trim();
+    if (selected.isNotEmpty) return selected;
+    final custom = _timeProgressCustomController.text.trim();
+    return custom.isEmpty ? null : custom;
+  }
+
+  int? _daysForTimeProgressValue(String value) {
+    final normalized = value.trim().toLowerCase();
+    return switch (normalized) {
       '1 day' => 1,
       '1 week' => 7,
-      '1 month' => 30,
-      _ => 0,
+      _ =>
+        normalized.endsWith('days') || normalized.endsWith('day')
+            ? int.tryParse(
+                RegExp(r'\d+').firstMatch(normalized)?.group(0) ?? '',
+              )
+            : int.tryParse(normalized),
     };
   }
 
-  String _timeProgressOptionForDays(int days) {
-    return switch (days) {
-      1 => '1 day',
-      7 => '1 week',
-      30 => '1 month',
+  String _timeProgressOptionForValue(String value) {
+    final normalized = value.trim().toLowerCase();
+    return switch (normalized) {
+      '6 hours' => '6 hours',
+      '12 hours' => '12 hours',
+      '1 day' => '1 day',
+      '1 week' => '1 week',
       _ => '',
     };
+  }
+
+  void _selectTimeProgress(String value) {
+    setState(() {
+      if (_selectedTimeProgress == value) {
+        _selectedTimeProgress = '';
+      } else {
+        _selectedTimeProgress = value;
+        _timeProgressCustomController.clear();
+      }
+      _isFinalSynced = false;
+    });
+  }
+
+  void _handleTimeProgressCustomChanged(String value) {
+    setState(() {
+      if (value.trim().isNotEmpty) {
+        _selectedTimeProgress = '';
+      }
+      _isFinalSynced = false;
+    });
   }
 
   Object _numericSetting(String text) {
@@ -397,18 +467,15 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                       const SizedBox(height: 10),
                       _TimeProgressPicker(
                         selected: _selectedTimeProgress,
-                        onSelected: (value) {
-                          setState(() => _selectedTimeProgress = value);
-                          _onFormChanged();
-                        },
+                        onSelected: _selectTimeProgress,
                       ),
                       const SizedBox(height: 10),
                       CreateTextFieldBlock(
                         label: '',
                         controller: _timeProgressCustomController,
-                        hintText: 'Custom days, e.g. 14',
+                        hintText: 'Custom, e.g. 3 days',
                         maxLines: 1,
-                        onChanged: (_) => _onFormChanged(),
+                        onChanged: _handleTimeProgressCustomChanged,
                       ),
                       const SizedBox(height: 18),
                       const _SimulationFieldLabel('Progress Metric'),
@@ -482,7 +549,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                 minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
-                  onPressed: (_isSaving || _isFinalSynced) ? null : _onSave,
+                  onPressed: _canUseSaveButton ? _onSave : null,
                   backgroundColor: createFormGreen,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: const Color(0xFFBFD8CD),
@@ -540,10 +607,10 @@ class _TimeProgressPicker extends StatelessWidget {
   const _TimeProgressPicker({required this.selected, required this.onSelected});
 
   static const List<String> _options = <String>[
-    'Half day',
+    '6 hours',
+    '12 hours',
     '1 day',
     '1 week',
-    '1 month',
   ];
 
   final String selected;
@@ -585,6 +652,7 @@ class _TimeProgressOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
+      key: ValueKey('time-progress-option-$label'),
       color: selected ? const Color(0xFFE0EEE8) : createFormFieldFill,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(

@@ -139,6 +139,26 @@ class _OriginCharactersEditorPageState
     Navigator.of(context).pop(true);
   }
 
+  bool get _isEditMode => !widget.repository.supportsTempDrafts;
+
+  bool get _canSaveCurrentCharacters {
+    for (final form in _forms) {
+      if (!form.hasContent) continue;
+      if (form.name.text.trim().isEmpty ||
+          form.identity.text.trim().isEmpty ||
+          form.personality.text.trim().isEmpty) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool get _canUseSaveButton {
+    if (_isSaving) return false;
+    if (_isEditMode) return _canSaveCurrentCharacters;
+    return !_isFinalSynced;
+  }
+
   void _showError(String message) {
     showGenesisToast(context, message);
   }
@@ -230,9 +250,7 @@ class _OriginCharactersEditorPageState
                 minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
-                  onPressed: (_isSaving || _isFinalSynced)
-                      ? null
-                      : _saveCharacters,
+                  onPressed: _canUseSaveButton ? _saveCharacters : null,
                   backgroundColor: createFormGreen,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: const Color(0xFFBFD8CD),

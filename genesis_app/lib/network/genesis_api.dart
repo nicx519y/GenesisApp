@@ -842,7 +842,7 @@ class GenesisApi {
       tags: _createOriginStringList(payload['tags']),
       metric: payload['metric'] is Map ? asJsonMap(payload['metric']) : null,
       startedAt: _createOriginOptionalString(payload['started_at']),
-      tickDurationDays: _createOriginOptionalInt(payload['tick_duration_days']),
+      tickDurationTime: _createOriginTickDurationTime(payload),
       cover: asString(payload['cover']),
       mapUrl: asString(
         payload['map_url'],
@@ -874,14 +874,14 @@ class GenesisApi {
     final updated = await v1.origin.update(
       originId: asString(payload['origin_id'], fallback: oid),
       originName: asString(payload['name']),
-      originVersion: null,
+      originVersion: _createOriginOptionalString(payload['origin_version']),
       brief: asString(payload['world_view']),
       setting: asString(payload['world_setting']),
       events: events.isEmpty ? null : events,
       tags: _createOriginStringList(payload['tags']),
       metric: payload['metric'] is Map ? asJsonMap(payload['metric']) : null,
       startedAt: _createOriginOptionalString(payload['started_at']),
-      tickDurationDays: _createOriginOptionalInt(payload['tick_duration_days']),
+      tickDurationTime: _createOriginTickDurationTime(payload),
       cover: asString(payload['cover']),
       mapUrl: asString(
         payload['map_url'],
@@ -895,6 +895,7 @@ class GenesisApi {
       deletedLocationIds:
           _createOriginStringList(payload['deleted_location_ids']) ??
           const <String>[],
+      updateNotes: _createOriginOptionalString(payload['update_notes']),
     );
     final detail = updated['info'] is Map
         ? asJsonMap(updated['info'])
@@ -1036,6 +1037,14 @@ int? _createOriginOptionalInt(Object? raw) {
   if (raw == null) return null;
   if (raw is String && raw.trim().isEmpty) return null;
   return asInt(raw);
+}
+
+String? _createOriginTickDurationTime(Map<String, dynamic> payload) {
+  final value = _createOriginOptionalString(payload['tick_duration_time']);
+  if (value != null) return value;
+  final days = _createOriginOptionalInt(payload['tick_duration_days']);
+  if (days == null) return null;
+  return days == 1 ? '1 day' : '$days days';
 }
 
 List<Map<String, dynamic>> _createOriginCharacters(

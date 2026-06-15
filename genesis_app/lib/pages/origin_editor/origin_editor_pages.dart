@@ -132,14 +132,9 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
   Future<bool> _submit() async {
     final latest = await widget.repository.loadSummaryDraft();
     if (!mounted) return false;
-    final errors = latest.validateForSubmit();
-    if (errors.isNotEmpty) {
-      _showError(errors.first);
-      setState(() => _draft = latest);
-      return false;
-    }
-    if (!(widget.canSubmit?.call(latest) ?? true)) {
-      _showError(widget.submitUnavailableMessage);
+    final blockReason = _submitBlockReason(latest);
+    if (blockReason != null) {
+      _showError(blockReason);
       setState(() => _draft = latest);
       return false;
     }
@@ -181,6 +176,15 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
 
   void _showError(String message) {
     showGenesisToast(context, message);
+  }
+
+  String? _submitBlockReason(CreateOriginDraft draft) {
+    final errors = draft.validateForSubmit();
+    if (errors.isNotEmpty) return errors.first;
+    if (!(widget.canSubmit?.call(draft) ?? true)) {
+      return widget.submitUnavailableMessage;
+    }
+    return null;
   }
 
   Future<void> _handleLeaveRequest() async {
@@ -274,6 +278,10 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    const submitColor = Color(0xFF198B64);
+    const disabledSubmitColor = Color(0xFFBFD8CD);
+    final submitBlocked = _submitBlockReason(_draft) != null;
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -300,6 +308,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                         title: 'Basics',
                         summary: _basicsSummary(_draft),
                         completed: _draft.basicsSaved,
+                        modified: _basicsModified(_draft),
                         onTap: () => _openSection(
                           widget.basicsPageBuilder(widget.repository),
                         ),
@@ -309,6 +318,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                         title: 'Characters',
                         summary: _charactersSummary(_draft),
                         completed: _draft.charactersSaved,
+                        modified: _charactersModified(_draft),
                         onTap: () => _openSection(
                           widget.charactersPageBuilder(widget.repository),
                         ),
@@ -318,6 +328,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                         title: 'Locations',
                         summary: _locationsSummary(_draft),
                         completed: _draft.locationsSaved,
+                        modified: _locationsModified(_draft),
                         onTap: () => _openSection(
                           widget.locationsPageBuilder(widget.repository),
                         ),
@@ -327,6 +338,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                         title: 'Story Events (Optional)',
                         summary: _storyEventsSummary(_draft),
                         completed: _draft.storyEventsSaved,
+                        modified: _storyEventsModified(_draft),
                         showDivider: false,
                         onTap: () => _openSection(
                           widget.storyEventsPageBuilder(widget.repository),
@@ -345,9 +357,9 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
           child: GenesisPrimaryButton(
             label: _isSubmitting ? widget.submittingLabel : widget.submitLabel,
             onPressed: _isSubmitting ? null : () => unawaited(_submit()),
-            backgroundColor: const Color(0xFF198B64),
+            backgroundColor: submitBlocked ? disabledSubmitColor : submitColor,
             foregroundColor: Colors.white,
-            disabledBackgroundColor: const Color(0xFFBFD8CD),
+            disabledBackgroundColor: disabledSubmitColor,
             disabledForegroundColor: Colors.white,
           ),
         ),
@@ -416,5 +428,29 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     if (trimmed.isEmpty) return '-';
     if (trimmed.length <= maxLength) return trimmed;
     return '${trimmed.substring(0, maxLength)}...';
+  }
+
+  bool _basicsModified(CreateOriginDraft draft) {
+    final repository = widget.repository;
+    return repository is MemoryOriginDraftRepository &&
+        repository.basicsChanged(draft);
+  }
+
+  bool _charactersModified(CreateOriginDraft draft) {
+    final repository = widget.repository;
+    return repository is MemoryOriginDraftRepository &&
+        repository.charactersChanged(draft);
+  }
+
+  bool _locationsModified(CreateOriginDraft draft) {
+    final repository = widget.repository;
+    return repository is MemoryOriginDraftRepository &&
+        repository.locationsChanged(draft);
+  }
+
+  bool _storyEventsModified(CreateOriginDraft draft) {
+    final repository = widget.repository;
+    return repository is MemoryOriginDraftRepository &&
+        repository.storyEventsChanged(draft);
   }
 }

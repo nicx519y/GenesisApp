@@ -83,6 +83,16 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     setState(() => _isFinalSynced = false);
   }
 
+  void _removeCharacterFromLocation(int locationIndex, String charId) {
+    setState(() {
+      _forms[locationIndex].selectedCharacterIds = _forms[locationIndex]
+          .selectedCharacterIds
+          .where((item) => item != charId)
+          .toList(growable: true);
+    });
+    _onFormChanged();
+  }
+
   List<LocationDraft> _snapshotLocations() {
     final validCharacterIds = _finalCharacters
         .map((item) => item.charId.trim())
@@ -183,6 +193,22 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     Navigator.of(context).pop(true);
   }
 
+  bool get _isEditMode => !widget.repository.supportsTempDrafts;
+
+  bool get _canSaveCurrentLocations {
+    for (final form in _forms) {
+      if (!form.hasContent) continue;
+      if (form.name.text.trim().isEmpty) return false;
+    }
+    return true;
+  }
+
+  bool get _canUseSaveButton {
+    if (_isSaving) return false;
+    if (_isEditMode) return _canSaveCurrentLocations;
+    return !_isFinalSynced;
+  }
+
   void _showError(String message) {
     showGenesisToast(context, message);
   }
@@ -239,6 +265,8 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                           characters: _finalCharacters,
                           onChanged: _onFormChanged,
                           onPickCharacters: () => _openCharacterPicker(i),
+                          onRemoveCharacter: (charId) =>
+                              _removeCharacterFromLocation(i, charId),
                           onDelete: () {
                             _requestRemoveLocation(i);
                           },
@@ -259,9 +287,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                 minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
-                  onPressed: (_isSaving || _isFinalSynced)
-                      ? null
-                      : _saveLocations,
+                  onPressed: _canUseSaveButton ? _saveLocations : null,
                   backgroundColor: createFormGreen,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: const Color(0xFFBFD8CD),
