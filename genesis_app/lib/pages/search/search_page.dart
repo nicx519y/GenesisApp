@@ -2,18 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/copyable_id_label.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/search_bar.dart';
 import '../../icons/custom_icon_assets.dart';
-import '../../icons/my_flutter_app_icons.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/secend_tabs.dart';
+import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -700,7 +701,7 @@ class _SearchResultListState extends State<_SearchResultList>
     return ListView.builder(
       controller: _scrollController,
       primary: false,
-      cacheExtent: 900,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(900),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
@@ -809,6 +810,19 @@ class _SearchResultTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUser = item.tab == _SearchTab.user;
+    final titleStyle = isUser
+        ? const TextStyle(
+            color: Color(0xFF4B6192),
+            fontSize: 14,
+            height: 1.1,
+            fontWeight: FontWeight.w600,
+          )
+        : const TextStyle(
+            color: Color(0xFF4B6192),
+            fontSize: 14,
+            height: 1.1,
+            fontWeight: FontWeight.w600,
+          );
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -827,12 +841,7 @@ class _SearchResultTile extends StatelessWidget {
                     item.displayTitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF486284),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
-                    ),
+                    style: titleStyle,
                   ),
                   const SizedBox(height: 9),
                   if (isUser)
@@ -880,7 +889,7 @@ class _ResultThumb extends StatelessWidget {
         url: item.coverImage,
         name: item.title,
         size: size,
-        borderRadius: 5,
+        borderRadius: GenesisAvatarRadii.user,
       );
     }
     return GenesisListImage(
@@ -900,23 +909,29 @@ class _ResultStats extends StatelessWidget {
   Widget build(BuildContext context) {
     final stats = item.tab == _SearchTab.origin
         ? [
-            _StatData(icon: MyFlutterApp.save, value: item.copyCount),
-            _StatData(iconAsset: connectIconAsset, value: item.connectCount),
+            _StatData(iconAsset: copyStatIconAsset, value: item.copyCount),
             _StatData(
-              iconAsset: aiCharacterIconAsset,
+              iconAsset: connectStatIconAsset,
+              value: item.connectCount,
+            ),
+            _StatData(
+              iconAsset: characterStatIconAsset,
               preserveIconAssetColor: true,
               value: item.playerCount,
             ),
           ]
         : [
-            _StatData(iconAsset: playIconAsset, value: item.tickCount),
-            _StatData(iconAsset: connectIconAsset, value: item.connectCount),
+            _StatData(iconAsset: tickStatIconAsset, value: item.tickCount),
             _StatData(
-              iconAsset: aiCharacterIconAsset,
+              iconAsset: connectStatIconAsset,
+              value: item.connectCount,
+            ),
+            _StatData(
+              iconAsset: characterStatIconAsset,
               preserveIconAssetColor: true,
               value: item.playerCount,
             ),
-            _StatData(icon: MyFlutterApp.user, value: item.memberCount),
+            _StatData(iconAsset: userStatIconAsset, value: item.memberCount),
           ];
 
     return Wrap(

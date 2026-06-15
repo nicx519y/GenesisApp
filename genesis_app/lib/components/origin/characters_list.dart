@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../icons/my_flutter_app_icons.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
 class CharactersList extends StatelessWidget {
@@ -99,7 +100,7 @@ class _CharacterTile extends StatelessWidget {
       name: name,
       width: 86,
       height: 86,
-      borderRadius: 6,
+      borderRadius: GenesisAvatarRadii.character,
     );
 
     return Row(
@@ -108,7 +109,7 @@ class _CharacterTile extends StatelessWidget {
         SizedBox(
           width: 86,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(GenesisAvatarRadii.character),
             child: url.isEmpty
                 ? fallback
                 : url.startsWith('assets/')

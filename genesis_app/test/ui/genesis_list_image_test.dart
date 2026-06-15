@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_image_radii.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 
 void main() {
@@ -17,6 +18,21 @@ void main() {
     );
 
     expect(_defaultListImage(), findsOneWidget);
+  });
+
+  testWidgets('GenesisListImage uses shared content image radius by default', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: GenesisListImage(imageUrl: '', width: 52, height: 52),
+        ),
+      ),
+    );
+
+    final clip = tester.widget<ClipRRect>(find.byType(ClipRRect));
+    expect(clip.borderRadius, GenesisImageRadii.content);
   });
 
   testWidgets('GenesisListImage chooses the smallest sharp image candidate', (

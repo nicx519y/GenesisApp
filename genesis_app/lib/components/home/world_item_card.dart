@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../components/origin/stat_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../components/common/genesis_timestamp_text.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -149,7 +151,7 @@ class WorldItemCard extends StatelessWidget {
   const WorldItemCard({
     super.key,
     required this.item,
-    this.thumbnailBorderRadius = 8,
+    this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
     this.showPreviewImages = true,
   });
 
@@ -213,7 +215,7 @@ class _WorldSummary extends StatelessWidget {
             color: Color(0xFF4B6192),
             fontSize: 14,
             height: 1.1,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 4),
@@ -263,7 +265,7 @@ class _WorldPreviewImages extends StatelessWidget {
               child: _WorldImage(
                 imageUrl: entry.$2,
                 height: 120,
-                borderRadius: 8,
+                borderRadius: GenesisImageRadii.contentValue,
               ),
             ),
             if (entry.$1 != previewImages.length - 1) const SizedBox(width: 10),
@@ -286,14 +288,14 @@ class _WorldStatsRow extends StatelessWidget {
       runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        _Stat(iconAsset: playIconAsset, value: item.tickCnt),
-        _Stat(iconAsset: connectIconAsset, value: item.connectCnt),
+        _Stat(iconAsset: tickStatIconAsset, value: item.tickCnt),
+        _Stat(iconAsset: connectStatIconAsset, value: item.connectCnt),
         _Stat(
-          iconAsset: aiCharacterIconAsset,
+          iconAsset: characterStatIconAsset,
           preserveIconAssetColor: true,
           value: item.aiCharacterCnt,
         ),
-        _Stat(icon: MyFlutterApp.user, value: item.playerCnt),
+        _Stat(iconAsset: userStatIconAsset, value: item.playerCnt),
       ],
     );
   }
@@ -301,52 +303,30 @@ class _WorldStatsRow extends StatelessWidget {
 
 class _Stat extends StatelessWidget {
   const _Stat({
-    this.icon,
-    this.iconAsset,
+    required this.iconAsset,
     this.preserveIconAssetColor = false,
     required this.value,
-  }) : assert(icon != null || iconAsset != null);
+  });
 
-  final IconData? icon;
-  final String? iconAsset;
+  final String iconAsset;
   final bool preserveIconAssetColor;
   final int value;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (iconAsset case final asset?)
-          preserveIconAssetColor
-              ? Transform.translate(
-                  offset: const Offset(0, -0.8),
-                  child: Image.asset(
-                    asset,
-                    width: customIconAssetRenderSize(asset, 13.75),
-                    height: customIconAssetRenderSize(asset, 13.75),
-                    fit: BoxFit.contain,
-                    excludeFromSemantics: true,
-                  ),
-                )
-              : ImageIcon(
-                  AssetImage(asset),
-                  size: customIconAssetRenderSize(asset, 11),
-                  color: Colors.black,
-                )
-        else
-          Icon(icon, size: 11, color: Colors.black),
-        const SizedBox(width: 4),
-        Text(
-          formatStatCount(value),
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 12,
-            height: 1,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-      ],
+    return StatItem(
+      iconAsset: iconAsset,
+      preserveIconAssetColor: preserveIconAssetColor,
+      iconSize: 11,
+      iconColor: Colors.black,
+      gap: 4,
+      text: formatStatCount(value),
+      textStyle: const TextStyle(
+        color: Colors.black,
+        fontSize: 12,
+        height: 1,
+        fontWeight: FontWeight.w400,
+      ),
     );
   }
 }

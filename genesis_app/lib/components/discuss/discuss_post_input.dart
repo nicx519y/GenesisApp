@@ -10,6 +10,7 @@ import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_upload_progress_overlay.dart';
 import '../../platform/native_image_picker.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/image_upload_processing.dart';
 
@@ -203,22 +204,24 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
       minLines: 1,
       maxLines: 3,
       style: const TextStyle(
-        fontSize: 12,
+        fontSize: 14,
         height: 1.2,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0,
         color: Color(0xFF1D1D1D),
       ),
       decoration: InputDecoration(
         hintText: widget.placeholder,
         hintStyle: const TextStyle(
-          fontSize: 12,
+          fontSize: 14,
           height: 1.2,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF9A9A9A),
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0,
+          color: Color(0xFF888888),
         ),
         isDense: true,
         filled: true,
-        fillColor: const Color(0xFFF4F4F4),
+        fillColor: const Color(0xFFF2F2F2),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
           vertical: 14,
@@ -806,7 +809,7 @@ class _DiscussImageTile extends StatelessWidget {
             left: 0,
             bottom: 0,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: GenesisImageRadii.content,
               child: SizedBox(
                 key: ValueKey('discuss-image-thumb-${attachment.id}'),
                 width: size,

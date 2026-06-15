@@ -2,9 +2,10 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/common/copyable_id_label.dart';
+import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
@@ -28,93 +29,14 @@ import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_page.dart';
-
-final SystemUiOverlayStyle _originDetailStatusBarStyle = SystemUiOverlayStyle
-    .light
-    .copyWith(statusBarColor: Colors.transparent);
-final SystemUiOverlayStyle _originDetailScrolledStatusBarStyle =
-    SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent);
-
-Widget _withOriginDetailStatusBar(
-  Widget child, {
-  required double? switchOffset,
-}) {
-  return _OriginDetailStatusBarRegion(switchOffset: switchOffset, child: child);
-}
-
-double _originDetailStatusBarSwitchOffset(
-  BuildContext context, {
-  required double panelTopGap,
-  required double panelCollapsedHeightOffset,
-}) {
-  final viewportHeight = MediaQuery.sizeOf(context).height;
-  final topPadding = MediaQuery.paddingOf(context).top;
-  final mapHeight =
-      (viewportHeight * (1 - WorldDetailsPanel.defaultExposedChildSize) +
-              panelCollapsedHeightOffset)
-          .clamp(0.0, (viewportHeight - panelTopGap).clamp(0.0, viewportHeight))
-          .toDouble();
-  return (mapHeight - topPadding).clamp(0.0, mapHeight).toDouble();
-}
-
-class _OriginDetailStatusBarRegion extends StatefulWidget {
-  const _OriginDetailStatusBarRegion({
-    required this.switchOffset,
-    required this.child,
-  });
-
-  final double? switchOffset;
-  final Widget child;
-
-  @override
-  State<_OriginDetailStatusBarRegion> createState() =>
-      _OriginDetailStatusBarRegionState();
-}
-
-class _OriginDetailStatusBarRegionState
-    extends State<_OriginDetailStatusBarRegion> {
-  var _scrolledPastMap = false;
-
-  @override
-  void didUpdateWidget(covariant _OriginDetailStatusBarRegion oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.switchOffset == null && _scrolledPastMap) {
-      _scrolledPastMap = false;
-    }
-  }
-
-  bool _handleScrollNotification(ScrollNotification notification) {
-    final switchOffset = widget.switchOffset;
-    if (switchOffset == null) return false;
-    final next = notification.metrics.pixels >= switchOffset;
-    if (next != _scrolledPastMap) {
-      setState(() => _scrolledPastMap = next);
-    }
-    return false;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final style = widget.switchOffset == null
-        ? _originDetailScrolledStatusBarStyle
-        : _scrolledPastMap
-        ? _originDetailScrolledStatusBarStyle
-        : _originDetailStatusBarStyle;
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: style,
-      child: NotificationListener<ScrollNotification>(
-        onNotification: _handleScrollNotification,
-        child: widget.child,
-      ),
-    );
-  }
-}
 
 class OriginWorldPage extends StatefulWidget {
   const OriginWorldPage({super.key, required this.oid, required this.originId});
@@ -172,7 +94,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   @override
   void dispose() {
-    SystemChrome.setSystemUIOverlayStyle(_originDetailScrolledStatusBarStyle);
     _discussController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -406,184 +327,176 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.paddingOf(context).top;
-    final statusBarSwitchOffset = _originDetailStatusBarSwitchOffset(
-      context,
-      panelTopGap: 50,
-      panelCollapsedHeightOffset: 100,
-    );
-    return _withOriginDetailStatusBar(
-      FutureBuilder<OriginDetail>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return WorldDetailsPageScaffold(
-              panelTopGap: 50,
-              panelCollapsedHeightOffset: 100,
-              persistentTopOverlay: _buildPersistentMapTabs(0, topPadding + 8),
-              map: WorldMapStage(
-                controller: _tabController,
-                pointsCount: 0,
-                top: topPadding + 8,
-                showTopOverlay: false,
-                mapBuilder: (context, pointMode) => WorldMap(
-                  points: const <WorldPoint>[],
-                  listPoints: const <WorldPoint>[],
-                  locationNodes: const <WorldMapLocationNode>[],
-                  fallbackOnEmptyMapUrl: false,
-                  dimmed: pointMode,
-                  showPointsList: pointMode,
-                  overlayTop: topPadding + 8 + 48,
-                  drillExitTop: topPadding + 68,
-                ),
+    return FutureBuilder<OriginDetail>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return WorldDetailsPageScaffold(
+            panelTopGap: 50,
+            panelCollapsedHeightOffset: 100,
+            persistentTopOverlay: _buildPersistentMapTabs(0, topPadding + 8),
+            map: WorldMapStage(
+              controller: _tabController,
+              pointsCount: 0,
+              top: topPadding + 8,
+              showTopOverlay: false,
+              mapBuilder: (context, pointMode) => WorldMap(
+                points: const <WorldPoint>[],
+                listPoints: const <WorldPoint>[],
+                locationNodes: const <WorldMapLocationNode>[],
+                fallbackOnEmptyMapUrl: false,
+                dimmed: pointMode,
+                showPointsList: pointMode,
+                overlayTop: topPadding + 8 + 48,
+                drillExitTop: topPadding + 68,
               ),
-              slivers: const [_OriginDetailsLoadingContent()],
-              bottomBar: const _OriginBottomLaunchBarSkeleton(),
-            );
-          }
-
-          if (snapshot.hasError) {
-            return Scaffold(
-              body: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('Load failed'),
-                    const SizedBox(height: 10),
-                    FilledButton(
-                      onPressed: () => setState(() {
-                        _future = _loadOriginDetail();
-                      }),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          final origin = snapshot.data;
-          if (origin == null) {
-            return const Scaffold(body: Center(child: Text('No data')));
-          }
-
-          final processedLocationTree = origin.processedLocationTree;
-          final rootLocationNodes = processedLocationTree.mapRoots;
-          final mapImageUrl = _originRootMapImageUrl(rootLocationNodes);
-          final renderLocationNodes = processedLocationTree.renderRoots;
-          final allLocationNodes = processedLocationTree.flattened;
-          final avatarsByLocation = _originAvatarsByLocation(
-            origin.characters,
-            origin.locations,
+            ),
+            slivers: const [_OriginDetailsLoadingContent()],
+            bottomBar: const _OriginBottomLaunchBarSkeleton(),
           );
-          final locationNodes = _originMapLocationNodes(
-            rootLocationNodes,
-            avatarsByLocation,
-            processedLocationTree,
-          );
-          final points = renderLocationNodes.isNotEmpty
-              ? _pointsFromLocations(
-                  renderLocationNodes
-                      .map((node) => node.value)
-                      .toList(growable: false),
-                  avatarsByLocation,
-                  depths: renderLocationNodes
-                      .map((node) => node.depth)
-                      .toList(growable: false),
-                  isLeafLocations: renderLocationNodes
-                      .map((node) => node.children.isEmpty)
-                      .toList(growable: false),
-                  usersByIndex: renderLocationNodes
-                      .map(
-                        (node) =>
-                            processedLocationTree.aggregateValues<UserAvatar>(
-                              node.id,
-                              avatarsByLocation,
-                              idOf: _userAvatarStableId,
-                            ),
-                      )
-                      .toList(growable: false),
-                )
-              : _pointsFromLocations(
-                  _rootOriginLocations(origin.locations),
-                  avatarsByLocation,
-                );
-          final listPoints = allLocationNodes.isNotEmpty
-              ? _pointsFromLocations(
-                  allLocationNodes
-                      .map((node) => node.value)
-                      .toList(growable: false),
-                  avatarsByLocation,
-                  depths: allLocationNodes
-                      .map((node) => node.depth)
-                      .toList(growable: false),
-                  isLeafLocations: allLocationNodes
-                      .map((node) => node.children.isEmpty)
-                      .toList(growable: false),
-                  usersByIndex: allLocationNodes
-                      .map(
-                        (node) =>
-                            processedLocationTree.aggregateValues<UserAvatar>(
-                              node.id,
-                              avatarsByLocation,
-                              idOf: _userAvatarStableId,
-                            ),
-                      )
-                      .toList(growable: false),
-                )
-              : origin.locations.isNotEmpty
-              ? _pointsFromLocations(origin.locations, avatarsByLocation)
-              : points;
+        }
 
-          return PopScope(
-            canPop: _activeChatLocation == null,
-            onPopInvokedWithResult: (didPop, result) {
-              if (didPop) return;
-              _handleOriginPopBlocked();
-            },
-            child: WorldDetailsPageScaffold(
-              panelTopGap: 50,
-              panelCollapsedHeightOffset: 100,
-              topOverlay: _buildLocationChatOverlay(origin),
-              persistentTopOverlay: _buildPersistentMapTabs(
-                listPoints.length,
-                topPadding + 8,
-              ),
-              map: WorldMapStage(
-                controller: _tabController,
-                pointsCount: listPoints.length,
-                top: topPadding + 8,
-                showTopOverlay: false,
-                mapBuilder: (context, pointMode) => WorldMap(
-                  points: points,
-                  listPoints: listPoints,
-                  locationNodes: locationNodes,
-                  mapImageUrl: mapImageUrl,
-                  dimmed: pointMode,
-                  showPointsList: pointMode,
-                  overlayTop: topPadding + 8 + 48,
-                  drillExitTop: topPadding + 68,
-                  onDrillIntoLocation: _showMapTab,
-                  onPointTap: (point) => _openChatForPoint(origin, point),
-                ),
-              ),
-              slivers: [
-                _WorldDetailsContent(
-                  origin: origin,
-                  currentUid: _currentUid,
-                  discussController: _discussController,
-                  onOriginChanged: _refreshOriginDetail,
-                ),
-              ],
-              bottomBar: _OriginBottomLaunchBar(
-                origin: origin,
-                launching: _launching,
-                onLaunch: () => _showLaunchRoleSheet(origin),
+        if (snapshot.hasError) {
+          return Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Load failed'),
+                  const SizedBox(height: 10),
+                  FilledButton(
+                    onPressed: () => setState(() {
+                      _future = _loadOriginDetail();
+                    }),
+                    child: const Text('Retry'),
+                  ),
+                ],
               ),
             ),
           );
-        },
-      ),
-      switchOffset: statusBarSwitchOffset,
+        }
+
+        final origin = snapshot.data;
+        if (origin == null) {
+          return const Scaffold(body: Center(child: Text('No data')));
+        }
+
+        final processedLocationTree = origin.processedLocationTree;
+        final rootLocationNodes = processedLocationTree.mapRoots;
+        final mapImageUrl = _originRootMapImageUrl(rootLocationNodes);
+        final renderLocationNodes = processedLocationTree.renderRoots;
+        final allLocationNodes = processedLocationTree.flattened;
+        final avatarsByLocation = _originAvatarsByLocation(
+          origin.characters,
+          origin.locations,
+        );
+        final locationNodes = _originMapLocationNodes(
+          rootLocationNodes,
+          avatarsByLocation,
+          processedLocationTree,
+        );
+        final points = renderLocationNodes.isNotEmpty
+            ? _pointsFromLocations(
+                renderLocationNodes
+                    .map((node) => node.value)
+                    .toList(growable: false),
+                avatarsByLocation,
+                depths: renderLocationNodes
+                    .map((node) => node.depth)
+                    .toList(growable: false),
+                isLeafLocations: renderLocationNodes
+                    .map((node) => node.children.isEmpty)
+                    .toList(growable: false),
+                usersByIndex: renderLocationNodes
+                    .map(
+                      (node) =>
+                          processedLocationTree.aggregateValues<UserAvatar>(
+                            node.id,
+                            avatarsByLocation,
+                            idOf: _userAvatarStableId,
+                          ),
+                    )
+                    .toList(growable: false),
+              )
+            : _pointsFromLocations(
+                _rootOriginLocations(origin.locations),
+                avatarsByLocation,
+              );
+        final listPoints = allLocationNodes.isNotEmpty
+            ? _pointsFromLocations(
+                allLocationNodes
+                    .map((node) => node.value)
+                    .toList(growable: false),
+                avatarsByLocation,
+                depths: allLocationNodes
+                    .map((node) => node.depth)
+                    .toList(growable: false),
+                isLeafLocations: allLocationNodes
+                    .map((node) => node.children.isEmpty)
+                    .toList(growable: false),
+                usersByIndex: allLocationNodes
+                    .map(
+                      (node) =>
+                          processedLocationTree.aggregateValues<UserAvatar>(
+                            node.id,
+                            avatarsByLocation,
+                            idOf: _userAvatarStableId,
+                          ),
+                    )
+                    .toList(growable: false),
+              )
+            : origin.locations.isNotEmpty
+            ? _pointsFromLocations(origin.locations, avatarsByLocation)
+            : points;
+
+        return PopScope(
+          canPop: _activeChatLocation == null,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            _handleOriginPopBlocked();
+          },
+          child: WorldDetailsPageScaffold(
+            panelTopGap: 50,
+            panelCollapsedHeightOffset: 60,
+            topOverlay: _buildLocationChatOverlay(origin),
+            persistentTopOverlay: _buildPersistentMapTabs(
+              listPoints.length,
+              topPadding + 8,
+            ),
+            map: WorldMapStage(
+              controller: _tabController,
+              pointsCount: listPoints.length,
+              top: topPadding + 8,
+              showTopOverlay: false,
+              mapBuilder: (context, pointMode) => WorldMap(
+                points: points,
+                listPoints: listPoints,
+                locationNodes: locationNodes,
+                mapImageUrl: mapImageUrl,
+                dimmed: pointMode,
+                showPointsList: pointMode,
+                overlayTop: topPadding + 8 + 48,
+                drillExitTop: topPadding + 68,
+                onDrillIntoLocation: _showMapTab,
+                onPointTap: (point) => _openChatForPoint(origin, point),
+              ),
+            ),
+            slivers: [
+              _WorldDetailsContent(
+                origin: origin,
+                currentUid: _currentUid,
+                discussController: _discussController,
+                onOriginChanged: _refreshOriginDetail,
+              ),
+            ],
+            bottomBar: _OriginBottomLaunchBar(
+              origin: origin,
+              launching: _launching,
+              onLaunch: () => _showLaunchRoleSheet(origin),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -880,16 +793,21 @@ class _WorldDetailsContent extends StatelessWidget {
           currentUid: currentUid,
           onOriginChanged: onOriginChanged,
         ),
-        const SizedBox(height: 22),
+        // Section gap: header -> world view.
+        const SizedBox(height: 24),
         _WorldViewSection(origin: origin),
         if (previewTick != null) ...[
-          const SizedBox(height: 26),
+          // Section gap: world view -> launch preview.
+          const SizedBox(height: 24),
           _LaunchPreviewSection(origin: origin, previewTick: previewTick),
         ],
-        const SizedBox(height: 28),
+        // Section gap: previous content -> copy world progress.
+        const SizedBox(height: 24),
         CopyWorldProgressSection(originId: origin.oid),
-        const SizedBox(height: 18),
+        // Section gap: copy world progress -> discuss.
+        const SizedBox(height: 24),
         _DiscussSection(origin: origin, controller: discussController),
+        // Section gap: discuss -> characters.
         const SizedBox(height: 24),
         _OriginCharactersSection(characters: origin.characters),
       ],
@@ -928,17 +846,17 @@ class _OriginBottomLaunchBar extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         _LaunchBarStat(
-                          icon: MyFlutterApp.save,
+                          iconAsset: copyStatIconAsset,
                           value: origin.copyCount,
                         ),
                         const SizedBox(width: 20),
                         _LaunchBarStat(
-                          iconAsset: connectIconAsset,
+                          iconAsset: connectStatIconAsset,
                           value: origin.interactCount,
                         ),
                         const SizedBox(width: 20),
                         _LaunchBarStat(
-                          iconAsset: aiCharacterIconAsset,
+                          iconAsset: characterStatIconAsset,
                           preserveIconAssetColor: true,
                           value: origin.characterCount,
                         ),
@@ -1011,14 +929,14 @@ class _LaunchBarStat extends StatelessWidget {
       iconSize: 14,
       iconAssetScale: 1,
       iconVerticalOffset: 0,
-      iconColor: const Color(0xFF171717),
+      iconColor: const Color(0xFF111111),
       gap: 4,
       text: formatStatCount(value),
       textStyle: const TextStyle(
         fontSize: 14,
         height: 1,
         fontWeight: FontWeight.w400,
-        color: Color(0xFF171717),
+        color: Color(0xFF111111),
       ),
     );
   }
@@ -1061,12 +979,14 @@ class _OriginHeader extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        // Header inner spacing: title -> OID/originator row.
+        const SizedBox(height: 4),
         Row(
           children: [
             Expanded(
               child: CopyableIdLabel(label: 'OID', value: origin.oid),
             ),
+            // Header inner spacing: OID label -> originator link.
             const SizedBox(width: 12),
             _OriginatorMetaLink(
               originator: originator,
@@ -1079,18 +999,15 @@ class _OriginHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        // Header inner spacing: OID/originator row -> latest version.
+        const SizedBox(height: 0),
         Text(
           'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
-          style: const TextStyle(
-            fontSize: 12,
-            height: 1.2,
-            fontWeight: FontWeight.w400,
-            color: Color(0xFF8C8C8C),
-          ),
+          style: CopyableIdLabel.textStyle,
         ),
         if (canEditOrigin) ...[
-          const SizedBox(height: 12),
+          // Header inner spacing: latest version -> edit button.
+          const SizedBox(height: 8),
           GenesisPrimaryButton(
             label: 'Edit Origin',
             onPressed: () async {
@@ -1131,18 +1048,18 @@ class _OriginatorMetaLink extends StatelessWidget {
               child: Text(
                 'Originator: ${formatUidForDisplay(originator)}',
                 textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 12,
-                  height: 1.2,
-                  fontWeight: FontWeight.w400,
-                  color: Color(0xFF8C8C8C),
-                ),
+                style: CopyableIdLabel.textStyle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            // Originator link inner spacing: text -> chevron.
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 18, color: Color(0xFF8C8C8C)),
+            const Icon(
+              Icons.chevron_right,
+              size: 18,
+              color: CopyableIdLabel.iconColor,
+            ),
           ],
         ),
       ),
@@ -1169,9 +1086,11 @@ class _WorldViewSection extends StatelessWidget {
           iconColor: Color(0xFFF42C47),
           title: 'World View',
         ),
-        const SizedBox(height: 12),
+        // World view inner spacing: section title -> body text.
+        const SizedBox(height: 8),
         Text(body, style: _bodyTextStyle),
-        const SizedBox(height: 12),
+        // World view inner spacing: body text -> preview image.
+        const SizedBox(height: 8),
         _PreviewImage(url: _resolveAssetUrl(origin.mapImage)),
       ],
     );
@@ -1188,6 +1107,7 @@ class _PreviewImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final viewerUrl = url.trim();
     final fallback = Container(
       color: const Color(0xFFEFF1F4),
       alignment: Alignment.center,
@@ -1198,7 +1118,7 @@ class _PreviewImage extends StatelessWidget {
       builder: (context, constraints) {
         final mediaHeight = MediaQuery.sizeOf(context).height;
         final maxHeight = mediaHeight.isFinite
-            ? _maxHeight.clamp(0.0, mediaHeight * 0.46).toDouble()
+            ? _maxHeight.clamp(0.0, mediaHeight * 0.35).toDouble()
             : _maxHeight;
         final maxWidth = constraints.maxWidth.isFinite
             ? constraints.maxWidth
@@ -1206,13 +1126,13 @@ class _PreviewImage extends StatelessWidget {
         final width = maxWidth.clamp(0.0, maxHeight * _aspectRatio).toDouble();
         final height = width / _aspectRatio;
 
-        return Align(
+        final preview = Align(
           alignment: Alignment.centerLeft,
           child: SizedBox(
             width: width,
             height: height,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: GenesisImageRadii.content,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final imageUrl = selectGenesisImageUrl(
@@ -1250,6 +1170,12 @@ class _PreviewImage extends StatelessWidget {
             ),
           ),
         );
+        if (viewerUrl.isEmpty) return preview;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => showGenesisImageViewer(context, imageUrls: [viewerUrl]),
+          child: preview,
+        );
       },
     );
   }
@@ -1279,7 +1205,8 @@ class _LaunchPreviewSection extends StatelessWidget {
           iconColor: Color(0xFF6554FF),
           title: 'Launch Preview',
         ),
-        const SizedBox(height: 16),
+        // Launch preview inner spacing: section title -> preview event item.
+        const SizedBox(height: 8),
         WorldTickEventItem(
           tick: previewTick,
           tickNumber: 1,
@@ -1289,6 +1216,7 @@ class _LaunchPreviewSection extends StatelessWidget {
               ? 'Day 1, 18:00'
               : formatGenesisTimestamp(origin.startTime),
           timeAgoLabel: '',
+          stackedContent: true,
         ),
       ],
     );
@@ -1306,7 +1234,7 @@ class CopyWorldProgressSection extends StatefulWidget {
 }
 
 class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
-  static const _rotationInterval = Duration(seconds: 5);
+  static const _rotationInterval = Duration(seconds: 8);
 
   Timer? _timer;
   var _summaries = const <WorldSummaryLatestItem>[];
@@ -1384,7 +1312,8 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
           iconColor: Color(0xFFF42C47),
           title: 'Copy World Progress',
         ),
-        const SizedBox(height: 12),
+        // Copy progress inner spacing: section title -> summary body.
+        const SizedBox(height: 8),
         _CopyWorldProgressCard(summary: summary),
       ],
     );
@@ -1394,9 +1323,17 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
 class _CopyWorldProgressCard extends StatelessWidget {
   const _CopyWorldProgressCard({required this.summary});
 
-  static const double _bodyFontSize = 14;
+  static const double _bodyFontSize = 12;
   static const double _bodyLineHeight = 1.45;
-  static const double _bodyHeight = _bodyFontSize * _bodyLineHeight * 5;
+  static const double _bodyHeight = _bodyFontSize * _bodyLineHeight * 5 + 6;
+  static final _bodyStyle = _bodyTextStyle.copyWith(
+    color: const Color(0xFF111111),
+  );
+  static const _bodyStrutStyle = StrutStyle(
+    fontSize: _bodyFontSize,
+    height: _bodyLineHeight,
+    forceStrutHeight: true,
+  );
 
   final WorldSummaryLatestItem? summary;
 
@@ -1417,42 +1354,46 @@ class _CopyWorldProgressCard extends StatelessWidget {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          key: const ValueKey('copy-world-progress-body'),
-          height: _bodyHeight,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 520),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            layoutBuilder: (currentChild, previousChildren) {
-              return Stack(
-                alignment: Alignment.topLeft,
-                children: [
-                  ...previousChildren,
-                  if (currentChild != null) currentChild,
-                ],
-              );
-            },
-            child: Text(
-              body,
-              key: ValueKey(item.worldId),
-              maxLines: 5,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: _bodyFontSize,
-                height: _bodyLineHeight,
-                fontWeight: FontWeight.w400,
-                color: Color(0xFF1E1E1E),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(
+        context,
+      ).pushNamed(RouteNames.world, arguments: {'wid': item.worldId}),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            key: const ValueKey('copy-world-progress-body'),
+            height: _bodyHeight,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 520),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              layoutBuilder: (currentChild, previousChildren) {
+                return Stack(
+                  alignment: Alignment.topLeft,
+                  clipBehavior: Clip.none,
+                  children: [
+                    ...previousChildren,
+                    if (currentChild != null) currentChild,
+                  ],
+                );
+              },
+              child: Text(
+                body,
+                key: ValueKey(item.worldId),
+                maxLines: 5,
+                overflow: TextOverflow.ellipsis,
+                strutStyle: _bodyStrutStyle,
+                style: _bodyStyle,
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 10),
-        _CopyWorldProgressMeta(summary: item),
-      ],
+          // Copy progress inner spacing: summary body -> WID/tick/time row.
+          const SizedBox(height: 0),
+          _CopyWorldProgressMeta(summary: item),
+        ],
+      ),
     );
   }
 }
@@ -1471,40 +1412,56 @@ class _CopyWorldProgressMeta extends StatelessWidget {
     final timestamp = _formatSummaryTimestamp(
       item.tickTime == 0 ? item.createdAt : item.tickTime,
     );
-    return Row(
+    return LayoutBuilder(
       key: const ValueKey('copy-world-progress-meta'),
-      children: [
-        Expanded(
-          child: Row(
-            key: const ValueKey('copy-world-progress-left-meta'),
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
+      builder: (context, constraints) {
+        const gap = 12.0;
+        final hasTimestamp = timestamp.isNotEmpty;
+        final timeWidth = hasTimestamp
+            ? constraints.maxWidth.clamp(0, 96).toDouble()
+            : 0.0;
+        final leftWidth =
+            (constraints.maxWidth - (hasTimestamp ? timeWidth + gap : 0))
+                .clamp(0.0, constraints.maxWidth)
+                .toDouble();
+        return Row(
+          children: [
+            SizedBox(
+              width: leftWidth,
+              child: Row(
+                key: const ValueKey('copy-world-progress-left-meta'),
+                children: [
+                  Flexible(
+                    child: Text(
+                      'WID: ${item.worldId}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _copyWorldProgressMetaStyle,
+                    ),
+                  ),
+                  // Copy progress meta spacing: WID -> tick badge.
+                  const SizedBox(width: 8),
+                  DiscussStoryBadge(count: item.tickNo),
+                ],
+              ),
+            ),
+            if (hasTimestamp) ...[
+              // Copy progress meta spacing: WID/tick area -> timestamp.
+              const SizedBox(width: gap),
+              SizedBox(
+                width: timeWidth,
                 child: Text(
-                  'WID: ${item.worldId}',
+                  timestamp,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
                   style: _copyWorldProgressMetaStyle,
                 ),
               ),
-              const SizedBox(width: 8),
-              DiscussStoryBadge(count: item.tickNo),
             ],
-          ),
-        ),
-        if (timestamp.isNotEmpty) ...[
-          const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              timestamp,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.right,
-              style: _copyWorldProgressMetaStyle,
-            ),
-          ),
-        ],
-      ],
+          ],
+        );
+      },
     );
   }
 }
@@ -1577,7 +1534,8 @@ class _DiscussSection extends StatelessWidget {
                       title: 'Discuss (${origin.discussCount})',
                     ),
                     if (showDiscussList) ...[
-                      const SizedBox(height: 14),
+                      // Discuss inner spacing: section title -> discuss list.
+                      const SizedBox(height: 8),
                       OriginDiscussList(
                         controller: controller,
                         count: origin.discussCount,
@@ -1592,6 +1550,7 @@ class _DiscussSection extends StatelessWidget {
               ),
             ),
             if (!hasDiscussContent) ...[
+              // Discuss inner spacing: empty discuss summary -> post input.
               const SizedBox(height: 8),
               DiscussPostInput(
                 bizId: origin.oid,
@@ -1612,20 +1571,28 @@ class _OriginCharactersSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final characterAvatarUrls = characters
+        .map((character) => _resolveAssetUrl(character.avatar).trim())
+        .where((url) => url.isNotEmpty)
+        .toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _SectionTitle(
-          icon: MyFlutterApp.userStar,
-          iconColor: const Color(0xFFF42C47),
+          iconAsset: characterStatIconAsset,
           title: 'Characters (${characters.length})',
         ),
+        // Characters inner spacing: section title -> first character row.
         const SizedBox(height: 14),
         if (characters.isEmpty)
           const Text('No characters', style: _mutedBodyTextStyle)
         else
           for (int i = 0; i < characters.length; i++) ...[
-            _OriginCharacterRow(character: characters[i]),
+            _OriginCharacterRow(
+              character: characters[i],
+              imageUrls: characterAvatarUrls,
+            ),
+            // Characters inner spacing: one character row -> next row.
             if (i != characters.length - 1) const SizedBox(height: 20),
           ],
       ],
@@ -1634,9 +1601,10 @@ class _OriginCharactersSection extends StatelessWidget {
 }
 
 class _OriginCharacterRow extends StatelessWidget {
-  const _OriginCharacterRow({required this.character});
+  const _OriginCharacterRow({required this.character, required this.imageUrls});
 
   final OriginCharacter character;
+  final List<String> imageUrls;
 
   @override
   Widget build(BuildContext context) {
@@ -1644,14 +1612,18 @@ class _OriginCharacterRow extends StatelessWidget {
     final tagline = character.tagline.trim();
     final description = character.description.trim();
     final goal = character.goal.trim();
+    final avatarUrl = _resolveAssetUrl(character.avatar);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _OriginCharacterPortrait(
-          url: _resolveAssetUrl(character.avatar),
+          characterId: _characterStableId(character),
+          url: avatarUrl,
           name: character.name,
+          imageUrls: imageUrls,
         ),
+        // Character row inner spacing: portrait -> text column.
         const SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -1663,10 +1635,11 @@ class _OriginCharacterRow extends StatelessWidget {
                   fontSize: 14,
                   height: 1.15,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF171717),
+                  color: Color(0xFF111111),
                 ),
               ),
               if (identity.isNotEmpty) ...[
+                // Character text spacing: name -> identity.
                 const SizedBox(height: 5),
                 Text(
                   identity,
@@ -1674,11 +1647,12 @@ class _OriginCharacterRow extends StatelessWidget {
                     fontSize: 12,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF202020),
+                    color: Color(0xFF111111),
                   ),
                 ),
               ],
               if (tagline.isNotEmpty) ...[
+                // Character text spacing: previous short line -> tagline.
                 const SizedBox(height: 5),
                 Text(
                   tagline,
@@ -1691,10 +1665,12 @@ class _OriginCharacterRow extends StatelessWidget {
                 ),
               ],
               if (description.isNotEmpty) ...[
+                // Character text spacing: previous line -> description.
                 const SizedBox(height: 9),
                 Text(description, style: _bodyTextStyle),
               ],
               if (goal.isNotEmpty) ...[
+                // Character text spacing: description/previous line -> goal.
                 const SizedBox(height: 9),
                 Text('Goal: $goal', style: _bodyTextStyle),
               ],
@@ -1707,14 +1683,21 @@ class _OriginCharacterRow extends StatelessWidget {
 }
 
 class _OriginCharacterPortrait extends StatelessWidget {
-  const _OriginCharacterPortrait({required this.url, required this.name});
+  const _OriginCharacterPortrait({
+    required this.characterId,
+    required this.url,
+    required this.name,
+    required this.imageUrls,
+  });
 
   static const double _width = 86;
-  static const double _borderRadius = 6;
+  static const double _borderRadius = GenesisAvatarRadii.character;
   static const double _starSize = 22;
 
+  final String characterId;
   final String url;
   final String name;
+  final List<String> imageUrls;
 
   @override
   Widget build(BuildContext context) {
@@ -1752,13 +1735,18 @@ class _OriginCharacterPortrait extends StatelessWidget {
             errorWidget: (context, url, error) => fallback,
           );
 
-    return Stack(
+    final portraitImage = SizedBox(
+      width: _width,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_borderRadius),
+        child: image,
+      ),
+    );
+    final initialIndex = imageUrls.indexOf(url.trim());
+    final portrait = Stack(
       clipBehavior: Clip.none,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(_borderRadius),
-          child: image,
-        ),
+        portraitImage,
         Positioned(
           top: -_starSize / 4 - 2,
           right: -_starSize / 4 - 3,
@@ -1770,7 +1758,25 @@ class _OriginCharacterPortrait extends StatelessWidget {
         ),
       ],
     );
+    if (resolvedUrl.isEmpty) return portrait;
+    return GestureDetector(
+      key: ValueKey('origin-character-portrait-$characterId'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showGenesisImageViewer(
+        context,
+        imageUrls: imageUrls,
+        initialIndex: initialIndex < 0 ? 0 : initialIndex,
+      ),
+      child: portrait,
+    );
   }
+}
+
+String _characterStableId(OriginCharacter character) {
+  final explicitId = character.characterId.trim();
+  if (explicitId.isNotEmpty) return explicitId;
+  if (character.id > 0) return '${character.id}';
+  return character.name.trim();
 }
 
 class _SectionTitle extends StatelessWidget {
@@ -1788,26 +1794,44 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final asset = iconAsset;
+    final isCharacterIcon = asset == characterStatIconAsset;
+    const assetSize = 16.0;
     return Row(
       children: [
-        if (iconAsset case final asset?)
-          Image.asset(
-            asset,
-            width: 16,
-            height: 16,
-            fit: BoxFit.contain,
-            excludeFromSemantics: true,
+        if (asset case final asset?)
+          Transform.translate(
+            offset: Offset(0, isCharacterIcon ? -1.2 : 0),
+            child: asset.endsWith('.svg')
+                ? SvgPicture.asset(
+                    asset,
+                    width: assetSize,
+                    height: assetSize,
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  )
+                : Image.asset(
+                    asset,
+                    width: assetSize,
+                    height: assetSize,
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  ),
           )
         else
           Icon(icon, size: 14, color: iconColor),
         const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 14,
-            height: 1.2,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF151515),
+        Flexible(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.2,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF111111),
+            ),
           ),
         ),
       ],
@@ -1819,7 +1843,7 @@ const _bodyTextStyle = TextStyle(
   fontSize: 12,
   height: 1.45,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF3C3C3C),
+  color: Color(0xFF111111),
 );
 
 const _mutedBodyTextStyle = TextStyle(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../pages/create/create_form_widgets.dart';
+import '../../ui/tokens/genesis_avatar_radii.dart';
 
 class OriginCharacterForm {
   OriginCharacterForm({
@@ -145,6 +146,7 @@ class OriginCharacterFormFields extends StatelessWidget {
               height: avatarHeight,
               iconSize: avatarIconSize,
               cropSize: avatarCropSize,
+              borderRadius: GenesisAvatarRadii.character,
               previewAlignment: Alignment.topCenter,
               showRemoveLinkWhenFilled: showAvatarRemoveLink,
               onChanged: onChanged,

@@ -7,6 +7,7 @@ import '../common/genesis_bottom_sheet_panel.dart';
 import 'origin_character_form.dart';
 import '../../network/models/origin.dart';
 import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/tokens/genesis_avatar_radii.dart';
 
 typedef OriginRoleProfileLoader = Future<OriginCustomRoleDraft?> Function();
 typedef OriginRoleAvatarResolver = String Function(String avatar);
@@ -487,7 +488,7 @@ class _PresetRoleTile extends StatelessWidget {
                     url: avatarUrl,
                     name: character.name,
                     size: 82,
-                    borderRadius: 8,
+                    borderRadius: GenesisAvatarRadii.character,
                   ),
                   Positioned(
                     top: 6,

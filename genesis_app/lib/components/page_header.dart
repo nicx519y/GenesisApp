@@ -4,12 +4,14 @@ import '../routers/app_router.dart';
 import '../ui/genesis_ui.dart';
 import 'search_bar.dart';
 
+const double kGenesisTopBarHeight = 50;
+
 class PageHeader extends StatelessWidget {
   const PageHeader({
     super.key,
     required this.pageName,
     this.horizontalPadding = 16,
-    this.topPadding = 8,
+    this.topPadding = 0,
     this.showSearchBar = true,
   });
 
@@ -31,9 +33,11 @@ class PageHeader extends StatelessWidget {
         ),
         child: Column(
           children: [
-            GenesisPageTitle(text: pageName),
+            SizedBox(
+              height: kGenesisTopBarHeight,
+              child: Center(child: GenesisPageTitle(text: pageName)),
+            ),
             if (showSearchBar) ...[
-              const SizedBox(height: GenesisSpacing.sm),
               SearchBarPlaceholder(
                 onTap: () {
                   Navigator.of(context).pushNamed(RouteNames.search);
@@ -71,11 +75,12 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
   final List<Widget>? actions;
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(kGenesisTopBarHeight);
 
   @override
   Widget build(BuildContext context) {
     return AppBar(
+      toolbarHeight: kGenesisTopBarHeight,
       backgroundColor: Colors.white,
       elevation: 0,
       scrolledUnderElevation: 0,

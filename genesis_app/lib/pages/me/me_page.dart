@@ -617,9 +617,8 @@ class _MePageState extends State<MePage> {
           bottom: false,
           child: Column(
             children: [
-              const SizedBox(height: 4),
               SizedBox(
-                height: 48,
+                height: 50,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [

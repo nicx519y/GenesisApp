@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../tokens/genesis_avatar_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
 class GenesisAvatar extends StatelessWidget {
@@ -11,7 +12,7 @@ class GenesisAvatar extends StatelessWidget {
     this.size = 48,
     this.width,
     this.height,
-    this.borderRadius = 8,
+    this.borderRadius = GenesisAvatarRadii.user,
     this.fit = BoxFit.cover,
     this.alignment = Alignment.topCenter,
     this.imageKey,
@@ -93,7 +94,7 @@ class GenesisAvatarFallback extends StatelessWidget {
     this.size = 48,
     this.width,
     this.height,
-    this.borderRadius = 8,
+    this.borderRadius = GenesisAvatarRadii.user,
     this.textStyle,
   });
 

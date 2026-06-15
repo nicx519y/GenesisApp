@@ -5,7 +5,10 @@ import 'package:genesis_flutter_android/components/home/popular_origin_list.dart
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
+import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_image_radii.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 void main() {
   testWidgets('renders popular origin feed fields and handles taps', (
@@ -13,6 +16,7 @@ void main() {
   ) async {
     const item = OriginListItem(
       oid: 'o_alpha',
+      wid: 'w_alpha',
       status: 1,
       versionNum: 3,
       tickCount: 8,
@@ -34,6 +38,7 @@ void main() {
     );
     var tappedOid = '';
     var requestedDiscussOid = '';
+    var requestedSummaryOid = '';
 
     await tester.pumpWidget(
       MaterialApp(
@@ -73,6 +78,19 @@ void main() {
                   ),
                 ];
               },
+              summaryLoader: (oid) async {
+                requestedSummaryOid = oid;
+                return const <WorldSummaryLatestItem>[
+                  WorldSummaryLatestItem(
+                    worldId: 'w_summary_alpha',
+                    originId: 'o_alpha',
+                    tickNo: 12,
+                    summary: 'Latest copied world progress for Alpha.',
+                    tickTime: 1771420800000,
+                    createdAt: 1771420800000,
+                  ),
+                ];
+              },
             ),
           ),
         ),
@@ -82,12 +100,19 @@ void main() {
 
     expect(find.text('#Alpha Empire'), findsWidgets);
     expect(find.text('Copy World Progress'), findsOneWidget);
-    expect(find.text('OID: o_alpha'), findsNWidgets(2));
+    expect(find.text('OID: o_alpha'), findsOneWidget);
+    expect(requestedSummaryOid, 'o_alpha');
+    expect(
+      find.text('Latest copied world progress for Alpha.'),
+      findsOneWidget,
+    );
+    expect(find.text('A city powered by celebrity markets.'), findsNothing);
+    expect(find.text('WID: w_summary_alpha'), findsOneWidget);
     expect(find.text('Originator: Origin Owner'), findsOneWidget);
     expect(find.text('v3'), findsNothing);
-    expect(find.text('8'), findsOneWidget);
+    expect(find.text('12'), findsOneWidget);
     final versionChip = find.byKey(
-      const ValueKey('popular-origin-tick-chip-8'),
+      const ValueKey('popular-origin-tick-chip-12'),
     );
     final versionChipContainer = tester.widget<Container>(versionChip);
     final versionChipDecoration =
@@ -97,7 +122,7 @@ void main() {
     final versionIcon = tester.widget<Icon>(
       find.descendant(of: versionChip, matching: find.byType(Icon)),
     );
-    final versionText = tester.widget<Text>(find.text('8'));
+    final versionText = tester.widget<Text>(find.text('12'));
     expect(versionChipDecoration.color, const Color(0xFFFEF3C7));
     expect(versionChipRadius.topLeft.x, 5);
     expect(versionIcon.icon, MyFlutterApp.pregress);
@@ -119,7 +144,8 @@ void main() {
         (image) =>
             image.width == 60 &&
             image.height == 60 &&
-            image.borderRadius == BorderRadius.circular(8),
+            image.borderRadius ==
+                BorderRadius.circular(GenesisImageRadii.contentValue),
       ),
       isTrue,
     );
@@ -141,11 +167,12 @@ void main() {
       find.text('The new sibling route is working nicely.'),
       findsOneWidget,
     );
-    expect(find.byIcon(MyFlutterApp.save), findsOneWidget);
-    final connectIcon = tester.widget<ImageIcon>(
-      _assetImageIconFinder(connectIconAsset),
+    expect(_assetSvgFinder(copyStatIconAsset), findsOneWidget);
+    final connectIcon = tester.widget<SvgPicture>(
+      _assetSvgFinder(connectStatIconAsset),
     );
-    expect(connectIcon.size, 13);
+    expect(connectIcon.width, 13);
+    expect(connectIcon.height, 13);
     expect(find.text('2.3K'), findsOneWidget);
     expect(find.text('4.4M'), findsOneWidget);
     expect(
@@ -161,13 +188,29 @@ void main() {
     await tester.tap(find.text('Copy World Progress'));
     expect(tappedOid, 'o_alpha');
   });
+
+  test('OriginListItem parses world id aliases for popular progress meta', () {
+    final fromWid = OriginListItem.fromJson(const <String, Object?>{
+      'oid': 'o_alpha',
+      'wid': 'w_alpha',
+      'name': 'Alpha',
+    });
+    final fromWorldId = OriginListItem.fromJson(const <String, Object?>{
+      'oid': 'o_beta',
+      'world_id': 'w_beta',
+      'name': 'Beta',
+    });
+
+    expect(fromWid.wid, 'w_alpha');
+    expect(fromWorldId.wid, 'w_beta');
+  });
 }
 
-Finder _assetImageIconFinder(String assetName) {
+Finder _assetSvgFinder(String assetName) {
   return find.byWidgetPredicate(
     (widget) =>
-        widget is ImageIcon &&
-        widget.image is AssetImage &&
-        (widget.image as AssetImage).assetName == assetName,
+        widget is SvgPicture &&
+        widget.bytesLoader is SvgAssetLoader &&
+        (widget.bytesLoader as SvgAssetLoader).assetName == assetName,
   );
 }

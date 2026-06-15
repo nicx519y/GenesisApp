@@ -2,6 +2,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_avatar_radii.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 
 void main() {
@@ -30,6 +32,33 @@ void main() {
     );
 
     expect(find.text('TL'), findsOneWidget);
+  });
+
+  testWidgets('avatar components use shared default radius tokens', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              GenesisAvatar(url: '', name: 'Tom Lee', size: 40),
+              GenesisCharacterAvatar(url: '', name: 'Iris', size: 40),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final userAvatar = tester.widget<GenesisAvatar>(
+      find.byType(GenesisAvatar).first,
+    );
+    final characterAvatar = tester.widget<GenesisCharacterAvatar>(
+      find.byType(GenesisCharacterAvatar),
+    );
+
+    expect(userAvatar.borderRadius, GenesisAvatarRadii.user);
+    expect(characterAvatar.borderRadius, GenesisAvatarRadii.character);
   });
 
   testWidgets('GenesisAvatar crops loaded images from the top center', (

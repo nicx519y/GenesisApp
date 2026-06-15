@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../network/json_utils.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../common/genesis_image_viewer_overlay.dart';
 
@@ -165,7 +166,7 @@ class _OriginDiscussReplyImageThumbnail extends StatelessWidget {
         imageUrl: imageUrl,
         width: size,
         height: size,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: GenesisImageRadii.content,
       ),
     );
   }

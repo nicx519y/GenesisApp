@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../icons/custom_icon_assets.dart';
 
@@ -35,32 +36,80 @@ class StatItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = iconColor ?? Colors.black.withValues(alpha: 0.75);
+    final asset = iconAsset;
+    final isCharacterAsset = _isCharacterAsset(asset);
+    final visualSize = isCharacterAsset
+        ? customCharacterIconRenderSize(iconSize)
+        : asset == null
+        ? iconSize
+        : customIconAssetRenderSize(asset, iconSize);
+    final verticalOffset = isCharacterAsset
+        ? customCharacterIconVerticalOffset(iconSize)
+        : iconVerticalOffset;
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        if (iconAsset case final asset?)
+        if (asset case final asset?)
           preserveIconAssetColor
               ? Transform.translate(
-                  offset: Offset(0, iconVerticalOffset),
-                  child: Image.asset(
-                    asset,
-                    width: customIconAssetRenderSize(asset, iconSize),
-                    height: customIconAssetRenderSize(asset, iconSize),
-                    fit: BoxFit.contain,
-                    excludeFromSemantics: true,
+                  offset: Offset(0, verticalOffset),
+                  child: _StatAssetIcon(
+                    asset: asset,
+                    size: visualSize,
+                    color: null,
                   ),
                 )
-              : ImageIcon(
-                  AssetImage(asset),
-                  size: customIconAssetRenderSize(asset, iconSize),
-                  color: color,
-                )
+              : _StatAssetIcon(asset: asset, size: visualSize, color: color)
         else
           Icon(icon, size: iconSize, color: color),
         SizedBox(width: gap),
         Text(text, style: textStyle),
       ],
     );
+  }
+}
+
+bool _isCharacterAsset(String? asset) {
+  return asset == characterStatIconAsset;
+}
+
+class _StatAssetIcon extends StatelessWidget {
+  const _StatAssetIcon({
+    required this.asset,
+    required this.size,
+    required this.color,
+  });
+
+  final String asset;
+  final double size;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    if (asset.endsWith('.svg')) {
+      return SvgPicture.asset(
+        asset,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        colorFilter: color == null
+            ? null
+            : ColorFilter.mode(color!, BlendMode.srcIn),
+        excludeFromSemantics: true,
+      );
+    }
+
+    if (color == null) {
+      return Image.asset(
+        asset,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        excludeFromSemantics: true,
+      );
+    }
+
+    return ImageIcon(AssetImage(asset), size: size, color: color);
   }
 }

@@ -9,6 +9,8 @@ import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../common/genesis_center_toast.dart';
@@ -36,7 +38,7 @@ const String _discussLikeFilledAsset =
 const String _discussLikeOutlineAsset =
     'assets/custom-icons/png/discuss_like_outline.png';
 const String _discussReplyAsset = 'assets/custom-icons/png/discuss_reply.png';
-const double _discussAvatarSize = 30;
+const double _discussAvatarSize = 36;
 
 Future<OriginDiscussPage> loadOriginDiscussPage(
   BuildContext context,
@@ -870,13 +872,13 @@ class OriginDiscussList extends StatelessWidget {
                         onReplyTap: onReplyTap,
                       ),
                       if (entry.$1 != comments.length - 1)
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                     ],
                   ],
                 ),
               ),
             if (enableViewMore && shouldShowViewMore) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               _ViewMoreButton(
                 controller: controller,
                 onTap: collapseInitialItems
@@ -906,7 +908,7 @@ class _ViewMoreButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: controller.isLoadingMore ? null : onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: controller.isLoadingMore
               ? const SizedBox.square(
                   key: ValueKey('origin-discuss-view-more-loading'),
@@ -948,7 +950,7 @@ class _DiscussHeader extends StatelessWidget {
         Text(
           'Discuss (${formatStatCount(count)})',
           style: const TextStyle(
-            color: Color(0xFF1D1D1D),
+            color: Color(0xFF111111),
             fontSize: 14,
             height: 1.1,
             fontWeight: FontWeight.w600,
@@ -1099,11 +1101,11 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _DiscussPreviewMeta(item: widget.item),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Text(
                 widget.item.content,
                 style: const TextStyle(
-                  color: Color(0xFF1D1D1D),
+                  color: Color(0xFF111111),
                   fontSize: 12,
                   height: 1.45,
                   fontWeight: FontWeight.w400,
@@ -1475,7 +1477,7 @@ class _DiscussImageThumbnail extends StatelessWidget {
         imageUrl: imageUrl,
         width: 48,
         height: 48,
-        borderRadius: BorderRadius.zero,
+        borderRadius: GenesisImageRadii.content,
       ),
     );
   }
@@ -1513,25 +1515,6 @@ class _DiscussPreviewMeta extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 DiscussStoryBadge(count: item.storyCount),
-                if (item.worldId.isNotEmpty) ...[
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: GestureDetector(
-                      key: ValueKey('origin-discuss-world-${item.worldId}'),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => Navigator.of(context).pushNamed(
-                        RouteNames.world,
-                        arguments: {'wid': item.worldId},
-                      ),
-                      child: Text(
-                        'WID: ${item.worldId}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _subtleStyle,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -1580,7 +1563,7 @@ class _DiscussAvatar extends StatelessWidget {
       url: avatar,
       name: item.authorName,
       size: _discussAvatarSize,
-      borderRadius: _discussAvatarSize / 2,
+      borderRadius: GenesisAvatarRadii.user,
     );
   }
 }

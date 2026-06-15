@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'stat_item.dart';
 import '../../icons/custom_icon_assets.dart';
-import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -15,6 +16,7 @@ const double _coverAspectRatio = 2 / 3;
 class OriginListItem {
   const OriginListItem({
     required this.oid,
+    this.wid = '',
     required this.status,
     required this.versionNum,
     this.tickCount = 0,
@@ -45,6 +47,7 @@ class OriginListItem {
     );
     return OriginListItem(
       oid: oid,
+      wid: asString(info['wid'], fallback: asString(info['world_id'])),
       status: asInt(info['status']),
       versionNum: asInt(
         info['version_num'],
@@ -84,6 +87,7 @@ class OriginListItem {
   }
 
   final String oid;
+  final String wid;
   final int status;
   final int versionNum;
   final int tickCount;
@@ -124,7 +128,7 @@ class OriginItemCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: GenesisImageRadii.content,
           child: AspectRatio(
             aspectRatio: _coverAspectRatio,
             child: Stack(
@@ -141,12 +145,12 @@ class OriginItemCard extends StatelessWidget {
                     child: Row(
                       children: [
                         _ImageStat(
-                          icon: MyFlutterApp.save,
+                          iconAsset: copyStatIconAsset,
                           value: item.copyCnt,
                         ),
                         const SizedBox(width: 10),
                         _ImageStat(
-                          iconAsset: connectIconAsset,
+                          iconAsset: connectStatIconAsset,
                           value: item.connectCnt,
                         ),
                       ],
@@ -189,42 +193,26 @@ class OriginItemCard extends StatelessWidget {
 }
 
 class _ImageStat extends StatelessWidget {
-  const _ImageStat({this.icon, this.iconAsset, required this.value})
-    : assert(icon != null || iconAsset != null);
+  const _ImageStat({required this.iconAsset, required this.value});
 
-  final IconData? icon;
-  final String? iconAsset;
+  final String iconAsset;
   final int value;
 
   @override
   Widget build(BuildContext context) {
     return Flexible(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (iconAsset case final asset?)
-            ImageIcon(
-              AssetImage(asset),
-              size: customIconAssetRenderSize(asset, 11),
-              color: Colors.white,
-            )
-          else
-            Icon(icon, size: 11, color: Colors.white),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              formatStatCount(value),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                height: 1,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
-        ],
+      child: StatItem(
+        iconAsset: iconAsset,
+        iconSize: 11,
+        iconColor: Colors.white,
+        gap: 4,
+        text: formatStatCount(value),
+        textStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          height: 1,
+          fontWeight: FontWeight.w400,
+        ),
       ),
     );
   }

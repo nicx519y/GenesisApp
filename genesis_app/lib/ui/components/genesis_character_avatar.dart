@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../icons/my_flutter_app_icons.dart';
+import '../tokens/genesis_avatar_radii.dart';
 import 'genesis_avatar.dart';
 
 class GenesisCharacterAvatar extends StatelessWidget {
@@ -10,7 +11,7 @@ class GenesisCharacterAvatar extends StatelessWidget {
     required this.name,
     this.showStar = false,
     this.size = 48,
-    this.borderRadius = 8,
+    this.borderRadius = GenesisAvatarRadii.character,
     this.starSize = 12,
     this.starColor = const Color(0xFFF42C47),
     this.boxShadow = const <BoxShadow>[],

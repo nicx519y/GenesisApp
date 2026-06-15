@@ -316,6 +316,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldMetricDefault = 0,
     this.worldCharacterMetricValue = 50,
     this.originMapUrl = '',
+    this.originCharacters,
     this.originLocations,
     this.originTicks,
     this.worldMapUrl = '',
@@ -340,6 +341,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final Object? worldMetricDefault;
   final Object? worldCharacterMetricValue;
   final String originMapUrl;
+  final List<Map<String, Object?>>? originCharacters;
   final List<Map<String, Object?>>? originLocations;
   final List<Map<String, Object?>>? originTicks;
   final String worldMapUrl;
@@ -729,24 +731,26 @@ class _RecordingV1ListTransport implements HttpTransport {
         'location_cnt': 1,
         'max_tick_cnt': 0,
       },
-      'characters': [
-        {
-          'char_id': 'c_$fallback',
-          'type': 'ai',
-          'player_uid': '',
-          'player_username': '',
-          'name': 'Detail Character',
-          'identity': 'Guide',
-          'brief': 'Knows the path',
-          'description': 'A character from detail.',
-          'goal': '',
-          'avatar': '',
-          'initial_location_id': 'l_$fallback',
-          'location_id': 'l_$fallback',
-          'metric_value': 0,
-          'delta': 0,
-        },
-      ],
+      'characters':
+          originCharacters ??
+          [
+            {
+              'char_id': 'c_$fallback',
+              'type': 'ai',
+              'player_uid': '',
+              'player_username': '',
+              'name': 'Detail Character',
+              'identity': 'Guide',
+              'brief': 'Knows the path',
+              'description': 'A character from detail.',
+              'goal': '',
+              'avatar': '',
+              'initial_location_id': 'l_$fallback',
+              'location_id': 'l_$fallback',
+              'metric_value': 0,
+              'delta': 0,
+            },
+          ],
       'locations':
           originLocations ??
           [
@@ -3565,8 +3569,118 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(_assetImageFinder(kMockV1LocationCentralHubMap), findsOneWidget);
-    expect(_assetImageFinder(kMockV1SteamMapImage), findsNothing);
+    final mapStage = find.byType(WorldMapStage);
+    expect(
+      find.descendant(
+        of: mapStage,
+        matching: _assetImageFinder(kMockV1LocationCentralHubMap),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: mapStage,
+        matching: _assetImageFinder(kMockV1SteamMapImage),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('Origin detail worldview image opens image viewer', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      originMapUrl: kMockV1SteamMapImage,
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final worldviewImage = _assetImageFinder(kMockV1SteamMapImage);
+    await _dragOriginPanelUntilVisible(tester, worldviewImage);
+    await tester.tap(worldviewImage);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('genesis-image-viewer-page-view')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('genesis-image-viewer-close')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('Origin detail character portrait opens character image viewer', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      originCharacters: const [
+        {
+          'char_id': 'c_iris',
+          'name': 'Iris',
+          'identity': 'Guide',
+          'brief': 'Keeps the path',
+          'description': 'First character.',
+          'avatar': 'assets/images/mock_avatars/avatar_iris.png',
+          'initial_location_id': 'l_o_test_1',
+          'location_id': 'l_o_test_1',
+        },
+        {
+          'char_id': 'c_nia',
+          'name': 'Nia',
+          'identity': 'Scout',
+          'brief': 'Finds the signal',
+          'description': 'Second character.',
+          'avatar': 'assets/images/mock_avatars/avatar_nia.png',
+          'initial_location_id': 'l_o_test_1',
+          'location_id': 'l_o_test_1',
+        },
+      ],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final firstPortrait = find.byKey(
+      const ValueKey('origin-character-portrait-c_iris'),
+    );
+    await _dragOriginPanelUntilVisible(tester, firstPortrait);
+    tester.widget<GestureDetector>(firstPortrait).onTap?.call();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('genesis-image-viewer-page-view')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('genesis-image-viewer-page-dots')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('genesis-image-viewer-dot-0')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('genesis-image-viewer-dot-1')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('genesis-image-viewer-close')));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('Origin detail launch bar launches a world', (
@@ -3839,11 +3953,21 @@ void main() {
       await tester.pumpWidget(
         AppServicesScope(
           services: await _testServices(transport: transport, useMock: false),
-          child: const MaterialApp(
+          child: MaterialApp(
+            onGenerateRoute: (settings) {
+              if (settings.name == RouteNames.world) {
+                final args = settings.arguments as Map;
+                return MaterialPageRoute<void>(
+                  settings: settings,
+                  builder: (_) => Text('World route ${args['wid']}'),
+                );
+              }
+              return null;
+            },
             home: Scaffold(
               body: Padding(
-                padding: EdgeInsets.all(12),
-                child: CopyWorldProgressSection(originId: 'o_test_1'),
+                padding: const EdgeInsets.all(12),
+                child: const CopyWorldProgressSection(originId: 'o_test_1'),
               ),
             ),
           ),
@@ -3877,10 +4001,17 @@ void main() {
         tester
             .getSize(find.byKey(const ValueKey('copy-world-progress-body')))
             .height,
-        closeTo(14 * 1.45 * 5, 0.1),
+        closeTo(12 * 1.45 * 5 + 6, 0.1),
       );
+      await tester.tap(
+        find.text('First copied world progress summary for o_test_1.'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('World route w_summary_1'), findsOneWidget);
+      Navigator.of(tester.element(find.text('World route w_summary_1'))).pop();
+      await tester.pumpAndSettle();
 
-      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(const Duration(seconds: 8));
       await tester.pump(const Duration(milliseconds: 600));
 
       expect(
@@ -3888,6 +4019,51 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('WID: w_summary_2'), findsOneWidget);
+      await tester.tap(
+        find.text('Second copied world progress summary for o_test_1.'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('World route w_summary_2'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Origin detail copy world progress gives Chinese five-line text room',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldSummaryLatestItems: const <Map<String, Object?>>[
+          {
+            'world_id': 'w_summary_cn',
+            'summary': '第一行中文进展会占满一整行，第二行继续描述角色行动，第三行写地点变化，第四行补充冲突，第五行保留结尾。',
+            'tick_no': 5,
+            'tick_time': '2026-05-20T12:00:00Z',
+            'created_at': '2026-05-20T12:00:00Z',
+          },
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 180,
+                child: Padding(
+                  padding: EdgeInsets.all(12),
+                  child: CopyWorldProgressSection(originId: 'o_test_1'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final bodySize = tester.getSize(
+        find.byKey(const ValueKey('copy-world-progress-body')),
+      );
+      expect(bodySize.height, greaterThan(12 * 1.45 * 5));
+      expect(tester.takeException(), isNull);
     },
   );
 
