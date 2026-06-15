@@ -1196,6 +1196,10 @@ class _RecordingMessagesDataPollTransport implements HttpTransport {
     return requests.where((request) => request.uri.path == path).length;
   }
 
+  List<TransportRequest> requestsFor(String path) {
+    return requests.where((request) => request.uri.path == path).toList();
+  }
+
   List<String> get messagesDataPaths {
     return requests
         .map((request) => request.uri.path)
@@ -2592,6 +2596,11 @@ void main() {
       find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
       findsNothing,
     );
+    final originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, isNotEmpty);
+    expect(originRequests.last.uri.queryParameters['scene'], 'popular');
+    expect(find.text('Popular'), findsOneWidget);
+    expect(find.text('Private chats'), findsNothing);
 
     await tester.tap(find.text('Messages'));
     await tester.pumpAndSettle();

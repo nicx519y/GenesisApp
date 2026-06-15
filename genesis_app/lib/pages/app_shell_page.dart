@@ -30,6 +30,7 @@ class _AppShellPageState extends State<AppShellPage>
   late final Set<int> _visitedTabIndexes;
   late final ValueNotifier<bool> _messagesTabActiveNotifier;
   late final ValueNotifier<int> _meTabActivationNotifier;
+  int? _homeInitialTabIndexOverride;
   ValueListenable<int>? _sessionRevisionListenable;
   final Map<int, Widget> _tabPageCache = <int, Widget>{};
   final ValueNotifier<UnreadSummary> _unreadSummaryNotifier =
@@ -233,7 +234,8 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   void _handleMeLoggedOut() {
-    _resetSessionBoundState(selectedIndex: 1);
+    _homeInitialTabIndexOverride = HomePage.popularTabIndex;
+    _resetSessionBoundState(selectedIndex: 0);
     unawaited(
       AppServicesScope.read(context).directMessageConversations.loadFromDb(),
     );
@@ -241,6 +243,7 @@ class _AppShellPageState extends State<AppShellPage>
 
   void _handleSessionChanged() {
     if (!mounted) return;
+    _homeInitialTabIndexOverride = null;
     _resetSessionBoundState(selectedIndex: _selectedIndex);
     final services = AppServicesScope.read(context);
     unawaited(services.directMessageConversations.loadFromDb());
@@ -264,7 +267,7 @@ class _AppShellPageState extends State<AppShellPage>
   Widget _cachedTabPage(int index) {
     return _tabPageCache.putIfAbsent(index, () {
       return switch (index) {
-        0 => const HomePage(),
+        0 => HomePage(initialTabIndex: _homeInitialTabIndexOverride),
         1 => const OriginPage(),
         3 => ValueListenableBuilder<UnreadSummary>(
           valueListenable: _unreadSummaryNotifier,
