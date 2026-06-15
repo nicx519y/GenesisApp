@@ -330,6 +330,36 @@ class OriginDiscussListController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void seedItems({
+    required String oid,
+    required List<OriginDiscussListItem> items,
+    required int totalAll,
+  }) {
+    _requestSerial += 1;
+    _oid = oid.trim();
+    _loader = null;
+    _items
+      ..clear()
+      ..addAll(items);
+    _totalAll = totalAll;
+    _currentPage = 1;
+    _hasLoaded = true;
+    _isInitialLoading = false;
+    _isLoadingMore = false;
+    _isRefreshing = false;
+    _expanded = false;
+    _error = null;
+    _likePendingIds.clear();
+    _replyLoadingIds.clear();
+    _progressLoadingKeys.clear();
+    _progressCompletedKeys.clear();
+    _progressResults.clear();
+    _replyCurrentPages.clear();
+    _replyTotals.clear();
+    _replyRequestSerials.clear();
+    notifyListeners();
+  }
+
   bool hasProgressTarget(OriginDiscussListItem item) {
     return item.authorUid.trim().isNotEmpty &&
         _progressOriginId(item).isNotEmpty;

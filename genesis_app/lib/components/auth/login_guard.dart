@@ -52,5 +52,6 @@ Future<bool> _loginWithProvider(
     loginUserInfo['avatar'] = user.avatar;
   }
   await services.sessionStore.saveUserInfo(loginUserInfo);
+  services.notifySessionChanged();
   return true;
 }

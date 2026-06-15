@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/list_loading_skeleton.dart';
+import '../../components/discuss/origin_discuss_preview_list.dart';
 import '../../components/genesis_logo.dart';
 import '../../components/home/popular_origin_list.dart';
 import '../../components/home/world_item_card.dart';
@@ -221,7 +222,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       return const _WorldListPage(items: <WorldListItem>[], total: 0);
     }
     final data = await services.api.v1.world.list(
-      ownerUid: uid,
+      scene: 'mine',
       pn: page,
       rn: _pageSize,
     );
@@ -417,6 +418,8 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   TabController? _tabController;
   final ScrollController _scrollController = ScrollController();
   final List<OriginListItem> _items = <OriginListItem>[];
+  final Map<String, List<OriginDiscussPreviewItem>> _discussPreviews =
+      <String, List<OriginDiscussPreviewItem>>{};
   var _nextPage = 1;
   var _total = 0;
   var _hasMore = true;
@@ -465,6 +468,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
 
   void _resetListState() {
     _items.clear();
+    _discussPreviews.clear();
     _nextPage = 1;
     _total = 0;
     _hasMore = true;
@@ -501,15 +505,74 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   Future<_OriginListPage> _fetchPage(int page) async {
     final data = await AppServicesScope.of(
       context,
-    ).api.v1.origin.list(pn: page, rn: _pageSize);
+    ).api.v1.origin.list(scene: 'popular', pn: page, rn: _pageSize);
     final list = data['list'];
-    final items = list is List
-        ? list
-              .whereType<Map>()
-              .map((raw) => OriginListItem.fromJson(asJsonMap(raw)))
-              .toList(growable: false)
-        : const <OriginListItem>[];
-    return _OriginListPage(items: items, total: asInt(data['total']));
+    final rawItems = list is List
+        ? list.whereType<Map>().map((raw) => asJsonMap(raw)).toList()
+        : const <Map<String, dynamic>>[];
+    final items = <OriginListItem>[];
+    final discussPreviews = <String, List<OriginDiscussPreviewItem>>{};
+    for (final raw in rawItems) {
+      final item = OriginListItem.fromJson(raw);
+      items.add(item);
+      if (raw['discusses'] is List) {
+        discussPreviews[item.oid] = _discussPreviewsFromPopularField(
+          raw['discusses'],
+        );
+      }
+    }
+    final total = asInt(data['total']);
+    if (mounted) {
+      final missingItems = items
+          .where((item) => !discussPreviews.containsKey(item.oid))
+          .toList(growable: false);
+      discussPreviews.addAll(await _fetchDiscussPreviews(missingItems));
+    }
+    return _OriginListPage(
+      items: items,
+      total: total,
+      discussPreviews: discussPreviews,
+    );
+  }
+
+  List<OriginDiscussPreviewItem> _discussPreviewsFromPopularField(
+    Object? rawDiscusses,
+  ) {
+    if (rawDiscusses is! List) return const <OriginDiscussPreviewItem>[];
+    return rawDiscusses
+        .whereType<Map>()
+        .map((raw) => OriginDiscussPreviewItem.fromJson(asJsonMap(raw)))
+        .where((item) => item.content.trim().isNotEmpty)
+        .take(2)
+        .toList(growable: false);
+  }
+
+  Future<Map<String, List<OriginDiscussPreviewItem>>> _fetchDiscussPreviews(
+    List<OriginListItem> items,
+  ) async {
+    final oids = items
+        .map((item) => item.oid.trim())
+        .where((oid) => oid.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    if (oids.isEmpty) {
+      return const <String, List<OriginDiscussPreviewItem>>{};
+    }
+
+    final entries = await Future.wait(
+      oids.map((oid) async {
+        try {
+          final previewItems = await loadOriginDiscussPreviewItems(
+            context,
+            oid,
+          );
+          return MapEntry(oid, previewItems);
+        } catch (_) {
+          return MapEntry(oid, const <OriginDiscussPreviewItem>[]);
+        }
+      }),
+    );
+    return Map<String, List<OriginDiscussPreviewItem>>.fromEntries(entries);
   }
 
   Future<void> _refreshItems() async {
@@ -526,6 +589,9 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
         _items
           ..clear()
           ..addAll(page.items);
+        _discussPreviews
+          ..clear()
+          ..addAll(page.discussPreviews);
         _total = page.total;
         _nextPage = 2;
         _hasMore = _items.length < _total && page.items.isNotEmpty;
@@ -556,6 +622,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
       if (!mounted) return;
       setState(() {
         _items.addAll(page.items);
+        _discussPreviews.addAll(page.discussPreviews);
         _total = page.total;
         _nextPage += 1;
         _hasMore = _items.length < _total && page.items.isNotEmpty;
@@ -608,6 +675,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
               items: _items,
               controller: _scrollController,
               isLoadingMore: _isLoadingMore,
+              preloadedDiscussItems: _discussPreviews,
               onItemTap: (item) {
                 Navigator.of(context).pushNamed(
                   RouteNames.originWorld,
@@ -620,8 +688,13 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
 }
 
 class _OriginListPage {
-  const _OriginListPage({required this.items, required this.total});
+  const _OriginListPage({
+    required this.items,
+    required this.total,
+    required this.discussPreviews,
+  });
 
   final List<OriginListItem> items;
   final int total;
+  final Map<String, List<OriginDiscussPreviewItem>> discussPreviews;
 }

@@ -11,6 +11,7 @@ import 'identity_auth_service.dart';
 abstract interface class BackendAuthCoordinator {
   Future<bool> hasAuthenticatedBackendSession({bool tryAutoRefresh = true});
   Future<User> loginWithIdentity(AuthSession session);
+  Future<void> deleteAccount();
   Future<void> signOut();
 }
 
@@ -45,11 +46,29 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
     unawaited(_signOutIdentity());
   }
 
+  @override
+  Future<void> deleteAccount() async {
+    final authToken = (await _sessionStore.readAuthToken())?.trim();
+    unawaited(_deleteBackend(authToken: authToken));
+    await _sessionStore.clearUid();
+    unawaited(_signOutIdentity());
+  }
+
   Future<void> _logoutBackend({String? authToken}) async {
     try {
       await _api.logout(headers: _authHeadersFromToken(authToken));
     } catch (e) {
       debugPrint('[Auth][BackendAuthCoordinator] backend logout failed: $e');
+    }
+  }
+
+  Future<void> _deleteBackend({String? authToken}) async {
+    try {
+      await _api.deleteAccount(headers: _authHeadersFromToken(authToken));
+    } catch (e) {
+      debugPrint(
+        '[Auth][BackendAuthCoordinator] backend account delete failed: $e',
+      );
     }
   }
 

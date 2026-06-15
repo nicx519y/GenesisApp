@@ -190,6 +190,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
   ) async {
     final originPage = await api.getMyLaunchedOrigins(
       uid: uid,
+      scene: 'uid',
       limit: 30,
       offset: 0,
     );
@@ -213,7 +214,12 @@ class _UserInfoPageState extends State<UserInfoPage> {
     GenesisApi api,
     String uid,
   ) async {
-    final worlds = await api.getMyWorlds(uid: uid, limit: 30, offset: 0);
+    final worlds = await api.getMyWorlds(
+      uid: uid,
+      scene: 'uid',
+      limit: 30,
+      offset: 0,
+    );
     return worlds
         .map(
           (item) => UserProfileWorldItem(

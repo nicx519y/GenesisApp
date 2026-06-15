@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
 import '../discuss/origin_discuss_preview_list.dart';
 import '../origin/stat_item.dart';
@@ -17,6 +16,8 @@ import '../origin/origin_item_card.dart';
 typedef PopularWorldSummaryLoader =
     Future<List<WorldSummaryLatestItem>> Function(String originId);
 
+const double _popularOriginHeroImageHeight = 160.5;
+
 class PopularOriginList extends StatefulWidget {
   const PopularOriginList({
     super.key,
@@ -25,6 +26,8 @@ class PopularOriginList extends StatefulWidget {
     this.controller,
     this.storageKey,
     this.isLoadingMore = false,
+    this.preloadedDiscussItems =
+        const <String, List<OriginDiscussPreviewItem>>{},
     this.discussLoader,
     this.summaryLoader,
     this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
@@ -35,6 +38,7 @@ class PopularOriginList extends StatefulWidget {
   final ScrollController? controller;
   final PageStorageKey<String>? storageKey;
   final bool isLoadingMore;
+  final Map<String, List<OriginDiscussPreviewItem>> preloadedDiscussItems;
   final OriginDiscussPreviewLoader? discussLoader;
   final PopularWorldSummaryLoader? summaryLoader;
   final double thumbnailBorderRadius;
@@ -84,12 +88,11 @@ class _PopularOriginListState extends State<PopularOriginList> {
     if (resolvedOid.isEmpty) {
       return Future<WorldSummaryLatestItem?>.value(null);
     }
+    final loader = widget.summaryLoader;
+    final api = loader == null ? AppServicesScope.read(context).api : null;
     return _summaryFutures.putIfAbsent(resolvedOid, () async {
-      final loader = widget.summaryLoader;
       final summaries = loader == null
-          ? await AppServicesScope.read(
-              context,
-            ).api.getLatestWorldSummaries(originId: resolvedOid)
+          ? await api!.getLatestWorldSummaries(originId: resolvedOid)
           : await loader(resolvedOid);
       for (final summary in summaries) {
         if (summary.summary.trim().isNotEmpty) return summary;
@@ -104,7 +107,7 @@ class _PopularOriginListState extends State<PopularOriginList> {
       key: widget.storageKey,
       controller: widget.controller,
       primary: false,
-      scrollCacheExtent: const ScrollCacheExtent.pixels(900),
+      cacheExtent: 900,
       padding: const EdgeInsets.only(top: 4, bottom: 24),
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
@@ -126,6 +129,12 @@ class _PopularOriginListState extends State<PopularOriginList> {
         }
 
         final item = widget.items[index];
+        final oid = item.oid.trim();
+        final initialDiscussItems =
+            widget.preloadedDiscussItems.containsKey(oid)
+            ? widget.preloadedDiscussItems[oid] ??
+                  const <OriginDiscussPreviewItem>[]
+            : null;
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => widget.onItemTap(item),
@@ -133,6 +142,7 @@ class _PopularOriginListState extends State<PopularOriginList> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: PopularOriginListItem(
               item: item,
+              initialDiscussItems: initialDiscussItems,
               discussLoader: _loadDiscuss,
               summaryFuture: _loadSummary(item.oid),
               thumbnailBorderRadius: widget.thumbnailBorderRadius,
@@ -148,12 +158,14 @@ class PopularOriginListItem extends StatelessWidget {
   const PopularOriginListItem({
     super.key,
     required this.item,
+    this.initialDiscussItems,
     this.discussLoader,
     this.summaryFuture,
     this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
   });
 
   final OriginListItem item;
+  final List<OriginDiscussPreviewItem>? initialDiscussItems;
   final OriginDiscussPreviewLoader? discussLoader;
   final Future<WorldSummaryLatestItem?>? summaryFuture;
   final double thumbnailBorderRadius;
@@ -207,6 +219,7 @@ class PopularOriginListItem extends StatelessWidget {
         OriginDiscussPreviewList(
           oid: item.oid,
           count: item.discussCnt,
+          initialItems: initialDiscussItems,
           loader: discussLoader,
         ),
         const SizedBox(height: 14),
@@ -302,7 +315,7 @@ class _OriginHeroImage extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: _OriginImage(
         imageUrl: item.cover,
-        width: 107,
+        height: _popularOriginHeroImageHeight,
         borderRadius: GenesisImageRadii.contentValue,
       ),
     );

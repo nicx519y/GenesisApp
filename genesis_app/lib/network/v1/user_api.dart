@@ -75,6 +75,21 @@ class UserV1Api extends V1ApiResource {
     await postData('user/logout', const <String, Object?>{}, headers);
   }
 
+  /// POST /api/v1/user/delete
+  ///
+  /// 提交参数:
+  /// ```json
+  /// {}
+  /// ```
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":{}}
+  /// ```
+  Future<void> deleteAccount({Map<String, String>? headers}) async {
+    await postData('user/delete', const <String, Object?>{}, headers);
+  }
+
   /// GET /api/v1/user/info
   ///
   /// 提交参数:

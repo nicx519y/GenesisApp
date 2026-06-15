@@ -31,7 +31,7 @@ class SignedOutMeView extends StatelessWidget {
                         children: [
                           SizedBox(height: constraints.maxHeight * 0.15),
                           Image.asset(
-                            'assets/images/worldo_logo.png',
+                            'assets/images/genesis_home_logo.png',
                             width: 200,
                             fit: BoxFit.contain,
                           ),

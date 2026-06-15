@@ -61,6 +61,7 @@ class _MePageState extends State<MePage> {
   int _loadGeneration = 0;
   UserProfileData? _renderedData;
   bool _profileCollapsed = false;
+  ValueListenable<int>? _sessionRevisionListenable;
 
   @override
   void initState() {
@@ -79,7 +80,18 @@ class _MePageState extends State<MePage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final sessionRevision = AppServicesScope.of(context).sessionRevision;
+    if (identical(_sessionRevisionListenable, sessionRevision)) return;
+    _sessionRevisionListenable?.removeListener(_handleSessionChanged);
+    _sessionRevisionListenable = sessionRevision;
+    sessionRevision.addListener(_handleSessionChanged);
+  }
+
+  @override
   void dispose() {
+    _sessionRevisionListenable?.removeListener(_handleSessionChanged);
     widget.activationListenable?.removeListener(_handleTabActivated);
     _isUpdatingProfile.dispose();
     _avatarUrl.dispose();
@@ -196,6 +208,7 @@ class _MePageState extends State<MePage> {
     try {
       final originPage = await api.getMyLaunchedOrigins(
         uid: uid.trim().isEmpty ? null : uid,
+        scene: 'mine',
         limit: 30,
         offset: 0,
       );
@@ -218,6 +231,13 @@ class _MePageState extends State<MePage> {
 
   void _handleTabActivated() {
     unawaited(_refreshUserInfoOnActivation());
+  }
+
+  void _handleSessionChanged() {
+    if (!mounted) return;
+    setState(() {
+      _future = _loadData();
+    });
   }
 
   Future<void> _refreshUserInfoOnActivation() async {
@@ -246,6 +266,7 @@ class _MePageState extends State<MePage> {
     try {
       final worlds = await api.getMyWorlds(
         uid: uid.trim().isEmpty ? null : uid,
+        scene: 'mine',
         limit: 30,
         offset: 0,
       );
@@ -359,6 +380,7 @@ class _MePageState extends State<MePage> {
     try {
       final originPage = await services.api.getMyLaunchedOrigins(
         uid: uid.isEmpty ? null : uid,
+        scene: 'mine',
         limit: 30,
         offset: 0,
       );
@@ -389,6 +411,7 @@ class _MePageState extends State<MePage> {
     try {
       final worlds = await services.api.getMyWorlds(
         uid: uid.isEmpty ? null : uid,
+        scene: 'mine',
         limit: 30,
         offset: 0,
       );
