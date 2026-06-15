@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../ui/components/genesis_character_avatar.dart';
+import '../ui/tokens/genesis_avatar_radii.dart';
 import 'world_map_interaction_notification.dart';
 import 'world_location_list.dart';
 import 'world_point.dart';
@@ -1373,21 +1374,37 @@ class _PositionedMapAvatar extends StatelessWidget {
     return Positioned(
       left: left,
       top: top,
-      child: GenesisCharacterAvatar(
-        url: user.avatarUrl,
-        name: user.name ?? user.initials,
-        showStar: user.showStar,
-        size: 42,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.22),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+      child: Stack(
+        children: [
+          GenesisCharacterAvatar(
+            url: user.avatarUrl,
+            name: user.name ?? user.initials,
+            showStar: user.showStar,
+            size: 42,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.22),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(
+                    GenesisAvatarRadii.character,
+                  ),
+                  border: Border.all(color: Colors.white, width: 1),
+                ),
+              ),
+            ),
           ),
         ],
       ),

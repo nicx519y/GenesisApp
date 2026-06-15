@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../utils/genesis_image_resource.dart';
 import 'genesis_modal_routes.dart';
@@ -51,6 +52,14 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
   static const double _dismissDragDistance = 20;
   static const double _maxDragScaleReduction = 0.1;
   static const double _pageViewportFraction = 1.035;
+  static const SystemUiOverlayStyle _immersiveStatusBarStyle =
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+        systemNavigationBarColor: Colors.black,
+        systemNavigationBarIconBrightness: Brightness.light,
+      );
 
   late final PageController _pageController;
   late final List<TransformationController> _transformationControllers;
@@ -63,6 +72,10 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      SystemChrome.setSystemUIOverlayStyle(_immersiveStatusBarStyle);
+    });
     _currentIndex = widget.initialIndex.clamp(0, widget.imageUrls.length - 1);
     _pageController = PageController(
       initialPage: _currentIndex,
@@ -133,116 +146,123 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
   Widget build(BuildContext context) {
     final dragProgress = (_dragOffsetY / _dismissDragDistance).clamp(0.0, 1.0);
     final dragScale = 1 - _maxDragScaleReduction * dragProgress;
-    return Material(
-      key: const ValueKey('genesis-image-viewer-surface'),
-      color: Color.lerp(Colors.black, Colors.transparent, dragProgress * 0.32),
-      child: Listener(
-        onPointerDown: (event) {
-          _activePointers.add(event.pointer);
-          _dragStart = event.position;
-          final nextPinchActive = _activePointers.length > 1;
-          if (_dragOffsetY != 0 || nextPinchActive != _pinchGestureActive) {
-            setState(() {
-              _pinchGestureActive = nextPinchActive;
-              _dragOffsetY = 0;
-            });
-          }
-        },
-        onPointerCancel: (event) {
-          _activePointers.remove(event.pointer);
-          _dragStart = null;
-          final nextPinchActive = _activePointers.length > 1;
-          if (_dragOffsetY != 0 || nextPinchActive != _pinchGestureActive) {
-            setState(() {
-              _pinchGestureActive = nextPinchActive;
-              _dragOffsetY = 0;
-            });
-          }
-        },
-        onPointerMove: _handlePointerMove,
-        onPointerUp: _handlePointerUp,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Transform.translate(
-                key: const ValueKey('genesis-image-viewer-drag-translation'),
-                offset: Offset(0, _dragOffsetY),
-                child: Transform.scale(
-                  key: const ValueKey('genesis-image-viewer-drag-transform'),
-                  scale: dragScale,
-                  child: PageView.builder(
-                    key: const ValueKey('genesis-image-viewer-page-view'),
-                    controller: _pageController,
-                    physics: _pinchGestureActive
-                        ? const NeverScrollableScrollPhysics()
-                        : null,
-                    itemCount: widget.imageUrls.length,
-                    onPageChanged: _handlePageChanged,
-                    itemBuilder: (context, index) {
-                      return _ViewerPageSlot(
-                        viewportFraction: _pageViewportFraction,
-                        child: _ViewerImage(
-                          index: index,
-                          url: widget.imageUrls[index],
-                          controller: _transformationControllers[index],
-                        ),
-                      );
-                    },
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _immersiveStatusBarStyle,
+      child: Material(
+        key: const ValueKey('genesis-image-viewer-surface'),
+        color: Color.lerp(
+          Colors.black,
+          Colors.transparent,
+          dragProgress * 0.32,
+        ),
+        child: Listener(
+          onPointerDown: (event) {
+            _activePointers.add(event.pointer);
+            _dragStart = event.position;
+            final nextPinchActive = _activePointers.length > 1;
+            if (_dragOffsetY != 0 || nextPinchActive != _pinchGestureActive) {
+              setState(() {
+                _pinchGestureActive = nextPinchActive;
+                _dragOffsetY = 0;
+              });
+            }
+          },
+          onPointerCancel: (event) {
+            _activePointers.remove(event.pointer);
+            _dragStart = null;
+            final nextPinchActive = _activePointers.length > 1;
+            if (_dragOffsetY != 0 || nextPinchActive != _pinchGestureActive) {
+              setState(() {
+                _pinchGestureActive = nextPinchActive;
+                _dragOffsetY = 0;
+              });
+            }
+          },
+          onPointerMove: _handlePointerMove,
+          onPointerUp: _handlePointerUp,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Transform.translate(
+                  key: const ValueKey('genesis-image-viewer-drag-translation'),
+                  offset: Offset(0, _dragOffsetY),
+                  child: Transform.scale(
+                    key: const ValueKey('genesis-image-viewer-drag-transform'),
+                    scale: dragScale,
+                    child: PageView.builder(
+                      key: const ValueKey('genesis-image-viewer-page-view'),
+                      controller: _pageController,
+                      physics: _pinchGestureActive
+                          ? const NeverScrollableScrollPhysics()
+                          : null,
+                      itemCount: widget.imageUrls.length,
+                      onPageChanged: _handlePageChanged,
+                      itemBuilder: (context, index) {
+                        return _ViewerPageSlot(
+                          viewportFraction: _pageViewportFraction,
+                          child: _ViewerImage(
+                            index: index,
+                            url: widget.imageUrls[index],
+                            controller: _transformationControllers[index],
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              top: 0,
-              right: 0,
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 6, right: 6),
-                  child: DecoratedBox(
-                    key: const ValueKey(
-                      'genesis-image-viewer-close-background',
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.38),
-                      shape: BoxShape.circle,
-                    ),
-                    child: SizedBox.square(
-                      dimension: 36,
-                      child: IconButton(
-                        key: const ValueKey('genesis-image-viewer-close'),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 36,
-                          height: 36,
+              Positioned(
+                top: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6, right: 6),
+                    child: DecoratedBox(
+                      key: const ValueKey(
+                        'genesis-image-viewer-close-background',
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.38),
+                        shape: BoxShape.circle,
+                      ),
+                      child: SizedBox.square(
+                        dimension: 36,
+                        child: IconButton(
+                          key: const ValueKey('genesis-image-viewer-close'),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 36,
+                            height: 36,
+                          ),
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
                         ),
-                        icon: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                        onPressed: () => Navigator.of(context).pop(),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-            if (widget.imageUrls.length > 1)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: SafeArea(
-                  top: false,
-                  minimum: const EdgeInsets.only(bottom: 16),
-                  child: _ViewerPageDots(
-                    count: widget.imageUrls.length,
-                    currentIndex: _currentIndex,
+              if (widget.imageUrls.length > 1)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: SafeArea(
+                    top: false,
+                    minimum: const EdgeInsets.only(bottom: 16),
+                    child: _ViewerPageDots(
+                      count: widget.imageUrls.length,
+                      currentIndex: _currentIndex,
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -113,7 +113,11 @@ class _LoginLegalTextState extends State<LoginLegalText> {
             recognizer: _privacyRecognizer,
           ),
           const TextSpan(text: ', and '),
-          TextSpan(text: 'EULA', style: linkStyle, recognizer: _eulaRecognizer),
+          TextSpan(
+            text: 'End User License Agreement',
+            style: linkStyle,
+            recognizer: _eulaRecognizer,
+          ),
         ],
       ),
       textAlign: TextAlign.center,

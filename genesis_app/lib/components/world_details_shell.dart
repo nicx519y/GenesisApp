@@ -1,6 +1,31 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import 'common/genesis_modal_routes.dart';
 import 'world_map_interaction_notification.dart';
+
+class WorldDetailsStatusBarOverride {
+  WorldDetailsStatusBarOverride._();
+
+  static final ValueNotifier<SystemUiOverlayStyle?> _style =
+      ValueNotifier<SystemUiOverlayStyle?>(null);
+
+  static ValueListenable<SystemUiOverlayStyle?> get listenable => _style;
+
+  static Future<T> runWithStyle<T>(
+    SystemUiOverlayStyle style,
+    Future<T> Function() action,
+  ) async {
+    final previousStyle = _style.value;
+    _style.value = style;
+    try {
+      return await action();
+    } finally {
+      _style.value = previousStyle;
+    }
+  }
+}
 
 class WorldDetailsPageScaffold extends StatefulWidget {
   const WorldDetailsPageScaffold({
@@ -38,10 +63,38 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
   late final ScrollController _scrollController = ScrollController();
   bool _mapInteractionActive = false;
 
+  static const _transparentStatusBarColor = Color(0x00FFFFFF);
+  static const _whiteStatusBarColor = Color(0xFFFFFFFF);
+
   @override
   void dispose() {
+    SystemChrome.setSystemUIOverlayStyle(kGenesisDefaultSystemUiOverlayStyle);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  double _statusBarProgress(double mapHeight, double statusBarHeight) {
+    if (!_scrollController.hasClients) return 0;
+    final scrollDistance = (mapHeight - statusBarHeight).clamp(
+      1.0,
+      double.infinity,
+    );
+    return (_scrollController.offset / scrollDistance).clamp(0.0, 1.0);
+  }
+
+  SystemUiOverlayStyle _statusBarStyle(double progress) {
+    final useDarkIcons = progress >= 0.55;
+    return SystemUiOverlayStyle(
+      statusBarColor: Color.lerp(
+        _transparentStatusBarColor,
+        _whiteStatusBarColor,
+        progress,
+      ),
+      statusBarIconBrightness: useDarkIcons
+          ? Brightness.dark
+          : Brightness.light,
+      statusBarBrightness: useDarkIcons ? Brightness.light : Brightness.dark,
+    );
   }
 
   @override
@@ -68,79 +121,115 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
               ? WorldDetailsPageScaffold.contentBottomPadding
               : WorldDetailsPageScaffold.contentBottomPaddingWithBottomBar;
           final bottomSafeArea = MediaQuery.paddingOf(context).bottom;
+          final statusBarHeight = MediaQuery.paddingOf(context).top;
 
-          return Stack(
-            children: [
-              WorldDetailsPanelScrollControllerScope(
-                controller: _scrollController,
+          return AnimatedBuilder(
+            animation: Listenable.merge([
+              _scrollController,
+              WorldDetailsStatusBarOverride.listenable,
+            ]),
+            builder: (context, child) {
+              final statusBarProgress = _statusBarProgress(
+                mapHeight,
+                statusBarHeight,
+              );
+              final overrideStyle =
+                  WorldDetailsStatusBarOverride.listenable.value;
+              final statusBarColor =
+                  overrideStyle?.statusBarColor ??
+                  Color.lerp(
+                    _transparentStatusBarColor,
+                    _whiteStatusBarColor,
+                    statusBarProgress,
+                  )!;
+              return AnnotatedRegion<SystemUiOverlayStyle>(
+                value: overrideStyle ?? _statusBarStyle(statusBarProgress),
                 child: Stack(
                   children: [
-                    NotificationListener<WorldMapInteractionNotification>(
-                      onNotification: (notification) {
-                        if (_mapInteractionActive != notification.active) {
-                          setState(
-                            () => _mapInteractionActive = notification.active,
-                          );
-                        }
-                        return false;
-                      },
-                      child: CustomScrollView(
-                        controller: _scrollController,
-                        physics: _mapInteractionActive
-                            ? const NeverScrollableScrollPhysics()
-                            : null,
-                        slivers: [
-                          SliverToBoxAdapter(
-                            child: SizedBox(
-                              height: mapHeight,
-                              child: widget.map,
-                            ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: DecoratedBox(
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.vertical(
-                                  top: Radius.circular(8),
+                    WorldDetailsPanelScrollControllerScope(
+                      controller: _scrollController,
+                      child: Stack(
+                        children: [
+                          NotificationListener<WorldMapInteractionNotification>(
+                            onNotification: (notification) {
+                              if (_mapInteractionActive !=
+                                  notification.active) {
+                                setState(
+                                  () => _mapInteractionActive =
+                                      notification.active,
+                                );
+                              }
+                              return false;
+                            },
+                            child: CustomScrollView(
+                              controller: _scrollController,
+                              physics: _mapInteractionActive
+                                  ? const NeverScrollableScrollPhysics()
+                                  : null,
+                              slivers: [
+                                SliverToBoxAdapter(
+                                  child: SizedBox(
+                                    height: mapHeight,
+                                    child: widget.map,
+                                  ),
                                 ),
-                              ),
-                              child: const SizedBox(
-                                height: WorldDetailsPageScaffold
-                                    .inlineContentTopPadding,
-                              ),
+                                SliverToBoxAdapter(
+                                  child: DecoratedBox(
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(8),
+                                      ),
+                                    ),
+                                    child: const SizedBox(
+                                      height: WorldDetailsPageScaffold
+                                          .inlineContentTopPadding,
+                                    ),
+                                  ),
+                                ),
+                                SliverPadding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: WorldDetailsPageScaffold
+                                        .contentHorizontalPadding,
+                                  ),
+                                  sliver: SliverMainAxisGroup(
+                                    slivers: widget.slivers,
+                                  ),
+                                ),
+                                SliverToBoxAdapter(
+                                  child: SizedBox(
+                                    height: bottomPadding + bottomSafeArea,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          SliverPadding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: WorldDetailsPageScaffold
-                                  .contentHorizontalPadding,
-                            ),
-                            sliver: SliverMainAxisGroup(
-                              slivers: widget.slivers,
-                            ),
-                          ),
-                          SliverToBoxAdapter(
-                            child: SizedBox(
-                              height: bottomPadding + bottomSafeArea,
+                          Positioned(
+                            left: 0,
+                            top: 0,
+                            right: 0,
+                            height: statusBarHeight,
+                            child: IgnorePointer(
+                              child: ColoredBox(color: statusBarColor),
                             ),
                           ),
+                          if (bottomBar != null)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: bottomBar,
+                            ),
+                          if (widget.persistentTopOverlay != null)
+                            widget.persistentTopOverlay!,
+                          if (topOverlay != null) topOverlay,
                         ],
                       ),
                     ),
-                    if (bottomBar != null)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: bottomBar,
-                      ),
-                    if (widget.persistentTopOverlay != null)
-                      widget.persistentTopOverlay!,
-                    if (topOverlay != null) topOverlay,
                   ],
                 ),
-              ),
-            ],
+              );
+            },
           );
         },
       ),

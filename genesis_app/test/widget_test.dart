@@ -14,6 +14,7 @@ import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/components/common/list_loading_skeleton.dart';
 import 'package:genesis_flutter_android/components/common/copyable_id_label.dart';
 import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
@@ -1814,7 +1815,11 @@ void main() {
     final transport = _RecordingSearchTransport();
     await tester.pumpWidget(
       GenesisApp(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'test-token',
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -3380,7 +3385,7 @@ void main() {
     expect(find.text('#Origin 1'), findsWidgets);
   });
 
-  testWidgets('Home My World signed-out refresh keeps empty state', (
+  testWidgets('Home My Worlds signed-out tap asks login and stays Popular', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -3397,30 +3402,94 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('My World'));
-    await tester.pumpAndSettle();
+    final originRequestCount = transport
+        .requestsFor('/api/v1/origin/list')
+        .length;
 
-    expect(find.text('No data'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
-      findsNothing,
-    );
-
-    final refreshFuture = tester
-        .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
-        .show();
+    await tester.tap(find.text('My Worlds'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
 
+    expect(
+      transport.requestsFor('/api/v1/origin/list'),
+      hasLength(originRequestCount),
+    );
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-    expect(find.text('No data'), findsOneWidget);
+    expect(find.byType(GenesisListLoadingSkeleton), findsNothing);
+    expect(find.text('#Origin 1'), findsWidgets);
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(find.text('#Origin 1'), findsWidgets);
+
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign in to continue'), findsNothing);
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(find.text('#Origin 1'), findsWidgets);
+  });
+
+  testWidgets('Home My Worlds login success selects tab and loads worlds', (
+    WidgetTester tester,
+  ) async {
+    final sessionStore = MemoryUserSessionStore();
+    final transport = _RecordingV1ListTransport();
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: false,
+      sessionStore: sessionStore,
+      loginUser: const User(
+        id: 42,
+        uid: 'backend_uid',
+        did: '',
+        nickname: 'Backend User',
+        avatar: '',
+        createdAt: null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: null,
+            sessionStoreOverride: sessionStore,
+            identityAuth: const _FakeIdentityAuthService(
+              signInSession: AuthSession(
+                provider: IdentityProvider.google,
+                providerIdToken: 'google-token',
+                firebaseIdToken: 'firebase-token',
+                identityUid: 'identity_uid',
+                email: 'identity@example.com',
+                displayName: 'Identity User',
+                photoUrl: '',
+              ),
+            ),
+            backendAuth: backendAuth,
+          ),
+          child: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('My Worlds'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign in to continue'), findsOneWidget);
+
+    await tester.tap(find.text('Continue with Google').last);
+    await tester.pumpAndSettle();
+
+    expect(backendAuth.loginCount, 1);
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+    expect(find.text('World tick narrator 1'), findsOneWidget);
+    expect(find.text('Sign in to continue'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
       findsNothing,
     );
-
-    await refreshFuture;
-    await tester.pumpAndSettle();
   });
 
   testWidgets('Origin list item opens origin detail with current oid', (
@@ -3520,6 +3589,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
+    final chatroom = _FakeChatroomClient();
     final systemUiOverlayStyleCalls = _captureSystemUiOverlayStyleCalls();
     addTearDown(_clearPlatformChannelHandler);
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
@@ -3528,7 +3598,12 @@ void main() {
 
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'test-token',
+          chatroom: chatroom,
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -3541,6 +3616,7 @@ void main() {
       _pageStatusBarStyle(tester).statusBarIconBrightness,
       Brightness.light,
     );
+    expect(_pageStatusBarStyle(tester).statusBarColor, const Color(0x00FFFFFF));
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -720));
     await tester.pumpAndSettle();
@@ -3549,6 +3625,7 @@ void main() {
       _pageStatusBarStyle(tester).statusBarIconBrightness,
       Brightness.dark,
     );
+    expect(_pageStatusBarStyle(tester).statusBarColor, const Color(0xFFFFFFFF));
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, 720));
     await tester.pumpAndSettle();
@@ -3624,7 +3701,11 @@ void main() {
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'test-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -3724,6 +3805,11 @@ void main() {
       find.byKey(const ValueKey('genesis-image-viewer-page-view')),
       findsOneWidget,
     );
+    expect(
+      _pageStatusBarStyle(tester).statusBarIconBrightness,
+      Brightness.light,
+    );
+    expect(_pageStatusBarStyle(tester).statusBarColor, Colors.transparent);
 
     await tester.tap(find.byKey(const ValueKey('genesis-image-viewer-close')));
     await tester.pumpAndSettle();
@@ -3972,6 +4058,7 @@ void main() {
           transport: transport,
           useMock: false,
           chatroom: chatroom,
+          initialAuthToken: 'test-token',
         ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
@@ -3987,6 +4074,10 @@ void main() {
 
     expect(chatroom.connectCount, 0);
     expect(_visibleText('Detail Location (1)'), findsOneWidget);
+    expect(
+      _pageStatusBarStyle(tester).statusBarIconBrightness,
+      Brightness.dark,
+    );
     final chatPanel = find.byType(LocationChatPanel);
     expect(chatPanel, findsOneWidget);
     expect(
@@ -4286,9 +4377,17 @@ void main() {
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
+    final chatroom = _FakeChatroomClient();
+    final systemUiOverlayStyleCalls = _captureSystemUiOverlayStyleCalls();
+    addTearDown(_clearPlatformChannelHandler);
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'test-token',
+          chatroom: chatroom,
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -4299,6 +4398,11 @@ void main() {
 
     await tester.tap(find.text('Launch'));
     await tester.pumpAndSettle();
+    expect(find.text('Setup Your Role'), findsOneWidget);
+    expect(
+      systemUiOverlayStyleCalls.last['statusBarIconBrightness'],
+      Brightness.dark.toString(),
+    );
     await tester.tap(find.text('Custom'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'Custom Hero');
@@ -5145,14 +5249,12 @@ void main() {
 
     final eulaRecognizer = _recognizerForText(
       tester.widget<Text>(_loginLegalTextFinder()).textSpan!,
-      'EULA',
+      'End User License Agreement',
     );
     eulaRecognizer.onTap?.call();
     await tester.pumpAndSettle();
 
-    expect(find.text('EULA'), findsOneWidget);
-    expect(find.text('End User License Agreement ("EULA")'), findsOneWidget);
-    expect(find.text('Last updated: 2026-06-14'), findsOneWidget);
+    expect(find.text('End User License Agreement'), findsOneWidget);
   });
 
   testWidgets('signed-out Me view uses the current Genesis logo', (
@@ -7100,7 +7202,7 @@ void main() {
     eulaRecognizer.onTap?.call();
     await tester.pumpAndSettle();
 
-    expect(find.text('End User License Agreement ("EULA")'), findsOneWidget);
+    expect(find.text('End User License Agreement'), findsOneWidget);
   });
 
   testWidgets('settings reveals developer page after ten blank taps', (
@@ -8579,6 +8681,7 @@ void main() {
       _pageStatusBarStyle(tester).statusBarIconBrightness,
       Brightness.light,
     );
+    expect(_pageStatusBarStyle(tester).statusBarColor, const Color(0x00FFFFFF));
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -720));
     await tester.pumpAndSettle();
@@ -8587,6 +8690,7 @@ void main() {
       _pageStatusBarStyle(tester).statusBarIconBrightness,
       Brightness.dark,
     );
+    expect(_pageStatusBarStyle(tester).statusBarColor, const Color(0xFFFFFFFF));
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, 720));
     await tester.pumpAndSettle();
@@ -9752,7 +9856,7 @@ Finder _assetImageFinder(String path, {bool skipOffstage = true}) {
 
 Finder _loginLegalTextFinder() {
   return _richTextFinder(
-    'By continuing, you agree to our Terms, Privacy Policy, and EULA',
+    'By continuing, you agree to our Terms, Privacy Policy, and End User License Agreement',
   );
 }
 
