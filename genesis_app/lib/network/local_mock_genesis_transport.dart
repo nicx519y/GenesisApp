@@ -281,6 +281,11 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(<String, dynamic>{});
     }
 
+    if (method == 'POST' && path == 'user/delete') {
+      _state.markLoggedOut();
+      return _v1Ok(<String, dynamic>{});
+    }
+
     if (method == 'GET' && path == 'user/info') {
       return _v1Ok(_state.v1UserInfo(query['uid']));
     }
@@ -332,6 +337,10 @@ class LocalMockGenesisTransport implements HttpTransport {
 
     if (method == 'GET' && path == 'origin/list') {
       return _v1Ok(_state.v1OriginContractList(query));
+    }
+
+    if (method == 'GET' && path == 'origin/hot_tags') {
+      return _v1Ok(_state.v1OriginHotTags());
     }
 
     if (method == 'GET' && path == 'origin/detail') {
@@ -1301,7 +1310,57 @@ class _MockState {
   }
 
   Map<String, dynamic> v1OriginContractList(Map<String, String> query) {
-    return _v1Paged(_v1Origins.map(_v1OriginContractItem).toList(), query);
+    final includeDiscusses = _isPopularOriginScene(query['scene']);
+    final items = _filterV1Origins(query).map((origin) {
+      final item = _v1OriginContractItem(origin);
+      if (includeDiscusses) {
+        item['discusses'] = _latestV1OriginDiscusses('${origin['oid'] ?? ''}');
+      }
+      return item;
+    }).toList();
+    return _v1Paged(items, query);
+  }
+
+  Map<String, dynamic> v1OriginHotTags() {
+    return {
+      'list': const ['校园', '恋爱', '玄幻', '都市', '冒险'],
+    };
+  }
+
+  List<Map<String, dynamic>> _filterV1Origins(Map<String, String> query) {
+    final scene = (query['scene'] ?? '').trim();
+    var origins = _v1Origins;
+    if (scene == 'mine') {
+      origins = _v1OriginsForOwner('${_v1User['uid'] ?? ''}');
+    } else if (scene == 'uid') {
+      origins = _v1OriginsForOwner(
+        query['uid'] ?? query['owner_uid'] ?? query['owner_id'] ?? '',
+      );
+    } else if (scene == 'tag') {
+      final tag = (query['tag'] ?? query['tag_name'] ?? '').trim();
+      if (tag.isNotEmpty) {
+        origins = _v1Origins
+            .where(
+              (origin) => _stringList(
+                origin['tags'],
+              ).map((item) => item.toLowerCase()).contains(tag.toLowerCase()),
+            )
+            .toList(growable: false);
+      }
+    }
+    return origins;
+  }
+
+  List<Map<String, dynamic>> _v1OriginsForOwner(String ownerUid) {
+    final normalizedOwner = ownerUid.trim();
+    if (normalizedOwner.isEmpty) return const <Map<String, dynamic>>[];
+    return _v1Origins
+        .where(
+          (origin) =>
+              '${origin['owner_uid'] ?? origin['created_uid']}'.trim() ==
+              normalizedOwner,
+        )
+        .toList(growable: false);
   }
 
   Map<String, dynamic> v1OriginDetail(String? oid) {
@@ -1465,17 +1524,55 @@ class _MockState {
   }
 
   Map<String, dynamic> v1WorldContractList(Map<String, String> query) {
-    final ownerUid = (query['owner_uid'] ?? '').trim();
-    final worlds = ownerUid.isEmpty
-        ? _v1Worlds
-        : _v1Worlds
-              .where(
-                (world) =>
-                    '${world['owner_uid'] ?? world['created_uid']}'.trim() ==
-                    ownerUid,
-              )
-              .toList(growable: false);
+    final worlds = _filterV1Worlds(query);
     return _v1Paged(worlds.map(_v1WorldContractItem).toList(), query);
+  }
+
+  List<Map<String, dynamic>> _filterV1Worlds(Map<String, String> query) {
+    final scene = (query['scene'] ?? '').trim();
+    if (scene == 'mine') {
+      return _v1WorldsForOwner('${_v1User['uid'] ?? ''}');
+    }
+    if (scene == 'uid') {
+      return _v1WorldsForOwner(
+        query['uid'] ?? query['owner_uid'] ?? query['owner_id'] ?? '',
+      );
+    }
+    if (scene == 'tag') {
+      final tag = (query['tag'] ?? query['tag_name'] ?? '').trim();
+      if (tag.isEmpty) return _v1Worlds;
+      return _v1Worlds
+          .where(
+            (world) => _stringList(
+              world['tags'],
+            ).map((item) => item.toLowerCase()).contains(tag.toLowerCase()),
+          )
+          .toList(growable: false);
+    }
+    final ownerUid = (query['owner_uid'] ?? '').trim();
+    if (ownerUid.isEmpty) return _v1Worlds;
+    return _v1WorldsForOwner(ownerUid);
+  }
+
+  List<Map<String, dynamic>> _v1WorldsForOwner(String ownerUid) {
+    final normalizedOwner = ownerUid.trim();
+    if (normalizedOwner.isEmpty) return const <Map<String, dynamic>>[];
+    return _v1Worlds
+        .where(
+          (world) =>
+              '${world['owner_uid'] ?? world['created_uid']}'.trim() ==
+              normalizedOwner,
+        )
+        .toList(growable: false);
+  }
+
+  List<String> _stringList(Object? value) {
+    if (value is! List) return const <String>[];
+    return value
+        .map(asString)
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
   }
 
   Map<String, dynamic> v1WorldOriginProgress({
@@ -2493,6 +2590,29 @@ class _MockState {
             .toList()
           ..sort(_compareDiscussCreatedDesc);
     return replies.take(3).map(_deepCopyMap).toList();
+  }
+
+  List<Map<String, dynamic>> _latestV1OriginDiscusses(String oid) {
+    final comments =
+        _v1DiscussPosts
+            .where(
+              (item) =>
+                  item['biz_type'] == 1 &&
+                  '${item['biz_id'] ?? ''}'.trim() == oid.trim(),
+            )
+            .toList()
+          ..sort(_compareDiscussCreatedDesc);
+    return comments.take(2).map((comment) {
+      final copy = _deepCopyMap(comment);
+      copy.putIfAbsent('review_status', () => 10);
+      copy.putIfAbsent('world_id', () => _worldIdForOrigin(oid));
+      return copy;
+    }).toList();
+  }
+
+  bool _isPopularOriginScene(String? scene) {
+    final normalized = (scene ?? '').trim();
+    return normalized.isEmpty || normalized == 'popular';
   }
 
   Map<String, dynamic>? _findV1Discuss(String discussId) {

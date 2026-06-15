@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../network/genesis_api.dart';
 import '../../network/chatroom/chatroom_client.dart';
 import '../../network/chatroom/chatroom_message_storage.dart';
@@ -10,7 +12,7 @@ import '../config/app_config.dart';
 import '../config/platform_config.dart';
 
 class AppServices {
-  const AppServices({
+  AppServices({
     required this.config,
     required this.platformConfig,
     required this.deviceId,
@@ -22,7 +24,8 @@ class AppServices {
     required this.chatroomMessages,
     required this.directMessageConversations,
     required this.directMessageMessages,
-  });
+    ValueNotifier<int>? sessionRevision,
+  }) : sessionRevision = sessionRevision ?? ValueNotifier<int>(0);
 
   final AppConfig config;
   final PlatformConfig platformConfig;
@@ -35,6 +38,11 @@ class AppServices {
   final ChatroomMessageStorage chatroomMessages;
   final DirectMessageConversationStore directMessageConversations;
   final DirectMessageMessageStore directMessageMessages;
+  final ValueNotifier<int> sessionRevision;
+
+  void notifySessionChanged() {
+    sessionRevision.value += 1;
+  }
 }
 
 class ServiceRegistry {

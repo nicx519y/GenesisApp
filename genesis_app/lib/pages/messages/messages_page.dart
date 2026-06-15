@@ -57,7 +57,7 @@ class _MessagesPageState extends State<MessagesPage> {
     unawaited(_bootstrapConversations());
     if (widget.onMessagesDataRefresh == null) {
       _conversationPoller = GenesisPollingScheduler(
-        interval: const Duration(seconds: 5),
+        interval: const Duration(seconds: 30),
         onTick: _syncConversations,
       )..start(immediately: false);
     }

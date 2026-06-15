@@ -132,7 +132,7 @@ void main() {
       );
 
       expect(interactiveViewer.minScale, 1);
-      expect(interactiveViewer.maxScale, 4);
+      expect(interactiveViewer.maxScale, 2);
       expect(interactiveViewer.panEnabled, isTrue);
       expect(
         find.descendant(

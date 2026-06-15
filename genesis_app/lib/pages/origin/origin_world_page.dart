@@ -321,6 +321,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       loginUserInfo['avatar'] = user.avatar;
     }
     await services.sessionStore.saveUserInfo(loginUserInfo);
+    services.notifySessionChanged();
     return true;
   }
 

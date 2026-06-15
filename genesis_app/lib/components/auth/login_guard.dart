@@ -9,17 +9,13 @@ Future<bool> ensureGenesisLogin(BuildContext context) async {
   if (!context.mounted) return false;
   final loginContext = context;
 
-  final loggedIn = await showModalBottomSheet<bool>(
+  final loggedIn = await showLoginSheet(
     context: loginContext,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => LoginSheet(
-      onLogin: (provider) {
-        return _loginWithProvider(loginContext, provider);
-      },
-    ),
+    onLogin: (provider) {
+      return _loginWithProvider(loginContext, provider);
+    },
   );
-  if (!loginContext.mounted || loggedIn != true) return false;
+  if (!loginContext.mounted || !loggedIn) return false;
   return hasGenesisLoginSession(loginContext);
 }
 
@@ -52,5 +48,6 @@ Future<bool> _loginWithProvider(
     loginUserInfo['avatar'] = user.avatar;
   }
   await services.sessionStore.saveUserInfo(loginUserInfo);
+  services.notifySessionChanged();
   return true;
 }

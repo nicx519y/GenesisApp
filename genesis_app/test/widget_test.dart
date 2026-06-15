@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,6 +19,7 @@ import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
+import 'package:genesis_flutter_android/components/me/signed_out_me_view.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
@@ -61,6 +63,7 @@ import 'package:genesis_flutter_android/pages/world/world_page.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
 import 'package:genesis_flutter_android/platform/auth/identity_auth_service.dart';
+import 'package:genesis_flutter_android/platform/channels/genesis_method_channels.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
@@ -298,6 +301,11 @@ class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
   Future<void> signOut() async {
     await _sessionStore.clearUid();
   }
+
+  @override
+  Future<void> deleteAccount() async {
+    await _sessionStore.clearUid();
+  }
 }
 
 class _RecordingV1ListTransport implements HttpTransport {
@@ -326,9 +334,11 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldSummaryLatestItems,
     this.worldDetailTicksByRequest,
     this.worldDetailTickCountsByRequest,
+    this.hotTagsCompleter,
   });
 
   final requests = <TransportRequest>[];
+  static const _defaultHotTags = ['Destroyed'];
   String worldRelationStatus;
   final int originDiscussCount;
   final int discussTotalAll;
@@ -351,6 +361,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final List<Map<String, Object?>>? worldSummaryLatestItems;
   final List<List<Map<String, Object?>>>? worldDetailTicksByRequest;
   final List<int>? worldDetailTickCountsByRequest;
+  final Completer<TransportResponse>? hotTagsCompleter;
   int _worldDetailRequestIndex = 0;
 
   @override
@@ -507,6 +518,22 @@ class _RecordingV1ListTransport implements HttpTransport {
         'err_no': 0,
         'err_msg': 'succ',
         'data': {'world_id': 'w_launched_from_origin'},
+      });
+    }
+    if (request.method == 'GET' && request.uri.path.endsWith('/hot_tags')) {
+      final pendingResponse = hotTagsCompleter;
+      if (pendingResponse != null) return pendingResponse.future;
+      return _jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {'list': _defaultHotTags},
+      });
+    }
+    if (request.method == 'POST' && request.uri.path.endsWith('/user/delete')) {
+      return _jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': <String, Object?>{},
       });
     }
     if (request.method == 'POST' &&
@@ -1966,7 +1993,7 @@ void main() {
     expect(transport.count('/api/v1/message/unread'), 0);
     expect(transport.count('/api/v1/direct_message/conversations'), 0);
 
-    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(seconds: 30));
     await tester.pump();
     expect(transport.count('/api/v1/message/unread'), 0);
     expect(transport.count('/api/v1/direct_message/conversations'), 0);
@@ -1978,7 +2005,7 @@ void main() {
     expect(transport.count('/api/v1/direct_message/conversations'), 0);
   });
 
-  testWidgets('messages data polling shares one five second cadence', (
+  testWidgets('messages data polling shares one thirty second cadence', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingMessagesDataPollTransport();
@@ -2005,7 +2032,7 @@ void main() {
       '/api/v1/direct_message/conversations',
     ]);
 
-    await tester.pump(const Duration(milliseconds: 4999));
+    await tester.pump(const Duration(milliseconds: 29999));
     expect(transport.count('/api/v1/message/unread'), 1);
     expect(transport.count('/api/v1/direct_message/conversations'), 1);
 
@@ -2020,7 +2047,7 @@ void main() {
     expect(transport.count('/api/v1/message/unread'), 3);
     expect(transport.count('/api/v1/direct_message/conversations'), 3);
 
-    await tester.pump(const Duration(milliseconds: 4999));
+    await tester.pump(const Duration(milliseconds: 29999));
     expect(transport.count('/api/v1/message/unread'), 3);
     expect(transport.count('/api/v1/direct_message/conversations'), 3);
 
@@ -2096,7 +2123,7 @@ void main() {
     expect(transport.count('/api/v1/message/unread'), 2);
     expect(transport.count('/api/v1/direct_message/conversations'), 2);
 
-    await tester.pump(const Duration(milliseconds: 4999));
+    await tester.pump(const Duration(milliseconds: 29999));
     expect(transport.count('/api/v1/message/unread'), 2);
     expect(transport.count('/api/v1/direct_message/conversations'), 2);
 
@@ -2149,7 +2176,7 @@ void main() {
     );
 
     transport.lastMessage = 'Polled direct message preview';
-    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(seconds: 30));
     await tester.pumpAndSettle();
 
     expect(find.text('Polled direct message preview'), findsOneWidget);
@@ -2444,7 +2471,7 @@ void main() {
 
     expect(find.text('Old preview'), findsOneWidget);
     transport.deltaMessage = 'Updated preview';
-    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(seconds: 30));
     await tester.pumpAndSettle();
 
     expect(find.text('Old preview'), findsNothing);
@@ -3186,12 +3213,96 @@ void main() {
 
     originRequests = transport.requestsFor('/api/v1/origin/list');
     expect(originRequests, hasLength(2));
-    expect(originRequests.last.uri.queryParameters['scene'], 'destroyed');
-    expect(originRequests.last.uri.queryParameters.containsKey('tag'), false);
+    expect(originRequests.last.uri.queryParameters['scene'], 'tag');
+    expect(originRequests.last.uri.queryParameters['tag'], 'Destroyed');
+  });
+
+  testWidgets('Origin requests For you list before hot tags return', (
+    WidgetTester tester,
+  ) async {
+    final hotTagsCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      hotTagsCompleter: hotTagsCompleter,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(1));
+    expect(originRequests.single.uri.queryParameters['scene'], 'foryou');
+    expect(transport.requestsFor('/api/v1/origin/hot_tags'), hasLength(1));
+    expect(find.text('For you'), findsOneWidget);
+    expect(find.text('Destroyed'), findsNothing);
+
+    hotTagsCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'list': ['Destroyed'],
+        },
+      }),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Destroyed'), findsOneWidget);
+  });
+
+  testWidgets('Origin renders cached hot tags then syncs latest tags', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'origin_hot_tags_v1': <String>['Cached', 'For you', 'Cached'],
+    });
+    final hotTagsCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      hotTagsCompleter: hotTagsCompleter,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    for (var i = 0; i < 3 && find.text('Cached').evaluate().isEmpty; i += 1) {
+      await tester.pump();
+    }
+
+    expect(find.text('For you'), findsOneWidget);
+    expect(find.text('Cached'), findsOneWidget);
+    expect(find.text('Remote'), findsNothing);
+    expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
+    expect(transport.requestsFor('/api/v1/origin/hot_tags'), hasLength(1));
+
+    hotTagsCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'list': ['Remote'],
+        },
+      }),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cached'), findsNothing);
+    expect(find.text('Remote'), findsOneWidget);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getStringList('origin_hot_tags_v1'), <String>['Remote']);
   });
 
   testWidgets(
-    'Home My World tab requests v1 world list with owner_uid on enter',
+    'Home My World tab requests v1 world list with mine scene on enter',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport();
       await tester.pumpWidget(
@@ -3210,17 +3321,17 @@ void main() {
 
       var worldRequests = transport.requestsFor('/api/v1/world/list');
       expect(worldRequests, hasLength(1));
-      expect(worldRequests.single.uri.queryParameters['owner_uid'], 'u_mock');
+      expect(
+        worldRequests.single.uri.queryParameters.containsKey('owner_uid'),
+        false,
+      );
       expect(
         worldRequests.single.uri.queryParameters.containsKey('uid'),
         false,
       );
       expect(worldRequests.single.uri.queryParameters['pn'], '1');
       expect(worldRequests.single.uri.queryParameters['rn'], '20');
-      expect(
-        worldRequests.single.uri.queryParameters.containsKey('scene'),
-        false,
-      );
+      expect(worldRequests.single.uri.queryParameters['scene'], 'mine');
       expect(find.text('World tick narrator 1'), findsOneWidget);
       expect(find.text('Legacy world progress summary 1'), findsNothing);
 
@@ -3229,6 +3340,7 @@ void main() {
 
       final originRequests = transport.requestsFor('/api/v1/origin/list');
       expect(originRequests, hasLength(1));
+      expect(originRequests.single.uri.queryParameters['scene'], 'popular');
       expect(originRequests.single.uri.queryParameters['pn'], '1');
       expect(originRequests.single.uri.queryParameters['rn'], '20');
       expect(find.text('#Origin 1'), findsWidgets);
@@ -4909,8 +5021,12 @@ void main() {
 
     final worldRequests = transport.requestsFor('/api/v1/world/list');
     expect(worldRequests.length, greaterThanOrEqualTo(2));
-    expect(worldRequests[1].uri.queryParameters['owner_uid'], 'u_mock');
+    expect(
+      worldRequests[1].uri.queryParameters.containsKey('owner_uid'),
+      false,
+    );
     expect(worldRequests[1].uri.queryParameters.containsKey('uid'), false);
+    expect(worldRequests[1].uri.queryParameters['scene'], 'mine');
     expect(worldRequests[1].uri.queryParameters['pn'], '2');
     expect(worldRequests[1].uri.queryParameters['rn'], '20');
   });
@@ -5018,6 +5134,48 @@ void main() {
     expect(find.text('LIVE YOUR WORLD'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.text('Continue with Apple'), findsOneWidget);
+  });
+
+  testWidgets('tap EULA opens EULA legal document', (
+    WidgetTester tester,
+  ) async {
+    await _pumpGenesisApp(tester);
+
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
+
+    final eulaRecognizer = _recognizerForText(
+      tester.widget<Text>(_loginLegalTextFinder()).textSpan!,
+      'EULA',
+    );
+    eulaRecognizer.onTap?.call();
+    await tester.pumpAndSettle();
+
+    expect(find.text('EULA'), findsOneWidget);
+    expect(find.text('End User License Agreement ("EULA")'), findsOneWidget);
+    expect(find.text('Last updated: 2026-06-14'), findsOneWidget);
+  });
+
+  testWidgets('signed-out Me view uses the current Genesis logo', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SignedOutMeView(loggingInProvider: null, onLogin: (_) {}),
+        ),
+      ),
+    );
+
+    final logo = find.byWidgetPredicate(
+      (widget) =>
+          widget is Image &&
+          widget.image is AssetImage &&
+          (widget.image as AssetImage).assetName ==
+              'assets/images/genesis_home_logo.png',
+    );
+    expect(logo, findsOneWidget);
+    expect(find.text('LIVE YOUR WORLD'), findsOneWidget);
   });
 
   testWidgets(
@@ -5804,12 +5962,71 @@ void main() {
     await tester.tap(find.text('Me'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Continue with Google'));
-    await tester.tap(find.text('Continue with Google'));
+    await tester.tap(find.text('Continue with Google').last);
     await tester.pumpAndSettle();
 
     expect(backendAuth.loginCount, 1);
     expect(backendAuth.lastLoginProvider, IdentityProvider.google);
     expect(find.text('Continue with Google'), findsNothing);
+  });
+
+  testWidgets('Messages login refreshes cached Me session state', (
+    WidgetTester tester,
+  ) async {
+    final sessionStore = MemoryUserSessionStore();
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: false,
+      sessionStore: sessionStore,
+      loginUser: const User(
+        id: 42,
+        uid: 'backend_uid',
+        did: '',
+        nickname: 'Backend User',
+        avatar: '',
+        createdAt: null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      GenesisApp(
+        services: await _testServices(
+          initialUid: null,
+          sessionStoreOverride: sessionStore,
+          identityAuth: const _FakeIdentityAuthService(
+            signInSession: AuthSession(
+              provider: IdentityProvider.google,
+              providerIdToken: 'google-token',
+              firebaseIdToken: 'firebase-token',
+              identityUid: 'identity_uid',
+              email: 'identity@example.com',
+              displayName: 'Identity User',
+              photoUrl: '',
+            ),
+          ),
+          backendAuth: backendAuth,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Continue with Google'));
+    expect(find.text('Continue with Google'), findsOneWidget);
+
+    await tester.tap(find.text('Messages'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign in to continue'), findsOneWidget);
+
+    await tester.tap(find.text('Continue with Google').last);
+    await tester.pumpAndSettle();
+    expect(backendAuth.loginCount, 1);
+    expect(await sessionStore.readUid(), 'backend_uid');
+
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Continue with Google'), findsNothing);
+    expect(find.byType(UserProfileContent), findsOneWidget);
   });
 
   testWidgets('signed-out Me view can start Apple login', (
@@ -6786,10 +7003,45 @@ void main() {
   );
 
   testWidgets('settings opens about us page', (WidgetTester tester) async {
-    await tester.pumpWidget(const MaterialApp(home: SettingsPage()));
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      GenesisMethodChannels.device,
+      (call) async {
+        if (call.method == GenesisMethodChannels.getAppName) {
+          return 'Worldo';
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        GenesisMethodChannels.device,
+        null,
+      );
+    });
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') return null;
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SettingsPage(),
+        onGenerateRoute: AppRouter.onGenerateRoute,
+      ),
+    );
     await tester.pumpAndSettle();
 
-    expect(find.text('Developer page'), findsOneWidget);
+    expect(find.text('Delete account'), findsOneWidget);
+    expect(find.text('Developer page'), findsNothing);
     expect(find.text('Location chat test'), findsNothing);
     expect(find.text('WebSocket test'), findsNothing);
     expect(find.text('Clear direct message cache'), findsNothing);
@@ -6797,13 +7049,82 @@ void main() {
     await tester.tap(find.text('About us'));
     await tester.pumpAndSettle();
 
-    expect(find.text('About us'), findsWidgets);
+    expect(find.text('About'), findsOneWidget);
     expect(
-      find.text(
-        'Thanks for using Genesis Beta. More about us will appear here.',
+      find.byKey(const Key('about_genesis_launch_logo'), skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(find.text('Genesis'), findsNothing);
+    expect(find.text('v1.0.0'), findsOneWidget);
+    expect(
+      _richTextFinder(
+        'Worldo lets you create, discover, and enter AI-powered worlds filled '
+        'with characters, stories, and evolving events. Chat with AI '
+        'characters, play with friends, and progress each world through '
+        'immersive scenes and choices.\n\n'
+        'Our app offers a new way to experience interactive stories — not just '
+        'as a reader, but as someone inside the world. If you have any '
+        'questions, please contact us at worldodeveloper@gmail.com.',
       ),
       findsOneWidget,
     );
+    final emailRecognizer = _recognizerForText(
+      tester
+          .widget<Text>(
+            _richTextFinder(
+              'Worldo lets you create, discover, and enter AI-powered worlds '
+              'filled with characters, stories, and evolving events. Chat with '
+              'AI characters, play with friends, and progress each world '
+              'through immersive scenes and choices.\n\n'
+              'Our app offers a new way to experience interactive stories — '
+              'not just as a reader, but as someone inside the world. If you '
+              'have any questions, please contact us at '
+              'worldodeveloper@gmail.com.',
+            ),
+          )
+          .textSpan!,
+      'worldodeveloper@gmail.com',
+    );
+    emailRecognizer.onTap?.call();
+    await tester.pumpAndSettle();
+    expect(find.text('Email copied'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    final legalLinksFinder = _richTextFinder(
+      'Privacy Policy , Terms of Use and End User License Agreement',
+    );
+    expect(legalLinksFinder, findsOneWidget);
+
+    final eulaRecognizer = _recognizerForText(
+      tester.widget<Text>(legalLinksFinder).textSpan!,
+      'End User License Agreement',
+    );
+    eulaRecognizer.onTap?.call();
+    await tester.pumpAndSettle();
+
+    expect(find.text('End User License Agreement ("EULA")'), findsOneWidget);
+  });
+
+  testWidgets('settings reveals developer page after ten blank taps', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: SettingsPage()));
+    await tester.pumpAndSettle();
+
+    final unlockArea = find.byKey(
+      const ValueKey<String>('settings-developer-unlock-area'),
+    );
+    expect(find.text('Developer page'), findsNothing);
+
+    for (var i = 0; i < 9; i += 1) {
+      await tester.tap(unlockArea);
+      await tester.pump();
+    }
+    expect(find.text('Developer page'), findsNothing);
+
+    await tester.tap(unlockArea);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Developer page'), findsOneWidget);
   });
 
   testWidgets(
@@ -6873,6 +7194,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      final unlockArea = find.byKey(
+        const ValueKey<String>('settings-developer-unlock-area'),
+      );
+      for (var i = 0; i < 10; i += 1) {
+        await tester.tap(unlockArea);
+        await tester.pump();
+      }
+
       await tester.tap(find.text('Developer page'));
       await tester.pumpAndSettle();
 
@@ -6896,6 +7225,81 @@ void main() {
         ),
         isEmpty,
       );
+    },
+  );
+
+  testWidgets(
+    'settings delete account clears session posts delete and opens origin',
+    (WidgetTester tester) async {
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_cached');
+      await sessionStore.saveAuthToken('backend-token');
+      await sessionStore.saveUserInfo({
+        'uid': 'u_cached',
+        'name': 'Cached User',
+      });
+      final transport = _RecordingV1ListTransport();
+      final api = GenesisApi(
+        transport: transport,
+        useMock: false,
+        platformConfig: const DefaultPlatformConfig(),
+        deviceIdService: const _FakeDeviceIdService(),
+        sessionStore: sessionStore,
+        identityAuthService: const _FakeIdentityAuthService(),
+      );
+      final backendAuth = GenesisBackendAuthCoordinator(
+        api: api,
+        identityAuth: const _FakeIdentityAuthService(),
+        sessionStore: sessionStore,
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        sessionStoreOverride: sessionStore,
+        backendAuth: backendAuth,
+        initialUid: null,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: const SettingsPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Delete account'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Delete your account?'), findsOneWidget);
+      expect(await sessionStore.readUid(), 'u_cached');
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(await sessionStore.readUid(), 'u_cached');
+      expect(transport.requestsFor('/api/v1/user/delete'), isEmpty);
+
+      await tester.tap(find.text('Delete account'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete account').last);
+      await tester.pumpAndSettle();
+
+      expect(await sessionStore.readUid(), isNull);
+      expect(await sessionStore.readAuthToken(), isNull);
+      expect(await sessionStore.readUserInfo(), isNull);
+      final deleteRequests = transport.requestsFor('/api/v1/user/delete');
+      expect(deleteRequests, hasLength(1));
+      expect(deleteRequests.single.method, 'POST');
+      expect(
+        deleteRequests.single.headers['authorization'],
+        'Bearer backend-token',
+      );
+      expect(find.text('For you'), findsOneWidget);
+      expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
     },
   );
 
@@ -6980,27 +7384,44 @@ void main() {
   testWidgets('user info page renders requested uid profile from v1 info', (
     WidgetTester tester,
   ) async {
+    final transport = _RecordingV1ListTransport();
     await tester.pumpWidget(
       MaterialApp(
         home: AppServicesScope(
-          services: await _testServices(),
+          services: await _testServices(transport: transport, useMock: false),
           child: const UserInfoPage(uid: 'u_mock_peer'),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Penny Hardaway'), findsOneWidget);
-    expect(find.text('16'), findsOneWidget);
+    expect(find.text('Remote User'), findsOneWidget);
+    expect(find.text('13'), findsOneWidget);
     expect(find.text('Following'), findsOneWidget);
-    expect(find.text('20'), findsOneWidget);
+    expect(find.text('17'), findsOneWidget);
     expect(find.text('Followers'), findsOneWidget);
     expect(find.byIcon(Icons.chevron_right), findsNothing);
+    final originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(1));
+    expect(originRequests.single.uri.queryParameters['scene'], 'uid');
+    expect(originRequests.single.uri.queryParameters['uid'], 'u_mock_peer');
+    expect(
+      originRequests.single.uri.queryParameters.containsKey('owner_uid'),
+      false,
+    );
 
     await tester.tap(find.text('World'));
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.chevron_right), findsNothing);
+    final worldRequests = transport.requestsFor('/api/v1/world/list');
+    expect(worldRequests, hasLength(1));
+    expect(worldRequests.single.uri.queryParameters['scene'], 'uid');
+    expect(worldRequests.single.uri.queryParameters['uid'], 'u_mock_peer');
+    expect(
+      worldRequests.single.uri.queryParameters.containsKey('owner_uid'),
+      false,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -9332,9 +9753,28 @@ Finder _assetImageFinder(String path, {bool skipOffstage = true}) {
 
 Finder _loginLegalTextFinder() {
   return _richTextFinder(
-    'By continuing, you agree to our Terms\n'
-    'and acknowledge our Privacy Policy',
+    'By continuing, you agree to our Terms, Privacy Policy, and EULA',
   );
+}
+
+TapGestureRecognizer _recognizerForText(InlineSpan span, String text) {
+  TapGestureRecognizer? findRecognizer(InlineSpan child) {
+    if (child is! TextSpan) return null;
+    if (child.text == text) {
+      return child.recognizer as TapGestureRecognizer?;
+    }
+    for (final nested in child.children ?? const <InlineSpan>[]) {
+      final recognizer = findRecognizer(nested);
+      if (recognizer != null) return recognizer;
+    }
+    return null;
+  }
+
+  final result = findRecognizer(span);
+  if (result == null) {
+    throw StateError('No tap recognizer found for "$text".');
+  }
+  return result;
 }
 
 Finder _visibleText(String text) {

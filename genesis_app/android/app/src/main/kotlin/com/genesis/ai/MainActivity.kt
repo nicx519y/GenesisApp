@@ -83,6 +83,10 @@ class MainActivity : FlutterActivity() {
                 "getSignInDiagnostics" -> {
                     result.success(buildSignInDiagnostics())
                 }
+                "getAppName" -> {
+                    val label = applicationInfo.loadLabel(packageManager)?.toString() ?: ""
+                    result.success(label)
+                }
                 "signInGoogleLegacy" -> {
                     val serverClientId = call.argument<String>("serverClientId") ?: ""
                     signInGoogleLegacy(serverClientId, result)

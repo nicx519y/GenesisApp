@@ -7,7 +7,7 @@ class WorldV1Api extends V1ApiResource {
   ///
   /// 提交参数:
   /// ```json
-  /// {"pn":1,"rn":10,"origin_id":"string","owner_uid":"string","keyword":"string"}
+  /// {"pn":1,"rn":10,"scene":"uid","uid":"string","tag":"string","origin_id":"string","keyword":"string"}
   /// ```
   ///
   /// Response:
@@ -16,8 +16,10 @@ class WorldV1Api extends V1ApiResource {
   /// ```
   Future<Map<String, dynamic>> list({
     String? scene,
+    String? tag,
     String? originId,
     String? ownerUid,
+    String? uid,
     String? keyword,
     int? pn,
     int? rn,
@@ -26,8 +28,10 @@ class WorldV1Api extends V1ApiResource {
       'world/list',
       v1Query({
         'scene': scene,
+        'tag': tag,
         'origin_id': originId,
         'owner_uid': ownerUid,
+        'uid': uid,
         'keyword': keyword,
         'pn': pn,
         'rn': rn,

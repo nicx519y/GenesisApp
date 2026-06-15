@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 
 import '../platform/auth/auth_session.dart';
+import '../pages/legal/legal_document_page.dart';
+import '../routers/app_router.dart';
 
 const String _googleOauthIconAsset = 'assets/custom-icons/png/google_oauth.png';
 
@@ -44,8 +47,42 @@ class LoginProviderButtons extends StatelessWidget {
   }
 }
 
-class LoginLegalText extends StatelessWidget {
+class LoginLegalText extends StatefulWidget {
   const LoginLegalText({super.key});
+
+  @override
+  State<LoginLegalText> createState() => _LoginLegalTextState();
+}
+
+class _LoginLegalTextState extends State<LoginLegalText> {
+  late final TapGestureRecognizer _termsRecognizer;
+  late final TapGestureRecognizer _privacyRecognizer;
+  late final TapGestureRecognizer _eulaRecognizer;
+
+  @override
+  void initState() {
+    super.initState();
+    _termsRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openDocument(LegalDocument.terms);
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openDocument(LegalDocument.privacy);
+    _eulaRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openDocument(LegalDocument.eula);
+  }
+
+  @override
+  void dispose() {
+    _termsRecognizer.dispose();
+    _privacyRecognizer.dispose();
+    _eulaRecognizer.dispose();
+    super.dispose();
+  }
+
+  void _openDocument(LegalDocument document) {
+    Navigator.of(
+      context,
+    ).pushNamed(RouteNames.legal, arguments: {'document': document.name});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,14 +96,24 @@ class LoginLegalText extends StatelessWidget {
       height: 1.35,
       color: Color(0xFF3E5B8A),
     );
-    return const Text.rich(
+    return Text.rich(
       TextSpan(
         style: baseStyle,
         children: [
-          TextSpan(text: 'By continuing, you agree to our '),
-          TextSpan(text: 'Terms', style: linkStyle),
-          TextSpan(text: '\nand acknowledge our '),
-          TextSpan(text: 'Privacy Policy', style: linkStyle),
+          const TextSpan(text: 'By continuing, you agree to our '),
+          TextSpan(
+            text: 'Terms',
+            style: linkStyle,
+            recognizer: _termsRecognizer,
+          ),
+          const TextSpan(text: ', '),
+          TextSpan(
+            text: 'Privacy Policy',
+            style: linkStyle,
+            recognizer: _privacyRecognizer,
+          ),
+          const TextSpan(text: ', and '),
+          TextSpan(text: 'EULA', style: linkStyle, recognizer: _eulaRecognizer),
         ],
       ),
       textAlign: TextAlign.center,

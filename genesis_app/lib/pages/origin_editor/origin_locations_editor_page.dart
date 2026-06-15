@@ -127,7 +127,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       return;
     }
 
-    final selectedIds = await showModalBottomSheet<List<String>>(
+    final selectedIds = await showGenesisModalBottomSheet<List<String>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,

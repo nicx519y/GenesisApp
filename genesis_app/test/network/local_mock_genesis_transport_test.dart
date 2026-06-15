@@ -174,6 +174,24 @@ void main() {
     await api.v1.user.profile(uid: 'u_mock_peer');
     await api.v1.user.origins(uid: 'u_mock_001');
     await api.v1.user.worlds(uid: 'u_mock_001');
+    await api.v1.user.deleteAccount();
+
+    final hotTags = await api.v1.origin.hotTags();
+    expect(hotTags, containsAll(<String>['校园', '恋爱', '玄幻', '都市', '冒险']));
+
+    final popularOrigins = await api.v1.origin.list(pn: 1, rn: 10);
+    final firstPopularOrigin = (popularOrigins['list'] as List).first as Map;
+    expect(firstPopularOrigin['discusses'], isA<List>());
+    expect(firstPopularOrigin['discusses'], hasLength(2));
+
+    final uidOrigins = await api.v1.origin.list(
+      scene: 'uid',
+      uid: 'u_mock_001',
+      pn: 1,
+      rn: 10,
+    );
+    final firstUidOrigin = (uidOrigins['list'] as List).first as Map;
+    expect(firstUidOrigin.containsKey('discusses'), isFalse);
 
     final home = await api.v1.home.home();
     expect(((home['my_world'] as Map)['list'] as List).isNotEmpty, true);
@@ -263,7 +281,8 @@ void main() {
     expect(firstWorldStats['tick_cnt'], greaterThanOrEqualTo(1000));
     expect(firstWorldStats['connect_cnt'], greaterThanOrEqualTo(1000));
     final myWorlds = await api.v1.world.list(
-      ownerUid: 'u_mock_001',
+      scene: 'uid',
+      uid: 'u_mock_001',
       pn: 1,
       rn: 10,
     );

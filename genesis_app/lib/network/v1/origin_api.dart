@@ -1,3 +1,4 @@
+import '../json_utils.dart';
 import 'v1_api_resource.dart';
 
 class OriginV1Api extends V1ApiResource {
@@ -14,22 +15,40 @@ class OriginV1Api extends V1ApiResource {
     return data is List ? data : const <Object?>[];
   }
 
+  /// GET /api/v1/origin/hot_tags
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":{"list":["校园","恋爱"]}}
+  /// ```
+  Future<List<String>> hotTags() async {
+    final data = await getMap('origin/hot_tags');
+    final list = data['list'];
+    if (list is! List) return const <String>[];
+    return list
+        .map(asString)
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+  }
+
   /// GET /api/v1/origin/list
   ///
   /// 提交参数:
   /// ```json
-  /// {"pn":1,"rn":10,"tag_id":1,"keyword":"string","uid":"string","tag_name":"string"}
+  /// {"pn":1,"rn":10,"scene":"uid","uid":"string","tag":"string","keyword":"string"}
   /// ```
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"list":[{"oid":"string","status":1,"version_num":1,"name":"string","cover":"string","display_subtitle":"string","world_view":"string","created_uid":"string","created_user_name":"string","created_at":"string","updated_at":"string","tags":[],"copy_cnt":0,"connect_cnt":0,"discuss_cnt":0,"character_cnt":0,"location_cnt":0}],"total":0}}
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"string","origin_name":"string","brief":"string","cover":{},"status":10},"stats":{"copy_cnt":0,"discuss_cnt":0,"character_cnt":0,"connect_cnt":0,"location_cnt":0,"max_tick_cnt":0},"discusses":[]}],"total":0,"pn":1,"rn":10}}
   /// ```
   Future<Map<String, dynamic>> list({
     String? scene,
     String? tag,
     int? tagId,
     String? keyword,
+    String? ownerUid,
     String? uid,
     String? tagName,
     int? pn,
@@ -42,6 +61,7 @@ class OriginV1Api extends V1ApiResource {
         'tag': tag,
         'tag_id': tagId,
         'keyword': keyword,
+        'owner_uid': ownerUid,
         'uid': uid,
         'tag_name': tagName,
         'pn': pn,

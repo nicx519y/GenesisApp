@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'genesis_modal_routes.dart';
+
 const Color _genesisActionBoxText = Color(0xFF111111);
 const Color _genesisActionBoxDestructive = Color(0xFFE8413A);
 const Color _genesisActionBoxDivider = Color(0xFFE8E8EA);
@@ -23,9 +25,9 @@ Future<T?> showGenesisActionBox<T>({
   Widget? content,
   String cancelLabel = 'Cancel',
 }) {
-  return showDialog<T>(
+  return showGenesisDialog<T>(
     context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.32),
+    barrierColor: const Color(0x52000000),
     builder: (dialogContext) {
       return GenesisActionBox<T>(
         title: title,

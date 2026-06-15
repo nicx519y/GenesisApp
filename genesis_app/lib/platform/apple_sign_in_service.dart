@@ -13,11 +13,11 @@ class AppleSignInService {
 
   static const String _webClientId = String.fromEnvironment(
     'APPLE_WEB_CLIENT_ID',
-    defaultValue: '',
+    defaultValue: 'com.genesis.ai.signin',
   );
   static const String _webRedirectUri = String.fromEnvironment(
     'APPLE_WEB_REDIRECT_URI',
-    defaultValue: '',
+    defaultValue: 'https://dev.hushie.ai/callbacks/signinwithapple',
   );
 
   static bool get isSupportedPlatform =>

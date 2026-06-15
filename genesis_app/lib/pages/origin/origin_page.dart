@@ -1,5 +1,8 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/list_loading_skeleton.dart';
@@ -12,98 +15,130 @@ import '../../ui/components/secend_tabs.dart';
 class OriginPage extends StatefulWidget {
   const OriginPage({super.key});
 
-  //兜底数据
-  static const List<_OriginCategory> _fallbackCategories = [
-    _OriginCategory(name: 'For you', scene: 'foryou'),
-    _OriginCategory(name: 'adventure', scene: 'tag'),
-    _OriginCategory(name: 'drama', scene: 'tag'),
-    _OriginCategory(name: 'fantasy', scene: 'tag'),
-    _OriginCategory(name: 'identity', scene: 'tag'),
-  ];
-
   @override
   State<OriginPage> createState() => _OriginPageState();
 }
 
 class _OriginPageState extends State<OriginPage> {
-  late Future<List<_OriginCategory>> _categoriesFuture;
+  static const _forYouCategory = _OriginCategory(
+    name: 'For you',
+    scene: 'foryou',
+  );
+
+  final _hotTagsCache = const _OriginHotTagsCache();
+  List<_OriginCategory> _categories = const [_forYouCategory];
 
   @override
   void initState() {
     super.initState();
-    _categoriesFuture = _loadCategories();
+    unawaited(_hydrateCategories());
   }
 
-  Future<List<_OriginCategory>> _loadCategories() async {
-    try {
-      final list = await AppServicesScope.read(context).api.v1.origin.homeNav();
-      final categories = list
-          .whereType<Map>()
-          .map((item) => _OriginCategory.fromJson(asJsonMap(item)))
-          .where((item) => item.name.isNotEmpty && item.scene.isNotEmpty)
-          .toList(growable: false);
-      return categories.isNotEmpty
-          ? categories
-          : OriginPage._fallbackCategories;
-    } catch (_) {
-      return OriginPage._fallbackCategories;
+  Future<void> _hydrateCategories() async {
+    final cachedTags = await _hotTagsCache.load();
+    if (!mounted) return;
+    if (cachedTags.isNotEmpty) {
+      setState(() {
+        _categories = _categoriesFromTags(cachedTags);
+      });
     }
+    await _syncHotTags();
+  }
+
+  Future<void> _syncHotTags() async {
+    try {
+      final tags = await AppServicesScope.read(context).api.v1.origin.hotTags();
+      final normalizedTags = _normalizeTags(tags);
+      await _hotTagsCache.save(normalizedTags);
+      if (!mounted) return;
+      setState(() {
+        _categories = _categoriesFromTags(normalizedTags);
+      });
+    } catch (_) {
+      // Keep the already rendered For you tab or cached tabs on sync failure.
+    }
+  }
+
+  static List<_OriginCategory> _categoriesFromTags(List<String> tags) {
+    return [
+      _forYouCategory,
+      for (final tag in _normalizeTags(tags))
+        _OriginCategory(name: tag, scene: 'tag'),
+    ];
+  }
+
+  static List<String> _normalizeTags(List<String> tags) {
+    final seen = <String>{};
+    final result = <String>[];
+    for (final tag in tags) {
+      final trimmed = tag.trim();
+      if (trimmed.isEmpty) continue;
+      final key = trimmed.toLowerCase();
+      if (key == _forYouCategory.name.toLowerCase()) continue;
+      if (!seen.add(key)) continue;
+      result.add(trimmed);
+    }
+    return result;
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<_OriginCategory>>(
-      future: _categoriesFuture,
-      builder: (context, snapshot) {
-        final categories = snapshot.data;
-        if (categories == null || categories.isEmpty) {
-          return const Column(
-            children: [
-              PageHeader(pageName: 'Origin'),
-              SizedBox(height: 4),
-              Expanded(child: GenesisListLoadingSkeleton.originGrid()),
-            ],
-          );
-        }
-
-        return DefaultTabController(
-          length: categories.length,
-          child: Column(
-            children: [
-              const PageHeader(pageName: 'Origin'),
-              const SizedBox(height: 4),
-              SecendTabs(
-                labels: categories.map((item) => item.name).toList(),
-                verticalPadding: 0,
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    for (final entry in categories.indexed)
-                      _OriginFeed(index: entry.$1, category: entry.$2),
-                  ],
-                ),
-              ),
-            ],
+    final categories = _categories;
+    return DefaultTabController(
+      length: categories.length,
+      child: Column(
+        children: [
+          const PageHeader(pageName: 'Origin'),
+          const SizedBox(height: 4),
+          SecendTabs(
+            labels: categories.map((item) => item.name).toList(),
+            verticalPadding: 0,
           ),
-        );
-      },
+          Expanded(
+            child: TabBarView(
+              children: [
+                for (final entry in categories.indexed)
+                  _OriginFeed(index: entry.$1, category: entry.$2),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
+  }
+}
+
+class _OriginHotTagsCache {
+  const _OriginHotTagsCache();
+
+  static const storageKey = 'origin_hot_tags_v1';
+
+  Future<List<String>> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(storageKey) ?? const <String>[];
+  }
+
+  Future<void> save(List<String> tags) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(storageKey, tags);
   }
 }
 
 class _OriginCategory {
   const _OriginCategory({required this.name, required this.scene});
 
-  factory _OriginCategory.fromJson(Map<String, dynamic> json) {
-    return _OriginCategory(
-      name: asString(json['name']).trim(),
-      scene: asString(json['scene']).trim(),
-    );
-  }
-
   final String name;
   final String scene;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _OriginCategory &&
+        other.name == name &&
+        other.scene == scene;
+  }
+
+  @override
+  int get hashCode => Object.hash(name, scene);
 }
 
 class _OriginFeed extends StatefulWidget {
