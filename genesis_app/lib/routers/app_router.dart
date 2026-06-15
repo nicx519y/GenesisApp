@@ -313,6 +313,32 @@ class _FollowsRouteArgs {
 }
 
 sealed class AppRouter {
+  static String pageClassNameForRouteName(String? routeName) {
+    return switch (routeName) {
+      RouteNames.home => 'AppShellPage',
+      RouteNames.origin => 'AppShellPage',
+      RouteNames.originWorld => 'OriginWorldPage',
+      RouteNames.discuss => 'DiscussPage',
+      RouteNames.postDetail => 'PostDetailPage',
+      RouteNames.world => 'WorldPage',
+      RouteNames.chat => 'ChatPage',
+      RouteNames.locationChat => 'LocationChatPage',
+      RouteNames.search => 'SearchPage',
+      RouteNames.create => 'CreateOriginPage',
+      RouteNames.edit => 'EditOriginPage',
+      RouteNames.messages => 'AppShellPage',
+      RouteNames.me => 'AppShellPage',
+      RouteNames.notifications => 'MessageCategoryListPage',
+      RouteNames.newFollowers => 'MessageCategoryListPage',
+      RouteNames.comments => 'MessageCategoryListPage',
+      RouteNames.userInfo => 'UserInfoPage',
+      RouteNames.follows => 'FollowsPage',
+      RouteNames.legal => 'LegalDocumentPage',
+      RouteNames.shell => 'AppShellPage',
+      _ => routeName?.trim().isNotEmpty == true ? routeName! : 'Unknown',
+    };
+  }
+
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
       case RouteNames.home:
