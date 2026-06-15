@@ -6,13 +6,13 @@ import UniformTypeIdentifiers
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, PHPickerViewControllerDelegate {
-  private let channelName = "com.genesis.ai/device"
-  private let discussImagePickerChannelName = "com.genesis.ai/discuss_image_picker"
+  private let channelName = "com.worldo.ai/device"
+  private let discussImagePickerChannelName = "com.worldo.ai/discuss_image_picker"
   private let uidKey = "uid"
   private let authTokenKey = "auth_token"
   private let userInfoKey = "user_info"
   private let deviceIdKey = "genesis_device_id"
-  private let deviceIdKeychainService = "com.genesis.ai.device-id"
+  private let deviceIdKeychainService = "com.worldo.ai.device-id"
   private let prefs = UserDefaults.standard
   private var pendingDiscussImagePickerResult: FlutterResult?
 

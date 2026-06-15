@@ -602,7 +602,7 @@ MethodChannel 常量目录。
 
 ```dart
 class GenesisMethodChannels {
-  static const device = MethodChannel('com.genesis.ai/device');
+  static const device = MethodChannel('com.worldo.ai/device');
 
   static const getAndroidId = 'getAndroidId';
   static const setUid = 'setUid';

@@ -9,7 +9,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 class GoogleSignInService {
   GoogleSignInService._();
   static const MethodChannel _deviceChannel = MethodChannel(
-    'com.genesis.ai/device',
+    'com.worldo.ai/device',
   );
 
   static const String _serverClientId = String.fromEnvironment(

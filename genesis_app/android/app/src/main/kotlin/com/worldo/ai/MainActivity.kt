@@ -1,4 +1,4 @@
-package com.genesis.ai
+package com.worldo.ai
 
 import android.app.Activity
 import android.content.Context
@@ -23,8 +23,8 @@ import java.io.FileOutputStream
 import java.security.MessageDigest
 
 class MainActivity : FlutterActivity() {
-    private val channel = "com.genesis.ai/device"
-    private val discussImagePickerChannel = "com.genesis.ai/discuss_image_picker"
+    private val channel = "com.worldo.ai/device"
+    private val discussImagePickerChannel = "com.worldo.ai/discuss_image_picker"
     private val discussImagePickerRequestCode = 43021
     private val googleSignInRequestCode = 43022
     private val uidKey = "uid"

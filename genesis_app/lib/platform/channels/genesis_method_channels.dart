@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 class GenesisMethodChannels {
   const GenesisMethodChannels._();
 
-  static const deviceChannelName = 'com.genesis.ai/device';
+  static const deviceChannelName = 'com.worldo.ai/device';
   static const device = MethodChannel(deviceChannelName);
 
   static const getAndroidId = 'getAndroidId';

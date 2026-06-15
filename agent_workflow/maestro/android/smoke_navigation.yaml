@@ -1,6 +1,5 @@
-appId: com.genesis.ai
+appId: com.worldo.ai
 ---
 - launchApp
 - waitForAnimationToEnd
 - assertVisible: "Genesis"
-
