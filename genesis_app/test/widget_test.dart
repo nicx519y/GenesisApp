@@ -6659,15 +6659,6 @@ void main() {
     );
     expect(rootPublish.onPressed, isNotNull);
 
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
-    await tester.pumpAndSettle();
-    expect(find.text('Publish changes before leaving?'), findsOneWidget);
-    expect(find.text('Publish'), findsWidgets);
-    expect(find.text('Discard'), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-    expect(find.text('Edit Origin'), findsOneWidget);
-
     await tester.tap(find.widgetWithText(FilledButton, 'Publish'));
     await tester.pumpAndSettle();
 
@@ -6728,6 +6719,70 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+    'edit flow exits without draft dialog and reloads original detail',
+    (WidgetTester tester) async {
+      final transport = _RecordingCreateOriginTransport();
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) {
+                return Scaffold(
+                  body: Center(
+                    child: FilledButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                const EditOriginPage(originId: 'o_edit_1'),
+                          ),
+                        );
+                      },
+                      child: const Text('Open edit'),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Open edit'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('World Name: Editable Origin'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Basics'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).first, 'Edited Origin');
+      await tester.pump();
+      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('World Name: Edited Origin'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+      await tester.pumpAndSettle();
+      expect(find.text('Publish changes before leaving?'), findsNothing);
+      expect(find.text('Open edit'), findsOneWidget);
+      expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
+
+      await tester.tap(find.text('Open edit'));
+      await tester.pumpAndSettle();
+      expect(transport.requestsFor('/api/v1/origin/foredit'), hasLength(2));
+      expect(
+        find.textContaining('World Name: Editable Origin'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('World Name: Edited Origin'), findsNothing);
+    },
+  );
 
   testWidgets('settings opens about us page', (WidgetTester tester) async {
     await tester.pumpWidget(const MaterialApp(home: SettingsPage()));
