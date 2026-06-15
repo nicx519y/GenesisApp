@@ -2608,7 +2608,7 @@ void main() {
     expect(find.text('Join request'), findsOneWidget);
     expect(
       _richTextWithPlainText(
-        'Penny Hardaway request to join Steam Kingdom Live(w_mock_001)',
+        'Penny Hardaway request to join Steam Kingdom Live (w_mock_001)',
       ),
       findsOneWidget,
     );
@@ -2895,12 +2895,12 @@ void main() {
         'notification_id': 'ntf_apply_001',
         'notice_block': 'world_apply',
         'notice_type': 'world_apply',
-        'sender': {'uid': 'U_Z7Y8S', 'name': 'Hushie'},
+        'sender': {'uid': 'U_Z7Y8S', 'name': 'U_Z7Y8S'},
         'biz_type': 2,
         'biz_id': 'W_G9B5TK',
         'obj_id': 'apl_apply_001',
         'world_name': '重生 2005 测试时间设置',
-        'content': 'Hushie request to join 重生 2005 测试时间设置.',
+        'content': 'U_Z7Y8S request to join 重生 2005 测试时间设置.',
         'is_read': false,
         'created_at': '2026-05-20T10:00:00Z',
       },
@@ -2923,7 +2923,7 @@ void main() {
 
     expect(find.text('Join request'), findsOneWidget);
     expect(
-      _richTextWithPlainText('Hushie request to join 重生 2005 测试时间设置(W_G9B5TK)'),
+      _richTextWithPlainText('U_Z7Y8S request to join 重生 2005 测试时间设置 (W_G9B5TK)'),
       findsOneWidget,
     );
 
@@ -2931,6 +2931,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Approve'), findsOneWidget);
     expect(find.text('Reject'), findsOneWidget);
+    expect(_richTextWithPlainText('U_Z7Y8S U_Z7Y8S'), findsOneWidget);
 
     await tester.tap(find.text('Approve'));
     await tester.pumpAndSettle();
@@ -2989,7 +2990,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      _richTextWithPlainText('Nia request to join Aurora Harbor(W_REAL_ID)'),
+      _richTextWithPlainText('Nia request to join Aurora Harbor (W_REAL_ID)'),
       findsOneWidget,
     );
 
@@ -3042,14 +3043,15 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
+    expect(find.text('Join request'), findsOneWidget);
     expect(
-      _richTextWithPlainText('request to Review World(W_REVIEW)'),
+      _richTextWithPlainText('Request to Review World (W_REVIEW)'),
       findsOneWidget,
     );
     expect(find.text('Rejected'), findsOneWidget);
 
     await tester.tap(
-      _richTextWithPlainText('request to Review World(W_REVIEW)'),
+      _richTextWithPlainText('Request to Review World (W_REVIEW)'),
     );
     await tester.pumpAndSettle();
 
