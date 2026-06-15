@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app/debug_floating_button_visibility.dart';
@@ -32,8 +31,6 @@ class _DeveloperDebugFloatingButtonState
 
   @override
   Widget build(BuildContext context) {
-    if (kReleaseMode) return widget.child;
-
     return ValueListenableBuilder<bool>(
       valueListenable: genesisDebugFloatingButtonVisible,
       builder: (context, visible, _) {
