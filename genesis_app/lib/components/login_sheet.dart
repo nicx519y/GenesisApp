@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'common/genesis_bottom_sheet_panel.dart';
 import 'common/genesis_center_toast.dart';
+import 'common/genesis_modal_routes.dart';
 import 'login_provider_button.dart';
 import '../platform/auth/auth_cancelled_exception.dart';
 import '../platform/auth/auth_session.dart';
@@ -106,7 +107,7 @@ Future<bool> showLoginSheet({
   required BuildContext context,
   required Future<bool> Function(IdentityProvider provider) onLogin,
 }) async {
-  final loggedIn = await showModalBottomSheet<bool>(
+  final loggedIn = await showGenesisModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,

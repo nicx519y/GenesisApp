@@ -7,6 +7,7 @@ import '../../components/common/copyable_id_label.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_action_box.dart';
+import '../../components/common/genesis_modal_routes.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/login_sheet.dart';
@@ -254,7 +255,7 @@ class _WorldPageState extends State<WorldPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(
-        showDialog<void>(
+        showGenesisDialog<void>(
           context: context,
           barrierDismissible: false,
           builder: (_) => _Tick1WaitDialog(

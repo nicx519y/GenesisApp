@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_upload_progress_overlay.dart';
 import '../../components/common/local_image_crop_page.dart';
 import '../../platform/native_image_picker.dart';
@@ -207,7 +208,7 @@ Future<bool> confirmCreateFormDelete(
   BuildContext context, {
   required String itemLabel,
 }) async {
-  final confirmed = await showDialog<bool>(
+  final confirmed = await showGenesisDialog<bool>(
     context: context,
     builder: (dialogContext) {
       return AlertDialog(

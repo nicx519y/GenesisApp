@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
+import '../common/genesis_modal_routes.dart';
 import 'origin_character_form.dart';
 import '../../network/models/origin.dart';
 import '../../ui/components/genesis_character_avatar.dart';
@@ -61,13 +62,13 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
   OriginRoleProfileLoader? onFillFromProfile,
   OriginRoleAvatarResolver? resolveAvatarUrl,
 }) {
-  return showModalBottomSheet<OriginRoleLaunchSelection>(
+  return showGenesisModalBottomSheet<OriginRoleLaunchSelection>(
     context: context,
     isScrollControlled: true,
     isDismissible: false,
     useSafeArea: false,
     backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.38),
+    barrierColor: kGenesisSubtleModalBarrierColor,
     constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height),
     builder: (context) {
       return OriginRoleLaunchSheet(
