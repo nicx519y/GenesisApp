@@ -48,7 +48,7 @@ class _WorldListSkeleton extends StatelessWidget {
     return ListView.separated(
       key: const ValueKey<String>('genesis-world-list-skeleton'),
       primary: false,
-      padding: const EdgeInsets.only(top: 4),
+      padding: EdgeInsets.zero,
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),

@@ -124,7 +124,6 @@ class _EditOriginPageState extends State<EditOriginPage> {
       leaveTitle: 'Publish changes before leaving?',
       leaveSubmitLabel: 'Publish',
       submitUnavailableMessage: 'No changes to publish.',
-      confirmLeaveWithDraftOptions: true,
       onSubmit: _onSave,
     );
   }

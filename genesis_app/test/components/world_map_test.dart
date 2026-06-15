@@ -164,6 +164,43 @@ void main() {
     },
   );
 
+  testWidgets('world map pinches when both pointers start on map markers', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      mapImageUrl: kMockV1SteamMapImage,
+      users: const [
+        UserAvatar(
+          'AA',
+          name: 'Ada',
+          avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+        ),
+      ],
+    );
+
+    final avatar = find.byType(GenesisCharacterAvatar);
+    expect(avatar, findsOneWidget);
+    final initialAvatarTopLeft = tester.getTopLeft(avatar);
+    final initialAvatarSize = tester.getSize(avatar);
+    final avatarCenter = tester.getCenter(avatar);
+    final first = await tester.createGesture(pointer: 1);
+    final second = await tester.createGesture(pointer: 2);
+
+    await first.down(avatarCenter - const Offset(8, 0));
+    await second.down(avatarCenter + const Offset(8, 0));
+    await tester.pump();
+    await first.moveTo(avatarCenter - const Offset(44, 34));
+    await second.moveTo(avatarCenter + const Offset(44, 34));
+    await tester.pump();
+    await second.up();
+    await first.up();
+    await tester.pump();
+
+    expect(tester.getSize(avatar), initialAvatarSize);
+    expect(tester.getTopLeft(avatar), isNot(initialAvatarTopLeft));
+  });
+
   testWidgets('world map double tap toggles zoom around tap position', (
     tester,
   ) async {

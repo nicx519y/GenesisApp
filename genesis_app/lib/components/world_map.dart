@@ -164,37 +164,39 @@ class _WorldMapState extends State<WorldMap> {
                           preloadUrls: preloadMapImageUrls,
                           fallbackOnEmptyUrl: widget.fallbackOnEmptyMapUrl,
                         ),
-                        overlayBuilder: (context, transform) => Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            IgnorePointer(
-                              ignoring: widget.showPointsList,
-                              child: Opacity(
-                                opacity: widget.showPointsList ? 0.6 : 1,
-                                child: Stack(
-                                  children: [
-                                    for (final p in visiblePoints)
-                                      _WorldPointPositioned(
-                                        point: p,
-                                        width: viewport.width,
-                                        height: viewport.height,
-                                        transform: transform,
-                                        onTap: _pointTapHandler(p),
-                                      ),
-                                  ],
+                        overlayBuilder:
+                            (context, transform, onOverlayPointerDown) => Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                IgnorePointer(
+                                  ignoring: widget.showPointsList,
+                                  child: Opacity(
+                                    opacity: widget.showPointsList ? 0.6 : 1,
+                                    child: Stack(
+                                      children: [
+                                        for (final p in visiblePoints)
+                                          _WorldPointPositioned(
+                                            point: p,
+                                            width: viewport.width,
+                                            height: viewport.height,
+                                            transform: transform,
+                                            onPointerDown: onOverlayPointerDown,
+                                            onTap: _pointTapHandler(p),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                IgnorePointer(
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 220),
+                                    color: widget.dimmed
+                                        ? Colors.black.withValues(alpha: 0.08)
+                                        : Colors.transparent,
+                                  ),
+                                ),
+                              ],
                             ),
-                            IgnorePointer(
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 220),
-                                color: widget.dimmed
-                                    ? Colors.black.withValues(alpha: 0.08)
-                                    : Colors.transparent,
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
                     ),
                   ],
@@ -726,7 +728,11 @@ class _MapBackgroundDeck extends StatelessWidget {
 }
 
 typedef _MapOverlayBuilder =
-    Widget Function(BuildContext context, Matrix4 transform);
+    Widget Function(
+      BuildContext context,
+      Matrix4 transform,
+      ValueChanged<PointerDownEvent> onOverlayPointerDown,
+    );
 
 class _ZoomableMapContent extends StatefulWidget {
   const _ZoomableMapContent({
@@ -735,7 +741,7 @@ class _ZoomableMapContent extends StatefulWidget {
   });
 
   static const double minScale = 1;
-  static const double maxScale = 2;
+  static const double maxScale = 4;
   static const double doubleTapScale = 1.5;
 
   final Widget background;
@@ -749,9 +755,16 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   late final TransformationController _transformationController =
       TransformationController();
   final Set<int> _activePointers = <int>{};
+  final Set<int> _overlayPointers = <int>{};
+  final Map<int, Offset> _activePointerPositions = <int, Offset>{};
   bool _interactionActive = false;
   Duration? _lastTapTime;
   Offset? _lastTapLocalPosition;
+  Matrix4? _manualGestureStartMatrix;
+  Offset? _manualGestureStartFocal;
+  double? _manualGestureStartDistance;
+  Matrix4? _manualPanStartMatrix;
+  Offset? _manualPanStartPosition;
 
   @override
   void dispose() {
@@ -773,14 +786,150 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   void _handlePointerDown(PointerDownEvent event) {
     if (_activePointers.isEmpty) _handlePossibleDoubleTap(event);
     _activePointers.add(event.pointer);
+    _activePointerPositions[event.pointer] = event.localPosition;
     if (_activePointers.length >= 2 || _isZoomed) {
       _dispatchMapInteraction(true);
+    }
+    _startManualGestureIfNeeded();
+  }
+
+  void _handleOverlayPointerDown(PointerDownEvent event) {
+    _overlayPointers.add(event.pointer);
+    _startManualGestureIfNeeded();
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (!_activePointers.contains(event.pointer)) return;
+    _activePointerPositions[event.pointer] = event.localPosition;
+    if (_overlayPointers.isEmpty) return;
+
+    if (_activePointerPositions.length >= 2) {
+      _startManualGestureIfNeeded();
+      _updateManualScaleGesture();
+      return;
+    }
+
+    if (_isZoomed && _overlayPointers.contains(event.pointer)) {
+      _updateManualPanGesture(event);
     }
   }
 
   void _handlePointerEnd(PointerEvent event) {
     _activePointers.remove(event.pointer);
-    if (_activePointers.isEmpty) _dispatchMapInteraction(false);
+    _overlayPointers.remove(event.pointer);
+    _activePointerPositions.remove(event.pointer);
+    if (_activePointers.length < 2) _clearManualScaleGesture();
+    if (_activePointers.isEmpty) {
+      _clearManualPanGesture();
+      _dispatchMapInteraction(false);
+    } else {
+      _resetManualPanGestureIfNeeded();
+    }
+  }
+
+  void _startManualGestureIfNeeded() {
+    if (_overlayPointers.isEmpty || _activePointerPositions.length < 2) {
+      _resetManualPanGestureIfNeeded();
+      return;
+    }
+    if (_manualGestureStartMatrix != null) return;
+
+    final points = _activePointerPositions.values.take(2).toList();
+    _manualGestureStartMatrix = Matrix4.copy(_transformationController.value);
+    _manualGestureStartFocal = _focalPoint(points);
+    _manualGestureStartDistance = (points[0] - points[1]).distance;
+    _clearManualPanGesture();
+  }
+
+  void _updateManualScaleGesture() {
+    final startMatrix = _manualGestureStartMatrix;
+    final startFocal = _manualGestureStartFocal;
+    final startDistance = _manualGestureStartDistance;
+    if (startMatrix == null || startFocal == null || startDistance == null) {
+      return;
+    }
+
+    final points = _activePointerPositions.values.take(2).toList();
+    if (points.length < 2) return;
+    final currentDistance = (points[0] - points[1]).distance;
+    if (startDistance <= 0 || currentDistance <= 0) return;
+
+    final startScale = startMatrix.getMaxScaleOnAxis();
+    final targetScale = (startScale * currentDistance / startDistance)
+        .clamp(_ZoomableMapContent.minScale, _ZoomableMapContent.maxScale)
+        .toDouble();
+    final currentFocal = _focalPoint(points);
+    final startValues = startMatrix.storage;
+    final contentFocal = Offset(
+      (startFocal.dx - startValues[12]) / startScale,
+      (startFocal.dy - startValues[13]) / startScale,
+    );
+    final translation = currentFocal - contentFocal * targetScale;
+    _setTransform(targetScale, translation);
+    _dispatchMapInteraction(true);
+  }
+
+  void _updateManualPanGesture(PointerMoveEvent event) {
+    _manualPanStartMatrix ??= Matrix4.copy(_transformationController.value);
+    _manualPanStartPosition ??= event.localPosition - event.delta;
+
+    final startMatrix = _manualPanStartMatrix;
+    final startPosition = _manualPanStartPosition;
+    if (startMatrix == null || startPosition == null) return;
+
+    final values = startMatrix.storage;
+    final scale = startMatrix.getMaxScaleOnAxis();
+    final translation =
+        Offset(values[12], values[13]) + event.localPosition - startPosition;
+    _setTransform(scale, translation);
+    _dispatchMapInteraction(true);
+  }
+
+  void _setTransform(double scale, Offset translation) {
+    final box = context.findRenderObject() as RenderBox?;
+    final size = box?.size ?? Size.zero;
+    if (size.isEmpty || scale <= _ZoomableMapContent.minScale + 0.001) {
+      _transformationController.value = Matrix4.identity();
+      return;
+    }
+
+    final minX = size.width - size.width * scale;
+    final minY = size.height - size.height * scale;
+    final clampedTranslation = Offset(
+      translation.dx.clamp(minX, 0.0).toDouble(),
+      translation.dy.clamp(minY, 0.0).toDouble(),
+    );
+    _transformationController.value = Matrix4.identity()
+      ..translateByDouble(clampedTranslation.dx, clampedTranslation.dy, 0, 1)
+      ..scaleByDouble(scale, scale, 1, 1);
+  }
+
+  Offset _focalPoint(List<Offset> points) {
+    return Offset(
+      (points[0].dx + points[1].dx) / 2,
+      (points[0].dy + points[1].dy) / 2,
+    );
+  }
+
+  void _clearManualScaleGesture() {
+    _manualGestureStartMatrix = null;
+    _manualGestureStartFocal = null;
+    _manualGestureStartDistance = null;
+  }
+
+  void _clearManualPanGesture() {
+    _manualPanStartMatrix = null;
+    _manualPanStartPosition = null;
+  }
+
+  void _resetManualPanGestureIfNeeded() {
+    _clearManualPanGesture();
+    if (_activePointerPositions.length == 1 &&
+        _overlayPointers.contains(_activePointerPositions.keys.single) &&
+        _isZoomed) {
+      _manualPanStartMatrix = Matrix4.copy(_transformationController.value);
+      _manualPanStartPosition = _activePointerPositions.values.single;
+    }
   }
 
   void _handlePossibleDoubleTap(PointerDownEvent event) {
@@ -827,6 +976,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: _handlePointerDown,
+      onPointerMove: _handlePointerMove,
       onPointerUp: _handlePointerEnd,
       onPointerCancel: _handlePointerEnd,
       child: ClipRect(
@@ -858,6 +1008,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
               builder: (context, _) => widget.overlayBuilder(
                 context,
                 _transformationController.value,
+                _handleOverlayPointerDown,
               ),
             ),
           ],
@@ -933,6 +1084,7 @@ class _WorldPointPositioned extends StatelessWidget {
     required this.width,
     required this.height,
     this.transform,
+    required this.onPointerDown,
     required this.onTap,
   });
 
@@ -940,6 +1092,7 @@ class _WorldPointPositioned extends StatelessWidget {
   final double width;
   final double height;
   final Matrix4? transform;
+  final ValueChanged<PointerDownEvent> onPointerDown;
   final VoidCallback? onTap;
 
   static const double _labelHeight = 20;
@@ -1021,6 +1174,7 @@ class _WorldPointPositioned extends StatelessWidget {
         markerWidth: markerWidth,
         markerHeight: markerHeight,
         pointCenterY: pointCenterY,
+        onPointerDown: onPointerDown,
         onTap: onTap,
       ),
     );
@@ -1043,6 +1197,7 @@ class _WorldPointMarker extends StatelessWidget {
     required this.markerWidth,
     required this.markerHeight,
     required this.pointCenterY,
+    required this.onPointerDown,
     this.onTap,
   });
 
@@ -1050,6 +1205,7 @@ class _WorldPointMarker extends StatelessWidget {
   final double markerWidth;
   final double markerHeight;
   final double pointCenterY;
+  final ValueChanged<PointerDownEvent> onPointerDown;
   final VoidCallback? onTap;
 
   static const double _avatarSize = 42;
@@ -1071,65 +1227,69 @@ class _WorldPointMarker extends StatelessWidget {
     final hasUsers = point.users.isNotEmpty;
     final avatars = point.users;
 
-    return GestureDetector(
+    return Listener(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: SizedBox(
-        width: markerWidth,
-        height: markerHeight,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: markerWidth),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.18),
-                          blurRadius: 6,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 4,
+      onPointerDown: onPointerDown,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          width: markerWidth,
+          height: markerHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: markerWidth),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.18),
+                            blurRadius: 6,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: _PointLabel(point: point, color: Colors.white),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 4,
+                        ),
+                        child: _PointLabel(point: point, color: Colors.white),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            Positioned(
-              left: markerWidth / 2 - _pointSize / 2,
-              top: pointCenterY - _pointSize / 2,
-              width: _pointSize,
-              height: _pointSize,
-              child: const DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Color(0xFF008D68),
+              Positioned(
+                left: markerWidth / 2 - _pointSize / 2,
+                top: pointCenterY - _pointSize / 2,
+                width: _pointSize,
+                height: _pointSize,
+                child: const DecoratedBox(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFF008D68),
+                  ),
                 ),
               ),
-            ),
-            if (hasUsers)
-              for (int i = 0; i < avatars.length; i++)
-                _PositionedMapAvatar(
-                  user: avatars[i],
-                  left: _avatarLeft(i, avatars.length),
-                  top: _avatarTop(i, avatars.length),
-                ),
-          ],
+              if (hasUsers)
+                for (int i = 0; i < avatars.length; i++)
+                  _PositionedMapAvatar(
+                    user: avatars[i],
+                    left: _avatarLeft(i, avatars.length),
+                    top: _avatarTop(i, avatars.length),
+                  ),
+            ],
+          ),
         ),
       ),
     );

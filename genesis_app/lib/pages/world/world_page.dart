@@ -29,6 +29,7 @@ import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
@@ -2034,51 +2035,24 @@ class _WorldInfoHeader extends StatelessWidget {
               ),
             ),
             // const Spacer(),
-            SizedBox(
-              height: 40,
-              child: FilledButton(
-                onPressed: actionEnabled
-                    ? () => onWorldAction(action.kind)
-                    : null,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF2F9663),
-                  disabledBackgroundColor: const Color(
-                    0xFF2F9663,
-                  ).withValues(alpha: 0.62),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 35),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: worldActionRunning
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Center(
-                        child: Text(
-                          action.label,
-                          strutStyle: const StrutStyle(
-                            fontSize: 14,
-                            height: 1,
-                            forceStrutHeight: true,
-                          ),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            height: 1,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-              ),
+            GenesisPrimaryButton(
+              label: action.label,
+              onPressed: actionEnabled
+                  ? () => onWorldAction(action.kind)
+                  : null,
+              height: 35,
+              width: 140,
+              backgroundColor: const Color(0xFF2F9663),
+              disabledBackgroundColor: const Color(
+                0xFF2F9663,
+              ).withValues(alpha: 0.62),
+              foregroundColor: Colors.white,
+              fontSize: 16,
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              isLoading: worldActionRunning,
+              loadingSize: 18,
+              loadingStrokeWidth: 2,
             ),
           ],
         ),

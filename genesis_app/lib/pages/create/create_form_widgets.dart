@@ -35,6 +35,8 @@ class CreateTextFieldBlock extends StatelessWidget {
     this.maxLines,
     this.prefix,
     this.labelSize = 14,
+    this.labelFontWeight = FontWeight.w700,
+    this.labelInputGap = 10,
   });
 
   final String label;
@@ -46,6 +48,8 @@ class CreateTextFieldBlock extends StatelessWidget {
   final int? maxLines;
   final Widget? prefix;
   final double labelSize;
+  final FontWeight labelFontWeight;
+  final double labelInputGap;
 
   @override
   Widget build(BuildContext context) {
@@ -58,11 +62,12 @@ class CreateTextFieldBlock extends StatelessWidget {
             style: TextStyle(
               color: createFormText,
               fontSize: labelSize,
-              fontWeight: FontWeight.w700,
+              fontWeight: labelFontWeight,
               height: 1.2,
             ),
           ),
-          const SizedBox(height: 10),
+          // Field internal spacing: label -> input box.
+          SizedBox(height: labelInputGap),
         ],
         Container(
           decoration: BoxDecoration(
@@ -245,6 +250,9 @@ class CreateUploadBox extends StatefulWidget {
     this.cropSize,
     this.previewAlignment = Alignment.center,
     this.showRemoveLinkWhenFilled = false,
+    this.emptyLabelFontWeight = FontWeight.w700,
+    this.removeLinkFontWeight = FontWeight.w700,
+    this.emptyIconLabelGap = 12,
   });
 
   final TextEditingController controller;
@@ -257,6 +265,9 @@ class CreateUploadBox extends StatefulWidget {
   final Size? cropSize;
   final Alignment previewAlignment;
   final bool showRemoveLinkWhenFilled;
+  final FontWeight emptyLabelFontWeight;
+  final FontWeight removeLinkFontWeight;
+  final double emptyIconLabelGap;
 
   @override
   State<CreateUploadBox> createState() => _CreateUploadBoxState();
@@ -332,7 +343,12 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
             ),
             clipBehavior: Clip.antiAlias,
             child: !hasImage
-                ? _EmptyUpload(widget.label, widget.iconSize)
+                ? _EmptyUpload(
+                    widget.label,
+                    widget.iconSize,
+                    widget.emptyLabelFontWeight,
+                    widget.emptyIconLabelGap,
+                  )
                 : _Preview(
                     imageUrl: imageUrl,
                     imageBytes: _previewBytes,
@@ -359,10 +375,10 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            textStyle: const TextStyle(
+            textStyle: TextStyle(
               fontSize: 12,
               height: 1,
-              fontWeight: FontWeight.w700,
+              fontWeight: widget.removeLinkFontWeight,
             ),
           ),
           child: const Text('Remove'),
@@ -495,10 +511,17 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
 }
 
 class _EmptyUpload extends StatelessWidget {
-  const _EmptyUpload(this.label, this.iconSize);
+  const _EmptyUpload(
+    this.label,
+    this.iconSize,
+    this.labelFontWeight,
+    this.iconLabelGap,
+  );
 
   final String label;
   final double iconSize;
+  final FontWeight labelFontWeight;
+  final double iconLabelGap;
 
   @override
   Widget build(BuildContext context) {
@@ -510,14 +533,14 @@ class _EmptyUpload extends StatelessWidget {
           color: createFormGreen,
           size: iconSize,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: iconLabelGap),
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             color: createFormMuted,
             fontSize: 12,
-            fontWeight: FontWeight.w700,
+            fontWeight: labelFontWeight,
             height: 1.15,
           ),
         ),
