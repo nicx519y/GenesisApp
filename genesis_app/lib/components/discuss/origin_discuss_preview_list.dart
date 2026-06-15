@@ -28,12 +28,14 @@ class OriginDiscussPreviewList extends StatefulWidget {
     required this.oid,
     required this.count,
     this.showHeader = true,
+    this.initialItems,
     this.loader,
   });
 
   final String oid;
   final int count;
   final bool showHeader;
+  final List<OriginDiscussPreviewItem>? initialItems;
   final OriginDiscussPreviewLoader? loader;
 
   @override
@@ -48,18 +50,29 @@ class _OriginDiscussPreviewListState extends State<OriginDiscussPreviewList> {
   void initState() {
     super.initState();
     _controller = OriginDiscussListController();
+    _seedInitialItemsIfAvailable();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _configureAndLoad();
+    if (widget.initialItems == null) _configureAndLoad();
   }
 
   @override
   void didUpdateWidget(covariant OriginDiscussPreviewList oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.oid != widget.oid || oldWidget.loader != widget.loader) {
+    if (widget.initialItems != null) {
+      if (oldWidget.oid != widget.oid ||
+          oldWidget.count != widget.count ||
+          oldWidget.initialItems != widget.initialItems) {
+        _seedInitialItemsIfAvailable();
+      }
+      return;
+    }
+    if (oldWidget.oid != widget.oid ||
+        oldWidget.loader != widget.loader ||
+        oldWidget.initialItems != null) {
       _configureAndLoad();
     }
   }
@@ -73,6 +86,16 @@ class _OriginDiscussPreviewListState extends State<OriginDiscussPreviewList> {
   void _configureAndLoad() {
     _controller.configure(oid: widget.oid, loader: _loadPage);
     unawaited(_controller.loadInitialIfNeeded());
+  }
+
+  void _seedInitialItemsIfAvailable() {
+    final items = widget.initialItems;
+    if (items == null) return;
+    _controller.seedItems(
+      oid: widget.oid,
+      items: items,
+      totalAll: items.length,
+    );
   }
 
   Future<OriginDiscussPage> _loadPage({

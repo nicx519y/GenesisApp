@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app/bootstrap/app_services_scope.dart';
@@ -29,10 +30,11 @@ class _AppShellPageState extends State<AppShellPage>
   late final Set<int> _visitedTabIndexes;
   late final ValueNotifier<bool> _messagesTabActiveNotifier;
   late final ValueNotifier<int> _meTabActivationNotifier;
+  ValueListenable<int>? _sessionRevisionListenable;
   final Map<int, Widget> _tabPageCache = <int, Widget>{};
   final ValueNotifier<UnreadSummary> _unreadSummaryNotifier =
       ValueNotifier<UnreadSummary>(UnreadSummary.zero);
-  static const _messagesPollInterval = Duration(seconds: 5);
+  static const _messagesPollInterval = Duration(seconds: 30);
   late final GenesisPollingScheduler _messagesPoller;
 
   @override
@@ -54,6 +56,7 @@ class _AppShellPageState extends State<AppShellPage>
 
   @override
   void dispose() {
+    _sessionRevisionListenable?.removeListener(_handleSessionChanged);
     WidgetsBinding.instance.removeObserver(this);
     _stopMessagesPolling();
     _messagesTabActiveNotifier.dispose();
@@ -69,6 +72,16 @@ class _AppShellPageState extends State<AppShellPage>
     } else {
       _stopMessagesPolling();
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final sessionRevision = AppServicesScope.of(context).sessionRevision;
+    if (identical(_sessionRevisionListenable, sessionRevision)) return;
+    _sessionRevisionListenable?.removeListener(_handleSessionChanged);
+    _sessionRevisionListenable = sessionRevision;
+    sessionRevision.addListener(_handleSessionChanged);
   }
 
   void _startMessagesPolling() {
@@ -191,7 +204,7 @@ class _AppShellPageState extends State<AppShellPage>
       loginUserInfo['avatar'] = user.avatar;
     }
     await services.sessionStore.saveUserInfo(loginUserInfo);
-    _resetSessionBoundState(selectedIndex: _selectedIndex);
+    services.notifySessionChanged();
     unawaited(_messagesPoller.runNow());
     debugPrint('[Auth][AppShell] backend login success uid=${user.uid}');
     return true;
@@ -224,6 +237,16 @@ class _AppShellPageState extends State<AppShellPage>
     unawaited(
       AppServicesScope.read(context).directMessageConversations.loadFromDb(),
     );
+  }
+
+  void _handleSessionChanged() {
+    if (!mounted) return;
+    _resetSessionBoundState(selectedIndex: _selectedIndex);
+    final services = AppServicesScope.read(context);
+    unawaited(services.directMessageConversations.loadFromDb());
+    if (_selectedIndex == 3) {
+      unawaited(_messagesPoller.runNow());
+    }
   }
 
   void _resetSessionBoundState({required int selectedIndex}) {

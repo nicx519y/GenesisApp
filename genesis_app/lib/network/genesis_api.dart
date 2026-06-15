@@ -337,6 +337,12 @@ class GenesisApi {
     debugPrint('[Auth][GenesisApi] POST /api/v1/user/logout success');
   }
 
+  Future<void> deleteAccount({Map<String, String>? headers}) async {
+    debugPrint('[Auth][GenesisApi] POST /api/v1/user/delete start');
+    await v1.user.deleteAccount(headers: headers);
+    debugPrint('[Auth][GenesisApi] POST /api/v1/user/delete success');
+  }
+
   Future<User> _persistLoginResponse(
     Object? json, {
     String fallbackUid = '',
@@ -390,7 +396,12 @@ class GenesisApi {
     final tagName = category.trim().isNotEmpty && category != 'For you'
         ? category.trim()
         : null;
-    final map = await v1.origin.list(tagName: tagName, pn: page, rn: limit);
+    final map = await v1.origin.list(
+      scene: tagName == null ? 'foryou' : 'tag',
+      tag: tagName,
+      pn: page,
+      rn: limit,
+    );
     final rawOrigins = map['list'];
     final list = (rawOrigins is List ? asJsonList(rawOrigins) : const [])
         .map((e) => _originSummaryFromV1ListItem(asJsonMap(e)))
@@ -416,13 +427,17 @@ class GenesisApi {
 
   Future<PagedResponse<OriginSummary>> getMyLaunchedOrigins({
     String? uid,
+    String scene = 'mine',
     int limit = 20,
     int offset = 0,
   }) async {
-    final resolvedUid = uid ?? await _ensureUid();
+    final resolvedScene = _normalizeListScene(scene, ownScene: 'mine');
+    final resolvedUid = resolvedScene == 'uid'
+        ? uid ?? await _ensureUid()
+        : null;
     final page = _pageFromOffset(limit: limit, offset: offset);
     final map = await v1.origin.list(
-      scene: 'uid',
+      scene: resolvedScene,
       uid: resolvedUid,
       pn: page,
       rn: limit,
@@ -442,16 +457,32 @@ class GenesisApi {
 
   Future<List<MyWorldSummary>> getMyWorlds({
     String? uid,
+    String? scene,
     int limit = 30,
     int offset = 0,
   }) async {
-    final resolvedUid = uid ?? await _ensureUid();
+    final resolvedScene = _normalizeListScene(scene, ownScene: 'mine');
+    final resolvedUid = resolvedScene == 'uid'
+        ? uid ?? await _ensureUid()
+        : null;
     final page = _pageFromOffset(limit: limit, offset: offset);
-    final map = await v1.world.list(ownerUid: resolvedUid, pn: page, rn: limit);
+    final map = await v1.world.list(
+      scene: resolvedScene,
+      uid: resolvedUid,
+      pn: page,
+      rn: limit,
+    );
     final worldsRaw = map['list'];
     return (worldsRaw is List ? asJsonList(worldsRaw) : const [])
         .map((item) => _myWorldSummaryFromV1ListItem(asJsonMap(item)))
         .toList(growable: false);
+  }
+
+  String _normalizeListScene(String? scene, {required String ownScene}) {
+    final trimmed = (scene ?? '').trim();
+    if (trimmed.isEmpty || trimmed == ownScene) return ownScene;
+    if (trimmed == 'uid' || trimmed == 'tag') return trimmed;
+    return 'uid';
   }
 
   Future<SearchResultBundle> search({

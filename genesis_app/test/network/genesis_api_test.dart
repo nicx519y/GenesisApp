@@ -120,12 +120,14 @@ void main() {
 
     expect(apiTransport.lastRequest!.method, 'GET');
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/list');
+    expect(apiTransport.lastRequest!.uri.queryParameters['scene'], 'foryou');
     expect(apiTransport.lastRequest!.uri.queryParameters['pn'], '1');
     expect(apiTransport.lastRequest!.uri.queryParameters['rn'], '20');
+    expect(apiTransport.lastRequest!.uri.queryParameters['tag'], isNull);
     expect(apiTransport.lastRequest!.uri.queryParameters['tag_name'], isNull);
   });
 
-  test('getOrigins maps non-default category to Apifox tag_name', () async {
+  test('getOrigins maps non-default category to scene tag', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
@@ -146,10 +148,9 @@ void main() {
 
     expect(apiTransport.lastRequest!.method, 'GET');
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/list');
-    expect(
-      apiTransport.lastRequest!.uri.queryParameters['tag_name'],
-      'Billionare',
-    );
+    expect(apiTransport.lastRequest!.uri.queryParameters['scene'], 'tag');
+    expect(apiTransport.lastRequest!.uri.queryParameters['tag'], 'Billionare');
+    expect(apiTransport.lastRequest!.uri.queryParameters['tag_name'], isNull);
     expect(apiTransport.lastRequest!.uri.queryParameters['rn'], '20');
   });
 
@@ -190,26 +191,65 @@ void main() {
     final api = _apiWith(apiTransport, healthTransport);
     final origins = await api.getMyLaunchedOrigins(
       uid: 'u_2',
+      scene: 'mine',
       limit: 10,
       offset: 10,
     );
-    final worlds = await api.getMyWorlds(uid: 'u_2', limit: 10, offset: 10);
+    final worlds = await api.getMyWorlds(
+      uid: 'u_2',
+      scene: 'mine',
+      limit: 10,
+      offset: 10,
+    );
+    await api.getMyLaunchedOrigins(
+      uid: 'u_2',
+      scene: 'uid',
+      limit: 10,
+      offset: 0,
+    );
+    await api.getMyWorlds(uid: 'u_2', scene: 'uid', limit: 10, offset: 0);
 
     expect(origins.data.single.oid, 'o_1');
     expect(origins.data.single.originator, 'Origin Owner');
     expect(worlds.single.wid, 'w_1');
     expect(apiTransport.requests[0].uri.path, '/api/v1/origin/list');
-    expect(apiTransport.requests[0].uri.queryParameters['uid'], 'u_2');
+    expect(apiTransport.requests[0].uri.queryParameters['scene'], 'mine');
+    expect(
+      apiTransport.requests[0].uri.queryParameters.containsKey('owner_uid'),
+      false,
+    );
+    expect(
+      apiTransport.requests[0].uri.queryParameters.containsKey('uid'),
+      false,
+    );
     expect(apiTransport.requests[0].uri.queryParameters['pn'], '2');
     expect(apiTransport.requests[0].uri.queryParameters['rn'], '10');
     expect(apiTransport.requests[1].uri.path, '/api/v1/world/list');
-    expect(apiTransport.requests[1].uri.queryParameters['owner_uid'], 'u_2');
+    expect(apiTransport.requests[1].uri.queryParameters['scene'], 'mine');
+    expect(
+      apiTransport.requests[1].uri.queryParameters.containsKey('owner_uid'),
+      false,
+    );
     expect(
       apiTransport.requests[1].uri.queryParameters.containsKey('uid'),
       false,
     );
     expect(apiTransport.requests[1].uri.queryParameters['pn'], '2');
     expect(apiTransport.requests[1].uri.queryParameters['rn'], '10');
+    expect(apiTransport.requests[2].uri.path, '/api/v1/origin/list');
+    expect(apiTransport.requests[2].uri.queryParameters['scene'], 'uid');
+    expect(apiTransport.requests[2].uri.queryParameters['uid'], 'u_2');
+    expect(
+      apiTransport.requests[2].uri.queryParameters.containsKey('owner_uid'),
+      false,
+    );
+    expect(apiTransport.requests[3].uri.path, '/api/v1/world/list');
+    expect(apiTransport.requests[3].uri.queryParameters['scene'], 'uid');
+    expect(apiTransport.requests[3].uri.queryParameters['uid'], 'u_2');
+    expect(
+      apiTransport.requests[3].uri.queryParameters.containsKey('owner_uid'),
+      false,
+    );
   });
 
   test('getOrigin maps detail preview fields from v1 detail', () async {
@@ -408,7 +448,6 @@ void main() {
     expect(body.containsKey('name'), isFalse);
     expect(body.containsKey('world_view'), isFalse);
     expect(body.containsKey('world_setting'), isFalse);
-    expect(body.containsKey('origin_version'), isFalse);
     expect(body.containsKey('character_list'), isFalse);
     expect(body.containsKey('location_list'), isFalse);
     expect(body.containsKey('event_list'), isFalse);
@@ -936,7 +975,7 @@ void main() {
 
     expect(
       apiTransport.lastRequest!.uri.toString(),
-      'https://example.test/api/v1/origin/list?pn=1&rn=20',
+      'https://example.test/api/v1/origin/list?scene=foryou&pn=1&rn=20',
     );
   });
 
@@ -954,7 +993,7 @@ void main() {
 
     expect(
       apiTransport.lastRequest!.uri.toString(),
-      'https://dev.hushie.ai/api/v1/origin/list?pn=1&rn=20',
+      'https://dev.hushie.ai/api/v1/origin/list?scene=foryou&pn=1&rn=20',
     );
   });
 
@@ -1279,6 +1318,67 @@ void main() {
     },
   );
 
+  test(
+    'backend deleteAccount posts user delete then clears local session',
+    () async {
+      final deleteResponse = Completer<TransportResponse>();
+      final apiTransport = _FakeTransport(
+        handler: (request) {
+          if (request.uri.path.endsWith('/v1/user/delete')) {
+            expect(request.method, 'POST');
+            expect(request.headers['authorization'], 'Bearer backend-token');
+            return deleteResponse.future;
+          }
+          return const TransportResponse(
+            statusCode: 404,
+            headers: {'content-type': 'application/json'},
+            body: '{"error":"not_found"}',
+          );
+        },
+      );
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_2');
+      await sessionStore.saveAuthToken('backend-token');
+      await sessionStore.saveUserInfo({'uid': 'u_2'});
+      final identityAuth = _FakeIdentityAuthService();
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+        identityAuthService: identityAuth,
+      );
+      final coordinator = GenesisBackendAuthCoordinator(
+        api: api,
+        identityAuth: identityAuth,
+        sessionStore: sessionStore,
+      );
+
+      await coordinator.deleteAccount();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(deleteResponse.isCompleted, isFalse);
+      expect(apiTransport.requests.single.uri.path, '/api/v1/user/delete');
+      expect(
+        apiTransport.requests.single.headers['authorization'],
+        'Bearer backend-token',
+      );
+      expect(identityAuth.signOutCount, 1);
+      expect(await sessionStore.readUid(), isNull);
+      expect(await sessionStore.readAuthToken(), isNull);
+      expect(await sessionStore.readUserInfo(), isNull);
+
+      deleteResponse.complete(
+        const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":0,"err_msg":"succ","data":{}}',
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+    },
+  );
+
   test('default client preserves configurable platform header', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
@@ -1316,9 +1416,9 @@ void main() {
 
     final api = _apiWith(apiTransport, healthTransport);
     final result = await api.v1.origin.list(
-      scene: 'mine',
+      scene: 'tag',
+      tag: 'politics',
       keyword: 'steam',
-      tagName: 'politics',
       pn: 2,
       rn: 10,
     );
@@ -1326,14 +1426,39 @@ void main() {
     expect(result['total'], 0);
     expect(apiTransport.lastRequest!.method, 'GET');
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/list');
-    expect(apiTransport.lastRequest!.uri.queryParameters['scene'], isNull);
+    expect(apiTransport.lastRequest!.uri.queryParameters['scene'], 'tag');
+    expect(apiTransport.lastRequest!.uri.queryParameters['tag'], 'politics');
     expect(apiTransport.lastRequest!.uri.queryParameters['keyword'], 'steam');
     expect(
-      apiTransport.lastRequest!.uri.queryParameters['tag_name'],
-      'politics',
+      apiTransport.lastRequest!.uri.queryParameters.containsKey('tag_name'),
+      false,
     );
     expect(apiTransport.lastRequest!.uri.queryParameters['pn'], '2');
     expect(apiTransport.lastRequest!.uri.queryParameters['rn'], '10');
+  });
+
+  test('v1 origin hot tags uses Apifox response format', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":0,"err_msg":"succ","data":{"list":["校园","恋爱","校园"]}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    final result = await api.v1.origin.hotTags();
+
+    expect(result, <String>['校园', '恋爱', '校园']);
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/hot_tags');
   });
 
   test('v1 direct message send posts Apifox JSON body', () async {

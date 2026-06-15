@@ -149,6 +149,10 @@ void main() {
       ),
       isTrue,
     );
+    expect(
+      thumbnails.any((image) => image.width == null && image.height == 160.5),
+      isTrue,
+    );
     final titleLeft = tester.getTopLeft(find.text('#Alpha Empire').first).dx;
     final subtitleLeft = tester
         .getTopLeft(find.text('Tycoon idols compete for the crown.'))
@@ -203,6 +207,72 @@ void main() {
 
     expect(fromWid.wid, 'w_alpha');
     expect(fromWorldId.wid, 'w_beta');
+  });
+
+  testWidgets('renders preloaded discuss previews without item loader', (
+    WidgetTester tester,
+  ) async {
+    const item = OriginListItem(
+      oid: 'o_alpha',
+      status: 1,
+      versionNum: 3,
+      tickCount: 8,
+      name: 'Alpha Empire',
+      cover: '',
+      displaySubtitle: 'Tycoon idols compete for the crown.',
+      worldView: 'A city powered by celebrity markets.',
+      createdUid: 'u_1',
+      createdUserName: 'Shawn',
+      ownerName: 'Origin Owner',
+      createdAt: '2026-05-01T00:00:00Z',
+      updatedAt: '2026-05-02T00:00:00Z',
+      tags: <String>['romance', 'tycoon'],
+      copyCnt: 2300,
+      connectCnt: 4400000,
+      discussCnt: 128,
+      characterCnt: 6,
+      locationCnt: 3,
+    );
+    var loaderCalls = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 390,
+            child: PopularOriginList(
+              items: const <OriginListItem>[item],
+              preloadedDiscussItems: <String, List<OriginDiscussPreviewItem>>{
+                'o_alpha': [
+                  OriginDiscussPreviewItem(
+                    discussId: 'dis_preloaded',
+                    authorName: 'Preloaded User',
+                    avatar: '',
+                    content: 'This preview arrived before the list rendered.',
+                    replyCount: 4,
+                    createdAt: DateTime(2026, 4, 8),
+                    seed: 'u_preloaded',
+                    latestReplies: const <Map<String, dynamic>>[],
+                  ),
+                ],
+              },
+              onItemTap: (_) {},
+              discussLoader: (_) async {
+                loaderCalls += 1;
+                return const <OriginDiscussPreviewItem>[];
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(loaderCalls, 0);
+    expect(find.text('Preloaded User'), findsOneWidget);
+    expect(
+      find.text('This preview arrived before the list rendered.'),
+      findsOneWidget,
+    );
   });
 }
 
