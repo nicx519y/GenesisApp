@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../utils/genesis_image_resource.dart';
+import 'genesis_modal_routes.dart';
 
 Future<void> showGenesisImageViewer(
   BuildContext context, {
@@ -13,10 +14,11 @@ Future<void> showGenesisImageViewer(
       .toList(growable: false);
   if (urls.isEmpty) return Future<void>.value();
 
-  return showGeneralDialog<void>(
+  return showGenesisGeneralDialog<void>(
     context: context,
     barrierDismissible: false,
     barrierColor: Colors.transparent,
+    systemBarColor: Colors.black,
     transitionDuration: const Duration(milliseconds: 120),
     pageBuilder: (context, animation, secondaryAnimation) {
       return GenesisImageViewerOverlay(

@@ -8,6 +8,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../auth/login_guard.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_center_toast.dart';
+import '../common/genesis_modal_routes.dart';
 import '../common/genesis_upload_progress_overlay.dart';
 import '../../platform/native_image_picker.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
@@ -74,13 +75,13 @@ Future<bool> showDiscussPostComposer({
   if (requireLogin && !await ensureGenesisLogin(context)) return false;
   if (!context.mounted) return false;
 
-  final submitted = await showModalBottomSheet<bool>(
+  final submitted = await showGenesisModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
     isDismissible: false,
     useSafeArea: false,
     backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.38),
+    barrierColor: kGenesisSubtleModalBarrierColor,
     constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height),
     builder: (sheetContext) {
       return _DiscussComposerSheet(

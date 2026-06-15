@@ -7071,7 +7071,7 @@ void main() {
       GenesisMethodChannels.device,
       (call) async {
         if (call.method == GenesisMethodChannels.getAppName) {
-          return 'worldo';
+          return 'Worldo';
         }
         return null;
       },

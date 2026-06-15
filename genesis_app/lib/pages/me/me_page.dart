@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/local_image_crop_page.dart';
 import '../../components/page_header.dart';
 import '../../components/me/signed_out_me_view.dart';
@@ -521,7 +522,7 @@ class _MePageState extends State<MePage> {
 
   Future<void> _editNickName() async {
     final currentDisplayName = _displayName.value.trim();
-    final nickName = await showDialog<String>(
+    final nickName = await showGenesisDialog<String>(
       context: context,
       builder: (_) => _NickNameDialog(initialValue: currentDisplayName),
     );

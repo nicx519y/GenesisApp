@@ -15,7 +15,7 @@ class GenesisApp extends StatelessWidget {
     return AppServicesScope(
       services: services ?? ServiceRegistry.build(),
       child: MaterialApp(
-        title: 'worldo',
+        title: 'Worldo',
         debugShowCheckedModeBanner: false,
         theme: GenesisTheme.light(),
         initialRoute: RouteNames.home,
