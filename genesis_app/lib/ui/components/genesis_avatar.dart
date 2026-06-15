@@ -17,6 +17,9 @@ class GenesisAvatar extends StatelessWidget {
     this.alignment = Alignment.topCenter,
     this.imageKey,
     this.textStyle,
+    this.showFallbackWhileLoading = true,
+    this.showFallbackWhenUnavailable = true,
+    this.onVisibilityChanged,
   });
 
   final String name;
@@ -29,6 +32,9 @@ class GenesisAvatar extends StatelessWidget {
   final Alignment alignment;
   final Key? imageKey;
   final TextStyle? textStyle;
+  final bool showFallbackWhileLoading;
+  final bool showFallbackWhenUnavailable;
+  final ValueChanged<bool>? onVisibilityChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -49,8 +55,15 @@ class GenesisAvatar extends StatelessWidget {
       borderRadius: borderRadius,
       textStyle: textStyle,
     );
+    final hiddenPlaceholder = SizedBox(
+      width: resolvedWidth,
+      height: resolvedHeight,
+    );
 
-    if (resolvedUrl.isEmpty) return fallback;
+    if (resolvedUrl.isEmpty) {
+      _notifyAvatarVisibility(onVisibilityChanged, showFallbackWhenUnavailable);
+      return showFallbackWhenUnavailable ? fallback : hiddenPlaceholder;
+    }
 
     final image = resolvedUrl.startsWith('assets/')
         ? Image.asset(
@@ -60,7 +73,19 @@ class GenesisAvatar extends StatelessWidget {
             height: imageHeight,
             fit: fit,
             alignment: alignment,
-            errorBuilder: (context, error, stackTrace) => fallback,
+            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+              if (wasSynchronouslyLoaded || frame != null) {
+                _notifyAvatarVisibility(onVisibilityChanged, true);
+              }
+              return child;
+            },
+            errorBuilder: (context, error, stackTrace) {
+              _notifyAvatarVisibility(
+                onVisibilityChanged,
+                showFallbackWhenUnavailable,
+              );
+              return showFallbackWhenUnavailable ? fallback : hiddenPlaceholder;
+            },
           )
         : CachedNetworkImage(
             key: imageKey,
@@ -72,8 +97,30 @@ class GenesisAvatar extends StatelessWidget {
             fadeInDuration: Duration.zero,
             fadeOutDuration: Duration.zero,
             placeholderFadeInDuration: Duration.zero,
-            placeholder: (context, url) => fallback,
-            errorWidget: (context, url, error) => fallback,
+            imageBuilder: (context, imageProvider) {
+              _notifyAvatarVisibility(onVisibilityChanged, true);
+              return Image(
+                image: imageProvider,
+                width: imageWidth,
+                height: imageHeight,
+                fit: fit,
+                alignment: alignment,
+              );
+            },
+            placeholder: (context, url) {
+              _notifyAvatarVisibility(
+                onVisibilityChanged,
+                showFallbackWhileLoading,
+              );
+              return showFallbackWhileLoading ? fallback : hiddenPlaceholder;
+            },
+            errorWidget: (context, url, error) {
+              _notifyAvatarVisibility(
+                onVisibilityChanged,
+                showFallbackWhenUnavailable,
+              );
+              return showFallbackWhenUnavailable ? fallback : hiddenPlaceholder;
+            },
           );
 
     return ClipRRect(
@@ -85,6 +132,13 @@ class GenesisAvatar extends StatelessWidget {
       ),
     );
   }
+}
+
+void _notifyAvatarVisibility(ValueChanged<bool>? callback, bool isVisible) {
+  if (callback == null) return;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    callback(isVisible);
+  });
 }
 
 class GenesisAvatarFallback extends StatelessWidget {

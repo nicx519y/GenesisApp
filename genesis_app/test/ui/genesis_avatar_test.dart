@@ -121,4 +121,42 @@ void main() {
     expect(image.fadeOutDuration, Duration.zero);
     expect(image.placeholderFadeInDuration, Duration.zero);
   });
+
+  testWidgets('GenesisAvatar can hide fallback while network image loads', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: GenesisAvatar(
+            url: 'https://cdn.example.com/avatar.webp',
+            name: 'Tom Lee',
+            size: 40,
+            showFallbackWhileLoading: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('TL'), findsNothing);
+  });
+
+  testWidgets('GenesisAvatar can hide fallback when image is unavailable', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: GenesisAvatar(
+            url: '',
+            name: 'Tom Lee',
+            size: 40,
+            showFallbackWhenUnavailable: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('TL'), findsNothing);
+  });
 }

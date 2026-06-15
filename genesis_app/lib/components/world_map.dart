@@ -697,7 +697,7 @@ double _lerpDouble(double begin, double end, double t) {
   return begin + (end - begin) * t;
 }
 
-class _MapBackgroundDeck extends StatelessWidget {
+class _MapBackgroundDeck extends StatefulWidget {
   const _MapBackgroundDeck({
     required this.currentUrl,
     required this.preloadUrls,
@@ -709,21 +709,60 @@ class _MapBackgroundDeck extends StatelessWidget {
   final bool fallbackOnEmptyUrl;
 
   @override
-  Widget build(BuildContext context) {
-    final current = currentUrl.trim();
-    final urls = preloadUrls
+  State<_MapBackgroundDeck> createState() => _MapBackgroundDeckState();
+}
+
+class _MapBackgroundDeckState extends State<_MapBackgroundDeck> {
+  int _preloadGeneration = 0;
+  String _loadedCurrentUrl = '';
+
+  @override
+  void didUpdateWidget(covariant _MapBackgroundDeck oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentUrl.trim() != widget.currentUrl.trim()) {
+      _loadedCurrentUrl = '';
+      _preloadGeneration++;
+    }
+  }
+
+  void _handleCurrentLoaded() {
+    final current = widget.currentUrl.trim();
+    if (_loadedCurrentUrl == current) return;
+    _loadedCurrentUrl = current;
+    final generation = ++_preloadGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _preloadGeneration) return;
+      unawaited(_preloadSecondaryImages(current, generation));
+    });
+  }
+
+  Future<void> _preloadSecondaryImages(String current, int generation) async {
+    final urls = widget.preloadUrls
         .map((url) => url.trim())
         .where((url) => url.isNotEmpty && url != current)
         .toSet()
         .toList(growable: false);
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        _MapBackground(url: current, fallbackOnEmptyUrl: fallbackOnEmptyUrl),
-        for (final url in urls)
-          Offstage(offstage: true, child: _MapBackground(url: url)),
-      ],
+    for (final url in urls) {
+      if (!mounted || generation != _preloadGeneration) return;
+      try {
+        await precacheImage(_mapImageProvider(url), context);
+      } catch (error) {
+        debugPrint('[WorldMap] preload map image failed url="$url": $error');
+      }
+    }
+  }
+
+  ImageProvider _mapImageProvider(String url) {
+    return url.startsWith('assets/') ? AssetImage(url) : NetworkImage(url);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _MapBackground(
+      url: widget.currentUrl.trim(),
+      fallbackOnEmptyUrl: widget.fallbackOnEmptyUrl,
+      onLoaded: _handleCurrentLoaded,
     );
   }
 }
@@ -1020,15 +1059,27 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
 }
 
 class _MapBackground extends StatelessWidget {
-  const _MapBackground({required this.url, this.fallbackOnEmptyUrl = true});
+  const _MapBackground({
+    required this.url,
+    this.fallbackOnEmptyUrl = true,
+    this.onLoaded,
+  });
 
   final String url;
   final bool fallbackOnEmptyUrl;
+  final VoidCallback? onLoaded;
+
+  void _notifyLoaded() {
+    final callback = onLoaded;
+    if (callback == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => callback());
+  }
 
   @override
   Widget build(BuildContext context) {
     final trimmedUrl = url.trim();
     if (trimmedUrl.isEmpty) {
+      _notifyLoaded();
       return fallbackOnEmptyUrl
           ? const _FallbackMapBackground()
           : const _MapBackgroundPlaceholder();
@@ -1038,6 +1089,10 @@ class _MapBackground extends StatelessWidget {
       return Image.asset(
         trimmedUrl,
         fit: BoxFit.cover,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded || frame != null) _notifyLoaded();
+          return child;
+        },
         errorBuilder: (context, error, stackTrace) =>
             const _FallbackMapBackground(),
       );
@@ -1046,6 +1101,10 @@ class _MapBackground extends StatelessWidget {
     return Image.network(
       trimmedUrl,
       fit: BoxFit.cover,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) _notifyLoaded();
+        return child;
+      },
       errorBuilder: (context, error, stackTrace) =>
           const _FallbackMapBackground(),
       loadingBuilder: (context, child, loadingProgress) {
@@ -1285,6 +1344,9 @@ class _WorldPointMarker extends StatelessWidget {
               if (hasUsers)
                 for (int i = 0; i < avatars.length; i++)
                   _PositionedMapAvatar(
+                    key: ValueKey<String>(
+                      'map-positioned-avatar-${_mapAvatarStableKey(avatars[i])}',
+                    ),
                     user: avatars[i],
                     left: _avatarLeft(i, avatars.length),
                     top: _avatarTop(i, avatars.length),
@@ -1360,6 +1422,7 @@ class _PointLabel extends StatelessWidget {
 
 class _PositionedMapAvatar extends StatelessWidget {
   const _PositionedMapAvatar({
+    super.key,
     required this.user,
     required this.left,
     required this.top,
@@ -1377,10 +1440,13 @@ class _PositionedMapAvatar extends StatelessWidget {
       child: Stack(
         children: [
           GenesisCharacterAvatar(
+            key: ValueKey<String>('map-avatar-${_mapAvatarStableKey(user)}'),
             url: user.avatarUrl,
             name: user.name ?? user.initials,
             showStar: user.showStar,
             size: 42,
+            showFallbackWhileLoading: false,
+            showFallbackWhenUnavailable: false,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.22),
@@ -1401,7 +1467,7 @@ class _PositionedMapAvatar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(
                     GenesisAvatarRadii.character,
                   ),
-                  border: Border.all(color: Colors.white, width: 1),
+                  border: Border.all(color: Color(0xFFDDDDDD), width: 1),
                 ),
               ),
             ),
@@ -1410,4 +1476,11 @@ class _PositionedMapAvatar extends StatelessWidget {
       ),
     );
   }
+}
+
+String _mapAvatarStableKey(UserAvatar user) {
+  final id = user.id.trim();
+  final avatarUrl = user.avatarUrl.trim();
+  final name = (user.name ?? user.initials).trim();
+  return '$id|$avatarUrl|$name';
 }

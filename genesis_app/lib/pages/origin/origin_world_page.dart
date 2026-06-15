@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/auth/login_guard.dart';
+import '../../components/common/genesis_modal_routes.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
@@ -94,6 +95,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   @override
   void dispose() {
+    GenesisSystemUiChrome.applyDefault();
     _discussController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -1683,7 +1685,7 @@ class _OriginCharacterRow extends StatelessWidget {
   }
 }
 
-class _OriginCharacterPortrait extends StatelessWidget {
+class _OriginCharacterPortrait extends StatefulWidget {
   const _OriginCharacterPortrait({
     required this.characterId,
     required this.url,
@@ -1701,75 +1703,143 @@ class _OriginCharacterPortrait extends StatelessWidget {
   final List<String> imageUrls;
 
   @override
+  State<_OriginCharacterPortrait> createState() =>
+      _OriginCharacterPortraitState();
+}
+
+class _OriginCharacterPortraitState extends State<_OriginCharacterPortrait> {
+  late bool _hasVisiblePortrait;
+
+  @override
+  void initState() {
+    super.initState();
+    _hasVisiblePortrait = !_shouldWaitForNetworkPortrait(widget.url);
+  }
+
+  @override
+  void didUpdateWidget(covariant _OriginCharacterPortrait oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) {
+      _hasVisiblePortrait = !_shouldWaitForNetworkPortrait(widget.url);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final resolvedUrl = selectGenesisImageUrl(
-      url,
-      logicalWidth: _width,
-      logicalHeight: _width,
+      widget.url,
+      logicalWidth: _OriginCharacterPortrait._width,
+      logicalHeight: _OriginCharacterPortrait._width,
       devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
     ).trim();
     final fallback = GenesisAvatarFallback(
-      name: name,
-      width: _width,
-      height: _width,
-      borderRadius: _borderRadius,
+      name: widget.name,
+      width: _OriginCharacterPortrait._width,
+      height: _OriginCharacterPortrait._width,
+      borderRadius: _OriginCharacterPortrait._borderRadius,
     );
+    final waitsForNetworkPortrait =
+        resolvedUrl.isNotEmpty && !resolvedUrl.startsWith('assets/');
     final image = resolvedUrl.isEmpty
         ? fallback
         : resolvedUrl.startsWith('assets/')
         ? Image.asset(
             resolvedUrl,
-            width: _width,
+            width: _OriginCharacterPortrait._width,
             fit: BoxFit.fitWidth,
             alignment: Alignment.topCenter,
-            errorBuilder: (context, error, stackTrace) => fallback,
+            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+              if (wasSynchronouslyLoaded || frame != null) {
+                _updatePortraitVisibility(true);
+              }
+              return child;
+            },
+            errorBuilder: (context, error, stackTrace) {
+              _updatePortraitVisibility(true);
+              return fallback;
+            },
           )
         : CachedNetworkImage(
             imageUrl: resolvedUrl,
-            width: _width,
+            width: _OriginCharacterPortrait._width,
             fit: BoxFit.fitWidth,
             alignment: Alignment.topCenter,
             fadeInDuration: Duration.zero,
             fadeOutDuration: Duration.zero,
             placeholderFadeInDuration: Duration.zero,
-            placeholder: (context, url) => fallback,
-            errorWidget: (context, url, error) => fallback,
+            imageBuilder: (context, imageProvider) {
+              _updatePortraitVisibility(true);
+              return Image(
+                image: imageProvider,
+                width: _OriginCharacterPortrait._width,
+                fit: BoxFit.fitWidth,
+                alignment: Alignment.topCenter,
+              );
+            },
+            placeholder: (context, url) {
+              _updatePortraitVisibility(false);
+              return const SizedBox(
+                width: _OriginCharacterPortrait._width,
+                height: _OriginCharacterPortrait._width,
+              );
+            },
+            errorWidget: (context, url, error) {
+              _updatePortraitVisibility(true);
+              return fallback;
+            },
           );
 
     final portraitImage = SizedBox(
-      width: _width,
+      width: _OriginCharacterPortrait._width,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(_borderRadius),
+        borderRadius: BorderRadius.circular(
+          _OriginCharacterPortrait._borderRadius,
+        ),
         child: image,
       ),
     );
-    final initialIndex = imageUrls.indexOf(url.trim());
+    final initialIndex = widget.imageUrls.indexOf(widget.url.trim());
     final portrait = Stack(
       clipBehavior: Clip.none,
       children: [
         portraitImage,
-        Positioned(
-          top: -_starSize / 4 - 2,
-          right: -_starSize / 4 - 3,
-          child: Icon(
-            MyFlutterApp.redstarCharIcon,
-            size: _starSize,
-            color: const Color(0xFFF42C47),
+        if (!waitsForNetworkPortrait || _hasVisiblePortrait)
+          Positioned(
+            top: -_OriginCharacterPortrait._starSize / 4 - 2,
+            right: -_OriginCharacterPortrait._starSize / 4 - 3,
+            child: Icon(
+              MyFlutterApp.redstarCharIcon,
+              size: _OriginCharacterPortrait._starSize,
+              color: const Color(0xFFF42C47),
+            ),
           ),
-        ),
       ],
     );
     if (resolvedUrl.isEmpty) return portrait;
     return GestureDetector(
-      key: ValueKey('origin-character-portrait-$characterId'),
+      key: ValueKey('origin-character-portrait-${widget.characterId}'),
       behavior: HitTestBehavior.opaque,
       onTap: () => showGenesisImageViewer(
         context,
-        imageUrls: imageUrls,
+        imageUrls: widget.imageUrls,
         initialIndex: initialIndex < 0 ? 0 : initialIndex,
       ),
       child: portrait,
     );
+  }
+
+  bool _shouldWaitForNetworkPortrait(String url) {
+    final trimmed = url.trim();
+    return trimmed.isNotEmpty && !trimmed.startsWith('assets/');
+  }
+
+  void _updatePortraitVisibility(bool isVisible) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _hasVisiblePortrait == isVisible) return;
+      setState(() {
+        _hasVisiblePortrait = isVisible;
+      });
+    });
   }
 }
 

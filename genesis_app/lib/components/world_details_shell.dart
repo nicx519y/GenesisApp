@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'common/genesis_modal_routes.dart';
 import 'world_map_interaction_notification.dart';
 
 class WorldDetailsStatusBarOverride {
@@ -12,6 +11,14 @@ class WorldDetailsStatusBarOverride {
       ValueNotifier<SystemUiOverlayStyle?>(null);
 
   static ValueListenable<SystemUiOverlayStyle?> get listenable => _style;
+
+  static void setStyle(SystemUiOverlayStyle style) {
+    _style.value = style;
+  }
+
+  static void clearStyle() {
+    _style.value = null;
+  }
 
   static Future<T> runWithStyle<T>(
     SystemUiOverlayStyle style,
@@ -65,10 +72,22 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
 
   static const _transparentStatusBarColor = Color(0x00FFFFFF);
   static const _whiteStatusBarColor = Color(0xFFFFFFFF);
+  static const _initialStatusBarStyle = SystemUiOverlayStyle(
+    statusBarColor: _transparentStatusBarColor,
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.dark,
+    systemNavigationBarColor: Color(0xFFFFFFFF),
+    systemNavigationBarIconBrightness: Brightness.dark,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setSystemUIOverlayStyle(_initialStatusBarStyle);
+  }
 
   @override
   void dispose() {
-    SystemChrome.setSystemUIOverlayStyle(kGenesisDefaultSystemUiOverlayStyle);
     _scrollController.dispose();
     super.dispose();
   }
@@ -83,6 +102,7 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
   }
 
   SystemUiOverlayStyle _statusBarStyle(double progress) {
+    if (progress <= 0) return _initialStatusBarStyle;
     final useDarkIcons = progress >= 0.55;
     return SystemUiOverlayStyle(
       statusBarColor: Color.lerp(

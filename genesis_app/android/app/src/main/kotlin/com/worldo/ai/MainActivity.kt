@@ -87,6 +87,9 @@ class MainActivity : FlutterActivity() {
                     val label = applicationInfo.loadLabel(packageManager)?.toString() ?: ""
                     result.success(label)
                 }
+                "getAppVersion" -> {
+                    result.success(buildAppVersion())
+                }
                 "signInGoogleLegacy" -> {
                     val serverClientId = call.argument<String>("serverClientId") ?: ""
                     signInGoogleLegacy(serverClientId, result)
@@ -112,6 +115,21 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    private fun buildAppVersion(): Map<String, Any> {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode.toLong()
+        }
+        return mapOf(
+            "versionName" to (info.versionName ?: ""),
+            "versionCode" to versionCode,
+            "packageName" to packageName,
+        )
     }
 
     private fun signInGoogleLegacy(serverClientId: String, result: MethodChannel.Result) {
