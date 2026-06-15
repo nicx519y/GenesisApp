@@ -5,6 +5,7 @@ import '../pages/create/create_origin_page.dart';
 import '../pages/discuss/discuss_page.dart';
 import '../pages/discuss/post_detail_page.dart';
 import '../pages/edit/edit_origin_page.dart';
+import '../pages/legal/legal_document_page.dart';
 import '../pages/search/search_page.dart';
 import '../pages/origin/origin_world_page.dart';
 import '../pages/world/world_page.dart';
@@ -37,6 +38,7 @@ sealed class RouteNames {
   static const comments = '/messages/comments';
   static const userInfo = '/user_info';
   static const follows = '/follows';
+  static const legal = '/legal';
 }
 
 class _RouteArgs {
@@ -82,6 +84,18 @@ class _RouteArgs {
     }
     return null;
   }
+}
+
+class _LegalRouteArgs {
+  const _LegalRouteArgs({required this.document});
+
+  factory _LegalRouteArgs.from(Object? raw) {
+    final args = _RouteArgs(raw);
+    final document = args.string(const ['document', 'type']).trim();
+    return _LegalRouteArgs(document: LegalDocument.fromRouteValue(document));
+  }
+
+  final LegalDocument document;
 }
 
 class _OriginWorldRouteArgs {
@@ -430,6 +444,12 @@ sealed class AppRouter {
             initialIndex: args.initialIndex,
             initialTitle: args.title,
           ),
+        );
+      case RouteNames.legal:
+        final args = _LegalRouteArgs.from(settings.arguments);
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => LegalDocumentPage(document: args.document),
         );
       case RouteNames.shell:
       default:

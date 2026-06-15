@@ -52,7 +52,7 @@ class _LoginSheetState extends State<LoginSheet> {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final maxHeight = media.size.height - media.padding.top - 18;
-    final targetHeight = maxHeight < 326 ? maxHeight : 326.0;
+    final targetHeight = maxHeight < 342 ? maxHeight : 342.0;
 
     return GenesisBottomSheetPanel(
       title: 'Sign in to continue',

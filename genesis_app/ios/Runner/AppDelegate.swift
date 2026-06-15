@@ -70,6 +70,11 @@ import UniformTypeIdentifiers
         result(nil)
       case "getSignInDiagnostics":
         result(self.signInDiagnostics())
+      case "getAppName":
+        let info = Bundle.main.infoDictionary
+        let displayName = info?["CFBundleDisplayName"] as? String
+        let bundleName = info?["CFBundleName"] as? String
+        result(displayName ?? bundleName ?? "")
       default:
         result(FlutterMethodNotImplemented)
       }

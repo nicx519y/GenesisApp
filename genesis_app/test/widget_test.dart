@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -60,6 +61,7 @@ import 'package:genesis_flutter_android/pages/world/world_page.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
 import 'package:genesis_flutter_android/platform/auth/identity_auth_service.dart';
+import 'package:genesis_flutter_android/platform/channels/genesis_method_channels.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
@@ -5019,6 +5021,26 @@ void main() {
     expect(find.text('Continue with Apple'), findsOneWidget);
   });
 
+  testWidgets('tap EULA opens EULA legal document', (
+    WidgetTester tester,
+  ) async {
+    await _pumpGenesisApp(tester);
+
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
+
+    final eulaRecognizer = _recognizerForText(
+      tester.widget<Text>(_loginLegalTextFinder()).textSpan!,
+      'EULA',
+    );
+    eulaRecognizer.onTap?.call();
+    await tester.pumpAndSettle();
+
+    expect(find.text('EULA'), findsOneWidget);
+    expect(find.text('End User License Agreement ("EULA")'), findsOneWidget);
+    expect(find.text('Last updated: 2026-06-14'), findsOneWidget);
+  });
+
   testWidgets(
     'tap Me shows signed-out view without local backend login state',
     (WidgetTester tester) async {
@@ -6785,7 +6807,41 @@ void main() {
   );
 
   testWidgets('settings opens about us page', (WidgetTester tester) async {
-    await tester.pumpWidget(const MaterialApp(home: SettingsPage()));
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      GenesisMethodChannels.device,
+      (call) async {
+        if (call.method == GenesisMethodChannels.getAppName) {
+          return 'Genesis';
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        GenesisMethodChannels.device,
+        null,
+      );
+    });
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') return null;
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SettingsPage(),
+        onGenerateRoute: AppRouter.onGenerateRoute,
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Developer page'), findsOneWidget);
@@ -6796,13 +6852,54 @@ void main() {
     await tester.tap(find.text('About us'));
     await tester.pumpAndSettle();
 
-    expect(find.text('About us'), findsWidgets);
+    expect(find.text('About'), findsOneWidget);
+    expect(find.text('Genesis'), findsOneWidget);
+    expect(find.text('v1.0.0'), findsOneWidget);
     expect(
-      find.text(
-        'Thanks for using Genesis Beta. More about us will appear here.',
+      _richTextFinder(
+        'Worldo lets you create, discover, and enter AI-powered worlds filled '
+        'with characters, stories, and evolving events. Chat with AI '
+        'characters, play with friends, and progress each world through '
+        'immersive scenes and choices.\n\n'
+        'Our app offers a new way to experience interactive stories — not just '
+        'as a reader, but as someone inside the world. If you have any '
+        'questions, please contact us at worldodeveloper@gmail.com.',
       ),
       findsOneWidget,
     );
+    final emailRecognizer = _recognizerForText(
+      tester
+          .widget<Text>(
+            _richTextFinder(
+              'Worldo lets you create, discover, and enter AI-powered worlds '
+              'filled with characters, stories, and evolving events. Chat with '
+              'AI characters, play with friends, and progress each world '
+              'through immersive scenes and choices.\n\n'
+              'Our app offers a new way to experience interactive stories — '
+              'not just as a reader, but as someone inside the world. If you '
+              'have any questions, please contact us at '
+              'worldodeveloper@gmail.com.',
+            ),
+          )
+          .textSpan!,
+      'worldodeveloper@gmail.com',
+    );
+    emailRecognizer.onTap?.call();
+    await tester.pumpAndSettle();
+    expect(find.text('Email copied'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Terms of Service'), findsOneWidget);
+    expect(find.text('Privacy Policy'), findsOneWidget);
+
+    await tester.scrollUntilVisible(find.text('EULA'), 180);
+    await tester.drag(find.byType(ListView), const Offset(0, -80));
+    await tester.pumpAndSettle();
+    expect(find.text('EULA'), findsOneWidget);
+
+    await tester.tap(find.text('EULA'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('End User License Agreement ("EULA")'), findsOneWidget);
   });
 
   testWidgets(
@@ -9331,9 +9428,28 @@ Finder _assetImageFinder(String path, {bool skipOffstage = true}) {
 
 Finder _loginLegalTextFinder() {
   return _richTextFinder(
-    'By continuing, you agree to our Terms\n'
-    'and acknowledge our Privacy Policy',
+    'By continuing, you agree to our Terms, Privacy Policy, and EULA',
   );
+}
+
+TapGestureRecognizer _recognizerForText(InlineSpan span, String text) {
+  TapGestureRecognizer? findRecognizer(InlineSpan child) {
+    if (child is! TextSpan) return null;
+    if (child.text == text) {
+      return child.recognizer as TapGestureRecognizer?;
+    }
+    for (final nested in child.children ?? const <InlineSpan>[]) {
+      final recognizer = findRecognizer(nested);
+      if (recognizer != null) return recognizer;
+    }
+    return null;
+  }
+
+  final result = findRecognizer(span);
+  if (result == null) {
+    throw StateError('No tap recognizer found for "$text".');
+  }
+  return result;
 }
 
 Finder _visibleText(String text) {

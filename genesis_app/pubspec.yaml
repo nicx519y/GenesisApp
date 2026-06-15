@@ -77,10 +77,12 @@ flutter:
   assets:
     - assets/images/genesis_home_logo.png
     - assets/images/worldo_logo.png
+    - assets/images/genesis_app_icon_source_1024.png
     - assets/images/default_list_image.png
     - assets/images/mock_avatars/
     - assets/images/mock_locations/
     - assets/images/mock_maps/
+    - assets/legal/
     - assets/custom-icons/png/
     - assets/custom-icons/svg/
 
