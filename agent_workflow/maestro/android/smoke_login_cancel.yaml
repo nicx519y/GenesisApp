@@ -1,4 +1,4 @@
-appId: com.genesis.ai
+appId: com.worldo.ai
 ---
 - launchApp
 - waitForAnimationToEnd
@@ -13,4 +13,3 @@ appId: com.genesis.ai
     optional: true
 - assertNotVisible:
     text: "Sign in failed"
-

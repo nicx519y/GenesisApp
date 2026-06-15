@@ -3,23 +3,23 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>447881000582-7s1pvlnjdaiomb2gr65qc2err5n7om6t.apps.googleusercontent.com</string>
+	<string>876583138986-igmuf8cnqkqfau2k4k30bamjn6482u2j.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.447881000582-7s1pvlnjdaiomb2gr65qc2err5n7om6t</string>
+	<string>com.googleusercontent.apps.876583138986-igmuf8cnqkqfau2k4k30bamjn6482u2j</string>
 	<key>ANDROID_CLIENT_ID</key>
-	<string>447881000582-ug07i6tuh1c9jge45ije0ml162po9bgf.apps.googleusercontent.com</string>
+	<string>876583138986-nvcoc677sr0p0hc596l6ruvshp5vk20r.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
-	<string>AIzaSyDdkPZsAYCnH33zsAgUzmVSN6PVAdfu9pc</string>
+	<string>AIzaSyALlciGqixA9I_uXrd5OmmmVKaixy9l7Zk</string>
 	<key>GCM_SENDER_ID</key>
-	<string>447881000582</string>
+	<string>876583138986</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.genesis.ai</string>
+	<string>com.worldo.ai</string>
 	<key>PROJECT_ID</key>
-	<string>genesis-65311</string>
+	<string>worldo-2026</string>
 	<key>STORAGE_BUCKET</key>
-	<string>genesis-65311.firebasestorage.app</string>
+	<string>worldo-2026.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -31,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:447881000582:ios:4830a2be7434aaf3a30307</string>
+	<string>1:876583138986:ios:02e208cd9d4aa561e902d3</string>
 </dict>
 </plist>

@@ -14,10 +14,6 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
-	<key>GIDClientID</key>
-	<string>447881000582-7s1pvlnjdaiomb2gr65qc2err5n7om6t.apps.googleusercontent.com</string>
-	<key>GIDServerClientID</key>
-	<string>447881000582-ug07i6tuh1c9jge45ije0ml162po9bgf.apps.googleusercontent.com</string>
 	<key>CFBundleName</key>
 	<string>Worldo</string>
 	<key>CFBundlePackageType</key>
@@ -26,8 +22,6 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -37,10 +31,16 @@
 			<string>FirebaseAuthRedirect</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.447881000582-7s1pvlnjdaiomb2gr65qc2err5n7om6t</string>
+				<string>com.googleusercontent.apps.876583138986-igmuf8cnqkqfau2k4k30bamjn6482u2j</string>
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>GIDClientID</key>
+	<string>876583138986-igmuf8cnqkqfau2k4k30bamjn6482u2j.apps.googleusercontent.com</string>
+	<key>GIDServerClientID</key>
+	<string>876583138986-ivso4uo5cdj99hocecj78jhsudckuscg.apps.googleusercontent.com</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>

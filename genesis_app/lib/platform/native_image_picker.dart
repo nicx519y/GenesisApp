@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 const MethodChannel _nativeDiscussImagePickerChannel = MethodChannel(
-  'com.genesis.ai/discuss_image_picker',
+  'com.worldo.ai/discuss_image_picker',
 );
 
 class DiscussPickedImage {
