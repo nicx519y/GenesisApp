@@ -2952,6 +2952,51 @@ void main() {
     expect(find.text('Approved'), findsWidgets);
   });
 
+  testWidgets('join request notification shows world name with wid', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingMessageCategoryTransport(
+      notification: const {
+        'notification_id': 'ntf_apply_world_name_001',
+        'notice_block': 'world_apply',
+        'notice_type': 'world_apply',
+        'sender': {'uid': 'U_REQUESTER', 'name': 'Nia'},
+        'biz_type': 2,
+        'biz_id': 'W_REAL_ID',
+        'biz_name': 'Aurora Harbor',
+        'world_name': 'W_REAL_ID',
+        'obj_id': 'apl_world_name_001',
+        'content': 'Nia request to join W_REAL_ID.',
+        'is_read': true,
+        'created_at': '2026-05-20T10:00:00Z',
+      },
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const MessageCategoryListPage(
+            title: 'Notifications',
+            block: 'world_apply',
+            emptyText: 'No notifications yet.',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(
+      _richTextWithPlainText('Nia request to join Aurora Harbor(W_REAL_ID)'),
+      findsOneWidget,
+    );
+
+    final title = tester.widget<Text>(find.text('Join request'));
+    expect(title.style?.fontWeight, FontWeight.w600);
+  });
+
   testWidgets('world apply review notification opens world', (
     WidgetTester tester,
   ) async {

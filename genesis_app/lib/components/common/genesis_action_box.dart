@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'genesis_modal_routes.dart';
 
 const Color _genesisActionBoxText = Color(0xFF111111);
-const Color _genesisActionBoxDestructive = Color(0xFFE8413A);
+const Color _genesisActionBoxDestructive = Color(0xFFFF2344);
 const Color _genesisActionBoxDivider = Color(0xFFE8E8EA);
 
 class GenesisActionBoxAction<T> {
@@ -24,6 +24,7 @@ Future<T?> showGenesisActionBox<T>({
   required List<GenesisActionBoxAction<T>> actions,
   Widget? content,
   String cancelLabel = 'Cancel',
+  bool detachCancel = false,
 }) {
   return showGenesisDialog<T>(
     context: context,
@@ -34,6 +35,7 @@ Future<T?> showGenesisActionBox<T>({
         content: content,
         actions: actions,
         cancelLabel: cancelLabel,
+        detachCancel: detachCancel,
         onActionSelected: (value) => Navigator.of(dialogContext).pop(value),
         onCancel: () => Navigator.of(dialogContext).pop(),
       );
@@ -50,6 +52,7 @@ class GenesisActionBox<T> extends StatelessWidget {
     required this.onCancel,
     this.content,
     this.cancelLabel = 'Cancel',
+    this.detachCancel = false,
   });
 
   static const double _rowHeight = 56;
@@ -65,20 +68,22 @@ class GenesisActionBox<T> extends StatelessWidget {
   final ValueChanged<T> onActionSelected;
   final VoidCallback onCancel;
   final String cancelLabel;
+  final bool detachCancel;
 
   @override
   Widget build(BuildContext context) {
-    final hasMultipleActions = actions.length > 1;
+    final useDetachedCancelStyle = detachCancel || actions.length > 1;
     final dialogWidth = (MediaQuery.sizeOf(context).width * 0.7)
         .clamp(0.0, _maxWidth)
         .toDouble();
     return Dialog(
       elevation: 0,
       insetPadding: EdgeInsets.zero,
+      constraints: BoxConstraints.tightFor(width: dialogWidth),
       backgroundColor: Colors.transparent,
       child: SizedBox(
         width: dialogWidth,
-        child: hasMultipleActions
+        child: useDetachedCancelStyle
             ? _buildDetachedCancelStyle()
             : _buildAttachedCancelStyle(),
       ),
@@ -96,14 +101,16 @@ class GenesisActionBox<T> extends StatelessWidget {
           children: [
             _TitleRow(title: title),
             if (content case final content?) content,
-            const _Divider(),
-            for (final action in actions) ...[
-              _ActionRow<T>(
-                action: action,
-                isPreferred: true,
-                onSelected: onActionSelected,
-              ),
+            if (actions.isNotEmpty) ...[
               const _Divider(),
+              for (final action in actions) ...[
+                _ActionRow<T>(
+                  action: action,
+                  isPreferred: true,
+                  onSelected: onActionSelected,
+                ),
+                const _Divider(),
+              ],
             ],
             _CancelRow(label: cancelLabel, onCancel: onCancel),
           ],
@@ -126,14 +133,16 @@ class GenesisActionBox<T> extends StatelessWidget {
               children: [
                 _TitleRow(title: title),
                 if (content case final content?) content,
-                const _Divider(),
-                for (var index = 0; index < actions.length; index++) ...[
-                  _ActionRow<T>(
-                    action: actions[index],
-                    isPreferred: index == 0,
-                    onSelected: onActionSelected,
-                  ),
-                  if (index != actions.length - 1) const _Divider(),
+                if (actions.isNotEmpty) ...[
+                  const _Divider(),
+                  for (var index = 0; index < actions.length; index++) ...[
+                    _ActionRow<T>(
+                      action: actions[index],
+                      isPreferred: index == 0,
+                      onSelected: onActionSelected,
+                    ),
+                    if (index != actions.length - 1) const _Divider(),
+                  ],
                 ],
               ],
             ),
@@ -173,7 +182,7 @@ class _TitleRow extends StatelessWidget {
               color: _genesisActionBoxText,
               fontSize: 15,
               height: 1.16,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -214,7 +223,7 @@ class _ActionRow<T> extends StatelessWidget {
                 color: color,
                 fontSize: 15,
                 height: 1.2,
-                fontWeight: isPreferred ? FontWeight.w700 : FontWeight.w400,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

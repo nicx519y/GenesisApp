@@ -6,7 +6,7 @@ abstract final class GenesisTypography {
   static const TextStyle pageTitle = TextStyle(
     color: GenesisColors.textPrimary,
     fontSize: 18,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w600,
     height: 1.4,
   );
 

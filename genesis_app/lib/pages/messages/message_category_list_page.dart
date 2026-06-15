@@ -194,6 +194,8 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
         onOpenWorld: () => _openWorldFromDialog(item.bizId),
       ),
       actions: const <GenesisActionBoxAction<void>>[],
+      cancelLabel: 'OK',
+      detachCancel: true,
     );
   }
 
@@ -545,7 +547,7 @@ class _JoinRequestListItem extends StatelessWidget {
             color: Color(0xFF111111),
             fontSize: 14,
             height: 1.2,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 8),
@@ -725,7 +727,10 @@ class _NotificationItem {
       json['biz_id'],
       fallback: asString(json['world_id']),
     );
+    final isWorldApply =
+        block == 'world_apply' || type.startsWith('world_apply');
     final worldName = _firstNonEmpty([
+      if (isWorldApply) asString(json['biz_name']),
       asString(json['world_name']),
       _mapString(json, 'world_title'),
       _mapString(json, 'target_world_name'),
@@ -877,20 +882,36 @@ class _NotificationItem {
     ]);
   }
 
-  String get requestWorldName => _firstNonEmpty([worldName, bizId]);
+  String get requestWorldName {
+    final cleanWorldName = worldName.trim();
+    final cleanBizId = bizId.trim();
+    if (cleanWorldName.isEmpty || cleanWorldName == cleanBizId) {
+      return cleanBizId;
+    }
+    return cleanWorldName;
+  }
+
+  String get requestWorldSummaryName {
+    final cleanWorldName = worldName.trim();
+    final cleanBizId = bizId.trim();
+    if (cleanWorldName.isEmpty || cleanWorldName == cleanBizId) {
+      return cleanBizId.isEmpty ? 'this world' : cleanBizId;
+    }
+    return cleanWorldName;
+  }
 
   String get joinRequestSummary {
     final name = requesterName;
-    final world = requestWorldName.isEmpty ? 'this world' : requestWorldName;
+    final world = requestWorldSummaryName;
     final id = bizId.trim();
-    final suffix = id.isEmpty ? '' : '($id)';
+    final suffix = id.isEmpty || world == id ? '' : '($id)';
     return '$name request to join $world$suffix';
   }
 
   String get reviewTitleText {
-    final world = requestWorldName.isEmpty ? 'this world' : requestWorldName;
+    final world = requestWorldSummaryName;
     final id = bizId.trim();
-    return 'request to $world${id.isEmpty ? '' : '($id)'}';
+    return 'request to $world${id.isEmpty || world == id ? '' : '($id)'}';
   }
 
   _JoinRequestApprovalStatus get joinRequestApprovalStatus {
