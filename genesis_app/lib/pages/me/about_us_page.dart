@@ -11,7 +11,7 @@ import '../legal/legal_document_page.dart';
 class AboutUsPage extends StatelessWidget {
   const AboutUsPage({super.key});
 
-  static const _appVersion = 'v1.0.0';
+  static const appVersion = 'v1.0.0';
   static const _descriptionBeforeEmail =
       'Worldo lets you create, discover, and enter AI-powered worlds filled '
       'with characters, stories, and evolving events. Chat with AI characters, '
@@ -37,7 +37,7 @@ class AboutUsPage extends StatelessWidget {
                   const _AboutBrandHeader(),
                   const SizedBox(height: 8),
                   const Text(
-                    _appVersion,
+                    appVersion,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 13,

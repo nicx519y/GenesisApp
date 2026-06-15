@@ -4,6 +4,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
 import '../../ui/genesis_ui.dart';
+import 'about_us_page.dart';
 
 class DeveloperPage extends StatefulWidget {
   const DeveloperPage({super.key});
@@ -78,6 +79,24 @@ class _DeveloperPageState extends State<DeveloperPage> {
                     ),
                   );
                 },
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Version',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.black,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const SelectableText(
+                AboutUsPage.appVersion,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF666666),
+                  fontWeight: FontWeight.w400,
+                ),
               ),
               const SizedBox(height: 24),
               GenesisPrimaryButton(

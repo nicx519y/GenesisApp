@@ -40,6 +40,7 @@ import '../../utils/stat_count_formatter.dart';
 
 const Duration _tick1WaitPollInterval = Duration(seconds: 2);
 const Duration _tick1WaitDotsInterval = Duration(milliseconds: 400);
+const Duration _initialMapImageMaxWait = Duration(seconds: 4);
 
 class WorldPage extends StatefulWidget {
   const WorldPage({super.key, required this.wid, this.waitForTick1 = false});
@@ -67,11 +68,16 @@ class _WorldPageState extends State<WorldPage>
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
   bool _tick1WaitDialogStarted = false;
+  bool _initialMapImageReady = false;
+  String _initialMapImageUrl = '';
+  int _initialMapImageLoadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_handleMapModeTabChanged);
+    _handleMapModeTabChanged();
     unawaited(
       _fetchWorld(isInitial: true).then((_) {
         if (mounted) _maybeShowTick1WaitDialog();
@@ -87,6 +93,9 @@ class _WorldPageState extends State<WorldPage>
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleMapModeTabChanged);
+    WorldDetailsStatusBarOverride.clearStyle();
+    GenesisSystemUiChrome.applyDefault();
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
     final chatroom = _worldChatroom;
@@ -96,6 +105,16 @@ class _WorldPageState extends State<WorldPage>
     }
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _handleMapModeTabChanged() {
+    if (_tabController.index == 1) {
+      WorldDetailsStatusBarOverride.setStyle(
+        kGenesisDefaultSystemUiOverlayStyle,
+      );
+      return;
+    }
+    WorldDetailsStatusBarOverride.clearStyle();
   }
 
   void _startWorldChatroom() {
@@ -239,12 +258,55 @@ class _WorldPageState extends State<WorldPage>
     WorldDetail world, {
     bool clearInitialLoadError = false,
   }) {
+    final gateInitialMapImage = _world == null;
+    final initialMapImageUrl = gateInitialMapImage
+        ? _rootMapImageUrlForWorld(world)
+        : '';
     setState(() {
       _world = world;
+      if (gateInitialMapImage) {
+        _initialMapImageUrl = initialMapImageUrl;
+        _initialMapImageReady = initialMapImageUrl.isEmpty;
+      }
       if (clearInitialLoadError) _initialLoadError = null;
       _syncLocationChatDescriptors(world);
     });
+    if (gateInitialMapImage && initialMapImageUrl.isNotEmpty) {
+      unawaited(_precacheInitialMapImage(initialMapImageUrl));
+    }
     _syncWorldChatroomForRelationStatus(world.relationStatus);
+  }
+
+  String _rootMapImageUrlForWorld(WorldDetail world) {
+    final rootLocationMapUrl = _rootWorldMapImageUrl(
+      world.processedLocationTree.mapRoots,
+    ).trim();
+    if (rootLocationMapUrl.isNotEmpty) return rootLocationMapUrl;
+    return world.origin.worldMap.trim();
+  }
+
+  Future<void> _precacheInitialMapImage(String url) async {
+    final generation = ++_initialMapImageLoadGeneration;
+    try {
+      await precacheImage(
+        _mapImageProvider(url),
+        context,
+      ).timeout(_initialMapImageMaxWait);
+    } catch (e) {
+      debugPrint('[WorldPage] root map precache failed url="$url": $e');
+    }
+    if (!mounted ||
+        generation != _initialMapImageLoadGeneration ||
+        _initialMapImageUrl != url) {
+      return;
+    }
+    setState(() {
+      _initialMapImageReady = true;
+    });
+  }
+
+  ImageProvider _mapImageProvider(String url) {
+    return url.startsWith('assets/') ? AssetImage(url) : NetworkImage(url);
   }
 
   void _maybeShowTick1WaitDialog() {
@@ -769,28 +831,7 @@ class _WorldPageState extends State<WorldPage>
           ),
         );
       }
-      return WorldDetailsPageScaffold(
-        panelTopGap: 50,
-        panelCollapsedHeightOffset: 100,
-        persistentTopOverlay: _buildPersistentMapTabs(0, topPadding + 8),
-        map: WorldMapStage(
-          controller: _tabController,
-          pointsCount: 0,
-          top: topPadding + 8,
-          showTopOverlay: false,
-          mapBuilder: (context, pointMode) => WorldMap(
-            points: const <WorldPoint>[],
-            listPoints: const <WorldPoint>[],
-            locationNodes: const <WorldMapLocationNode>[],
-            fallbackOnEmptyMapUrl: false,
-            dimmed: pointMode,
-            showPointsList: pointMode,
-            overlayTop: topPadding + 8 + 48,
-            drillExitTop: topPadding + 68,
-          ),
-        ),
-        slivers: const [_WorldDetailsLoadingContent()],
-      );
+      return _buildInitialLoadingScaffold(topPadding);
     }
 
     final avatarsByLocation = _avatarsByLocationFromCharacterPositions(
@@ -798,7 +839,12 @@ class _WorldPageState extends State<WorldPage>
     );
     final processedLocationTree = world.processedLocationTree;
     final rootLocationNodes = processedLocationTree.mapRoots;
-    final rootMapImageUrl = _rootWorldMapImageUrl(rootLocationNodes);
+    final rootMapImageUrl = _rootMapImageUrlForWorld(world);
+    if (!_initialMapImageReady &&
+        rootMapImageUrl.trim().isNotEmpty &&
+        rootMapImageUrl.trim() == _initialMapImageUrl) {
+      return _buildInitialLoadingScaffold(topPadding);
+    }
     final renderLocationNodes = processedLocationTree.renderRoots;
     final allLocationNodes = processedLocationTree.flattened;
     final locationNodes = _worldMapLocationNodes(
@@ -873,6 +919,31 @@ class _WorldPageState extends State<WorldPage>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildInitialLoadingScaffold(double topPadding) {
+    return WorldDetailsPageScaffold(
+      panelTopGap: 50,
+      panelCollapsedHeightOffset: 100,
+      persistentTopOverlay: _buildPersistentMapTabs(0, topPadding + 8),
+      map: WorldMapStage(
+        controller: _tabController,
+        pointsCount: 0,
+        top: topPadding + 8,
+        showTopOverlay: false,
+        mapBuilder: (context, pointMode) => WorldMap(
+          points: const <WorldPoint>[],
+          listPoints: const <WorldPoint>[],
+          locationNodes: const <WorldMapLocationNode>[],
+          fallbackOnEmptyMapUrl: false,
+          dimmed: pointMode,
+          showPointsList: pointMode,
+          overlayTop: topPadding + 8 + 48,
+          drillExitTop: topPadding + 68,
+        ),
+      ),
+      slivers: const [_WorldDetailsLoadingContent()],
     );
   }
 
@@ -2430,6 +2501,7 @@ class _CharacterRow extends StatelessWidget {
             url: _mapString(character, const ['avatar']),
             name: name,
             showStar: isCharacterRole,
+            showFallbackWhileLoading: false,
           ),
         ),
         const SizedBox(width: 12),

@@ -3618,6 +3618,24 @@ void main() {
     );
     expect(_pageStatusBarStyle(tester).statusBarColor, const Color(0x00FFFFFF));
 
+    await tester.tap(find.text('Location (2)'));
+    await tester.pumpAndSettle();
+
+    expect(
+      _pageStatusBarStyle(tester).statusBarIconBrightness,
+      Brightness.dark,
+    );
+    expect(_pageStatusBarStyle(tester).statusBarColor, const Color(0xFFFFFFFF));
+
+    await tester.tap(find.text('Map'));
+    await tester.pumpAndSettle();
+
+    expect(
+      _pageStatusBarStyle(tester).statusBarIconBrightness,
+      Brightness.light,
+    );
+    expect(_pageStatusBarStyle(tester).statusBarColor, const Color(0x00FFFFFF));
+
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -720));
     await tester.pumpAndSettle();
 
@@ -8657,6 +8675,27 @@ void main() {
     expect(_assetImageFinder(kWorldMapFallbackBackgroundAsset), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('world page uses world map as initial map fallback', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'none',
+      worldMapUrl: kMockV1SteamMapImage,
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    expect(_assetImageFinder(kMockV1SteamMapImage), findsOneWidget);
   });
 
   testWidgets('world detail status bar switches after map scrolls out', (
