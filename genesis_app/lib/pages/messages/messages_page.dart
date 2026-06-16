@@ -204,13 +204,9 @@ class _MessagesPageState extends State<MessagesPage> {
           const SizedBox(height: 34),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: Row(
-              children: [
-                const Text(
-                  'Private chats',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                ),
-              ],
+            child: const Text(
+              'Private chats',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
             ),
           ),
           const SizedBox(height: 8),
