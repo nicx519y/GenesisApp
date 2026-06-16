@@ -2939,7 +2939,9 @@ class _MockState {
       'updated_at': world['updated_at'],
       'last_progress_at': world['last_progress_at'],
       'last_tick': {
+        'tick_no': world['tick_cnt'],
         'tick_index': world['tick_cnt'],
+        'current_time': 'Day ${world['tick_cnt'] ?? 1}, 08:00',
         'created_at': world['last_progress_at'],
         'narrator': world['last_progress_summary'],
         'paragraphs': const <Map<String, dynamic>>[],

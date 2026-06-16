@@ -696,6 +696,7 @@ class _RecordingV1ListTransport implements HttpTransport {
       'last_progress_summary': 'Legacy world progress summary $seq',
       'last_tick': {
         'tick_no': seq,
+        'current_time': 'Day $seq, 08:00',
         'created_at': '2026-05-02T00:00:00Z',
         'narrator': 'World tick narrator $seq',
         'paragraphs': const <Map<String, Object?>>[],
