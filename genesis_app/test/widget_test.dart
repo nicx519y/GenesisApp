@@ -35,8 +35,11 @@ import 'package:genesis_flutter_android/pages/create/create_origin_draft_store.d
 import 'package:genesis_flutter_android/pages/create/create_origin_id_utils.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_story_events_page.dart';
+import 'package:genesis_flutter_android/pages/edit/edit_basics_page.dart';
+import 'package:genesis_flutter_android/pages/edit/edit_characters_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_locations_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
+import 'package:genesis_flutter_android/pages/edit/edit_story_events_page.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
@@ -1191,6 +1194,10 @@ class _RecordingMessagesDataPollTransport implements HttpTransport {
 
   int count(String path) {
     return requests.where((request) => request.uri.path == path).length;
+  }
+
+  List<TransportRequest> requestsFor(String path) {
+    return requests.where((request) => request.uri.path == path).toList();
   }
 
   List<String> get messagesDataPaths {
@@ -2589,6 +2596,11 @@ void main() {
       find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
       findsNothing,
     );
+    final originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, isNotEmpty);
+    expect(originRequests.last.uri.queryParameters['scene'], 'popular');
+    expect(find.text('Popular'), findsOneWidget);
+    expect(find.text('Private chats'), findsNothing);
 
     await tester.tap(find.text('Messages'));
     await tester.pumpAndSettle();
@@ -6364,6 +6376,260 @@ void main() {
     expect(find.text('2 Events'), findsOneWidget);
   });
 
+  testWidgets('time per progress options are mutually exclusive with custom', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('6 hours'), findsOneWidget);
+    expect(find.text('12 hours'), findsOneWidget);
+    expect(find.text('1 day'), findsOneWidget);
+    expect(find.text('1 week'), findsOneWidget);
+    expect(find.text('Half day'), findsNothing);
+    expect(find.text('1 month'), findsNothing);
+
+    final oneDayText = find.text('1 day');
+    await tester.ensureVisible(oneDayText);
+    await tester.pumpAndSettle();
+    await tester.tap(oneDayText);
+    await tester.pump();
+    var oneDayOption = tester.widget<Material>(
+      find.byKey(const ValueKey('time-progress-option-1 day')),
+    );
+    expect(oneDayOption.color, const Color(0xFFE0EEE8));
+
+    final customField = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          widget.decoration?.hintText == 'Custom, e.g. 3 days',
+    );
+    await tester.ensureVisible(customField);
+    await tester.pumpAndSettle();
+    await tester.enterText(customField, '3 days');
+    await tester.pump();
+    oneDayOption = tester.widget<Material>(
+      find.byKey(const ValueKey('time-progress-option-1 day')),
+    );
+    expect(oneDayOption.color, isNot(const Color(0xFFE0EEE8)));
+
+    final oneWeekText = find.text('1 week');
+    await tester.ensureVisible(oneWeekText);
+    await tester.pumpAndSettle();
+    await tester.tap(oneWeekText);
+    await tester.pump();
+    final customTextField = tester.widget<TextField>(customField);
+    expect(customTextField.controller!.text, isEmpty);
+    final oneWeekOption = tester.widget<Material>(
+      find.byKey(const ValueKey('time-progress-option-1 week')),
+    );
+    expect(oneWeekOption.color, const Color(0xFFE0EEE8));
+
+    await tester.ensureVisible(oneWeekText);
+    await tester.pumpAndSettle();
+    await tester.tap(oneWeekText);
+    await tester.pump();
+    final clearedOneWeekOption = tester.widget<Material>(
+      find.byKey(const ValueKey('time-progress-option-1 week')),
+    );
+    expect(clearedOneWeekOption.color, isNot(const Color(0xFFE0EEE8)));
+  });
+
+  testWidgets('initial character chips can remove selected characters', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await CreateOriginDraftStore.saveFinal(
+      const CreateOriginDraft(
+        basics: BasicsDraft(
+          originName: 'Chip Origin',
+          worldView: 'A world with character chips.',
+          coverImageUrl: 'https://example.com/cover.png',
+        ),
+        characters: <CharacterDraft>[
+          CharacterDraft(
+            charId: 'char_chip_1',
+            name: 'Ari',
+            identity: 'Guide',
+            personality: 'Calm',
+          ),
+        ],
+        locations: <LocationDraft>[
+          LocationDraft(
+            locationId: 'location_chip_1',
+            name: 'Gate',
+            initialCharacterIds: <String>['char_chip_1'],
+          ),
+        ],
+        storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        basicsSaved: true,
+        charactersSaved: true,
+        locationsSaved: true,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+
+    final picker = find.byKey(const ValueKey('location-character-picker'));
+    await tester.ensureVisible(picker);
+    await tester.pumpAndSettle();
+    expect(tester.getSize(picker).height, 54);
+
+    final chip = find.byKey(
+      const ValueKey('initial-character-chip-char_chip_1'),
+    );
+    expect(chip, findsOneWidget);
+    expect(
+      tester.getCenter(chip).dy,
+      closeTo(tester.getCenter(picker).dy, 0.5),
+    );
+    expect(find.text('Ari'), findsOneWidget);
+
+    final removeChip = find.byKey(
+      const ValueKey('initial-character-chip-remove-char_chip_1'),
+    );
+    await tester.ensureVisible(removeChip);
+    await tester.pumpAndSettle();
+    await tester.tap(removeChip);
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('initial-character-chip-char_chip_1')),
+      findsNothing,
+    );
+    expect(find.text('Select initial characters'), findsOneWidget);
+  });
+
+  testWidgets('initial character chips wrap onto multiple rows', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final characters = List<CharacterDraft>.generate(
+      6,
+      (index) => CharacterDraft(
+        charId: 'char_wrap_$index',
+        name: 'Character ${index + 1}',
+        identity: 'Guide',
+        personality: 'Calm',
+      ),
+    );
+    await CreateOriginDraftStore.saveFinal(
+      CreateOriginDraft(
+        basics: const BasicsDraft(
+          originName: 'Wrap Origin',
+          worldView: 'A world with many initial characters.',
+          coverImageUrl: 'https://example.com/cover.png',
+        ),
+        characters: characters,
+        locations: [
+          LocationDraft(
+            locationId: 'location_wrap_1',
+            name: 'Gate',
+            initialCharacterIds: characters
+                .map((character) => character.charId)
+                .toList(growable: false),
+          ),
+        ],
+        storyEvents: const <StoryEventDraft>[StoryEventDraft()],
+        basicsSaved: true,
+        charactersSaved: true,
+        locationsSaved: true,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+
+    final picker = find.byKey(const ValueKey('location-character-picker'));
+    await tester.ensureVisible(picker);
+    await tester.pumpAndSettle();
+
+    expect(tester.getSize(picker).height, greaterThan(54));
+    expect(
+      tester.getCenter(find.byIcon(Icons.add)).dy,
+      closeTo(tester.getCenter(picker).dy, 0.5),
+    );
+    for (final character in characters) {
+      expect(
+        find.byKey(ValueKey('initial-character-chip-${character.charId}')),
+        findsOneWidget,
+      );
+    }
+  });
+
+  testWidgets('initial character chips keep single row height when they fit', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    const characters = <CharacterDraft>[
+      CharacterDraft(
+        charId: 'char_single_1',
+        name: 'Ari',
+        identity: 'Guide',
+        personality: 'Calm',
+      ),
+      CharacterDraft(
+        charId: 'char_single_2',
+        name: 'Bo',
+        identity: 'Scout',
+        personality: 'Direct',
+      ),
+    ];
+    await CreateOriginDraftStore.saveFinal(
+      const CreateOriginDraft(
+        basics: BasicsDraft(
+          originName: 'Single Row Origin',
+          worldView: 'A world with two initial characters.',
+          coverImageUrl: 'https://example.com/cover.png',
+        ),
+        characters: characters,
+        locations: [
+          LocationDraft(
+            locationId: 'location_single_1',
+            name: 'Gate',
+            initialCharacterIds: ['char_single_1', 'char_single_2'],
+          ),
+        ],
+        storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        basicsSaved: true,
+        charactersSaved: true,
+        locationsSaved: true,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+
+    final picker = find.byKey(const ValueKey('location-character-picker'));
+    await tester.ensureVisible(picker);
+    await tester.pumpAndSettle();
+
+    expect(tester.getSize(picker).height, 54);
+    for (final character in characters) {
+      final chip = find.byKey(
+        ValueKey('initial-character-chip-${character.charId}'),
+      );
+      expect(chip, findsOneWidget);
+      expect(
+        tester.getCenter(chip).dy,
+        closeTo(tester.getCenter(picker).dy, 0.5),
+      );
+    }
+  });
+
   testWidgets('create origin back action can discard the local draft', (
     WidgetTester tester,
   ) async {
@@ -6696,6 +6962,162 @@ void main() {
     expect(draft.locations.single.toJson().containsKey('location_pid'), false);
   });
 
+  testWidgets('edit basics save state follows current validity only', (
+    WidgetTester tester,
+  ) async {
+    final repository = MemoryOriginDraftRepository(
+      initialDraft: const CreateOriginDraft(
+        basics: BasicsDraft(
+          originName: 'Editable Origin',
+          worldView: 'Editable public view.',
+          coverImageUrl: 'https://example.com/cover.png',
+        ),
+        characters: <CharacterDraft>[CharacterDraft()],
+        locations: <LocationDraft>[LocationDraft()],
+        storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        basicsSaved: true,
+        charactersSaved: true,
+        locationsSaved: true,
+        storyEventsSaved: true,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: EditBasicsPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    var saveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(saveButton.onPressed, isNotNull);
+    expect(
+      saveButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+      const Color(0xFF198B64),
+    );
+
+    final originNameField = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          widget.decoration?.hintText == 'Enter world name...',
+    );
+    await tester.enterText(originNameField, '');
+    await tester.pump();
+
+    saveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(saveButton.onPressed, isNull);
+    expect(
+      saveButton.style?.backgroundColor?.resolve(<WidgetState>{
+        WidgetState.disabled,
+      }),
+      const Color(0xFFBFD8CD),
+    );
+  });
+
+  testWidgets('edit section save states use current form validity', (
+    WidgetTester tester,
+  ) async {
+    final characterRepository = MemoryOriginDraftRepository(
+      initialDraft: const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[
+          CharacterDraft(
+            charId: 'char_edit_valid',
+            name: 'Ari',
+            identity: 'Guide',
+            personality: 'Calm',
+          ),
+        ],
+        locations: <LocationDraft>[LocationDraft()],
+        storyEvents: <StoryEventDraft>[StoryEventDraft(event: 'Starts.')],
+        basicsSaved: true,
+        charactersSaved: true,
+        locationsSaved: true,
+        storyEventsSaved: true,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: EditCharactersPage(repository: characterRepository)),
+    );
+    await tester.pumpAndSettle();
+
+    var saveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(saveButton.onPressed, isNotNull);
+
+    await tester.enterText(find.byType(TextField).at(1), '');
+    await tester.pump();
+
+    saveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(saveButton.onPressed, isNull);
+
+    final locationRepository = MemoryOriginDraftRepository(
+      initialDraft: const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[CharacterDraft()],
+        locations: <LocationDraft>[
+          LocationDraft(
+            locationId: 'loc_edit_valid',
+            name: 'Gate',
+            description: 'A starting point.',
+          ),
+        ],
+        storyEvents: <StoryEventDraft>[StoryEventDraft(event: 'Starts.')],
+        basicsSaved: true,
+        charactersSaved: true,
+        locationsSaved: true,
+        storyEventsSaved: true,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: EditLocationsPage(repository: locationRepository)),
+    );
+    await tester.pumpAndSettle();
+
+    saveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(saveButton.onPressed, isNotNull);
+
+    await tester.enterText(find.byType(TextField).first, '');
+    await tester.pump();
+
+    saveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(saveButton.onPressed, isNull);
+
+    final eventsRepository = MemoryOriginDraftRepository(
+      initialDraft: const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[CharacterDraft()],
+        locations: <LocationDraft>[LocationDraft()],
+        storyEvents: <StoryEventDraft>[StoryEventDraft(event: 'Starts.')],
+        basicsSaved: true,
+        charactersSaved: true,
+        locationsSaved: true,
+        storyEventsSaved: true,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: EditStoryEventsPage(repository: eventsRepository)),
+    );
+    await tester.pumpAndSettle();
+
+    saveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(saveButton.onPressed, isNotNull);
+  });
+
   testWidgets('locations character picker binds available character ids', (
     WidgetTester tester,
   ) async {
@@ -6837,14 +7259,14 @@ void main() {
     expect(createButton.onPressed, isNotNull);
     expect(
       createButton.style?.backgroundColor?.resolve(<WidgetState>{}),
-      const Color(0xFF198B64),
+      const Color(0xFFBFD8CD),
     );
 
     await tester.tap(find.widgetWithText(FilledButton, 'Create'));
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Please save Basics, Characters, Locations before creating.'),
+      find.text('Please save Basics, Characters before creating.'),
       findsOneWidget,
     );
     await tester.pump(const Duration(seconds: 2));
@@ -6871,13 +7293,11 @@ void main() {
             personality: 'Calm',
           ),
         ],
-        locations: <LocationDraft>[
-          LocationDraft(locationId: 'location_local_1', name: 'Gate'),
-        ],
+        locations: <LocationDraft>[LocationDraft()],
         storyEvents: <StoryEventDraft>[StoryEventDraft()],
         basicsSaved: true,
         charactersSaved: true,
-        locationsSaved: true,
+        locationsSaved: false,
         storyEventsSaved: true,
       ),
     );
@@ -6931,10 +7351,7 @@ void main() {
     expect(characters.single['personality'], 'Calm');
     expect(body['locations'], isA<List>());
     final locationList = body['locations'] as List;
-    expect(locationList, hasLength(1));
-    expect(locationList.single['location_id'], 'location_local_1');
-    expect(locationList.single.containsKey('location_pid'), isFalse);
-    expect(locationList.single['location_name'], 'Gate');
+    expect(locationList, isEmpty);
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
@@ -6971,7 +7388,7 @@ void main() {
     expect(rootPublish.onPressed, isNotNull);
     expect(
       rootPublish.style?.backgroundColor?.resolve(<WidgetState>{}),
-      const Color(0xFF198B64),
+      const Color(0xFFBFD8CD),
     );
 
     await tester.tap(find.widgetWithText(FilledButton, 'Publish'));
@@ -6991,10 +7408,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('World Name: Edited Origin'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('section-modified-Basics')),
+      findsOneWidget,
+    );
     rootPublish = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Publish'),
     );
     expect(rootPublish.onPressed, isNotNull);
+    expect(
+      rootPublish.style?.backgroundColor?.resolve(<WidgetState>{}),
+      const Color(0xFF198B64),
+    );
 
     await tester.tap(find.widgetWithText(FilledButton, 'Publish'));
     await tester.pumpAndSettle();
@@ -7014,7 +7439,8 @@ void main() {
     expect(body['brief'], 'Editable public view.');
     expect(body['setting'], 'Editable hidden rules.');
     expect(body['started_at'], 'Day 1');
-    expect(body['tick_duration_days'], 30);
+    expect(body.containsKey('tick_duration_days'), isFalse);
+    expect(body['tick_duration_time'], '30 days');
     expect(body['metric'], {
       'mode': 'qualitative',
       'label': 'Influence',
@@ -7120,6 +7546,57 @@ void main() {
       expect(find.textContaining('World Name: Edited Origin'), findsNothing);
     },
   );
+
+  testWidgets('edit publish returns to previous page after successful update', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingCreateOriginTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) {
+              return Scaffold(
+                body: Center(
+                  child: FilledButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) =>
+                              const EditOriginPage(originId: 'o_edit_1'),
+                        ),
+                      );
+                    },
+                    child: const Text('Open edit'),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open edit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Basics'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Edited Origin');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Publish'));
+    await tester.pumpAndSettle();
+
+    expect(transport.requestsFor('/api/v1/origin/update'), hasLength(1));
+    expect(find.text('Open edit'), findsOneWidget);
+    expect(find.text('Edit Origin'), findsNothing);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+  });
 
   testWidgets('settings opens about us page', (WidgetTester tester) async {
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(

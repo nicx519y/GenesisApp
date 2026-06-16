@@ -15,16 +15,20 @@ import '../../routers/app_router.dart';
 import '../../ui/components/secend_tabs.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.initialTabIndex});
 
   static const List<String> tabs = ['My Worlds', 'Popular'];
+  static const int myWorldsTabIndex = 0;
+  static const int popularTabIndex = 1;
+
+  final int? initialTabIndex;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  late final Future<int> _initialTabIndexFuture;
+  late Future<int> _initialTabIndexFuture;
 
   @override
   void initState() {
@@ -32,8 +36,22 @@ class _HomePageState extends State<HomePage> {
     _initialTabIndexFuture = _initialTabIndex();
   }
 
+  @override
+  void didUpdateWidget(covariant HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTabIndex != widget.initialTabIndex) {
+      _initialTabIndexFuture = _initialTabIndex();
+    }
+  }
+
   Future<int> _initialTabIndex() async {
-    return await _hasLocalLoginSession() ? 0 : 1;
+    final requestedIndex = widget.initialTabIndex;
+    if (requestedIndex != null) {
+      return requestedIndex.clamp(0, HomePage.tabs.length - 1);
+    }
+    return await _hasLocalLoginSession()
+        ? HomePage.myWorldsTabIndex
+        : HomePage.popularTabIndex;
   }
 
   Future<bool> _hasLocalLoginSession() async {
@@ -61,6 +79,7 @@ class _HomePageState extends State<HomePage> {
         }
 
         return DefaultTabController(
+          key: ValueKey<int>(initialIndex),
           length: HomePage.tabs.length,
           initialIndex: initialIndex,
           child: Column(

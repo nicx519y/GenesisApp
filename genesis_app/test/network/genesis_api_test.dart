@@ -459,7 +459,8 @@ void main() {
     expect(body['tags'], ['city']);
     expect(body['metric'], {'label': 'Influence'});
     expect(body['started_at'], 'Day 1');
-    expect(body['tick_duration_days'], 30);
+    expect(body.containsKey('tick_duration_days'), isFalse);
+    expect(body['tick_duration_time'], '30 days');
     expect(body['cover'], 'cover.png');
     expect(body['map_url'], 'map.png');
 
@@ -509,6 +510,7 @@ void main() {
       oid: 'o_update_1',
       payload: {
         'origin_id': 'o_update_1',
+        'origin_version': 'draft-3',
         'name': 'Updated Origin',
         'world_view': 'Updated brief.',
         'world_setting': 'Updated setting.',
@@ -549,6 +551,7 @@ void main() {
         ],
         'deleted_char_ids': const ['char_removed'],
         'deleted_location_ids': const ['loc_removed'],
+        'update_notes': 'Adjusted archive.',
       },
     );
 
@@ -565,6 +568,7 @@ void main() {
     expect(body.containsKey('location_list'), isFalse);
     expect(body.containsKey('event_list'), isFalse);
     expect(body['origin_id'], 'o_update_1');
+    expect(body['origin_version'], 'draft-3');
     expect(body['origin_name'], 'Updated Origin');
     expect(body['brief'], 'Updated brief.');
     expect(body['setting'], 'Updated setting.');
@@ -583,9 +587,11 @@ void main() {
     expect(metric.containsKey('start_time'), isFalse);
     expect(metric.containsKey('time_per_progress'), isFalse);
     expect(body['started_at'], 'Day 2');
-    expect(body['tick_duration_days'], 7);
+    expect(body.containsKey('tick_duration_days'), isFalse);
+    expect(body['tick_duration_time'], '7 days');
     expect(body['cover'], 'updated-cover.png');
     expect(body['map_url'], 'updated-map.png');
+    expect(body['update_notes'], 'Adjusted archive.');
     expect(body['deleted_char_ids'], ['char_removed']);
     expect(body['deleted_location_ids'], ['loc_removed']);
 

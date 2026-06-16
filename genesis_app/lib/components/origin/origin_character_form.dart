@@ -105,7 +105,7 @@ class OriginCharacterFormFields extends StatelessWidget {
     this.avatarHeight = 168,
     this.avatarIconSize = 38,
     this.avatarCropSize = const Size(512, 512),
-    this.showAvatarRemoveLink = false,
+    this.showAvatarRemoveLink = true,
     this.topSpacing = 12,
     this.horizontalGap = 14,
     this.fieldGap = 14,

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+const Object _unchanged = Object();
+
 class CreateOriginDraftStore {
   static const String _storageKey = 'create_origin_draft_v1';
   static const String _tempTableKey = 'create_origin_temp_table_v1';
@@ -257,7 +259,7 @@ class CreateOriginDraft {
   }
 
   bool get hasRequiredSectionsSaved {
-    return basicsSaved && charactersSaved && locationsSaved;
+    return basicsSaved && charactersSaved;
   }
 
   List<String> validateForSubmit() {
@@ -267,7 +269,6 @@ class CreateOriginDraft {
       final missing = <String>[
         if (!basicsSaved) 'Basics',
         if (!charactersSaved) 'Characters',
-        if (!locationsSaved) 'Locations',
       ];
       errors.add('Please save ${missing.join(', ')} before creating.');
     }
@@ -324,7 +325,9 @@ class CreateOriginDraft {
       'cover': basics.coverImageUrl.trim(),
       if (basics.startedAt.trim().isNotEmpty)
         'started_at': basics.startedAt.trim(),
-      if (basics.tickDurationDays != null)
+      if (basics.tickDurationTime.trim().isNotEmpty)
+        'tick_duration_time': basics.tickDurationTime.trim()
+      else if (basics.tickDurationDays != null)
         'tick_duration_days': basics.tickDurationDays,
       'character_list': characters
           .where(_characterHasContent)
@@ -402,6 +405,7 @@ class BasicsDraft {
     this.worldLogic = '',
     this.metricJson = '',
     this.startedAt = '',
+    this.tickDurationTime = '',
     this.tickDurationDays,
     this.coverImageUrl = '',
   });
@@ -412,6 +416,7 @@ class BasicsDraft {
   final String worldLogic;
   final String metricJson;
   final String startedAt;
+  final String tickDurationTime;
   final int? tickDurationDays;
   final String coverImageUrl;
 
@@ -423,6 +428,7 @@ class BasicsDraft {
       worldLogic: _asString(json['world_logic']),
       metricJson: _asString(json['metric_json']),
       startedAt: _asString(json['started_at']),
+      tickDurationTime: _asString(json['tick_duration_time']),
       tickDurationDays: _asNullableInt(json['tick_duration_days']),
       coverImageUrl: _asString(json['cover_image_url']),
     );
@@ -435,7 +441,8 @@ class BasicsDraft {
     String? worldLogic,
     String? metricJson,
     String? startedAt,
-    int? tickDurationDays,
+    Object? tickDurationTime = _unchanged,
+    Object? tickDurationDays = _unchanged,
     String? coverImageUrl,
   }) {
     return BasicsDraft(
@@ -445,7 +452,12 @@ class BasicsDraft {
       worldLogic: worldLogic ?? this.worldLogic,
       metricJson: metricJson ?? this.metricJson,
       startedAt: startedAt ?? this.startedAt,
-      tickDurationDays: tickDurationDays ?? this.tickDurationDays,
+      tickDurationTime: identical(tickDurationTime, _unchanged)
+          ? this.tickDurationTime
+          : (tickDurationTime as String?) ?? '',
+      tickDurationDays: identical(tickDurationDays, _unchanged)
+          ? this.tickDurationDays
+          : tickDurationDays as int?,
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,
     );
   }
@@ -458,6 +470,8 @@ class BasicsDraft {
       'world_logic': worldLogic,
       'metric_json': metricJson,
       'started_at': startedAt,
+      if (tickDurationTime.trim().isNotEmpty)
+        'tick_duration_time': tickDurationTime,
       if (tickDurationDays != null) 'tick_duration_days': tickDurationDays,
       'cover_image_url': coverImageUrl,
     };
