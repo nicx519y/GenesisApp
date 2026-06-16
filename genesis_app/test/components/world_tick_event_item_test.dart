@@ -18,6 +18,7 @@ void main() {
                 'paragraphs': [
                   {
                     'location_id': 'loc_harbor',
+                    'timestamp': 'Day 7, 09:30',
                     'text': 'The harbor lights answer in sequence.',
                     'character_deltas': [
                       {'name': 'Iris Vale', 'delta': '+3 focus'},
@@ -44,7 +45,16 @@ void main() {
     expect(find.text('A signal reaches the harbor.'), findsOneWidget);
     expect(find.text('Harbor Gate'), findsOneWidget);
     expect(find.byIcon(Icons.place_outlined), findsOneWidget);
+    expect(find.text('Day 7, 09:30'), findsOneWidget);
     expect(find.text('The harbor lights answer in sequence.'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Day 7, 09:30')).dy,
+      lessThan(
+        tester
+            .getTopLeft(find.text('The harbor lights answer in sequence.'))
+            .dy,
+      ),
+    );
     expect(find.text('Iris Vale +3 focus'), findsOneWidget);
     expect(find.text('Legacy fallback text'), findsNothing);
   });

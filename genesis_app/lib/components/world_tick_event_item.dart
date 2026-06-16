@@ -170,10 +170,18 @@ class _TickParagraphRow extends StatelessWidget {
     final body = _mapString(paragraph, const [
       'text',
     ], fallback: _mapString(paragraph, const ['content', 'summary']));
+    final timestamp = _mapString(paragraph, const [
+      'timestamp',
+      'timesamp',
+      'time',
+    ]);
     final characterDetails = _characterDetails(paragraph);
 
     final label = _LocationLabel(text: name.isEmpty ? 'Location' : name);
     final bodyText = Text(body, style: _bodyStyle);
+    final timestampText = timestamp.isEmpty
+        ? null
+        : Text(timestamp, style: _timestampStyle);
     final characterDetailsText = characterDetails.isEmpty
         ? null
         : Text(characterDetails, style: _bodyStyle);
@@ -186,6 +194,10 @@ class _TickParagraphRow extends StatelessWidget {
               children: [
                 label,
                 const SizedBox(height: 4),
+                if (timestampText != null) ...[
+                  timestampText,
+                  const SizedBox(height: 2),
+                ],
                 bodyText,
                 if (characterDetailsText != null) ...[
                   const SizedBox(height: 6),
@@ -201,6 +213,10 @@ class _TickParagraphRow extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (timestampText != null) ...[
+                        timestampText,
+                        const SizedBox(height: 2),
+                      ],
                       bodyText,
                       if (characterDetailsText != null) ...[
                         const SizedBox(height: 6),
@@ -227,6 +243,13 @@ const _bodyStyle = TextStyle(
   height: 1.6,
   fontWeight: FontWeight.w400,
   color: Color(0xFF444444),
+);
+
+const _timestampStyle = TextStyle(
+  fontSize: 12,
+  height: 1.4,
+  fontWeight: FontWeight.w500,
+  color: Color(0xFF111111),
 );
 
 class _LocationLabel extends StatelessWidget {
