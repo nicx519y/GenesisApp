@@ -72,6 +72,7 @@ Object? handleV1ResponseErrNo(Object? json) {
           : map['errStr'],
       fallback: 'API error',
     ),
+    code: errNo,
   );
 }
 

@@ -99,6 +99,48 @@ void main() {
     expect(user.uid, 'u_1');
   });
 
+  test(
+    'v1 err_no 10001 triggers session expired callback with fixed message',
+    () async {
+      final expired = Completer<String>();
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"err_no":10001,"err_msg":"Your account was logged in elsewhere.","data":{}}',
+        ),
+      );
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: MemoryUserSessionStore(),
+        onSessionExpired: (message) async {
+          if (!expired.isCompleted) expired.complete(message);
+        },
+      );
+
+      await expectLater(
+        api.v1.user.info(),
+        throwsA(
+          isA<ApiException>()
+              .having((error) => error.code, 'code', 10001)
+              .having(
+                (error) => error.message,
+                'message',
+                'Your account is logged in on another device.',
+              ),
+        ),
+      );
+      expect(
+        await expired.future,
+        'Your account is logged in on another device.',
+      );
+      expect(apiTransport.lastRequest!.uri.path, '/api/v1/user/info');
+    },
+  );
+
   test('getOrigins uses GET /v1/origin/list for default category', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(

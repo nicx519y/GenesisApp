@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -44,6 +45,7 @@ class GenesisApi {
     DeviceIdService? deviceIdService,
     UserSessionStore? sessionStore,
     IdentityAuthService? identityAuthService,
+    Future<void> Function(String message)? onSessionExpired,
   }) {
     final resolvedPlatformConfig =
         platformConfig ?? const DefaultPlatformConfig();
@@ -51,6 +53,7 @@ class GenesisApi {
     _sessionStore = sessionStore ?? NativeUserSessionStore();
     _identityAuthService =
         identityAuthService ?? const GoogleFirebaseAuthService();
+    _onSessionExpired = onSessionExpired;
     final resolvedTransport = _resolveTransport(
       transport: transport,
       useMock: useMock,
@@ -67,7 +70,7 @@ class GenesisApi {
           },
           requestHeaderProvider: _runtimeRequestHeaders,
           transport: resolvedTransport,
-          responseProcessor: _defaultGenesisProcessor,
+          responseProcessor: _processGenesisResponse,
         );
     _healthClient =
         healthClient ??
@@ -76,7 +79,7 @@ class GenesisApi {
           defaultHeaders: const {'accept': 'application/json'},
           requestHeaderProvider: _runtimeRequestHeaders,
           transport: resolvedTransport,
-          responseProcessor: _defaultGenesisProcessor,
+          responseProcessor: _processGenesisResponse,
         );
     _chatroomHttpClient =
         chatroomHttpClient ??
@@ -90,7 +93,7 @@ class GenesisApi {
           },
           requestHeaderProvider: _runtimeRequestHeaders,
           transport: resolvedTransport,
-          responseProcessor: _defaultGenesisProcessor,
+          responseProcessor: _processGenesisResponse,
         );
     v1 = GenesisV1Api(_apiClient);
     chatroomHttp = ChatroomHttpApi(_chatroomHttpClient);
@@ -104,6 +107,7 @@ class GenesisApi {
   late final DeviceIdService _deviceIdService;
   late final UserSessionStore _sessionStore;
   late final IdentityAuthService _identityAuthService;
+  late final Future<void> Function(String message)? _onSessionExpired;
 
   static final Map<int, String> _originIdToWorldview = <int, String>{};
 
@@ -128,6 +132,32 @@ class GenesisApi {
     } catch (_) {
       return null;
     }
+  }
+
+  Object? _processGenesisResponse(ApiResponse response) {
+    _throwIfSessionExpired(response);
+    return _defaultGenesisProcessor(response);
+  }
+
+  void _throwIfSessionExpired(ApiResponse response) {
+    final data = response.data;
+    if (data is! Map) return;
+    final map = asJsonMap(data);
+    final errNoRaw = map.containsKey('err_no') ? map['err_no'] : map['errNo'];
+    final errNo = asInt(errNoRaw);
+    if (errNo != 10001) return;
+
+    const message = 'Your account is logged in on another device.';
+    final handler = _onSessionExpired;
+    if (handler != null) unawaited(handler(message));
+    throw ApiException(
+      message: message,
+      code: errNo,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+      responseHeaders: response.headers,
+      uri: response.uri,
+    );
   }
 
   Future<String> ensureUid() => _ensureUid();
