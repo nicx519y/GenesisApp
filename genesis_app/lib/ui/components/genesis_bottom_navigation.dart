@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'genesis_unread_badge.dart';
 import '../tokens/genesis_spacing.dart';
 import '../theme/genesis_ui_theme.dart';
 
@@ -182,44 +183,9 @@ class _BadgedIcon extends StatelessWidget {
             Positioned(
               left: boxSize / 2 + size / 2 - 11,
               top: -1,
-              child: _UnreadBadge(key: badgeKey, count: badgeCount),
+              child: GenesisUnreadBadge(key: badgeKey, count: badgeCount),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _UnreadBadge extends StatelessWidget {
-  const _UnreadBadge({super.key, required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = count > 99 ? '99+' : count.toString();
-    return Container(
-      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF42C47),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      alignment: Alignment.center,
-      child: Center(
-        child: Transform.translate(
-          offset: const Offset(0, 0.5),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              height: 1,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
       ),
     );
   }

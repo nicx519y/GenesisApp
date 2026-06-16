@@ -798,13 +798,11 @@ class _NotificationItem {
         _extractCommentBodyFromContent(content),
         content,
       ]),
-      isFollowed:
-          asBool(relation?['i_followed']) ||
-          asBool(relation?['is_followed']) ||
-          asBool(user?['i_followed']) ||
-          asBool(user?['is_followed']) ||
-          asBool(json['i_followed']) ||
-          asBool(json['is_followed']),
+      isFollowed: json.containsKey('is_followed')
+          ? asBool(json['is_followed'])
+          : _relationIsFollowed(relation) ||
+                _relationIsFollowed(user) ||
+                _relationIsFollowed(json),
       isRead: asBool(json['is_read']),
       createdAt: asDateTime(json['created_at']),
       approvalStatus: _approvalStatusFromJson(json),
@@ -1161,6 +1159,24 @@ Map<String, dynamic>? _optionalJsonMap(Object? value) {
 String _mapString(Map<String, dynamic>? map, String key) {
   if (map == null) return '';
   return asString(map[key]);
+}
+
+bool _relationIsFollowed(Map<String, dynamic>? map) {
+  if (map == null) return false;
+  final state = _firstNonEmpty([
+    asString(map['follow_button_state']),
+    asString(map['relation_status']),
+  ]).toLowerCase();
+  if (state == 'following' || state == 'friend' || state == 'friends') {
+    return true;
+  }
+  if (state == 'follow' || state == 'follow_back' || state == 'self') {
+    return false;
+  }
+  return asBool(map['i_followed']) ||
+      asBool(map['is_followed']) ||
+      asBool(map['followed']) ||
+      asBool(map['is_friend']);
 }
 
 String _firstNonEmpty(Iterable<String> values, {String fallback = ''}) {

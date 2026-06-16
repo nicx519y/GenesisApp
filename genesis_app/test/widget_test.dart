@@ -1094,6 +1094,12 @@ class _RecordingMessageCategoryTransport implements HttpTransport {
   var commentRead = false;
   final readBlocks = <String>{};
 
+  List<TransportRequest> requestsFor(String path) {
+    return requests
+        .where((request) => request.uri.path == path)
+        .toList(growable: false);
+  }
+
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
@@ -2468,6 +2474,71 @@ void main() {
     );
   });
 
+  testWidgets(
+    'private chat unread badge keeps right anchor near avatar corner',
+    (WidgetTester tester) async {
+      final transport = _RecordingDmDeltaTransport();
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_mock');
+      final api = GenesisApi(
+        useMock: false,
+        transport: transport,
+        platformConfig: const DefaultPlatformConfig(),
+        deviceIdService: const _FakeDeviceIdService(),
+        sessionStore: sessionStore,
+        identityAuthService: const _FakeIdentityAuthService(),
+      );
+      final storage = MemoryDirectMessageConversationStorage();
+      await storage.mergeConversations(
+        ownerUid: 'u_mock',
+        conversations: [
+          {
+            ..._dmConversationJson(
+              convId: 'cached_conv',
+              peerName: 'Cached Peer',
+              messageId: 'cached_msg',
+              message: 'Cached preview',
+              minutesAgo: 5,
+            ),
+            'unread_cnt': 120,
+          },
+        ],
+        nextAfterMessageId: 'cached_cursor',
+      );
+      final store = DirectMessageConversationStore(
+        api: api,
+        sessionStore: sessionStore,
+        storage: storage,
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        directMessageConversations: store,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: const MessagesPage(),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final avatar = find.byKey(const ValueKey('dm-avatar-cached_conv'));
+      final badge = find.byKey(
+        const ValueKey('dm-avatar-cached_conv-unread-badge'),
+      );
+
+      expect(avatar, findsOneWidget);
+      expect(badge, findsOneWidget);
+      final avatarTopRight = tester.getTopRight(avatar);
+      expect(tester.getTopRight(badge).dx, closeTo(avatarTopRight.dx + 4, 0.1));
+      expect(tester.getTopRight(badge).dy, closeTo(avatarTopRight.dy - 4, 0.1));
+    },
+  );
+
   testWidgets('direct messages merge delta rows without clearing the list', (
     WidgetTester tester,
   ) async {
@@ -2831,6 +2902,48 @@ void main() {
     final rowRight = tester.getTopRight(row).dx;
     expect(tester.getTopRight(action).dx, closeTo(rowRight, 0.1));
     expect(tester.getTopLeft(unreadDot).dx, greaterThan(rowRight));
+  });
+
+  testWidgets('new followers action button uses notification is_followed', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingMessageCategoryTransport(
+      notification: const {
+        'notification_id': 'ntf_follow_relation',
+        'notice_block': 'follow',
+        'notice_type': 'follow',
+        'sender': {
+          'uid': 'u_follow_relation',
+          'name': 'Followed User',
+          'avatar': '',
+        },
+        'is_followed': true,
+        'content': 'Followed User started following you.',
+        'is_read': true,
+        'created_at': '2026-05-20T10:00:00Z',
+      },
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const MessageCategoryListPage(
+            title: 'New followers',
+            block: 'follow',
+            emptyText: 'No new followers yet.',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Followed User'), findsOneWidget);
+    expect(find.text('Following'), findsOneWidget);
+    expect(find.text('Follow'), findsNothing);
+    expect(transport.requestsFor('/api/v1/users/relations/status'), isEmpty);
   });
 
   testWidgets('message category unread dots clear after reopening lists', (
