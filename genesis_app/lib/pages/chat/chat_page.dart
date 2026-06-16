@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/polling_scheduler.dart';
 import '../../components/chat/shared/chat_ui.dart';
+import '../../components/common/genesis_center_toast.dart';
+import '../../network/api_exception.dart';
 import '../../network/direct_message_message_store.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
@@ -350,27 +352,38 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
       if (!mounted) return;
       _scrollToBottom();
+    } on ApiException catch (error, stackTrace) {
+      debugPrint('[ChatPage][DM] send failed: $error');
+      debugPrint('[ChatPage][DM] stacktrace:\n$stackTrace');
+      if (mounted) {
+        final message = error.message.trim();
+        showGenesisToast(context, message.isEmpty ? 'Send failed' : message);
+      }
+      await _markLocalMessageSendFailed(localMessageId);
     } catch (error, stackTrace) {
       debugPrint('[ChatPage][DM] send failed: $error');
       debugPrint('[ChatPage][DM] stacktrace:\n$stackTrace');
-      final localRecord = _messageStore.rowListenable(localMessageId)?.value;
-      await _messageStore.deleteMessage(
-        peerUid: _peerUid,
-        messageId: localMessageId,
-      );
-      if (localRecord != null && mounted) {
-        setState(() {
-          _failedLocalMessages[localMessageId] =
-              DirectMessageMessageRecord.fromJson(
-                localRecord.toJson(),
-                localId: localRecord.localId,
-                sendStatus: DirectMessageSendStatus.failed,
-              );
-        });
-      }
+      await _markLocalMessageSendFailed(localMessageId);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  Future<void> _markLocalMessageSendFailed(String localMessageId) async {
+    final localRecord = _messageStore.rowListenable(localMessageId)?.value;
+    await _messageStore.deleteMessage(
+      peerUid: _peerUid,
+      messageId: localMessageId,
+    );
+    if (localRecord == null || !mounted) return;
+    setState(() {
+      _failedLocalMessages[localMessageId] =
+          DirectMessageMessageRecord.fromJson(
+            localRecord.toJson(),
+            localId: localRecord.localId,
+            sendStatus: DirectMessageSendStatus.failed,
+          );
+    });
   }
 
   void _scrollToBottom({bool jump = false, int settleFrames = 2}) {

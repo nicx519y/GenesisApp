@@ -2607,11 +2607,8 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('direct-messages-unread-badge')),
-        matching: find.text('1'),
-      ),
-      findsOneWidget,
+      find.byKey(const ValueKey('direct-messages-unread-badge')),
+      findsNothing,
     );
   });
 
@@ -8767,7 +8764,7 @@ void main() {
 
     expect(find.text('send this draft'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.send));
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send-button')));
     await tester.pump();
     await tester.pumpAndSettle();
 
@@ -9127,7 +9124,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'optimistic hello');
-    await tester.tap(find.byIcon(Icons.send));
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send-button')));
     await tester.pump();
 
     expect(find.text('optimistic hello'), findsOneWidget);
@@ -9138,6 +9135,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.priority_high), findsOneWidget);
+    expect(find.text('send failed'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 2100));
+    await tester.pump();
     final persisted = await storage.loadMessages(
       ownerUid: 'u_mock',
       peerUid: 'u_peer_dm',
