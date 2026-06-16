@@ -210,11 +210,6 @@ class _MessagesPageState extends State<MessagesPage> {
                   'Private chats',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
-                const SizedBox(width: 6),
-                _UnreadBadge(
-                  key: const ValueKey('direct-messages-unread-badge'),
-                  count: unreadSummary.dmUnread,
-                ),
               ],
             ),
           ),
@@ -359,13 +354,16 @@ class _UnreadBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       alignment: Alignment.center,
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          height: 1,
-          fontWeight: FontWeight.w700,
+      child: Center(
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            height: 1,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

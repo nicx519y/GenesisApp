@@ -180,8 +180,8 @@ class _BadgedIcon extends StatelessWidget {
             SizedBox.square(dimension: size),
           if (badgeCount > 0)
             Positioned(
-              top: 1,
-              right: -11,
+              left: boxSize / 2 + size / 2 - 11,
+              top: -1,
               child: _UnreadBadge(key: badgeKey, count: badgeCount),
             ),
         ],
@@ -206,13 +206,19 @@ class _UnreadBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       alignment: Alignment.center,
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          height: 1,
-          fontWeight: FontWeight.w700,
+      child: Center(
+        child: Transform.translate(
+          offset: const Offset(0, 0.5),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              height: 1,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ),
       ),
     );
