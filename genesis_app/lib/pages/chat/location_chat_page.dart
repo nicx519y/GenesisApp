@@ -76,6 +76,8 @@ class LocationChatPanel extends StatefulWidget {
     this.onInitialContentReady,
     this.composerReplacement,
     this.showConnectionStatus = true,
+    this.systemUiOverlayStyle = kGenesisDefaultSystemUiOverlayStyle,
+    this.style,
   });
 
   final String worldId;
@@ -92,6 +94,8 @@ class LocationChatPanel extends StatefulWidget {
   final VoidCallback? onInitialContentReady;
   final Widget? composerReplacement;
   final bool showConnectionStatus;
+  final SystemUiOverlayStyle systemUiOverlayStyle;
+  final ChatUiStyleConfig? style;
 
   @override
   State<LocationChatPanel> createState() => _LocationChatPanelState();
@@ -127,10 +131,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      SystemChrome.setSystemUIOverlayStyle(kGenesisDefaultSystemUiOverlayStyle);
-    });
     _logPanelMetric(
       'init active=${widget.active} leaf=${widget.isLeafLocation} '
       'aliases=${widget.localMessageLocationIds.join(',')}',
@@ -1069,11 +1069,12 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _chatroomState.joining ||
         (_chatroomState.connected && !joined);
     final inputBlocked = _chatroomState.inputBlocked;
+    final style = widget.style ?? kChatWhiteHeaderStyle;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: kGenesisDefaultSystemUiOverlayStyle,
+      value: widget.systemUiOverlayStyle,
       child: ColoredBox(
-        color: ChatUiStyleConfig.standard.conversationBackgroundColor,
+        color: style.conversationBackgroundColor,
         child: Column(
           children: [
             ChatHeader(
@@ -1083,6 +1084,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
               connecting: connecting,
               onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
               showSubtitle: widget.showConnectionStatus,
+              style: style,
             ),
             Expanded(
               child: Stack(

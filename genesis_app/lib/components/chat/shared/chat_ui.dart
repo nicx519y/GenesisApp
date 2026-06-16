@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../components/common/genesis_timestamp_text.dart';
 import '../../../icons/my_flutter_app_icons.dart';
@@ -7,6 +8,18 @@ import '../../../ui/components/genesis_avatar.dart';
 import 'chat_ui_style_config.dart';
 
 export 'chat_ui_style_config.dart';
+
+const SystemUiOverlayStyle kChatWhiteSystemUiOverlayStyle =
+    SystemUiOverlayStyle(
+      statusBarColor: Colors.white,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.white,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    );
+
+final ChatUiStyleConfig kChatWhiteHeaderStyle = ChatUiStyleConfig.standard
+    .copyWith(headerBackgroundColor: Colors.white);
 
 class ChatMessageVm {
   ChatMessageVm({

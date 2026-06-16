@@ -475,11 +475,15 @@ class ChatUiStyleConfig {
   // 系统消息文字样式。
   final TextStyle systemMessageTextStyle;
 
-  ChatUiStyleConfig copyWith({bool? showComposerSendButton}) {
+  ChatUiStyleConfig copyWith({
+    Color? headerBackgroundColor,
+    bool? showComposerSendButton,
+  }) {
     return ChatUiStyleConfig(
       conversationBackgroundColor: conversationBackgroundColor,
       headerHeight: headerHeight,
-      headerBackgroundColor: headerBackgroundColor,
+      headerBackgroundColor:
+          headerBackgroundColor ?? this.headerBackgroundColor,
       headerTitleTextStyle: headerTitleTextStyle,
       headerSubtitleTextStyle: headerSubtitleTextStyle,
       headerTitleIconColor: headerTitleIconColor,

@@ -104,7 +104,25 @@ class _WorldPageState extends State<WorldPage>
   }
 
   void _handleMapModeTabChanged() {
+    if (_activeChatLocationId.isNotEmpty) {
+      WorldDetailsStatusBarOverride.setStyle(kChatWhiteSystemUiOverlayStyle);
+      return;
+    }
     if (_tabController.index == 1) {
+      WorldDetailsStatusBarOverride.setStyle(
+        kGenesisDefaultSystemUiOverlayStyle,
+      );
+      return;
+    }
+    WorldDetailsStatusBarOverride.clearStyle();
+  }
+
+  void _handleMapModeTabTap(int index) {
+    if (_activeChatLocationId.isNotEmpty) {
+      WorldDetailsStatusBarOverride.setStyle(kChatWhiteSystemUiOverlayStyle);
+      return;
+    }
+    if (index == 1) {
       WorldDetailsStatusBarOverride.setStyle(
         kGenesisDefaultSystemUiOverlayStyle,
       );
@@ -525,6 +543,7 @@ class _WorldPageState extends State<WorldPage>
       }
       _activeChatLocationId = locationId;
     });
+    WorldDetailsStatusBarOverride.setStyle(kChatWhiteSystemUiOverlayStyle);
     unawaited(_hydrateActiveLocationChatMessages(descriptor));
     await WidgetsBinding.instance.endOfFrame;
     if (!wasCached && mounted && _activeChatLocationId == locationId) {
@@ -589,6 +608,7 @@ class _WorldPageState extends State<WorldPage>
     setState(() {
       _activeChatLocationId = '';
     });
+    _handleMapModeTabChanged();
   }
 
   void _handleWorldPopBlocked() {
@@ -619,6 +639,7 @@ class _WorldPageState extends State<WorldPage>
     );
     if (!_locationChatDescriptors.containsKey(_activeChatLocationId)) {
       _activeChatLocationId = '';
+      _handleMapModeTabChanged();
     }
     _scheduleLocationChatPrecache(descriptors.keys.toList(growable: false));
   }
@@ -717,24 +738,29 @@ class _WorldPageState extends State<WorldPage>
       ignoring: !active,
       child: ExcludeSemantics(
         excluding: !active,
-        child: Opacity(
-          opacity: visible ? 1 : 0,
-          child: TickerMode(
-            enabled: active,
-            child: SizedBox.expand(
-              child: LocationChatPanel(
-                key: ValueKey('world-location-chat-${descriptor.locationId}'),
-                worldId: widget.wid,
-                locationId: descriptor.locationId,
-                locationName: descriptor.locationName,
-                isLeafLocation: descriptor.isLeafLocation,
-                localMessageLocationIds: descriptor.localMessageLocationIds,
-                service: chatroom,
-                active: active,
-                leaveOnInactive: false,
-                onBack: _closeCachedLocationChat,
-                onInitialContentReady: () =>
-                    _markLocationChatPanelReady(descriptor.locationId),
+        child: Offstage(
+          offstage: !active,
+          child: Opacity(
+            opacity: visible ? 1 : 0,
+            child: TickerMode(
+              enabled: active,
+              child: SizedBox.expand(
+                child: LocationChatPanel(
+                  key: ValueKey('world-location-chat-${descriptor.locationId}'),
+                  worldId: widget.wid,
+                  locationId: descriptor.locationId,
+                  locationName: descriptor.locationName,
+                  isLeafLocation: descriptor.isLeafLocation,
+                  localMessageLocationIds: descriptor.localMessageLocationIds,
+                  service: chatroom,
+                  active: active,
+                  leaveOnInactive: false,
+                  systemUiOverlayStyle: kChatWhiteSystemUiOverlayStyle,
+                  style: kChatWhiteHeaderStyle,
+                  onBack: _closeCachedLocationChat,
+                  onInitialContentReady: () =>
+                      _markLocationChatPanelReady(descriptor.locationId),
+                ),
               ),
             ),
           ),
@@ -914,6 +940,7 @@ class _WorldPageState extends State<WorldPage>
       child: WorldTopOverlayBar(
         pointsCount: pointsCount,
         controller: _tabController,
+        onTabTap: _handleMapModeTabTap,
       ),
     );
   }
@@ -980,7 +1007,7 @@ class _LocationChatPanelSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = ChatUiStyleConfig.standard;
+    final style = kChatWhiteHeaderStyle;
     return ColoredBox(
       color: style.conversationBackgroundColor,
       child: Column(
@@ -992,6 +1019,7 @@ class _LocationChatPanelSkeleton extends StatelessWidget {
             connecting: true,
             onBack: onBack,
             showMoreButton: true,
+            style: style,
           ),
           Expanded(child: _LocationChatMessageSkeletonList(style: style)),
           _LocationChatComposerSkeleton(style: style),

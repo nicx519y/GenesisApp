@@ -171,6 +171,16 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     _closeLocationChat();
   }
 
+  void _handleMapModeTabTap(int index) {
+    if (index == 1) {
+      WorldDetailsStatusBarOverride.setStyle(
+        kGenesisDefaultSystemUiOverlayStyle,
+      );
+      return;
+    }
+    WorldDetailsStatusBarOverride.clearStyle();
+  }
+
   Widget? _buildLocationChatOverlay(OriginDetail origin) {
     final descriptor = _activeChatLocation;
     if (descriptor == null) return null;
@@ -201,6 +211,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       child: WorldTopOverlayBar(
         pointsCount: pointsCount,
         controller: _tabController,
+        onTabTap: _handleMapModeTabTap,
       ),
     );
   }
