@@ -28,18 +28,19 @@ class GenesisSystemUiChrome {
 
   static Future<T> runWithModalChrome<T>(
     Color color,
-    Future<T> Function() action,
-  ) async {
+    Future<T> Function() action, {
+    SystemUiOverlayStyle? restoreOverrideStyle,
+  }) async {
     final previousStyle = _currentStyle;
     _styleStack.add(previousStyle);
     _apply(_modalStyle(color));
     try {
       return await action();
     } finally {
-      final restoreStyle = _styleStack.isNotEmpty
+      final previousStyle = _styleStack.isNotEmpty
           ? _styleStack.removeLast()
           : kGenesisDefaultSystemUiOverlayStyle;
-      _apply(restoreStyle);
+      _apply(restoreOverrideStyle ?? previousStyle);
     }
   }
 
@@ -72,6 +73,7 @@ Future<T?> showGenesisModalBottomSheet<T>({
   required WidgetBuilder builder,
   Color barrierColor = kGenesisModalBarrierColor,
   Color? systemBarColor,
+  SystemUiOverlayStyle? restoreSystemUiOverlayStyle,
   Color? backgroundColor,
   bool isScrollControlled = false,
   bool isDismissible = true,
@@ -79,6 +81,7 @@ Future<T?> showGenesisModalBottomSheet<T>({
   bool useSafeArea = false,
   bool useRootNavigator = false,
   BoxConstraints? constraints,
+  AnimationStyle? sheetAnimationStyle,
 }) {
   final chromeColor = systemBarColor ?? barrierColor;
   return GenesisSystemUiChrome.runWithModalChrome(
@@ -94,7 +97,9 @@ Future<T?> showGenesisModalBottomSheet<T>({
       useSafeArea: useSafeArea,
       useRootNavigator: useRootNavigator,
       constraints: constraints,
+      sheetAnimationStyle: sheetAnimationStyle,
     ),
+    restoreOverrideStyle: restoreSystemUiOverlayStyle,
   );
 }
 

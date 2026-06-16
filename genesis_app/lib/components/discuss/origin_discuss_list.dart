@@ -1251,9 +1251,6 @@ class _DiscussActions extends StatelessWidget {
               height: 21,
               fit: BoxFit.contain,
               filterQuality: FilterQuality.high,
-              opacity: likePending
-                  ? const AlwaysStoppedAnimation<double>(0.55)
-                  : null,
             ),
           ),
         ),
@@ -1316,12 +1313,12 @@ class _DiscussActions extends StatelessWidget {
     final nextLiked = !previousLiked;
     final nextCount = previousLiked ? previousCount - 1 : previousCount + 1;
 
-    controller.setLikePending(discussId, true);
     controller.applyLikeState(
       discussId: discussId,
       isLiked: nextLiked,
       likeCount: nextCount,
     );
+    controller.setLikePending(discussId, true);
     try {
       final api = AppServicesScope.read(context).api.v1.discuss;
       if (nextLiked) {

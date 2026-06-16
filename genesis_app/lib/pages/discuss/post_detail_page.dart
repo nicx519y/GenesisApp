@@ -111,6 +111,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.white,
       appBar: const GenesisBackAppBar(pageName: 'Post Detail'),
       body: AnimatedBuilder(
@@ -298,9 +299,6 @@ class _PostActionRow extends StatelessWidget {
               width: 21,
               height: 21,
               fit: BoxFit.contain,
-              opacity: likePending
-                  ? const AlwaysStoppedAnimation<double>(0.55)
-                  : null,
             ),
           ),
         ),
@@ -346,12 +344,12 @@ class _PostActionRow extends StatelessWidget {
     final nextLiked = !previousLiked;
     final nextCount = previousLiked ? previousCount - 1 : previousCount + 1;
 
-    controller.setLikePending(discussId, true);
     controller.applyLikeState(
       discussId: discussId,
       isLiked: nextLiked,
       likeCount: nextCount,
     );
+    controller.setLikePending(discussId, true);
     try {
       final api = AppServicesScope.read(context).api.v1.discuss;
       if (nextLiked) {
@@ -411,7 +409,11 @@ class _PostDetailReplies extends StatelessWidget {
           )
         else
           for (final entry in item.latestReplies.indexed) ...[
-            _PostReplyRow(reply: entry.$2, onReplyTap: onReplyTap),
+            _PostReplyRow(
+              controller: controller,
+              reply: entry.$2,
+              onReplyTap: onReplyTap,
+            ),
             if (entry.$1 != item.latestReplies.length - 1)
               const SizedBox(height: 28),
           ],
@@ -453,8 +455,13 @@ class _PostDetailReplies extends StatelessWidget {
 }
 
 class _PostReplyRow extends StatelessWidget {
-  const _PostReplyRow({required this.reply, required this.onReplyTap});
+  const _PostReplyRow({
+    required this.controller,
+    required this.reply,
+    required this.onReplyTap,
+  });
 
+  final OriginDiscussListController controller;
   final Map<String, dynamic> reply;
   final VoidCallback onReplyTap;
 
@@ -507,6 +514,8 @@ class _PostReplyRow extends StatelessWidget {
               ],
               const SizedBox(height: 16),
               _ReplyActionRow(
+                controller: controller,
+                discussId: data.discussId,
                 likeCount: data.likeCount,
                 replyCount: data.replyCount,
                 isLiked: data.isLiked,
@@ -522,12 +531,16 @@ class _PostReplyRow extends StatelessWidget {
 
 class _ReplyActionRow extends StatelessWidget {
   const _ReplyActionRow({
+    required this.controller,
+    required this.discussId,
     required this.likeCount,
     required this.replyCount,
     required this.isLiked,
     required this.onReplyTap,
   });
 
+  final OriginDiscussListController controller;
+  final String discussId;
   final int likeCount;
   final int replyCount;
   final bool isLiked;
@@ -535,16 +548,33 @@ class _ReplyActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final normalizedDiscussId = discussId.trim();
+    final likePending = controller.isLikePending(normalizedDiscussId);
     return Row(
       children: [
-        Image.asset(
-          isLiked ? _postDetailLikeFilledAsset : _postDetailLikeOutlineAsset,
-          width: 21,
-          height: 21,
-          fit: BoxFit.contain,
+        GestureDetector(
+          key: ValueKey('post-detail-reply-like-$normalizedDiscussId'),
+          behavior: HitTestBehavior.opaque,
+          onTap: likePending ? null : () => _toggleLike(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Image.asset(
+              isLiked
+                  ? _postDetailLikeFilledAsset
+                  : _postDetailLikeOutlineAsset,
+              width: 21,
+              height: 21,
+              fit: BoxFit.contain,
+            ),
+          ),
         ),
         const SizedBox(width: 7),
-        Text('$likeCount', style: _postMetaStyle),
+        Text(
+          '$likeCount',
+          style: _postMetaStyle.copyWith(
+            color: isLiked ? const Color(0xFFF42C47) : const Color(0xFF8B8B8B),
+          ),
+        ),
         const SizedBox(width: 34),
         GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -563,6 +593,45 @@ class _ReplyActionRow extends StatelessWidget {
         Text('$replyCount', style: _postMetaStyle),
       ],
     );
+  }
+
+  Future<void> _toggleLike(BuildContext context) async {
+    final normalizedDiscussId = discussId.trim();
+    if (normalizedDiscussId.isEmpty ||
+        controller.isLikePending(normalizedDiscussId)) {
+      return;
+    }
+    if (!await ensureGenesisLogin(context)) return;
+    if (!context.mounted) return;
+
+    final previousLiked = isLiked;
+    final previousCount = likeCount;
+    final nextLiked = !previousLiked;
+    final nextCount = previousLiked ? previousCount - 1 : previousCount + 1;
+
+    controller.applyLikeState(
+      discussId: normalizedDiscussId,
+      isLiked: nextLiked,
+      likeCount: nextCount,
+    );
+    controller.setLikePending(normalizedDiscussId, true);
+    try {
+      final api = AppServicesScope.read(context).api.v1.discuss;
+      if (nextLiked) {
+        await api.like(discussId: normalizedDiscussId);
+      } else {
+        await api.unlike(discussId: normalizedDiscussId);
+      }
+    } catch (_) {
+      controller.applyLikeState(
+        discussId: normalizedDiscussId,
+        isLiked: previousLiked,
+        likeCount: previousCount,
+      );
+      if (context.mounted) showGenesisToast(context, 'Like failed');
+    } finally {
+      controller.setLikePending(normalizedDiscussId, false);
+    }
   }
 }
 
@@ -705,6 +774,7 @@ class _PostImageGrid extends StatelessWidget {
 
 class _ReplyViewData {
   const _ReplyViewData({
+    required this.discussId,
     required this.authorUid,
     required this.authorName,
     required this.avatar,
@@ -731,6 +801,7 @@ class _ReplyViewData {
       fallback: formatUidForDisplay(uid, fallback: 'User'),
     );
     return _ReplyViewData(
+      discussId: asString(json['discuss_id']),
       authorUid: uid,
       authorName: formatUidForDisplay(name, fallback: 'User'),
       avatar: asImageUrl(author?['avatar'] ?? author?['avatar_url']),
@@ -754,6 +825,7 @@ class _ReplyViewData {
     );
   }
 
+  final String discussId;
   final String authorUid;
   final String authorName;
   final String avatar;

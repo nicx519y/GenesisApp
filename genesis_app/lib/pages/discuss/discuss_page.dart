@@ -101,6 +101,7 @@ class _DiscussPageState extends State<DiscussPage> {
   Widget build(BuildContext context) {
     final origin = _origin;
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: Colors.white,
       appBar: const GenesisBackAppBar(pageName: 'Discuss'),
       body: FutureBuilder<OriginDetail>(
