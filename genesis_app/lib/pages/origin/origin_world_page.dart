@@ -101,15 +101,13 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     super.dispose();
   }
 
-  Future<OriginDetail> _loadOriginDetail() {
+  Future<OriginDetail> _loadOriginDetail() async {
     final api = AppServicesScope.read(context).api;
-    final future = api.getOrigin(widget.oid);
-    future.then((origin) {
-      if (!mounted) return;
-      _configureDiscuss(origin.oid);
-      unawaited(_discussController.loadInitialIfNeeded());
-    }, onError: (_) {});
-    return future;
+    final origin = await api.getOrigin(widget.oid);
+    if (!mounted) return origin;
+    _configureDiscuss(origin.oid);
+    unawaited(_discussController.loadInitialIfNeeded());
+    return origin;
   }
 
   void _refreshOriginDetail() {

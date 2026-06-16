@@ -40,7 +40,6 @@ import '../../utils/stat_count_formatter.dart';
 
 const Duration _tick1WaitPollInterval = Duration(seconds: 2);
 const Duration _tick1WaitDotsInterval = Duration(milliseconds: 400);
-const Duration _initialMapImageMaxWait = Duration(seconds: 4);
 
 class WorldPage extends StatefulWidget {
   const WorldPage({super.key, required this.wid, this.waitForTick1 = false});
@@ -68,9 +67,6 @@ class _WorldPageState extends State<WorldPage>
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
   bool _tick1WaitDialogStarted = false;
-  bool _initialMapImageReady = false;
-  String _initialMapImageUrl = '';
-  int _initialMapImageLoadGeneration = 0;
 
   @override
   void initState() {
@@ -258,22 +254,11 @@ class _WorldPageState extends State<WorldPage>
     WorldDetail world, {
     bool clearInitialLoadError = false,
   }) {
-    final gateInitialMapImage = _world == null;
-    final initialMapImageUrl = gateInitialMapImage
-        ? _rootMapImageUrlForWorld(world)
-        : '';
     setState(() {
       _world = world;
-      if (gateInitialMapImage) {
-        _initialMapImageUrl = initialMapImageUrl;
-        _initialMapImageReady = initialMapImageUrl.isEmpty;
-      }
       if (clearInitialLoadError) _initialLoadError = null;
       _syncLocationChatDescriptors(world);
     });
-    if (gateInitialMapImage && initialMapImageUrl.isNotEmpty) {
-      unawaited(_precacheInitialMapImage(initialMapImageUrl));
-    }
     _syncWorldChatroomForRelationStatus(world.relationStatus);
   }
 
@@ -283,30 +268,6 @@ class _WorldPageState extends State<WorldPage>
     ).trim();
     if (rootLocationMapUrl.isNotEmpty) return rootLocationMapUrl;
     return world.origin.worldMap.trim();
-  }
-
-  Future<void> _precacheInitialMapImage(String url) async {
-    final generation = ++_initialMapImageLoadGeneration;
-    try {
-      await precacheImage(
-        _mapImageProvider(url),
-        context,
-      ).timeout(_initialMapImageMaxWait);
-    } catch (e) {
-      debugPrint('[WorldPage] root map precache failed url="$url": $e');
-    }
-    if (!mounted ||
-        generation != _initialMapImageLoadGeneration ||
-        _initialMapImageUrl != url) {
-      return;
-    }
-    setState(() {
-      _initialMapImageReady = true;
-    });
-  }
-
-  ImageProvider _mapImageProvider(String url) {
-    return url.startsWith('assets/') ? AssetImage(url) : NetworkImage(url);
   }
 
   void _maybeShowTick1WaitDialog() {
@@ -840,11 +801,6 @@ class _WorldPageState extends State<WorldPage>
     final processedLocationTree = world.processedLocationTree;
     final rootLocationNodes = processedLocationTree.mapRoots;
     final rootMapImageUrl = _rootMapImageUrlForWorld(world);
-    if (!_initialMapImageReady &&
-        rootMapImageUrl.trim().isNotEmpty &&
-        rootMapImageUrl.trim() == _initialMapImageUrl) {
-      return _buildInitialLoadingScaffold(topPadding);
-    }
     final renderLocationNodes = processedLocationTree.renderRoots;
     final allLocationNodes = processedLocationTree.flattened;
     final locationNodes = _worldMapLocationNodes(
