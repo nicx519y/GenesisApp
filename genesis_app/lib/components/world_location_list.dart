@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -9,9 +7,15 @@ import 'world_details_shell.dart';
 import 'world_point.dart';
 
 class WorldLocationList extends StatefulWidget {
-  const WorldLocationList({super.key, required this.points, this.onPointTap});
+  const WorldLocationList({
+    super.key,
+    required this.points,
+    this.locationNodes = const <WorldMapLocationNode>[],
+    this.onPointTap,
+  });
 
   final List<WorldPoint> points;
+  final List<WorldMapLocationNode> locationNodes;
   final ValueChanged<WorldPoint>? onPointTap;
 
   @override
@@ -92,23 +96,80 @@ class _WorldLocationListState extends State<WorldLocationList> {
           }
           return _applyOuterDrag(outerController, -notification.overscroll);
         },
-        child: ListView.separated(
+        child: ListView(
           controller: _listController,
           physics: _outerPageAtTop
               ? const ClampingScrollPhysics()
               : const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-          itemCount: widget.points.length,
-          separatorBuilder: (context, index) => const Divider(height: 1),
-          itemBuilder: (context, index) {
-            return _PointListItem(
-              point: widget.points[index],
-              onTap: widget.onPointTap,
-            );
-          },
+          children: widget.locationNodes.isNotEmpty
+              ? _buildNodeRows(widget.locationNodes)
+              : _buildFlatPointRows(widget.points),
         ),
       ),
     );
+  }
+
+  List<Widget> _buildFlatPointRows(List<WorldPoint> points) {
+    return [
+      for (var i = 0; i < points.length; i++) ...[
+        _PointListItem(point: points[i], onTap: widget.onPointTap),
+        if (i < points.length - 1) const Divider(height: 1),
+      ],
+    ];
+  }
+
+  List<Widget> _buildNodeRows(List<WorldMapLocationNode> nodes) {
+    final rows = <Widget>[];
+    for (final node in nodes) {
+      rows.add(_NodeHeader(point: node.point, level: 0));
+      rows.addAll(_buildSecondLevelRows(node.children));
+    }
+    return rows;
+  }
+
+  List<Widget> _buildSecondLevelRows(List<WorldMapLocationNode> nodes) {
+    final rows = <Widget>[];
+    for (final node in nodes) {
+      if (node.children.length == 1 && node.children.single.children.isEmpty) {
+        rows.add(
+          _LocationCard(
+            point: node.point,
+            targetPoint:
+                node.children.single.chatTargetPoint ??
+                node.children.single.point,
+            indent: 15,
+            onTap: widget.onPointTap,
+          ),
+        );
+        continue;
+      }
+
+      if (node.children.isEmpty) {
+        rows.add(
+          _LocationCard(
+            point: node.point,
+            targetPoint: node.chatTargetPoint ?? node.point,
+            indent: 15,
+            onTap: widget.onPointTap,
+          ),
+        );
+        continue;
+      }
+
+      rows.add(_NodeHeader(point: node.point, level: 1));
+      for (final child in node.children) {
+        rows.add(
+          _LocationCard(
+            point: child.point,
+            targetPoint: child.chatTargetPoint ?? child.point,
+            indent: 30,
+            onTap: widget.onPointTap,
+          ),
+        );
+      }
+    }
+    return rows;
   }
 
   void _setOuterController(ScrollController? controller) {
@@ -171,16 +232,105 @@ class _PointListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final depthIndent = math.max(0, point.depth) * 15.0;
+    final depthIndent = point.depth < 0 ? 0.0 : point.depth * 15.0;
     final description = point.locationDescription.trim();
     return InkWell(
       onTap: onTap == null ? null : () => onTap!(point),
       child: Padding(
-        padding: EdgeInsets.only(left: depthIndent, top: 10, bottom: 10),
+        padding: EdgeInsets.only(left: depthIndent, top: 5, bottom: 5),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _PointListCover(point: point),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.place, size: 14, color: Colors.black),
+                      const SizedBox(width: 2),
+                      Expanded(
+                        child: Text(
+                          point.name,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  if (point.users.isNotEmpty)
+                    _PointCharacterGroups(users: point.users),
+                  if (description.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    _PointSummaryRow(description: description),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NodeHeader extends StatelessWidget {
+  const _NodeHeader({required this.point, required this.level});
+
+  final WorldPoint point;
+  final int level;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(level * 15.0, 5, 0, 5),
+      child: Text(
+        '- ${point.name}',
+        style: const TextStyle(
+          fontSize: 14,
+          height: 1.2,
+          fontWeight: FontWeight.w700,
+          color: Colors.black,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}
+
+class _LocationCard extends StatelessWidget {
+  const _LocationCard({
+    required this.point,
+    required this.targetPoint,
+    required this.indent,
+    required this.onTap,
+  });
+
+  final WorldPoint point;
+  final WorldPoint targetPoint;
+  final double indent;
+  final ValueChanged<WorldPoint>? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final description = point.locationDescription.trim();
+    return InkWell(
+      onTap: onTap == null ? null : () => onTap!(targetPoint),
+      child: Padding(
+        padding: EdgeInsets.only(left: indent, top: 5, bottom: 5),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _LocationCardCover(point: point),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -345,6 +495,21 @@ class _PointSummaryRow extends StatelessWidget {
 
 class _PointListCover extends StatelessWidget {
   const _PointListCover({required this.point});
+
+  final WorldPoint point;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 64,
+      height: 64,
+      child: GenesisListImage(imageUrl: point.iconUrl),
+    );
+  }
+}
+
+class _LocationCardCover extends StatelessWidget {
+  const _LocationCardCover({required this.point});
 
   final WorldPoint point;
 

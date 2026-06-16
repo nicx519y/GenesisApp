@@ -391,7 +391,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         final allLocationNodes = processedLocationTree.flattened;
         final avatarsByLocation = _originAvatarsByLocation(
           origin.characters,
-          origin.locations,
+          origin.allLocations,
         );
         final locationNodes = _originMapLocationNodes(
           rootLocationNodes,
@@ -422,7 +422,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                     .toList(growable: false),
               )
             : _pointsFromLocations(
-                _rootOriginLocations(origin.locations),
+                _rootOriginLocations(origin.allLocations),
                 avatarsByLocation,
               );
         final listPoints = allLocationNodes.isNotEmpty
@@ -448,8 +448,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                     )
                     .toList(growable: false),
               )
-            : origin.locations.isNotEmpty
-            ? _pointsFromLocations(origin.locations, avatarsByLocation)
+            : origin.allLocations.isNotEmpty
+            ? _pointsFromLocations(origin.allLocations, avatarsByLocation)
             : points;
 
         return PopScope(
@@ -1214,7 +1214,7 @@ class _LaunchPreviewSection extends StatelessWidget {
           tick: previewTick,
           tickNumber: 1,
           fallbackBody: globalBody,
-          locationsById: _originLocationsById(origin.locations),
+          locationsById: _originLocationsById(origin.allLocations),
           dateLabel: origin.startTime.trim().isEmpty
               ? 'Day 1, 18:00'
               : formatGenesisTimestamp(origin.startTime),

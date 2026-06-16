@@ -18,24 +18,6 @@ const String kWorldMapFallbackBackgroundAsset =
 
 typedef WorldPointTapCallback = FutureOr<void> Function(WorldPoint point);
 
-class WorldMapLocationNode {
-  const WorldMapLocationNode({
-    required this.id,
-    required this.point,
-    this.mapImageUrl = '',
-    this.isRoot = false,
-    this.chatTargetPoint,
-    this.children = const <WorldMapLocationNode>[],
-  });
-
-  final String id;
-  final WorldPoint point;
-  final String mapImageUrl;
-  final bool isRoot;
-  final WorldPoint? chatTargetPoint;
-  final List<WorldMapLocationNode> children;
-}
-
 class WorldMap extends StatefulWidget {
   const WorldMap({
     super.key,
@@ -214,8 +196,9 @@ class _WorldMapState extends State<WorldMap> {
                     Expanded(
                       child: WorldLocationList(
                         points: flattenedPoints,
+                        locationNodes: widget.locationNodes,
                         onPointTap: (point) {
-                          unawaited(_handlePointTap(point));
+                          widget.onPointTap?.call(point);
                         },
                       ),
                     ),
