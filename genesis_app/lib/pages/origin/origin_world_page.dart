@@ -451,6 +451,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             : origin.allLocations.isNotEmpty
             ? _pointsFromLocations(origin.allLocations, avatarsByLocation)
             : points;
+        final thirdLevelLocationCount = allLocationNodes
+            .where((node) => node.depth == 2)
+            .length;
 
         return PopScope(
           canPop: _activeChatLocation == null,
@@ -463,12 +466,12 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             panelCollapsedHeightOffset: 60,
             topOverlay: _buildLocationChatOverlay(origin),
             persistentTopOverlay: _buildPersistentMapTabs(
-              listPoints.length,
+              thirdLevelLocationCount,
               topPadding + 8,
             ),
             map: WorldMapStage(
               controller: _tabController,
-              pointsCount: listPoints.length,
+              pointsCount: thirdLevelLocationCount,
               top: topPadding + 8,
               showTopOverlay: false,
               mapBuilder: (context, pointMode) => WorldMap(

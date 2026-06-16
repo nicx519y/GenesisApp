@@ -3553,6 +3553,51 @@ void main() {
     expect(find.text('#Origin 1'), findsWidgets);
   });
 
+  testWidgets('Home My Worlds signed-out swipe asks login and stays Popular', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: null,
+          ),
+          child: const HomePage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final originRequestCount = transport
+        .requestsFor('/api/v1/origin/list')
+        .length;
+
+    await tester.drag(find.byType(TabBarView), const Offset(400, 0));
+    await tester.pump();
+
+    expect(
+      transport.requestsFor('/api/v1/origin/list'),
+      hasLength(originRequestCount),
+    );
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(find.byType(GenesisListLoadingSkeleton), findsNothing);
+    expect(find.text('#Origin 1'), findsWidgets);
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(find.text('#Origin 1'), findsWidgets);
+
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign in to continue'), findsNothing);
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(find.text('#Origin 1'), findsWidgets);
+  });
+
   testWidgets('Home My Worlds login success selects tab and loads worlds', (
     WidgetTester tester,
   ) async {

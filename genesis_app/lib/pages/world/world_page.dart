@@ -879,6 +879,9 @@ class _WorldPageState extends State<WorldPage>
         : world.locations.isNotEmpty
         ? _pointsFromWorldLocations(world.locations, avatarsByLocation)
         : points;
+    final thirdLevelLocationCount = allLocationNodes
+        .where((node) => node.depth == 2)
+        .length;
     return PopScope(
       canPop: _activeChatLocationId.isEmpty,
       onPopInvokedWithResult: (didPop, result) {
@@ -890,12 +893,12 @@ class _WorldPageState extends State<WorldPage>
         panelCollapsedHeightOffset: 60,
         topOverlay: _buildLocationChatOverlay(),
         persistentTopOverlay: _buildPersistentMapTabs(
-          listPoints.length,
+          thirdLevelLocationCount,
           topPadding + 8,
         ),
         map: WorldMapStage(
           controller: _tabController,
-          pointsCount: listPoints.length,
+          pointsCount: thirdLevelLocationCount,
           top: topPadding + 8,
           showTopOverlay: false,
           mapBuilder: (context, pointMode) => WorldMap(

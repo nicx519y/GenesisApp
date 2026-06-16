@@ -87,14 +87,7 @@ class _HomePageState extends State<HomePage> {
               const _HomeHeader(),
               const SizedBox(height: 4),
               const _HomeTabs(),
-              const Expanded(
-                child: TabBarView(
-                  children: [
-                    _MyWorldFeed(index: 0),
-                    _PopularOriginFeed(index: 1),
-                  ],
-                ),
-              ),
+              const Expanded(child: _HomeTabView()),
             ],
           ),
         );
@@ -142,6 +135,92 @@ class _HomeTabsState extends State<_HomeTabs> {
       labels: HomePage.tabs,
       verticalPadding: 0,
       onTap: _handleTap,
+    );
+  }
+}
+
+class _HomeTabView extends StatefulWidget {
+  const _HomeTabView();
+
+  @override
+  State<_HomeTabView> createState() => _HomeTabViewState();
+}
+
+class _HomeTabViewState extends State<_HomeTabView> {
+  static const _myWorldsIndex = HomePage.myWorldsTabIndex;
+  static const _popularIndex = HomePage.popularTabIndex;
+
+  bool? _loggedIn;
+  bool _handlingLogin = false;
+  double _dragDistance = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncLoginState();
+  }
+
+  Future<void> _syncLoginState() async {
+    final loggedIn = await hasGenesisLoginSession(context);
+    if (!mounted || _loggedIn == loggedIn) return;
+    setState(() {
+      _loggedIn = loggedIn;
+    });
+  }
+
+  Future<void> _handleMyWorldsSwipe() async {
+    if (_handlingLogin) return;
+    final controller = DefaultTabController.of(context);
+    if (controller.index != _popularIndex) return;
+    if (await hasGenesisLoginSession(context)) return;
+    if (!mounted) return;
+
+    _handlingLogin = true;
+    controller.animateTo(_popularIndex, duration: Duration.zero);
+    try {
+      final loggedIn = await ensureGenesisLogin(context);
+      if (!mounted) return;
+      if (loggedIn) {
+        setState(() {
+          _loggedIn = true;
+        });
+        controller.animateTo(_myWorldsIndex);
+      } else {
+        controller.animateTo(_popularIndex, duration: Duration.zero);
+      }
+    } finally {
+      _handlingLogin = false;
+      _dragDistance = 0;
+    }
+  }
+
+  void _handleHorizontalDragStart(DragStartDetails details) {
+    _dragDistance = 0;
+  }
+
+  void _handleHorizontalDragUpdate(DragUpdateDetails details) {
+    _dragDistance += details.delta.dx;
+  }
+
+  void _handleHorizontalDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity > 0 || _dragDistance > 24) {
+      _handleMyWorldsSwipe();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final signedOut = _loggedIn == false;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragStart: signedOut ? _handleHorizontalDragStart : null,
+      onHorizontalDragUpdate: signedOut ? _handleHorizontalDragUpdate : null,
+      onHorizontalDragEnd: signedOut ? _handleHorizontalDragEnd : null,
+      child: TabBarView(
+        physics: signedOut ? const NeverScrollableScrollPhysics() : null,
+        children: [_MyWorldFeed(index: 0), _PopularOriginFeed(index: 1)],
+      ),
     );
   }
 }
