@@ -10,7 +10,9 @@ import '../world_details_shell.dart';
 import 'origin_character_form.dart';
 import '../../network/models/origin.dart';
 import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_colors.dart';
 
 typedef OriginRoleProfileLoader = Future<OriginCustomRoleDraft?> Function();
 typedef OriginRoleAvatarResolver = String Function(String avatar);
@@ -225,96 +227,93 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
     final maxHeight = media.size.height - media.padding.top - 18;
     final targetHeight = math.min(media.size.height * 0.78, maxHeight);
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: kGenesisDefaultSystemUiOverlayStyle,
-      child: SizedBox.expand(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: GestureDetector(
-                key: const ValueKey('origin-role-scrim-dismiss'),
-                behavior: HitTestBehavior.opaque,
-                onTap: _dismiss,
-              ),
+    return SizedBox.expand(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              key: const ValueKey('origin-role-scrim-dismiss'),
+              behavior: HitTestBehavior.opaque,
+              onTap: _dismiss,
             ),
-            AnimatedPadding(
-              duration: const Duration(milliseconds: 180),
-              curve: Curves.easeOutCubic,
-              padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {},
-                  child: GenesisBottomSheetPanel(
-                    key: const ValueKey('origin-role-sheet'),
-                    title: 'Setup Your Role',
-                    height: targetHeight,
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
-                    titleBottomSpacing: 8,
-                    titleTextStyle: const TextStyle(
-                      fontSize: 16,
-                      height: 1.1,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF111111),
+          ),
+          AnimatedPadding(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {},
+                child: GenesisBottomSheetPanel(
+                  key: const ValueKey('origin-role-sheet'),
+                  title: 'Setup Your Role',
+                  height: targetHeight,
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+                  titleBottomSpacing: 8,
+                  titleTextStyle: const TextStyle(
+                    fontSize: 16,
+                    height: 1.1,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111111),
+                  ),
+                  trailing: IconButton(
+                    key: const ValueKey('origin-role-sheet-close'),
+                    onPressed: _dismiss,
+                    icon: const Icon(
+                      Icons.close,
+                      size: 22,
+                      color: Color(0xFF666666),
                     ),
-                    trailing: IconButton(
-                      key: const ValueKey('origin-role-sheet-close'),
-                      onPressed: _dismiss,
-                      icon: const Icon(
-                        Icons.close,
-                        size: 22,
-                        color: Color(0xFF666666),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 42,
+                      height: 42,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _RoleSegmentedControl(
+                        index: _tabIndex,
+                        onChanged: _selectTab,
                       ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                        width: 42,
-                        height: 42,
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: _tabIndex == 0
+                            ? _PresetRoleGrid(
+                                key: const ValueKey('origin-role-preset-tab'),
+                                characters: widget.characters,
+                                selectedId: _selectedPresetId,
+                                resolveAvatarUrl: widget.resolveAvatarUrl,
+                                onSelected: (id) {
+                                  setState(() => _selectedPresetId = id);
+                                },
+                              )
+                            : _CustomRoleForm(
+                                key: const ValueKey('origin-role-custom-tab'),
+                                form: _customForm,
+                                fillingProfile: _fillingProfile,
+                                canFillProfile:
+                                    widget.onFillFromProfile != null,
+                                onChanged: _handleTextChanged,
+                                onFillFromProfile: _fillFromProfile,
+                              ),
                       ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _RoleSegmentedControl(
-                          index: _tabIndex,
-                          onChanged: _selectTab,
-                        ),
-                        const SizedBox(height: 12),
-                        Expanded(
-                          child: _tabIndex == 0
-                              ? _PresetRoleGrid(
-                                  key: const ValueKey('origin-role-preset-tab'),
-                                  characters: widget.characters,
-                                  selectedId: _selectedPresetId,
-                                  resolveAvatarUrl: widget.resolveAvatarUrl,
-                                  onSelected: (id) {
-                                    setState(() => _selectedPresetId = id);
-                                  },
-                                )
-                              : _CustomRoleForm(
-                                  key: const ValueKey('origin-role-custom-tab'),
-                                  form: _customForm,
-                                  fillingProfile: _fillingProfile,
-                                  canFillProfile:
-                                      widget.onFillFromProfile != null,
-                                  onChanged: _handleTextChanged,
-                                  onFillFromProfile: _fillFromProfile,
-                                ),
-                        ),
-                        const SizedBox(height: 14),
-                        _SheetActions(
-                          canLaunch: _canLaunch,
-                          onCancel: _dismiss,
-                          onLaunch: _submit,
-                        ),
-                      ],
-                    ),
+                      const SizedBox(height: 14),
+                      _SheetActions(
+                        canLaunch: _canLaunch,
+                        onCancel: _dismiss,
+                        onLaunch: _submit,
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -332,7 +331,7 @@ class _RoleSegmentedControl extends StatelessWidget {
       height: 40,
       decoration: BoxDecoration(
         color: const Color(0xFFEDEDEF),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
@@ -350,7 +349,7 @@ class _RoleSegmentedControl extends StatelessWidget {
                 margin: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: const Color(0xFFE3E3E7)),
                 ),
               ),
@@ -403,7 +402,7 @@ class _SegmentButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 height: 1,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: selected
                     ? const Color(0xFF111111)
                     : const Color(0xFF595959),
@@ -438,7 +437,7 @@ class _PresetRoleGrid extends StatelessWidget {
           'No preset role',
           style: TextStyle(
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             color: Color(0xFF777777),
           ),
         ),
@@ -545,7 +544,7 @@ class _SelectionMark extends StatelessWidget {
       width: 26,
       height: 26,
       decoration: BoxDecoration(
-        color: selected ? const Color(0xFF198B64) : Colors.white10,
+        color: selected ? GenesisColors.brand : Colors.white10,
         borderRadius: BorderRadius.circular(7),
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: const [
@@ -597,10 +596,15 @@ class _CustomRoleForm extends StatelessWidget {
               onChanged: onChanged,
               showPersonality: false,
               showGoal: false,
-              avatarWidth: 96,
-              avatarHeight: 142,
+              avatarWidth: 80,
+              avatarHeight: 80,
               avatarCropSize: const Size(512, 512),
               showAvatarRemoveLink: true,
+              labelFontWeight: FontWeight.w600,
+              avatarEmptyLabelFontWeight: FontWeight.w600,
+              avatarRemoveLinkFontWeight: FontWeight.w600,
+              avatarEmptyIconLabelGap: 6,
+              identityBelowAvatarRow: true,
               topSpacing: 0,
               bioMaxLines: 3,
             ),
@@ -623,8 +627,8 @@ class _CustomRoleForm extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 14,
                       height: 1.1,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF198B64),
+                      fontWeight: FontWeight.w600,
+                      color: GenesisColors.brand,
                     ),
                   ),
                 ),
@@ -653,50 +657,26 @@ class _SheetActions extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: SizedBox(
+          child: GenesisSecondaryButton(
+            key: const ValueKey('origin-role-cancel'),
+            label: 'Cancel',
+            onPressed: onCancel,
             height: 35,
-            child: OutlinedButton(
-              key: const ValueKey('origin-role-cancel'),
-              onPressed: onCancel,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF111111),
-                side: const BorderSide(color: Color(0xFFD9D9DF), width: 1.2),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  height: 1,
-                  fontWeight: FontWeight.w800,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('Cancel'),
-            ),
+            fontWeight: FontWeight.w400,
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: SizedBox(
+          child: GenesisPrimaryButton(
+            key: const ValueKey('origin-role-launch'),
+            label: 'Launch',
+            onPressed: onLaunch,
             height: 35,
-            child: FilledButton(
-              key: const ValueKey('origin-role-launch'),
-              onPressed: onLaunch,
-              style: FilledButton.styleFrom(
-                backgroundColor: canLaunch
-                    ? const Color(0xFF198B64)
-                    : const Color(0xFFC8D9D1),
-                foregroundColor: Colors.white,
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  height: 1,
-                  fontWeight: FontWeight.w700,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('Launch'),
-            ),
+            backgroundColor: canLaunch
+                ? GenesisColors.brand
+                : const Color(0xFFC8D9D1),
+            foregroundColor: Colors.white,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],

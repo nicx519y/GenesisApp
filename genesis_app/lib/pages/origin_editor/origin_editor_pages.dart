@@ -357,7 +357,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
           child: GenesisPrimaryButton(
             label: _isSubmitting ? widget.submittingLabel : widget.submitLabel,
             onPressed: _isSubmitting ? null : () => unawaited(_submit()),
-            backgroundColor: submitBlocked ? disabledSubmitColor : submitColor,
+            backgroundColor: createFormGreen,
             foregroundColor: Colors.white,
             disabledBackgroundColor: disabledSubmitColor,
             disabledForegroundColor: Colors.white,

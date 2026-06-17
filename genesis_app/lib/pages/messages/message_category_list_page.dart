@@ -194,6 +194,8 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
         onOpenWorld: () => _openWorldFromDialog(item.bizId),
       ),
       actions: const <GenesisActionBoxAction<void>>[],
+      cancelLabel: 'OK',
+      detachCancel: true,
     );
   }
 
@@ -325,7 +327,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
               style: TextStyle(
                 color: Color(0xFF94979E),
                 fontSize: 14,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -344,7 +346,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
               style: const TextStyle(
                 color: Color(0xFF94979E),
                 fontSize: 14,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -539,24 +541,52 @@ class _JoinRequestListItem extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          isReview ? item.reviewTitleText : 'Join request',
-          style: const TextStyle(
+        const Text(
+          'Join request',
+          style: TextStyle(
             color: Color(0xFF111111),
             fontSize: 14,
             height: 1.2,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 8),
-        if (isReview)
-          _StatusText(item: item)
-        else ...[
-          _JoinRequestSummaryText(item: item),
-          const SizedBox(height: 8),
-          _StatusText(item: item),
-        ],
+        isReview
+            ? _JoinRequestReviewSummaryText(item: item)
+            : _JoinRequestSummaryText(item: item),
+        const SizedBox(height: 8),
+        _StatusText(item: item),
       ],
+    );
+  }
+}
+
+class _JoinRequestReviewSummaryText extends StatelessWidget {
+  const _JoinRequestReviewSummaryText({required this.item});
+
+  final _NotificationItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        style: const TextStyle(
+          color: Color(0xFF111111),
+          fontSize: 12,
+          height: 1.25,
+          fontWeight: FontWeight.w400,
+        ),
+        children: [
+          const TextSpan(text: 'Request to '),
+          TextSpan(
+            text: item.requestWorldSummaryName,
+            style: _originBlueTextStyle,
+          ),
+          if (item.bizId.trim().isNotEmpty &&
+              item.requestWorldSummaryName != item.bizId.trim())
+            TextSpan(text: ' (${item.bizId})'),
+        ],
+      ),
     );
   }
 }
@@ -580,7 +610,7 @@ class _JoinRequestSummaryText extends StatelessWidget {
           TextSpan(text: item.requesterName, style: _originBlueTextStyle),
           const TextSpan(text: ' request to join '),
           TextSpan(text: item.requestWorldName, style: _originBlueTextStyle),
-          if (item.bizId.trim().isNotEmpty) TextSpan(text: '(${item.bizId})'),
+          if (item.bizId.trim().isNotEmpty) TextSpan(text: ' (${item.bizId})'),
         ],
       ),
     );
@@ -648,7 +678,7 @@ const _notificationTitleStyle = TextStyle(
   color: Color(0xFF111111),
   fontSize: 14,
   height: 1.18,
-  fontWeight: FontWeight.w700,
+  fontWeight: FontWeight.w600,
 );
 
 const _notificationBodyStyle = TextStyle(
@@ -669,7 +699,7 @@ const _commentNotificationTitleStyle = TextStyle(
   color: Color(0xFF111111),
   fontSize: 14,
   height: 1.18,
-  fontWeight: FontWeight.w700,
+  fontWeight: FontWeight.w600,
 );
 
 const _commentNotificationBodyStyle = TextStyle(
@@ -725,7 +755,10 @@ class _NotificationItem {
       json['biz_id'],
       fallback: asString(json['world_id']),
     );
+    final isWorldApply =
+        block == 'world_apply' || type.startsWith('world_apply');
     final worldName = _firstNonEmpty([
+      if (isWorldApply) asString(json['biz_name']),
       asString(json['world_name']),
       _mapString(json, 'world_title'),
       _mapString(json, 'target_world_name'),
@@ -868,27 +901,43 @@ class _NotificationItem {
       senderName.isEmpty ? 'Someone' : formatUidForDisplay(senderName);
 
   String get requesterName {
-    if (senderName.isNotEmpty) return formatUidForDisplay(senderName);
+    if (senderName.isNotEmpty) return senderName;
     return _firstNonEmpty([
       _extractRequesterNameFromJoinContent(content),
       'Someone',
     ]);
   }
 
-  String get requestWorldName => _firstNonEmpty([worldName, bizId]);
+  String get requestWorldName {
+    final cleanWorldName = worldName.trim();
+    final cleanBizId = bizId.trim();
+    if (cleanWorldName.isEmpty || cleanWorldName == cleanBizId) {
+      return cleanBizId;
+    }
+    return cleanWorldName;
+  }
+
+  String get requestWorldSummaryName {
+    final cleanWorldName = worldName.trim();
+    final cleanBizId = bizId.trim();
+    if (cleanWorldName.isEmpty || cleanWorldName == cleanBizId) {
+      return cleanBizId.isEmpty ? 'this world' : cleanBizId;
+    }
+    return cleanWorldName;
+  }
 
   String get joinRequestSummary {
     final name = requesterName;
-    final world = requestWorldName.isEmpty ? 'this world' : requestWorldName;
+    final world = requestWorldSummaryName;
     final id = bizId.trim();
-    final suffix = id.isEmpty ? '' : '($id)';
+    final suffix = id.isEmpty || world == id ? '' : '($id)';
     return '$name request to join $world$suffix';
   }
 
   String get reviewTitleText {
-    final world = requestWorldName.isEmpty ? 'this world' : requestWorldName;
+    final world = requestWorldSummaryName;
     final id = bizId.trim();
-    return 'request to $world${id.isEmpty ? '' : '($id)'}';
+    return 'request to $world${id.isEmpty || world == id ? '' : '($id)'}';
   }
 
   _JoinRequestApprovalStatus get joinRequestApprovalStatus {

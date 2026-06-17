@@ -897,7 +897,7 @@ class _OriginBottomLaunchBar extends StatelessWidget {
                     textStyle: const TextStyle(
                       fontSize: 16,
                       height: 1,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

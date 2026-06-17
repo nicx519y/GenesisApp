@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/list_loading_skeleton.dart';
@@ -496,7 +497,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
               key: const PageStorageKey<String>('home-feed-my-world'),
               controller: _scrollController,
               primary: false,
-              cacheExtent: 900,
+              scrollCacheExtent: const ScrollCacheExtent.pixels(900),
               padding: const EdgeInsets.only(top: 4),
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),

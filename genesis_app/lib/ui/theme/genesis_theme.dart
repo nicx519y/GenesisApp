@@ -36,10 +36,33 @@ abstract final class GenesisTheme {
           disabledBackgroundColor: GenesisColors.brandSoft,
           // 主按钮文字/图标前景色。
           foregroundColor: GenesisColors.surface,
-          // 主按钮默认圆角；具体组件仍可通过 GenesisUiTheme.panelBorderRadius 控制。
-          shape: const RoundedRectangleBorder(borderRadius: GenesisRadii.panel),
+          // 按钮统一使用 8dp 圆角；局部按钮如有特殊尺寸也应保持这个圆角规则。
+          shape: const RoundedRectangleBorder(
+            borderRadius: GenesisRadii.button,
+          ),
           // 主按钮默认文字样式。
           textStyle: GenesisTypography.bodyStrong,
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          shape: const RoundedRectangleBorder(
+            borderRadius: GenesisRadii.button,
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          shape: const RoundedRectangleBorder(
+            borderRadius: GenesisRadii.button,
+          ),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          shape: const RoundedRectangleBorder(
+            borderRadius: GenesisRadii.button,
+          ),
         ),
       ),
       // TextField/InputDecorator 的默认输入框样式；GenesisSearchField 的可编辑模式会复用其中一部分。
