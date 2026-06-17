@@ -273,6 +273,10 @@ class CreateOriginDraft {
       errors.add('Please save ${missing.join(', ')} before creating.');
     }
 
+    if (characters.where(_characterHasContent).isEmpty) {
+      errors.add('Characters: Please add at least one character.');
+    }
+
     if (basics.originName.trim().isEmpty) {
       errors.add('Basics: Origin Name is required.');
     }
@@ -319,6 +323,8 @@ class CreateOriginDraft {
     final payload = <String, dynamic>{
       if (basics.originId.trim().isNotEmpty)
         'origin_id': basics.originId.trim(),
+      if (basics.originVersion.trim().isNotEmpty)
+        'origin_version': basics.originVersion.trim(),
       'name': basics.originName.trim(),
       'world_view': basics.worldView.trim(),
       'world_setting': basics.worldLogic.trim(),
@@ -400,6 +406,7 @@ bool _locationHasContent(LocationDraft item) {
 class BasicsDraft {
   const BasicsDraft({
     this.originId = '',
+    this.originVersion = '',
     this.originName = '',
     this.worldView = '',
     this.worldLogic = '',
@@ -411,6 +418,7 @@ class BasicsDraft {
   });
 
   final String originId;
+  final String originVersion;
   final String originName;
   final String worldView;
   final String worldLogic;
@@ -423,6 +431,7 @@ class BasicsDraft {
   factory BasicsDraft.fromJson(Map<String, dynamic> json) {
     return BasicsDraft(
       originId: _asString(json['origin_id']),
+      originVersion: _asString(json['origin_version']),
       originName: _asString(json['origin_name']),
       worldView: _asString(json['world_view']),
       worldLogic: _asString(json['world_logic']),
@@ -436,6 +445,7 @@ class BasicsDraft {
 
   BasicsDraft copyWith({
     String? originId,
+    String? originVersion,
     String? originName,
     String? worldView,
     String? worldLogic,
@@ -447,6 +457,7 @@ class BasicsDraft {
   }) {
     return BasicsDraft(
       originId: originId ?? this.originId,
+      originVersion: originVersion ?? this.originVersion,
       originName: originName ?? this.originName,
       worldView: worldView ?? this.worldView,
       worldLogic: worldLogic ?? this.worldLogic,
@@ -465,6 +476,7 @@ class BasicsDraft {
   Map<String, dynamic> toJson() {
     return {
       'origin_id': originId,
+      'origin_version': originVersion,
       'origin_name': originName,
       'world_view': worldView,
       'world_logic': worldLogic,

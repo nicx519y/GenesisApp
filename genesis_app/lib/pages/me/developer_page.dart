@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/config/app_endpoint_overrides.dart';
+import '../../app/config/app_config.dart';
 import '../../app/debug_floating_button_visibility.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -22,9 +24,17 @@ class DeveloperPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       appBar: GenesisBackAppBar(pageName: 'Developer page'),
-      body: SafeArea(child: DeveloperPageContent()),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
+          ),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: const DeveloperPageContent(),
+        ),
+      ),
     );
   }
 }
@@ -35,51 +45,62 @@ class DeveloperPageSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: Padding(
-          padding: EdgeInsets.zero,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 10),
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD8D8D8),
-                    borderRadius: BorderRadius.circular(2),
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    return AnimatedPadding(
+      key: const ValueKey<String>('developer-page-sheet-keyboard-padding'),
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      padding: EdgeInsets.only(bottom: keyboardInset),
+      child: SafeArea(
+        top: false,
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: Padding(
+            padding: EdgeInsets.zero,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 10),
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD8D8D8),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 14),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: const Text(
-                  'Developer page',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.black,
-                    fontWeight: FontWeight.w600,
+                const SizedBox(height: 14),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: const Text(
+                    'Developer page',
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.black,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-              const Flexible(
-                child: SingleChildScrollView(child: DeveloperPageContent()),
-              ),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.of(context).maybePop(),
-                child: SizedBox(height: 24 + bottomPadding),
-              ),
-            ],
+                const Flexible(
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: DeveloperPageContent(),
+                  ),
+                ),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => Navigator.of(context).maybePop(),
+                  child: SizedBox(height: 24 + bottomPadding),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -99,13 +120,47 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
 
   late final Future<String> _deviceIdFuture;
   late final Future<AppVersionInfo> _appVersionFuture;
+  late final TextEditingController _apiBaseUrlController;
+  late final TextEditingController _chatroomHttpBaseUrlController;
+  late final TextEditingController _chatroomWsBaseUrlController;
   bool _clearingDirectMessageCache = false;
+  bool _loadingEndpointOverrides = true;
+  bool _savingEndpointOverrides = false;
 
   @override
   void initState() {
     super.initState();
     _deviceIdFuture = AppServicesScope.read(context).deviceId.getDeviceId();
     _appVersionFuture = AppMetadataService.appVersion();
+    _apiBaseUrlController = TextEditingController();
+    _chatroomHttpBaseUrlController = TextEditingController();
+    _chatroomWsBaseUrlController = TextEditingController();
+    _loadEndpointOverrides();
+  }
+
+  @override
+  void dispose() {
+    _apiBaseUrlController.dispose();
+    _chatroomHttpBaseUrlController.dispose();
+    _chatroomWsBaseUrlController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadEndpointOverrides() async {
+    final overrides = await AppEndpointOverrideStore.load();
+    if (!mounted) return;
+    _apiBaseUrlController.text = AppEndpointOverrideStore.displayWithoutScheme(
+      overrides.apiBaseUrl,
+    );
+    _chatroomHttpBaseUrlController.text =
+        AppEndpointOverrideStore.displayWithoutScheme(
+          overrides.chatroomHttpBaseUrl,
+        );
+    _chatroomWsBaseUrlController.text =
+        AppEndpointOverrideStore.displayWithoutScheme(
+          overrides.chatroomWsBaseUrl,
+        );
+    setState(() => _loadingEndpointOverrides = false);
   }
 
   Future<void> _clearDirectMessageCache() async {
@@ -123,6 +178,73 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     } finally {
       if (mounted) {
         setState(() => _clearingDirectMessageCache = false);
+      }
+    }
+  }
+
+  Future<void> _saveEndpointOverrides() async {
+    if (_savingEndpointOverrides || _loadingEndpointOverrides) return;
+    setState(() => _savingEndpointOverrides = true);
+    try {
+      final overrides = AppEndpointOverrides(
+        apiBaseUrl: AppEndpointOverrideStore.normalizeHttpsApiBaseUrl(
+          _apiBaseUrlController.text,
+        ),
+        chatroomHttpBaseUrl: AppEndpointOverrideStore.normalizeHttpsBaseUrl(
+          _chatroomHttpBaseUrlController.text,
+        ),
+        chatroomWsBaseUrl: AppEndpointOverrideStore.normalizeWssBaseUrl(
+          _chatroomWsBaseUrlController.text,
+        ),
+      );
+      await AppEndpointOverrideStore.save(overrides);
+      if (!mounted) return;
+      final config = overrides.applyTo(const AppConfig());
+      AppServicesScope.replaceWithConfig(context, config);
+      _apiBaseUrlController.text =
+          AppEndpointOverrideStore.displayWithoutScheme(overrides.apiBaseUrl);
+      _chatroomHttpBaseUrlController.text =
+          AppEndpointOverrideStore.displayWithoutScheme(
+            overrides.chatroomHttpBaseUrl,
+          );
+      _chatroomWsBaseUrlController.text =
+          AppEndpointOverrideStore.displayWithoutScheme(
+            overrides.chatroomWsBaseUrl,
+          );
+      showGenesisToast(
+        context,
+        'Saved. New requests will use these endpoints.',
+      );
+    } on FormatException catch (error) {
+      if (!mounted) return;
+      showGenesisToast(context, error.message);
+    } catch (error) {
+      if (!mounted) return;
+      showGenesisToast(context, 'Save failed: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _savingEndpointOverrides = false);
+      }
+    }
+  }
+
+  Future<void> _clearEndpointOverrides() async {
+    if (_savingEndpointOverrides || _loadingEndpointOverrides) return;
+    setState(() => _savingEndpointOverrides = true);
+    try {
+      await AppEndpointOverrideStore.clear();
+      if (!mounted) return;
+      AppServicesScope.replaceWithConfig(context, const AppConfig());
+      _apiBaseUrlController.clear();
+      _chatroomHttpBaseUrlController.clear();
+      _chatroomWsBaseUrlController.clear();
+      showGenesisToast(context, 'Endpoint overrides cleared.');
+    } catch (error) {
+      if (!mounted) return;
+      showGenesisToast(context, 'Clear failed: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _savingEndpointOverrides = false);
       }
     }
   }
@@ -173,6 +295,75 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
               );
             },
           ),
+          const SizedBox(height: 18),
+          const _DeveloperSectionTitle('Endpoint overrides'),
+          const SizedBox(height: _itemGap),
+          _DeveloperInfoRow(
+            title: 'API HTTPS',
+            content: AppServicesScope.read(context).config.apiBaseUrl,
+          ),
+          const SizedBox(height: _itemGap),
+          _DeveloperInfoRow(
+            title: 'Chat HTTPS',
+            content: AppServicesScope.read(context).config.chatroomHttpBaseUrl,
+          ),
+          const SizedBox(height: _itemGap),
+          _DeveloperInfoRow(
+            title: 'Chat WSS',
+            content: AppServicesScope.read(context).config.chatroomWsBaseUrl,
+          ),
+          const SizedBox(height: 12),
+          _DeveloperEndpointField(
+            key: const ValueKey<String>('developer-api-base-url-field'),
+            label: 'API HTTPS',
+            scheme: 'https://',
+            hintText: 'dev.hushie.ai/api/',
+            controller: _apiBaseUrlController,
+            enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
+            textInputAction: TextInputAction.next,
+          ),
+          const SizedBox(height: _itemGap),
+          _DeveloperEndpointField(
+            key: const ValueKey<String>(
+              'developer-chatroom-http-base-url-field',
+            ),
+            label: 'Chat HTTPS',
+            scheme: 'https://',
+            hintText: 'dev.hushie.ai/',
+            controller: _chatroomHttpBaseUrlController,
+            enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
+            textInputAction: TextInputAction.next,
+          ),
+          const SizedBox(height: _itemGap),
+          _DeveloperEndpointField(
+            key: const ValueKey<String>('developer-chatroom-ws-base-url-field'),
+            label: 'Chat WSS',
+            scheme: 'wss://',
+            hintText: 'dev.hushie.ai/aitown-chat/ws',
+            controller: _chatroomWsBaseUrlController,
+            enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _saveEndpointOverrides(),
+          ),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            label: _savingEndpointOverrides ? 'Saving...' : 'Save endpoints',
+            onPressed: _savingEndpointOverrides || _loadingEndpointOverrides
+                ? null
+                : _saveEndpointOverrides,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            label: 'Clear endpoint overrides',
+            onPressed: _savingEndpointOverrides || _loadingEndpointOverrides
+                ? null
+                : _clearEndpointOverrides,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
+          const SizedBox(height: 18),
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
             label: _clearingDirectMessageCache
@@ -193,6 +384,117 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DeveloperSectionTitle extends StatelessWidget {
+  const _DeveloperSectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 15,
+        color: Colors.black,
+        fontWeight: FontWeight.w700,
+        height: 1.2,
+      ),
+    );
+  }
+}
+
+class _DeveloperEndpointField extends StatelessWidget {
+  const _DeveloperEndpointField({
+    super.key,
+    required this.label,
+    required this.scheme,
+    required this.hintText,
+    required this.controller,
+    required this.enabled,
+    this.textInputAction,
+    this.onSubmitted,
+  });
+
+  final String label;
+  final String scheme;
+  final String hintText;
+  final TextEditingController controller;
+  final bool enabled;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            color: Colors.black,
+            fontWeight: FontWeight.w600,
+            height: 1.2,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F4F6),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Row(
+            children: [
+              Text(
+                scheme,
+                style: const TextStyle(
+                  color: Color(0xFF666666),
+                  fontSize: 13,
+                  height: 1.3,
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  enabled: enabled,
+                  keyboardType: TextInputType.url,
+                  textInputAction: textInputAction,
+                  onSubmitted: onSubmitted,
+                  scrollPadding: EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    top: 20,
+                    bottom: MediaQuery.viewInsetsOf(context).bottom + 120,
+                  ),
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.black,
+                    height: 1.3,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: hintText,
+                    isDense: true,
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    hintStyle: const TextStyle(
+                      color: Color(0xFFA8A8AD),
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

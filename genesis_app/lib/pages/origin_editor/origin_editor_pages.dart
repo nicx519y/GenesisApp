@@ -54,6 +54,13 @@ typedef OriginSubmitHandler =
 
 enum _DraftLeaveAction { submit, save, discard }
 
+const TextStyle _editSummaryLabelStyle = TextStyle(
+  color: Colors.black,
+  fontSize: 14,
+  fontWeight: FontWeight.w600,
+  height: 1.2,
+);
+
 class OriginDraftFlowPage extends StatefulWidget {
   const OriginDraftFlowPage({
     super.key,
@@ -74,6 +81,8 @@ class OriginDraftFlowPage extends StatefulWidget {
     this.popOnSubmitSuccess = false,
     this.confirmLeaveWithDraftOptions = false,
     this.onDiscardDraft,
+    this.showCurrentVersion = false,
+    this.updateNotesController,
   });
 
   final String title;
@@ -94,6 +103,8 @@ class OriginDraftFlowPage extends StatefulWidget {
   final bool popOnSubmitSuccess;
   final bool confirmLeaveWithDraftOptions;
   final Future<void> Function(OriginDraftRepository repository)? onDiscardDraft;
+  final bool showCurrentVersion;
+  final TextEditingController? updateNotesController;
 
   @override
   State<OriginDraftFlowPage> createState() => _OriginDraftFlowPageState();
@@ -124,9 +135,16 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     final changed = await Navigator.of(
       context,
     ).push<bool>(MaterialPageRoute<bool>(builder: (_) => page));
+    if (mounted) {
+      _clearInputFocus();
+    }
     if (changed == true) {
       await _reloadDraft();
     }
+  }
+
+  void _clearInputFocus() {
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 
   Future<bool> _submit() async {
@@ -183,6 +201,10 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     if (errors.isNotEmpty) return errors.first;
     if (!(widget.canSubmit?.call(draft) ?? true)) {
       return widget.submitUnavailableMessage;
+    }
+    if (widget.updateNotesController != null &&
+        widget.updateNotesController!.text.trim().isEmpty) {
+      return 'Update notes are required to publish.';
     }
     return null;
   }
@@ -291,61 +313,80 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
           pageName: widget.title,
           onBack: () => unawaited(_handleLeaveRequest()),
         ),
-        body: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              children: [
-                const SizedBox(height: 14),
-                Expanded(
-                  child: ListView(
-                    children: [
-                      _SectionRow(
-                        icon: '🌐',
-                        title: 'Basics',
-                        summary: _basicsSummary(_draft),
-                        completed: _draft.basicsSaved,
-                        modified: _basicsModified(_draft),
-                        onTap: () => _openSection(
-                          widget.basicsPageBuilder(widget.repository),
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: _clearInputFocus,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        if (widget.showCurrentVersion) ...[
+                          Text(
+                            'Current Version: ${_versionLabel(_draft.basics.originVersion)}',
+                            style: _editSummaryLabelStyle,
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                        _SectionRow(
+                          icon: '🌐',
+                          title: 'Basics',
+                          summary: _basicsSummary(_draft),
+                          completed: _draft.basicsSaved,
+                          modified: _basicsModified(_draft),
+                          onTap: () => _openSection(
+                            widget.basicsPageBuilder(widget.repository),
+                          ),
                         ),
-                      ),
-                      _SectionRow(
-                        icon: '👤',
-                        title: 'Characters',
-                        summary: _charactersSummary(_draft),
-                        completed: _draft.charactersSaved,
-                        modified: _charactersModified(_draft),
-                        onTap: () => _openSection(
-                          widget.charactersPageBuilder(widget.repository),
+                        _SectionRow(
+                          icon: '👤',
+                          title: 'Characters',
+                          summary: _charactersSummary(_draft),
+                          completed: _draft.charactersSaved,
+                          modified: _charactersModified(_draft),
+                          onTap: () => _openSection(
+                            widget.charactersPageBuilder(widget.repository),
+                          ),
                         ),
-                      ),
-                      _SectionRow(
-                        icon: '📍',
-                        title: 'Locations',
-                        summary: _locationsSummary(_draft),
-                        completed: _draft.locationsSaved,
-                        modified: _locationsModified(_draft),
-                        onTap: () => _openSection(
-                          widget.locationsPageBuilder(widget.repository),
+                        _SectionRow(
+                          icon: '📍',
+                          title: 'Locations',
+                          summary: _locationsSummary(_draft),
+                          completed: _draft.locationsSaved,
+                          modified: _locationsModified(_draft),
+                          onTap: () => _openSection(
+                            widget.locationsPageBuilder(widget.repository),
+                          ),
                         ),
-                      ),
-                      _SectionRow(
-                        icon: '📜',
-                        title: 'Story Events (Optional)',
-                        summary: _storyEventsSummary(_draft),
-                        completed: _draft.storyEventsSaved,
-                        modified: _storyEventsModified(_draft),
-                        showDivider: false,
-                        onTap: () => _openSection(
-                          widget.storyEventsPageBuilder(widget.repository),
+                        _SectionRow(
+                          icon: '📜',
+                          title: 'Story Events (Optional)',
+                          summary: _storyEventsSummary(_draft),
+                          completed: _draft.storyEventsSaved,
+                          modified: _storyEventsModified(_draft),
+                          showDivider: false,
+                          onTap: () => _openSection(
+                            widget.storyEventsPageBuilder(widget.repository),
+                          ),
                         ),
-                      ),
-                    ],
+                        if (widget.updateNotesController != null) ...[
+                          const SizedBox(height: 20),
+                          const _UpdateNotesFieldLabel(),
+                          const SizedBox(height: 8),
+                          _UpdateNotesField(
+                            controller: widget.updateNotesController!,
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -371,7 +412,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     return [
       'World Name: ${_summaryValue(basics.originName)}',
       'World View: ${_summaryValue(basics.worldView)}',
-      'Cover Image: ${basics.coverImageUrl.trim().isEmpty ? 'Not uploaded' : 'Uploaded'}',
+      'World Logic: ${_summaryValue(basics.worldLogic)}',
     ].join('\n');
   }
 
@@ -428,6 +469,13 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     return '${trimmed.substring(0, maxLength)}...';
   }
 
+  String _versionLabel(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '-';
+    if (trimmed.toUpperCase().startsWith('V')) return trimmed;
+    return 'V$trimmed';
+  }
+
   bool _basicsModified(CreateOriginDraft draft) {
     final repository = widget.repository;
     return repository is MemoryOriginDraftRepository &&
@@ -450,5 +498,38 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     final repository = widget.repository;
     return repository is MemoryOriginDraftRepository &&
         repository.storyEventsChanged(draft);
+  }
+}
+
+class _UpdateNotesFieldLabel extends StatelessWidget {
+  const _UpdateNotesFieldLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Text(
+      '📝Update notes (required to publish)',
+      style: _editSummaryLabelStyle,
+    );
+  }
+}
+
+class _UpdateNotesField extends StatelessWidget {
+  const _UpdateNotesField({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return CreateTextFieldBlock(
+      label: '',
+      controller: controller,
+      hintText: 'What changed in this version?',
+      minLines: 4,
+      maxLines: 4,
+      textInputAction: TextInputAction.done,
+      onChanged: (_) {},
+      onEditingComplete: () => FocusManager.instance.primaryFocus?.unfocus(),
+      onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+    );
   }
 }

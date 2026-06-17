@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
+import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
@@ -35,6 +36,7 @@ import 'package:genesis_flutter_android/pages/create/create_origin_draft_store.d
 import 'package:genesis_flutter_android/pages/create/create_origin_id_utils.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_story_events_page.dart';
+import 'package:genesis_flutter_android/pages/edit/edit_characters_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_locations_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
@@ -51,6 +53,7 @@ import 'package:genesis_flutter_android/pages/chat/chat_page.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 import 'package:genesis_flutter_android/pages/home/home_page.dart';
 import 'package:genesis_flutter_android/pages/me/follows_page.dart';
+import 'package:genesis_flutter_android/pages/me/developer_page.dart';
 import 'package:genesis_flutter_android/pages/me/me_page.dart';
 import 'package:genesis_flutter_android/pages/me/settings_page.dart';
 import 'package:genesis_flutter_android/pages/me/user_info_page.dart';
@@ -1648,12 +1651,13 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         'metric': {
           'mode': 'qualitative',
           'label': 'Influence',
+          'label_note': 'Tracks archive influence.',
           'unit': '%',
           'range': [0, 100],
           'default': 0,
         },
         'started_at': 'Day 1',
-        'tick_duration_days': 30,
+        'tick_duration_time': '30 days',
         'cover': 'assets/images/mock_maps/steam_kingdom_isometric.png',
         'map_url': 'assets/images/mock_maps/steam_kingdom_isometric.png',
         'characters': [
@@ -2924,7 +2928,9 @@ void main() {
 
     expect(find.text('Join request'), findsOneWidget);
     expect(
-      _richTextWithPlainText('U_Z7Y8S request to join 重生 2005 测试时间设置 (W_G9B5TK)'),
+      _richTextWithPlainText(
+        'U_Z7Y8S request to join 重生 2005 测试时间设置 (W_G9B5TK)',
+      ),
       findsOneWidget,
     );
 
@@ -3944,11 +3950,15 @@ void main() {
         const <Map<String, Object?>>[],
         [generatedTick],
       ],
-      worldDetailTickCountsByRequest: const [0, 0, 1],
+      worldDetailTickCountsByRequest: const [0, 1],
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -3956,6 +3966,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.pump();
 
     await tester.tap(find.text('Launch'));
     await tester.pumpAndSettle();
@@ -3964,9 +3975,10 @@ void main() {
     );
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
 
-    expect(find.text('World detail w_launched_from_origin'), findsWidgets);
+    expect(find.text('World detail w_launched_from_origin'), findsNothing);
     expect(
       find.byKey(const ValueKey('world-tick1-wait-dialog')),
       findsOneWidget,
@@ -3996,7 +4008,7 @@ void main() {
     final animatedWaitBody = tester.widget<Text>(waitBodyFinder);
     expect(animatedWaitBody.data, isNot(initialWaitBodyText));
     var worldRequests = transport.requestsFor('/api/v1/world/detail');
-    expect(worldRequests.length, greaterThanOrEqualTo(2));
+    expect(worldRequests, hasLength(1));
     expect(
       worldRequests.last.uri.queryParameters['world_id'],
       'w_launched_from_origin',
@@ -4006,8 +4018,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
+    expect(find.text('World detail w_launched_from_origin'), findsWidgets);
     worldRequests = transport.requestsFor('/api/v1/world/detail');
-    expect(worldRequests.length, greaterThanOrEqualTo(3));
+    expect(worldRequests, hasLength(2));
   });
 
   testWidgets('Origin detail location opens launch-only chat panel', (
@@ -6410,7 +6423,7 @@ void main() {
   });
 
   testWidgets(
-    'characters save ignores empty cards but validates partial cards',
+    'characters save requires at least one non-empty card and validates partial cards',
     (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -6440,14 +6453,17 @@ void main() {
       await tester.pumpAndSettle();
 
       var draft = await CreateOriginDraftStore.loadFinal();
-      expect(draft.charactersSaved, isTrue);
+      expect(
+        find.text('Please add at least one character before saving.'),
+        findsOneWidget,
+      );
+      expect(draft.charactersSaved, isFalse);
       expect(
         draft.characters.where((item) => item.name.trim().isNotEmpty),
         isEmpty,
       );
+      await tester.pump(const Duration(seconds: 2));
 
-      await tester.tap(find.text('Open characters'));
-      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Ari');
       await tester.tap(find.widgetWithText(FilledButton, 'Save'));
       await tester.pumpAndSettle();
@@ -6461,6 +6477,43 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
     },
   );
+
+  testWidgets('edit characters save requires at least one non-empty card', (
+    WidgetTester tester,
+  ) async {
+    final repository = MemoryOriginDraftRepository(
+      initialDraft: const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[CharacterDraft()],
+        locations: <LocationDraft>[LocationDraft()],
+        storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        basicsSaved: false,
+        charactersSaved: true,
+        locationsSaved: false,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: EditCharactersPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Please add at least one character before saving.'),
+      findsOneWidget,
+    );
+    final draft = await repository.loadDraft();
+    expect(draft.charactersSaved, isTrue);
+    expect(
+      draft.characters.where((item) => item.name.trim().isNotEmpty),
+      isEmpty,
+    );
+    await tester.pump(const Duration(seconds: 2));
+  });
 
   testWidgets('locations add button appends empty form', (
     WidgetTester tester,
@@ -6887,11 +6940,20 @@ void main() {
         child: const MaterialApp(home: EditOriginPage(originId: 'o_edit_1')),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/foredit').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     final detailRequests = transport.requestsFor('/api/v1/origin/foredit');
     expect(detailRequests, hasLength(1));
     expect(detailRequests.single.uri.queryParameters['origin_id'], 'o_edit_1');
+    expect(find.text('Current Version: V1'), findsOneWidget);
     expect(find.textContaining('World Name: Editable Origin'), findsOneWidget);
 
     var rootPublish = tester.widget<FilledButton>(
@@ -6904,7 +6966,8 @@ void main() {
     );
 
     await tester.tap(find.widgetWithText(FilledButton, 'Publish'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('No changes to publish.'), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
     await tester.pump(const Duration(seconds: 2));
@@ -6926,7 +6989,39 @@ void main() {
     expect(rootPublish.onPressed, isNotNull);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Publish'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Update notes are required to publish.'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
+    await tester.pump(const Duration(seconds: 2));
+
+    await tester.drag(find.byType(ListView), const Offset(0, -360));
+    await tester.pump();
+    expect(find.byType(TextField), findsOneWidget);
+    await tester.enterText(
+      find.byType(TextField),
+      'Clarified the archive rules.',
+    );
+    await tester.pump();
+    var notesEditable = tester.state<EditableTextState>(
+      find.byType(EditableText),
+    );
+    expect(notesEditable.widget.focusNode.hasFocus, isTrue);
+    await tester.tap(find.text('📝Update notes (required to publish)'));
+    await tester.pump();
+    notesEditable = tester.state<EditableTextState>(find.byType(EditableText));
+    expect(notesEditable.widget.focusNode.hasFocus, isFalse);
+    tester.testTextInput.hide();
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Publish').last);
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/update').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pump();
 
     final updateRequests = transport.requestsFor('/api/v1/origin/update');
     expect(updateRequests, hasLength(1));
@@ -6939,14 +7034,18 @@ void main() {
     expect(body.containsKey('location_list'), isFalse);
     expect(body.containsKey('event_list'), isFalse);
     expect(body['origin_id'], 'o_edit_1');
+    expect(body['origin_version'], '1');
     expect(body['origin_name'], 'Edited Origin');
     expect(body['brief'], 'Editable public view.');
     expect(body['setting'], 'Editable hidden rules.');
     expect(body['started_at'], 'Day 1');
-    expect(body['tick_duration_days'], 30);
+    expect(body.containsKey('tick_duration_days'), isFalse);
+    expect(body['tick_duration_time'], '30 days');
+    expect(body['update_notes'], 'Clarified the archive rules.');
     expect(body['metric'], {
       'mode': 'qualitative',
       'label': 'Influence',
+      'label_note': 'Tracks archive influence.',
       'unit': '%',
       'range': [0, 100],
       'default': 0,
@@ -6983,7 +7082,7 @@ void main() {
       findsOneWidget,
     );
     await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
+    await tester.pump();
   });
 
   testWidgets(
@@ -7018,8 +7117,31 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      Future<void> waitForEditLoad(int requestCount) async {
+        await tester.pump();
+        await tester.runAsync(() async {
+          for (var i = 0; i < 50; i++) {
+            if (transport.requestsFor('/api/v1/origin/foredit').length >=
+                requestCount) {
+              break;
+            }
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        });
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+          if (find
+              .textContaining('World Name: Editable Origin')
+              .evaluate()
+              .isNotEmpty) {
+            break;
+          }
+        }
+      }
+
       await tester.tap(find.text('Open edit'));
-      await tester.pumpAndSettle();
+      await waitForEditLoad(1);
       expect(
         find.textContaining('World Name: Editable Origin'),
         findsOneWidget,
@@ -7040,7 +7162,7 @@ void main() {
       expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
 
       await tester.tap(find.text('Open edit'));
-      await tester.pumpAndSettle();
+      await waitForEditLoad(2);
       expect(transport.requestsFor('/api/v1/origin/foredit'), hasLength(2));
       expect(
         find.textContaining('World Name: Editable Origin'),
@@ -7275,6 +7397,170 @@ void main() {
       );
     },
   );
+
+  testWidgets('developer page saves and clears endpoint overrides', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scrollable = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey<String>('developer-api-base-url-field')),
+      180,
+      scrollable: scrollable,
+    );
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('developer-api-base-url-field')),
+        matching: find.text('https://'),
+      ),
+      findsOneWidget,
+    );
+    var contentContext = tester.element(find.byType(DeveloperPageContent));
+    final originalServices = AppServicesScope.read(contentContext);
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('developer-api-base-url-field')),
+        matching: find.byType(TextField),
+      ),
+      'api.example.com',
+    );
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('developer-chatroom-http-base-url-field'),
+        ),
+        matching: find.byType(TextField),
+      ),
+      'chat.example.com',
+    );
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('developer-chatroom-ws-base-url-field'),
+        ),
+        matching: find.byType(TextField),
+      ),
+      'chat.example.com/aitown-chat/ws',
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('Save endpoints'),
+      180,
+      scrollable: scrollable,
+    );
+    await tester.tap(find.text('Save endpoints'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Saved. New requests will use these endpoints.'),
+      findsOneWidget,
+    );
+    final saved = await AppEndpointOverrideStore.load();
+    expect(saved.apiBaseUrl, 'https://api.example.com/api/');
+    expect(saved.chatroomHttpBaseUrl, 'https://chat.example.com/');
+    expect(saved.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(
+              of: find.byKey(
+                const ValueKey<String>('developer-api-base-url-field'),
+              ),
+              matching: find.byType(TextField),
+            ),
+          )
+          .controller
+          ?.text,
+      'api.example.com/api/',
+    );
+
+    contentContext = tester.element(find.byType(DeveloperPageContent));
+    final updatedServices = AppServicesScope.read(contentContext);
+    expect(identical(updatedServices, originalServices), isFalse);
+    expect(updatedServices.config.apiBaseUrl, 'https://api.example.com/api/');
+    expect(
+      updatedServices.config.chatroomHttpBaseUrl,
+      'https://chat.example.com/',
+    );
+    expect(
+      updatedServices.config.chatroomWsBaseUrl,
+      'wss://chat.example.com/aitown-chat/ws',
+    );
+    expect(
+      identical(updatedServices.sessionStore, originalServices.sessionStore),
+      isTrue,
+    );
+    expect(
+      identical(
+        updatedServices.sessionRevision,
+        originalServices.sessionRevision,
+      ),
+      isTrue,
+    );
+
+    final config = await AppEndpointOverrideStore.loadConfig();
+    expect(config.apiBaseUrl, 'https://api.example.com/api/');
+    expect(config.chatroomHttpBaseUrl, 'https://chat.example.com/');
+    expect(config.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
+
+    await tester.pump(const Duration(seconds: 2));
+    await tester.scrollUntilVisible(
+      find.text('Clear endpoint overrides'),
+      180,
+      scrollable: scrollable,
+    );
+    await tester.tap(find.text('Clear endpoint overrides'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Endpoint overrides cleared.'), findsOneWidget);
+    expect((await AppEndpointOverrideStore.load()).hasAny, isFalse);
+    contentContext = tester.element(find.byType(DeveloperPageContent));
+    final clearedServices = AppServicesScope.read(contentContext);
+    expect(clearedServices.config.apiBaseUrl, GenesisApi.defaultApiBaseUrl);
+    expect(
+      clearedServices.config.chatroomHttpBaseUrl,
+      GenesisApi.defaultChatroomHttpBaseUrl,
+    );
+    expect(
+      clearedServices.config.chatroomWsBaseUrl,
+      GenesisApi.defaultChatroomWsBaseUrl,
+    );
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('developer page sheet moves above keyboard inset', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(viewInsets: EdgeInsets.only(bottom: 300)),
+          child: AppServicesScope(
+            services: await _testServices(),
+            child: const Material(child: DeveloperPageSheet()),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final padding = tester.widget<AnimatedPadding>(
+      find.byKey(
+        const ValueKey<String>('developer-page-sheet-keyboard-padding'),
+      ),
+    );
+    expect(padding.padding, const EdgeInsets.only(bottom: 300));
+  });
 
   testWidgets(
     'settings delete account clears session posts delete and opens origin',

@@ -1392,7 +1392,7 @@ class _MockState {
       'tags': info['tags'],
       'metric': info['metric'],
       'started_at': info['started_at'],
-      'tick_duration_days': info['tick_duration_days'],
+      'tick_duration_time': '${info['tick_duration_days'] ?? 1} days',
       'cover': info['cover'],
       'map_url': info['map_url'],
       'characters': kMockV1Characters.map(_contractCharacterForEdit).toList(),
@@ -1469,6 +1469,10 @@ class _MockState {
     if (tickDurationDays != null) {
       origin['tick_duration_days'] = tickDurationDays;
     }
+    if (body['update_notes'] != null) {
+      origin['update_notes'] = body['update_notes'];
+    }
+    origin['version_num'] = asInt(origin['version_num'], fallback: 1) + 1;
     origin['updated_at'] = DateTime.now().toUtc().toIso8601String();
     return {
       ..._v1OriginContractItem(origin),
@@ -1505,7 +1509,9 @@ class _MockState {
       'list': [
         {
           'version_num': origin['version_num'],
-          'update_notes': 'Initial mock version for ${oid ?? origin['oid']}',
+          'update_notes':
+              origin['update_notes'] ??
+              'Initial mock version for ${oid ?? origin['oid']}',
           'status': origin['status'],
           'created_at': origin['created_at'],
         },

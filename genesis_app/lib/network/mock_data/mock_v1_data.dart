@@ -418,6 +418,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
 const Map<String, dynamic> kMockV1Metric = {
   'mode': 'quantitative',
   'label': 'City Pressure',
+  'label_note': 'Measures how close the city is to open crisis.',
   'unit': 'pressure',
   'range': [0, 100],
   'default': 50,

@@ -201,6 +201,15 @@
 - `map_url`: string
 - `status*`: integer，`10` 正常，`20` tick 中
 
+### WorldMetric
+
+- `mode`: string，例如 `qualitative` 或 `quantitative`
+- `label`: string，进度指标名称
+- `label_note`: string，指标说明，对应 Basics 表单里的 `Label note`
+- `unit`: string，指标单位
+- `range`: number[]，指标范围，例如 `[0, 100]`
+- `default`: number 或 string，初始值
+
 ### WorldStats
 
 - `character_cnt`: integer
@@ -744,7 +753,7 @@ Query：
 - `tags`: string[]
 - `metric`: `WorldMetric`
 - `started_at`: string，故事内起始时间文本
-- `tick_duration_days`: integer
+- `tick_duration_time`: string，每个 tick 推进的故事时间跨度文本，例如 `1 day`
 - `cover`: string 或 `ImageResource`
 - `map_url`: string
 - `characters`: `OriginCharacterUpsert[]`
@@ -831,7 +840,7 @@ Query：
 - `locations` 作为用户平级编辑 location 入参；服务端忽略 `level` / `location_pid` 并重新生成入库三级树。
 - `characters` 只 upsert 请求列表中的项，不按缺失项推断删除；已有 `char_id` 保留，新增角色临时 id 会重写为下一个 `char_N`。
 - `deleted_char_ids` / `deleted_location_ids` 显式软删命中的活跃角色或地点。
-- `update_notes` 写入 `tbl_origin.update_notes`，后续生成版本快照时同步到 `tbl_origin_version.change_log`。
+- `update_notes` 写入 `tbl_origin.update_notes`，后续生成版本快照时同步到 `tbl_origin_version.change_log`；客户端 publish 时要求用户填写。
 - `tbl_origin.edit_data` 保存可编辑的平级原始数据，用于 `/api/v1/origin/foredit`。
 - `ticks` 不在 update 范围内。
 
@@ -851,7 +860,7 @@ Query：
 - `map_url`: string
 - `characters`: `OriginCharacterUpsert[]`
 - `locations`: `OriginLocationUpsert[]`
-- `update_notes`: string，版本更新说明
+- `update_notes`: string，版本更新说明；客户端 publish 时必填
 - `deleted_char_ids`: string[]，显式删除的角色 id
 - `deleted_location_ids`: string[]，显式删除的 location id
 
@@ -1498,9 +1507,9 @@ query：
 | `GET /api/v1/origin/list` | `OriginV1Api.list` query 已使用 `scene/tag/tag_id/keyword/uid/pn/rn`；自有数据只传 `scene=mine`，指定用户数据传 `scene=uid&uid=...`，标签数据传 `scene=tag&tag=...`；origin 页面和主 `getOrigins/getMyLaunchedOrigins` 可消费 `list[].info + stats`；首页 popular 会优先消费 `list[].discusses` 作为最新 2 条讨论预览，本地 mock 仅默认/`popular` 场景返回该字段。 |
 | `GET /api/v1/origin/hot_tags` | 已新增 `OriginV1Api.hotTags`，响应消费 `data.list` 字符串数组；`OriginPage` 固定首个 `For you` tab，其余 tabs 来自热门标签接口并缓存在本地，本地 mock 返回同形状数据。 |
 | `GET /api/v1/origin/detail` | `OriginV1Api.detail` query 已使用必填 `origin_id`；详情 mapper 支持 `info.metric`、`info.events`、`info.started_at`、`locations[].location_description` 与 `ticks[].tick_result`，local mock 返回 `info/stats/characters/locations/ticks`。 |
-| `GET /api/v1/origin/foredit` | 已新增 `OriginV1Api.forEdit(originId)`，query 使用 `origin_id`，响应按平铺 `OriginForEditResp` 消费；`EditOriginPage` 进入编辑流时使用该接口，本地 mock 返回同形状 `characters/locations` 且不返回 `stats/ticks`。 |
-| `POST /api/v1/origin/create` | `OriginV1Api.create` body 已使用 `origin_name/origin_version/brief/setting/events/tags/metric/started_at/tick_duration_time/cover/map_url/characters/locations`；`GenesisApi.createOrigin` 会把旧草稿里的 `tick_duration_days` 转为 Apifox 要求的文本，例如 `30 days`；本地 mock 兼容该字段并返回最新 `info/stats/characters/locations/ticks`。 |
-| `POST /api/v1/origin/update` | `OriginV1Api.update` body 已使用 `origin_id/origin_name/origin_version/brief/setting/events/tags/metric/started_at/tick_duration_time/cover/map_url/characters/locations/update_notes/deleted_char_ids/deleted_location_ids`；`GenesisApi.updateOrigin` 会把旧草稿里的 `tick_duration_days` 转为 Apifox 要求的文本，例如 `30 days`；`EditOriginPage` 基于初始 `foredit` draft 计算显式删除 id，本地 mock 返回最新 `info/stats/characters/locations/ticks`。 |
+| `GET /api/v1/origin/foredit` | 已新增 `OriginV1Api.forEdit(originId)`，query 使用 `origin_id`，响应按平铺 `OriginForEditResp` 消费，包含当前 `origin_version`、`tick_duration_time` 与 `metric.label_note`；`EditOriginPage` 进入编辑流时使用该接口，本地 mock 返回同形状 `characters/locations` 且不返回 `stats/ticks`。 |
+| `POST /api/v1/origin/create` | `OriginV1Api.create` body 已使用 `origin_name/origin_version/brief/setting/events/tags/metric/started_at/tick_duration_time/cover/map_url/characters/locations`，其中 Basics 的 `Label note` 写入 `metric.label_note`；`GenesisApi.createOrigin` 会把旧草稿里的 `tick_duration_days` 转为 Apifox 要求的文本，例如 `30 days`；本地 mock 兼容该字段并返回最新 `info/stats/characters/locations/ticks`。 |
+| `POST /api/v1/origin/update` | `OriginV1Api.update` body 已使用 `origin_id/origin_name/origin_version/brief/setting/events/tags/metric/started_at/tick_duration_time/cover/map_url/characters/locations/update_notes/deleted_char_ids/deleted_location_ids`，其中 Basics 的 `Label note` 写入 `metric.label_note`；`GenesisApi.updateOrigin` 会把旧草稿里的 `tick_duration_days` 转为 Apifox 要求的文本，例如 `30 days`；`EditOriginPage` 基于初始 `foredit` draft 计算显式删除 id，本地 mock 返回最新 `info/stats/characters/locations/ticks`。 |
 | `POST /api/v1/origin/launch` | `OriginV1Api.launch` body 已使用 `origin_id/preset_character_id/custom_role`；详情页 launch 发送 preset 或 custom 二选一 payload，并消费响应 `world_id`。 |
 | `GET /api/v1/discuss/list` | `DiscussV1Api.list` 已使用 `biz_type=1`、`biz_id/pn/rn`，并消费 `list[].comment/latest_replies/top_total/total_all`；本地 mock 会按业务对象分页并为每条顶级评论返回最新 3 条回复。 |
 | `GET /api/v1/discuss/replies` | 已新增 `DiscussV1Api.replies(rootDiscussId,pn,rn)`，query 使用 `root_discuss_id/pn/rn`，响应消费 `list/total/pn/rn`；本地 mock 会按 `root_discuss_id` 过滤并按创建时间倒序分页。 |

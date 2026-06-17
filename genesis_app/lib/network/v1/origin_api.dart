@@ -102,7 +102,7 @@ class OriginV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"origin_id":"o_A1B2C3","origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{"mode":"qualitative","label":"Goal Progress","unit":"%","range":[0,100],"default":0},"started_at":"string","tick_duration_days":30,"cover":"string","map_url":"string","characters":[],"locations":[]}}
+  /// {"err_no":0,"err_msg":"succ","data":{"origin_id":"o_A1B2C3","origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{"mode":"qualitative","label":"Goal Progress","label_note":"衡量角色对玩家的信任程度","unit":"%","range":[0,100],"default":0},"started_at":"string","tick_duration_time":"1 day","cover":"string","map_url":"string","characters":[],"locations":[]}}
   /// ```
   Future<Map<String, dynamic>> forEdit({String? originId, String? oid}) {
     final resolvedOriginId = (originId ?? oid ?? '').trim();
@@ -120,7 +120,7 @@ class OriginV1Api extends V1ApiResource {
   ///
   /// 提交参数:
   /// ```json
-  /// {"origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{},"started_at":"string","tick_duration_time":"1 day","cover":"string","map_url":"string","characters":[],"locations":[]}
+  /// {"origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{"mode":"qualitative","label":"Goal Progress","label_note":"衡量角色对玩家的信任程度","unit":"%","range":[0,100],"default":0},"started_at":"string","tick_duration_time":"1 day","cover":"string","map_url":"string","characters":[],"locations":[]}
   /// ```
   ///
   /// Response:
@@ -166,7 +166,7 @@ class OriginV1Api extends V1ApiResource {
   ///
   /// 提交参数:
   /// ```json
-  /// {"origin_id":"string","origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{},"started_at":"string","tick_duration_time":"1 day","cover":"string","map_url":"string","characters":[],"locations":[],"update_notes":"string","deleted_char_ids":[],"deleted_location_ids":[]}
+  /// {"origin_id":"string","origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{"mode":"qualitative","label":"Goal Progress","label_note":"衡量角色对玩家的信任程度","unit":"%","range":[0,100],"default":0},"started_at":"string","tick_duration_time":"1 day","cover":"string","map_url":"string","characters":[],"locations":[],"update_notes":"string","deleted_char_ids":[],"deleted_location_ids":[]}
   /// ```
   ///
   /// Response:

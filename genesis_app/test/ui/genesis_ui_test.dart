@@ -350,7 +350,7 @@ void main() {
     expect(firstAction.style?.fontSize, 15);
     expect(firstAction.style?.fontWeight, FontWeight.w600);
     expect(secondAction.style?.fontSize, 15);
-    expect(secondAction.style?.fontWeight, FontWeight.w400);
+    expect(secondAction.style?.fontWeight, FontWeight.w600);
 
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
@@ -568,8 +568,8 @@ void main() {
         matching: find.byType(Positioned),
       ),
     );
-    expect(badgePosition.top, 1);
-    expect(badgePosition.right, -11);
+    expect(badgePosition.top, -1);
+    expect(badgePosition.left, 19);
   });
 
   testWidgets('GenesisBottomNavigation keeps minimum bottom padding', (

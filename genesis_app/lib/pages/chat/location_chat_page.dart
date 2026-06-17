@@ -25,7 +25,6 @@ class LocationChatPage extends StatelessWidget {
     this.localMessageLocationIds = const <String>[],
     this.worldName,
     this.locationName,
-    this.backgroundImageUrl,
     this.service,
     this.connection,
   });
@@ -36,7 +35,6 @@ class LocationChatPage extends StatelessWidget {
   final List<String> localMessageLocationIds;
   final String? worldName;
   final String? locationName;
-  final String? backgroundImageUrl;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
 
@@ -52,7 +50,6 @@ class LocationChatPage extends StatelessWidget {
         localMessageLocationIds: localMessageLocationIds,
         worldName: worldName,
         locationName: locationName,
-        backgroundImageUrl: backgroundImageUrl,
         service: service,
         connection: connection,
         active: true,
@@ -71,7 +68,6 @@ class LocationChatPanel extends StatefulWidget {
     this.localMessageLocationIds = const <String>[],
     this.worldName,
     this.locationName,
-    this.backgroundImageUrl,
     this.service,
     this.connection,
     this.active = true,
@@ -90,7 +86,6 @@ class LocationChatPanel extends StatefulWidget {
   final List<String> localMessageLocationIds;
   final String? worldName;
   final String? locationName;
-  final String? backgroundImageUrl;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
   final bool active;
@@ -123,7 +118,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   String _mySenderId = '';
   String _mySenderName = '';
   String _myAvatarUrl = '';
-  late String _backgroundImageUrl;
   bool _ownsService = false;
   bool _joinedLocation = false;
   bool _sending = false;
@@ -137,7 +131,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void initState() {
     super.initState();
-    _backgroundImageUrl = widget.backgroundImageUrl?.trim() ?? '';
     _logPanelMetric(
       'init active=${widget.active} leaf=${widget.isLeafLocation} '
       'aliases=${widget.localMessageLocationIds.join(',')}',
@@ -164,11 +157,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void didUpdateWidget(LocationChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final nextBackgroundImageUrl = widget.backgroundImageUrl?.trim() ?? '';
-    if (nextBackgroundImageUrl.isNotEmpty &&
-        nextBackgroundImageUrl != _backgroundImageUrl) {
-      _backgroundImageUrl = nextBackgroundImageUrl;
-    }
     if (oldWidget.service != widget.service ||
         oldWidget.worldId != widget.worldId ||
         oldWidget.locationId != widget.locationId) {
@@ -479,7 +467,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final reconcileStopwatch = _panelMetricsEnabled
         ? (Stopwatch()..start())
         : null;
-    final changedMessages = _reconcileMessages(nextSource, state);
+    final changedMessages = _reconcileMessages(nextSource);
     setState(() {
       _chatroomState = state;
     });
@@ -534,10 +522,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     );
   }
 
-  bool _reconcileMessages(
-    List<WorldChatroomMessage> source,
-    WorldChatroomState state,
-  ) {
+  bool _reconcileMessages(List<WorldChatroomMessage> source) {
     final visibleSource = visibleLocationChatMessagesForTesting(source);
     final previous = _messages.where((message) => !message.isSystem).toList();
     final existingByKey = {
@@ -560,7 +545,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       final status = message.streaming ? 'streaming' : 'sent';
       final isMe = _isMineMessage(message);
       final senderName = _messageSenderDisplayName(message);
-      final nextAvatarUrl = _messageAvatarUrl(message, state);
+      final avatarUrl = _messageAvatarUrl(message);
       final clientMsgId = message.clientMsgId.trim();
       final existing =
           (clientMsgId.isEmpty ? null : existingByClientMsgId[clientMsgId]) ??
@@ -574,7 +559,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             usedLocalIds: usedLocalIds,
           );
       final createdAt = message.createdAt ?? DateTime.now();
-      final avatarUrl = firstNonEmpty([nextAvatarUrl, existing?.avatarUrl]);
       if (existing != null) {
         if (usedLocalIds.contains(existing.localId)) {
           changed = true;
@@ -713,7 +697,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final changedMessages = _reconcileMessages(
       _chatroomState.messagesByLocation[widget.locationId] ??
           const <WorldChatroomMessage>[],
-      _chatroomState,
     );
     if (changedMessages && mounted) setState(() {});
   }
@@ -896,15 +879,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     ]);
   }
 
-  String _messageAvatarUrl(
-    WorldChatroomMessage message, [
-    WorldChatroomState? state,
-  ]) {
-    final sourceState = state ?? _chatroomState;
+  String _messageAvatarUrl(WorldChatroomMessage message) {
     return firstNonEmpty([
-      _entityAvatarForIdentity(message.userId, sourceState),
-      _entityAvatarForIdentity(message.senderId, sourceState),
-      if (_isMineMessage(message)) _localSelfAvatarUrl(sourceState),
+      _entityAvatarForIdentity(message.userId),
+      _entityAvatarForIdentity(message.senderId),
+      _roleAvatarForIdentityCandidates([message.userId, message.senderId]),
     ]);
   }
 
@@ -917,11 +896,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     ]);
   }
 
-  String _localSelfAvatarUrl([WorldChatroomState? state]) {
-    final sourceState = state ?? _chatroomState;
+  String _localSelfAvatarUrl() {
     return firstNonEmpty([
-      _entityAvatarForIdentity(_myUserId, sourceState),
-      _entityAvatarForIdentity(_mySenderId, sourceState),
+      _entityAvatarForIdentity(_myUserId),
+      _entityAvatarForIdentity(_mySenderId),
+      _roleAvatarForIdentityCandidates([_myUserId, _mySenderId]),
       _myAvatarUrl,
     ]);
   }
@@ -936,11 +915,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     return '';
   }
 
-  String _entityAvatarForIdentity(String value, [WorldChatroomState? state]) {
-    final sourceState = state ?? _chatroomState;
+  String _entityAvatarForIdentity(String value) {
     final key = _chatroomIdentityKey(value);
     if (key.isEmpty) return '';
-    for (final entry in sourceState.entitiesById.entries) {
+    for (final entry in _chatroomState.entitiesById.entries) {
       if (_chatroomIdentityKey(entry.key) != key) continue;
       return entry.value.avatarUrl;
     }
@@ -978,19 +956,78 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final character = rawCharacter is Map
         ? _stringKeyMap(rawCharacter)
         : candidate;
-    final playerUid = _firstMapString(character, const [
-      'player_uid',
-      'user_id',
-      'uid',
-    ]);
-    final playerKey = _chatroomIdentityKey(playerUid);
-    if (playerKey.isEmpty || !identityKeys.contains(playerKey)) return '';
+    if (!_characterMatchesIdentity(character, identityKeys)) return '';
     return _firstMapString(character, const [
       'name',
       'role_nickname',
       'role_name',
       'character_name',
     ]);
+  }
+
+  String _roleAvatarForIdentityCandidates(List<String?> identities) {
+    final keys = identities
+        .map(_chatroomIdentityKey)
+        .where((key) => key.isNotEmpty)
+        .toSet();
+    if (keys.isEmpty) return '';
+    final world = _chatroomState.world;
+    if (world == null) return '';
+    for (final character in world.characterPositions) {
+      final candidate = _roleAvatarFromCharacterCandidate(character, keys);
+      if (candidate.isNotEmpty) return candidate;
+    }
+    for (final character in world.characters) {
+      final candidate = _roleAvatarFromCharacterCandidate(character, keys);
+      if (candidate.isNotEmpty) return candidate;
+    }
+    for (final position in world.userPositions) {
+      final candidate = _roleAvatarFromUserPosition(position, keys);
+      if (candidate.isNotEmpty) return candidate;
+    }
+    return '';
+  }
+
+  String _roleAvatarFromCharacterCandidate(
+    Map<String, dynamic> candidate,
+    Set<String> identityKeys,
+  ) {
+    final rawCharacter = candidate['character'];
+    final character = rawCharacter is Map
+        ? _stringKeyMap(rawCharacter)
+        : candidate;
+    if (!_characterMatchesIdentity(character, identityKeys)) return '';
+    return _firstMapImageUrl(character, const ['avatar', 'avatar_url']);
+  }
+
+  String _roleAvatarFromUserPosition(
+    Map<String, dynamic> position,
+    Set<String> identityKeys,
+  ) {
+    final rawUser = position['user'];
+    final user = rawUser is Map ? _stringKeyMap(rawUser) : position;
+    final userId = _firstMapString(user, const ['user_id', 'uid', 'id']);
+    final userKey = _chatroomIdentityKey(userId);
+    if (userKey.isEmpty || !identityKeys.contains(userKey)) return '';
+    return _firstMapImageUrl(user, const ['avatar', 'avatar_url']);
+  }
+
+  bool _characterMatchesIdentity(
+    Map<String, dynamic> character,
+    Set<String> identityKeys,
+  ) {
+    for (final key in const [
+      'player_uid',
+      'user_id',
+      'uid',
+      'character_id',
+      'char_id',
+      'id',
+    ]) {
+      final value = _chatroomIdentityKey(_mapString(character, key));
+      if (value.isNotEmpty && identityKeys.contains(value)) return true;
+    }
+    return false;
   }
 
   String _roleNameFromUserPosition(
@@ -1083,26 +1120,17 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   Widget build(BuildContext context) {
-    final realUsers = _joinedRealUsers(_chatroomState);
-    final realUserNames = realUsers
-        .map((user) => user.name.trim())
-        .where((name) => name.isNotEmpty)
-        .toList(growable: false);
-    final titleCount = realUsers.length;
+    final titleCount =
+        _chatroomState.entitiesByLocation[widget.locationId]?.length ?? 1;
     final title = firstNonEmpty([widget.locationName, widget.locationId]);
-    final subtitle = realUserNames.join(', ');
+    final subtitle = _chatroomStatusLabel(_chatroomState);
     final joined = _chatroomState.joinedLocationId == widget.locationId;
+    final connecting =
+        _chatroomState.reconnecting ||
+        _chatroomState.joining ||
+        (_chatroomState.connected && !joined);
     final inputBlocked = _chatroomState.inputBlocked;
-    final baseStyle = widget.style ?? kChatWhiteHeaderStyle;
-    final style = baseStyle.copyWith(
-      headerTitleTextStyle: baseStyle.headerTitleTextStyle.copyWith(height: 1),
-      headerSubtitleTextStyle: baseStyle.headerSubtitleTextStyle.copyWith(
-        fontSize: 12,
-        height: 1,
-      ),
-      headerStatusIconSize: 14,
-      headerSubtitleTopGap: 0,
-    );
+    final style = widget.style ?? kChatWhiteHeaderStyle;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: widget.systemUiOverlayStyle,
@@ -1113,20 +1141,15 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             ChatHeader(
               title: '$title ($titleCount)',
               subtitle: subtitle,
-              connected: subtitle.isNotEmpty,
-              connecting: false,
+              connected: joined,
+              connecting: connecting,
               onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
-              showSubtitle: widget.showConnectionStatus && subtitle.isNotEmpty,
+              showSubtitle: widget.showConnectionStatus,
               style: style,
             ),
             Expanded(
               child: Stack(
                 children: [
-                  Positioned.fill(
-                    child: _LocationChatBackgroundImage(
-                      imageUrl: _backgroundImageUrl,
-                    ),
-                  ),
                   Positioned.fill(
                     child: ChatMessageList(
                       controller: _scrollController,
@@ -1163,47 +1186,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     );
   }
 
-  List<WorldChatroomEntity> _joinedRealUsers(WorldChatroomState state) {
-    final entities =
-        state.entitiesByLocation[widget.locationId] ??
-        const <WorldChatroomEntity>[];
-    final users = <WorldChatroomEntity>[];
-    final seen = <String>{};
-    for (final entity in entities) {
-      if (entity.isAi || entity.type != WorldChatroomEntityType.player) {
-        continue;
-      }
-      final identityKey = _chatroomIdentityKey(entity.id);
-      final fallbackKey = entity.name.trim().toLowerCase();
-      final key = identityKey.isNotEmpty ? identityKey : fallbackKey;
-      if (key.isEmpty || !seen.add(key)) continue;
-      users.add(entity);
-    }
-    return users;
+  String _chatroomStatusLabel(WorldChatroomState state) {
+    if (state.inputBlocked) return 'Progressing';
+    if (state.joinedLocationId == widget.locationId) return 'Joined';
+    if (state.joining) return 'Joining';
+    if (state.reconnecting) return 'Reconnecting';
+    if (state.connected) return 'Connecting';
+    return 'Disconnect';
   }
-}
-
-class _LocationChatBackgroundImage extends StatelessWidget {
-  const _LocationChatBackgroundImage({required this.imageUrl});
-
-  final String imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    final provider = _locationChatBackgroundProvider(imageUrl);
-    if (provider == null) return const SizedBox.shrink();
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        image: DecorationImage(image: provider, fit: BoxFit.cover),
-      ),
-    );
-  }
-}
-
-ImageProvider? _locationChatBackgroundProvider(String rawUrl) {
-  final url = rawUrl.trim();
-  if (url.isEmpty) return null;
-  return url.startsWith('assets/') ? AssetImage(url) : NetworkImage(url);
 }
 
 String _mapString(Map<String, dynamic>? map, String key) {
@@ -1309,6 +1299,15 @@ String _firstMapString(Map<String, dynamic> map, List<String> keys) {
   for (final key in keys) {
     final value = _mapString(map, key);
     if (value.isNotEmpty) return value;
+  }
+  return '';
+}
+
+String _firstMapImageUrl(Map<String, dynamic> map, List<String> keys) {
+  for (final key in keys) {
+    if (!map.containsKey(key)) continue;
+    final resolved = asResolvedImageUrl(map[key], resolveAssetUrl);
+    if (resolved.isNotEmpty) return resolved;
   }
   return '';
 }

@@ -54,12 +54,20 @@ class AppServices {
 class ServiceRegistry {
   const ServiceRegistry._();
 
-  static AppServices build({AppConfig config = const AppConfig()}) {
+  static AppServices build({
+    AppConfig config = const AppConfig(),
+    DeviceIdService? deviceIdOverride,
+    UserSessionStore? sessionStoreOverride,
+    IdentityAuthService? identityAuthOverride,
+    ValueNotifier<int>? sessionRevisionOverride,
+    ChatroomMessageStorage? chatroomMessagesOverride,
+  }) {
     final platformConfig = DefaultPlatformConfig(appConfig: config);
-    const deviceId = NativeDeviceIdService();
-    final sessionStore = NativeUserSessionStore();
-    const identityAuth = FirebaseIdentityAuthService();
-    final sessionRevision = ValueNotifier<int>(0);
+    final deviceId = deviceIdOverride ?? const NativeDeviceIdService();
+    final sessionStore = sessionStoreOverride ?? NativeUserSessionStore();
+    final identityAuth =
+        identityAuthOverride ?? const FirebaseIdentityAuthService();
+    final sessionRevision = sessionRevisionOverride ?? ValueNotifier<int>(0);
     var handlingSessionExpired = false;
     Future<void> handleSessionExpired(String _) async {
       if (handlingSessionExpired) return;
@@ -140,7 +148,8 @@ class ServiceRegistry {
       sessionStore: sessionStore,
       storage: SqfliteDirectMessageMessageStorage(),
     );
-    final chatroomMessages = SqfliteChatroomMessageStorage();
+    final chatroomMessages =
+        chatroomMessagesOverride ?? SqfliteChatroomMessageStorage();
     return AppServices(
       config: config,
       platformConfig: platformConfig,
@@ -154,6 +163,20 @@ class ServiceRegistry {
       directMessageConversations: directMessageConversations,
       directMessageMessages: directMessageMessages,
       sessionRevision: sessionRevision,
+    );
+  }
+
+  static AppServices rebuildFrom(
+    AppServices current, {
+    required AppConfig config,
+  }) {
+    return build(
+      config: config,
+      deviceIdOverride: current.deviceId,
+      sessionStoreOverride: current.sessionStore,
+      identityAuthOverride: current.identityAuth,
+      sessionRevisionOverride: current.sessionRevision,
+      chatroomMessagesOverride: current.chatroomMessages,
     );
   }
 }

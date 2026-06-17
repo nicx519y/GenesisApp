@@ -1,5 +1,7 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/list_loading_skeleton.dart';
@@ -16,13 +18,14 @@ import '../../routers/app_router.dart';
 import '../../ui/components/secend_tabs.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, this.initialTabIndex});
+  const HomePage({super.key, this.initialTabIndex, this.activationListenable});
 
   static const List<String> tabs = ['My Worlds', 'Popular'];
   static const int myWorldsTabIndex = 0;
   static const int popularTabIndex = 1;
 
   final int? initialTabIndex;
+  final ValueListenable<int>? activationListenable;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -88,7 +91,11 @@ class _HomePageState extends State<HomePage> {
               const _HomeHeader(),
               const SizedBox(height: 4),
               const _HomeTabs(),
-              const Expanded(child: _HomeTabView()),
+              Expanded(
+                child: _HomeTabView(
+                  activationListenable: widget.activationListenable,
+                ),
+              ),
             ],
           ),
         );
@@ -141,7 +148,9 @@ class _HomeTabsState extends State<_HomeTabs> {
 }
 
 class _HomeTabView extends StatefulWidget {
-  const _HomeTabView();
+  const _HomeTabView({this.activationListenable});
+
+  final ValueListenable<int>? activationListenable;
 
   @override
   State<_HomeTabView> createState() => _HomeTabViewState();
@@ -220,7 +229,16 @@ class _HomeTabViewState extends State<_HomeTabView> {
       onHorizontalDragEnd: signedOut ? _handleHorizontalDragEnd : null,
       child: TabBarView(
         physics: signedOut ? const NeverScrollableScrollPhysics() : null,
-        children: [_MyWorldFeed(index: 0), _PopularOriginFeed(index: 1)],
+        children: [
+          _MyWorldFeed(
+            index: 0,
+            activationListenable: widget.activationListenable,
+          ),
+          _PopularOriginFeed(
+            index: 1,
+            activationListenable: widget.activationListenable,
+          ),
+        ],
       ),
     );
   }
@@ -261,9 +279,10 @@ class _HomeHeader extends StatelessWidget {
 }
 
 class _MyWorldFeed extends StatefulWidget {
-  const _MyWorldFeed({required this.index});
+  const _MyWorldFeed({required this.index, this.activationListenable});
 
   final int index;
+  final ValueListenable<int>? activationListenable;
 
   @override
   State<_MyWorldFeed> createState() => _MyWorldFeedState();
@@ -288,6 +307,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   Object? _error;
 
   @override
+  void initState() {
+    super.initState();
+    widget.activationListenable?.addListener(_handlePageActivated);
+  }
+
+  @override
   bool get wantKeepAlive => true;
 
   @override
@@ -308,6 +333,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   @override
   void didUpdateWidget(covariant _MyWorldFeed oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.activationListenable != widget.activationListenable) {
+      oldWidget.activationListenable?.removeListener(_handlePageActivated);
+      widget.activationListenable?.addListener(_handlePageActivated);
+    }
     if (oldWidget.index != widget.index) {
       _resetListState();
       _requestIfCurrentTab();
@@ -316,6 +345,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   @override
   void dispose() {
+    widget.activationListenable?.removeListener(_handlePageActivated);
     _tabController?.removeListener(_handleTabChange);
     _scrollController
       ..removeListener(_handleScroll)
@@ -337,6 +367,16 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   void _handleTabChange() {
     _requestIfCurrentTab();
+  }
+
+  void _handlePageActivated() {
+    final controller = _tabController;
+    if (controller == null || controller.index != widget.index) return;
+    if (!_hasRequested) {
+      _requestIfCurrentTab();
+      return;
+    }
+    unawaited(_refreshItems());
   }
 
   void _requestIfCurrentTab() {
@@ -380,6 +420,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }
 
   Future<void> _refreshItems() async {
+    if (_isInitialLoading || _isRefreshing) return;
     if (!await _hasLocalLoginSession()) {
       if (!mounted) return;
       setState(() {
@@ -497,7 +538,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
               key: const PageStorageKey<String>('home-feed-my-world'),
               controller: _scrollController,
               primary: false,
-              scrollCacheExtent: const ScrollCacheExtent.pixels(900),
+              cacheExtent: 900,
               padding: const EdgeInsets.only(top: 4),
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
@@ -545,9 +586,10 @@ class _WorldListPage {
 }
 
 class _PopularOriginFeed extends StatefulWidget {
-  const _PopularOriginFeed({required this.index});
+  const _PopularOriginFeed({required this.index, this.activationListenable});
 
   final int index;
+  final ValueListenable<int>? activationListenable;
 
   @override
   State<_PopularOriginFeed> createState() => _PopularOriginFeedState();
@@ -574,6 +616,12 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   Object? _error;
 
   @override
+  void initState() {
+    super.initState();
+    widget.activationListenable?.addListener(_handlePageActivated);
+  }
+
+  @override
   bool get wantKeepAlive => true;
 
   @override
@@ -594,6 +642,10 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   @override
   void didUpdateWidget(covariant _PopularOriginFeed oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.activationListenable != widget.activationListenable) {
+      oldWidget.activationListenable?.removeListener(_handlePageActivated);
+      widget.activationListenable?.addListener(_handlePageActivated);
+    }
     if (oldWidget.index != widget.index) {
       _resetListState();
       _requestIfCurrentTab();
@@ -602,6 +654,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
 
   @override
   void dispose() {
+    widget.activationListenable?.removeListener(_handlePageActivated);
     _tabController?.removeListener(_handleTabChange);
     _scrollController
       ..removeListener(_handleScroll)
@@ -624,6 +677,16 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
 
   void _handleTabChange() {
     _requestIfCurrentTab();
+  }
+
+  void _handlePageActivated() {
+    final controller = _tabController;
+    if (controller == null || controller.index != widget.index) return;
+    if (!_hasRequested) {
+      _requestIfCurrentTab();
+      return;
+    }
+    unawaited(_refreshItems());
   }
 
   void _requestIfCurrentTab() {
@@ -719,6 +782,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   }
 
   Future<void> _refreshItems() async {
+    if (_isInitialLoading || _isRefreshing) return;
     setState(() {
       _error = null;
       _isInitialLoading = _items.isEmpty;

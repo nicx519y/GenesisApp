@@ -45,6 +45,33 @@ class AppConfig {
     if (override != null) return override;
     return mockApiOverrideFromEnvironment(apiEnvironment);
   }
+
+  AppConfig copyWith({
+    String? apiBaseUrl,
+    String? assetBaseUrl,
+    String? apiEnvironment,
+    String? chatroomWsBaseUrl,
+    String? chatroomHttpBaseUrl,
+    String? debugProxy,
+    bool? debugWsLog,
+    Duration? chatroomHeartbeatInterval,
+    Duration? chatroomAckTimeout,
+    bool? useMock,
+  }) {
+    return AppConfig(
+      apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
+      assetBaseUrl: assetBaseUrl ?? this.assetBaseUrl,
+      apiEnvironment: apiEnvironment ?? this.apiEnvironment,
+      chatroomWsBaseUrl: chatroomWsBaseUrl ?? this.chatroomWsBaseUrl,
+      chatroomHttpBaseUrl: chatroomHttpBaseUrl ?? this.chatroomHttpBaseUrl,
+      debugProxy: debugProxy ?? this.debugProxy,
+      debugWsLog: debugWsLog ?? this.debugWsLog,
+      chatroomHeartbeatInterval:
+          chatroomHeartbeatInterval ?? this.chatroomHeartbeatInterval,
+      chatroomAckTimeout: chatroomAckTimeout ?? this.chatroomAckTimeout,
+      useMock: useMock ?? _useMockOverride,
+    );
+  }
 }
 
 bool? mockApiOverrideFromEnvironment(String value) {
