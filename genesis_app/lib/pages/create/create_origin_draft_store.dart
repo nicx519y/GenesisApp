@@ -273,6 +273,10 @@ class CreateOriginDraft {
       errors.add('Please save ${missing.join(', ')} before creating.');
     }
 
+    if (characters.where(_characterHasContent).isEmpty) {
+      errors.add('Characters: Please add at least one character.');
+    }
+
     if (basics.originName.trim().isEmpty) {
       errors.add('Basics: Origin Name is required.');
     }

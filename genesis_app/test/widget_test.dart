@@ -35,6 +35,7 @@ import 'package:genesis_flutter_android/pages/create/create_origin_draft_store.d
 import 'package:genesis_flutter_android/pages/create/create_origin_id_utils.dart';
 import 'package:genesis_flutter_android/pages/create/create_origin_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_story_events_page.dart';
+import 'package:genesis_flutter_android/pages/edit/edit_characters_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_locations_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
@@ -6420,7 +6421,7 @@ void main() {
   });
 
   testWidgets(
-    'characters save ignores empty cards but validates partial cards',
+    'characters save requires at least one non-empty card and validates partial cards',
     (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -6450,14 +6451,17 @@ void main() {
       await tester.pumpAndSettle();
 
       var draft = await CreateOriginDraftStore.loadFinal();
-      expect(draft.charactersSaved, isTrue);
+      expect(
+        find.text('Please add at least one character before saving.'),
+        findsOneWidget,
+      );
+      expect(draft.charactersSaved, isFalse);
       expect(
         draft.characters.where((item) => item.name.trim().isNotEmpty),
         isEmpty,
       );
+      await tester.pump(const Duration(seconds: 2));
 
-      await tester.tap(find.text('Open characters'));
-      await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Ari');
       await tester.tap(find.widgetWithText(FilledButton, 'Save'));
       await tester.pumpAndSettle();
@@ -6471,6 +6475,43 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
     },
   );
+
+  testWidgets('edit characters save requires at least one non-empty card', (
+    WidgetTester tester,
+  ) async {
+    final repository = MemoryOriginDraftRepository(
+      initialDraft: const CreateOriginDraft(
+        basics: BasicsDraft(),
+        characters: <CharacterDraft>[CharacterDraft()],
+        locations: <LocationDraft>[LocationDraft()],
+        storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        basicsSaved: false,
+        charactersSaved: true,
+        locationsSaved: false,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(home: EditCharactersPage(repository: repository)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Please add at least one character before saving.'),
+      findsOneWidget,
+    );
+    final draft = await repository.loadDraft();
+    expect(draft.charactersSaved, isTrue);
+    expect(
+      draft.characters.where((item) => item.name.trim().isNotEmpty),
+      isEmpty,
+    );
+    await tester.pump(const Duration(seconds: 2));
+  });
 
   testWidgets('locations add button appends empty form', (
     WidgetTester tester,

@@ -116,11 +116,16 @@ class _OriginCharactersEditorPageState
       }
     }
 
-    setState(() => _isSaving = true);
-    final draft = await widget.repository.loadDraft();
     final characters = _snapshotCharacters()
         .where(_characterDraftHasContent)
         .toList(growable: false);
+    if (characters.isEmpty) {
+      _showError('Please add at least one character before saving.');
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    final draft = await widget.repository.loadDraft();
     final validCharacterIds = characters
         .map((item) => item.charId.trim())
         .where((item) => item.isNotEmpty)
