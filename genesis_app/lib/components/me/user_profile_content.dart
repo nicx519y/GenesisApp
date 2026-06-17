@@ -471,10 +471,17 @@ class _OriginProfileCollectionList extends StatelessWidget {
                   value: item.characterCount,
                 ),
               ],
-              onTap: () => Navigator.of(context).pushNamed(
-                RouteNames.originWorld,
-                arguments: {'originId': item.originId, 'oid': item.oid},
-              ),
+              onTap: () {
+                Navigator.of(context)
+                    .pushNamed(
+                      RouteNames.originWorld,
+                      arguments: {'originId': item.originId, 'oid': item.oid},
+                    )
+                    .then((_) {
+                      if (!context.mounted) return;
+                      onRefresh?.call();
+                    });
+              },
             ),
           )
           .toList(growable: false),

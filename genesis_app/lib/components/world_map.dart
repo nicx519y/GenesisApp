@@ -32,6 +32,8 @@ class WorldMap extends StatefulWidget {
     this.fallbackOnEmptyMapUrl = true,
     this.dimmed = false,
     this.showPointsList = false,
+    this.pointsListPhysics,
+    this.pointsListOuterScrollHandoff = true,
     this.overlayTop = 0,
     this.drillExitTop = 68,
     this.onDrillIntoLocation,
@@ -46,6 +48,8 @@ class WorldMap extends StatefulWidget {
   final bool fallbackOnEmptyMapUrl;
   final bool dimmed;
   final bool showPointsList;
+  final ScrollPhysics? pointsListPhysics;
+  final bool pointsListOuterScrollHandoff;
   final double overlayTop;
   final double drillExitTop;
   final VoidCallback? onDrillIntoLocation;
@@ -219,6 +223,9 @@ class _WorldMapState extends State<WorldMap> {
                       child: WorldLocationList(
                         points: flattenedPoints,
                         locationNodes: widget.locationNodes,
+                        physics: widget.pointsListPhysics,
+                        enableOuterScrollHandoff:
+                            widget.pointsListOuterScrollHandoff,
                         onPointTap: (point) {
                           widget.onPointTap?.call(point);
                         },

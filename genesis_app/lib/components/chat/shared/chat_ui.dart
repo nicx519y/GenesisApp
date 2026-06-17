@@ -106,78 +106,95 @@ class ChatHeader extends StatelessWidget {
       color: style.headerBackgroundColor,
       child: Padding(
         padding: EdgeInsets.only(top: topInset),
-        child: Row(
+        child: Stack(
           children: [
-            IconButton(
-              onPressed: onBack,
-              icon: Icon(
-                Icons.arrow_back_ios_new,
-                size: style.headerBackIconSize,
+            Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                onPressed: onBack,
+                icon: Icon(
+                  Icons.arrow_back_ios_new,
+                  size: style.headerBackIconSize,
+                ),
               ),
             ),
-            Expanded(
+            Positioned.fill(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (showTitleIcon) ...[
-                        Icon(
-                          Icons.location_on,
-                          size: style.headerTitleIconSize,
-                          color: style.headerTitleIconColor,
-                        ),
-                        SizedBox(width: style.headerTitleIconGap),
-                      ],
-                      Flexible(
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: style.headerTitleTextStyle,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (showSubtitle) ...[
-                    SizedBox(height: style.headerSubtitleTopGap),
-                    Row(
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: style.headerTrailingPlaceholderWidth,
+                    ),
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          connected
-                              ? Icons.groups_2
-                              : connecting
-                              ? Icons.sync
-                              : Icons.cloud_off,
-                          size: style.headerStatusIconSize,
-                          color: style.headerStatusIconColor,
-                        ),
-                        SizedBox(width: style.headerStatusIconGap),
+                        if (showTitleIcon) ...[
+                          Icon(
+                            Icons.location_on,
+                            size: style.headerTitleIconSize,
+                            color: style.headerTitleIconColor,
+                          ),
+                          SizedBox(width: style.headerTitleIconGap),
+                        ],
                         Flexible(
                           child: Text(
-                            subtitle,
+                            title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: style.headerSubtitleTextStyle,
+                            style: style.headerTitleTextStyle,
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  if (showSubtitle) ...[
+                    SizedBox(height: style.headerSubtitleTopGap),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            connected
+                                ? Icons.groups_2
+                                : connecting
+                                ? Icons.sync
+                                : Icons.cloud_off,
+                            size: style.headerStatusIconSize,
+                            color: style.headerStatusIconColor,
+                          ),
+                          SizedBox(width: style.headerStatusIconGap),
+                          Flexible(
+                            child: Text(
+                              subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: style.headerSubtitleTextStyle,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ],
               ),
             ),
             if (showMoreButton)
-              IconButton(
-                onPressed: () {},
-                icon: Icon(Icons.more_horiz, size: style.headerMoreIconSize),
+              Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  onPressed: () {},
+                  icon: Icon(Icons.more_horiz, size: style.headerMoreIconSize),
+                ),
               )
             else
-              SizedBox(width: style.headerTrailingPlaceholderWidth),
+              Align(
+                alignment: Alignment.centerRight,
+                child: SizedBox(width: style.headerTrailingPlaceholderWidth),
+              ),
           ],
         ),
       ),
@@ -769,31 +786,11 @@ class ChatAvatar extends StatelessWidget {
         size: style.avatarSize,
         borderRadius: style.avatarBorderRadius,
         textStyle: style.avatarTextStyle,
+        showFallbackWhileLoading: false,
+        showFallbackWhenUnavailable: false,
       );
     }
-    return Container(
-      width: style.avatarSize,
-      height: style.avatarSize,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(style.avatarBorderRadius),
-        color: seed == null || seed.isEmpty ? null : avatarColorForName(seed),
-        gradient: seed == null || seed.isEmpty
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: colors,
-              )
-            : null,
-      ),
-      child: Center(
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.clip,
-          style: style.avatarTextStyle,
-        ),
-      ),
-    );
+    return SizedBox(width: style.avatarSize, height: style.avatarSize);
   }
 }
 

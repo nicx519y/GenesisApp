@@ -478,6 +478,10 @@ class ChatUiStyleConfig {
 
   ChatUiStyleConfig copyWith({
     Color? headerBackgroundColor,
+    TextStyle? headerTitleTextStyle,
+    TextStyle? headerSubtitleTextStyle,
+    double? headerStatusIconSize,
+    double? headerSubtitleTopGap,
     bool? showComposerSendButton,
   }) {
     return ChatUiStyleConfig(
@@ -485,16 +489,17 @@ class ChatUiStyleConfig {
       headerHeight: headerHeight,
       headerBackgroundColor:
           headerBackgroundColor ?? this.headerBackgroundColor,
-      headerTitleTextStyle: headerTitleTextStyle,
-      headerSubtitleTextStyle: headerSubtitleTextStyle,
+      headerTitleTextStyle: headerTitleTextStyle ?? this.headerTitleTextStyle,
+      headerSubtitleTextStyle:
+          headerSubtitleTextStyle ?? this.headerSubtitleTextStyle,
       headerTitleIconColor: headerTitleIconColor,
       headerTitleIconSize: headerTitleIconSize,
       headerStatusIconColor: headerStatusIconColor,
-      headerStatusIconSize: headerStatusIconSize,
+      headerStatusIconSize: headerStatusIconSize ?? this.headerStatusIconSize,
       headerMoreIconSize: headerMoreIconSize,
       headerBackIconSize: headerBackIconSize,
       headerTitleIconGap: headerTitleIconGap,
-      headerSubtitleTopGap: headerSubtitleTopGap,
+      headerSubtitleTopGap: headerSubtitleTopGap ?? this.headerSubtitleTopGap,
       headerStatusIconGap: headerStatusIconGap,
       headerTrailingPlaceholderWidth: headerTrailingPlaceholderWidth,
       composerBackgroundColor: composerBackgroundColor,

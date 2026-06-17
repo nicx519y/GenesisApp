@@ -1059,17 +1059,21 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   Widget build(BuildContext context) {
-    final titleCount =
-        _chatroomState.entitiesByLocation[widget.locationId]?.length ?? 1;
+    final realUserNames = _joinedRealUserNames(_chatroomState);
+    final titleCount = realUserNames.length;
     final title = firstNonEmpty([widget.locationName, widget.locationId]);
-    final subtitle = _chatroomStatusLabel(_chatroomState);
+    final subtitle = realUserNames.join(', ');
     final joined = _chatroomState.joinedLocationId == widget.locationId;
-    final connecting =
-        _chatroomState.reconnecting ||
-        _chatroomState.joining ||
-        (_chatroomState.connected && !joined);
     final inputBlocked = _chatroomState.inputBlocked;
-    final style = widget.style ?? kChatWhiteHeaderStyle;
+    final baseStyle = widget.style ?? kChatWhiteHeaderStyle;
+    final style = baseStyle.copyWith(
+      headerTitleTextStyle: baseStyle.headerTitleTextStyle.copyWith(height: 1),
+      headerSubtitleTextStyle: baseStyle.headerSubtitleTextStyle.copyWith(
+        height: 1,
+      ),
+      headerStatusIconSize: baseStyle.headerStatusIconSize / 2,
+      headerSubtitleTopGap: 0,
+    );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: widget.systemUiOverlayStyle,
@@ -1080,10 +1084,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             ChatHeader(
               title: '$title ($titleCount)',
               subtitle: subtitle,
-              connected: joined,
-              connecting: connecting,
+              connected: subtitle.isNotEmpty,
+              connecting: false,
               onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
-              showSubtitle: widget.showConnectionStatus,
+              showSubtitle: widget.showConnectionStatus && subtitle.isNotEmpty,
               style: style,
             ),
             Expanded(
@@ -1125,13 +1129,21 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     );
   }
 
-  String _chatroomStatusLabel(WorldChatroomState state) {
-    if (state.inputBlocked) return 'Progressing';
-    if (state.joinedLocationId == widget.locationId) return 'Joined';
-    if (state.joining) return 'Joining';
-    if (state.reconnecting) return 'Reconnecting';
-    if (state.connected) return 'Connecting';
-    return 'Disconnect';
+  List<String> _joinedRealUserNames(WorldChatroomState state) {
+    final entities =
+        state.entitiesByLocation[widget.locationId] ??
+        const <WorldChatroomEntity>[];
+    final names = <String>[];
+    final seen = <String>{};
+    for (final entity in entities) {
+      if (entity.isAi || entity.type != WorldChatroomEntityType.player) {
+        continue;
+      }
+      final name = entity.name.trim();
+      if (name.isEmpty || !seen.add(name.toLowerCase())) continue;
+      names.add(name);
+    }
+    return names;
   }
 }
 

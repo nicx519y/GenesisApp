@@ -728,6 +728,7 @@ class _NotificationItem {
     required this.senderAvatar,
     required this.bizId,
     required this.objId,
+    required this.rootDiscussId,
     required this.content,
     required this.worldName,
     required this.originName,
@@ -814,6 +815,14 @@ class _NotificationItem {
         asString(json['discuss_id']),
         asString(json['root_discuss_id']),
       ]),
+      rootDiscussId: _firstNonEmpty([
+        asString(json['root_discuss_id']),
+        _mapString(comment, 'root_discuss_id'),
+        _mapString(reply, 'root_discuss_id'),
+        _mapString(target, 'root_discuss_id'),
+        asString(json['discuss_id']),
+        asString(json['obj_id']),
+      ]),
       content: content,
       worldName: worldName,
       originName: originName,
@@ -850,6 +859,7 @@ class _NotificationItem {
   final String senderAvatar;
   final String bizId;
   final String objId;
+  final String rootDiscussId;
   final String content;
   final String worldName;
   final String originName;
@@ -872,6 +882,7 @@ class _NotificationItem {
       senderAvatar: senderAvatar,
       bizId: bizId,
       objId: objId,
+      rootDiscussId: rootDiscussId,
       content: content,
       worldName: worldName,
       originName: originName,
@@ -1051,6 +1062,7 @@ class _NotificationItem {
   OriginDiscussListItem toDiscussListItem() {
     return OriginDiscussListItem(
       discussId: objId,
+      rootDiscussId: rootDiscussId,
       bizId: bizId,
       authorUid: senderUid,
       authorName: senderDisplayName,

@@ -41,6 +41,9 @@ class WorldDetailsPageScaffold extends StatefulWidget {
     required this.slivers,
     this.panelTopGap = defaultPanelTopGap,
     this.panelCollapsedHeightOffset = defaultPanelCollapsedHeightOffset,
+    this.panelTopRadius = defaultPanelTopRadius,
+    this.panelTopOverlap = 0,
+    this.scrollPhysics,
     this.bottomBar,
     this.topOverlay,
     this.persistentTopOverlay,
@@ -48,6 +51,7 @@ class WorldDetailsPageScaffold extends StatefulWidget {
 
   static const double defaultPanelTopGap = 30;
   static const double defaultPanelCollapsedHeightOffset = 50;
+  static const double defaultPanelTopRadius = 8;
   static const double contentHorizontalPadding = 12;
   static const double inlineContentTopPadding = 14;
   static const double contentBottomPadding = 20;
@@ -57,6 +61,9 @@ class WorldDetailsPageScaffold extends StatefulWidget {
   final List<Widget> slivers;
   final double panelTopGap;
   final double panelCollapsedHeightOffset;
+  final double panelTopRadius;
+  final double panelTopOverlap;
+  final ScrollPhysics? scrollPhysics;
   final Widget? bottomBar;
   final Widget? topOverlay;
   final Widget? persistentTopOverlay;
@@ -137,6 +144,9 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
                     ),
                   )
                   .toDouble();
+          final panelTopOverlap = widget.panelTopOverlap
+              .clamp(0.0, mapHeight)
+              .toDouble();
           final bottomPadding = bottomBar == null
               ? WorldDetailsPageScaffold.contentBottomPadding
               : WorldDetailsPageScaffold.contentBottomPaddingWithBottomBar;
@@ -186,7 +196,7 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
                               controller: _scrollController,
                               physics: _mapInteractionActive
                                   ? const NeverScrollableScrollPhysics()
-                                  : null,
+                                  : widget.scrollPhysics,
                               slivers: [
                                 SliverToBoxAdapter(
                                   child: SizedBox(
@@ -195,16 +205,30 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
                                   ),
                                 ),
                                 SliverToBoxAdapter(
-                                  child: DecoratedBox(
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.vertical(
-                                        top: Radius.circular(8),
+                                  child: SizedBox(
+                                    height: WorldDetailsPageScaffold
+                                        .inlineContentTopPadding,
+                                    child: OverflowBox(
+                                      minHeight:
+                                          WorldDetailsPageScaffold
+                                              .inlineContentTopPadding +
+                                          panelTopOverlap,
+                                      maxHeight:
+                                          WorldDetailsPageScaffold
+                                              .inlineContentTopPadding +
+                                          panelTopOverlap,
+                                      alignment: Alignment.bottomCenter,
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.vertical(
+                                            top: Radius.circular(
+                                              widget.panelTopRadius,
+                                            ),
+                                          ),
+                                        ),
+                                        child: const SizedBox.expand(),
                                       ),
-                                    ),
-                                    child: const SizedBox(
-                                      height: WorldDetailsPageScaffold
-                                          .inlineContentTopPadding,
                                     ),
                                   ),
                                 ),
