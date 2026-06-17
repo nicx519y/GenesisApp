@@ -278,9 +278,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    const submitColor = Color(0xFF198B64);
     const disabledSubmitColor = Color(0xFFBFD8CD);
-    final submitBlocked = _submitBlockReason(_draft) != null;
 
     return PopScope(
       canPop: false,

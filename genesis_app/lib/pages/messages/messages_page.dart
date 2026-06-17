@@ -307,9 +307,12 @@ class _MessageMenuButton extends StatelessWidget {
                   Positioned(
                     top: 0,
                     right: 0,
-                    child: _UnreadBadge(
-                      key: ValueKey('message-menu-$routeName-unread-badge'),
-                      count: unreadCount,
+                    child: Transform.translate(
+                      offset: const Offset(4, -4),
+                      child: GenesisUnreadBadge(
+                        key: ValueKey('message-menu-$routeName-unread-badge'),
+                        count: unreadCount,
+                      ),
                     ),
                   ),
                 ],
