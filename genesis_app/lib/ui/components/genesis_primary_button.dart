@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/genesis_colors.dart';
 import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_spacing.dart';
 
@@ -33,6 +34,10 @@ class GenesisPrimaryButton extends StatelessWidget {
     fontSize: 16,
     fontWeight: FontWeight.w600,
   );
+  static const Color defaultBackgroundColor = GenesisColors.brand;
+  static const Color defaultForegroundColor = Colors.white;
+  static const Color defaultDisabledBackgroundColor = GenesisColors.brandSoft;
+  static const Color defaultDisabledForegroundColor = Colors.white;
 
   final String label;
   final VoidCallback? onPressed;
@@ -62,10 +67,12 @@ class GenesisPrimaryButton extends StatelessWidget {
       child: FilledButton(
         onPressed: isLoading ? null : onPressed,
         style: FilledButton.styleFrom(
-          backgroundColor: backgroundColor,
-          foregroundColor: foregroundColor,
-          disabledBackgroundColor: disabledBackgroundColor,
-          disabledForegroundColor: disabledForegroundColor,
+          backgroundColor: backgroundColor ?? defaultBackgroundColor,
+          foregroundColor: foregroundColor ?? defaultForegroundColor,
+          disabledBackgroundColor:
+              disabledBackgroundColor ?? defaultDisabledBackgroundColor,
+          disabledForegroundColor:
+              disabledForegroundColor ?? defaultDisabledForegroundColor,
           side: side,
           textStyle: defaultTextStyle.copyWith(
             fontSize: fontSize,
@@ -83,7 +90,7 @@ class GenesisPrimaryButton extends StatelessWidget {
                 dimension: loadingSize,
                 child: CircularProgressIndicator(
                   strokeWidth: loadingStrokeWidth,
-                  color: foregroundColor,
+                  color: foregroundColor ?? defaultForegroundColor,
                 ),
               )
             : Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),

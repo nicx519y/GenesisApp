@@ -5944,7 +5944,6 @@ void main() {
         characterCount: index + 2,
       ),
     );
-
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -6241,7 +6240,7 @@ void main() {
     Future<void> expectCreateButtonMatchesSaveSpacing(
       String sectionLabel,
     ) async {
-      await tester.tap(find.text(sectionLabel));
+      await tester.tap(find.textContaining(sectionLabel));
       await tester.pumpAndSettle();
 
       final saveButton = find.widgetWithText(FilledButton, 'Save');
@@ -6260,6 +6259,116 @@ void main() {
     await expectCreateButtonMatchesSaveSpacing('Characters');
     await expectCreateButtonMatchesSaveSpacing('Locations');
     await expectCreateButtonMatchesSaveSpacing('Story Events (Optional)');
+  });
+
+  testWidgets('invalid create basics save is disabled with BFD8CD', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    final saveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+
+    expect(saveButton.onPressed, isNull);
+    expect(
+      saveButton.style?.backgroundColor?.resolve(<WidgetState>{
+        WidgetState.disabled,
+      }),
+      const Color(0xFFBFD8CD),
+    );
+  });
+
+  testWidgets('saved valid create basics can be saved again', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.saveFinal(
+      const CreateOriginDraft(
+        basics: BasicsDraft(
+          originId: 'origin_saved',
+          originName: 'Saved Origin',
+          worldView: 'Saved World',
+          coverImageUrl: 'https://example.com/cover.png',
+        ),
+        characters: <CharacterDraft>[],
+        locations: <LocationDraft>[],
+        storyEvents: <StoryEventDraft>[],
+        basicsSaved: true,
+        charactersSaved: false,
+        locationsSaved: false,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    final saveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+
+    expect(saveButton.onPressed, isNotNull);
+  });
+
+  testWidgets('create submit starts disabled when draft is incomplete', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
+    await tester.pumpAndSettle();
+
+    final createButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Create'),
+    );
+
+    expect(createButton.onPressed, isNull);
+    expect(
+      createButton.style?.backgroundColor?.resolve(<WidgetState>{
+        WidgetState.disabled,
+      }),
+      const Color(0xFFBFD8CD),
+    );
+  });
+
+  testWidgets('create submit requires at least one complete character', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.saveFinal(
+      const CreateOriginDraft(
+        basics: BasicsDraft(
+          originId: 'origin_saved',
+          originName: 'Saved Origin',
+          worldView: 'Saved World',
+          coverImageUrl: 'https://example.com/cover.png',
+        ),
+        characters: <CharacterDraft>[],
+        locations: <LocationDraft>[],
+        storyEvents: <StoryEventDraft>[],
+        basicsSaved: true,
+        charactersSaved: true,
+        locationsSaved: false,
+        storyEventsSaved: false,
+      ),
+    );
+
+    await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
+    await tester.pumpAndSettle();
+
+    final createButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Create'),
+    );
+
+    expect(createButton.onPressed, isNull);
+    expect(
+      createButton.style?.backgroundColor?.resolve(<WidgetState>{
+        WidgetState.disabled,
+      }),
+      const Color(0xFFBFD8CD),
+    );
   });
 
   testWidgets('create origin entries navigate to detail pages', (
@@ -6462,58 +6571,78 @@ void main() {
     expect(nameField.controller?.text, isEmpty);
   });
 
-  testWidgets(
-    'characters save ignores empty cards but validates partial cards',
-    (WidgetTester tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) {
-                return FilledButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const CreateCharactersPage(),
-                      ),
-                    );
-                  },
-                  child: const Text('Open characters'),
-                );
-              },
-            ),
+  testWidgets('characters save requires at least one complete character', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return FilledButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const CreateCharactersPage(),
+                    ),
+                  );
+                },
+                child: const Text('Open characters'),
+              );
+            },
           ),
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Open characters'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Open characters'));
+    await tester.pumpAndSettle();
 
-      var draft = await CreateOriginDraftStore.loadFinal();
-      expect(draft.charactersSaved, isTrue);
-      expect(
-        draft.characters.where((item) => item.name.trim().isNotEmpty),
-        isEmpty,
-      );
+    FilledButton saveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(saveButton.onPressed, isNull);
 
-      await tester.tap(find.text('Open characters'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Ari');
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
-      await tester.pumpAndSettle();
+    var draft = await CreateOriginDraftStore.loadFinal();
+    expect(draft.charactersSaved, isFalse);
+    expect(
+      draft.characters.where((item) => item.name.trim().isNotEmpty),
+      isEmpty,
+    );
 
-      expect(find.text('Character 1: Identity is required.'), findsOneWidget);
-      draft = await CreateOriginDraftStore.loadFinal();
-      expect(
-        draft.characters.where((item) => item.name.trim().isNotEmpty),
-        isEmpty,
-      );
-      await tester.pump(const Duration(seconds: 2));
-    },
-  );
+    await tester.enterText(find.byType(TextField).first, 'Ari');
+    await tester.pumpAndSettle();
+
+    saveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(saveButton.onPressed, isNull);
+    draft = await CreateOriginDraftStore.loadFinal();
+    expect(
+      draft.characters.where((item) => item.name.trim().isNotEmpty),
+      isEmpty,
+    );
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(1), 'Guide');
+    await tester.enterText(fields.at(2), 'Calm');
+    await tester.pumpAndSettle();
+
+    saveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save'),
+    );
+    expect(saveButton.onPressed, isNotNull);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    draft = await CreateOriginDraftStore.loadFinal();
+    expect(draft.charactersSaved, isTrue);
+    expect(draft.characters.single.name, 'Ari');
+  });
 
   testWidgets('locations add button appends empty form', (
     WidgetTester tester,
@@ -6807,29 +6936,24 @@ void main() {
     expect(id.length, 'origin_'.length + 24);
   });
 
-  testWidgets('create save reports missing local draft sections', (
+  testWidgets('create submit is disabled when required sections are missing', (
     WidgetTester tester,
   ) async {
+    await CreateOriginDraftStore.clear();
+
     await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
     await tester.pumpAndSettle();
 
     final createButton = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Create'),
     );
-    expect(createButton.onPressed, isNotNull);
+    expect(createButton.onPressed, isNull);
     expect(
-      createButton.style?.backgroundColor?.resolve(<WidgetState>{}),
-      GenesisColors.brand,
+      createButton.style?.backgroundColor?.resolve(<WidgetState>{
+        WidgetState.disabled,
+      }),
+      const Color(0xFFBFD8CD),
     );
-
-    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text('Please save Basics, Characters, Locations before creating.'),
-      findsOneWidget,
-    );
-    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('create save posts v1 origin and clears local draft', (

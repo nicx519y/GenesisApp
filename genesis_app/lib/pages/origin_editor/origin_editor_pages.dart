@@ -278,7 +278,8 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    const disabledSubmitColor = Color(0xFFBFD8CD);
+    final canUseSubmitButton =
+        !_isSubmitting && _submitBlockReason(_draft) == null;
 
     return PopScope(
       canPop: false,
@@ -305,8 +306,8 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                         child: ListView(
                           children: [
                             _SectionRow(
-                              icon: '🌐',
-                              title: 'Basics',
+                              icon: '',
+                              title: '🌐 Basics',
                               summary: _basicsSummary(_draft),
                               completed: _draft.basicsSaved,
                               modified: _basicsModified(_draft),
@@ -315,8 +316,8 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                               ),
                             ),
                             _SectionRow(
-                              icon: '👤',
-                              title: 'Characters',
+                              icon: '',
+                              title: '👤 Characters (>=1)',
                               summary: _charactersSummary(_draft),
                               completed: _draft.charactersSaved,
                               modified: _charactersModified(_draft),
@@ -325,8 +326,8 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                               ),
                             ),
                             _SectionRow(
-                              icon: '📍',
-                              title: 'Locations',
+                              icon: '',
+                              title: '📍 Locations (Optional)',
                               summary: _locationsSummary(_draft),
                               completed: _draft.locationsSaved,
                               modified: _locationsModified(_draft),
@@ -335,8 +336,8 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                               ),
                             ),
                             _SectionRow(
-                              icon: '📜',
-                              title: 'Story Events (Optional)',
+                              icon: '',
+                              title: '📜 Story Events (Optional)',
                               summary: _storyEventsSummary(_draft),
                               completed: _draft.storyEventsSaved,
                               modified: _storyEventsModified(_draft),
@@ -361,11 +362,9 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                   label: _isSubmitting
                       ? widget.submittingLabel
                       : widget.submitLabel,
-                  onPressed: _isSubmitting ? null : () => unawaited(_submit()),
-                  backgroundColor: createFormGreen,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: disabledSubmitColor,
-                  disabledForegroundColor: Colors.white,
+                  onPressed: canUseSubmitButton
+                      ? () => unawaited(_submit())
+                      : null,
                 ),
               ),
             ],

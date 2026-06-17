@@ -178,6 +178,35 @@ void main() {
     );
   });
 
+  testWidgets('GenesisPrimaryButton owns default disabled styling', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: GenesisPrimaryButton(label: 'Continue', onPressed: null),
+        ),
+      ),
+    );
+
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Continue'),
+    );
+    expect(button.onPressed, isNull);
+    expect(
+      button.style?.backgroundColor?.resolve(<WidgetState>{
+        WidgetState.disabled,
+      }),
+      const Color(0xFFBFD8CD),
+    );
+    expect(
+      button.style?.foregroundColor?.resolve(<WidgetState>{
+        WidgetState.disabled,
+      }),
+      Colors.white,
+    );
+  });
+
   testWidgets('GenesisActionBox attaches cancel for a single action', (
     tester,
   ) async {
