@@ -20,7 +20,6 @@ import '../../components/world_map_stage.dart';
 import '../../components/world_top_overlay_bar.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../icons/custom_icon_assets.dart';
-import '../../network/chatroom/chatroom_http_models.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_api.dart';
@@ -71,8 +70,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       <String, _LocationChatPanelDescriptor>{};
   final Set<String> _cachedLocationChatIds = <String>{};
   final Set<String> _readyLocationChatIds = <String>{};
-  List<_LatestAiDialogue> _latestAiDialogues = const <_LatestAiDialogue>[];
-  String _latestAiDialogueWorldId = '';
   String _activeChatLocationId = '';
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
@@ -170,18 +167,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (!mounted) return;
     final world = state.world;
     var shouldSyncRelationStatus = false;
-    final latestDialogues = _latestAiDialoguesFromWorldMessages(
-      state.worldMessages,
-    );
     setState(() {
       if (world != null && !identical(_world, world)) {
         _world = world;
         _syncLocationChatDescriptors(world);
         shouldSyncRelationStatus = true;
-      }
-      if (latestDialogues.isNotEmpty) {
-        _latestAiDialogues = latestDialogues;
-        _latestAiDialogueWorldId = widget.wid;
       }
     });
     if (shouldSyncRelationStatus) {
@@ -291,43 +281,12 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     WorldDetail world, {
     bool clearInitialLoadError = false,
   }) {
-    final previousWorldId = _world?.worldId;
     setState(() {
       _world = world;
       if (clearInitialLoadError) _initialLoadError = null;
       _syncLocationChatDescriptors(world);
-      if (previousWorldId != world.worldId) {
-        _latestAiDialogues = const <_LatestAiDialogue>[];
-        _latestAiDialogueWorldId = '';
-      }
     });
     _syncWorldChatroomForRelationStatus(world.relationStatus);
-    if (previousWorldId != world.worldId || _latestAiDialogues.isEmpty) {
-      unawaited(_loadLatestAiDialogues(world.worldId));
-    }
-  }
-
-  Future<void> _loadLatestAiDialogues(String worldId) async {
-    final resolvedWorldId = worldId.trim();
-    if (resolvedWorldId.isEmpty) return;
-    try {
-      final response = await AppServicesScope.read(
-        context,
-      ).api.chatroomHttp.getWorldMessages(worldId: resolvedWorldId);
-      final messages = response.locations
-          .expand((location) => location.messages)
-          .toList(growable: false);
-      final latestDialogues = _latestAiDialoguesFromHttpMessages(messages);
-      if (!mounted || _world?.worldId != resolvedWorldId) return;
-      setState(() {
-        _latestAiDialogues = latestDialogues;
-        _latestAiDialogueWorldId = resolvedWorldId;
-      });
-    } catch (e) {
-      debugPrint(
-        '[WorldPage] latest AI dialogues failed world="$resolvedWorldId": $e',
-      );
-    }
   }
 
   String _rootMapImageUrlForWorld(WorldDetail world) {
@@ -914,9 +873,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final thirdLevelLocationCount = allLocationNodes
         .where((node) => node.depth == 2)
         .length;
-    final latestAiDialogues = _latestAiDialogueWorldId == world.worldId
-        ? _latestAiDialogues
-        : const <_LatestAiDialogue>[];
     return PopScope(
       canPop: _activeChatLocationId.isEmpty,
       onPopInvokedWithResult: (didPop, result) {
@@ -939,33 +895,18 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           pointsCount: thirdLevelLocationCount,
           top: topPadding + 8,
           showTopOverlay: false,
-          mapBuilder: (context, pointMode) => Stack(
-            children: [
-              WorldMap(
-                points: points,
-                listPoints: listPoints,
-                locationNodes: locationNodes,
-                mapImageUrl: rootMapImageUrl,
-                dimmed: pointMode,
-                showPointsList: pointMode,
-                pointsListOuterScrollHandoff: false,
-                overlayTop: topPadding + 8 + 48,
-                drillExitTop: topPadding + 68,
-                onDrillIntoLocation: _showMapTab,
-                onPointTap: _openChatForPoint,
-              ),
-              if (!pointMode && latestAiDialogues.isNotEmpty)
-                Positioned(
-                  left: 18,
-                  right: 88,
-                  bottom: 154,
-                  child: IgnorePointer(
-                    child: _LatestAiDialogueCarousel(
-                      dialogues: latestAiDialogues,
-                    ),
-                  ),
-                ),
-            ],
+          mapBuilder: (context, pointMode) => WorldMap(
+            points: points,
+            listPoints: listPoints,
+            locationNodes: locationNodes,
+            mapImageUrl: rootMapImageUrl,
+            dimmed: pointMode,
+            showPointsList: pointMode,
+            pointsListOuterScrollHandoff: false,
+            overlayTop: topPadding + 8 + 48,
+            drillExitTop: topPadding + 68,
+            onDrillIntoLocation: _showMapTab,
+            onPointTap: _openChatForPoint,
           ),
         ),
         slivers: [
@@ -1326,148 +1267,6 @@ class _WorldSectionFloatingTabItem {
 
   final String label;
   final String asset;
-}
-
-class _LatestAiDialogue {
-  const _LatestAiDialogue({
-    required this.senderName,
-    required this.content,
-    required this.roundOrder,
-    required this.messageId,
-  });
-
-  final String senderName;
-  final String content;
-  final int roundOrder;
-  final int messageId;
-}
-
-class _LatestAiDialogueCarousel extends StatefulWidget {
-  const _LatestAiDialogueCarousel({required this.dialogues});
-
-  final List<_LatestAiDialogue> dialogues;
-
-  @override
-  State<_LatestAiDialogueCarousel> createState() =>
-      _LatestAiDialogueCarouselState();
-}
-
-class _LatestAiDialogueCarouselState extends State<_LatestAiDialogueCarousel> {
-  static const _interval = Duration(seconds: 3);
-  static const _animationDuration = Duration(milliseconds: 280);
-
-  late final PageController _controller;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = PageController();
-    _syncTimer();
-  }
-
-  @override
-  void didUpdateWidget(covariant _LatestAiDialogueCarousel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.dialogues.length != widget.dialogues.length) {
-      if (_controller.hasClients) _controller.jumpToPage(0);
-    }
-    _syncTimer();
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _syncTimer() {
-    _timer?.cancel();
-    if (widget.dialogues.length <= 1) return;
-    _timer = Timer.periodic(_interval, (_) {
-      if (!mounted || !_controller.hasClients) return;
-      final currentPage = (_controller.page ?? _controller.initialPage).round();
-      final nextPage = (currentPage + 1) % widget.dialogues.length;
-      _controller.animateToPage(
-        nextPage,
-        duration: _animationDuration,
-        curve: Curves.easeOutCubic,
-      );
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 76,
-      child: PageView.builder(
-        controller: _controller,
-        itemCount: widget.dialogues.length,
-        itemBuilder: (context, index) {
-          return _LatestAiDialogueBubble(dialogue: widget.dialogues[index]);
-        },
-      ),
-    );
-  }
-}
-
-class _LatestAiDialogueBubble extends StatelessWidget {
-  const _LatestAiDialogueBubble({required this.dialogue});
-
-  final _LatestAiDialogue dialogue;
-
-  @override
-  Widget build(BuildContext context) {
-    final senderName = dialogue.senderName.trim().isEmpty
-        ? 'AI'
-        : dialogue.senderName.trim();
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x26000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 9, 12, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              senderName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF111111),
-                fontSize: 12,
-                height: 1.1,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              dialogue.content,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF333333),
-                fontSize: 12,
-                height: 1.28,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _LocationChatPanelDescriptor {
@@ -3308,124 +3107,6 @@ Map<String, List<UserAvatar>> _avatarsByLocationFromCharacterPositions(
 
 String _initials(String name) {
   return initialsForAvatarName(name);
-}
-
-List<_LatestAiDialogue> _latestAiDialoguesFromHttpMessages(
-  Iterable<ChatroomHttpMessage> messages,
-) {
-  return _latestAiDialoguesFromEntries(
-    messages.map(
-      (message) => _LatestAiDialogueEntry(
-        roundId: message.conversationRoundId,
-        roundOrder: message.roundOrder,
-        messageId: message.messageId,
-        senderType: message.senderType,
-        senderName: message.senderName,
-        content: message.content,
-        createdAt: message.createdAt,
-      ),
-    ),
-  );
-}
-
-List<_LatestAiDialogue> _latestAiDialoguesFromWorldMessages(
-  Iterable<WorldChatroomMessage> messages,
-) {
-  return _latestAiDialoguesFromEntries(
-    messages.map(
-      (message) => _LatestAiDialogueEntry(
-        roundId: message.conversationRoundNumber,
-        roundOrder: message.roundOrder,
-        messageId: message.messageId,
-        senderType: message.senderType,
-        senderName: message.senderName,
-        content: message.content,
-        createdAt: message.createdAt,
-      ),
-    ),
-  );
-}
-
-List<_LatestAiDialogue> _latestAiDialoguesFromEntries(
-  Iterable<_LatestAiDialogueEntry> entries,
-) {
-  final candidates = entries
-      .where((entry) {
-        return _isAiDialogueSenderType(entry.senderType) &&
-            entry.content.trim().isNotEmpty;
-      })
-      .toList(growable: false);
-  if (candidates.isEmpty) return const <_LatestAiDialogue>[];
-
-  var latestRound = candidates.first.roundId;
-  DateTime? latestTime = candidates.first.createdAt;
-  for (final entry in candidates.skip(1)) {
-    if (entry.roundId > latestRound) {
-      latestRound = entry.roundId;
-      latestTime = entry.createdAt;
-      continue;
-    }
-    if (entry.roundId == latestRound &&
-        _dateTimeAfter(entry.createdAt, latestTime)) {
-      latestTime = entry.createdAt;
-    }
-  }
-
-  final latest =
-      candidates
-          .where((entry) => entry.roundId == latestRound)
-          .toList(growable: false)
-        ..sort((a, b) {
-          final orderCompare = a.roundOrder.compareTo(b.roundOrder);
-          if (orderCompare != 0) return orderCompare;
-          return a.messageId.compareTo(b.messageId);
-        });
-
-  return latest
-      .take(8)
-      .map(
-        (entry) => _LatestAiDialogue(
-          senderName: entry.senderName,
-          content: entry.content.trim(),
-          roundOrder: entry.roundOrder,
-          messageId: entry.messageId,
-        ),
-      )
-      .toList(growable: false);
-}
-
-bool _isAiDialogueSenderType(String senderType) {
-  final normalized = senderType.trim().toLowerCase();
-  return normalized == 'character' ||
-      normalized == 'ai' ||
-      normalized == 'assistant' ||
-      normalized == 'npc';
-}
-
-bool _dateTimeAfter(DateTime? value, DateTime? other) {
-  if (value == null) return false;
-  if (other == null) return true;
-  return value.isAfter(other);
-}
-
-class _LatestAiDialogueEntry {
-  const _LatestAiDialogueEntry({
-    required this.roundId,
-    required this.roundOrder,
-    required this.messageId,
-    required this.senderType,
-    required this.senderName,
-    required this.content,
-    required this.createdAt,
-  });
-
-  final int roundId;
-  final int roundOrder;
-  final int messageId;
-  final String senderType;
-  final String senderName;
-  final String content;
-  final DateTime? createdAt;
 }
 
 List<Map<String, dynamic>> _rootWorldLocations(
