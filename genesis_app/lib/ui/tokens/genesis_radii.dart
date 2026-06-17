@@ -9,6 +9,7 @@ abstract final class GenesisRadii {
   static const Radius pill = Radius.circular(999);
 
   static const BorderRadius input = BorderRadius.all(md);
+  static const BorderRadius button = BorderRadius.all(sm);
   static const BorderRadius card = BorderRadius.all(lg);
   static const BorderRadius panel = BorderRadius.all(xl);
   static const BorderRadius sheet = BorderRadius.vertical(top: xxl);

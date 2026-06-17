@@ -6,6 +6,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
@@ -5290,10 +5291,10 @@ void main() {
     expect(googleLabel.style?.fontWeight, FontWeight.w400);
     final googleIcon = find.byWidgetPredicate(
       (widget) =>
-          widget is Image &&
-          widget.image is AssetImage &&
-          (widget.image as AssetImage).assetName ==
-              'assets/custom-icons/png/google_oauth.png',
+          widget is SvgPicture &&
+          widget.bytesLoader is SvgAssetLoader &&
+          (widget.bytesLoader as SvgAssetLoader).assetName ==
+              'assets/custom-icons/svg/login_google.svg',
     );
     final iconRight = tester.getTopRight(googleIcon).dx;
     final labelLeft = tester.getTopLeft(find.text('Continue with Google')).dx;

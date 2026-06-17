@@ -162,7 +162,7 @@ class _MessagesPageState extends State<MessagesPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const PageHeader(pageName: 'Messages', showSearchBar: false),
-          const SizedBox(height: 28),
+          const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(
@@ -201,7 +201,7 @@ class _MessagesPageState extends State<MessagesPage> {
               ],
             ),
           ),
-          const SizedBox(height: 34),
+          const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18),
             child: Row(
@@ -272,6 +272,7 @@ class _MessageMenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 96,
+      height: 80,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => Navigator.of(context).push(
@@ -285,57 +286,58 @@ class _MessageMenuButton extends StatelessWidget {
             ),
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Column(
-            children: [
-              SizedBox(
-                width: 54,
-                height: 54,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: backgroundColor,
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      alignment: Alignment.center,
-                      child: Image.asset(
-                        iconAsset,
-                        width: 25,
-                        height: 25,
-                        fit: BoxFit.contain,
-                        filterQuality: FilterQuality.high,
-                      ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 46,
+              height: 46,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: backgroundColor,
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    Positioned(
-                      top: 0,
-                      right: 0,
-                      child: _UnreadBadge(
-                        key: ValueKey('message-menu-$routeName-unread-badge'),
-                        count: unreadCount,
-                      ),
+                    alignment: Alignment.center,
+                    child: Image.asset(
+                      iconAsset,
+                      width: 24,
+                      height: 24,
+                      fit: BoxFit.contain,
+                      filterQuality: FilterQuality.high,
                     ),
-                  ],
-                ),
+                  ),
+                  Positioned(
+                    top: 0,
+                    right: 0,
+                    child: _UnreadBadge(
+                      key: ValueKey('message-menu-$routeName-unread-badge'),
+                      count: unreadCount,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 9),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 13,
-                  height: 1.2,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.2,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

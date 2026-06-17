@@ -2,12 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../platform/auth/auth_session.dart';
 import '../pages/legal/legal_document_page.dart';
 import '../routers/app_router.dart';
 
-const String _googleOauthIconAsset = 'assets/custom-icons/png/google_oauth.png';
+const String _googleOauthIconAsset = 'assets/custom-icons/svg/login_google.svg';
+const String _appleOauthIconAsset = 'assets/custom-icons/svg/login_apple.svg';
+const double _loginProviderIconSlotSize = 36;
+const double _googleProviderIconSize = 36;
+const double _appleProviderIconSize = 32;
+const double _loginProviderSpinnerSize = 22;
 
 class LoginProviderButtons extends StatelessWidget {
   const LoginProviderButtons({
@@ -129,7 +135,7 @@ class LoginProviderButton extends StatelessWidget {
     required this.onPressed,
     this.isLoading = false,
     this.height = 62,
-    this.borderRadius = 32,
+    this.borderRadius = 8,
     this.backgroundColor = const Color(0xFFF0F0F0),
     this.foregroundColor = Colors.black,
   });
@@ -168,17 +174,20 @@ class LoginProviderButton extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (isLoading)
-                  SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.4,
-                      color: foregroundColor.withValues(alpha: 0.75),
-                    ),
-                  )
-                else
-                  _LoginProviderIcon(provider: provider),
+                SizedBox.square(
+                  dimension: _loginProviderIconSlotSize,
+                  child: Center(
+                    child: isLoading
+                        ? SizedBox.square(
+                            dimension: _loginProviderSpinnerSize,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.4,
+                              color: foregroundColor.withValues(alpha: 0.75),
+                            ),
+                          )
+                        : _LoginProviderIcon(provider: provider),
+                  ),
+                ),
                 const SizedBox(width: 10),
                 Text(
                   label,
@@ -208,16 +217,17 @@ class _LoginProviderIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (provider) {
-      IdentityProvider.google => Image.asset(
+      IdentityProvider.google => SvgPicture.asset(
         _googleOauthIconAsset,
-        width: 38,
-        height: 38,
+        width: _googleProviderIconSize,
+        height: _googleProviderIconSize,
         fit: BoxFit.contain,
       ),
-      IdentityProvider.apple => const Icon(
-        Icons.apple,
-        size: 32,
-        color: Colors.black,
+      IdentityProvider.apple => SvgPicture.asset(
+        _appleOauthIconAsset,
+        width: _appleProviderIconSize,
+        height: _appleProviderIconSize,
+        fit: BoxFit.contain,
       ),
     };
   }

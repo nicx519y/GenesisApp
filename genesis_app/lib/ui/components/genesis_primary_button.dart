@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_spacing.dart';
 
 class GenesisPrimaryButton extends StatelessWidget {
@@ -27,9 +28,7 @@ class GenesisPrimaryButton extends StatelessWidget {
   });
 
   static const double defaultHeight = 42;
-  static const BorderRadius defaultBorderRadius = BorderRadius.all(
-    Radius.circular(8),
-  );
+  static const BorderRadius defaultBorderRadius = GenesisRadii.button;
   static const TextStyle defaultTextStyle = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w600,
