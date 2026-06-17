@@ -515,6 +515,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final descriptor = _LocationChatPanelDescriptor(
       locationId: locationId,
       locationName: point.name,
+      backgroundImageUrl: point.mapImageUrl,
       isLeafLocation: point.isLeafLocation,
       localMessageLocationIds: _orderedNonEmptyStrings([
         pointId,
@@ -772,6 +773,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                   worldId: widget.wid,
                   locationId: descriptor.locationId,
                   locationName: descriptor.locationName,
+                  backgroundImageUrl: descriptor.backgroundImageUrl,
                   isLeafLocation: descriptor.isLeafLocation,
                   localMessageLocationIds: descriptor.localMessageLocationIds,
                   service: chatroom,
@@ -894,7 +896,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       },
       child: WorldDetailsPageScaffold(
         panelTopGap: 50,
-        panelCollapsedHeightOffset: 60,
+        panelCollapsedHeightOffset: 120,
+        scrollPhysics: const NeverScrollableScrollPhysics(),
         topOverlay: _buildLocationChatOverlay(),
         persistentTopOverlay: _buildPersistentMapOverlay(
           thirdLevelLocationCount,
@@ -912,6 +915,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             mapImageUrl: rootMapImageUrl,
             dimmed: pointMode,
             showPointsList: pointMode,
+            pointsListOuterScrollHandoff: false,
             overlayTop: topPadding + 8 + 48,
             drillExitTop: topPadding + 68,
             onDrillIntoLocation: _showMapTab,
@@ -921,7 +925,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         slivers: [
           _WorldFeedContent(
             world: world,
-            sectionController: _sectionController,
             worldActionRunning: _worldActionRunning,
             onWorldAction: _runWorldAction,
           ),
@@ -933,7 +936,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   Widget _buildInitialLoadingScaffold(double topPadding) {
     return WorldDetailsPageScaffold(
       panelTopGap: 50,
-      panelCollapsedHeightOffset: 100,
+      panelCollapsedHeightOffset: 120,
+      scrollPhysics: const NeverScrollableScrollPhysics(),
       persistentTopOverlay: _buildPersistentMapOverlay(0, topPadding + 8),
       map: WorldMapStage(
         controller: _tabController,
@@ -947,6 +951,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           fallbackOnEmptyMapUrl: false,
           dimmed: pointMode,
           showPointsList: pointMode,
+          pointsListOuterScrollHandoff: false,
           overlayTop: topPadding + 8 + 48,
           drillExitTop: topPadding + 68,
         ),
@@ -969,35 +974,99 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               onTabTap: _handleMapModeTabTap,
             ),
           ),
-          _WorldSectionFloatingTabs(controller: _sectionController),
+          _WorldSectionFloatingTabs(
+            controller: _sectionController,
+            onTap: _openWorldSectionSheet,
+          ),
         ],
       ),
     );
   }
+
+  void _openWorldSectionSheet(int index) {
+    final world = _world;
+    if (world == null) return;
+    _sectionController.animateTo(index);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.18),
+      builder: (context) =>
+          _WorldSectionsBottomSheet(world: world, initialIndex: index),
+    );
+  }
 }
 
-class _WorldSectionFloatingTabs extends StatefulWidget {
-  const _WorldSectionFloatingTabs({required this.controller});
+class _WorldSectionFloatingTabs extends StatelessWidget {
+  const _WorldSectionFloatingTabs({
+    required this.controller,
+    required this.onTap,
+  });
 
   final TabController controller;
+  final ValueChanged<int> onTap;
 
   @override
-  State<_WorldSectionFloatingTabs> createState() =>
-      _WorldSectionFloatingTabsState();
-}
+  Widget build(BuildContext context) {
+    final safePadding = MediaQuery.paddingOf(context);
+    return Positioned(
+      right: _edgePadding,
+      top: safePadding.top + 400,
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) =>
+            SizedBox(width: _width, height: _height, child: _buildTabs()),
+      ),
+    );
+  }
 
-class _WorldSectionFloatingTabsState extends State<_WorldSectionFloatingTabs> {
-  static const double _width = 62;
-  static const double _height = 226;
-  static const double _dragHitWidth = 96;
+  Widget _buildTabs() {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x26000000),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Column(
+          children: [
+            for (final entry in _items.indexed) ...[
+              Expanded(
+                child: _WorldSectionFloatingTabButton(
+                  item: entry.$2,
+                  selected: controller.index == entry.$1,
+                  onTap: () => onTap(entry.$1),
+                ),
+              ),
+              if (entry.$1 != _items.length - 1)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10),
+                  child: Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Color(0xFFECECEC),
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const double _width = 48;
+  static const double _height = 174;
   static const double _edgePadding = 8;
-
-  Offset? _position;
-  bool _dragging = false;
-  int? _dragPointer;
-  Offset? _dragStartGlobalPosition;
-  Offset? _dragStartSidebarPosition;
-  Alignment? _dragStartAlignment;
 
   static const _items = <_WorldSectionFloatingTabItem>[
     _WorldSectionFloatingTabItem(
@@ -1013,216 +1082,6 @@ class _WorldSectionFloatingTabsState extends State<_WorldSectionFloatingTabs> {
       asset: _worldSectionCastIconAsset,
     ),
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    widget.controller.addListener(_handleControllerChanged);
-  }
-
-  @override
-  void didUpdateWidget(covariant _WorldSectionFloatingTabs oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_handleControllerChanged);
-      widget.controller.addListener(_handleControllerChanged);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_handleControllerChanged);
-    super.dispose();
-  }
-
-  void _handleControllerChanged() {
-    if (mounted) setState(() {});
-  }
-
-  double _opacityForScroll(ScrollController? controller, double? mapHeight) {
-    if (controller == null || mapHeight == null || !controller.hasClients) {
-      return 0;
-    }
-    final fadeDistance = (mapHeight / 2).clamp(1.0, double.infinity);
-    return (controller.offset / fadeDistance).clamp(0.0, 1.0).toDouble();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final safePadding = MediaQuery.paddingOf(context);
-    final scrollController = WorldDetailsPanelScrollControllerScope.maybeOf(
-      context,
-    );
-    final mapHeight = WorldDetailsPanelScrollControllerScope.maybeMapHeightOf(
-      context,
-    );
-    return Positioned.fill(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final maxX = (constraints.maxWidth - _dragHitWidth - _edgePadding)
-              .clamp(_edgePadding, double.infinity);
-          final minY = safePadding.top + 96;
-          final maxY =
-              (constraints.maxHeight -
-                      _height -
-                      safePadding.bottom -
-                      _edgePadding)
-                  .clamp(minY, double.infinity);
-          final currentPosition =
-              _position ??
-              Offset(
-                maxX.toDouble(),
-                (constraints.maxHeight * 0.46 - _height / 2).clamp(minY, maxY),
-              );
-          final clampedPosition = Offset(
-            currentPosition.dx.clamp(_edgePadding, maxX).toDouble(),
-            currentPosition.dy.clamp(minY, maxY).toDouble(),
-          );
-
-          final sidebar = Listener(
-            behavior: HitTestBehavior.translucent,
-            onPointerDown: (event) {
-              if (_dragPointer != null) return;
-              _dragPointer = event.pointer;
-              _dragStartGlobalPosition = event.position;
-              _dragStartSidebarPosition = clampedPosition;
-              _dragStartAlignment =
-                  clampedPosition.dx < constraints.maxWidth / 2
-                  ? Alignment.centerLeft
-                  : Alignment.centerRight;
-            },
-            onPointerMove: (event) {
-              if (_dragPointer != event.pointer) return;
-              final startGlobal = _dragStartGlobalPosition;
-              final startSidebar = _dragStartSidebarPosition;
-              if (startGlobal == null || startSidebar == null) return;
-              final delta = event.position - startGlobal;
-              if (!_dragging && delta.distance < 1) return;
-              setState(() {
-                _dragging = true;
-                final next = startSidebar + delta;
-                _position = Offset(
-                  next.dx.clamp(_edgePadding, maxX).toDouble(),
-                  next.dy.clamp(minY, maxY).toDouble(),
-                );
-              });
-            },
-            onPointerUp: (event) {
-              if (_dragPointer != event.pointer) return;
-              final shouldSnap = _dragging;
-              final endPosition = _position ?? clampedPosition;
-              final centerX = endPosition.dx + _dragHitWidth / 2;
-              final snapX = centerX < constraints.maxWidth / 2
-                  ? _edgePadding
-                  : maxX.toDouble();
-              setState(() {
-                _dragPointer = null;
-                _dragStartGlobalPosition = null;
-                _dragStartSidebarPosition = null;
-                _dragStartAlignment = null;
-                _dragging = false;
-                if (shouldSnap) {
-                  _position = Offset(snapX, endPosition.dy);
-                }
-              });
-            },
-            onPointerCancel: (event) {
-              if (_dragPointer != event.pointer) return;
-              setState(() {
-                _dragPointer = null;
-                _dragStartGlobalPosition = null;
-                _dragStartSidebarPosition = null;
-                _dragStartAlignment = null;
-                _dragging = false;
-              });
-            },
-            child: SizedBox(
-              width: _dragHitWidth,
-              height: _height,
-              child: Align(
-                alignment:
-                    _dragStartAlignment ??
-                    (clampedPosition.dx < constraints.maxWidth / 2
-                        ? Alignment.centerLeft
-                        : Alignment.centerRight),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  width: _width,
-                  height: _height,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.94),
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x26000000),
-                        blurRadius: 14,
-                        offset: Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      for (final entry in _items.indexed) ...[
-                        Expanded(
-                          child: _WorldSectionFloatingTabButton(
-                            item: entry.$2,
-                            selected: widget.controller.index == entry.$1,
-                            onTap: () => widget.controller.animateTo(entry.$1),
-                          ),
-                        ),
-                        if (entry.$1 != _items.length - 1)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 14),
-                            child: Divider(
-                              height: 1,
-                              thickness: 1,
-                              color: Color(0xFFECECEC),
-                            ),
-                          ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-
-          return AnimatedBuilder(
-            animation: scrollController ?? const AlwaysStoppedAnimation(0),
-            builder: (context, child) {
-              final opacity = _opacityForScroll(scrollController, mapHeight);
-              return IgnorePointer(
-                ignoring: opacity <= 0.01,
-                child: Opacity(
-                  opacity: opacity,
-                  child: Stack(
-                    children: [
-                      if (_dragging)
-                        Positioned(
-                          left: clampedPosition.dx,
-                          top: clampedPosition.dy,
-                          child: sidebar,
-                        )
-                      else
-                        AnimatedPositioned(
-                          duration: const Duration(milliseconds: 180),
-                          curve: Curves.easeOutCubic,
-                          left: clampedPosition.dx,
-                          top: clampedPosition.dy,
-                          child: sidebar,
-                        ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
 }
 
 class _WorldSectionFloatingTabButton extends StatelessWidget {
@@ -1247,18 +1106,18 @@ class _WorldSectionFloatingTabButton extends StatelessWidget {
         children: [
           SvgPicture.asset(
             item.asset,
-            width: 26,
-            height: 26,
+            width: 19,
+            height: 19,
             colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 3),
           Text(
             item.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: color,
-              fontSize: 13,
+              fontSize: 11,
               height: 1.1,
               fontWeight: FontWeight.w700,
             ),
@@ -1283,6 +1142,7 @@ class _LocationChatPanelDescriptor {
   const _LocationChatPanelDescriptor({
     required this.locationId,
     required this.locationName,
+    required this.backgroundImageUrl,
     required this.isLeafLocation,
     this.localMessageLocationIds = const <String>[],
   });
@@ -1300,6 +1160,7 @@ class _LocationChatPanelDescriptor {
         'location_name',
         'name',
       ], fallback: locationId),
+      backgroundImageUrl: _locationMapImageUrl(value),
       isLeafLocation: node.children.isEmpty,
       localMessageLocationIds: _orderedNonEmptyStrings([
         pointId,
@@ -1321,6 +1182,7 @@ class _LocationChatPanelDescriptor {
         'location_name',
         'name',
       ], fallback: locationId),
+      backgroundImageUrl: _locationMapImageUrl(location),
       isLeafLocation: isLeafLocation,
       localMessageLocationIds: _orderedNonEmptyStrings([pointId, locationId]),
     );
@@ -1328,6 +1190,7 @@ class _LocationChatPanelDescriptor {
 
   final String locationId;
   final String locationName;
+  final String backgroundImageUrl;
   final bool isLeafLocation;
   final List<String> localMessageLocationIds;
 }
@@ -1786,28 +1649,59 @@ class _WorldLoadingBone extends StatelessWidget {
   }
 }
 
-class _WorldFeedContent extends StatefulWidget {
+class _WorldFeedContent extends StatelessWidget {
   const _WorldFeedContent({
     required this.world,
-    required this.sectionController,
     required this.worldActionRunning,
     required this.onWorldAction,
   });
 
   final WorldDetail world;
-  final TabController sectionController;
   final bool worldActionRunning;
   final Future<void> Function(_WorldHeaderActionKind action) onWorldAction;
 
   @override
-  State<_WorldFeedContent> createState() => _WorldFeedContentState();
+  Widget build(BuildContext context) {
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Column(
+            children: [
+              _WorldInfoHeader(
+                world: world,
+                worldActionRunning: worldActionRunning,
+                onWorldAction: onWorldAction,
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class _WorldFeedContentState extends State<_WorldFeedContent> {
+class _WorldSectionsBottomSheet extends StatefulWidget {
+  const _WorldSectionsBottomSheet({
+    required this.world,
+    required this.initialIndex,
+  });
+
+  final WorldDetail world;
+  final int initialIndex;
+
+  @override
+  State<_WorldSectionsBottomSheet> createState() =>
+      _WorldSectionsBottomSheetState();
+}
+
+class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
+    with SingleTickerProviderStateMixin {
   static const int _eventsPageSize = 20;
   static const double _eventsLoadMoreExtent = 160;
+  static const double _sheetHeightFactor = 0.86;
 
-  ScrollController? _panelScrollController;
+  late final TabController _controller;
   var _currentUid = '';
   var _currentUidRequested = false;
   var _eventsWorldId = '';
@@ -1821,23 +1715,21 @@ class _WorldFeedContentState extends State<_WorldFeedContent> {
   @override
   void initState() {
     super.initState();
-    widget.sectionController.addListener(_handleSectionTabChanged);
-  }
-
-  @override
-  void dispose() {
-    _panelScrollController?.removeListener(_handlePanelScroll);
-    widget.sectionController.removeListener(_handleSectionTabChanged);
-    super.dispose();
+    _controller = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialIndex.clamp(0, 2),
+    );
+    _controller.addListener(_handleTabChanged);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_currentUidRequested) return;
-    _currentUidRequested = true;
-    unawaited(_loadCurrentUid());
-    _bindPanelScrollPosition();
+    if (!_currentUidRequested) {
+      _currentUidRequested = true;
+      unawaited(_loadCurrentUid());
+    }
     if (_eventsWorldId != widget.world.worldId) {
       _resetEvents(widget.world.worldId);
       unawaited(_loadEventsPage(1));
@@ -1845,20 +1737,19 @@ class _WorldFeedContentState extends State<_WorldFeedContent> {
   }
 
   @override
-  void didUpdateWidget(covariant _WorldFeedContent oldWidget) {
+  void didUpdateWidget(covariant _WorldSectionsBottomSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.sectionController != widget.sectionController) {
-      oldWidget.sectionController.removeListener(_handleSectionTabChanged);
-      widget.sectionController.addListener(_handleSectionTabChanged);
-    }
     if (oldWidget.world.worldId != widget.world.worldId) {
       _resetEvents(widget.world.worldId);
       unawaited(_loadEventsPage(1));
-      return;
     }
-    if (oldWidget.world.tickCount != widget.world.tickCount) {
-      unawaited(_loadEventsPage(1));
-    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_handleTabChanged);
+    _controller.dispose();
+    super.dispose();
   }
 
   Future<void> _loadCurrentUid() async {
@@ -1867,6 +1758,13 @@ class _WorldFeedContentState extends State<_WorldFeedContent> {
         '';
     if (!mounted || uid == _currentUid) return;
     setState(() => _currentUid = uid);
+  }
+
+  void _handleTabChanged() {
+    if (mounted) setState(() {});
+    if (_controller.index == 0 && _eventTicks.isEmpty) {
+      unawaited(_loadEventsPage(1));
+    }
   }
 
   void _resetEvents(String worldId) {
@@ -1879,30 +1777,6 @@ class _WorldFeedContentState extends State<_WorldFeedContent> {
       _eventsLoadingMore = false;
       _eventsError = null;
     });
-  }
-
-  void _bindPanelScrollPosition() {
-    final controller = WorldDetailsPanelScrollControllerScope.maybeOf(context);
-    if (controller == null || identical(controller, _panelScrollController)) {
-      return;
-    }
-    _panelScrollController?.removeListener(_handlePanelScroll);
-    _panelScrollController = controller;
-    controller.addListener(_handlePanelScroll);
-  }
-
-  void _handleSectionTabChanged() {
-    if (widget.sectionController.index == 0) _handlePanelScroll();
-  }
-
-  void _handlePanelScroll() {
-    if (widget.sectionController.index != 0) return;
-    final controller = _panelScrollController;
-    if (controller == null || !controller.hasClients) return;
-    final position = controller.position;
-    if (!position.hasContentDimensions) return;
-    if (position.extentAfter > _eventsLoadMoreExtent) return;
-    _loadNextEventsPage();
   }
 
   bool get _eventsHasMore {
@@ -1959,42 +1833,171 @@ class _WorldFeedContentState extends State<_WorldFeedContent> {
     }
   }
 
+  bool _handleEventsScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.extentAfter <= _eventsLoadMoreExtent) {
+      _loadNextEventsPage();
+    }
+    return false;
+  }
+
+  Widget _buildCurrentSection() {
+    return IndexedStack(
+      index: _controller.index,
+      children: [
+        _WorldEventsSection(
+          world: widget.world,
+          ticks: _eventTicks,
+          initialLoading: _eventsInitialLoading,
+          loadingMore: _eventsLoadingMore,
+          error: _eventsError,
+        ),
+        _WorldStatusSection(world: widget.world, currentUid: _currentUid),
+        _WorldCharactersSection(world: widget.world, currentUid: _currentUid),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SliverMainAxisGroup(
-      slivers: [
-        SliverToBoxAdapter(
-          child: Column(
-            children: [
-              _WorldInfoHeader(
-                world: widget.world,
-                worldActionRunning: widget.worldActionRunning,
-                onWorldAction: widget.onWorldAction,
+    return FractionallySizedBox(
+      heightFactor: _sheetHeightFactor,
+      alignment: Alignment.bottomCenter,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+            Container(
+              width: 64,
+              height: 5,
+              decoration: BoxDecoration(
+                color: const Color(0xFFD2D2D2),
+                borderRadius: BorderRadius.circular(3),
               ),
-              const SizedBox(height: 8),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 24),
+                child: Transform.translate(
+                  offset: const Offset(0, -8),
+                  child: IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, size: 20),
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFFF4F4F6),
+                      foregroundColor: Colors.black,
+                      fixedSize: const Size(44, 44),
+                      minimumSize: const Size(44, 44),
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
+              child: _WorldSectionsSheetTabs(controller: _controller),
+            ),
+            const SizedBox(height: 6),
+            Expanded(
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _controller.index == 0
+                    ? _handleEventsScrollNotification
+                    : null,
+                child: ListView(
+                  primary: false,
+                  padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+                  children: [_buildCurrentSection()],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WorldSectionsSheetTabs extends StatelessWidget {
+  const _WorldSectionsSheetTabs({required this.controller});
+
+  final TabController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        return Container(
+          height: 46,
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F0F2),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              for (final entry in _WorldSectionFloatingTabs._items.indexed)
+                Expanded(
+                  child: _WorldSectionsSheetTabButton(
+                    label: entry.$2.label,
+                    selected: controller.index == entry.$1,
+                    onTap: () {
+                      if (controller.index == entry.$1) return;
+                      controller.index = entry.$1;
+                    },
+                  ),
+                ),
             ],
           ),
+        );
+      },
+    );
+  }
+}
+
+class _WorldSectionsSheetTabButton extends StatelessWidget {
+  const _WorldSectionsSheetTabButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          border: selected
+              ? Border.all(color: const Color(0xFFE8E8EA), width: 1)
+              : null,
         ),
-        SliverToBoxAdapter(
-          child: _AutoSizedTabBarView(
-            controller: widget.sectionController,
-            children: [
-              _WorldEventsSection(
-                world: widget.world,
-                ticks: _eventTicks,
-                initialLoading: _eventsInitialLoading,
-                loadingMore: _eventsLoadingMore,
-                error: _eventsError,
-              ),
-              _WorldStatusSection(world: widget.world, currentUid: _currentUid),
-              _WorldCharactersSection(
-                world: widget.world,
-                currentUid: _currentUid,
-              ),
-            ],
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: selected ? const Color(0xFF111111) : const Color(0xFF727276),
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            height: 1.1,
           ),
         ),
-      ],
+      ),
     );
   }
 }

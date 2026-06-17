@@ -25,6 +25,7 @@ class LocationChatPage extends StatelessWidget {
     this.localMessageLocationIds = const <String>[],
     this.worldName,
     this.locationName,
+    this.backgroundImageUrl,
     this.service,
     this.connection,
   });
@@ -35,6 +36,7 @@ class LocationChatPage extends StatelessWidget {
   final List<String> localMessageLocationIds;
   final String? worldName;
   final String? locationName;
+  final String? backgroundImageUrl;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
 
@@ -50,6 +52,7 @@ class LocationChatPage extends StatelessWidget {
         localMessageLocationIds: localMessageLocationIds,
         worldName: worldName,
         locationName: locationName,
+        backgroundImageUrl: backgroundImageUrl,
         service: service,
         connection: connection,
         active: true,
@@ -68,6 +71,7 @@ class LocationChatPanel extends StatefulWidget {
     this.localMessageLocationIds = const <String>[],
     this.worldName,
     this.locationName,
+    this.backgroundImageUrl,
     this.service,
     this.connection,
     this.active = true,
@@ -86,6 +90,7 @@ class LocationChatPanel extends StatefulWidget {
   final List<String> localMessageLocationIds;
   final String? worldName;
   final String? locationName;
+  final String? backgroundImageUrl;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
   final bool active;
@@ -118,6 +123,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   String _mySenderId = '';
   String _mySenderName = '';
   String _myAvatarUrl = '';
+  late String _backgroundImageUrl;
   bool _ownsService = false;
   bool _joinedLocation = false;
   bool _sending = false;
@@ -131,6 +137,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void initState() {
     super.initState();
+    _backgroundImageUrl = widget.backgroundImageUrl?.trim() ?? '';
     _logPanelMetric(
       'init active=${widget.active} leaf=${widget.isLeafLocation} '
       'aliases=${widget.localMessageLocationIds.join(',')}',
@@ -157,6 +164,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void didUpdateWidget(LocationChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final nextBackgroundImageUrl = widget.backgroundImageUrl?.trim() ?? '';
+    if (nextBackgroundImageUrl.isNotEmpty &&
+        nextBackgroundImageUrl != _backgroundImageUrl) {
+      _backgroundImageUrl = nextBackgroundImageUrl;
+    }
     if (oldWidget.service != widget.service ||
         oldWidget.worldId != widget.worldId ||
         oldWidget.locationId != widget.locationId) {
@@ -1118,19 +1130,84 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _scrollToBottom(jump: true);
   }
 
+  List<WorldChatroomEntity> _realUsersForCurrentLocation(
+    WorldChatroomState state,
+  ) {
+    final locationIds = _currentLocationIds();
+    final users = <WorldChatroomEntity>[];
+    final seen = <String>{};
+
+    void addUser(WorldChatroomEntity entity) {
+      if (!_isRealUserEntity(entity)) return;
+      final key = _realUserDedupKey(entity);
+      if (key.isEmpty || !seen.add(key)) return;
+      users.add(entity);
+    }
+
+    for (final locationId in locationIds) {
+      for (final entity
+          in state.entitiesByLocation[locationId] ??
+              const <WorldChatroomEntity>[]) {
+        addUser(entity);
+      }
+    }
+
+    return users;
+  }
+
+  List<String> _currentLocationIds() {
+    final seen = <String>{};
+    final ids = <String>[];
+    void add(String? value) {
+      final trimmed = value?.trim() ?? '';
+      if (trimmed.isEmpty || !seen.add(trimmed)) return;
+      ids.add(trimmed);
+    }
+
+    add(widget.locationId);
+    for (final locationId in widget.localMessageLocationIds) {
+      add(locationId);
+    }
+    return ids;
+  }
+
+  bool _isRealUserEntity(WorldChatroomEntity entity) {
+    return entity.type == WorldChatroomEntityType.player && !entity.isAi;
+  }
+
+  String _realUserDedupKey(WorldChatroomEntity entity) {
+    final idKey = _chatroomIdentityKey(entity.id);
+    if (idKey.isNotEmpty) return 'id:$idKey';
+    final nameKey = entity.name.trim().toLowerCase();
+    return nameKey.isEmpty ? '' : 'name:$nameKey';
+  }
+
+  String _realUserDisplayName(WorldChatroomEntity entity) {
+    return firstNonEmpty([entity.name, formatUidForDisplay(entity.id)]);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final titleCount =
-        _chatroomState.entitiesByLocation[widget.locationId]?.length ?? 1;
+    final realUsers = _realUsersForCurrentLocation(_chatroomState);
+    final realUserNames = realUsers
+        .map(_realUserDisplayName)
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
     final title = firstNonEmpty([widget.locationName, widget.locationId]);
-    final subtitle = _chatroomStatusLabel(_chatroomState);
+    final subtitle = realUserNames.join(', ');
     final joined = _chatroomState.joinedLocationId == widget.locationId;
     final connecting =
         _chatroomState.reconnecting ||
         _chatroomState.joining ||
         (_chatroomState.connected && !joined);
     final inputBlocked = _chatroomState.inputBlocked;
-    final style = widget.style ?? kChatWhiteHeaderStyle;
+    final baseStyle = widget.style ?? kChatWhiteHeaderStyle;
+    final style = baseStyle.copyWith(
+      headerSubtitleTextStyle: baseStyle.headerSubtitleTextStyle.copyWith(
+        fontSize: 12,
+      ),
+      headerStatusIconSize: 12,
+    );
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: widget.systemUiOverlayStyle,
@@ -1139,17 +1216,23 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         child: Column(
           children: [
             ChatHeader(
-              title: '$title ($titleCount)',
+              title: '$title (${realUsers.length})',
               subtitle: subtitle,
-              connected: joined,
-              connecting: connecting,
+              connected: realUsers.isNotEmpty,
+              connecting: connecting && realUsers.isEmpty,
               onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
-              showSubtitle: widget.showConnectionStatus,
+              showSubtitle:
+                  widget.showConnectionStatus && realUserNames.isNotEmpty,
               style: style,
             ),
             Expanded(
               child: Stack(
                 children: [
+                  Positioned.fill(
+                    child: _LocationChatBackgroundImage(
+                      imageUrl: _backgroundImageUrl,
+                    ),
+                  ),
                   Positioned.fill(
                     child: ChatMessageList(
                       controller: _scrollController,
@@ -1185,15 +1268,29 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       ),
     );
   }
+}
 
-  String _chatroomStatusLabel(WorldChatroomState state) {
-    if (state.inputBlocked) return 'Progressing';
-    if (state.joinedLocationId == widget.locationId) return 'Joined';
-    if (state.joining) return 'Joining';
-    if (state.reconnecting) return 'Reconnecting';
-    if (state.connected) return 'Connecting';
-    return 'Disconnect';
+class _LocationChatBackgroundImage extends StatelessWidget {
+  const _LocationChatBackgroundImage({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = _locationChatBackgroundProvider(imageUrl);
+    if (provider == null) return const SizedBox.shrink();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        image: DecorationImage(image: provider, fit: BoxFit.cover),
+      ),
+    );
   }
+}
+
+ImageProvider? _locationChatBackgroundProvider(String rawUrl) {
+  final url = rawUrl.trim();
+  if (url.isEmpty) return null;
+  return url.startsWith('assets/') ? AssetImage(url) : NetworkImage(url);
 }
 
 String _mapString(Map<String, dynamic>? map, String key) {
