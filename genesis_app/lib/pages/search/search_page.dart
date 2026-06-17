@@ -899,9 +899,9 @@ class _SearchMoreButton extends StatelessWidget {
           child: Align(
             alignment: Alignment.center,
             child: Text(
-              'more >',
+              'More >',
               style: TextStyle(
-                color: Color(0xFF4B6192),
+                color: Color(0xFF666666),
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
               ),
@@ -942,7 +942,7 @@ class _SearchResultTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ResultThumb(item: item),
-          SizedBox(width: isUser ? 18 : 16),
+          const SizedBox(width: 10),
           Expanded(
             child: Padding(
               padding: EdgeInsets.zero,
@@ -955,12 +955,13 @@ class _SearchResultTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: titleStyle,
                   ),
-                  const SizedBox(height: 9),
+                  const SizedBox(height: 5),
                   if (isUser)
-                    CopyableIdLabel(
-                      label: 'UID',
-                      value: item.displaySubtitle,
-                      showCopyIcon: false,
+                    Text(
+                      'UID: ${formatCopyableIdValue(item.displaySubtitle)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: CopyableIdLabel.textStyle,
                     )
                   else
                     Text(
@@ -971,11 +972,11 @@ class _SearchResultTile extends StatelessWidget {
                         color: Color(0xFF888888),
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
-                        height: 1.33,
+                        height: 1.3,
                       ),
                     ),
                   if (!isUser) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     _ResultStats(item: item),
                   ],
                 ],
@@ -995,7 +996,7 @@ class _ResultThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = item.tab == _SearchTab.user ? 48.0 : 62.0;
+    const size = 52.0;
     if (item.tab == _SearchTab.user) {
       return GenesisAvatar(
         url: item.coverImage,

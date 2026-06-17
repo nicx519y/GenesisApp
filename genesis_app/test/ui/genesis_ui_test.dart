@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/page_header.dart';
@@ -514,18 +515,26 @@ void main() {
       ),
     );
 
-    final images = tester.widgetList<Image>(find.byType(Image)).toList();
-    expect(images, hasLength(3));
-    expect(images[0].width, 24);
-    expect(images[0].height, 24);
-    expect((images[0].image as AssetImage).assetName, bottomNavHomeIconAsset);
+    final icons = tester
+        .widgetList<SvgPicture>(find.byType(SvgPicture))
+        .toList();
+    expect(icons, hasLength(3));
+    expect(icons[0].width, 24);
+    expect(icons[0].height, 24);
     expect(
-      (images[1].image as AssetImage).assetName,
+      (icons[0].bytesLoader as SvgAssetLoader).assetName,
+      bottomNavHomeIconAsset,
+    );
+    expect(
+      (icons[1].bytesLoader as SvgAssetLoader).assetName,
       bottomNavMessagesPressIconAsset,
     );
-    expect(images[2].width, 28);
-    expect(images[2].height, 28);
-    expect((images[2].image as AssetImage).assetName, bottomNavCreateIconAsset);
+    expect(icons[2].width, 28);
+    expect(icons[2].height, 28);
+    expect(
+      (icons[2].bytesLoader as SvgAssetLoader).assetName,
+      bottomNavCreateIconAsset,
+    );
 
     final spacingBoxes = tester
         .widgetList<SizedBox>(

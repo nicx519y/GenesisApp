@@ -13,6 +13,8 @@ import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/pages/search/search_page.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -115,6 +117,80 @@ void main() {
     await tester.pump();
 
     expect(editable.widget.focusNode.hasFocus, isFalse);
+  });
+
+  testWidgets('uses compact result item spacing for origins and users', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1400);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    final originTile = find
+        .ancestor(
+          of: find.text('#Origin 1'),
+          matching: find.byType(GestureDetector),
+        )
+        .first;
+    final originImage = tester.widget<GenesisListImage>(
+      find.descendant(of: originTile, matching: find.byType(GenesisListImage)),
+    );
+    expect(originImage.width, 52);
+    expect(originImage.height, 52);
+
+    final originSizedBoxes = tester
+        .widgetList<SizedBox>(
+          find.descendant(of: originTile, matching: find.byType(SizedBox)),
+        )
+        .toList();
+    expect(
+      originSizedBoxes.any((box) => box.width == 10),
+      isTrue,
+      reason: 'Origin image-to-text gap should match Me collection rows.',
+    );
+    expect(
+      originSizedBoxes.any((box) => box.height == 5),
+      isTrue,
+      reason: 'Origin title-to-subtitle gap should match Me collection rows.',
+    );
+    expect(
+      originSizedBoxes.any((box) => box.height == 8),
+      isTrue,
+      reason: 'Origin subtitle-to-stats gap should match Me collection rows.',
+    );
+    final originSubtitle = tester.widget<Text>(
+      find.descendant(
+        of: originTile,
+        matching: find.textContaining('Latest Version'),
+      ),
+    );
+    expect(originSubtitle.style?.height, 1.3);
+
+    final userTile = find
+        .ancestor(
+          of: find.text('User 1'),
+          matching: find.byType(GestureDetector),
+        )
+        .first;
+    final userAvatar = tester.widget<GenesisAvatar>(
+      find.descendant(of: userTile, matching: find.byType(GenesisAvatar)),
+    );
+    expect(userAvatar.size, 52);
+
+    final userSizedBoxes = tester
+        .widgetList<SizedBox>(
+          find.descendant(of: userTile, matching: find.byType(SizedBox)),
+        )
+        .toList();
+    expect(userSizedBoxes.any((box) => box.width == 10), isTrue);
+    expect(userSizedBoxes.any((box) => box.height == 5), isTrue);
   });
 }
 
