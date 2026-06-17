@@ -168,6 +168,7 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
                   children: [
                     WorldDetailsPanelScrollControllerScope(
                       controller: _scrollController,
+                      mapHeight: mapHeight,
                       child: Stack(
                         children: [
                           NotificationListener<WorldMapInteractionNotification>(
@@ -310,10 +311,12 @@ class WorldDetailsPanelScrollControllerScope extends InheritedWidget {
   const WorldDetailsPanelScrollControllerScope({
     super.key,
     required this.controller,
+    this.mapHeight,
     required super.child,
   });
 
   final ScrollController controller;
+  final double? mapHeight;
 
   static ScrollController? maybeOf(BuildContext context) {
     return context
@@ -323,9 +326,18 @@ class WorldDetailsPanelScrollControllerScope extends InheritedWidget {
         ?.controller;
   }
 
+  static double? maybeMapHeightOf(BuildContext context) {
+    return context
+        .dependOnInheritedWidgetOfExactType<
+          WorldDetailsPanelScrollControllerScope
+        >()
+        ?.mapHeight;
+  }
+
   @override
   bool updateShouldNotify(WorldDetailsPanelScrollControllerScope oldWidget) {
-    return oldWidget.controller != controller;
+    return oldWidget.controller != controller ||
+        oldWidget.mapHeight != mapHeight;
   }
 }
 

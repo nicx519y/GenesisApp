@@ -71,7 +71,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 14,
                       height: 1.2,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                       color: Colors.black,
                     ),
                   ),
@@ -114,7 +114,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     child: isLoading

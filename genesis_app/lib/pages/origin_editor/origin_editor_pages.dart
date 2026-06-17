@@ -278,9 +278,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    const submitColor = Color(0xFF198B64);
     const disabledSubmitColor = Color(0xFFBFD8CD);
-    final submitBlocked = _submitBlockReason(_draft) != null;
 
     return PopScope(
       canPop: false,
@@ -357,7 +355,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
           child: GenesisPrimaryButton(
             label: _isSubmitting ? widget.submittingLabel : widget.submitLabel,
             onPressed: _isSubmitting ? null : () => unawaited(_submit()),
-            backgroundColor: submitBlocked ? disabledSubmitColor : submitColor,
+            backgroundColor: createFormGreen,
             foregroundColor: Colors.white,
             disabledBackgroundColor: disabledSubmitColor,
             disabledForegroundColor: Colors.white,

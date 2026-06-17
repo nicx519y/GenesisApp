@@ -275,7 +275,7 @@ class _SectionRow extends StatelessWidget {
                           if (completed)
                             const Icon(
                               Icons.check_circle,
-                              color: Color(0xFF198B64),
+                              color: GenesisColors.brand,
                               size: 20,
                             ),
                           const SizedBox(width: 8),

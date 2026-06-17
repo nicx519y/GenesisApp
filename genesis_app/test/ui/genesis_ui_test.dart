@@ -167,6 +167,14 @@ void main() {
 
     await tester.tap(find.text('Continue'));
     expect(tapped, isTrue);
+
+    final theme = tester.widget<MaterialApp>(find.byType(MaterialApp)).theme;
+    expect(
+      theme?.filledButtonTheme.style?.backgroundColor?.resolve(
+        const <WidgetState>{},
+      ),
+      const Color(0xFF338960),
+    );
   });
 
   testWidgets('GenesisActionBox attaches cancel for a single action', (
@@ -222,9 +230,10 @@ void main() {
     final action = tester.widget<Text>(find.text('Log out'));
     final cancel = tester.widget<Text>(find.text('Cancel'));
     expect(title.style?.fontSize, 15);
-    expect(title.style?.fontWeight, FontWeight.w700);
+    expect(title.style?.fontWeight, FontWeight.w600);
     expect(action.style?.fontSize, 15);
-    expect(action.style?.fontWeight, FontWeight.w700);
+    expect(action.style?.fontWeight, FontWeight.w600);
+    expect(action.style?.color, const Color(0xFFFF2344));
     expect(cancel.style?.fontSize, 15);
     expect(cancel.style?.fontWeight, FontWeight.w400);
 
@@ -232,6 +241,53 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(result, isNull);
+  });
+
+  testWidgets('GenesisActionBox uses 70 percent width on compact screens', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 600);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return FilledButton(
+                onPressed: () {
+                  showGenesisActionBox<bool>(
+                    context: context,
+                    title: 'Log out of your account?',
+                    actions: const [
+                      GenesisActionBoxAction<bool>(
+                        label: 'Log out',
+                        value: true,
+                      ),
+                    ],
+                  );
+                },
+                child: const Text('Open'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
+          )
+          .width,
+      224,
+    );
   });
 
   testWidgets('GenesisActionBox detaches cancel for multiple actions', (
@@ -292,9 +348,9 @@ void main() {
     final firstAction = tester.widget<Text>(find.text('Save'));
     final secondAction = tester.widget<Text>(find.text('Discard'));
     expect(firstAction.style?.fontSize, 15);
-    expect(firstAction.style?.fontWeight, FontWeight.w700);
+    expect(firstAction.style?.fontWeight, FontWeight.w600);
     expect(secondAction.style?.fontSize, 15);
-    expect(secondAction.style?.fontWeight, FontWeight.w400);
+    expect(secondAction.style?.fontWeight, FontWeight.w600);
 
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
@@ -512,8 +568,8 @@ void main() {
         matching: find.byType(Positioned),
       ),
     );
-    expect(badgePosition.top, 1);
-    expect(badgePosition.right, -11);
+    expect(badgePosition.top, -1);
+    expect(badgePosition.left, 19);
   });
 
   testWidgets('GenesisBottomNavigation keeps minimum bottom padding', (
