@@ -293,72 +293,82 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
         ),
         body: SafeArea(
           top: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              children: [
-                const SizedBox(height: 14),
-                Expanded(
-                  child: ListView(
+          child: Column(
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
                     children: [
-                      _SectionRow(
-                        icon: '🌐',
-                        title: 'Basics',
-                        summary: _basicsSummary(_draft),
-                        completed: _draft.basicsSaved,
-                        modified: _basicsModified(_draft),
-                        onTap: () => _openSection(
-                          widget.basicsPageBuilder(widget.repository),
-                        ),
-                      ),
-                      _SectionRow(
-                        icon: '👤',
-                        title: 'Characters',
-                        summary: _charactersSummary(_draft),
-                        completed: _draft.charactersSaved,
-                        modified: _charactersModified(_draft),
-                        onTap: () => _openSection(
-                          widget.charactersPageBuilder(widget.repository),
-                        ),
-                      ),
-                      _SectionRow(
-                        icon: '📍',
-                        title: 'Locations',
-                        summary: _locationsSummary(_draft),
-                        completed: _draft.locationsSaved,
-                        modified: _locationsModified(_draft),
-                        onTap: () => _openSection(
-                          widget.locationsPageBuilder(widget.repository),
-                        ),
-                      ),
-                      _SectionRow(
-                        icon: '📜',
-                        title: 'Story Events (Optional)',
-                        summary: _storyEventsSummary(_draft),
-                        completed: _draft.storyEventsSaved,
-                        modified: _storyEventsModified(_draft),
-                        showDivider: false,
-                        onTap: () => _openSection(
-                          widget.storyEventsPageBuilder(widget.repository),
+                      const SizedBox(height: 14),
+                      Expanded(
+                        child: ListView(
+                          children: [
+                            _SectionRow(
+                              icon: '🌐',
+                              title: 'Basics',
+                              summary: _basicsSummary(_draft),
+                              completed: _draft.basicsSaved,
+                              modified: _basicsModified(_draft),
+                              onTap: () => _openSection(
+                                widget.basicsPageBuilder(widget.repository),
+                              ),
+                            ),
+                            _SectionRow(
+                              icon: '👤',
+                              title: 'Characters',
+                              summary: _charactersSummary(_draft),
+                              completed: _draft.charactersSaved,
+                              modified: _charactersModified(_draft),
+                              onTap: () => _openSection(
+                                widget.charactersPageBuilder(widget.repository),
+                              ),
+                            ),
+                            _SectionRow(
+                              icon: '📍',
+                              title: 'Locations',
+                              summary: _locationsSummary(_draft),
+                              completed: _draft.locationsSaved,
+                              modified: _locationsModified(_draft),
+                              onTap: () => _openSection(
+                                widget.locationsPageBuilder(widget.repository),
+                              ),
+                            ),
+                            _SectionRow(
+                              icon: '📜',
+                              title: 'Story Events (Optional)',
+                              summary: _storyEventsSummary(_draft),
+                              completed: _draft.storyEventsSaved,
+                              modified: _storyEventsModified(_draft),
+                              showDivider: false,
+                              onTap: () => _openSection(
+                                widget.storyEventsPageBuilder(
+                                  widget.repository,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
-        bottomNavigationBar: SafeArea(
-          top: false,
-          minimum: const EdgeInsets.fromLTRB(20, 8, 20, 14),
-          child: GenesisPrimaryButton(
-            label: _isSubmitting ? widget.submittingLabel : widget.submitLabel,
-            onPressed: _isSubmitting ? null : () => unawaited(_submit()),
-            backgroundColor: createFormGreen,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: disabledSubmitColor,
-            disabledForegroundColor: Colors.white,
+              ),
+              SafeArea(
+                top: false,
+                minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
+                child: GenesisPrimaryButton(
+                  label: _isSubmitting
+                      ? widget.submittingLabel
+                      : widget.submitLabel,
+                  onPressed: _isSubmitting ? null : () => unawaited(_submit()),
+                  backgroundColor: createFormGreen,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: disabledSubmitColor,
+                  disabledForegroundColor: Colors.white,
+                ),
+              ),
+            ],
           ),
         ),
       ),

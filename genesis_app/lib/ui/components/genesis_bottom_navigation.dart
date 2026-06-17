@@ -132,7 +132,7 @@ class GenesisBottomNavigationTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: uiTheme.tabLabelStyle.copyWith(
                 color: color,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

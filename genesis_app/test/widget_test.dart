@@ -6218,6 +6218,50 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Create'), findsOneWidget);
   });
 
+  testWidgets('create submit button uses editor save bottom spacing', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(1080, 2400);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
+    await tester.pumpAndSettle();
+
+    final createButtonSize = tester.getSize(
+      find.widgetWithText(FilledButton, 'Create'),
+    );
+    final screenHeight =
+        tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    final createBottomGap =
+        screenHeight -
+        tester.getRect(find.widgetWithText(FilledButton, 'Create')).bottom;
+
+    Future<void> expectCreateButtonMatchesSaveSpacing(
+      String sectionLabel,
+    ) async {
+      await tester.tap(find.text(sectionLabel));
+      await tester.pumpAndSettle();
+
+      final saveButton = find.widgetWithText(FilledButton, 'Save');
+      final saveButtonSize = tester.getSize(saveButton);
+      final saveBottomGap = screenHeight - tester.getRect(saveButton).bottom;
+
+      expect(createButtonSize.height, saveButtonSize.height);
+      expect(createButtonSize.width <= saveButtonSize.width, isTrue);
+      expect(createBottomGap, saveBottomGap);
+
+      Navigator.of(tester.element(find.byType(Scaffold).first)).pop();
+      await tester.pumpAndSettle();
+    }
+
+    await expectCreateButtonMatchesSaveSpacing('Basics');
+    await expectCreateButtonMatchesSaveSpacing('Characters');
+    await expectCreateButtonMatchesSaveSpacing('Locations');
+    await expectCreateButtonMatchesSaveSpacing('Story Events (Optional)');
+  });
+
   testWidgets('create origin entries navigate to detail pages', (
     WidgetTester tester,
   ) async {
