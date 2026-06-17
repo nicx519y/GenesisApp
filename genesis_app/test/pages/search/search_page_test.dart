@@ -75,6 +75,47 @@ void main() {
     expect(transport.searchRequests.last.uri.queryParameters['type'], 'origin');
     expect(find.text('#Origin 4'), findsOneWidget);
   });
+
+  testWidgets('shows origin latest version from prefixed string fields', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1200);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Latest Version: V1'), findsOneWidget);
+    expect(find.textContaining('Latest Version: -'), findsNothing);
+  });
+
+  testWidgets('dismisses search focus when tapping result area', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1200);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    final editable = tester.state<EditableTextState>(find.byType(EditableText));
+    expect(editable.widget.focusNode.hasFocus, isTrue);
+
+    await tester.tap(find.text('Origins').first);
+    await tester.pump();
+
+    expect(editable.widget.focusNode.hasFocus, isFalse);
+  });
 }
 
 Future<void> _pumpSearchPage(
@@ -181,6 +222,9 @@ Map<String, dynamic> _item(String type, int index) {
       'info': {
         'origin_id': 'origin_$index',
         'origin_name': 'Origin $index',
+        'origin_version': '-',
+        'latestVersion': {'versionNum': index},
+        'origin_version_time': 1777680000 + index,
         'cover': '',
       },
       'stats': {

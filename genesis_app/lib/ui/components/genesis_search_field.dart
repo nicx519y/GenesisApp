@@ -89,6 +89,8 @@ class GenesisSearchField extends StatelessWidget {
                     textInputAction: textInputAction,
                     readOnly: readOnly,
                     autofocus: autofocus,
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
                     maxLines: 1,
                     textAlignVertical: TextAlignVertical.center,
                     decoration: InputDecoration(
