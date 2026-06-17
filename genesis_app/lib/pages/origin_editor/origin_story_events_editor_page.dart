@@ -17,7 +17,6 @@ class _OriginStoryEventsEditorPageState
       <TextEditingController>[];
 
   bool _isSaving = false;
-  bool _isFinalSynced = false;
 
   @override
   void initState() {
@@ -34,7 +33,6 @@ class _OriginStoryEventsEditorPageState
       _eventControllers.add(TextEditingController(text: event.event));
     }
     if (!mounted) return;
-    _isFinalSynced = draft.storyEventsSaved;
     setState(() {});
   }
 
@@ -70,7 +68,7 @@ class _OriginStoryEventsEditorPageState
   }
 
   void _onFormChanged() {
-    setState(() => _isFinalSynced = false);
+    setState(() {});
   }
 
   List<StoryEventDraft> _snapshotEvents() {
@@ -91,19 +89,12 @@ class _OriginStoryEventsEditorPageState
     );
 
     if (!mounted) return;
-    setState(() {
-      _isSaving = false;
-      _isFinalSynced = true;
-    });
+    setState(() => _isSaving = false);
     Navigator.of(context).pop(true);
   }
 
-  bool get _isEditMode => !widget.repository.supportsTempDrafts;
-
   bool get _canUseSaveButton {
-    if (_isSaving) return false;
-    if (_isEditMode) return true;
-    return !_isFinalSynced;
+    return !_isSaving;
   }
 
   void _showError(String message) {
@@ -178,9 +169,6 @@ class _OriginStoryEventsEditorPageState
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
                   onPressed: _canUseSaveButton ? _saveEvents : null,
-                  backgroundColor: createFormGreen,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: const Color(0xFFBFD8CD),
                 ),
               ),
             ],
@@ -238,8 +226,8 @@ class _SectionRow extends StatelessWidget {
                                   textAlign: TextAlign.left,
                                   style: const TextStyle(
                                     color: Colors.black,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w400,
                                     height: 1.2,
                                   ),
                                 ),
@@ -255,8 +243,8 @@ class _SectionRow extends StatelessWidget {
                                         overflow: TextOverflow.ellipsis,
                                         softWrap: false,
                                         style: const TextStyle(
-                                          color: Color(0xFF6F6F6F),
-                                          fontSize: 13,
+                                          color: Color(0xFF666666),
+                                          fontSize: 12,
                                           height: 1.35,
                                         ),
                                       ),

@@ -25,19 +25,19 @@ double customCharacterIconVerticalOffset(double baseSize) {
 }
 
 const String bottomNavHomeIconAsset =
-    'assets/custom-icons/png/bottom_nav_home.png';
+    'assets/custom-icons/svg/bottom_nav_home.svg';
 const String bottomNavHomePressIconAsset =
-    'assets/custom-icons/png/bottom_nav_home_press.png';
+    'assets/custom-icons/svg/bottom_nav_home_press.svg';
 const String bottomNavOriginIconAsset =
-    'assets/custom-icons/png/bottom_nav_origin.png';
+    'assets/custom-icons/svg/bottom_nav_origin.svg';
 const String bottomNavOriginPressIconAsset =
-    'assets/custom-icons/png/bottom_nav_origin_press.png';
+    'assets/custom-icons/svg/bottom_nav_origin_press.svg';
 const String bottomNavCreateIconAsset =
-    'assets/custom-icons/png/bottom_nav_create.png';
+    'assets/custom-icons/svg/bottom_nav_create.svg';
 const String bottomNavMessagesIconAsset =
-    'assets/custom-icons/png/bottom_nav_messages.png';
+    'assets/custom-icons/svg/bottom_nav_messages.svg';
 const String bottomNavMessagesPressIconAsset =
-    'assets/custom-icons/png/bottom_nav_messages_press.png';
-const String bottomNavMeIconAsset = 'assets/custom-icons/png/bottom_nav_me.png';
+    'assets/custom-icons/svg/bottom_nav_messages_press.svg';
+const String bottomNavMeIconAsset = 'assets/custom-icons/svg/bottom_nav_me.svg';
 const String bottomNavMePressIconAsset =
-    'assets/custom-icons/png/bottom_nav_me_press.png';
+    'assets/custom-icons/svg/bottom_nav_me_press.svg';

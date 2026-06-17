@@ -559,12 +559,6 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
         child: GenesisPrimaryButton(
           label: launching ? 'Launching...' : 'Launch to send',
           onPressed: launching ? null : onLaunch,
-          backgroundColor: const Color(0xFF238861),
-          disabledBackgroundColor: const Color(
-            0xFF238861,
-          ).withValues(alpha: 0.62),
-          foregroundColor: Colors.white,
-          disabledForegroundColor: Colors.white,
         ),
       ),
     );
@@ -891,38 +885,17 @@ class _OriginBottomLaunchBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 18),
-              SizedBox(
+              GenesisPrimaryButton(
+                label: 'Launch',
+                onPressed: launching ? null : onLaunch,
                 width: 140,
                 height: 35,
-                child: FilledButton(
-                  onPressed: launching ? null : onLaunch,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF238861),
-                    disabledBackgroundColor: const Color(
-                      0xFF238861,
-                    ).withValues(alpha: 0.62),
-                    foregroundColor: Colors.white,
-                    disabledForegroundColor: Colors.white,
-                    padding: EdgeInsets.zero,
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      height: 1,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: launching
-                      ? const SizedBox.square(
-                          dimension: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.4,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Launch'),
-                ),
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                isLoading: launching,
+                loadingSize: 22,
+                loadingStrokeWidth: 2.4,
               ),
             ],
           ),

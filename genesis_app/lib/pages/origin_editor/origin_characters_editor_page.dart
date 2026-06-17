@@ -17,7 +17,6 @@ class _OriginCharactersEditorPageState
   final List<OriginCharacterForm> _forms = <OriginCharacterForm>[];
   String _uid = 'anonymous';
   bool _isSaving = false;
-  bool _isFinalSynced = false;
 
   @override
   void initState() {
@@ -32,12 +31,10 @@ class _OriginCharactersEditorPageState
     final source = draft.characters.isEmpty
         ? const <CharacterDraft>[CharacterDraft()]
         : draft.characters;
-    final missingIds = source.any((item) => item.charId.trim().isEmpty);
     for (final item in source) {
       _forms.add(_characterFormFromDraft(item, uid: _uid));
     }
     if (!mounted) return;
-    _isFinalSynced = draft.charactersSaved && !missingIds;
     setState(() {});
   }
 
@@ -79,7 +76,7 @@ class _OriginCharactersEditorPageState
   }
 
   void _onFormChanged() {
-    setState(() => _isFinalSynced = false);
+    setState(() {});
   }
 
   List<CharacterDraft> _snapshotCharacters() {
@@ -120,7 +117,7 @@ class _OriginCharactersEditorPageState
         .where(_characterDraftHasContent)
         .toList(growable: false);
     if (characters.isEmpty) {
-      _showError('Please add at least one character before saving.');
+      _showError('Please create at least one character.');
       return;
     }
 
@@ -137,16 +134,12 @@ class _OriginCharactersEditorPageState
     await widget.repository.saveFinalDraft(updatedDraft);
 
     if (!mounted) return;
-    setState(() {
-      _isSaving = false;
-      _isFinalSynced = true;
-    });
+    setState(() => _isSaving = false);
     Navigator.of(context).pop(true);
   }
 
-  bool get _isEditMode => !widget.repository.supportsTempDrafts;
-
   bool get _canSaveCurrentCharacters {
+    var hasCompleteCharacter = false;
     for (final form in _forms) {
       if (!form.hasContent) continue;
       if (form.name.text.trim().isEmpty ||
@@ -154,14 +147,14 @@ class _OriginCharactersEditorPageState
           form.personality.text.trim().isEmpty) {
         return false;
       }
+      hasCompleteCharacter = true;
     }
-    return true;
+    return hasCompleteCharacter;
   }
 
   bool get _canUseSaveButton {
     if (_isSaving) return false;
-    if (_isEditMode) return _canSaveCurrentCharacters;
-    return !_isFinalSynced;
+    return _canSaveCurrentCharacters;
   }
 
   void _showError(String message) {
@@ -256,9 +249,6 @@ class _OriginCharactersEditorPageState
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
                   onPressed: _canUseSaveButton ? _saveCharacters : null,
-                  backgroundColor: createFormGreen,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: const Color(0xFFBFD8CD),
                 ),
               ),
             ],
