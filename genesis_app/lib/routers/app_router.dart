@@ -16,6 +16,7 @@ import '../pages/me/follows_page.dart';
 import '../pages/me/user_info_page.dart';
 import '../network/chatroom/chatroom_connection_controller.dart';
 import '../network/chatroom/world_chatroom_service.dart';
+import '../network/models/world.dart';
 import '../components/discuss/origin_discuss_list.dart';
 
 sealed class RouteNames {
@@ -147,7 +148,11 @@ class _PostDetailRouteArgs {
 }
 
 class _WorldRouteArgs {
-  const _WorldRouteArgs({required this.wid, required this.waitForTick1});
+  const _WorldRouteArgs({
+    required this.wid,
+    required this.waitForTick1,
+    this.initialWorldDetail,
+  });
 
   factory _WorldRouteArgs.from(Object? raw) {
     final args = _RouteArgs(raw);
@@ -158,11 +163,16 @@ class _WorldRouteArgs {
         'wait_for_tick1',
         'waitForTick1',
       ], fallback: false),
+      initialWorldDetail: args.typed<WorldDetail>(const [
+        'initial_world_detail',
+        'initialWorldDetail',
+      ]),
     );
   }
 
   final String wid;
   final bool waitForTick1;
+  final WorldDetail? initialWorldDetail;
 }
 
 class _ChatRouteArgs {
@@ -374,8 +384,11 @@ sealed class AppRouter {
         final args = _WorldRouteArgs.from(settings.arguments);
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) =>
-              WorldPage(wid: args.wid, waitForTick1: args.waitForTick1),
+          builder: (_) => WorldPage(
+            wid: args.wid,
+            waitForTick1: args.waitForTick1,
+            initialWorldDetail: args.initialWorldDetail,
+          ),
         );
       case RouteNames.chat:
         final args = _ChatRouteArgs.from(settings.arguments);

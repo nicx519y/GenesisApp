@@ -38,6 +38,7 @@ import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_page.dart';
+import 'origin_launch_flow.dart';
 
 class OriginWorldPage extends StatefulWidget {
   const OriginWorldPage({super.key, required this.oid, required this.originId});
@@ -236,28 +237,37 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   ) async {
     if (_launching) return;
     setState(() => _launching = true);
+    final world = await launchOriginAndWaitForFirstTick(
+      context: context,
+      origin: origin,
+      roleSelection: roleSelection,
+    );
+    if (!mounted) return;
+    if (world == null) {
+      setState(() => _launching = false);
+      return;
+    }
+    final wid = world.worldId.trim();
     try {
-      final result = await AppServicesScope.of(context).api.v1.origin.launch(
-        oid: origin.oid,
-        presetCharacterId: roleSelection.presetCharacterId,
-        customRole: roleSelection.customRole?.toPayload(),
-      );
-      if (!mounted) return;
-      final wid = '${result['world_id'] ?? result['wid'] ?? ''}'.trim();
-      if (wid.isEmpty) {
-        showGenesisToast(context, 'Launch failed');
-        return;
-      }
-      Navigator.of(context).pushNamed(
+      Navigator.of(context).pushNamedAndRemoveUntil(
         RouteNames.world,
-        arguments: {'wid': wid, 'wait_for_tick1': true},
+        _removeOriginWorldAndLaterRoutes(),
+        arguments: {'wid': wid, 'initial_world_detail': world},
       );
-    } catch (_) {
-      if (!mounted) return;
-      showGenesisToast(context, 'Launch failed');
     } finally {
       if (mounted) setState(() => _launching = false);
     }
+  }
+
+  RoutePredicate _removeOriginWorldAndLaterRoutes() {
+    var removedOriginWorld = false;
+    return (route) {
+      if (removedOriginWorld) return true;
+      if (route.settings.name == RouteNames.originWorld) {
+        removedOriginWorld = true;
+      }
+      return false;
+    };
   }
 
   Future<OriginCustomRoleDraft?> _customRoleFromProfile() async {
@@ -1707,7 +1717,7 @@ class _OriginCharacterPortrait extends StatefulWidget {
 
   static const double _width = 86;
   static const double _borderRadius = GenesisAvatarRadii.character;
-  static const double _starSize = 22;
+  static const double _starSize = 20;
 
   final String characterId;
   final String url;

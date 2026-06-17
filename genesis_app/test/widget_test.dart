@@ -4167,11 +4167,15 @@ void main() {
         const <Map<String, Object?>>[],
         [generatedTick],
       ],
-      worldDetailTickCountsByRequest: const [0, 0, 1],
+      worldDetailTickCountsByRequest: const [0, 1],
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -4179,6 +4183,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.pump();
 
     await tester.tap(find.text('Launch'));
     await tester.pumpAndSettle();
@@ -4187,9 +4192,10 @@ void main() {
     );
     await tester.pump();
     await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
 
-    expect(find.text('World detail w_launched_from_origin'), findsWidgets);
+    expect(find.text('World detail w_launched_from_origin'), findsNothing);
     expect(
       find.byKey(const ValueKey('world-tick1-wait-dialog')),
       findsOneWidget,
@@ -4219,7 +4225,7 @@ void main() {
     final animatedWaitBody = tester.widget<Text>(waitBodyFinder);
     expect(animatedWaitBody.data, isNot(initialWaitBodyText));
     var worldRequests = transport.requestsFor('/api/v1/world/detail');
-    expect(worldRequests.length, greaterThanOrEqualTo(2));
+    expect(worldRequests, hasLength(1));
     expect(
       worldRequests.last.uri.queryParameters['world_id'],
       'w_launched_from_origin',
@@ -4229,8 +4235,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
+    expect(find.text('World detail w_launched_from_origin'), findsWidgets);
     worldRequests = transport.requestsFor('/api/v1/world/detail');
-    expect(worldRequests.length, greaterThanOrEqualTo(3));
+    expect(worldRequests, hasLength(2));
   });
 
   testWidgets('Origin detail location opens launch-only chat panel', (

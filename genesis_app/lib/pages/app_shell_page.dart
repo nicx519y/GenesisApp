@@ -29,6 +29,7 @@ class _AppShellPageState extends State<AppShellPage>
   late int _selectedIndex;
   late final Set<int> _visitedTabIndexes;
   late final ValueNotifier<bool> _messagesTabActiveNotifier;
+  late final ValueNotifier<int> _homeTabActivationNotifier;
   late final ValueNotifier<int> _meTabActivationNotifier;
   int? _homeInitialTabIndexOverride;
   ValueListenable<int>? _sessionRevisionListenable;
@@ -44,6 +45,7 @@ class _AppShellPageState extends State<AppShellPage>
     WidgetsBinding.instance.addObserver(this);
     _selectedIndex = _normalTabIndex(widget.initialIndex);
     _messagesTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 3);
+    _homeTabActivationNotifier = ValueNotifier<int>(0);
     _meTabActivationNotifier = ValueNotifier<int>(0);
     _visitedTabIndexes = <int>{_selectedIndex};
     _messagesPoller = GenesisPollingScheduler(
@@ -61,6 +63,7 @@ class _AppShellPageState extends State<AppShellPage>
     WidgetsBinding.instance.removeObserver(this);
     _stopMessagesPolling();
     _messagesTabActiveNotifier.dispose();
+    _homeTabActivationNotifier.dispose();
     _meTabActivationNotifier.dispose();
     _unreadSummaryNotifier.dispose();
     super.dispose();
@@ -70,6 +73,7 @@ class _AppShellPageState extends State<AppShellPage>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _startMessagesPolling();
+      _notifyActiveTabActivated();
     } else {
       _stopMessagesPolling();
     }
@@ -228,8 +232,18 @@ class _AppShellPageState extends State<AppShellPage>
       _visitedTabIndexes.add(index);
     });
     _messagesTabActiveNotifier.value = _selectedIndex == 3;
-    if (index == 4 && previousIndex != 4) {
-      _meTabActivationNotifier.value += 1;
+    if (previousIndex != index) {
+      _notifyActiveTabActivated();
+    }
+  }
+
+  void _notifyActiveTabActivated() {
+    if (!mounted) return;
+    switch (_selectedIndex) {
+      case 0:
+        _homeTabActivationNotifier.value += 1;
+      case 4:
+        _meTabActivationNotifier.value += 1;
     }
   }
 
@@ -267,7 +281,10 @@ class _AppShellPageState extends State<AppShellPage>
   Widget _cachedTabPage(int index) {
     return _tabPageCache.putIfAbsent(index, () {
       return switch (index) {
-        0 => HomePage(initialTabIndex: _homeInitialTabIndexOverride),
+        0 => HomePage(
+          initialTabIndex: _homeInitialTabIndexOverride,
+          activationListenable: _homeTabActivationNotifier,
+        ),
         1 => const OriginPage(),
         3 => ValueListenableBuilder<UnreadSummary>(
           valueListenable: _unreadSummaryNotifier,

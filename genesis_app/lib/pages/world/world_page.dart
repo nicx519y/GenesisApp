@@ -16,6 +16,7 @@ import '../../components/origin/stat_item.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
 import '../../components/world_map_stage.dart';
+import '../../components/world_tick1_wait_dialog.dart';
 import '../../components/world_top_overlay_bar.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../icons/custom_icon_assets.dart';
@@ -38,14 +39,17 @@ import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
-const Duration _tick1WaitPollInterval = Duration(seconds: 2);
-const Duration _tick1WaitDotsInterval = Duration(milliseconds: 400);
-
 class WorldPage extends StatefulWidget {
-  const WorldPage({super.key, required this.wid, this.waitForTick1 = false});
+  const WorldPage({
+    super.key,
+    required this.wid,
+    this.waitForTick1 = false,
+    this.initialWorldDetail,
+  });
 
   final String wid;
   final bool waitForTick1;
+  final WorldDetail? initialWorldDetail;
 
   @override
   State<WorldPage> createState() => _WorldPageState();
@@ -74,11 +78,19 @@ class _WorldPageState extends State<WorldPage>
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_handleMapModeTabChanged);
     _handleMapModeTabChanged();
-    unawaited(
-      _fetchWorld(isInitial: true).then((_) {
-        if (mounted) _maybeShowTick1WaitDialog();
-      }),
-    );
+    final initialWorld = widget.initialWorldDetail;
+    if (initialWorld != null) {
+      _world = initialWorld;
+      _syncLocationChatDescriptors(initialWorld);
+      _syncWorldChatroomForRelationStatus(initialWorld.relationStatus);
+      _maybeShowTick1WaitDialog();
+    } else {
+      unawaited(
+        _fetchWorld(isInitial: true).then((_) {
+          if (mounted) _maybeShowTick1WaitDialog();
+        }),
+      );
+    }
   }
 
   @override
@@ -291,7 +303,7 @@ class _WorldPageState extends State<WorldPage>
   void _maybeShowTick1WaitDialog() {
     if (!widget.waitForTick1 || _tick1WaitDialogStarted) return;
     final world = _world;
-    if (world == null || _worldHasTick1(world)) return;
+    if (world == null || worldHasTick1(world)) return;
     _tick1WaitDialogStarted = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -299,7 +311,7 @@ class _WorldPageState extends State<WorldPage>
         showGenesisDialog<void>(
           context: context,
           barrierDismissible: false,
-          builder: (_) => _Tick1WaitDialog(
+          builder: (_) => WorldTick1WaitDialog(
             loadWorld: _loadWorldForTick1Wait,
             onWorldReady: (world) =>
                 _applyWorldDetail(world, clearInitialLoadError: true),
@@ -1877,106 +1889,6 @@ class _MeasureSizeState extends State<_MeasureSize> {
   }
 }
 
-class _Tick1WaitDialog extends StatefulWidget {
-  const _Tick1WaitDialog({required this.loadWorld, required this.onWorldReady});
-
-  final Future<WorldDetail> Function() loadWorld;
-  final ValueChanged<WorldDetail> onWorldReady;
-
-  @override
-  State<_Tick1WaitDialog> createState() => _Tick1WaitDialogState();
-}
-
-class _Tick1WaitDialogState extends State<_Tick1WaitDialog> {
-  Timer? _pollTimer;
-  Timer? _dotsTimer;
-  bool _loading = true;
-  bool _hasError = false;
-  int _dotCount = 1;
-
-  @override
-  void initState() {
-    super.initState();
-    _dotsTimer = Timer.periodic(_tick1WaitDotsInterval, (_) {
-      if (!mounted || _hasError) return;
-      setState(() => _dotCount = _dotCount == 6 ? 1 : _dotCount + 1);
-    });
-    unawaited(_poll());
-  }
-
-  @override
-  void dispose() {
-    _pollTimer?.cancel();
-    _dotsTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _poll() async {
-    _pollTimer?.cancel();
-    if (mounted) {
-      setState(() {
-        _loading = true;
-        _hasError = false;
-      });
-    }
-    try {
-      final world = await widget.loadWorld();
-      if (!mounted) return;
-      if (_worldHasTick1(world)) {
-        widget.onWorldReady(world);
-        Navigator.of(context).pop();
-        return;
-      }
-      setState(() => _loading = false);
-      _pollTimer = Timer(_tick1WaitPollInterval, () => unawaited(_poll()));
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _hasError = true;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      key: const ValueKey('world-tick1-wait-dialog'),
-      title: const Text(
-        'Generating first tick',
-        style: TextStyle(fontSize: 16, height: 1.2),
-      ),
-      content: SizedBox(
-        width: 260,
-        child: Text(
-          _hasError
-              ? 'Generation status could not be loaded.'
-              : 'LLM is generating your first tick. This may take a moment${List.filled(_dotCount, '.').join()}',
-          style: const TextStyle(fontSize: 14, height: 1.35),
-        ),
-      ),
-      actions: _hasError
-          ? [
-              TextButton(
-                key: const ValueKey('world-tick1-wait-cancel'),
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                key: const ValueKey('world-tick1-wait-retry'),
-                onPressed: _loading ? null : () => unawaited(_poll()),
-                child: const Text('Retry'),
-              ),
-            ]
-          : null,
-    );
-  }
-}
-
-bool _worldHasTick1(WorldDetail? world) {
-  return (world?.tickCount ?? 0) >= 1;
-}
-
 extension on double {
   double frac() {
     return this - floorToDouble();
@@ -2488,6 +2400,7 @@ class _CharacterRow extends StatelessWidget {
             url: _mapString(character, const ['avatar']),
             name: name,
             showStar: isCharacterRole,
+            starSize: 20,
             showFallbackWhileLoading: false,
           ),
         ),
