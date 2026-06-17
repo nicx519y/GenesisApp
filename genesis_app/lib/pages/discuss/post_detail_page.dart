@@ -27,6 +27,19 @@ const String _postDetailLikeOutlineAsset =
 const String _postDetailReplyAsset =
     'assets/custom-icons/png/discuss_reply.png';
 const double _postInputReservedHeight = 96;
+const double _postDetailAvatarSize = 48;
+const TextStyle _postDetailMetaStyle = TextStyle(
+  color: Color(0xFF888888),
+  fontSize: 12,
+  height: 1.18,
+  fontWeight: FontWeight.w500,
+);
+const TextStyle _postDetailBodyStyle = TextStyle(
+  color: Color(0xFF111111),
+  fontSize: 12,
+  height: 1.45,
+  fontWeight: FontWeight.w400,
+);
 
 class PostDetailPage extends StatefulWidget {
   const PostDetailPage({super.key, required this.item});
@@ -100,11 +113,17 @@ class _PostDetailPageState extends State<PostDetailPage> {
     }
   }
 
-  Future<void> _openReplyComposer(OriginDiscussListItem item) async {
+  Future<void> _openReplyComposer(
+    OriginDiscussListItem item, {
+    Map<String, dynamic>? reply,
+  }) async {
     await showOriginDiscussReplyComposer(
       context: context,
       controller: _controller,
       item: item,
+      parentDiscussId: reply == null ? null : asString(reply['discuss_id']),
+      replyToUid: reply == null ? null : _replyAuthorUid(reply),
+      replyToUsername: reply == null ? null : _replyAuthorName(reply),
     );
   }
 
@@ -146,7 +165,8 @@ class _PostDetailPageState extends State<PostDetailPage> {
                     _PostDetailReplies(
                       controller: _controller,
                       item: item,
-                      onReplyTap: () => unawaited(_openReplyComposer(item)),
+                      onReplyTap: (reply) =>
+                          unawaited(_openReplyComposer(item, reply: reply)),
                       onLoadMore: () => unawaited(_loadMoreReplies(item)),
                     ),
                   ],
@@ -164,6 +184,25 @@ class _PostDetailPageState extends State<PostDetailPage> {
           );
         },
       ),
+    );
+  }
+
+  String _replyAuthorUid(Map<String, dynamic> reply) {
+    final author = reply['author'] is Map ? asJsonMap(reply['author']) : null;
+    return asString(author?['uid'], fallback: asString(reply['uid']));
+  }
+
+  String _replyAuthorName(Map<String, dynamic> reply) {
+    final author = reply['author'] is Map ? asJsonMap(reply['author']) : null;
+    final uid = _replyAuthorUid(reply);
+    return asString(
+      author?['name'] ??
+          author?['user_name'] ??
+          author?['nickname'] ??
+          author?['display_name'] ??
+          reply['author_name'] ??
+          reply['user_name'],
+      fallback: formatUidForDisplay(uid, fallback: 'User'),
     );
   }
 }
@@ -186,7 +225,7 @@ class _PostDetailRoot extends StatelessWidget {
       children: [
         _PostAvatarLink(
           item: item,
-          size: 48,
+          size: _postDetailAvatarSize,
           borderRadius: GenesisAvatarRadii.user,
         ),
         const SizedBox(width: 14),
@@ -195,21 +234,17 @@ class _PostDetailRoot extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _PostHeaderMeta(item: item),
-              const SizedBox(height: 26),
-              Text(
-                item.content,
-                style: const TextStyle(
-                  color: Color(0xFF1D1D1D),
-                  fontSize: 20,
-                  height: 1.35,
-                  fontWeight: FontWeight.w400,
-                ),
+              const SizedBox(height: 4),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onReplyTap,
+                child: Text(item.content, style: _postDetailBodyStyle),
               ),
               if (item.imageUrls.isNotEmpty) ...[
-                const SizedBox(height: 22),
+                const SizedBox(height: 6),
                 _PostImageGrid(urls: item.imageUrls),
               ],
-              const SizedBox(height: 22),
+              const SizedBox(height: 12),
               _PostActionRow(
                 controller: controller,
                 item: item,
@@ -233,35 +268,38 @@ class _PostHeaderMeta extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                item.authorName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF1D1D1D),
-                  fontSize: 18,
-                  height: 1.15,
-                  fontWeight: FontWeight.w700,
+        SizedBox(
+          width: double.infinity,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        item.authorName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _postDetailMetaStyle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    DiscussStoryBadge(count: item.storyCount),
+                  ],
                 ),
               ),
-            ),
-            if (item.createdAt != null)
-              GenesisTimestampText(
-                timestamp: item.createdAt,
-                style: const TextStyle(
-                  color: Color(0xFF888888),
-                  fontSize: 14,
-                  height: 1.2,
-                  fontWeight: FontWeight.w400,
+              if (item.createdAt != null) ...[
+                const SizedBox(width: 8),
+                GenesisTimestampText(
+                  timestamp: item.createdAt,
+                  style: _postDetailMetaStyle,
                 ),
-              ),
-          ],
+              ],
+            ],
+          ),
         ),
-        const SizedBox(height: 10),
-        Row(children: [DiscussStoryBadge(count: item.storyCount)]),
       ],
     );
   }
@@ -305,14 +343,9 @@ class _PostActionRow extends StatelessWidget {
         const SizedBox(width: 7),
         Text(
           '${item.likeCount}',
-          style: TextStyle(
-            fontSize: 14,
-            height: 1.2,
-            fontWeight: FontWeight.w500,
-            color: activeColor,
-          ),
+          style: _postDetailMetaStyle.copyWith(color: activeColor),
         ),
-        const SizedBox(width: 34),
+        const SizedBox(width: 28),
         GestureDetector(
           key: ValueKey('post-detail-reply-${item.discussId}'),
           behavior: HitTestBehavior.opaque,
@@ -328,7 +361,10 @@ class _PostActionRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 7),
-        Text('${item.replyCount}', style: _postMetaStyle),
+        Text(
+          '${item.replyCount}',
+          style: _postDetailMetaStyle.copyWith(fontWeight: FontWeight.w500),
+        ),
       ],
     );
   }
@@ -380,7 +416,7 @@ class _PostDetailReplies extends StatelessWidget {
 
   final OriginDiscussListController controller;
   final OriginDiscussListItem item;
-  final VoidCallback onReplyTap;
+  final void Function(Map<String, dynamic> reply) onReplyTap;
   final VoidCallback onLoadMore;
 
   @override
@@ -393,12 +429,12 @@ class _PostDetailReplies extends StatelessWidget {
           'All Replies $replyCount',
           style: const TextStyle(
             color: Color(0xFF1D1D1D),
-            fontSize: 20,
+            fontSize: 16,
             height: 1.15,
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 16),
         if (item.latestReplies.isEmpty &&
             controller.isReplyLoading(item.discussId))
           const Center(
@@ -412,10 +448,10 @@ class _PostDetailReplies extends StatelessWidget {
             _PostReplyRow(
               controller: controller,
               reply: entry.$2,
-              onReplyTap: onReplyTap,
+              onReplyTap: () => onReplyTap(entry.$2),
             ),
             if (entry.$1 != item.latestReplies.length - 1)
-              const SizedBox(height: 28),
+              const SizedBox(height: 16),
           ],
         if (controller.hasMoreReplies(item)) ...[
           const SizedBox(height: 18),
@@ -439,10 +475,10 @@ class _PostDetailReplies extends StatelessWidget {
                     : Text(
                         'View all ${controller.replyButtonCount(item)} replies',
                         style: const TextStyle(
-                          color: Color(0xFF888888),
+                          color: Color(0xFF2F4F7A),
                           fontSize: 12,
-                          height: 1.2,
-                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
               ),
@@ -477,42 +513,49 @@ class _PostReplyRow extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      data.authorName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF1D1D1D),
-                        fontSize: 18,
-                        height: 1.15,
-                        fontWeight: FontWeight.w700,
+              SizedBox(
+                width: double.infinity,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              data.authorName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _postDetailMetaStyle,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          DiscussStoryBadge(count: data.storyCount),
+                        ],
                       ),
                     ),
-                  ),
-                  if (data.dateLabel.isNotEmpty)
-                    Text(data.dateLabel, style: _postMetaStyle),
-                ],
+                    if (data.dateLabel.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Text(data.dateLabel, style: _postDetailMetaStyle),
+                    ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 10),
-              Row(children: [DiscussStoryBadge(count: data.storyCount)]),
-              const SizedBox(height: 22),
-              Text(
-                data.content,
-                style: const TextStyle(
-                  color: Color(0xFF1D1D1D),
-                  fontSize: 18,
-                  height: 1.35,
-                  fontWeight: FontWeight.w400,
+              const SizedBox(height: 4),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onReplyTap,
+                child: Text.rich(
+                  _replyDisplayContentSpan(reply),
+                  style: _postDetailBodyStyle,
                 ),
               ),
               if (data.imageUrls.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _PostImageGrid(urls: data.imageUrls, minTileSize: 56),
+                const SizedBox(height: 6),
+                _PostImageGrid(urls: data.imageUrls),
               ],
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               _ReplyActionRow(
                 controller: controller,
                 discussId: data.discussId,
@@ -571,11 +614,12 @@ class _ReplyActionRow extends StatelessWidget {
         const SizedBox(width: 7),
         Text(
           '$likeCount',
-          style: _postMetaStyle.copyWith(
+          style: _postDetailMetaStyle.copyWith(
             color: isLiked ? const Color(0xFFF42C47) : const Color(0xFF8B8B8B),
+            fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(width: 34),
+        const SizedBox(width: 28),
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onReplyTap,
@@ -590,7 +634,10 @@ class _ReplyActionRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 7),
-        Text('$replyCount', style: _postMetaStyle),
+        Text(
+          '$replyCount',
+          style: _postDetailMetaStyle.copyWith(fontWeight: FontWeight.w500),
+        ),
       ],
     );
   }
@@ -642,9 +689,8 @@ class _PostDetailCommentBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
+    return KeyedSubtree(
       key: const ValueKey<String>('post-detail-comment-input-bar'),
-      color: Colors.white,
       child: SafeArea(
         top: false,
         child: Padding(
@@ -653,20 +699,21 @@ class _PostDetailCommentBar extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             onTap: onTap,
             child: Container(
-              height: 58,
+              constraints: const BoxConstraints(minHeight: 48),
               alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.symmetric(horizontal: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF4F4F4),
-                borderRadius: BorderRadius.circular(12),
+                color: const Color(0xFFF2F2F2),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
                 'Add a comment',
                 style: TextStyle(
                   color: Color(0xFF8B8B8B),
-                  fontSize: 18,
+                  fontSize: 14,
                   height: 1.2,
                   fontWeight: FontWeight.w400,
+                  letterSpacing: 0,
                 ),
               ),
             ),
@@ -732,26 +779,21 @@ class _ReplyAvatarLink extends StatelessWidget {
 }
 
 class _PostImageGrid extends StatelessWidget {
-  const _PostImageGrid({required this.urls, this.minTileSize = 72});
+  const _PostImageGrid({required this.urls});
 
   final List<String> urls;
-  final double minTileSize;
 
   @override
   Widget build(BuildContext context) {
     final visibleUrls = urls.take(6).toList(growable: false);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : 288.0;
-        final tileSize = ((maxWidth - 16) / 3).clamp(minTileSize, 112.0);
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final entry in visibleUrls.indexed)
-              GestureDetector(
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final entry in visibleUrls.indexed)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => showGenesisImageViewer(
                   context,
@@ -760,14 +802,14 @@ class _PostImageGrid extends StatelessWidget {
                 ),
                 child: GenesisListImage(
                   imageUrl: entry.$2,
-                  width: tileSize,
-                  height: tileSize,
+                  width: 48,
+                  height: 48,
                   borderRadius: GenesisImageRadii.content,
                 ),
               ),
-          ],
-        );
-      },
+            ),
+        ],
+      ),
     );
   }
 }
@@ -839,12 +881,27 @@ class _ReplyViewData {
   final String dateLabel;
 }
 
-const _postMetaStyle = TextStyle(
-  color: Color(0xFF8B8B8B),
-  fontSize: 14,
-  height: 1.2,
-  fontWeight: FontWeight.w400,
-);
+TextSpan _replyDisplayContentSpan(Map<String, dynamic> json) {
+  final content = asString(json['content']);
+  final parentDiscussId = asString(json['parent_discuss_id']).trim();
+  final rootDiscussId = asString(json['root_discuss_id']).trim();
+  final replyToUid = asString(json['reply_to_uid']).trim();
+  final replyToUsername = asString(json['reply_to_username']).trim();
+  final replyToName = replyToUsername.isNotEmpty ? replyToUsername : replyToUid;
+  if (parentDiscussId.isEmpty ||
+      rootDiscussId.isEmpty ||
+      parentDiscussId == rootDiscussId ||
+      replyToName.isEmpty) {
+    return TextSpan(text: content);
+  }
+  return TextSpan(
+    children: [
+      const TextSpan(text: 'Reply to '),
+      TextSpan(text: replyToName, style: _postDetailMetaStyle),
+      TextSpan(text: ': $content', style: _postDetailBodyStyle),
+    ],
+  );
+}
 
 DateTime? _parseDateTime(Object? value) {
   if (value == null) return null;

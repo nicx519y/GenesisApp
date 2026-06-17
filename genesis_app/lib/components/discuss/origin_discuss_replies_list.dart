@@ -91,8 +91,8 @@ class _OriginDiscussReplyItem extends StatelessWidget {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          _replyLine(reply),
+        Text.rich(
+          _replyLineSpan(reply),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: _subtleStyle.copyWith(
@@ -172,7 +172,7 @@ class _OriginDiscussReplyImageThumbnail extends StatelessWidget {
   }
 }
 
-String _replyLine(Map<String, dynamic> json) {
+TextSpan _replyLineSpan(Map<String, dynamic> json) {
   final author = json['author'] is Map ? asJsonMap(json['author']) : null;
   final uid = asString(author?['uid'], fallback: asString(json['uid']));
   final name = asString(
@@ -185,7 +185,43 @@ String _replyLine(Map<String, dynamic> json) {
     fallback: formatUidForDisplay(uid, fallback: 'User'),
   );
   final content = asString(json['content']);
-  return '${formatUidForDisplay(name, fallback: 'User')}: $content';
+  final authorName = formatUidForDisplay(name, fallback: 'User');
+  final parentDiscussId = asString(json['parent_discuss_id']).trim();
+  final rootDiscussId = asString(json['root_discuss_id']).trim();
+  final replyToUid = asString(json['reply_to_uid']).trim();
+  final replyToUsername = asString(json['reply_to_username']).trim();
+  final replyToName = replyToUsername.isNotEmpty ? replyToUsername : replyToUid;
+  if (parentDiscussId.isEmpty ||
+      rootDiscussId.isEmpty ||
+      parentDiscussId == rootDiscussId ||
+      replyToName.isEmpty) {
+    return TextSpan(
+      children: [
+        TextSpan(text: '$authorName: '),
+        TextSpan(
+          text: content,
+          style: const TextStyle(color: Color(0xFF111111)),
+        ),
+      ],
+    );
+  }
+  return TextSpan(
+    children: [
+      TextSpan(text: '$authorName: '),
+      const TextSpan(
+        text: 'Reply to ',
+        style: TextStyle(color: Color(0xFF111111)),
+      ),
+      TextSpan(
+        text: replyToName,
+        style: const TextStyle(color: Color(0xFF60636A)),
+      ),
+      TextSpan(
+        text: ': $content',
+        style: const TextStyle(color: Color(0xFF111111)),
+      ),
+    ],
+  );
 }
 
 List<String> _imageUrlsFrom(Object? value) {

@@ -7,6 +7,7 @@ import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/page_header.dart';
 import '../../network/genesis_api.dart';
+import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_list_image.dart';
@@ -155,8 +156,9 @@ class _DiscussPageState extends State<DiscussPage> {
                         showActions: true,
                         showReplies: true,
                         imageTapOpensViewer: true,
-                        onItemReplyTap: _openPostDetail,
+                        onItemReplyTap: _openReplyComposer,
                         onReplyTap: _handleReplyListItemTap,
+                        onViewAllRepliesTap: _openPostDetail,
                       ),
                       AnimatedBuilder(
                         animation: _discussController,
@@ -185,9 +187,8 @@ class _DiscussPageState extends State<DiscussPage> {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: ColoredBox(
+                child: KeyedSubtree(
                   key: const ValueKey<String>('discuss-page-post-input-bar'),
-                  color: const Color(0xFFF9F9F9),
                   child: SafeArea(
                     top: false,
                     child: Padding(
@@ -210,8 +211,34 @@ class _DiscussPageState extends State<DiscussPage> {
 
   void _handleReplyListItemTap(
     OriginDiscussListItem item,
-    Map<String, dynamic> _,
-  ) => _openPostDetail(item);
+    Map<String, dynamic> reply,
+  ) => _openReplyComposerForReply(item, reply);
+
+  void _openReplyComposer(OriginDiscussListItem item) {
+    unawaited(
+      showOriginDiscussReplyComposer(
+        context: context,
+        controller: _discussController,
+        item: item,
+      ),
+    );
+  }
+
+  void _openReplyComposerForReply(
+    OriginDiscussListItem item,
+    Map<String, dynamic> reply,
+  ) {
+    unawaited(
+      showOriginDiscussReplyComposer(
+        context: context,
+        controller: _discussController,
+        item: item,
+        parentDiscussId: asString(reply['discuss_id']),
+        replyToUid: _replyAuthorUid(reply),
+        replyToUsername: _replyAuthorName(reply),
+      ),
+    );
+  }
 
   void _openPostDetail(OriginDiscussListItem item) {
     unawaited(
@@ -224,6 +251,25 @@ class _DiscussPageState extends State<DiscussPage> {
             if (!mounted) return;
             unawaited(_discussController.refreshFirstPage());
           }),
+    );
+  }
+
+  String _replyAuthorUid(Map<String, dynamic> reply) {
+    final author = reply['author'] is Map ? asJsonMap(reply['author']) : null;
+    return asString(author?['uid'], fallback: asString(reply['uid']));
+  }
+
+  String _replyAuthorName(Map<String, dynamic> reply) {
+    final author = reply['author'] is Map ? asJsonMap(reply['author']) : null;
+    final uid = _replyAuthorUid(reply);
+    return asString(
+      author?['name'] ??
+          author?['user_name'] ??
+          author?['nickname'] ??
+          author?['display_name'] ??
+          reply['author_name'] ??
+          reply['user_name'],
+      fallback: formatUidForDisplay(uid, fallback: 'User'),
     );
   }
 }

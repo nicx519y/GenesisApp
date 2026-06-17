@@ -838,6 +838,7 @@ class OriginDiscussList extends StatelessWidget {
     this.onViewMoreTap,
     this.onItemReplyTap,
     this.onReplyTap,
+    this.onViewAllRepliesTap,
   });
 
   final OriginDiscussListController controller;
@@ -851,6 +852,7 @@ class OriginDiscussList extends StatelessWidget {
   final Future<void> Function()? onViewMoreTap;
   final OriginDiscussItemTap? onItemReplyTap;
   final OriginDiscussReplyTap? onReplyTap;
+  final OriginDiscussItemTap? onViewAllRepliesTap;
 
   @override
   Widget build(BuildContext context) {
@@ -900,6 +902,7 @@ class OriginDiscussList extends StatelessWidget {
                         onViewMoreTap: onViewMoreTap,
                         onItemReplyTap: onItemReplyTap,
                         onReplyTap: onReplyTap,
+                        onViewAllRepliesTap: onViewAllRepliesTap,
                       ),
                       if (entry.$1 != comments.length - 1)
                         const SizedBox(height: 16),
@@ -1002,6 +1005,7 @@ class OriginDiscussCommentRow extends StatefulWidget {
     this.onViewMoreTap,
     this.onItemReplyTap,
     this.onReplyTap,
+    this.onViewAllRepliesTap,
   });
 
   final OriginDiscussListController controller;
@@ -1012,6 +1016,7 @@ class OriginDiscussCommentRow extends StatefulWidget {
   final Future<void> Function()? onViewMoreTap;
   final OriginDiscussItemTap? onItemReplyTap;
   final OriginDiscussReplyTap? onReplyTap;
+  final OriginDiscussItemTap? onViewAllRepliesTap;
 
   @override
   State<OriginDiscussCommentRow> createState() =>
@@ -1132,13 +1137,19 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
             children: [
               _DiscussPreviewMeta(item: widget.item),
               const SizedBox(height: 4),
-              Text(
-                widget.item.content,
-                style: const TextStyle(
-                  color: Color(0xFF111111),
-                  fontSize: 12,
-                  height: 1.45,
-                  fontWeight: FontWeight.w400,
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: widget.onItemReplyTap == null
+                    ? null
+                    : () => widget.onItemReplyTap!(widget.item),
+                child: Text(
+                  widget.item.content,
+                  style: const TextStyle(
+                    color: Color(0xFF111111),
+                    fontSize: 12,
+                    height: 1.45,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
               ),
               if (widget.item.imageUrls.isNotEmpty) ...[
@@ -1164,6 +1175,7 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
                   controller: widget.controller,
                   item: widget.item,
                   onReplyTap: widget.onReplyTap,
+                  onViewAllTap: widget.onViewAllRepliesTap,
                 ),
               ],
             ],
@@ -1344,11 +1356,13 @@ class _DiscussReplyPreview extends StatelessWidget {
     required this.controller,
     required this.item,
     this.onReplyTap,
+    this.onViewAllTap,
   });
 
   final OriginDiscussListController controller;
   final OriginDiscussListItem item;
   final OriginDiscussReplyTap? onReplyTap;
+  final OriginDiscussItemTap? onViewAllTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1361,7 +1375,14 @@ class _DiscussReplyPreview extends StatelessWidget {
       replies: replies,
       remainingReplyCount: controller.replyButtonCount(item),
       isLoading: controller.isReplyLoading(item.discussId),
-      onLoadMore: () => _loadMoreReplies(context),
+      onLoadMore: () {
+        final viewAllHandler = onViewAllTap;
+        if (viewAllHandler != null) {
+          viewAllHandler(item);
+          return;
+        }
+        unawaited(_loadMoreReplies(context));
+      },
       onReplyTap: onReplyTap == null
           ? null
           : (reply) => onReplyTap!(item, reply),
@@ -1388,6 +1409,9 @@ Future<bool> showOriginDiscussReplyComposer({
   required BuildContext context,
   required OriginDiscussListController controller,
   required OriginDiscussListItem item,
+  String? parentDiscussId,
+  String? replyToUid,
+  String? replyToUsername,
 }) async {
   final discussId = item.discussId.trim();
   final bizId = item.bizId.trim();
@@ -1403,6 +1427,9 @@ Future<bool> showOriginDiscussReplyComposer({
       item: item,
       content: content,
       images: images,
+      parentDiscussId: parentDiscussId,
+      replyToUid: replyToUid,
+      replyToUsername: replyToUsername,
     ),
   );
 }
@@ -1413,9 +1440,21 @@ Future<void> submitOriginDiscussReply({
   required OriginDiscussListItem item,
   required String content,
   required List<String> images,
+  String? parentDiscussId,
+  String? replyToUid,
+  String? replyToUsername,
 }) async {
   final discussId = item.discussId.trim();
   final bizId = item.bizId.trim();
+  final resolvedParentDiscussId = parentDiscussId?.trim().isNotEmpty == true
+      ? parentDiscussId!.trim()
+      : discussId;
+  final resolvedReplyToUid = replyToUid?.trim().isNotEmpty == true
+      ? replyToUid!.trim()
+      : item.authorUid;
+  final resolvedReplyToUsername = replyToUsername?.trim().isNotEmpty == true
+      ? replyToUsername!.trim()
+      : item.authorName;
   if (discussId.isEmpty || bizId.isEmpty) return;
 
   final services = AppServicesScope.read(context);
@@ -1424,7 +1463,7 @@ Future<void> submitOriginDiscussReply({
     content: content,
     images: images,
     rootDiscussId: discussId,
-    parentDiscussId: discussId,
+    parentDiscussId: resolvedParentDiscussId,
   );
   final userInfo = await services.sessionStore.readUserInfo();
   controller.insertReply(
@@ -1435,8 +1474,9 @@ Future<void> submitOriginDiscussReply({
       images: images,
       bizId: bizId,
       rootDiscussId: discussId,
-      parentDiscussId: discussId,
-      replyToUid: item.authorUid,
+      parentDiscussId: resolvedParentDiscussId,
+      replyToUid: resolvedReplyToUid,
+      replyToUsername: resolvedReplyToUsername,
       userInfo: userInfo,
     ),
   );
@@ -1450,6 +1490,7 @@ Map<String, dynamic> _localReplyJson({
   required String rootDiscussId,
   required String parentDiscussId,
   required String replyToUid,
+  required String replyToUsername,
   required Map<String, dynamic>? userInfo,
 }) {
   final user = userInfo == null
@@ -1478,6 +1519,7 @@ Map<String, dynamic> _localReplyJson({
     'root_discuss_id': rootDiscussId,
     'parent_discuss_id': parentDiscussId,
     'reply_to_uid': replyToUid,
+    'reply_to_username': replyToUsername,
     'level': asInt(created['level'], fallback: 2),
     'reply_cnt': 0,
     'like_cnt': 0,
