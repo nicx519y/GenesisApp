@@ -479,7 +479,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final reconcileStopwatch = _panelMetricsEnabled
         ? (Stopwatch()..start())
         : null;
-    final changedMessages = _reconcileMessages(nextSource);
+    final changedMessages = _reconcileMessages(nextSource, state);
     setState(() {
       _chatroomState = state;
     });
@@ -534,7 +534,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     );
   }
 
-  bool _reconcileMessages(List<WorldChatroomMessage> source) {
+  bool _reconcileMessages(
+    List<WorldChatroomMessage> source,
+    WorldChatroomState state,
+  ) {
     final visibleSource = visibleLocationChatMessagesForTesting(source);
     final previous = _messages.where((message) => !message.isSystem).toList();
     final existingByKey = {
@@ -557,7 +560,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       final status = message.streaming ? 'streaming' : 'sent';
       final isMe = _isMineMessage(message);
       final senderName = _messageSenderDisplayName(message);
-      final avatarUrl = _messageAvatarUrl(message);
+      final nextAvatarUrl = _messageAvatarUrl(message, state);
       final clientMsgId = message.clientMsgId.trim();
       final existing =
           (clientMsgId.isEmpty ? null : existingByClientMsgId[clientMsgId]) ??
@@ -571,6 +574,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             usedLocalIds: usedLocalIds,
           );
       final createdAt = message.createdAt ?? DateTime.now();
+      final avatarUrl = firstNonEmpty([nextAvatarUrl, existing?.avatarUrl]);
       if (existing != null) {
         if (usedLocalIds.contains(existing.localId)) {
           changed = true;
@@ -709,6 +713,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final changedMessages = _reconcileMessages(
       _chatroomState.messagesByLocation[widget.locationId] ??
           const <WorldChatroomMessage>[],
+      _chatroomState,
     );
     if (changedMessages && mounted) setState(() {});
   }
@@ -891,10 +896,15 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     ]);
   }
 
-  String _messageAvatarUrl(WorldChatroomMessage message) {
+  String _messageAvatarUrl(
+    WorldChatroomMessage message, [
+    WorldChatroomState? state,
+  ]) {
+    final sourceState = state ?? _chatroomState;
     return firstNonEmpty([
-      _entityAvatarForIdentity(message.userId),
-      _entityAvatarForIdentity(message.senderId),
+      _entityAvatarForIdentity(message.userId, sourceState),
+      _entityAvatarForIdentity(message.senderId, sourceState),
+      if (_isMineMessage(message)) _localSelfAvatarUrl(sourceState),
     ]);
   }
 
@@ -907,10 +917,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     ]);
   }
 
-  String _localSelfAvatarUrl() {
+  String _localSelfAvatarUrl([WorldChatroomState? state]) {
+    final sourceState = state ?? _chatroomState;
     return firstNonEmpty([
-      _entityAvatarForIdentity(_myUserId),
-      _entityAvatarForIdentity(_mySenderId),
+      _entityAvatarForIdentity(_myUserId, sourceState),
+      _entityAvatarForIdentity(_mySenderId, sourceState),
       _myAvatarUrl,
     ]);
   }
@@ -925,10 +936,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     return '';
   }
 
-  String _entityAvatarForIdentity(String value) {
+  String _entityAvatarForIdentity(String value, [WorldChatroomState? state]) {
+    final sourceState = state ?? _chatroomState;
     final key = _chatroomIdentityKey(value);
     if (key.isEmpty) return '';
-    for (final entry in _chatroomState.entitiesById.entries) {
+    for (final entry in sourceState.entitiesById.entries) {
       if (_chatroomIdentityKey(entry.key) != key) continue;
       return entry.value.avatarUrl;
     }

@@ -779,18 +779,31 @@ class ChatAvatar extends StatelessWidget {
     final style = this.style ?? ChatUiStyleConfig.standard;
     final seed = this.seed?.trim();
     final imageUrl = this.imageUrl.trim();
-    if (imageUrl.isNotEmpty) {
-      return Stack(
+    return SizedBox(
+      width: style.avatarSize,
+      height: style.avatarSize,
+      child: Stack(
         children: [
-          GenesisAvatar(
-            name: seed == null || seed.isEmpty ? label : seed,
-            url: imageUrl,
-            size: style.avatarSize,
-            borderRadius: style.avatarBorderRadius,
-            textStyle: style.avatarTextStyle,
-            showFallbackWhileLoading: false,
-            showFallbackWhenUnavailable: false,
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(style.avatarBorderRadius),
+              ),
+            ),
           ),
+          if (imageUrl.isNotEmpty)
+            Positioned.fill(
+              child: GenesisAvatar(
+                name: seed == null || seed.isEmpty ? label : seed,
+                url: imageUrl,
+                size: style.avatarSize,
+                borderRadius: style.avatarBorderRadius,
+                textStyle: style.avatarTextStyle,
+                showFallbackWhileLoading: false,
+                showFallbackWhenUnavailable: false,
+              ),
+            ),
           Positioned.fill(
             child: IgnorePointer(
               child: DecoratedBox(
@@ -802,9 +815,8 @@ class ChatAvatar extends StatelessWidget {
             ),
           ),
         ],
-      );
-    }
-    return SizedBox(width: style.avatarSize, height: style.avatarSize);
+      ),
+    );
   }
 }
 
