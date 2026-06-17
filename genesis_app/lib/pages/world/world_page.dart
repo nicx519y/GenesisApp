@@ -988,7 +988,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 }
 
-class _WorldSectionFloatingTabs extends StatefulWidget {
+class _WorldSectionFloatingTabs extends StatelessWidget {
   const _WorldSectionFloatingTabs({
     required this.controller,
     required this.onTap,
@@ -998,22 +998,63 @@ class _WorldSectionFloatingTabs extends StatefulWidget {
   final ValueChanged<int> onTap;
 
   @override
-  State<_WorldSectionFloatingTabs> createState() =>
-      _WorldSectionFloatingTabsState();
-}
+  Widget build(BuildContext context) {
+    final safePadding = MediaQuery.paddingOf(context);
+    return Positioned(
+      right: _edgePadding,
+      top: safePadding.top + 400,
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) =>
+            SizedBox(width: _width, height: _height, child: _buildTabs()),
+      ),
+    );
+  }
 
-class _WorldSectionFloatingTabsState extends State<_WorldSectionFloatingTabs> {
-  static const double _width = 62;
-  static const double _height = 226;
-  static const double _dragHitWidth = 96;
+  Widget _buildTabs() {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(27),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x26000000),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          children: [
+            for (final entry in _items.indexed) ...[
+              Expanded(
+                child: _WorldSectionFloatingTabButton(
+                  item: entry.$2,
+                  selected: controller.index == entry.$1,
+                  onTap: () => onTap(entry.$1),
+                ),
+              ),
+              if (entry.$1 != _items.length - 1)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10),
+                  child: Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Color(0xFFECECEC),
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  static const double _width = 48;
+  static const double _height = 174;
   static const double _edgePadding = 8;
-
-  Offset? _position;
-  bool _dragging = false;
-  int? _dragPointer;
-  Offset? _dragStartGlobalPosition;
-  Offset? _dragStartSidebarPosition;
-  Alignment? _dragStartAlignment;
 
   static const _items = <_WorldSectionFloatingTabItem>[
     _WorldSectionFloatingTabItem(
@@ -1029,190 +1070,6 @@ class _WorldSectionFloatingTabsState extends State<_WorldSectionFloatingTabs> {
       asset: _worldSectionCastIconAsset,
     ),
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    widget.controller.addListener(_handleControllerChanged);
-  }
-
-  @override
-  void didUpdateWidget(covariant _WorldSectionFloatingTabs oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_handleControllerChanged);
-      widget.controller.addListener(_handleControllerChanged);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_handleControllerChanged);
-    super.dispose();
-  }
-
-  void _handleControllerChanged() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final safePadding = MediaQuery.paddingOf(context);
-    return Positioned.fill(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final maxX = (constraints.maxWidth - _dragHitWidth - _edgePadding)
-              .clamp(_edgePadding, double.infinity);
-          final minY = safePadding.top + 96;
-          final maxY =
-              (constraints.maxHeight -
-                      _height -
-                      safePadding.bottom -
-                      _edgePadding)
-                  .clamp(minY, double.infinity);
-          final currentPosition =
-              _position ??
-              Offset(
-                maxX.toDouble(),
-                (constraints.maxHeight * 0.46).clamp(minY, maxY),
-              );
-          final clampedPosition = Offset(
-            currentPosition.dx.clamp(_edgePadding, maxX).toDouble(),
-            currentPosition.dy.clamp(minY, maxY).toDouble(),
-          );
-
-          final sidebar = Listener(
-            behavior: HitTestBehavior.translucent,
-            onPointerDown: (event) {
-              if (_dragPointer != null) return;
-              _dragPointer = event.pointer;
-              _dragStartGlobalPosition = event.position;
-              _dragStartSidebarPosition = clampedPosition;
-              _dragStartAlignment =
-                  clampedPosition.dx < constraints.maxWidth / 2
-                  ? Alignment.centerLeft
-                  : Alignment.centerRight;
-            },
-            onPointerMove: (event) {
-              if (_dragPointer != event.pointer) return;
-              final startGlobal = _dragStartGlobalPosition;
-              final startSidebar = _dragStartSidebarPosition;
-              if (startGlobal == null || startSidebar == null) return;
-              final delta = event.position - startGlobal;
-              if (!_dragging && delta.distance < 1) return;
-              setState(() {
-                _dragging = true;
-                final next = startSidebar + delta;
-                _position = Offset(
-                  next.dx.clamp(_edgePadding, maxX).toDouble(),
-                  next.dy.clamp(minY, maxY).toDouble(),
-                );
-              });
-            },
-            onPointerUp: (event) {
-              if (_dragPointer != event.pointer) return;
-              final shouldSnap = _dragging;
-              final endPosition = _position ?? clampedPosition;
-              final centerX = endPosition.dx + _dragHitWidth / 2;
-              final snapX = centerX < constraints.maxWidth / 2
-                  ? _edgePadding
-                  : maxX.toDouble();
-              setState(() {
-                _dragPointer = null;
-                _dragStartGlobalPosition = null;
-                _dragStartSidebarPosition = null;
-                _dragStartAlignment = null;
-                _dragging = false;
-                if (shouldSnap) {
-                  _position = Offset(snapX, endPosition.dy);
-                }
-              });
-            },
-            onPointerCancel: (event) {
-              if (_dragPointer != event.pointer) return;
-              setState(() {
-                _dragPointer = null;
-                _dragStartGlobalPosition = null;
-                _dragStartSidebarPosition = null;
-                _dragStartAlignment = null;
-                _dragging = false;
-              });
-            },
-            child: SizedBox(
-              width: _dragHitWidth,
-              height: _height,
-              child: Align(
-                alignment:
-                    _dragStartAlignment ??
-                    (clampedPosition.dx < constraints.maxWidth / 2
-                        ? Alignment.centerLeft
-                        : Alignment.centerRight),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  width: _width,
-                  height: _height,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.94),
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x26000000),
-                        blurRadius: 14,
-                        offset: Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      for (final entry in _items.indexed) ...[
-                        Expanded(
-                          child: _WorldSectionFloatingTabButton(
-                            item: entry.$2,
-                            selected: widget.controller.index == entry.$1,
-                            onTap: () => widget.onTap(entry.$1),
-                          ),
-                        ),
-                        if (entry.$1 != _items.length - 1)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 14),
-                            child: Divider(
-                              height: 1,
-                              thickness: 1,
-                              color: Color(0xFFECECEC),
-                            ),
-                          ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-
-          return Stack(
-            children: [
-              if (_dragging)
-                Positioned(
-                  left: clampedPosition.dx,
-                  top: clampedPosition.dy,
-                  child: sidebar,
-                )
-              else
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
-                  left: clampedPosition.dx,
-                  top: clampedPosition.dy,
-                  child: sidebar,
-                ),
-            ],
-          );
-        },
-      ),
-    );
-  }
 }
 
 class _WorldSectionFloatingTabButton extends StatelessWidget {
@@ -1237,18 +1094,18 @@ class _WorldSectionFloatingTabButton extends StatelessWidget {
         children: [
           SvgPicture.asset(
             item.asset,
-            width: 26,
-            height: 26,
+            width: 19,
+            height: 19,
             colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 3),
           Text(
             item.label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: color,
-              fontSize: 13,
+              fontSize: 10,
               height: 1.1,
               fontWeight: FontWeight.w700,
             ),
