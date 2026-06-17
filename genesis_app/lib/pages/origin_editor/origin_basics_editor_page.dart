@@ -21,6 +21,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
       TextEditingController();
   final TextEditingController _progressMetricController =
       TextEditingController();
+  final TextEditingController _labelNoteController = TextEditingController();
   final TextEditingController _unitController = TextEditingController();
   final TextEditingController _startingValueController =
       TextEditingController();
@@ -199,6 +200,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
           decoded['label']?.toString() ??
           decoded['progress_metric']?.toString() ??
           '';
+      _labelNoteController.text = decoded['label_note']?.toString() ?? '';
       _unitController.text = decoded['unit']?.toString() ?? '';
       final range = decoded['range'];
       if (range is List) {
@@ -217,6 +219,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
   String _simulationSettingsJson() {
     final values = <String, String>{
       'label': _progressMetricController.text.trim(),
+      'label_note': _labelNoteController.text.trim(),
       'unit': _unitController.text.trim(),
     }..removeWhere((_, value) => value.isEmpty);
 
@@ -244,7 +247,14 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return raw;
       final payload = <String, dynamic>{
-        for (final key in const ['mode', 'label', 'unit', 'range', 'default'])
+        for (final key in const [
+          'mode',
+          'label',
+          'label_note',
+          'unit',
+          'range',
+          'default',
+        ])
           if (decoded[key] != null && decoded[key].toString().trim().isNotEmpty)
             key: decoded[key],
       };
@@ -329,6 +339,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     _worldStartTimeController.dispose();
     _timeProgressCustomController.dispose();
     _progressMetricController.dispose();
+    _labelNoteController.dispose();
     _unitController.dispose();
     _startingValueController.dispose();
     _minValueController.dispose();
@@ -484,6 +495,16 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         label: '',
                         controller: _progressMetricController,
                         hintText: 'Goal Progress / Wealth / Affection',
+                        maxLines: 1,
+                        onChanged: (_) => _onFormChanged(),
+                      ),
+                      const SizedBox(height: 18),
+                      const _SimulationFieldLabel('Label note'),
+                      const SizedBox(height: 10),
+                      CreateTextFieldBlock(
+                        label: '',
+                        controller: _labelNoteController,
+                        hintText: 'Describe what this metric measures',
                         maxLines: 1,
                         onChanged: (_) => _onFormChanged(),
                       ),

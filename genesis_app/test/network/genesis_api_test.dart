@@ -383,9 +383,12 @@ void main() {
             'setting': 'Editable rules.',
             'events': ['The archive opens.'],
             'tags': ['archive'],
-            'metric': const <String, Object?>{'label': 'Influence'},
+            'metric': const <String, Object?>{
+              'label': 'Influence',
+              'label_note': 'Tracks archive trust.',
+            },
             'started_at': 'Day 1',
-            'tick_duration_days': 30,
+            'tick_duration_time': '30 days',
             'cover': 'cover.png',
             'map_url': 'map.png',
             'characters': const <Object?>[],
@@ -412,6 +415,8 @@ void main() {
       'o_edit_1',
     );
     expect(edit['origin_id'], 'o_edit_1');
+    expect(edit['tick_duration_time'], '30 days');
+    expect((edit['metric'] as Map)['label_note'], 'Tracks archive trust.');
     expect(edit['stats'], isNull);
     expect(edit['ticks'], isNull);
   });
@@ -453,7 +458,10 @@ void main() {
           {'content': 'The gate opens.'},
         ],
         'tags': const ['city'],
-        'metric': const <String, Object?>{'label': 'Influence'},
+        'metric': const <String, Object?>{
+          'label': 'Influence',
+          'label_note': 'Tracks public influence.',
+        },
         'started_at': 'Day 1',
         'tick_duration_days': 30,
         'cover': 'cover.png',
@@ -499,7 +507,10 @@ void main() {
     expect(body['setting'], 'Hidden rules.');
     expect(body['events'], ['The gate opens.']);
     expect(body['tags'], ['city']);
-    expect(body['metric'], {'label': 'Influence'});
+    expect(body['metric'], {
+      'label': 'Influence',
+      'label_note': 'Tracks public influence.',
+    });
     expect(body['started_at'], 'Day 1');
     expect(body.containsKey('tick_duration_days'), isFalse);
     expect(body['tick_duration_time'], '30 days');
@@ -563,6 +574,7 @@ void main() {
         'metric': const <String, Object?>{
           'mode': 'qualitative',
           'label': 'Progress',
+          'label_note': 'Tracks story progress.',
           'unit': '%',
           'range': [0, 100],
           'default': 0,
@@ -619,6 +631,7 @@ void main() {
     expect(body['metric'], {
       'mode': 'qualitative',
       'label': 'Progress',
+      'label_note': 'Tracks story progress.',
       'unit': '%',
       'range': [0, 100],
       'default': 0,

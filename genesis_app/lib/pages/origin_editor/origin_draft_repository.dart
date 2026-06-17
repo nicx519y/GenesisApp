@@ -241,6 +241,7 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
   return CreateOriginDraft(
     basics: BasicsDraft(
       originId: originId,
+      originVersion: asString(origin['origin_version']),
       originName: asString(
         origin['name'],
         fallback: asString(origin['origin_name'], fallback: originId),

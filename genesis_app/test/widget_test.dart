@@ -1648,12 +1648,13 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         'metric': {
           'mode': 'qualitative',
           'label': 'Influence',
+          'label_note': 'Tracks archive influence.',
           'unit': '%',
           'range': [0, 100],
           'default': 0,
         },
         'started_at': 'Day 1',
-        'tick_duration_days': 30,
+        'tick_duration_time': '30 days',
         'cover': 'assets/images/mock_maps/steam_kingdom_isometric.png',
         'map_url': 'assets/images/mock_maps/steam_kingdom_isometric.png',
         'characters': [
@@ -6896,11 +6897,20 @@ void main() {
         child: const MaterialApp(home: EditOriginPage(originId: 'o_edit_1')),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/foredit').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     final detailRequests = transport.requestsFor('/api/v1/origin/foredit');
     expect(detailRequests, hasLength(1));
     expect(detailRequests.single.uri.queryParameters['origin_id'], 'o_edit_1');
+    expect(find.text('Current Version: V1'), findsOneWidget);
     expect(find.textContaining('World Name: Editable Origin'), findsOneWidget);
 
     var rootPublish = tester.widget<FilledButton>(
@@ -6913,7 +6923,8 @@ void main() {
     );
 
     await tester.tap(find.widgetWithText(FilledButton, 'Publish'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('No changes to publish.'), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
     await tester.pump(const Duration(seconds: 2));
@@ -6935,7 +6946,39 @@ void main() {
     expect(rootPublish.onPressed, isNotNull);
 
     await tester.tap(find.widgetWithText(FilledButton, 'Publish'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('Update notes are required to publish.'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
+    await tester.pump(const Duration(seconds: 2));
+
+    await tester.drag(find.byType(ListView), const Offset(0, -360));
+    await tester.pump();
+    expect(find.byType(TextField), findsOneWidget);
+    await tester.enterText(
+      find.byType(TextField),
+      'Clarified the archive rules.',
+    );
+    await tester.pump();
+    var notesEditable = tester.state<EditableTextState>(
+      find.byType(EditableText),
+    );
+    expect(notesEditable.widget.focusNode.hasFocus, isTrue);
+    await tester.tap(find.text('📝Update notes (required to publish)'));
+    await tester.pump();
+    notesEditable = tester.state<EditableTextState>(find.byType(EditableText));
+    expect(notesEditable.widget.focusNode.hasFocus, isFalse);
+    tester.testTextInput.hide();
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Publish').last);
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/update').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pump();
 
     final updateRequests = transport.requestsFor('/api/v1/origin/update');
     expect(updateRequests, hasLength(1));
@@ -6948,14 +6991,18 @@ void main() {
     expect(body.containsKey('location_list'), isFalse);
     expect(body.containsKey('event_list'), isFalse);
     expect(body['origin_id'], 'o_edit_1');
+    expect(body['origin_version'], '1');
     expect(body['origin_name'], 'Edited Origin');
     expect(body['brief'], 'Editable public view.');
     expect(body['setting'], 'Editable hidden rules.');
     expect(body['started_at'], 'Day 1');
-    expect(body['tick_duration_days'], 30);
+    expect(body.containsKey('tick_duration_days'), isFalse);
+    expect(body['tick_duration_time'], '30 days');
+    expect(body['update_notes'], 'Clarified the archive rules.');
     expect(body['metric'], {
       'mode': 'qualitative',
       'label': 'Influence',
+      'label_note': 'Tracks archive influence.',
       'unit': '%',
       'range': [0, 100],
       'default': 0,
@@ -6992,7 +7039,7 @@ void main() {
       findsOneWidget,
     );
     await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
+    await tester.pump();
   });
 
   testWidgets(
@@ -7027,8 +7074,31 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      Future<void> waitForEditLoad(int requestCount) async {
+        await tester.pump();
+        await tester.runAsync(() async {
+          for (var i = 0; i < 50; i++) {
+            if (transport.requestsFor('/api/v1/origin/foredit').length >=
+                requestCount) {
+              break;
+            }
+            await Future<void>.delayed(const Duration(milliseconds: 10));
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        });
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+          if (find
+              .textContaining('World Name: Editable Origin')
+              .evaluate()
+              .isNotEmpty) {
+            break;
+          }
+        }
+      }
+
       await tester.tap(find.text('Open edit'));
-      await tester.pumpAndSettle();
+      await waitForEditLoad(1);
       expect(
         find.textContaining('World Name: Editable Origin'),
         findsOneWidget,
@@ -7049,7 +7119,7 @@ void main() {
       expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
 
       await tester.tap(find.text('Open edit'));
-      await tester.pumpAndSettle();
+      await waitForEditLoad(2);
       expect(transport.requestsFor('/api/v1/origin/foredit'), hasLength(2));
       expect(
         find.textContaining('World Name: Editable Origin'),

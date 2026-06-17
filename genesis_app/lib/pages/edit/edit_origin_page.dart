@@ -22,6 +22,7 @@ class EditOriginPage extends StatefulWidget {
 
 class _EditOriginPageState extends State<EditOriginPage> {
   MemoryOriginDraftRepository? _repository;
+  final TextEditingController _updateNotesController = TextEditingController();
   bool _isLoading = true;
   String? _error;
 
@@ -29,6 +30,12 @@ class _EditOriginPageState extends State<EditOriginPage> {
   void initState() {
     super.initState();
     _loadOrigin();
+  }
+
+  @override
+  void dispose() {
+    _updateNotesController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadOrigin() async {
@@ -54,6 +61,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
         _repository = MemoryOriginDraftRepository(
           initialDraft: originDraftFromV1Detail(detail),
         );
+        _updateNotesController.clear();
         _isLoading = false;
       });
     } on ApiException catch (e) {
@@ -125,6 +133,8 @@ class _EditOriginPageState extends State<EditOriginPage> {
       leaveSubmitLabel: 'Publish',
       submitUnavailableMessage: 'No changes to publish.',
       popOnSubmitSuccess: true,
+      showCurrentVersion: true,
+      updateNotesController: _updateNotesController,
       onSubmit: _onSave,
     );
   }
@@ -141,6 +151,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
       payload['deleted_char_ids'] = repository.deletedCharacterIds(draft);
       payload['deleted_location_ids'] = repository.deletedLocationIds(draft);
     }
+    payload['update_notes'] = _updateNotesController.text.trim();
     final result = await api.updateOrigin(oid: originId, payload: payload);
     if (repository is MemoryOriginDraftRepository) {
       repository.markCurrentAsOriginal();

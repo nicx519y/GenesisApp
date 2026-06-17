@@ -38,6 +38,9 @@ class CreateTextFieldBlock extends StatelessWidget {
     this.labelSize = 14,
     this.labelFontWeight = FontWeight.w700,
     this.labelInputGap = 10,
+    this.textInputAction,
+    this.onEditingComplete,
+    this.onSubmitted,
   });
 
   final String label;
@@ -51,6 +54,9 @@ class CreateTextFieldBlock extends StatelessWidget {
   final double labelSize;
   final FontWeight labelFontWeight;
   final double labelInputGap;
+  final TextInputAction? textInputAction;
+  final VoidCallback? onEditingComplete;
+  final ValueChanged<String>? onSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -91,6 +97,9 @@ class CreateTextFieldBlock extends StatelessWidget {
                     onChanged: onChanged,
                     onTapOutside: (_) =>
                         FocusManager.instance.primaryFocus?.unfocus(),
+                    textInputAction: textInputAction,
+                    onEditingComplete: onEditingComplete,
+                    onSubmitted: onSubmitted,
                     maxLength: maxLength,
                     minLines: minLines,
                     maxLines: maxLines,
