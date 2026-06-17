@@ -75,6 +75,42 @@ void main() {
     expect(transport.searchRequests.last.uri.queryParameters['type'], 'origin');
     expect(find.text('#Origin 4'), findsOneWidget);
   });
+
+  testWidgets('shows world stats as ticks, connects, characters, players', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1800);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    final tick = find.text('101');
+    final connect = find.text('201');
+    final character = find.text('301');
+    final player = find.text('401');
+    expect(tick, findsOneWidget);
+    expect(connect, findsOneWidget);
+    expect(character, findsOneWidget);
+    expect(player, findsOneWidget);
+
+    final tickOffset = tester.getTopLeft(tick);
+    final connectOffset = tester.getTopLeft(connect);
+    final characterOffset = tester.getTopLeft(character);
+    final playerOffset = tester.getTopLeft(player);
+
+    expect(connectOffset.dx, greaterThan(tickOffset.dx));
+    expect(characterOffset.dx, greaterThan(connectOffset.dx));
+    expect(playerOffset.dx, greaterThan(characterOffset.dx));
+    expect(connectOffset.dy, moreOrLessEquals(tickOffset.dy, epsilon: 1));
+    expect(characterOffset.dy, moreOrLessEquals(tickOffset.dy, epsilon: 1));
+    expect(playerOffset.dy, moreOrLessEquals(tickOffset.dy, epsilon: 1));
+  });
 }
 
 Future<void> _pumpSearchPage(
@@ -195,7 +231,12 @@ Map<String, dynamic> _item(String type, int index) {
         'world_name': 'World $index',
         'cover': '',
       },
-      'stats': {'tick_cnt': index, 'connect_cnt': index, 'player_cnt': index},
+      'stats': {
+        'tick_cnt': 100 + index,
+        'connect_cnt': 200 + index,
+        'character_cnt': 300 + index,
+        'player_cnt': 400 + index,
+      },
     },
     _ => {
       'user': {

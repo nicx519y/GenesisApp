@@ -883,6 +883,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     return firstNonEmpty([
       _entityAvatarForIdentity(message.userId),
       _entityAvatarForIdentity(message.senderId),
+      _roleAvatarForIdentityCandidates([message.userId, message.senderId]),
     ]);
   }
 
@@ -899,6 +900,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     return firstNonEmpty([
       _entityAvatarForIdentity(_myUserId),
       _entityAvatarForIdentity(_mySenderId),
+      _roleAvatarForIdentityCandidates([_myUserId, _mySenderId]),
       _myAvatarUrl,
     ]);
   }
@@ -954,19 +956,78 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final character = rawCharacter is Map
         ? _stringKeyMap(rawCharacter)
         : candidate;
-    final playerUid = _firstMapString(character, const [
-      'player_uid',
-      'user_id',
-      'uid',
-    ]);
-    final playerKey = _chatroomIdentityKey(playerUid);
-    if (playerKey.isEmpty || !identityKeys.contains(playerKey)) return '';
+    if (!_characterMatchesIdentity(character, identityKeys)) return '';
     return _firstMapString(character, const [
       'name',
       'role_nickname',
       'role_name',
       'character_name',
     ]);
+  }
+
+  String _roleAvatarForIdentityCandidates(List<String?> identities) {
+    final keys = identities
+        .map(_chatroomIdentityKey)
+        .where((key) => key.isNotEmpty)
+        .toSet();
+    if (keys.isEmpty) return '';
+    final world = _chatroomState.world;
+    if (world == null) return '';
+    for (final character in world.characterPositions) {
+      final candidate = _roleAvatarFromCharacterCandidate(character, keys);
+      if (candidate.isNotEmpty) return candidate;
+    }
+    for (final character in world.characters) {
+      final candidate = _roleAvatarFromCharacterCandidate(character, keys);
+      if (candidate.isNotEmpty) return candidate;
+    }
+    for (final position in world.userPositions) {
+      final candidate = _roleAvatarFromUserPosition(position, keys);
+      if (candidate.isNotEmpty) return candidate;
+    }
+    return '';
+  }
+
+  String _roleAvatarFromCharacterCandidate(
+    Map<String, dynamic> candidate,
+    Set<String> identityKeys,
+  ) {
+    final rawCharacter = candidate['character'];
+    final character = rawCharacter is Map
+        ? _stringKeyMap(rawCharacter)
+        : candidate;
+    if (!_characterMatchesIdentity(character, identityKeys)) return '';
+    return _firstMapImageUrl(character, const ['avatar', 'avatar_url']);
+  }
+
+  String _roleAvatarFromUserPosition(
+    Map<String, dynamic> position,
+    Set<String> identityKeys,
+  ) {
+    final rawUser = position['user'];
+    final user = rawUser is Map ? _stringKeyMap(rawUser) : position;
+    final userId = _firstMapString(user, const ['user_id', 'uid', 'id']);
+    final userKey = _chatroomIdentityKey(userId);
+    if (userKey.isEmpty || !identityKeys.contains(userKey)) return '';
+    return _firstMapImageUrl(user, const ['avatar', 'avatar_url']);
+  }
+
+  bool _characterMatchesIdentity(
+    Map<String, dynamic> character,
+    Set<String> identityKeys,
+  ) {
+    for (final key in const [
+      'player_uid',
+      'user_id',
+      'uid',
+      'character_id',
+      'char_id',
+      'id',
+    ]) {
+      final value = _chatroomIdentityKey(_mapString(character, key));
+      if (value.isNotEmpty && identityKeys.contains(value)) return true;
+    }
+    return false;
   }
 
   String _roleNameFromUserPosition(
@@ -1238,6 +1299,15 @@ String _firstMapString(Map<String, dynamic> map, List<String> keys) {
   for (final key in keys) {
     final value = _mapString(map, key);
     if (value.isNotEmpty) return value;
+  }
+  return '';
+}
+
+String _firstMapImageUrl(Map<String, dynamic> map, List<String> keys) {
+  for (final key in keys) {
+    if (!map.containsKey(key)) continue;
+    final resolved = asResolvedImageUrl(map[key], resolveAssetUrl);
+    if (resolved.isNotEmpty) return resolved;
   }
   return '';
 }

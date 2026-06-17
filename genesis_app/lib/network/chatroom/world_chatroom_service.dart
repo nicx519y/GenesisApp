@@ -614,8 +614,7 @@ class WorldChatroomService {
     );
     final entities = <String, WorldChatroomEntity>{
       for (final entry in _state.entitiesById.entries)
-        if (entry.value.type != WorldChatroomEntityType.player)
-          entry.key: entry.value,
+        entry.key: _entityWithoutLocation(entry.value),
     };
     for (final group in response.locations) {
       for (final character in group.characters) {
@@ -676,6 +675,8 @@ class WorldChatroomService {
             if (charId.isNotEmpty) charId,
           ]);
           if (entity == null || entity.locationId.trim().isEmpty) {
+            copy.remove('location_id');
+            copy.remove('current_location_id');
             return copy;
           }
           copy['location_id'] = entity.locationId;
@@ -705,6 +706,18 @@ class WorldChatroomService {
       if (entity != null) return entity;
     }
     return null;
+  }
+
+  WorldChatroomEntity _entityWithoutLocation(WorldChatroomEntity entity) {
+    if (entity.locationId.trim().isEmpty) return entity;
+    return WorldChatroomEntity(
+      id: entity.id,
+      name: entity.name,
+      avatarUrl: entity.avatarUrl,
+      type: entity.type,
+      locationId: '',
+      isAi: entity.isAi,
+    );
   }
 
   List<Map<String, dynamic>> _locationsWithCharacters(
@@ -738,7 +751,7 @@ class WorldChatroomService {
         'identity': _firstString(character, const ['identity']),
         'tagline': _firstString(character, const ['brief', 'tagline']),
         'description': _firstString(character, const ['description']),
-        'avatar': _firstString(character, const ['avatar']),
+        'avatar': _firstImageUrl(character, const ['avatar', 'avatar_url']),
       },
     };
   }
@@ -1254,7 +1267,7 @@ class WorldChatroomService {
         'character_name',
         'sender_name',
       ]),
-      avatarUrl: _firstString(character, const ['avatar', 'avatar_url']),
+      avatarUrl: _firstImageUrl(character, const ['avatar', 'avatar_url']),
       type: WorldChatroomEntityType.character,
       locationId: locationId,
       isAi: normalizedType == 'ai',
@@ -1276,7 +1289,7 @@ class WorldChatroomService {
         'user_name',
         'sender_name',
       ]),
-      avatarUrl: _firstString(user, const ['avatar', 'avatar_url']),
+      avatarUrl: _firstImageUrl(user, const ['avatar', 'avatar_url']),
       type: WorldChatroomEntityType.player,
       locationId: _locationIdFromMap(position),
     );
@@ -1307,6 +1320,16 @@ class WorldChatroomService {
     for (final key in keys) {
       final value = asString(map[key]).trim();
       if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  String _firstImageUrl(Map<String, dynamic> map, List<String> keys) {
+    for (final key in keys) {
+      if (!map.containsKey(key)) continue;
+      final value = map[key];
+      final resolved = asResolvedImageUrl(value, resolveAssetUrl);
+      if (resolved.isNotEmpty) return resolved;
     }
     return '';
   }

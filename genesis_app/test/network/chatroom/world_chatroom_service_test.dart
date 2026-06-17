@@ -858,6 +858,106 @@ void main() {
   );
 
   test(
+    'user_location_change removes a role that leaves every location',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      service.applyWorldSnapshot(_worldSnapshot());
+
+      await service.connect(worldId: 'world-1', identity: _identity());
+      expect(service.state.entitiesByLocation['loc-2'], isNotEmpty);
+
+      http.userLocationId = null;
+      socket.serverFrame('user_location_change', {
+        'world_id': 'world-1',
+        'payload': {'event_type': 'user_location_change'},
+      });
+
+      await _waitFor(
+        () =>
+            service.state.world?.characters.any(
+              (character) =>
+                  character['player_uid'] == 'user-1' &&
+                  !character.containsKey('location_id'),
+            ) ==
+            true,
+      );
+
+      expect(service.state.entitiesById['user-1']?.locationId, isEmpty);
+      expect(
+        service.state.entitiesByLocation['loc-2']?.map((entity) => entity.id),
+        isNot(contains('user-1')),
+      );
+      expect(
+        service.state.world?.characterPositions.any(
+          (position) => (position['character'] as Map?)?['name'] == 'Role One',
+        ),
+        false,
+      );
+      expect(service.state.world?.userPositions, isEmpty);
+
+      await service.dispose();
+    },
+  );
+
+  test('world snapshot resolves image object role avatars', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      refreshInitialSnapshotOnConnect: false,
+    );
+    final avatar = {
+      'sm_url': 'https://cdn.example.com/role-sm.png',
+      'xl_url': 'https://cdn.example.com/role-xl.png',
+      'object_key': 'avatars/role.png',
+    };
+
+    service.applyWorldSnapshot(
+      _worldSnapshot().copyWith(
+        characters: [
+          {
+            'char_id': 'char-user-1',
+            'type': 'player',
+            'player_uid': 'user-1',
+            'name': 'Role One',
+            'avatar': avatar,
+            'location_id': 'loc-2',
+          },
+        ],
+        characterPositions: [
+          {
+            'location_id': 'loc-2',
+            'character': {
+              'id': 'char-user-1',
+              'type': 'player',
+              'player_uid': 'user-1',
+              'name': 'Role One',
+              'avatar': avatar,
+            },
+          },
+        ],
+        userPositions: const <Map<String, dynamic>>[],
+      ),
+    );
+
+    expect(
+      service.state.entitiesById['user-1']?.avatarUrl,
+      'https://cdn.example.com/role-xl.png',
+    );
+    expect(
+      service.state.entitiesByLocation['loc-2']?.single.avatarUrl,
+      'https://cdn.example.com/role-xl.png',
+    );
+
+    await service.dispose();
+  });
+
+  test(
     'message id gaps fetch missing messages and keep queues sorted',
     () async {
       final socket = _FakeChatroomSocket();
@@ -1123,7 +1223,8 @@ Future<void> _waitFor(
 
 class _WorldChatroomHttpTransport implements HttpTransport {
   String worldName = 'World One';
-  String userLocationId = 'loc-2';
+  String? userLocationId = 'loc-2';
+  bool includeAiLocation = true;
   int detailRequests = 0;
   int userLocationRequests = 0;
   int messagesRequests = 0;
@@ -1148,26 +1249,50 @@ class _WorldChatroomHttpTransport implements HttpTransport {
     }
     if (path.endsWith('/aitown-chat/api/ulocation')) {
       userLocationRequests += 1;
+      final locations = <Map<String, Object?>>[];
+      void addCharacter(String locationId, Map<String, Object?> character) {
+        Map<String, Object?>? group;
+        for (final location in locations) {
+          if (location['location_id'] == locationId) {
+            group = location;
+            break;
+          }
+        }
+        final resolvedGroup =
+            group ??
+            <String, Object?>{
+              'location_id': locationId,
+              'characters': <Map<String, Object?>>[],
+            };
+        if (group == null) locations.add(resolvedGroup);
+        (resolvedGroup['characters'] as List<Map<String, Object?>>).add(
+          character,
+        );
+      }
+
+      if (includeAiLocation) {
+        addCharacter('loc-1', const {
+          'char_id': 'char-1',
+          'player_uid': '',
+          'player_username': '',
+          'name': 'Alice',
+          'location_id': 'loc-1',
+        });
+      }
+      final resolvedUserLocationId = userLocationId?.trim();
+      if (resolvedUserLocationId != null && resolvedUserLocationId.isNotEmpty) {
+        addCharacter(resolvedUserLocationId, {
+          'char_id': 'char-player-1',
+          'player_uid': 'user-1',
+          'player_username': 'Player One',
+          'name': 'Role One',
+          'location_id': resolvedUserLocationId,
+        });
+      }
       return _json({
         'err_no': 0,
         'err_msg': 'succ',
-        'data': {
-          'world_id': 'world-1',
-          'locations': [
-            {
-              'location_id': userLocationId,
-              'characters': [
-                {
-                  'char_id': 'char-player-1',
-                  'player_uid': 'user-1',
-                  'player_username': 'Player One',
-                  'name': 'Role One',
-                  'location_id': userLocationId,
-                },
-              ],
-            },
-          ],
-        },
+        'data': {'world_id': 'world-1', 'locations': locations},
       });
     }
     if (path.endsWith('/aitown-chat/api/messages')) {

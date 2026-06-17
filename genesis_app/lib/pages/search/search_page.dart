@@ -1011,7 +1011,7 @@ class _ResultStats extends StatelessWidget {
             _StatData(
               iconAsset: characterStatIconAsset,
               preserveIconAssetColor: true,
-              value: item.playerCount,
+              value: item.characterCount,
             ),
           ]
         : [
@@ -1023,9 +1023,9 @@ class _ResultStats extends StatelessWidget {
             _StatData(
               iconAsset: characterStatIconAsset,
               preserveIconAssetColor: true,
-              value: item.playerCount,
+              value: item.characterCount,
             ),
-            _StatData(iconAsset: userStatIconAsset, value: item.memberCount),
+            _StatData(iconAsset: userStatIconAsset, value: item.playerCount),
           ];
 
     return Wrap(
@@ -1133,6 +1133,7 @@ class _SearchResultItem {
     required this.copyCount,
     required this.connectCount,
     required this.tickCount,
+    required this.characterCount,
     required this.playerCount,
     required this.memberCount,
   });
@@ -1165,6 +1166,7 @@ class _SearchResultItem {
       copyCount: asInt(json['copy_cnt']),
       connectCount: asInt(json['connect_cnt']),
       tickCount: asInt(json['tick_cnt']),
+      characterCount: asInt(json['character_cnt']),
       playerCount: asInt(json['player_cnt']),
       memberCount: asInt(json['member_cnt'], fallback: asInt(json['user_cnt'])),
     );
@@ -1192,6 +1194,7 @@ class _SearchResultItem {
         copyCount: 0,
         connectCount: 0,
         tickCount: 0,
+        characterCount: 0,
         playerCount: 0,
         memberCount: 0,
       );
@@ -1223,6 +1226,7 @@ class _SearchResultItem {
         copyCount: 0,
         connectCount: asInt(stats['connect_cnt']),
         tickCount: asInt(stats['tick_cnt']),
+        characterCount: asInt(stats['character_cnt']),
         playerCount: asInt(stats['player_cnt']),
         memberCount: asInt(stats['location_cnt']),
       );
@@ -1245,7 +1249,8 @@ class _SearchResultItem {
       copyCount: asInt(stats['copy_cnt']),
       connectCount: asInt(stats['connect_cnt']),
       tickCount: asInt(stats['tick_cnt']),
-      playerCount: asInt(stats['character_cnt']),
+      characterCount: asInt(stats['character_cnt']),
+      playerCount: 0,
       memberCount: asInt(stats['location_cnt']),
     );
   }
@@ -1259,6 +1264,7 @@ class _SearchResultItem {
   final int copyCount;
   final int connectCount;
   final int tickCount;
+  final int characterCount;
   final int playerCount;
   final int memberCount;
 
