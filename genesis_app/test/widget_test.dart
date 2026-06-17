@@ -7425,6 +7425,12 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      find.byKey(
+        const ValueKey<String>('developer-chatroom-http-base-url-field'),
+      ),
+      findsNothing,
+    );
     var contentContext = tester.element(find.byType(DeveloperPageContent));
     final originalServices = AppServicesScope.read(contentContext);
     await tester.enterText(
@@ -7437,20 +7443,11 @@ void main() {
     await tester.enterText(
       find.descendant(
         of: find.byKey(
-          const ValueKey<String>('developer-chatroom-http-base-url-field'),
-        ),
-        matching: find.byType(TextField),
-      ),
-      'chat.example.com',
-    );
-    await tester.enterText(
-      find.descendant(
-        of: find.byKey(
           const ValueKey<String>('developer-chatroom-ws-base-url-field'),
         ),
         matching: find.byType(TextField),
       ),
-      'chat.example.com/aitown-chat/ws',
+      'chat.example.com',
     );
 
     await tester.scrollUntilVisible(
@@ -7467,7 +7464,7 @@ void main() {
     );
     final saved = await AppEndpointOverrideStore.load();
     expect(saved.apiBaseUrl, 'https://api.example.com/api/');
-    expect(saved.chatroomHttpBaseUrl, 'https://chat.example.com/');
+    expect(saved.chatroomHttpBaseUrl, 'https://api.example.com/');
     expect(saved.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
     expect(
       tester
@@ -7481,7 +7478,7 @@ void main() {
           )
           .controller
           ?.text,
-      'api.example.com/api/',
+      'api.example.com',
     );
 
     contentContext = tester.element(find.byType(DeveloperPageContent));
@@ -7490,7 +7487,7 @@ void main() {
     expect(updatedServices.config.apiBaseUrl, 'https://api.example.com/api/');
     expect(
       updatedServices.config.chatroomHttpBaseUrl,
-      'https://chat.example.com/',
+      'https://api.example.com/',
     );
     expect(
       updatedServices.config.chatroomWsBaseUrl,
@@ -7510,7 +7507,7 @@ void main() {
 
     final config = await AppEndpointOverrideStore.loadConfig();
     expect(config.apiBaseUrl, 'https://api.example.com/api/');
-    expect(config.chatroomHttpBaseUrl, 'https://chat.example.com/');
+    expect(config.chatroomHttpBaseUrl, 'https://api.example.com/');
     expect(config.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
 
     await tester.pump(const Duration(seconds: 2));

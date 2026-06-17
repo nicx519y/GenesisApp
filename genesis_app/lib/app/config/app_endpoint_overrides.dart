@@ -38,6 +38,8 @@ class AppEndpointOverrideStore {
       'developer_chatroom_http_base_url_override_v1';
   static const String _chatroomWsBaseUrlKey =
       'developer_chatroom_ws_base_url_override_v1';
+  static const String _apiPath = '/api/';
+  static const String _chatroomWsPath = '/aitown-chat/ws';
 
   static Future<AppEndpointOverrides> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -78,62 +80,49 @@ class AppEndpointOverrideStore {
   }
 
   static String? normalizeHttpsApiBaseUrl(String value) {
-    final normalized = _normalizeHttpBaseUrl(
-      value,
-      appendApiPathWhenEmpty: true,
-    );
-    return normalized;
+    final uri = _normalizeDomainUrl(value, scheme: 'https');
+    if (uri == null) return null;
+    return uri.replace(path: _apiPath).toString();
   }
 
   static String? normalizeHttpsBaseUrl(String value) {
-    return _normalizeHttpBaseUrl(value);
+    final uri = _normalizeDomainUrl(value, scheme: 'https');
+    if (uri == null) return null;
+    return uri.replace(path: '/').toString();
   }
 
   static String? normalizeWssBaseUrl(String value) {
-    final trimmed = _withScheme(value, 'wss');
-    if (trimmed.isEmpty) return null;
-    final uri = Uri.tryParse(trimmed);
-    if (uri == null ||
-        uri.scheme.toLowerCase() != 'wss' ||
-        uri.host.trim().isEmpty ||
-        uri.hasQuery ||
-        uri.hasFragment) {
-      throw const FormatException('WSS URL must start with wss://');
-    }
-    return uri.toString();
+    final uri = _normalizeDomainUrl(value, scheme: 'wss');
+    if (uri == null) return null;
+    return uri.replace(path: _chatroomWsPath).toString();
   }
 
-  static String displayWithoutScheme(String? value) {
+  static String displayDomain(String? value) {
     final trimmed = value?.trim() ?? '';
     if (trimmed.isEmpty) return '';
     final uri = Uri.tryParse(trimmed);
-    if (uri == null || uri.scheme.isEmpty) return trimmed;
-    final schemePrefix = '${uri.scheme}://';
-    return trimmed.startsWith(schemePrefix)
-        ? trimmed.substring(schemePrefix.length)
-        : trimmed;
+    if (uri == null || uri.scheme.isEmpty || uri.host.trim().isEmpty) {
+      return trimmed;
+    }
+    if (uri.hasPort) return '${uri.host}:${uri.port}';
+    return uri.host;
   }
 
-  static String? _normalizeHttpBaseUrl(
-    String value, {
-    bool appendApiPathWhenEmpty = false,
-  }) {
-    final trimmed = _withScheme(value, 'https');
+  static Uri? _normalizeDomainUrl(String value, {required String scheme}) {
+    final trimmed = _withScheme(value, scheme);
     if (trimmed.isEmpty) return null;
-    var uri = Uri.tryParse(trimmed);
+    final uri = Uri.tryParse(trimmed);
     if (uri == null ||
-        uri.scheme.toLowerCase() != 'https' ||
+        uri.scheme.toLowerCase() != scheme ||
         uri.host.trim().isEmpty ||
+        uri.userInfo.isNotEmpty ||
         uri.hasQuery ||
         uri.hasFragment) {
-      throw const FormatException('HTTPS URL must start with https://');
+      throw FormatException(
+        '${scheme.toUpperCase()} endpoint must be a domain only',
+      );
     }
-    if (appendApiPathWhenEmpty && (uri.path.isEmpty || uri.path == '/')) {
-      uri = uri.replace(path: '/api/');
-    } else if (!uri.path.endsWith('/')) {
-      uri = uri.replace(path: '${uri.path}/');
-    }
-    return uri.toString();
+    return uri.replace(path: '/', query: null, fragment: null);
   }
 
   static String _withScheme(String value, String scheme) {

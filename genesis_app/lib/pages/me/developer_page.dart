@@ -121,7 +121,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
   late final Future<String> _deviceIdFuture;
   late final Future<AppVersionInfo> _appVersionFuture;
   late final TextEditingController _apiBaseUrlController;
-  late final TextEditingController _chatroomHttpBaseUrlController;
   late final TextEditingController _chatroomWsBaseUrlController;
   bool _clearingDirectMessageCache = false;
   bool _loadingEndpointOverrides = true;
@@ -133,7 +132,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     _deviceIdFuture = AppServicesScope.read(context).deviceId.getDeviceId();
     _appVersionFuture = AppMetadataService.appVersion();
     _apiBaseUrlController = TextEditingController();
-    _chatroomHttpBaseUrlController = TextEditingController();
     _chatroomWsBaseUrlController = TextEditingController();
     _loadEndpointOverrides();
   }
@@ -141,7 +139,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
   @override
   void dispose() {
     _apiBaseUrlController.dispose();
-    _chatroomHttpBaseUrlController.dispose();
     _chatroomWsBaseUrlController.dispose();
     super.dispose();
   }
@@ -149,17 +146,12 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
   Future<void> _loadEndpointOverrides() async {
     final overrides = await AppEndpointOverrideStore.load();
     if (!mounted) return;
-    _apiBaseUrlController.text = AppEndpointOverrideStore.displayWithoutScheme(
-      overrides.apiBaseUrl,
+    _apiBaseUrlController.text = AppEndpointOverrideStore.displayDomain(
+      overrides.apiBaseUrl ?? overrides.chatroomHttpBaseUrl,
     );
-    _chatroomHttpBaseUrlController.text =
-        AppEndpointOverrideStore.displayWithoutScheme(
-          overrides.chatroomHttpBaseUrl,
-        );
-    _chatroomWsBaseUrlController.text =
-        AppEndpointOverrideStore.displayWithoutScheme(
-          overrides.chatroomWsBaseUrl,
-        );
+    _chatroomWsBaseUrlController.text = AppEndpointOverrideStore.displayDomain(
+      overrides.chatroomWsBaseUrl,
+    );
     setState(() => _loadingEndpointOverrides = false);
   }
 
@@ -191,7 +183,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           _apiBaseUrlController.text,
         ),
         chatroomHttpBaseUrl: AppEndpointOverrideStore.normalizeHttpsBaseUrl(
-          _chatroomHttpBaseUrlController.text,
+          _apiBaseUrlController.text,
         ),
         chatroomWsBaseUrl: AppEndpointOverrideStore.normalizeWssBaseUrl(
           _chatroomWsBaseUrlController.text,
@@ -201,16 +193,11 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
       if (!mounted) return;
       final config = overrides.applyTo(const AppConfig());
       AppServicesScope.replaceWithConfig(context, config);
-      _apiBaseUrlController.text =
-          AppEndpointOverrideStore.displayWithoutScheme(overrides.apiBaseUrl);
-      _chatroomHttpBaseUrlController.text =
-          AppEndpointOverrideStore.displayWithoutScheme(
-            overrides.chatroomHttpBaseUrl,
-          );
+      _apiBaseUrlController.text = AppEndpointOverrideStore.displayDomain(
+        overrides.apiBaseUrl,
+      );
       _chatroomWsBaseUrlController.text =
-          AppEndpointOverrideStore.displayWithoutScheme(
-            overrides.chatroomWsBaseUrl,
-          );
+          AppEndpointOverrideStore.displayDomain(overrides.chatroomWsBaseUrl);
       showGenesisToast(
         context,
         'Saved. New requests will use these endpoints.',
@@ -236,7 +223,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
       if (!mounted) return;
       AppServicesScope.replaceWithConfig(context, const AppConfig());
       _apiBaseUrlController.clear();
-      _chatroomHttpBaseUrlController.clear();
       _chatroomWsBaseUrlController.clear();
       showGenesisToast(context, 'Endpoint overrides cleared.');
     } catch (error) {
@@ -297,40 +283,13 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           ),
           const SizedBox(height: 18),
           const _DeveloperSectionTitle('Endpoint overrides'),
-          const SizedBox(height: _itemGap),
-          _DeveloperInfoRow(
-            title: 'API HTTPS',
-            content: AppServicesScope.read(context).config.apiBaseUrl,
-          ),
-          const SizedBox(height: _itemGap),
-          _DeveloperInfoRow(
-            title: 'Chat HTTPS',
-            content: AppServicesScope.read(context).config.chatroomHttpBaseUrl,
-          ),
-          const SizedBox(height: _itemGap),
-          _DeveloperInfoRow(
-            title: 'Chat WSS',
-            content: AppServicesScope.read(context).config.chatroomWsBaseUrl,
-          ),
           const SizedBox(height: 12),
           _DeveloperEndpointField(
             key: const ValueKey<String>('developer-api-base-url-field'),
             label: 'API HTTPS',
             scheme: 'https://',
-            hintText: 'dev.hushie.ai/api/',
+            hintText: 'dev.hushie.ai',
             controller: _apiBaseUrlController,
-            enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
-            textInputAction: TextInputAction.next,
-          ),
-          const SizedBox(height: _itemGap),
-          _DeveloperEndpointField(
-            key: const ValueKey<String>(
-              'developer-chatroom-http-base-url-field',
-            ),
-            label: 'Chat HTTPS',
-            scheme: 'https://',
-            hintText: 'dev.hushie.ai/',
-            controller: _chatroomHttpBaseUrlController,
             enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
             textInputAction: TextInputAction.next,
           ),
@@ -339,7 +298,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             key: const ValueKey<String>('developer-chatroom-ws-base-url-field'),
             label: 'Chat WSS',
             scheme: 'wss://',
-            hintText: 'dev.hushie.ai/aitown-chat/ws',
+            hintText: 'dev.hushie.ai',
             controller: _chatroomWsBaseUrlController,
             enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
             textInputAction: TextInputAction.done,
