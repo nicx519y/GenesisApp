@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/widgets.dart';
 
+import '../config/app_endpoint_overrides.dart';
 import 'service_registry.dart';
 
 class AppBootstrap {
@@ -8,7 +9,8 @@ class AppBootstrap {
 
   static Future<AppServices> initialize() async {
     WidgetsFlutterBinding.ensureInitialized();
-    final services = ServiceRegistry.build();
+    final config = await AppEndpointOverrideStore.loadConfig();
+    final services = ServiceRegistry.build(config: config);
     try {
       await Firebase.initializeApp();
     } catch (e, st) {

@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
+import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
@@ -52,6 +53,7 @@ import 'package:genesis_flutter_android/pages/chat/chat_page.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 import 'package:genesis_flutter_android/pages/home/home_page.dart';
 import 'package:genesis_flutter_android/pages/me/follows_page.dart';
+import 'package:genesis_flutter_android/pages/me/developer_page.dart';
 import 'package:genesis_flutter_android/pages/me/me_page.dart';
 import 'package:genesis_flutter_android/pages/me/settings_page.dart';
 import 'package:genesis_flutter_android/pages/me/user_info_page.dart';
@@ -7395,6 +7397,170 @@ void main() {
       );
     },
   );
+
+  testWidgets('developer page saves and clears endpoint overrides', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scrollable = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey<String>('developer-api-base-url-field')),
+      180,
+      scrollable: scrollable,
+    );
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('developer-api-base-url-field')),
+        matching: find.text('https://'),
+      ),
+      findsOneWidget,
+    );
+    var contentContext = tester.element(find.byType(DeveloperPageContent));
+    final originalServices = AppServicesScope.read(contentContext);
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('developer-api-base-url-field')),
+        matching: find.byType(TextField),
+      ),
+      'api.example.com',
+    );
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('developer-chatroom-http-base-url-field'),
+        ),
+        matching: find.byType(TextField),
+      ),
+      'chat.example.com',
+    );
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('developer-chatroom-ws-base-url-field'),
+        ),
+        matching: find.byType(TextField),
+      ),
+      'chat.example.com/aitown-chat/ws',
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('Save endpoints'),
+      180,
+      scrollable: scrollable,
+    );
+    await tester.tap(find.text('Save endpoints'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Saved. New requests will use these endpoints.'),
+      findsOneWidget,
+    );
+    final saved = await AppEndpointOverrideStore.load();
+    expect(saved.apiBaseUrl, 'https://api.example.com/api/');
+    expect(saved.chatroomHttpBaseUrl, 'https://chat.example.com/');
+    expect(saved.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(
+              of: find.byKey(
+                const ValueKey<String>('developer-api-base-url-field'),
+              ),
+              matching: find.byType(TextField),
+            ),
+          )
+          .controller
+          ?.text,
+      'api.example.com/api/',
+    );
+
+    contentContext = tester.element(find.byType(DeveloperPageContent));
+    final updatedServices = AppServicesScope.read(contentContext);
+    expect(identical(updatedServices, originalServices), isFalse);
+    expect(updatedServices.config.apiBaseUrl, 'https://api.example.com/api/');
+    expect(
+      updatedServices.config.chatroomHttpBaseUrl,
+      'https://chat.example.com/',
+    );
+    expect(
+      updatedServices.config.chatroomWsBaseUrl,
+      'wss://chat.example.com/aitown-chat/ws',
+    );
+    expect(
+      identical(updatedServices.sessionStore, originalServices.sessionStore),
+      isTrue,
+    );
+    expect(
+      identical(
+        updatedServices.sessionRevision,
+        originalServices.sessionRevision,
+      ),
+      isTrue,
+    );
+
+    final config = await AppEndpointOverrideStore.loadConfig();
+    expect(config.apiBaseUrl, 'https://api.example.com/api/');
+    expect(config.chatroomHttpBaseUrl, 'https://chat.example.com/');
+    expect(config.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
+
+    await tester.pump(const Duration(seconds: 2));
+    await tester.scrollUntilVisible(
+      find.text('Clear endpoint overrides'),
+      180,
+      scrollable: scrollable,
+    );
+    await tester.tap(find.text('Clear endpoint overrides'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Endpoint overrides cleared.'), findsOneWidget);
+    expect((await AppEndpointOverrideStore.load()).hasAny, isFalse);
+    contentContext = tester.element(find.byType(DeveloperPageContent));
+    final clearedServices = AppServicesScope.read(contentContext);
+    expect(clearedServices.config.apiBaseUrl, GenesisApi.defaultApiBaseUrl);
+    expect(
+      clearedServices.config.chatroomHttpBaseUrl,
+      GenesisApi.defaultChatroomHttpBaseUrl,
+    );
+    expect(
+      clearedServices.config.chatroomWsBaseUrl,
+      GenesisApi.defaultChatroomWsBaseUrl,
+    );
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('developer page sheet moves above keyboard inset', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(viewInsets: EdgeInsets.only(bottom: 300)),
+          child: AppServicesScope(
+            services: await _testServices(),
+            child: const Material(child: DeveloperPageSheet()),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final padding = tester.widget<AnimatedPadding>(
+      find.byKey(
+        const ValueKey<String>('developer-page-sheet-keyboard-padding'),
+      ),
+    );
+    expect(padding.padding, const EdgeInsets.only(bottom: 300));
+  });
 
   testWidgets(
     'settings delete account clears session posts delete and opens origin',
