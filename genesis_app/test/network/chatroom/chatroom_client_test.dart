@@ -26,6 +26,9 @@ void main() {
       'ws://localhost:8082/aitown-chat/ws?world_id=world-1',
     );
     expect(transport.lastHeaders, {
+      'app-id': 'test-app-id',
+      'app-version': '0.1.0',
+      'app-platform': 'android',
       'device-id': 'test-device-id',
       'Authorization': 'Bearer token-1',
     });
@@ -904,6 +907,11 @@ Future<ChatroomClient> _client(
     heartbeatInterval: heartbeatInterval,
     ackTimeout: ackTimeout,
     autoHeartbeat: autoHeartbeat,
+    requestHeaderProvider: () async => const {
+      'app-id': 'test-app-id',
+      'app-version': '0.1.0',
+      'app-platform': 'android',
+    },
   );
 }
 

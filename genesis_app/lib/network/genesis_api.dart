@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
 import 'api_exception.dart';
+import 'app_request_headers.dart';
 import 'chatroom/chatroom_http_api.dart';
 import 'json_utils.dart';
 import 'local_mock_genesis_transport.dart';
@@ -45,6 +46,7 @@ class GenesisApi {
     DeviceIdService? deviceIdService,
     UserSessionStore? sessionStore,
     IdentityAuthService? identityAuthService,
+    RequestHeaderProvider? appHeaderProvider,
     Future<void> Function(String message)? onSessionExpired,
   }) {
     final resolvedPlatformConfig =
@@ -53,6 +55,8 @@ class GenesisApi {
     _sessionStore = sessionStore ?? NativeUserSessionStore();
     _identityAuthService =
         identityAuthService ?? const GoogleFirebaseAuthService();
+    _appHeaderProvider =
+        appHeaderProvider ?? AppRequestHeaderProvider().headers;
     _onSessionExpired = onSessionExpired;
     final resolvedTransport = _resolveTransport(
       transport: transport,
@@ -66,7 +70,6 @@ class GenesisApi {
           defaultHeaders: {
             'content-type': 'application/json',
             'accept': 'application/json',
-            'x-platform': resolvedPlatformConfig.platformHeader,
           },
           requestHeaderProvider: _runtimeRequestHeaders,
           transport: resolvedTransport,
@@ -107,12 +110,13 @@ class GenesisApi {
   late final DeviceIdService _deviceIdService;
   late final UserSessionStore _sessionStore;
   late final IdentityAuthService _identityAuthService;
+  late final RequestHeaderProvider _appHeaderProvider;
   late final Future<void> Function(String message)? _onSessionExpired;
 
   static final Map<int, String> _originIdToWorldview = <int, String>{};
 
   Future<Map<String, String>> _runtimeRequestHeaders() async {
-    final headers = <String, String>{};
+    final headers = <String, String>{...await _safeAppHeaders()};
     final deviceId = await _readHeaderValue(_deviceIdService.getDeviceId);
     if (deviceId != null) headers['device-id'] = deviceId;
 
@@ -123,6 +127,14 @@ class GenesisApi {
           : 'Bearer $authToken';
     }
     return headers;
+  }
+
+  Future<Map<String, String>> _safeAppHeaders() async {
+    try {
+      return await _appHeaderProvider();
+    } catch (_) {
+      return const <String, String>{};
+    }
   }
 
   Future<String?> _readHeaderValue(Future<String?> Function() read) async {

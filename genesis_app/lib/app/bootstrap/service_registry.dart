@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../app/genesis_navigator.dart';
 import '../../network/genesis_api.dart';
+import '../../network/app_request_headers.dart';
 import '../../network/chatroom/chatroom_client.dart';
 import '../../network/chatroom/chatroom_message_storage.dart';
 import '../../network/chatroom/chatroom_socket_transport.dart';
@@ -103,6 +104,7 @@ class ServiceRegistry {
                 config.debugWsLog ||
                 !const bool.fromEnvironment('dart.vm.product'),
           );
+    final appRequestHeaders = AppRequestHeaderProvider();
     final api = GenesisApi(
       useMock: useMock,
       transport: httpTransport,
@@ -111,6 +113,7 @@ class ServiceRegistry {
       deviceIdService: deviceId,
       sessionStore: sessionStore,
       identityAuthService: identityAuth,
+      appHeaderProvider: appRequestHeaders.headers,
       onSessionExpired: handleSessionExpired,
     );
     final chatroom = ChatroomClient(
@@ -120,6 +123,7 @@ class ServiceRegistry {
       transport: socketTransport,
       heartbeatInterval: config.chatroomHeartbeatInterval,
       ackTimeout: config.chatroomAckTimeout,
+      requestHeaderProvider: appRequestHeaders.headers,
     );
     final backendAuth = GenesisBackendAuthCoordinator(
       api: api,

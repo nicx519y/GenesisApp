@@ -1015,7 +1015,6 @@ void main() {
       transport: apiTransport,
       useMock: false,
       platformConfig: const _TestPlatformConfig(
-        'android',
         apiBaseUrl: 'https://example.test/api/',
       ),
     );
@@ -1062,10 +1061,22 @@ void main() {
       useMock: false,
       deviceIdService: const _TestDeviceIdService(),
       sessionStore: sessionStore,
+      appHeaderProvider: () async => const {
+        'app-id': 'test-app-id',
+        'app-version': '0.1.0',
+        'app-platform': 'android',
+      },
     );
     await api.getOrigins();
 
+    expect(apiTransport.lastRequest!.headers['app-id'], 'test-app-id');
+    expect(apiTransport.lastRequest!.headers['app-version'], '0.1.0');
+    expect(apiTransport.lastRequest!.headers['app-platform'], 'android');
     expect(apiTransport.lastRequest!.headers['device-id'], 'test-device-id');
+    expect(
+      apiTransport.lastRequest!.headers.containsKey('x-platform'),
+      isFalse,
+    );
     expect(
       apiTransport.lastRequest!.headers.containsKey('x-device-id'),
       isFalse,
@@ -1426,25 +1437,6 @@ void main() {
       await Future<void>.delayed(Duration.zero);
     },
   );
-
-  test('default client preserves configurable platform header', () async {
-    final apiTransport = _FakeTransport(
-      handler: (_) => const TransportResponse(
-        statusCode: 200,
-        headers: {'content-type': 'application/json'},
-        body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
-      ),
-    );
-
-    final api = GenesisApi(
-      transport: apiTransport,
-      useMock: false,
-      platformConfig: const _TestPlatformConfig('ios'),
-    );
-    await api.getOrigins();
-
-    expect(apiTransport.lastRequest!.headers['x-platform'], 'ios');
-  });
 
   test('v1 origin list uses Apifox query format', () async {
     final apiTransport = _FakeTransport(
@@ -2058,13 +2050,7 @@ void main() {
 }
 
 class _TestPlatformConfig implements PlatformConfig {
-  const _TestPlatformConfig(
-    this.platformHeader, {
-    this.apiBaseUrl = GenesisApi.defaultApiBaseUrl,
-  });
-
-  @override
-  final String platformHeader;
+  const _TestPlatformConfig({this.apiBaseUrl = GenesisApi.defaultApiBaseUrl});
 
   @override
   final String apiBaseUrl;
