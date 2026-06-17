@@ -780,14 +780,28 @@ class ChatAvatar extends StatelessWidget {
     final seed = this.seed?.trim();
     final imageUrl = this.imageUrl.trim();
     if (imageUrl.isNotEmpty) {
-      return GenesisAvatar(
-        name: seed == null || seed.isEmpty ? label : seed,
-        url: imageUrl,
-        size: style.avatarSize,
-        borderRadius: style.avatarBorderRadius,
-        textStyle: style.avatarTextStyle,
-        showFallbackWhileLoading: false,
-        showFallbackWhenUnavailable: false,
+      return Stack(
+        children: [
+          GenesisAvatar(
+            name: seed == null || seed.isEmpty ? label : seed,
+            url: imageUrl,
+            size: style.avatarSize,
+            borderRadius: style.avatarBorderRadius,
+            textStyle: style.avatarTextStyle,
+            showFallbackWhileLoading: false,
+            showFallbackWhenUnavailable: false,
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white, width: 1),
+                  borderRadius: BorderRadius.circular(style.avatarBorderRadius),
+                ),
+              ),
+            ),
+          ),
+        ],
       );
     }
     return SizedBox(width: style.avatarSize, height: style.avatarSize);

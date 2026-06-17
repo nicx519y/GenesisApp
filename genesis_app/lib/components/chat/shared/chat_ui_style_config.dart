@@ -252,7 +252,7 @@ class ChatUiStyleConfig {
     statusTextTopGap: 4, // 状态文字和气泡之间的垂直间距。
     statusTextStyle: TextStyle(color: Colors.white70, fontSize: 11), // 状态文字样式。
     senderNameTextStyle: TextStyle(
-      color: Color(0xFF222222), // 对方名字文字颜色。
+      color: Colors.white, // 对方名字文字颜色。
       fontSize: 12, // 对方名字字号。
       fontWeight: FontWeight.w400, // 对方名字字重。
     ),

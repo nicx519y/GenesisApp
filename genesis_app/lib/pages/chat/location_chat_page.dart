@@ -25,6 +25,7 @@ class LocationChatPage extends StatelessWidget {
     this.localMessageLocationIds = const <String>[],
     this.worldName,
     this.locationName,
+    this.backgroundImageUrl,
     this.service,
     this.connection,
   });
@@ -35,6 +36,7 @@ class LocationChatPage extends StatelessWidget {
   final List<String> localMessageLocationIds;
   final String? worldName;
   final String? locationName;
+  final String? backgroundImageUrl;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
 
@@ -50,6 +52,7 @@ class LocationChatPage extends StatelessWidget {
         localMessageLocationIds: localMessageLocationIds,
         worldName: worldName,
         locationName: locationName,
+        backgroundImageUrl: backgroundImageUrl,
         service: service,
         connection: connection,
         active: true,
@@ -68,6 +71,7 @@ class LocationChatPanel extends StatefulWidget {
     this.localMessageLocationIds = const <String>[],
     this.worldName,
     this.locationName,
+    this.backgroundImageUrl,
     this.service,
     this.connection,
     this.active = true,
@@ -86,6 +90,7 @@ class LocationChatPanel extends StatefulWidget {
   final List<String> localMessageLocationIds;
   final String? worldName;
   final String? locationName;
+  final String? backgroundImageUrl;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
   final bool active;
@@ -118,6 +123,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   String _mySenderId = '';
   String _mySenderName = '';
   String _myAvatarUrl = '';
+  late String _backgroundImageUrl;
   bool _ownsService = false;
   bool _joinedLocation = false;
   bool _sending = false;
@@ -131,6 +137,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void initState() {
     super.initState();
+    _backgroundImageUrl = widget.backgroundImageUrl?.trim() ?? '';
     _logPanelMetric(
       'init active=${widget.active} leaf=${widget.isLeafLocation} '
       'aliases=${widget.localMessageLocationIds.join(',')}',
@@ -157,6 +164,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void didUpdateWidget(LocationChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final nextBackgroundImageUrl = widget.backgroundImageUrl?.trim() ?? '';
+    if (nextBackgroundImageUrl.isNotEmpty &&
+        nextBackgroundImageUrl != _backgroundImageUrl) {
+      _backgroundImageUrl = nextBackgroundImageUrl;
+    }
     if (oldWidget.service != widget.service ||
         oldWidget.worldId != widget.worldId ||
         oldWidget.locationId != widget.locationId) {
@@ -1059,8 +1071,12 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   Widget build(BuildContext context) {
-    final realUserNames = _joinedRealUserNames(_chatroomState);
-    final titleCount = realUserNames.length;
+    final realUsers = _joinedRealUsers(_chatroomState);
+    final realUserNames = realUsers
+        .map((user) => user.name.trim())
+        .where((name) => name.isNotEmpty)
+        .toList(growable: false);
+    final titleCount = realUsers.length;
     final title = firstNonEmpty([widget.locationName, widget.locationId]);
     final subtitle = realUserNames.join(', ');
     final joined = _chatroomState.joinedLocationId == widget.locationId;
@@ -1069,9 +1085,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final style = baseStyle.copyWith(
       headerTitleTextStyle: baseStyle.headerTitleTextStyle.copyWith(height: 1),
       headerSubtitleTextStyle: baseStyle.headerSubtitleTextStyle.copyWith(
+        fontSize: 12,
         height: 1,
       ),
-      headerStatusIconSize: baseStyle.headerStatusIconSize / 2,
+      headerStatusIconSize: 14,
       headerSubtitleTopGap: 0,
     );
 
@@ -1093,6 +1110,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             Expanded(
               child: Stack(
                 children: [
+                  Positioned.fill(
+                    child: _LocationChatBackgroundImage(
+                      imageUrl: _backgroundImageUrl,
+                    ),
+                  ),
                   Positioned.fill(
                     child: ChatMessageList(
                       controller: _scrollController,
@@ -1129,22 +1151,47 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     );
   }
 
-  List<String> _joinedRealUserNames(WorldChatroomState state) {
+  List<WorldChatroomEntity> _joinedRealUsers(WorldChatroomState state) {
     final entities =
         state.entitiesByLocation[widget.locationId] ??
         const <WorldChatroomEntity>[];
-    final names = <String>[];
+    final users = <WorldChatroomEntity>[];
     final seen = <String>{};
     for (final entity in entities) {
       if (entity.isAi || entity.type != WorldChatroomEntityType.player) {
         continue;
       }
-      final name = entity.name.trim();
-      if (name.isEmpty || !seen.add(name.toLowerCase())) continue;
-      names.add(name);
+      final identityKey = _chatroomIdentityKey(entity.id);
+      final fallbackKey = entity.name.trim().toLowerCase();
+      final key = identityKey.isNotEmpty ? identityKey : fallbackKey;
+      if (key.isEmpty || !seen.add(key)) continue;
+      users.add(entity);
     }
-    return names;
+    return users;
   }
+}
+
+class _LocationChatBackgroundImage extends StatelessWidget {
+  const _LocationChatBackgroundImage({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = _locationChatBackgroundProvider(imageUrl);
+    if (provider == null) return const SizedBox.shrink();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        image: DecorationImage(image: provider, fit: BoxFit.cover),
+      ),
+    );
+  }
+}
+
+ImageProvider? _locationChatBackgroundProvider(String rawUrl) {
+  final url = rawUrl.trim();
+  if (url.isEmpty) return null;
+  return url.startsWith('assets/') ? AssetImage(url) : NetworkImage(url);
 }
 
 String _mapString(Map<String, dynamic>? map, String key) {

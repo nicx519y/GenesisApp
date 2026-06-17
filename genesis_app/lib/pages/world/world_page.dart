@@ -502,6 +502,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final descriptor = _LocationChatPanelDescriptor(
       locationId: locationId,
       locationName: point.name,
+      mapImageUrl: point.mapImageUrl,
       isLeafLocation: point.isLeafLocation,
       localMessageLocationIds: _orderedNonEmptyStrings([
         pointId,
@@ -759,6 +760,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                   worldId: widget.wid,
                   locationId: descriptor.locationId,
                   locationName: descriptor.locationName,
+                  backgroundImageUrl: descriptor.mapImageUrl,
                   isLeafLocation: descriptor.isLeafLocation,
                   localMessageLocationIds: descriptor.localMessageLocationIds,
                   service: chatroom,
@@ -1130,6 +1132,7 @@ class _LocationChatPanelDescriptor {
   const _LocationChatPanelDescriptor({
     required this.locationId,
     required this.locationName,
+    required this.mapImageUrl,
     required this.isLeafLocation,
     this.localMessageLocationIds = const <String>[],
   });
@@ -1147,6 +1150,7 @@ class _LocationChatPanelDescriptor {
         'location_name',
         'name',
       ], fallback: locationId),
+      mapImageUrl: _locationMapImageUrl(value),
       isLeafLocation: node.children.isEmpty,
       localMessageLocationIds: _orderedNonEmptyStrings([
         pointId,
@@ -1168,6 +1172,7 @@ class _LocationChatPanelDescriptor {
         'location_name',
         'name',
       ], fallback: locationId),
+      mapImageUrl: _locationMapImageUrl(location),
       isLeafLocation: isLeafLocation,
       localMessageLocationIds: _orderedNonEmptyStrings([pointId, locationId]),
     );
@@ -1175,6 +1180,7 @@ class _LocationChatPanelDescriptor {
 
   final String locationId;
   final String locationName;
+  final String mapImageUrl;
   final bool isLeafLocation;
   final List<String> localMessageLocationIds;
 }
@@ -3052,6 +3058,7 @@ List<WorldPoint> _pointsFromWorldLocations(
       sceneId: locationId,
       pointId: pointId,
       iconUrl: icon,
+      mapImageUrl: _locationMapImageUrl(l),
       description: description,
       locationDescription: descriptionFallback,
       depth: depths == null || i >= depths.length ? 0 : depths[i],

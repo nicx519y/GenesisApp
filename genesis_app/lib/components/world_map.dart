@@ -227,7 +227,7 @@ class _WorldMapState extends State<WorldMap> {
                         enableOuterScrollHandoff:
                             widget.pointsListOuterScrollHandoff,
                         onPointTap: (point) {
-                          widget.onPointTap?.call(point);
+                          widget.onPointTap?.call(_withCurrentMapImage(point));
                         },
                       ),
                     ),
@@ -280,7 +280,7 @@ class _WorldMapState extends State<WorldMap> {
         if (chatTarget != null) {
           await _runLocationTapLocked(
             _locationTapKey(chatTarget),
-            () => widget.onPointTap?.call(chatTarget),
+            () => widget.onPointTap?.call(_withCurrentMapImage(chatTarget)),
           );
           return;
         }
@@ -312,7 +312,29 @@ class _WorldMapState extends State<WorldMap> {
 
     await _runLocationTapLocked(
       _locationTapKey(point),
-      () => widget.onPointTap?.call(point),
+      () => widget.onPointTap?.call(_withCurrentMapImage(point)),
+    );
+  }
+
+  WorldPoint _withCurrentMapImage(WorldPoint point) {
+    final currentMapImageUrl = _currentMapImageUrl.trim();
+    if (currentMapImageUrl.isEmpty || point.mapImageUrl == currentMapImageUrl) {
+      return point;
+    }
+    return WorldPoint(
+      id: point.id,
+      name: point.name,
+      type: point.type,
+      position: point.position,
+      users: point.users,
+      sceneId: point.sceneId,
+      pointId: point.pointId,
+      iconUrl: point.iconUrl,
+      mapImageUrl: currentMapImageUrl,
+      description: point.description,
+      locationDescription: point.locationDescription,
+      depth: point.depth,
+      isLeafLocation: point.isLeafLocation,
     );
   }
 
@@ -377,6 +399,13 @@ class _WorldMapState extends State<WorldMap> {
       if (rootMapImageUrl.isNotEmpty) return rootMapImageUrl;
     }
     return widget.mapImageUrl;
+  }
+
+  String get _currentMapImageUrl {
+    final currentNode = _currentNode;
+    return currentNode?.mapImageUrl.trim().isNotEmpty == true
+        ? currentNode!.mapImageUrl
+        : _initialMapImageUrl;
   }
 
   WorldMapLocationNode? _findPointNode(WorldPoint point) {
