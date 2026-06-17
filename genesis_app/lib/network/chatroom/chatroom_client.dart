@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import '../api_client.dart';
 import '../../platform/device/device_id_service.dart';
 import '../../platform/session/user_session_store.dart';
 import 'chatroom_models.dart';
@@ -16,13 +17,15 @@ class ChatroomClient {
     Duration heartbeatInterval = const Duration(seconds: 2),
     Duration ackTimeout = const Duration(seconds: 12),
     bool autoHeartbeat = true,
+    RequestHeaderProvider? requestHeaderProvider,
   }) : _wsBaseUri = Uri.parse(wsBaseUrl),
        _sessionStore = sessionStore,
        _deviceIdService = deviceIdService,
        _transport = transport ?? IoChatroomSocketTransport(),
        _heartbeatInterval = heartbeatInterval,
        _ackTimeout = ackTimeout,
-       _autoHeartbeat = autoHeartbeat;
+       _autoHeartbeat = autoHeartbeat,
+       _requestHeaderProvider = requestHeaderProvider;
 
   final Uri _wsBaseUri;
   final UserSessionStore _sessionStore;
@@ -31,6 +34,7 @@ class ChatroomClient {
   final Duration _heartbeatInterval;
   final Duration _ackTimeout;
   final bool _autoHeartbeat;
+  final RequestHeaderProvider? _requestHeaderProvider;
 
   Future<ChatroomSession> connect({
     required String worldId,
@@ -62,6 +66,7 @@ class ChatroomClient {
         : resolvedSenderId;
     final uri = _resolveUri(worldId: resolvedWorldId);
     final headers = <String, String>{
+      ...await _resolveRequestHeaders(),
       if (deviceId != null && deviceId.isNotEmpty) 'device-id': deviceId,
       'Authorization': authToken.toLowerCase().startsWith('bearer ')
           ? authToken
@@ -83,6 +88,21 @@ class ChatroomClient {
       autoHeartbeat: autoHeartbeat ?? _autoHeartbeat,
     );
     return session;
+  }
+
+  Future<Map<String, String>> _resolveRequestHeaders() async {
+    final provider = _requestHeaderProvider;
+    if (provider == null) return const <String, String>{};
+    try {
+      final headers = await provider();
+      return {
+        for (final entry in headers.entries)
+          if (entry.key.trim().isNotEmpty && entry.value.trim().isNotEmpty)
+            entry.key: entry.value,
+      };
+    } catch (_) {
+      return const <String, String>{};
+    }
   }
 
   Future<ChatroomSession> connectAndJoin({
