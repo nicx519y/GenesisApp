@@ -1,10 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/polling_scheduler.dart';
 import '../../components/chat/shared/chat_ui.dart';
+import '../../components/common/genesis_center_toast.dart';
+import '../../components/common/genesis_modal_routes.dart';
+import '../../network/api_exception.dart';
 import '../../network/direct_message_message_store.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
@@ -55,6 +59,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      SystemChrome.setSystemUIOverlayStyle(kChatWhiteSystemUiOverlayStyle);
+    });
     WidgetsBinding.instance.addObserver(this);
     _scrollController = _createScrollController();
     _messageStore = AppServicesScope.read(context).directMessageMessages;
@@ -110,6 +118,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    SystemChrome.setSystemUIOverlayStyle(kGenesisDefaultSystemUiOverlayStyle);
     WidgetsBinding.instance.removeObserver(this);
     _poller.stop();
     _flushDraft();
@@ -350,27 +359,38 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       }
       if (!mounted) return;
       _scrollToBottom();
+    } on ApiException catch (error, stackTrace) {
+      debugPrint('[ChatPage][DM] send failed: $error');
+      debugPrint('[ChatPage][DM] stacktrace:\n$stackTrace');
+      if (mounted) {
+        final message = error.message.trim();
+        showGenesisToast(context, message.isEmpty ? 'Send failed' : message);
+      }
+      await _markLocalMessageSendFailed(localMessageId);
     } catch (error, stackTrace) {
       debugPrint('[ChatPage][DM] send failed: $error');
       debugPrint('[ChatPage][DM] stacktrace:\n$stackTrace');
-      final localRecord = _messageStore.rowListenable(localMessageId)?.value;
-      await _messageStore.deleteMessage(
-        peerUid: _peerUid,
-        messageId: localMessageId,
-      );
-      if (localRecord != null && mounted) {
-        setState(() {
-          _failedLocalMessages[localMessageId] =
-              DirectMessageMessageRecord.fromJson(
-                localRecord.toJson(),
-                localId: localRecord.localId,
-                sendStatus: DirectMessageSendStatus.failed,
-              );
-        });
-      }
+      await _markLocalMessageSendFailed(localMessageId);
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  Future<void> _markLocalMessageSendFailed(String localMessageId) async {
+    final localRecord = _messageStore.rowListenable(localMessageId)?.value;
+    await _messageStore.deleteMessage(
+      peerUid: _peerUid,
+      messageId: localMessageId,
+    );
+    if (localRecord == null || !mounted) return;
+    setState(() {
+      _failedLocalMessages[localMessageId] =
+          DirectMessageMessageRecord.fromJson(
+            localRecord.toJson(),
+            localId: localRecord.localId,
+            sendStatus: DirectMessageSendStatus.failed,
+          );
+    });
   }
 
   void _scrollToBottom({bool jump = false, int settleFrames = 2}) {
@@ -511,51 +531,55 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       formatUidForDisplay(_peerUid),
       'Direct message',
     ]);
-    return Scaffold(
-      backgroundColor: ChatUiStyleConfig.standard.conversationBackgroundColor,
-      resizeToAvoidBottomInset: true,
-      body: Column(
-        children: [
-          ChatHeader(
-            title: peerTitle,
-            subtitle: '',
-            connected: !_syncing,
-            connecting: _syncing,
-            onBack: () => Navigator.of(context).maybePop(),
-            showTitleIcon: false,
-            showSubtitle: false,
-            showMoreButton: false,
-          ),
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-              child: Stack(
-                children: [
-                  Positioned.fill(child: _buildMessages()),
-                  if (_unseenIncomingCount > 0)
-                    Positioned(
-                      right: 16,
-                      bottom: 12,
-                      child: _NewIncomingMessageNotice(
-                        count: _unseenIncomingCount,
-                        onTap: _openUnseenIncomingMessages,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: kChatWhiteSystemUiOverlayStyle,
+      child: Scaffold(
+        backgroundColor: ChatUiStyleConfig.standard.conversationBackgroundColor,
+        resizeToAvoidBottomInset: true,
+        body: Column(
+          children: [
+            ChatHeader(
+              title: peerTitle,
+              subtitle: '',
+              connected: !_syncing,
+              connecting: _syncing,
+              onBack: () => Navigator.of(context).maybePop(),
+              showTitleIcon: false,
+              showSubtitle: false,
+              showMoreButton: false,
+              style: kChatWhiteHeaderStyle,
+            ),
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                child: Stack(
+                  children: [
+                    Positioned.fill(child: _buildMessages()),
+                    if (_unseenIncomingCount > 0)
+                      Positioned(
+                        right: 16,
+                        bottom: 12,
+                        child: _NewIncomingMessageNotice(
+                          count: _unseenIncomingCount,
+                          onTap: _openUnseenIncomingMessages,
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-          ChatComposer(
-            controller: _textController,
-            inputEnabled: _peerUid.isNotEmpty,
-            sendEnabled: _peerUid.isNotEmpty && !_sending,
-            sending: _sending,
-            onSend: _send,
-            sendLabel: 'Send',
-            onHeightChanged: (_) => _revealLatestMessageAfterLayout(),
-          ),
-        ],
+            ChatComposer(
+              controller: _textController,
+              inputEnabled: _peerUid.isNotEmpty,
+              sendEnabled: _peerUid.isNotEmpty && !_sending,
+              sending: _sending,
+              onSend: _send,
+              sendLabel: 'Send',
+              onHeightChanged: (_) => _revealLatestMessageAfterLayout(),
+            ),
+          ],
+        ),
       ),
     );
   }

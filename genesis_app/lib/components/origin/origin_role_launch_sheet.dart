@@ -1,10 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_modal_routes.dart';
+import '../world_details_shell.dart';
 import 'origin_character_form.dart';
 import '../../network/models/origin.dart';
 import '../../ui/components/genesis_character_avatar.dart';
@@ -64,21 +66,27 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
   OriginRoleProfileLoader? onFillFromProfile,
   OriginRoleAvatarResolver? resolveAvatarUrl,
 }) {
-  return showGenesisModalBottomSheet<OriginRoleLaunchSelection>(
-    context: context,
-    isScrollControlled: true,
-    isDismissible: false,
-    useSafeArea: false,
-    backgroundColor: Colors.transparent,
-    barrierColor: kGenesisSubtleModalBarrierColor,
-    constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height),
-    builder: (context) {
-      return OriginRoleLaunchSheet(
-        characters: characters,
-        onFillFromProfile: onFillFromProfile,
-        resolveAvatarUrl: resolveAvatarUrl,
-      );
-    },
+  return WorldDetailsStatusBarOverride.runWithStyle(
+    kGenesisDefaultSystemUiOverlayStyle,
+    () => showGenesisModalBottomSheet<OriginRoleLaunchSelection>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: false,
+      useSafeArea: false,
+      backgroundColor: Colors.transparent,
+      barrierColor: kGenesisSubtleModalBarrierColor,
+      systemBarColor: Colors.white,
+      constraints: BoxConstraints.tightFor(
+        height: MediaQuery.sizeOf(context).height,
+      ),
+      builder: (context) {
+        return OriginRoleLaunchSheet(
+          characters: characters,
+          onFillFromProfile: onFillFromProfile,
+          resolveAvatarUrl: resolveAvatarUrl,
+        );
+      },
+    ),
   );
 }
 
@@ -109,6 +117,10 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      SystemChrome.setSystemUIOverlayStyle(kGenesisDefaultSystemUiOverlayStyle);
+    });
     _customForm.addListener(_handleTextChanged);
   }
 

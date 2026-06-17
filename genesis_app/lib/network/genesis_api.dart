@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
 import 'api_exception.dart';
+import 'app_request_headers.dart';
 import 'chatroom/chatroom_http_api.dart';
 import 'json_utils.dart';
 import 'local_mock_genesis_transport.dart';
@@ -44,6 +46,8 @@ class GenesisApi {
     DeviceIdService? deviceIdService,
     UserSessionStore? sessionStore,
     IdentityAuthService? identityAuthService,
+    RequestHeaderProvider? appHeaderProvider,
+    Future<void> Function(String message)? onSessionExpired,
   }) {
     final resolvedPlatformConfig =
         platformConfig ?? const DefaultPlatformConfig();
@@ -51,6 +55,9 @@ class GenesisApi {
     _sessionStore = sessionStore ?? NativeUserSessionStore();
     _identityAuthService =
         identityAuthService ?? const GoogleFirebaseAuthService();
+    _appHeaderProvider =
+        appHeaderProvider ?? AppRequestHeaderProvider().headers;
+    _onSessionExpired = onSessionExpired;
     final resolvedTransport = _resolveTransport(
       transport: transport,
       useMock: useMock,
@@ -63,11 +70,10 @@ class GenesisApi {
           defaultHeaders: {
             'content-type': 'application/json',
             'accept': 'application/json',
-            'x-platform': resolvedPlatformConfig.platformHeader,
           },
           requestHeaderProvider: _runtimeRequestHeaders,
           transport: resolvedTransport,
-          responseProcessor: _defaultGenesisProcessor,
+          responseProcessor: _processGenesisResponse,
         );
     _healthClient =
         healthClient ??
@@ -76,7 +82,7 @@ class GenesisApi {
           defaultHeaders: const {'accept': 'application/json'},
           requestHeaderProvider: _runtimeRequestHeaders,
           transport: resolvedTransport,
-          responseProcessor: _defaultGenesisProcessor,
+          responseProcessor: _processGenesisResponse,
         );
     _chatroomHttpClient =
         chatroomHttpClient ??
@@ -90,7 +96,7 @@ class GenesisApi {
           },
           requestHeaderProvider: _runtimeRequestHeaders,
           transport: resolvedTransport,
-          responseProcessor: _defaultGenesisProcessor,
+          responseProcessor: _processGenesisResponse,
         );
     v1 = GenesisV1Api(_apiClient);
     chatroomHttp = ChatroomHttpApi(_chatroomHttpClient);
@@ -104,11 +110,13 @@ class GenesisApi {
   late final DeviceIdService _deviceIdService;
   late final UserSessionStore _sessionStore;
   late final IdentityAuthService _identityAuthService;
+  late final RequestHeaderProvider _appHeaderProvider;
+  late final Future<void> Function(String message)? _onSessionExpired;
 
   static final Map<int, String> _originIdToWorldview = <int, String>{};
 
   Future<Map<String, String>> _runtimeRequestHeaders() async {
-    final headers = <String, String>{};
+    final headers = <String, String>{...await _safeAppHeaders()};
     final deviceId = await _readHeaderValue(_deviceIdService.getDeviceId);
     if (deviceId != null) headers['device-id'] = deviceId;
 
@@ -121,6 +129,14 @@ class GenesisApi {
     return headers;
   }
 
+  Future<Map<String, String>> _safeAppHeaders() async {
+    try {
+      return await _appHeaderProvider();
+    } catch (_) {
+      return const <String, String>{};
+    }
+  }
+
   Future<String?> _readHeaderValue(Future<String?> Function() read) async {
     try {
       final value = (await read())?.trim();
@@ -128,6 +144,32 @@ class GenesisApi {
     } catch (_) {
       return null;
     }
+  }
+
+  Object? _processGenesisResponse(ApiResponse response) {
+    _throwIfSessionExpired(response);
+    return _defaultGenesisProcessor(response);
+  }
+
+  void _throwIfSessionExpired(ApiResponse response) {
+    final data = response.data;
+    if (data is! Map) return;
+    final map = asJsonMap(data);
+    final errNoRaw = map.containsKey('err_no') ? map['err_no'] : map['errNo'];
+    final errNo = asInt(errNoRaw);
+    if (errNo != 10001) return;
+
+    const message = 'Your account is logged in on another device.';
+    final handler = _onSessionExpired;
+    if (handler != null) unawaited(handler(message));
+    throw ApiException(
+      message: message,
+      code: errNo,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+      responseHeaders: response.headers,
+      uri: response.uri,
+    );
   }
 
   Future<String> ensureUid() => _ensureUid();
@@ -842,7 +884,7 @@ class GenesisApi {
       tags: _createOriginStringList(payload['tags']),
       metric: payload['metric'] is Map ? asJsonMap(payload['metric']) : null,
       startedAt: _createOriginOptionalString(payload['started_at']),
-      tickDurationDays: _createOriginOptionalInt(payload['tick_duration_days']),
+      tickDurationTime: _createOriginTickDurationTime(payload),
       cover: asString(payload['cover']),
       mapUrl: asString(
         payload['map_url'],
@@ -874,14 +916,14 @@ class GenesisApi {
     final updated = await v1.origin.update(
       originId: asString(payload['origin_id'], fallback: oid),
       originName: asString(payload['name']),
-      originVersion: null,
+      originVersion: _createOriginOptionalString(payload['origin_version']),
       brief: asString(payload['world_view']),
       setting: asString(payload['world_setting']),
       events: events.isEmpty ? null : events,
       tags: _createOriginStringList(payload['tags']),
       metric: payload['metric'] is Map ? asJsonMap(payload['metric']) : null,
       startedAt: _createOriginOptionalString(payload['started_at']),
-      tickDurationDays: _createOriginOptionalInt(payload['tick_duration_days']),
+      tickDurationTime: _createOriginTickDurationTime(payload),
       cover: asString(payload['cover']),
       mapUrl: asString(
         payload['map_url'],
@@ -895,6 +937,7 @@ class GenesisApi {
       deletedLocationIds:
           _createOriginStringList(payload['deleted_location_ids']) ??
           const <String>[],
+      updateNotes: _createOriginOptionalString(payload['update_notes']),
     );
     final detail = updated['info'] is Map
         ? asJsonMap(updated['info'])
@@ -1036,6 +1079,14 @@ int? _createOriginOptionalInt(Object? raw) {
   if (raw == null) return null;
   if (raw is String && raw.trim().isEmpty) return null;
   return asInt(raw);
+}
+
+String? _createOriginTickDurationTime(Map<String, dynamic> payload) {
+  final value = _createOriginOptionalString(payload['tick_duration_time']);
+  if (value != null) return value;
+  final days = _createOriginOptionalInt(payload['tick_duration_days']);
+  if (days == null) return null;
+  return days == 1 ? '1 day' : '$days days';
 }
 
 List<Map<String, dynamic>> _createOriginCharacters(
@@ -1547,7 +1598,8 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
       origin['updated_at'] ?? origin['origin_version_time'],
     ),
     characters: characters,
-    locations: locations,
+    locations: buildOriginLocationHierarchy(locations),
+    allLocations: locations,
     locationTree: locationTree,
     processedLocationTree: processLocationTree(locationTree),
     events: events,

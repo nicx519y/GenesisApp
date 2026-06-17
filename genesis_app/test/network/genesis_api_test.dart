@@ -99,6 +99,48 @@ void main() {
     expect(user.uid, 'u_1');
   });
 
+  test(
+    'v1 err_no 10001 triggers session expired callback with fixed message',
+    () async {
+      final expired = Completer<String>();
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"err_no":10001,"err_msg":"Your account was logged in elsewhere.","data":{}}',
+        ),
+      );
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: MemoryUserSessionStore(),
+        onSessionExpired: (message) async {
+          if (!expired.isCompleted) expired.complete(message);
+        },
+      );
+
+      await expectLater(
+        api.v1.user.info(),
+        throwsA(
+          isA<ApiException>()
+              .having((error) => error.code, 'code', 10001)
+              .having(
+                (error) => error.message,
+                'message',
+                'Your account is logged in on another device.',
+              ),
+        ),
+      );
+      expect(
+        await expired.future,
+        'Your account is logged in on another device.',
+      );
+      expect(apiTransport.lastRequest!.uri.path, '/api/v1/user/info');
+    },
+  );
+
   test('getOrigins uses GET /v1/origin/list for default category', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
@@ -459,7 +501,8 @@ void main() {
     expect(body['tags'], ['city']);
     expect(body['metric'], {'label': 'Influence'});
     expect(body['started_at'], 'Day 1');
-    expect(body['tick_duration_days'], 30);
+    expect(body.containsKey('tick_duration_days'), isFalse);
+    expect(body['tick_duration_time'], '30 days');
     expect(body['cover'], 'cover.png');
     expect(body['map_url'], 'map.png');
 
@@ -509,6 +552,7 @@ void main() {
       oid: 'o_update_1',
       payload: {
         'origin_id': 'o_update_1',
+        'origin_version': 'draft-3',
         'name': 'Updated Origin',
         'world_view': 'Updated brief.',
         'world_setting': 'Updated setting.',
@@ -549,6 +593,7 @@ void main() {
         ],
         'deleted_char_ids': const ['char_removed'],
         'deleted_location_ids': const ['loc_removed'],
+        'update_notes': 'Adjusted archive.',
       },
     );
 
@@ -565,6 +610,7 @@ void main() {
     expect(body.containsKey('location_list'), isFalse);
     expect(body.containsKey('event_list'), isFalse);
     expect(body['origin_id'], 'o_update_1');
+    expect(body['origin_version'], 'draft-3');
     expect(body['origin_name'], 'Updated Origin');
     expect(body['brief'], 'Updated brief.');
     expect(body['setting'], 'Updated setting.');
@@ -583,9 +629,11 @@ void main() {
     expect(metric.containsKey('start_time'), isFalse);
     expect(metric.containsKey('time_per_progress'), isFalse);
     expect(body['started_at'], 'Day 2');
-    expect(body['tick_duration_days'], 7);
+    expect(body.containsKey('tick_duration_days'), isFalse);
+    expect(body['tick_duration_time'], '7 days');
     expect(body['cover'], 'updated-cover.png');
     expect(body['map_url'], 'updated-map.png');
+    expect(body['update_notes'], 'Adjusted archive.');
     expect(body['deleted_char_ids'], ['char_removed']);
     expect(body['deleted_location_ids'], ['loc_removed']);
 
@@ -967,7 +1015,6 @@ void main() {
       transport: apiTransport,
       useMock: false,
       platformConfig: const _TestPlatformConfig(
-        'android',
         apiBaseUrl: 'https://example.test/api/',
       ),
     );
@@ -1014,10 +1061,22 @@ void main() {
       useMock: false,
       deviceIdService: const _TestDeviceIdService(),
       sessionStore: sessionStore,
+      appHeaderProvider: () async => const {
+        'app-id': 'test-app-id',
+        'app-version': '0.1.0',
+        'app-platform': 'android',
+      },
     );
     await api.getOrigins();
 
+    expect(apiTransport.lastRequest!.headers['app-id'], 'test-app-id');
+    expect(apiTransport.lastRequest!.headers['app-version'], '0.1.0');
+    expect(apiTransport.lastRequest!.headers['app-platform'], 'android');
     expect(apiTransport.lastRequest!.headers['device-id'], 'test-device-id');
+    expect(
+      apiTransport.lastRequest!.headers.containsKey('x-platform'),
+      isFalse,
+    );
     expect(
       apiTransport.lastRequest!.headers.containsKey('x-device-id'),
       isFalse,
@@ -1378,25 +1437,6 @@ void main() {
       await Future<void>.delayed(Duration.zero);
     },
   );
-
-  test('default client preserves configurable platform header', () async {
-    final apiTransport = _FakeTransport(
-      handler: (_) => const TransportResponse(
-        statusCode: 200,
-        headers: {'content-type': 'application/json'},
-        body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
-      ),
-    );
-
-    final api = GenesisApi(
-      transport: apiTransport,
-      useMock: false,
-      platformConfig: const _TestPlatformConfig('ios'),
-    );
-    await api.getOrigins();
-
-    expect(apiTransport.lastRequest!.headers['x-platform'], 'ios');
-  });
 
   test('v1 origin list uses Apifox query format', () async {
     final apiTransport = _FakeTransport(
@@ -2010,13 +2050,7 @@ void main() {
 }
 
 class _TestPlatformConfig implements PlatformConfig {
-  const _TestPlatformConfig(
-    this.platformHeader, {
-    this.apiBaseUrl = GenesisApi.defaultApiBaseUrl,
-  });
-
-  @override
-  final String platformHeader;
+  const _TestPlatformConfig({this.apiBaseUrl = GenesisApi.defaultApiBaseUrl});
 
   @override
   final String apiBaseUrl;

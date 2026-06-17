@@ -31,6 +31,8 @@ class WorldListItem {
     required this.updatedAt,
     required this.lastProgressAt,
     required this.lastProgressSummary,
+    required this.lastProgressTickNo,
+    required this.lastProgressCurrentTime,
     required this.previewImages,
     required this.tags,
     required this.tickCnt,
@@ -85,6 +87,14 @@ class WorldListItem {
       updatedAt: asString(info['updated_at']),
       lastProgressAt: asString(lastTick['created_at']),
       lastProgressSummary: asString(lastTick['narrator']),
+      lastProgressTickNo: asInt(
+        lastTick['tick_no'],
+        fallback: asInt(lastTick['tick_index']),
+      ),
+      lastProgressCurrentTime: asString(
+        lastTick['current_time'],
+        fallback: asString(info['current_time']),
+      ),
       previewImages: _previewImagesFromJson(info),
       tags: _tagsFromJson(info['tags']),
       tickCnt: asInt(stats['tick_cnt']),
@@ -115,6 +125,8 @@ class WorldListItem {
   final String updatedAt;
   final String lastProgressAt;
   final String lastProgressSummary;
+  final int lastProgressTickNo;
+  final String lastProgressCurrentTime;
   final List<String> previewImages;
   final List<String> tags;
   final int tickCnt;
@@ -138,6 +150,14 @@ class WorldListItem {
       : displaySubtitle.trim();
 
   String get progressSummary => lastProgressSummary.trim();
+
+  String get progressTickTimeLabel {
+    final parts = <String>[];
+    if (lastProgressTickNo > 0) parts.add('Tick $lastProgressTickNo');
+    final currentTime = lastProgressCurrentTime.trim();
+    if (currentTime.isNotEmpty) parts.add(currentTime);
+    return parts.join(' · ');
+  }
 
   List<String> get resolvedPreviewImages {
     if (previewImages.isNotEmpty) return previewImages;
@@ -179,6 +199,10 @@ class WorldItemCard extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _ProgressHeader(timestamp: item.lastProgressAt),
+        if (item.progressTickTimeLabel.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _ProgressTickTime(label: item.progressTickTimeLabel),
+        ],
         const SizedBox(height: 10),
         Text(
           item.progressSummary,
@@ -193,6 +217,35 @@ class WorldItemCard extends StatelessWidget {
         ),
         if (showPreviewImages) _WorldPreviewImages(item: item),
       ],
+    );
+  }
+}
+
+class _ProgressTickTime extends StatelessWidget {
+  const _ProgressTickTime({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F4F8),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Color(0xFF111111),
+          fontSize: 14,
+          height: 1.1,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }

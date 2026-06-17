@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../components/developer_debug_floating_button.dart';
+import 'debug_page_tracker.dart';
+import 'genesis_navigator.dart';
 import '../routers/app_router.dart';
 import '../ui/genesis_ui.dart';
 import 'bootstrap/app_services_scope.dart';
@@ -19,7 +22,15 @@ class GenesisApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: GenesisTheme.light(),
         initialRoute: RouteNames.home,
+        navigatorKey: genesisNavigatorKey,
+        navigatorObservers: [genesisRouteObserver],
         onGenerateRoute: AppRouter.onGenerateRoute,
+        builder: (context, child) {
+          return DeveloperDebugFloatingButton(
+            navigatorKey: genesisNavigatorKey,
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
       ),
     );
   }

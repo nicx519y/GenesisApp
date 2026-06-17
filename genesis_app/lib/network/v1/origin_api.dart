@@ -120,7 +120,7 @@ class OriginV1Api extends V1ApiResource {
   ///
   /// 提交参数:
   /// ```json
-  /// {"origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{},"started_at":"string","tick_duration_days":30,"cover":"string","map_url":"string","characters":[],"locations":[]}
+  /// {"origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{},"started_at":"string","tick_duration_time":"1 day","cover":"string","map_url":"string","characters":[],"locations":[]}
   /// ```
   ///
   /// Response:
@@ -136,7 +136,7 @@ class OriginV1Api extends V1ApiResource {
     List<String>? tags,
     Map<String, dynamic>? metric,
     String? startedAt,
-    int? tickDurationDays,
+    String? tickDurationTime,
     required String cover,
     String? mapUrl,
     required List<Map<String, dynamic>> characters,
@@ -153,7 +153,7 @@ class OriginV1Api extends V1ApiResource {
         'tags': tags,
         'metric': metric,
         'started_at': startedAt,
-        'tick_duration_days': tickDurationDays,
+        'tick_duration_time': tickDurationTime,
         'cover': cover,
         'map_url': mapUrl,
         'characters': characters,
@@ -166,7 +166,7 @@ class OriginV1Api extends V1ApiResource {
   ///
   /// 提交参数:
   /// ```json
-  /// {"origin_id":"string","origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{},"started_at":"string","tick_duration_days":30,"cover":"string","map_url":"string","characters":[],"locations":[],"deleted_char_ids":[],"deleted_location_ids":[]}
+  /// {"origin_id":"string","origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{},"started_at":"string","tick_duration_time":"1 day","cover":"string","map_url":"string","characters":[],"locations":[],"update_notes":"string","deleted_char_ids":[],"deleted_location_ids":[]}
   /// ```
   ///
   /// Response:
@@ -183,13 +183,14 @@ class OriginV1Api extends V1ApiResource {
     List<String>? tags,
     Map<String, dynamic>? metric,
     String? startedAt,
-    int? tickDurationDays,
+    String? tickDurationTime,
     required String cover,
     String? mapUrl,
     required List<Map<String, dynamic>> characters,
     List<Map<String, dynamic>>? locations,
     List<String>? deletedCharIds,
     List<String>? deletedLocationIds,
+    String? updateNotes,
   }) {
     return postMap(
       'origin/update',
@@ -203,11 +204,12 @@ class OriginV1Api extends V1ApiResource {
         'tags': tags,
         'metric': metric,
         'started_at': startedAt,
-        'tick_duration_days': tickDurationDays,
+        'tick_duration_time': tickDurationTime,
         'cover': cover,
         'map_url': mapUrl,
         'characters': characters,
         'locations': locations,
+        'update_notes': updateNotes,
         'deleted_char_ids': deletedCharIds,
         'deleted_location_ids': deletedLocationIds,
       }),

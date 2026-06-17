@@ -1,8 +1,11 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/list_loading_skeleton.dart';
+import '../../components/auth/login_guard.dart';
 import '../../components/discuss/origin_discuss_preview_list.dart';
 import '../../components/genesis_logo.dart';
 import '../../components/home/popular_origin_list.dart';
@@ -15,16 +18,21 @@ import '../../routers/app_router.dart';
 import '../../ui/components/secend_tabs.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.initialTabIndex, this.activationListenable});
 
   static const List<String> tabs = ['My Worlds', 'Popular'];
+  static const int myWorldsTabIndex = 0;
+  static const int popularTabIndex = 1;
+
+  final int? initialTabIndex;
+  final ValueListenable<int>? activationListenable;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  late final Future<int> _initialTabIndexFuture;
+  late Future<int> _initialTabIndexFuture;
 
   @override
   void initState() {
@@ -32,8 +40,22 @@ class _HomePageState extends State<HomePage> {
     _initialTabIndexFuture = _initialTabIndex();
   }
 
+  @override
+  void didUpdateWidget(covariant HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialTabIndex != widget.initialTabIndex) {
+      _initialTabIndexFuture = _initialTabIndex();
+    }
+  }
+
   Future<int> _initialTabIndex() async {
-    return await _hasLocalLoginSession() ? 0 : 1;
+    final requestedIndex = widget.initialTabIndex;
+    if (requestedIndex != null) {
+      return requestedIndex.clamp(0, HomePage.tabs.length - 1);
+    }
+    return await _hasLocalLoginSession()
+        ? HomePage.myWorldsTabIndex
+        : HomePage.popularTabIndex;
   }
 
   Future<bool> _hasLocalLoginSession() async {
@@ -61,25 +83,163 @@ class _HomePageState extends State<HomePage> {
         }
 
         return DefaultTabController(
+          key: ValueKey<int>(initialIndex),
           length: HomePage.tabs.length,
           initialIndex: initialIndex,
           child: Column(
             children: [
               const _HomeHeader(),
               const SizedBox(height: 4),
-              SecendTabs(labels: HomePage.tabs, verticalPadding: 0),
-              const Expanded(
-                child: TabBarView(
-                  children: [
-                    _MyWorldFeed(index: 0),
-                    _PopularOriginFeed(index: 1),
-                  ],
+              const _HomeTabs(),
+              Expanded(
+                child: _HomeTabView(
+                  activationListenable: widget.activationListenable,
                 ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _HomeTabs extends StatefulWidget {
+  const _HomeTabs();
+
+  @override
+  State<_HomeTabs> createState() => _HomeTabsState();
+}
+
+class _HomeTabsState extends State<_HomeTabs> {
+  static const _myWorldsIndex = 0;
+  static const _popularIndex = 1;
+
+  bool _handlingLogin = false;
+
+  Future<void> _handleTap(int index) async {
+    if (index != _myWorldsIndex || _handlingLogin) return;
+    final controller = DefaultTabController.of(context);
+    final cameFromPopular =
+        controller.index == _popularIndex ||
+        controller.previousIndex == _popularIndex;
+    if (!cameFromPopular) return;
+
+    controller.animateTo(_popularIndex, duration: Duration.zero);
+
+    _handlingLogin = true;
+    try {
+      final loggedIn = await ensureGenesisLogin(context);
+      if (!mounted || !loggedIn) return;
+      controller.animateTo(_myWorldsIndex);
+    } finally {
+      _handlingLogin = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SecendTabs(
+      labels: HomePage.tabs,
+      verticalPadding: 0,
+      onTap: _handleTap,
+    );
+  }
+}
+
+class _HomeTabView extends StatefulWidget {
+  const _HomeTabView({this.activationListenable});
+
+  final ValueListenable<int>? activationListenable;
+
+  @override
+  State<_HomeTabView> createState() => _HomeTabViewState();
+}
+
+class _HomeTabViewState extends State<_HomeTabView> {
+  static const _myWorldsIndex = HomePage.myWorldsTabIndex;
+  static const _popularIndex = HomePage.popularTabIndex;
+
+  bool? _loggedIn;
+  bool _handlingLogin = false;
+  double _dragDistance = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncLoginState();
+  }
+
+  Future<void> _syncLoginState() async {
+    final loggedIn = await hasGenesisLoginSession(context);
+    if (!mounted || _loggedIn == loggedIn) return;
+    setState(() {
+      _loggedIn = loggedIn;
+    });
+  }
+
+  Future<void> _handleMyWorldsSwipe() async {
+    if (_handlingLogin) return;
+    final controller = DefaultTabController.of(context);
+    if (controller.index != _popularIndex) return;
+    if (await hasGenesisLoginSession(context)) return;
+    if (!mounted) return;
+
+    _handlingLogin = true;
+    controller.animateTo(_popularIndex, duration: Duration.zero);
+    try {
+      final loggedIn = await ensureGenesisLogin(context);
+      if (!mounted) return;
+      if (loggedIn) {
+        setState(() {
+          _loggedIn = true;
+        });
+        controller.animateTo(_myWorldsIndex);
+      } else {
+        controller.animateTo(_popularIndex, duration: Duration.zero);
+      }
+    } finally {
+      _handlingLogin = false;
+      _dragDistance = 0;
+    }
+  }
+
+  void _handleHorizontalDragStart(DragStartDetails details) {
+    _dragDistance = 0;
+  }
+
+  void _handleHorizontalDragUpdate(DragUpdateDetails details) {
+    _dragDistance += details.delta.dx;
+  }
+
+  void _handleHorizontalDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity > 0 || _dragDistance > 24) {
+      _handleMyWorldsSwipe();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final signedOut = _loggedIn == false;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragStart: signedOut ? _handleHorizontalDragStart : null,
+      onHorizontalDragUpdate: signedOut ? _handleHorizontalDragUpdate : null,
+      onHorizontalDragEnd: signedOut ? _handleHorizontalDragEnd : null,
+      child: TabBarView(
+        physics: signedOut ? const NeverScrollableScrollPhysics() : null,
+        children: [
+          _MyWorldFeed(
+            index: 0,
+            activationListenable: widget.activationListenable,
+          ),
+          _PopularOriginFeed(
+            index: 1,
+            activationListenable: widget.activationListenable,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -119,9 +279,10 @@ class _HomeHeader extends StatelessWidget {
 }
 
 class _MyWorldFeed extends StatefulWidget {
-  const _MyWorldFeed({required this.index});
+  const _MyWorldFeed({required this.index, this.activationListenable});
 
   final int index;
+  final ValueListenable<int>? activationListenable;
 
   @override
   State<_MyWorldFeed> createState() => _MyWorldFeedState();
@@ -146,6 +307,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   Object? _error;
 
   @override
+  void initState() {
+    super.initState();
+    widget.activationListenable?.addListener(_handlePageActivated);
+  }
+
+  @override
   bool get wantKeepAlive => true;
 
   @override
@@ -166,6 +333,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   @override
   void didUpdateWidget(covariant _MyWorldFeed oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.activationListenable != widget.activationListenable) {
+      oldWidget.activationListenable?.removeListener(_handlePageActivated);
+      widget.activationListenable?.addListener(_handlePageActivated);
+    }
     if (oldWidget.index != widget.index) {
       _resetListState();
       _requestIfCurrentTab();
@@ -174,6 +345,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   @override
   void dispose() {
+    widget.activationListenable?.removeListener(_handlePageActivated);
     _tabController?.removeListener(_handleTabChange);
     _scrollController
       ..removeListener(_handleScroll)
@@ -195,6 +367,16 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   void _handleTabChange() {
     _requestIfCurrentTab();
+  }
+
+  void _handlePageActivated() {
+    final controller = _tabController;
+    if (controller == null || controller.index != widget.index) return;
+    if (!_hasRequested) {
+      _requestIfCurrentTab();
+      return;
+    }
+    unawaited(_refreshItems());
   }
 
   void _requestIfCurrentTab() {
@@ -238,6 +420,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }
 
   Future<void> _refreshItems() async {
+    if (_isInitialLoading || _isRefreshing) return;
     if (!await _hasLocalLoginSession()) {
       if (!mounted) return;
       setState(() {
@@ -355,7 +538,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
               key: const PageStorageKey<String>('home-feed-my-world'),
               controller: _scrollController,
               primary: false,
-              scrollCacheExtent: const ScrollCacheExtent.pixels(900),
+              cacheExtent: 900,
               padding: const EdgeInsets.only(top: 4),
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
@@ -403,9 +586,10 @@ class _WorldListPage {
 }
 
 class _PopularOriginFeed extends StatefulWidget {
-  const _PopularOriginFeed({required this.index});
+  const _PopularOriginFeed({required this.index, this.activationListenable});
 
   final int index;
+  final ValueListenable<int>? activationListenable;
 
   @override
   State<_PopularOriginFeed> createState() => _PopularOriginFeedState();
@@ -432,6 +616,12 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   Object? _error;
 
   @override
+  void initState() {
+    super.initState();
+    widget.activationListenable?.addListener(_handlePageActivated);
+  }
+
+  @override
   bool get wantKeepAlive => true;
 
   @override
@@ -452,6 +642,10 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   @override
   void didUpdateWidget(covariant _PopularOriginFeed oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.activationListenable != widget.activationListenable) {
+      oldWidget.activationListenable?.removeListener(_handlePageActivated);
+      widget.activationListenable?.addListener(_handlePageActivated);
+    }
     if (oldWidget.index != widget.index) {
       _resetListState();
       _requestIfCurrentTab();
@@ -460,6 +654,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
 
   @override
   void dispose() {
+    widget.activationListenable?.removeListener(_handlePageActivated);
     _tabController?.removeListener(_handleTabChange);
     _scrollController
       ..removeListener(_handleScroll)
@@ -482,6 +677,16 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
 
   void _handleTabChange() {
     _requestIfCurrentTab();
+  }
+
+  void _handlePageActivated() {
+    final controller = _tabController;
+    if (controller == null || controller.index != widget.index) return;
+    if (!_hasRequested) {
+      _requestIfCurrentTab();
+      return;
+    }
+    unawaited(_refreshItems());
   }
 
   void _requestIfCurrentTab() {
@@ -577,6 +782,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   }
 
   Future<void> _refreshItems() async {
+    if (_isInitialLoading || _isRefreshing) return;
     setState(() {
       _error = null;
       _isInitialLoading = _items.isEmpty;

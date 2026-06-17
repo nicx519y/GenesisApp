@@ -112,6 +112,38 @@ class MemoryOriginDraftRepository extends OriginDraftRepository {
   void markCurrentAsOriginal() {
     _originalDraft = _draft.normalized();
   }
+
+  bool basicsChanged(CreateOriginDraft draft) {
+    return jsonEncode(_originalDraft.basics.toJson()) !=
+        jsonEncode(draft.normalized().basics.toJson());
+  }
+
+  bool charactersChanged(CreateOriginDraft draft) {
+    return jsonEncode(
+          _originalDraft.characters.map((item) => item.toJson()).toList(),
+        ) !=
+        jsonEncode(
+          draft.normalized().characters.map((item) => item.toJson()).toList(),
+        );
+  }
+
+  bool locationsChanged(CreateOriginDraft draft) {
+    return jsonEncode(
+          _originalDraft.locations.map((item) => item.toJson()).toList(),
+        ) !=
+        jsonEncode(
+          draft.normalized().locations.map((item) => item.toJson()).toList(),
+        );
+  }
+
+  bool storyEventsChanged(CreateOriginDraft draft) {
+    return jsonEncode(
+          _originalDraft.storyEvents.map((item) => item.toJson()).toList(),
+        ) !=
+        jsonEncode(
+          draft.normalized().storyEvents.map((item) => item.toJson()).toList(),
+        );
+  }
 }
 
 List<String> _deletedIds(
@@ -237,6 +269,7 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
         origin['started_at'],
         fallback: asString(origin['start_time']),
       ),
+      tickDurationTime: asString(origin['tick_duration_time']),
       tickDurationDays: _nullableInt(origin['tick_duration_days']),
       coverImageUrl: asImageUrl(origin['cover'], fallback: origin['map_url']),
     ),

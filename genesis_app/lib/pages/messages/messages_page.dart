@@ -11,6 +11,7 @@ import '../../network/direct_message_conversation_store.dart';
 import '../../network/models/unread_summary.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/components/genesis_unread_badge.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import 'message_category_list_page.dart';
@@ -204,18 +205,9 @@ class _MessagesPageState extends State<MessagesPage> {
           const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: Row(
-              children: [
-                const Text(
-                  'Private chats',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(width: 6),
-                _UnreadBadge(
-                  key: const ValueKey('direct-messages-unread-badge'),
-                  count: unreadSummary.dmUnread,
-                ),
-              ],
+            child: const Text(
+              'Private chats',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
             ),
           ),
           const SizedBox(height: 8),
@@ -315,9 +307,12 @@ class _MessageMenuButton extends StatelessWidget {
                   Positioned(
                     top: 0,
                     right: 0,
-                    child: _UnreadBadge(
-                      key: ValueKey('message-menu-$routeName-unread-badge'),
-                      count: unreadCount,
+                    child: Transform.translate(
+                      offset: const Offset(4, -4),
+                      child: GenesisUnreadBadge(
+                        key: ValueKey('message-menu-$routeName-unread-badge'),
+                        count: unreadCount,
+                      ),
                     ),
                   ),
                 ],
@@ -338,36 +333,6 @@ class _MessageMenuButton extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _UnreadBadge extends StatelessWidget {
-  const _UnreadBadge({super.key, required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    if (count <= 0) return const SizedBox.shrink();
-    final label = count > 99 ? '99+' : count.toString();
-    return Container(
-      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF42C47),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          height: 1,
-          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -568,7 +533,13 @@ class _Avatar extends StatelessWidget {
           Positioned(
             top: 0,
             right: 0,
-            child: _UnreadBadge(key: unreadBadgeKey, count: unreadCount),
+            child: Transform.translate(
+              offset: const Offset(4, -4),
+              child: GenesisUnreadBadge(
+                key: unreadBadgeKey,
+                count: unreadCount,
+              ),
+            ),
           ),
         ],
       ),

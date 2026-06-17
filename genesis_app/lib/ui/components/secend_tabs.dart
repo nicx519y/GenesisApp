@@ -14,6 +14,7 @@ class SecendTabs extends StatelessWidget {
     this.labelFontSize,
     this.expanded = false,
     this.verticalPadding = secendTabsVerticalPadding,
+    this.onTap,
   });
 
   final List<String> labels;
@@ -23,6 +24,7 @@ class SecendTabs extends StatelessWidget {
   final double? labelFontSize;
   final bool expanded;
   final double verticalPadding;
+  final ValueChanged<int>? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +37,7 @@ class SecendTabs extends StatelessWidget {
         labelPadding: labelPadding,
         labelFontSize: labelFontSize,
         expanded: expanded,
+        onTap: onTap,
       ),
     );
   }

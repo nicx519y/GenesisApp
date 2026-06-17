@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../ui/components/genesis_character_avatar.dart';
+import '../ui/tokens/genesis_avatar_radii.dart';
+import '../utils/genesis_image_resource.dart';
 import 'world_map_interaction_notification.dart';
 import 'world_location_list.dart';
 import 'world_point.dart';
@@ -14,26 +17,9 @@ export 'world_point.dart';
 
 const String kWorldMapFallbackBackgroundAsset =
     'assets/images/mock_maps/map_background.png';
+const double _worldMapAvatarImageLogicalSize = 42;
 
 typedef WorldPointTapCallback = FutureOr<void> Function(WorldPoint point);
-
-class WorldMapLocationNode {
-  const WorldMapLocationNode({
-    required this.id,
-    required this.point,
-    this.mapImageUrl = '',
-    this.isRoot = false,
-    this.chatTargetPoint,
-    this.children = const <WorldMapLocationNode>[],
-  });
-
-  final String id;
-  final WorldPoint point;
-  final String mapImageUrl;
-  final bool isRoot;
-  final WorldPoint? chatTargetPoint;
-  final List<WorldMapLocationNode> children;
-}
 
 class WorldMap extends StatefulWidget {
   const WorldMap({
@@ -78,6 +64,8 @@ class _WorldMapState extends State<WorldMap> {
     origin: Alignment.center,
     direction: _MapTransitionDirection.drillIn,
   );
+  String _loadedBackgroundUrl = '';
+  String _currentBackgroundUrl = '';
 
   bool get _hasDrillTree => widget.locationNodes.isNotEmpty;
 
@@ -127,6 +115,7 @@ class _WorldMapState extends State<WorldMap> {
               .toSet()
               .toList(growable: false)
         : widget.preloadMapImageUrls;
+    final preloadAvatarUrls = _preloadAvatarUrls(context, visiblePoints);
     final exitLocationLabel = currentNode?.point.name ?? '';
 
     return LayoutBuilder(
@@ -142,6 +131,14 @@ class _WorldMapState extends State<WorldMap> {
           designHeight: designHeight,
         );
         final backgroundUrl = currentMapImageUrl.trim();
+        if (_currentBackgroundUrl != backgroundUrl) {
+          _currentBackgroundUrl = backgroundUrl;
+          if (_loadedBackgroundUrl != backgroundUrl) {
+            _loadedBackgroundUrl = '';
+          }
+        }
+        final backgroundLoaded =
+            backgroundUrl.isEmpty || _loadedBackgroundUrl == backgroundUrl;
         final mapKey = ValueKey<String>(
           _locationTrail.isEmpty ? '__world_root__' : _locationTrail.last.id,
         );
@@ -162,16 +159,24 @@ class _WorldMapState extends State<WorldMap> {
                         background: _MapBackgroundDeck(
                           currentUrl: backgroundUrl,
                           preloadUrls: preloadMapImageUrls,
+                          preloadAvatarUrls: preloadAvatarUrls,
                           fallbackOnEmptyUrl: widget.fallbackOnEmptyMapUrl,
+                          onCurrentLoaded: _handleBackgroundLoaded,
                         ),
                         overlayBuilder:
                             (context, transform, onOverlayPointerDown) => Stack(
                               fit: StackFit.expand,
                               children: [
                                 IgnorePointer(
-                                  ignoring: widget.showPointsList,
+                                  ignoring:
+                                      widget.showPointsList ||
+                                      !backgroundLoaded,
                                   child: Opacity(
-                                    opacity: widget.showPointsList ? 0.6 : 1,
+                                    opacity: !backgroundLoaded
+                                        ? 0
+                                        : widget.showPointsList
+                                        ? 0.6
+                                        : 1,
                                     child: Stack(
                                       children: [
                                         for (final p in visiblePoints)
@@ -213,8 +218,9 @@ class _WorldMapState extends State<WorldMap> {
                     Expanded(
                       child: WorldLocationList(
                         points: flattenedPoints,
+                        locationNodes: widget.locationNodes,
                         onPointTap: (point) {
-                          unawaited(_handlePointTap(point));
+                          widget.onPointTap?.call(point);
                         },
                       ),
                     ),
@@ -234,6 +240,13 @@ class _WorldMapState extends State<WorldMap> {
         );
       },
     );
+  }
+
+  void _handleBackgroundLoaded(String url) {
+    if (!mounted || _loadedBackgroundUrl == url) return;
+    setState(() {
+      _loadedBackgroundUrl = url;
+    });
   }
 
   VoidCallback? _pointTapHandler(WorldPoint point) {
@@ -428,6 +441,26 @@ class _WorldMapState extends State<WorldMap> {
     return <WorldMapLocationNode>[
       for (final node in nodes) ...[node, ..._flattenNodes(node.children)],
     ];
+  }
+
+  List<String> _preloadAvatarUrls(
+    BuildContext context,
+    List<WorldPoint> visiblePoints,
+  ) {
+    final devicePixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
+    return visiblePoints
+        .expand((point) => point.users)
+        .map(
+          (user) => selectGenesisImageUrl(
+            user.avatarUrl,
+            logicalWidth: _worldMapAvatarImageLogicalSize,
+            logicalHeight: _worldMapAvatarImageLogicalSize,
+            devicePixelRatio: devicePixelRatio,
+          ).trim(),
+        )
+        .where((url) => url.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
   }
 
   void _debugPrintLocationTree(String reason) {
@@ -696,33 +729,97 @@ double _lerpDouble(double begin, double end, double t) {
   return begin + (end - begin) * t;
 }
 
-class _MapBackgroundDeck extends StatelessWidget {
+class _MapBackgroundDeck extends StatefulWidget {
   const _MapBackgroundDeck({
     required this.currentUrl,
     required this.preloadUrls,
+    required this.preloadAvatarUrls,
     required this.fallbackOnEmptyUrl,
+    this.onCurrentLoaded,
   });
 
   final String currentUrl;
   final List<String> preloadUrls;
+  final List<String> preloadAvatarUrls;
   final bool fallbackOnEmptyUrl;
+  final ValueChanged<String>? onCurrentLoaded;
 
   @override
-  Widget build(BuildContext context) {
-    final current = currentUrl.trim();
-    final urls = preloadUrls
+  State<_MapBackgroundDeck> createState() => _MapBackgroundDeckState();
+}
+
+class _MapBackgroundDeckState extends State<_MapBackgroundDeck> {
+  int _preloadGeneration = 0;
+  String _loadedCurrentUrl = '';
+
+  @override
+  void didUpdateWidget(covariant _MapBackgroundDeck oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentUrl.trim() != widget.currentUrl.trim()) {
+      _loadedCurrentUrl = '';
+      _preloadGeneration++;
+    }
+  }
+
+  void _handleCurrentLoaded() {
+    final current = widget.currentUrl.trim();
+    if (_loadedCurrentUrl == current) return;
+    _loadedCurrentUrl = current;
+    widget.onCurrentLoaded?.call(current);
+    final generation = ++_preloadGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _preloadGeneration) return;
+      unawaited(_preloadSecondaryImages(current, generation));
+    });
+  }
+
+  Future<void> _preloadSecondaryImages(String current, int generation) async {
+    final avatarUrls = widget.preloadAvatarUrls
+        .map((url) => url.trim())
+        .where((url) => url.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    for (final url in avatarUrls) {
+      if (!mounted || generation != _preloadGeneration) return;
+      try {
+        await precacheImage(_avatarImageProvider(url), context);
+      } catch (error) {
+        debugPrint('[WorldMap] preload avatar failed url="$url": $error');
+      }
+    }
+
+    final urls = widget.preloadUrls
         .map((url) => url.trim())
         .where((url) => url.isNotEmpty && url != current)
         .toSet()
         .toList(growable: false);
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        _MapBackground(url: current, fallbackOnEmptyUrl: fallbackOnEmptyUrl),
-        for (final url in urls)
-          Offstage(offstage: true, child: _MapBackground(url: url)),
-      ],
+    for (final url in urls) {
+      if (!mounted || generation != _preloadGeneration) return;
+      try {
+        await precacheImage(_mapImageProvider(url), context);
+      } catch (error) {
+        debugPrint('[WorldMap] preload map image failed url="$url": $error');
+      }
+    }
+  }
+
+  ImageProvider _mapImageProvider(String url) {
+    return url.startsWith('assets/') ? AssetImage(url) : NetworkImage(url);
+  }
+
+  ImageProvider _avatarImageProvider(String url) {
+    return url.startsWith('assets/')
+        ? AssetImage(url)
+        : CachedNetworkImageProvider(url);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _MapBackground(
+      url: widget.currentUrl.trim(),
+      fallbackOnEmptyUrl: widget.fallbackOnEmptyUrl,
+      onLoaded: _handleCurrentLoaded,
     );
   }
 }
@@ -1019,15 +1116,27 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
 }
 
 class _MapBackground extends StatelessWidget {
-  const _MapBackground({required this.url, this.fallbackOnEmptyUrl = true});
+  const _MapBackground({
+    required this.url,
+    this.fallbackOnEmptyUrl = true,
+    this.onLoaded,
+  });
 
   final String url;
   final bool fallbackOnEmptyUrl;
+  final VoidCallback? onLoaded;
+
+  void _notifyLoaded() {
+    final callback = onLoaded;
+    if (callback == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => callback());
+  }
 
   @override
   Widget build(BuildContext context) {
     final trimmedUrl = url.trim();
     if (trimmedUrl.isEmpty) {
+      _notifyLoaded();
       return fallbackOnEmptyUrl
           ? const _FallbackMapBackground()
           : const _MapBackgroundPlaceholder();
@@ -1037,16 +1146,28 @@ class _MapBackground extends StatelessWidget {
       return Image.asset(
         trimmedUrl,
         fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) =>
-            const _FallbackMapBackground(),
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded || frame != null) _notifyLoaded();
+          return child;
+        },
+        errorBuilder: (context, error, stackTrace) {
+          _notifyLoaded();
+          return const _FallbackMapBackground();
+        },
       );
     }
 
     return Image.network(
       trimmedUrl,
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) =>
-          const _FallbackMapBackground(),
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) _notifyLoaded();
+        return child;
+      },
+      errorBuilder: (context, error, stackTrace) {
+        _notifyLoaded();
+        return const _FallbackMapBackground();
+      },
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
         return const _MapBackgroundPlaceholder();
@@ -1284,6 +1405,9 @@ class _WorldPointMarker extends StatelessWidget {
               if (hasUsers)
                 for (int i = 0; i < avatars.length; i++)
                   _PositionedMapAvatar(
+                    key: ValueKey<String>(
+                      'map-positioned-avatar-${_mapAvatarStableKey(avatars[i])}',
+                    ),
                     user: avatars[i],
                     left: _avatarLeft(i, avatars.length),
                     top: _avatarTop(i, avatars.length),
@@ -1359,6 +1483,7 @@ class _PointLabel extends StatelessWidget {
 
 class _PositionedMapAvatar extends StatelessWidget {
   const _PositionedMapAvatar({
+    super.key,
     required this.user,
     required this.left,
     required this.top,
@@ -1373,24 +1498,50 @@ class _PositionedMapAvatar extends StatelessWidget {
     return Positioned(
       left: left,
       top: top,
-      child: GenesisCharacterAvatar(
-        url: user.avatarUrl,
-        name: user.name ?? user.initials,
-        showStar: user.showStar,
-        size: 42,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.22),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+      child: Stack(
+        children: [
+          GenesisCharacterAvatar(
+            key: ValueKey<String>('map-avatar-${_mapAvatarStableKey(user)}'),
+            url: user.avatarUrl,
+            name: user.name ?? user.initials,
+            showStar: user.showStar,
+            size: 42,
+            showFallbackWhileLoading: false,
+            showFallbackWhenUnavailable: false,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.22),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(
+                    GenesisAvatarRadii.character,
+                  ),
+                  border: Border.all(color: Color(0xFFDDDDDD), width: 1),
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+String _mapAvatarStableKey(UserAvatar user) {
+  final id = user.id.trim();
+  final avatarUrl = user.avatarUrl.trim();
+  final name = (user.name ?? user.initials).trim();
+  return '$id|$avatarUrl|$name';
 }

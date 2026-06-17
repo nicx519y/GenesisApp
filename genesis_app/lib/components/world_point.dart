@@ -1,5 +1,23 @@
 import 'package:flutter/material.dart';
 
+class WorldMapLocationNode {
+  const WorldMapLocationNode({
+    required this.id,
+    required this.point,
+    this.mapImageUrl = '',
+    this.isRoot = false,
+    this.chatTargetPoint,
+    this.children = const <WorldMapLocationNode>[],
+  });
+
+  final String id;
+  final WorldPoint point;
+  final String mapImageUrl;
+  final bool isRoot;
+  final WorldPoint? chatTargetPoint;
+  final List<WorldMapLocationNode> children;
+}
+
 class WorldPoint {
   const WorldPoint({
     required this.id,

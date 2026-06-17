@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
+import '../../components/common/genesis_modal_routes.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
@@ -74,6 +76,8 @@ class LocationChatPanel extends StatefulWidget {
     this.onInitialContentReady,
     this.composerReplacement,
     this.showConnectionStatus = true,
+    this.systemUiOverlayStyle = kGenesisDefaultSystemUiOverlayStyle,
+    this.style,
   });
 
   final String worldId;
@@ -90,6 +94,8 @@ class LocationChatPanel extends StatefulWidget {
   final VoidCallback? onInitialContentReady;
   final Widget? composerReplacement;
   final bool showConnectionStatus;
+  final SystemUiOverlayStyle systemUiOverlayStyle;
+  final ChatUiStyleConfig? style;
 
   @override
   State<LocationChatPanel> createState() => _LocationChatPanelState();
@@ -1063,53 +1069,58 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _chatroomState.joining ||
         (_chatroomState.connected && !joined);
     final inputBlocked = _chatroomState.inputBlocked;
+    final style = widget.style ?? kChatWhiteHeaderStyle;
 
-    return ColoredBox(
-      color: ChatUiStyleConfig.standard.conversationBackgroundColor,
-      child: Column(
-        children: [
-          ChatHeader(
-            title: '$title ($titleCount)',
-            subtitle: subtitle,
-            connected: joined,
-            connecting: connecting,
-            onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
-            showSubtitle: widget.showConnectionStatus,
-          ),
-          Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: ChatMessageList(
-                    controller: _scrollController,
-                    messages: _messages,
-                    topTitle: '',
-                  ),
-                ),
-                if (_unseenIncomingCount > 0)
-                  Positioned(
-                    right: 16,
-                    bottom: 12,
-                    child: _LocationChatNewMessageNotice(
-                      count: _unseenIncomingCount,
-                      onTap: _openUnseenIncomingMessages,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: widget.systemUiOverlayStyle,
+      child: ColoredBox(
+        color: style.conversationBackgroundColor,
+        child: Column(
+          children: [
+            ChatHeader(
+              title: '$title ($titleCount)',
+              subtitle: subtitle,
+              connected: joined,
+              connecting: connecting,
+              onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
+              showSubtitle: widget.showConnectionStatus,
+              style: style,
+            ),
+            Expanded(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: ChatMessageList(
+                      controller: _scrollController,
+                      messages: _messages,
+                      topTitle: '',
                     ),
                   ),
-              ],
-            ),
-          ),
-          widget.composerReplacement ??
-              ChatComposer(
-                controller: _textController,
-                inputEnabled: widget.active,
-                sendEnabled:
-                    widget.active && joined && !_sending && !inputBlocked,
-                sending: _sending,
-                onSend: _send,
-                sendLabel: 'Send',
-                onHeightChanged: (_) => _keepBottomAfterLayoutIfNeeded(),
+                  if (_unseenIncomingCount > 0)
+                    Positioned(
+                      right: 16,
+                      bottom: 12,
+                      child: _LocationChatNewMessageNotice(
+                        count: _unseenIncomingCount,
+                        onTap: _openUnseenIncomingMessages,
+                      ),
+                    ),
+                ],
               ),
-        ],
+            ),
+            widget.composerReplacement ??
+                ChatComposer(
+                  controller: _textController,
+                  inputEnabled: widget.active,
+                  sendEnabled:
+                      widget.active && joined && !_sending && !inputBlocked,
+                  sending: _sending,
+                  onSend: _send,
+                  sendLabel: 'Send',
+                  onHeightChanged: (_) => _keepBottomAfterLayoutIfNeeded(),
+                ),
+          ],
+        ),
       ),
     );
   }

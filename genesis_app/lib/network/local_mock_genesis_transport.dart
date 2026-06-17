@@ -1419,7 +1419,7 @@ class _MockState {
           : _deepCopyMap(kMockV1Metric),
       'start_time': '${body['started_at'] ?? _v1Origin['start_time']}',
       'tick_duration_days':
-          (body['tick_duration_days'] as num?)?.toInt() ??
+          _tickDurationDaysFromOriginCreateBody(body) ??
           _v1Origin['tick_duration_days'],
       'created_at': now,
       'updated_at': now,
@@ -1465,9 +1465,9 @@ class _MockState {
       origin['metric'] = _deepCopyMap(_mapFromObject(body['metric']));
     }
     if (body['started_at'] != null) origin['start_time'] = body['started_at'];
-    if (body['tick_duration_days'] is num) {
-      origin['tick_duration_days'] = (body['tick_duration_days'] as num)
-          .toInt();
+    final tickDurationDays = _tickDurationDaysFromOriginCreateBody(body);
+    if (tickDurationDays != null) {
+      origin['tick_duration_days'] = tickDurationDays;
     }
     origin['updated_at'] = DateTime.now().toUtc().toIso8601String();
     return {
@@ -2939,7 +2939,9 @@ class _MockState {
       'updated_at': world['updated_at'],
       'last_progress_at': world['last_progress_at'],
       'last_tick': {
+        'tick_no': world['tick_cnt'],
         'tick_index': world['tick_cnt'],
+        'current_time': 'Day ${world['tick_cnt'] ?? 1}, 08:00',
         'created_at': world['last_progress_at'],
         'narrator': world['last_progress_summary'],
         'paragraphs': const <Map<String, dynamic>>[],
@@ -3314,6 +3316,15 @@ Map<String, dynamic> _mapFromObject(Object? source) {
   if (source is Map<String, dynamic>) return source;
   if (source is Map) return source.map((key, value) => MapEntry('$key', value));
   return const <String, dynamic>{};
+}
+
+int? _tickDurationDaysFromOriginCreateBody(Map<String, dynamic> body) {
+  if (body['tick_duration_days'] is num) {
+    return (body['tick_duration_days'] as num).toInt();
+  }
+  final value = '${body['tick_duration_time'] ?? ''}'.trim();
+  if (value.isEmpty) return null;
+  return int.tryParse(RegExp(r'\d+').firstMatch(value)?.group(0) ?? '');
 }
 
 List<dynamic> _deepCopyList(List<dynamic> source) {

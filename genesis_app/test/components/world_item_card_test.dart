@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/home/world_item_card.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_image_radii.dart';
 
 void main() {
   testWidgets('renders last progress time from last tick created_at', (
@@ -16,6 +17,8 @@ void main() {
       'created_at': '2020-01-01T00:00:00Z',
       'updated_at': '2020-01-02T00:00:00Z',
       'last_tick': {
+        'tick_no': 3,
+        'current_time': 'Day 3, 08:00',
         'created_at': '2999-01-01T00:00:00Z',
         'narrator': 'The city chooses a new route.',
       },
@@ -35,6 +38,7 @@ void main() {
 
     expect(find.text('Last Progress'), findsOneWidget);
     expect(find.text('2999-1-1'), findsOneWidget);
+    expect(find.text('Tick 3 · Day 3, 08:00'), findsOneWidget);
     expect(find.text('The city chooses a new route.'), findsOneWidget);
 
     final thumbnails = tester.widgetList<GenesisListImage>(
@@ -45,7 +49,8 @@ void main() {
         (image) =>
             image.width == 60 &&
             image.height == 60 &&
-            image.borderRadius == BorderRadius.circular(8),
+            image.borderRadius ==
+                BorderRadius.circular(GenesisImageRadii.contentValue),
       ),
       isTrue,
     );

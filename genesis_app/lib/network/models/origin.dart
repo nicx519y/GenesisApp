@@ -138,11 +138,13 @@ class OriginDetail {
     required this.updatedAt,
     required this.characters,
     required this.locations,
+    List<OriginLocation>? allLocations,
     this.events = const <OriginEvent>[],
     this.ticks = const <Map<String, dynamic>>[],
     this.locationTree = const <LocationTreeNode<OriginLocation>>[],
     ProcessedLocationTree<OriginLocation>? processedLocationTree,
-  }) : processedLocationTree =
+  }) : allLocations = allLocations ?? locations,
+       processedLocationTree =
            processedLocationTree ??
            ProcessedLocationTree<OriginLocation>(locationTree);
 
@@ -166,6 +168,7 @@ class OriginDetail {
   final DateTime? updatedAt;
   final List<OriginCharacter> characters;
   final List<OriginLocation> locations;
+  final List<OriginLocation> allLocations;
   final List<OriginEvent> events;
   final List<Map<String, dynamic>> ticks;
   final List<LocationTreeNode<OriginLocation>> locationTree;
@@ -173,13 +176,13 @@ class OriginDetail {
 
   factory OriginDetail.fromJson(Map<String, dynamic> json) {
     final mapImage = asImageUrl(json['map_image']);
-    final locations = (json['locations'] is List)
+    final flatLocations = (json['locations'] is List)
         ? asJsonList(json['locations'])
               .map((e) => OriginLocation.fromJson(asJsonMap(e)))
               .toList(growable: false)
         : const <OriginLocation>[];
     final locationTree = buildLocationTree(
-      locations,
+      flatLocations,
       idOf: (location) => location.locationId,
       parentIdOf: (location) => location.parentLocationId,
     );
@@ -207,7 +210,8 @@ class OriginDetail {
                 .map((e) => OriginCharacter.fromJson(asJsonMap(e)))
                 .toList(growable: false)
           : const <OriginCharacter>[],
-      locations: locations,
+      locations: buildOriginLocationHierarchy(flatLocations),
+      allLocations: flatLocations,
       events: (json['events'] is List)
           ? asJsonList(json['events'])
                 .map((e) => OriginEvent.fromJson(asJsonMap(e)))
@@ -360,6 +364,7 @@ class OriginLocation {
     required this.updatedAt,
     this.locationId = '',
     this.parentLocationId = '',
+    this.locations = const <OriginLocation>[],
   });
 
   final int id;
@@ -377,6 +382,7 @@ class OriginLocation {
   final DateTime? updatedAt;
   final String locationId;
   final String parentLocationId;
+  final List<OriginLocation> locations;
 
   factory OriginLocation.fromJson(Map<String, dynamic> json) {
     final rawX = json['x_percent'] ?? json['xPercent'];
@@ -410,6 +416,54 @@ class OriginLocation {
       parentLocationId: asString(json['location_pid']),
     );
   }
+
+  OriginLocation copyWith({List<OriginLocation>? locations}) {
+    return OriginLocation(
+      id: id,
+      originId: originId,
+      name: name,
+      icon: icon,
+      mapUrl: mapUrl,
+      description: description,
+      locationParagraph: locationParagraph,
+      position: position,
+      isActive: isActive,
+      xPercent: xPercent,
+      yPercent: yPercent,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      locationId: locationId,
+      parentLocationId: parentLocationId,
+      locations: locations ?? this.locations,
+    );
+  }
+}
+
+List<OriginLocation> buildOriginLocationHierarchy(
+  List<OriginLocation> flatLocations,
+) {
+  if (flatLocations.isEmpty) return const <OriginLocation>[];
+
+  final rootList = flatLocations.toList(growable: true);
+  final pOneList = <OriginLocation>[];
+  for (final location in flatLocations) {
+    if (location.parentLocationId.trim().isEmpty) {
+      pOneList.add(location);
+      rootList.remove(location);
+    }
+  }
+
+  OriginLocation attachChildren(OriginLocation parent) {
+    final childLocations = rootList
+        .where(
+          (location) => location.parentLocationId.trim() == parent.locationId,
+        )
+        .map(attachChildren)
+        .toList(growable: false);
+    return parent.copyWith(locations: childLocations);
+  }
+
+  return pOneList.map(attachChildren).toList(growable: false);
 }
 
 List<Map<String, dynamic>> _originTicksFromJson(Object? raw) {

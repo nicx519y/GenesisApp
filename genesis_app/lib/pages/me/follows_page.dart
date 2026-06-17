@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -293,7 +292,7 @@ class _FollowUsersPane extends StatelessWidget {
         return RefreshIndicator(
           onRefresh: onRefresh,
           child: ListView.builder(
-            scrollCacheExtent: const ScrollCacheExtent.pixels(0),
+            cacheExtent: 0,
             itemExtent: GenesisFollowUserListTile.itemExtent,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),

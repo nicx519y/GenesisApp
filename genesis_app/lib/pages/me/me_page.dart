@@ -60,8 +60,8 @@ class _MePageState extends State<MePage> {
         ),
       );
   int _loadGeneration = 0;
-  UserProfileData? _renderedData;
   bool _profileCollapsed = false;
+  bool _isActivationRefreshing = false;
   ValueListenable<int>? _sessionRevisionListenable;
 
   @override
@@ -115,7 +115,6 @@ class _MePageState extends State<MePage> {
             items: <UserProfileWorldItem>[],
             isLoading: false,
           );
-      _renderedData = null;
       return const _MePageContent.signedOut();
     }
     return _MePageContent.signedIn(await _loadProfileData());
@@ -188,7 +187,6 @@ class _MePageState extends State<MePage> {
     );
     _avatarUrl.value = data.avatarUrl;
     _displayName.value = data.displayName;
-    _renderedData = data;
     unawaited(
       remoteUserFuture.then((remoteUser) {
         _applyRemoteUserInfo(generation, data, remoteUser);
@@ -231,7 +229,7 @@ class _MePageState extends State<MePage> {
   }
 
   void _handleTabActivated() {
-    unawaited(_refreshUserInfoOnActivation());
+    unawaited(_refreshDataOnActivation());
   }
 
   void _handleSessionChanged() {
@@ -241,21 +239,19 @@ class _MePageState extends State<MePage> {
     });
   }
 
-  Future<void> _refreshUserInfoOnActivation() async {
-    if (!mounted) return;
-    final services = AppServicesScope.read(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    final authToken =
-        (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    if (uid.isEmpty || uid.startsWith('guest_') || authToken.isEmpty) return;
-    final currentData = _renderedData;
-    if (currentData == null) return;
-    final remoteUser = await _fetchAndCacheUserInfo(
-      services.api,
-      services.sessionStore,
-      fallbackUid: currentData.uid,
-    );
-    _applyRemoteUserInfo(_loadGeneration, currentData, remoteUser);
+  Future<void> _refreshDataOnActivation() async {
+    if (!mounted || _isActivationRefreshing) return;
+    if (!await _hasLocalLoginSession()) return;
+    _isActivationRefreshing = true;
+    try {
+      final data = await _loadProfileData();
+      if (!mounted) return;
+      setState(() {
+        _future = Future<_MePageContent>.value(_MePageContent.signedIn(data));
+      });
+    } finally {
+      _isActivationRefreshing = false;
+    }
   }
 
   void _handleProfileCollapsedChanged(bool collapsed) {
@@ -343,7 +339,6 @@ class _MePageState extends State<MePage> {
   ) {
     if (remoteUser == null || !mounted || generation != _loadGeneration) return;
     final nextData = _mergeRemoteUserInfoForRender(currentData, remoteUser);
-    _renderedData = nextData;
     if (currentData.avatarUrl != nextData.avatarUrl) {
       _avatarUrl.value = nextData.avatarUrl;
     }

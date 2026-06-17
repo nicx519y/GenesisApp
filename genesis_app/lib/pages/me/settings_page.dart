@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/debug_floating_button_visibility.dart';
 import '../../components/common/genesis_action_box.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
 import '../../routers/app_router.dart';
 import '../../ui/genesis_ui.dart';
 import 'about_us_page.dart';
-import 'developer_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -16,10 +17,9 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  static const int _developerUnlockTapCount = 10;
+  static const int _debugButtonUnlockTapCount = 10;
 
   int _blankTapCount = 0;
-  bool _showDeveloperPage = false;
 
   Future<void> _confirmLogout(BuildContext context) async {
     final confirmed = await showGenesisActionBox<bool>(
@@ -66,16 +66,14 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _handleBlankTap() {
-    if (_showDeveloperPage) return;
     final nextCount = _blankTapCount + 1;
-    if (nextCount >= _developerUnlockTapCount) {
-      setState(() {
-        _blankTapCount = nextCount;
-        _showDeveloperPage = true;
-      });
+    if (nextCount < _debugButtonUnlockTapCount) {
+      _blankTapCount = nextCount;
       return;
     }
-    _blankTapCount = nextCount;
+    _blankTapCount = 0;
+    showGenesisDebugFloatingButton();
+    showGenesisToast(context, 'Debug button shown');
   }
 
   @override
@@ -145,44 +143,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
               const Divider(height: 1, color: Color(0xFFE7E7E7)),
-              if (_showDeveloperPage) ...[
-                InkWell(
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => AppServicesScope(
-                        services: AppServicesScope.read(context),
-                        child: const DeveloperPage(),
-                      ),
-                    ),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Developer page',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.black,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right,
-                          color: Color(0xFFB5B5B5),
-                          size: 30,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Divider(height: 1, color: Color(0xFFE7E7E7)),
-              ],
               Expanded(
                 child: GestureDetector(
-                  key: const ValueKey<String>('settings-developer-unlock-area'),
+                  key: const ValueKey<String>('settings-debug-button-restore'),
                   behavior: HitTestBehavior.translucent,
                   onTap: _handleBlankTap,
                 ),

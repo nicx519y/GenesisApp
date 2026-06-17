@@ -16,6 +16,17 @@ void showGenesisToast(
   final overlay = Overlay.maybeOf(context, rootOverlay: true);
   if (overlay == null) return;
 
+  showGenesisToastInOverlay(overlay, trimmedMessage, duration: duration);
+}
+
+void showGenesisToastInOverlay(
+  OverlayState overlay,
+  String message, {
+  Duration duration = const Duration(seconds: 2),
+}) {
+  final trimmedMessage = message.trim();
+  if (trimmedMessage.isEmpty) return;
+
   _currentGenesisToastTimer?.cancel();
   _currentGenesisToast?.remove();
 

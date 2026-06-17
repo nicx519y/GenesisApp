@@ -1,12 +1,58 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_upload_progress_overlay.dart';
 import 'package:genesis_flutter_android/components/discuss/discuss_post_input.dart';
 
 void main() {
+  testWidgets('keeps status bar white while composer opens and closes', (
+    WidgetTester tester,
+  ) async {
+    final calls = <Map<dynamic, dynamic>>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'SystemChrome.setSystemUIOverlayStyle') {
+            calls.add(Map<dynamic, dynamic>.from(call.arguments as Map));
+          }
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DiscussPostInput(
+            bizId: 'o_test_1',
+            requireLogin: false,
+            imagePicker: (limit) async => const <DiscussPickedImage>[],
+            submitter: (content, images) async => <String, dynamic>{},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Write a post').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 2000));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(calls, isNotEmpty);
+    expect(calls.last['statusBarColor'], Colors.white.toARGB32());
+    expect(calls.last['statusBarIconBrightness'], Brightness.dark.toString());
+
+    await tester.tapAt(const Offset(20, 20));
+    await tester.pumpAndSettle();
+
+    expect(calls.last['statusBarColor'], Colors.white.toARGB32());
+    expect(calls.last['statusBarIconBrightness'], Brightness.dark.toString());
+  });
+
   testWidgets('dismisses composer when tapping outside the sheet', (
     WidgetTester tester,
   ) async {
@@ -23,7 +69,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+    await tester.tap(find.text('Write a post').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 2000));
+    await tester.pump();
     await tester.pumpAndSettle();
 
     expect(
@@ -36,13 +85,11 @@ void main() {
     expect(composerInput.minLines, 3);
     expect(composerInput.maxLines, 6);
     expect(composerInput.expands, isFalse);
+    await tester.pump(const Duration(milliseconds: 300));
     expect(tester.testTextInput.isVisible, isTrue);
 
     await tester.tapAt(const Offset(20, 20));
     await tester.pump();
-
-    expect(find.byKey(const ValueKey('discuss-composer-sheet')), findsNothing);
-
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('discuss-composer-sheet')), findsNothing);
@@ -70,7 +117,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+    await tester.tap(find.text('Write a post').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 2000));
+    await tester.pump();
     await tester.pumpAndSettle();
 
     final sheet = find.byKey(const ValueKey('discuss-composer-sheet'));
@@ -112,22 +162,24 @@ void main() {
       ),
     );
 
-    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+    await tester.tap(find.text('Write a post').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 2000));
+    await tester.pump();
     await tester.pumpAndSettle();
 
     expect(
       find.byKey(const ValueKey('discuss-composer-sheet')),
       findsOneWidget,
     );
+    await tester.pump(const Duration(milliseconds: 300));
     expect(tester.testTextInput.isVisible, isTrue);
 
     await tester.binding.handlePopRoute();
     await tester.pump();
-
-    expect(find.byKey(const ValueKey('discuss-composer-sheet')), findsNothing);
-
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const ValueKey('discuss-composer-sheet')), findsNothing);
     expect(tester.testTextInput.isVisible, isFalse);
     expect(find.text('New post'), findsNothing);
   });
@@ -153,7 +205,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+    await tester.tap(find.text('Write a post').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 2000));
+    await tester.pump();
     await tester.pumpAndSettle();
 
     expect(
@@ -169,11 +224,9 @@ void main() {
     tester.binding.handleMetricsChanged();
     await tester.pump();
     await tester.pump();
-
-    expect(find.byKey(const ValueKey('discuss-composer-sheet')), findsNothing);
-
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const ValueKey('discuss-composer-sheet')), findsNothing);
     expect(tester.testTextInput.isVisible, isFalse);
     expect(find.text('New post'), findsNothing);
   });
@@ -210,7 +263,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+    await tester.tap(find.text('Write a post').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 2000));
+    await tester.pump();
     await tester.pumpAndSettle();
     final sheetSizeBeforeImages = tester.getSize(
       find.byKey(const ValueKey('discuss-composer-sheet')),
@@ -291,7 +347,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+    await tester.tap(find.text('Write a post').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 2000));
+    await tester.pump();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('discuss-image-picker-button')));
     await tester.pumpAndSettle();
@@ -345,7 +404,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+    await tester.tap(find.text('Write a post').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 2000));
+    await tester.pump();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('discuss-image-picker-button')));
     await tester.pumpAndSettle();
@@ -401,7 +463,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+    await tester.tap(find.text('Write a post').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 2000));
+    await tester.pump();
     await tester.pumpAndSettle();
 
     expect(
@@ -450,7 +515,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+    await tester.tap(find.text('Write a post').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 2000));
+    await tester.pump();
     await tester.pumpAndSettle();
 
     final keyboardTop = tester.view.physicalSize.height - 320;
@@ -497,7 +565,10 @@ void main() {
       ),
     );
 
-    await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+    await tester.tap(find.text('Write a post').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 2000));
+    await tester.pump();
     await tester.pumpAndSettle();
     final sheetSizeBeforePicker = tester.getSize(
       find.byKey(const ValueKey('discuss-composer-sheet')),
@@ -553,7 +624,10 @@ void main() {
         ),
       );
 
-      await tester.tap(find.widgetWithText(TextField, 'Write a post'));
+      await tester.tap(find.text('Write a post').first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 2000));
+      await tester.pump();
       await tester.pumpAndSettle();
 
       await tester.tap(
@@ -602,6 +676,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
       await tester.tapAt(const Offset(20, 20));
       await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(
         find.byKey(const ValueKey('discuss-composer-sheet')),

@@ -145,10 +145,15 @@ void main() {
       ],
     });
 
-    expect(detail.locations.map((location) => location.locationId), [
+    expect(detail.allLocations.map((location) => location.locationId), [
       'loc_1',
       'loc_1_1',
     ]);
+    expect(detail.locations.map((location) => location.locationId), ['loc_1']);
+    expect(
+      detail.locations.single.locations.map((location) => location.locationId),
+      ['loc_1_1'],
+    );
     expect(detail.ownerUid, 'u_origin_owner');
     expect(detail.locationTree.map((node) => node.id), ['loc_1']);
     expect(detail.processedLocationTree.root?.id, 'loc_1');

@@ -1205,6 +1205,148 @@ void main() {
     expect(tappedIds, ['root', 'leaf']);
   });
 
+  testWidgets('tree location list renders level headers and leaf cards', (
+    tester,
+  ) async {
+    final tappedIds = <String>[];
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      showPointsList: true,
+      points: const [],
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'root',
+          isRoot: true,
+          point: WorldPoint(
+            id: 'root',
+            name: 'Blackspire Arcane Academy',
+            type: WorldPointType.portal,
+            position: _pointPosition,
+            users: [],
+            isLeafLocation: false,
+          ),
+          children: [
+            WorldMapLocationNode(
+              id: 'fortress',
+              point: WorldPoint(
+                id: 'fortress',
+                name: 'Main Fortress',
+                type: WorldPointType.shop,
+                position: _pointPosition,
+                users: [],
+                isLeafLocation: false,
+              ),
+              children: [
+                WorldMapLocationNode(
+                  id: 'hall',
+                  point: WorldPoint(
+                    id: 'hall',
+                    name: 'Grand Hall',
+                    type: WorldPointType.camp,
+                    position: _pointPosition,
+                    users: [],
+                    locationDescription: 'The stained glass hall.',
+                  ),
+                ),
+                WorldMapLocationNode(
+                  id: 'classroom',
+                  point: WorldPoint(
+                    id: 'classroom',
+                    name: 'Sorting Classroom',
+                    type: WorldPointType.tavern,
+                    position: _pointPosition,
+                    users: [],
+                    locationDescription: 'The classroom waits.',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+      onPointTap: (point) => tappedIds.add(point.id),
+    );
+
+    expect(find.text('- Blackspire Arcane Academy'), findsOneWidget);
+    expect(find.text('- Main Fortress'), findsOneWidget);
+    expect(find.text('Grand Hall'), findsOneWidget);
+    expect(find.text('Sorting Classroom'), findsOneWidget);
+
+    await tester.tap(find.text('Grand Hall'));
+    expect(tappedIds, ['hall']);
+  });
+
+  testWidgets('single child level three is opened from level two card', (
+    tester,
+  ) async {
+    final tappedIds = <String>[];
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      showPointsList: true,
+      points: const [],
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'root',
+          isRoot: true,
+          point: WorldPoint(
+            id: 'root',
+            name: 'Academy',
+            type: WorldPointType.portal,
+            position: _pointPosition,
+            users: [],
+            isLeafLocation: false,
+          ),
+          children: [
+            WorldMapLocationNode(
+              id: 'fortress',
+              point: WorldPoint(
+                id: 'fortress',
+                name: 'Main Fortress',
+                type: WorldPointType.shop,
+                position: _pointPosition,
+                users: [],
+                isLeafLocation: false,
+              ),
+              children: [
+                WorldMapLocationNode(
+                  id: 'hall',
+                  point: WorldPoint(
+                    id: 'hall',
+                    name: 'Grand Hall',
+                    type: WorldPointType.camp,
+                    position: _pointPosition,
+                    users: [],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+      onPointTap: (point) => tappedIds.add(point.id),
+    );
+
+    final list = find.byType(ListView);
+    expect(
+      find.descendant(of: list, matching: find.text('- Academy')),
+      findsOneWidget,
+    );
+    final mainFortressCard = find.descendant(
+      of: list,
+      matching: find.text('Main Fortress'),
+    );
+    expect(mainFortressCard, findsOneWidget);
+    expect(
+      find.descendant(of: list, matching: find.text('Grand Hall')),
+      findsNothing,
+    );
+
+    await tester.tap(mainFortressCard);
+    expect(tappedIds, ['hall']);
+  });
+
   testWidgets('world map ignores duplicate taps while point tap is pending', (
     tester,
   ) async {
@@ -1374,7 +1516,7 @@ void main() {
 
     final list = find.byType(ListView);
     expect(
-      find.descendant(of: list, matching: find.text('Root Location')),
+      find.descendant(of: list, matching: find.text('- Root Location')),
       findsWidgets,
     );
     expect(

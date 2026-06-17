@@ -1,4 +1,4 @@
-package com.genesis.ai
+package com.worldo.ai
 
 import android.app.Activity
 import android.content.Context
@@ -23,8 +23,8 @@ import java.io.FileOutputStream
 import java.security.MessageDigest
 
 class MainActivity : FlutterActivity() {
-    private val channel = "com.genesis.ai/device"
-    private val discussImagePickerChannel = "com.genesis.ai/discuss_image_picker"
+    private val channel = "com.worldo.ai/device"
+    private val discussImagePickerChannel = "com.worldo.ai/discuss_image_picker"
     private val discussImagePickerRequestCode = 43021
     private val googleSignInRequestCode = 43022
     private val uidKey = "uid"
@@ -87,6 +87,9 @@ class MainActivity : FlutterActivity() {
                     val label = applicationInfo.loadLabel(packageManager)?.toString() ?: ""
                     result.success(label)
                 }
+                "getAppVersion" -> {
+                    result.success(buildAppVersion())
+                }
                 "signInGoogleLegacy" -> {
                     val serverClientId = call.argument<String>("serverClientId") ?: ""
                     signInGoogleLegacy(serverClientId, result)
@@ -112,6 +115,21 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    private fun buildAppVersion(): Map<String, Any> {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode.toLong()
+        }
+        return mapOf(
+            "versionName" to (info.versionName ?: ""),
+            "versionCode" to versionCode,
+            "packageName" to packageName,
+        )
     }
 
     private fun signInGoogleLegacy(serverClientId: String, result: MethodChannel.Result) {

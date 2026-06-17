@@ -28,21 +28,24 @@ void main() {
 
       expect(find.text('AVATAR\n(Optional)'), findsNothing);
       expect(find.byType(Image), findsOneWidget);
+      expect(find.text('Remove'), findsOneWidget);
 
       controller.text = 'assets/images/mock_avatars/avatar_crow.png';
       await tester.pump();
 
       expect(find.text('AVATAR\n(Optional)'), findsNothing);
       expect(find.byType(Image), findsOneWidget);
+      expect(find.text('Remove'), findsOneWidget);
 
       controller.clear();
       await tester.pump();
 
       expect(find.text('AVATAR\n(Optional)'), findsOneWidget);
+      expect(find.text('Remove'), findsNothing);
     },
   );
 
-  testWidgets('CreateUploadBox optional remove link clears avatar', (
+  testWidgets('CreateUploadBox remove link clears avatar', (
     WidgetTester tester,
   ) async {
     final controller = TextEditingController(
@@ -57,7 +60,6 @@ void main() {
           body: CreateUploadBox(
             controller: controller,
             label: 'AVATAR\n(Optional)',
-            showRemoveLinkWhenFilled: true,
             onChanged: () => changedCount += 1,
           ),
         ),

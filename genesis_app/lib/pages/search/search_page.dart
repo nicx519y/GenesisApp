@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/copyable_id_label.dart';
@@ -46,7 +45,8 @@ class _SearchPageState extends State<SearchPage>
     milliseconds: 600,
   ); // API rate limit is 1 request per second, so 600ms is a good balance between responsiveness and reducing unnecessary requests.
   static const int _pageSize = 20;
-  static const int _minSearchLength = 1;
+  static const int _minSearchLength = 2;
+  static const int _allTabSectionLimit = 3;
 
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
@@ -117,7 +117,7 @@ class _SearchPageState extends State<SearchPage>
     final token = _requestToken;
     final query = raw.trim();
 
-    if (query.length < _minSearchLength) {
+    if (_searchableCharacterCount(query) < _minSearchLength) {
       setState(() {
         _activeQuery = '';
         _hasInput = false;
@@ -199,9 +199,10 @@ class _SearchPageState extends State<SearchPage>
           ..items.addAll(page.items)
           ..total = page.total
           ..nextPage = 2
-          ..hasMore = page.hasMore
+          ..hasMore = tab != _SearchTab.all && page.hasMore
           ..isInitialLoading = false
           ..error = null;
+        state.replaceSectionTotals(page.sectionTotals);
       });
     } catch (error) {
       if (kDebugMode) {
@@ -224,6 +225,7 @@ class _SearchPageState extends State<SearchPage>
     final query = _activeQuery;
     final token = _requestToken;
     if (query.isEmpty ||
+        tab == _SearchTab.all ||
         !state.hasMore ||
         state.isInitialLoading ||
         state.isLoadingMore) {
@@ -258,6 +260,7 @@ class _SearchPageState extends State<SearchPage>
           ..hasMore = page.hasMore
           ..isLoadingMore = false
           ..error = null;
+        state.replaceSectionTotals(page.sectionTotals);
       });
     } catch (error) {
       if (kDebugMode) {
@@ -297,6 +300,7 @@ class _SearchPageState extends State<SearchPage>
         ? asJsonList(data['groups'])
         : const <Object?>[];
     final items = <_SearchResultItem>[];
+    final sectionTotals = <_SearchTab, int>{};
     var total = 0;
 
     for (final rawGroup in groups) {
@@ -309,7 +313,9 @@ class _SearchPageState extends State<SearchPage>
       final list = group['list'] is List
           ? asJsonList(group['list'])
           : const <Object?>[];
-      total += asInt(group['total'], fallback: list.length);
+      final sectionTotal = asInt(group['total'], fallback: list.length);
+      sectionTotals[searchTab] = sectionTotal;
+      total += sectionTotal;
       for (final rawItem in list) {
         items.add(
           _SearchResultItem.fromJson(
@@ -323,6 +329,7 @@ class _SearchPageState extends State<SearchPage>
     return _SearchPageResult(
       items: items,
       total: total,
+      sectionTotals: sectionTotals,
       hasMore: items.isNotEmpty && pageNumber * _pageSize < total,
     );
   }
@@ -340,6 +347,7 @@ class _SearchPageState extends State<SearchPage>
           }
         : {tab: _searchSectionKey(tab)};
     final items = <_SearchResultItem>[];
+    final sectionTotals = <_SearchTab, int>{};
     var total = 0;
     var hasMore = false;
     var matchedSection = false;
@@ -355,6 +363,7 @@ class _SearchPageState extends State<SearchPage>
       final sectionTotal = asInt(sectionMap['total'], fallback: list.length);
       final sectionPage = asInt(sectionMap['pn'], fallback: pageNumber);
       final sectionPageSize = asInt(sectionMap['rn'], fallback: _pageSize);
+      sectionTotals[entry.key] = sectionTotal;
       total += sectionTotal;
       hasMore =
           hasMore ||
@@ -371,7 +380,12 @@ class _SearchPageState extends State<SearchPage>
     }
 
     if (!matchedSection) return null;
-    return _SearchPageResult(items: items, total: total, hasMore: hasMore);
+    return _SearchPageResult(
+      items: items,
+      total: total,
+      sectionTotals: sectionTotals,
+      hasMore: hasMore,
+    );
   }
 
   String _searchSectionKey(_SearchTab tab) {
@@ -475,9 +489,16 @@ class _SearchPageState extends State<SearchPage>
             onRetry: () => _refreshTab(tab, token: _requestToken),
             onLoadMore: () => _loadNextPage(tab),
             onOpen: _openResult,
+            onOpenMore: _openTabFromAllResults,
           ),
       ],
     );
+  }
+
+  void _openTabFromAllResults(_SearchTab tab) {
+    if (tab == _SearchTab.all) return;
+    _tabController.index = tab.index;
+    _handleTabChanged();
   }
 
   void _searchFromHistory(String query) {
@@ -507,6 +528,28 @@ class _SearchPageState extends State<SearchPage>
         break;
     }
   }
+}
+
+int _searchableCharacterCount(String query) {
+  var count = 0;
+  for (final rune in query.runes) {
+    if (_isAsciiLetter(rune) || _isCjkIdeograph(rune)) count += 1;
+  }
+  return count;
+}
+
+bool _isAsciiLetter(int rune) {
+  return (rune >= 0x41 && rune <= 0x5A) || (rune >= 0x61 && rune <= 0x7A);
+}
+
+bool _isCjkIdeograph(int rune) {
+  return (rune >= 0x3400 && rune <= 0x4DBF) ||
+      (rune >= 0x4E00 && rune <= 0x9FFF) ||
+      (rune >= 0xF900 && rune <= 0xFAFF) ||
+      (rune >= 0x20000 && rune <= 0x2A6DF) ||
+      (rune >= 0x2A700 && rune <= 0x2B73F) ||
+      (rune >= 0x2B740 && rune <= 0x2B81F) ||
+      (rune >= 0x2B820 && rune <= 0x2CEAF);
 }
 
 class _SearchHistoryPanel extends StatelessWidget {
@@ -618,6 +661,7 @@ class _SearchResultList extends StatefulWidget {
     required this.onRetry,
     required this.onLoadMore,
     required this.onOpen,
+    required this.onOpenMore,
   });
 
   final _SearchTab tab;
@@ -625,6 +669,7 @@ class _SearchResultList extends StatefulWidget {
   final VoidCallback onRetry;
   final VoidCallback onLoadMore;
   final ValueChanged<_SearchResultItem> onOpen;
+  final ValueChanged<_SearchTab> onOpenMore;
 
   @override
   State<_SearchResultList> createState() => _SearchResultListState();
@@ -701,7 +746,7 @@ class _SearchResultListState extends State<_SearchResultList>
     return ListView.builder(
       controller: _scrollController,
       primary: false,
-      scrollCacheExtent: const ScrollCacheExtent.pixels(900),
+      cacheExtent: 900,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
@@ -728,6 +773,9 @@ class _SearchResultListState extends State<_SearchResultList>
               item: item,
               onTap: () => widget.onOpen(item),
             ),
+          ),
+          _SearchMoreRow(:final tab) => _SearchMoreButton(
+            onTap: () => widget.onOpenMore(tab),
           ),
         };
       },
@@ -757,7 +805,16 @@ class _SearchResultListState extends State<_SearchResultList>
           .toList(growable: false);
       if (sectionItems.isEmpty) continue;
       rows.add(_SearchSectionRow(section.sectionTitle));
-      rows.addAll(sectionItems.map(_SearchItemRow.new));
+      rows.addAll(
+        sectionItems
+            .take(_SearchPageState._allTabSectionLimit)
+            .map(_SearchItemRow.new),
+      );
+      final sectionTotal = widget.state.sectionTotalFor(section);
+      if (sectionTotal > _SearchPageState._allTabSectionLimit ||
+          sectionItems.length > _SearchPageState._allTabSectionLimit) {
+        rows.add(_SearchMoreRow(section));
+      }
     }
     return rows;
   }
@@ -779,6 +836,12 @@ class _SearchItemRow extends _SearchDisplayRow {
   final _SearchResultItem item;
 }
 
+class _SearchMoreRow extends _SearchDisplayRow {
+  const _SearchMoreRow(this.tab);
+
+  final _SearchTab tab;
+}
+
 // The following classes are adapted from WorldDetailsPanel and WorldDetailsShell to be used in the search page result details.
 class _SectionTitle extends StatelessWidget {
   const _SectionTitle(this.text);
@@ -795,6 +858,37 @@ class _SectionTitle extends StatelessWidget {
           color: Color(0xFF111111),
           fontSize: 16,
           fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchMoreButton extends StatelessWidget {
+  const _SearchMoreButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 22),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: const SizedBox(
+          height: 24,
+          child: Align(
+            alignment: Alignment.center,
+            child: Text(
+              'More >',
+              style: TextStyle(
+                color: Color(0xFF4B6192),
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -979,6 +1073,7 @@ class _SearchTabResults {
 
   final _SearchTab tab;
   final List<_SearchResultItem> items = <_SearchResultItem>[];
+  final Map<_SearchTab, int> sectionTotals = <_SearchTab, int>{};
   int total = 0;
   int nextPage = 1;
   bool hasMore = true;
@@ -990,6 +1085,7 @@ class _SearchTabResults {
 
   void reset() {
     items.clear();
+    sectionTotals.clear();
     total = 0;
     nextPage = 1;
     hasMore = true;
@@ -999,17 +1095,30 @@ class _SearchTabResults {
     requestToken = 0;
     error = null;
   }
+
+  int sectionTotalFor(_SearchTab section) {
+    return sectionTotals[section] ??
+        items.where((item) => item.tab == section).length;
+  }
+
+  void replaceSectionTotals(Map<_SearchTab, int> totals) {
+    sectionTotals
+      ..clear()
+      ..addAll(totals);
+  }
 }
 
 class _SearchPageResult {
   const _SearchPageResult({
     required this.items,
     required this.total,
+    required this.sectionTotals,
     required this.hasMore,
   });
 
   final List<_SearchResultItem> items;
   final int total;
+  final Map<_SearchTab, int> sectionTotals;
   final bool hasMore;
 }
 

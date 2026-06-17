@@ -250,7 +250,7 @@ class CreateUploadBox extends StatefulWidget {
     this.borderRadius = GenesisImageRadii.contentValue,
     this.cropSize,
     this.previewAlignment = Alignment.center,
-    this.showRemoveLinkWhenFilled = false,
+    this.showRemoveLinkWhenFilled = true,
     this.emptyLabelFontWeight = FontWeight.w700,
     this.removeLinkFontWeight = FontWeight.w700,
     this.emptyIconLabelGap = 12,
