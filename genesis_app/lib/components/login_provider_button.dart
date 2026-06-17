@@ -11,8 +11,8 @@ import '../routers/app_router.dart';
 const String _googleOauthIconAsset = 'assets/custom-icons/svg/login_google.svg';
 const String _appleOauthIconAsset = 'assets/custom-icons/svg/login_apple.svg';
 const double _loginProviderIconSlotSize = 36;
-const double _googleProviderIconSize = 36;
-const double _appleProviderIconSize = 32;
+const double _googleProviderIconSize = 22;
+const double _appleProviderIconSize = 22;
 const double _loginProviderSpinnerSize = 22;
 
 class LoginProviderButtons extends StatelessWidget {
@@ -134,8 +134,8 @@ class LoginProviderButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.isLoading = false,
-    this.height = 62,
-    this.borderRadius = 8,
+    this.height = 56,
+    this.borderRadius = 16,
     this.backgroundColor = const Color(0xFFF0F0F0),
     this.foregroundColor = Colors.black,
   });
@@ -194,7 +194,7 @@ class LoginProviderButton extends StatelessWidget {
                   maxLines: 1,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.w400,
                     height: 1.1,
                     color: foregroundColor,
