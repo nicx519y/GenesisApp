@@ -359,7 +359,7 @@ class _DeveloperSectionTitle extends StatelessWidget {
       style: const TextStyle(
         fontSize: 15,
         color: Colors.black,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         height: 1.2,
       ),
     );
@@ -445,6 +445,7 @@ class _DeveloperEndpointField extends StatelessWidget {
                     hintStyle: const TextStyle(
                       color: Color(0xFFA8A8AD),
                       fontSize: 13,
+                      letterSpacing: 0,
                       height: 1.3,
                     ),
                   ),

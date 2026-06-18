@@ -36,7 +36,7 @@ class CreateTextFieldBlock extends StatelessWidget {
     this.maxLines,
     this.prefix,
     this.labelSize = 14,
-    this.labelFontWeight = FontWeight.w700,
+    this.labelFontWeight = FontWeight.w600,
     this.labelInputGap = 10,
     this.textInputAction,
     this.onEditingComplete,
@@ -117,6 +117,7 @@ class CreateTextFieldBlock extends StatelessWidget {
                       hintStyle: const TextStyle(
                         color: createFormHint,
                         fontSize: 14,
+                        letterSpacing: 0,
                         height: 1.42,
                       ),
                     ),
@@ -191,7 +192,7 @@ class CreateFormCard extends StatelessWidget {
                   style: const TextStyle(
                     color: createFormText,
                     fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     height: 1.1,
                   ),
                 ),
@@ -228,7 +229,7 @@ Future<bool> confirmCreateFormDelete(
       return AlertDialog(
         title: Text(
           'Delete $itemLabel?',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
         ),
         content: const Text('This item has content. Delete it anyway?'),
         actions: [
@@ -260,8 +261,8 @@ class CreateUploadBox extends StatefulWidget {
     this.cropSize,
     this.previewAlignment = Alignment.center,
     this.showRemoveLinkWhenFilled = true,
-    this.emptyLabelFontWeight = FontWeight.w700,
-    this.removeLinkFontWeight = FontWeight.w700,
+    this.emptyLabelFontWeight = FontWeight.w600,
+    this.removeLinkFontWeight = FontWeight.w600,
     this.emptyIconLabelGap = 12,
   });
 
@@ -735,7 +736,7 @@ class CreateAddButton extends StatelessWidget {
                 style: const TextStyle(
                   color: createFormText,
                   fontSize: 14,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),

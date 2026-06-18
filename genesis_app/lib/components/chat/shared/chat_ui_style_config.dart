@@ -183,7 +183,7 @@ class ChatUiStyleConfig {
     headerBackgroundColor: Color(0xF5F2EFF2), // 顶部聊天栏背景色。
     headerTitleTextStyle: TextStyle(
       fontSize: 16, // 顶部主标题字号。
-      fontWeight: FontWeight.w500, // 顶部主标题字重。
+      fontWeight: FontWeight.w600, // 顶部主标题字重。
       color: Colors.black, // 顶部主标题颜色。
     ),
     headerSubtitleTextStyle: TextStyle(
@@ -240,7 +240,7 @@ class ChatUiStyleConfig {
     topTitleTextStyle: TextStyle(
       fontSize: 14, // 顶部标题字号。
       height: 1.2, // 顶部标题行高。
-      fontWeight: FontWeight.w500, // 顶部标题字重。
+      fontWeight: FontWeight.w600, // 顶部标题字重。
       color: Colors.black87, // 顶部标题颜色。
     ),
     rowBottomPadding: 24, // 每条消息行底部间距。

@@ -812,7 +812,7 @@ class _NewIncomingMessageNotice extends StatelessWidget {
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),

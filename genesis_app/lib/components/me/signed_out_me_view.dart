@@ -41,7 +41,7 @@ class SignedOutMeView extends StatelessWidget {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                               letterSpacing: 9,
                               color: Color(0xFF7A7A7A),
                             ),

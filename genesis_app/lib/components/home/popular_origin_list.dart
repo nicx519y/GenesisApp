@@ -554,7 +554,7 @@ class _OriginTickChip extends StatelessWidget {
               color: _chipForeground,
               fontSize: 11,
               height: 1,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -621,7 +621,7 @@ const _emptyBodyStyle = TextStyle(
   color: Color(0xFF999999),
   fontSize: 12,
   height: 1.3,
-  fontWeight: FontWeight.w500,
+  fontWeight: FontWeight.w600,
 );
 
 const _metaStyle = TextStyle(

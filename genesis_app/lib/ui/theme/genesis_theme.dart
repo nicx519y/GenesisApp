@@ -72,7 +72,11 @@ abstract final class GenesisTheme {
         // 压缩 TextField 内部默认高度，避免搜索框被 Material 默认 padding 撑高。
         isCollapsed: true,
         // 输入框 placeholder 默认样式。
-        hintStyle: TextStyle(color: GenesisColors.textDisabled, fontSize: 14),
+        hintStyle: TextStyle(
+          color: GenesisColors.textDisabled,
+          fontSize: 14,
+          letterSpacing: 0,
+        ),
       ),
       // 自定义 Genesis UI 组件的主题扩展。
       // SearchField、PageTitle、BottomNavigation、TabBar 等会优先从这里读取样式。

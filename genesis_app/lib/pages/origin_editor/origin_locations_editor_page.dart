@@ -216,7 +216,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const GenesisBackAppBar(pageName: '📍 Locations'),
+      appBar: const GenesisBackAppBar(pageName: 'Locations'),
       body: CreateKeyboardDismissArea(
         child: SafeArea(
           top: false,
@@ -224,7 +224,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(22, 16, 22, 28),
+                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -232,18 +232,18 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                         'Place your world on the map. Add a location image and name, then link characters who start there.',
                         style: TextStyle(
                           color: createFormMuted,
-                          fontSize: 14,
-                          height: 1.4,
+                          fontSize: 12,
+                          height: 1.35,
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                       Align(
                         alignment: Alignment.centerRight,
                         child: Text(
                           '${_forms.length}/$_maxLocations (Added / Max)',
                           style: const TextStyle(
                             color: createFormText,
-                            fontSize: 12,
+                            fontSize: 14,
                             height: 1.2,
                           ),
                         ),

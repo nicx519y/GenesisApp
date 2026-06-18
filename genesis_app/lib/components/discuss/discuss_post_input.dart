@@ -712,6 +712,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
                                       fontSize: _discussComposerFontSize,
                                       height: _discussComposerLineHeight,
                                       fontWeight: FontWeight.w400,
+                                      letterSpacing: 0,
                                       color: Color(0xFFB8B8B8),
                                     ),
                                     border: InputBorder.none,
@@ -765,7 +766,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
                                         textStyle: const TextStyle(
                                           fontSize: 16,
                                           height: 1.1,
-                                          fontWeight: FontWeight.w700,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                       child: _submitting

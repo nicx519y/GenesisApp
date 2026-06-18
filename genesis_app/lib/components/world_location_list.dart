@@ -277,7 +277,7 @@ class _PointListItem extends StatelessWidget {
                           point.name,
                           style: const TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: Colors.black,
                           ),
                           maxLines: 1,
@@ -318,7 +318,7 @@ class _NodeHeader extends StatelessWidget {
         style: const TextStyle(
           fontSize: 14,
           height: 1.2,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: Colors.black,
         ),
         maxLines: 1,
@@ -366,7 +366,7 @@ class _LocationCard extends StatelessWidget {
                           point.name,
                           style: const TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: Colors.black,
                           ),
                           maxLines: 1,

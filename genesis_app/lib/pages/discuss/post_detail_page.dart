@@ -33,7 +33,7 @@ const TextStyle _postDetailMetaStyle = TextStyle(
   color: Color(0xFF888888),
   fontSize: 12,
   height: 1.18,
-  fontWeight: FontWeight.w500,
+  fontWeight: FontWeight.w600,
 );
 const TextStyle _postDetailBodyStyle = TextStyle(
   color: Color(0xFF111111),
@@ -364,7 +364,7 @@ class _PostActionRow extends StatelessWidget {
         const SizedBox(width: 7),
         Text(
           '${item.replyCount}',
-          style: _postDetailMetaStyle.copyWith(fontWeight: FontWeight.w500),
+          style: _postDetailMetaStyle.copyWith(fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -432,7 +432,7 @@ class _PostDetailReplies extends StatelessWidget {
             color: Color(0xFF1D1D1D),
             fontSize: 16,
             height: 1.15,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 16),
@@ -479,7 +479,7 @@ class _PostDetailReplies extends StatelessWidget {
                           color: Color(0xFF2F4F7A),
                           fontSize: 12,
                           height: 1.25,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
               ),
@@ -617,7 +617,7 @@ class _ReplyActionRow extends StatelessWidget {
           '$likeCount',
           style: _postDetailMetaStyle.copyWith(
             color: isLiked ? const Color(0xFFF42C47) : const Color(0xFF8B8B8B),
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(width: 28),
@@ -637,7 +637,7 @@ class _ReplyActionRow extends StatelessWidget {
         const SizedBox(width: 7),
         Text(
           '$replyCount',
-          style: _postDetailMetaStyle.copyWith(fontWeight: FontWeight.w500),
+          style: _postDetailMetaStyle.copyWith(fontWeight: FontWeight.w600),
         ),
       ],
     );

@@ -19,7 +19,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
   static const TextStyle titleStyle = TextStyle(
     fontSize: 16,
     height: 1.1,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     color: Color(0xFF111111),
   );
 

@@ -113,7 +113,7 @@ class _OriginStoryEventsEditorPageState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const GenesisBackAppBar(pageName: '📜 Story Events'),
+      appBar: const GenesisBackAppBar(pageName: 'Story Events'),
       body: CreateKeyboardDismissArea(
         child: SafeArea(
           top: false,
@@ -121,7 +121,7 @@ class _OriginStoryEventsEditorPageState
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(22, 16, 22, 28),
+                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -129,18 +129,18 @@ class _OriginStoryEventsEditorPageState
                         'Optional story beats or scenes. Each event is free text; keep them short and clear for the world runtime.',
                         style: TextStyle(
                           color: createFormMuted,
-                          fontSize: 14,
-                          height: 1.4,
+                          fontSize: 12,
+                          height: 1.35,
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                       Align(
                         alignment: Alignment.centerRight,
                         child: Text(
                           '${_eventControllers.length}/$_maxEvents (Added / Max)',
                           style: const TextStyle(
                             color: createFormText,
-                            fontSize: 12,
+                            fontSize: 14,
                             height: 1.2,
                           ),
                         ),
@@ -205,11 +205,15 @@ class _SectionRow extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 18),
+            padding: const EdgeInsets.symmetric(vertical: 14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(icon, style: const TextStyle(fontSize: 24)),
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: SvgPicture.asset(icon, fit: BoxFit.contain),
+                ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
@@ -231,7 +235,7 @@ class _SectionRow extends StatelessWidget {
                                     height: 1.2,
                                   ),
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 4),
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -261,15 +265,19 @@ class _SectionRow extends StatelessWidget {
                             const SizedBox(width: 6),
                           ],
                           if (completed)
-                            const Icon(
-                              Icons.check_circle,
-                              color: GenesisColors.brand,
-                              size: 20,
+                            const Text(
+                              '✓',
+                              style: TextStyle(
+                                color: Color(0xFF1C7D56),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                height: 1,
+                              ),
                             ),
                           const SizedBox(width: 8),
                           const Icon(
                             Icons.chevron_right,
-                            color: Color(0xFF8A8A8A),
+                            color: Color(0xFF666666),
                           ),
                         ],
                       ),
@@ -280,7 +288,7 @@ class _SectionRow extends StatelessWidget {
             ),
           ),
           if (showDivider)
-            const Divider(height: 1, thickness: 1, color: Color(0xFFE8E8E8)),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFEAEAEA)),
         ],
       ),
     );
@@ -436,7 +444,7 @@ class _InitialCharactersField extends StatelessWidget {
           style: TextStyle(
             color: createFormText,
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             height: 1.2,
           ),
         ),
@@ -557,7 +565,7 @@ class _InitialCharactersField extends StatelessWidget {
     final textPainter = TextPainter(
       text: TextSpan(
         text: name,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
       ),
       maxLines: 1,
       textDirection: Directionality.of(context),
@@ -609,7 +617,7 @@ class _InitialCharacterChip extends StatelessWidget {
               style: const TextStyle(
                 color: createFormText,
                 fontSize: 11,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 height: 1.2,
               ),
             ),
@@ -794,7 +802,7 @@ class _CharacterPickerTile extends StatelessWidget {
             style: const TextStyle(
               color: createFormText,
               fontSize: 14,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               height: 1.2,
             ),
           ),

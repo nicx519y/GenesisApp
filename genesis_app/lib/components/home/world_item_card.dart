@@ -253,7 +253,7 @@ class _ProgressTickTime extends StatelessWidget {
           color: Color(0xFF111111),
           fontSize: 14,
           height: 1.1,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

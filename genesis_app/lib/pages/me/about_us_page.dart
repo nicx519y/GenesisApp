@@ -124,7 +124,7 @@ class _AboutDescriptionState extends State<_AboutDescription> {
     );
     final emailStyle = bodyStyle.copyWith(
       color: const Color(0xFF3E5B8A),
-      fontWeight: FontWeight.w500,
+      fontWeight: FontWeight.w600,
     );
 
     return Text.rich(
@@ -210,7 +210,7 @@ class _AboutLegalLinksState extends State<_AboutLegalLinks> {
       fontSize: 11,
       height: 1.35,
       color: GenesisColors.brand,
-      fontWeight: FontWeight.w500,
+      fontWeight: FontWeight.w600,
     );
 
     return FittedBox(

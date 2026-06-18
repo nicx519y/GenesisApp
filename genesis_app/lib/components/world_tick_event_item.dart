@@ -248,7 +248,7 @@ const _bodyStyle = TextStyle(
 const _timestampStyle = TextStyle(
   fontSize: 12,
   height: 1.4,
-  fontWeight: FontWeight.w500,
+  fontWeight: FontWeight.w600,
   color: Color(0xFF111111),
 );
 
