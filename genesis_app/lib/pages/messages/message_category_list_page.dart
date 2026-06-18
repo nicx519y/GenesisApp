@@ -262,7 +262,9 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
 
   Future<void> _toggleFollow(_NotificationItem item, bool isFollowed) async {
     final uid = item.followUserUid.trim();
-    if (uid.isEmpty || _loadingFollowUids.contains(uid)) return;
+    if (item.senderDeleted || uid.isEmpty || _loadingFollowUids.contains(uid)) {
+      return;
+    }
     setState(() => _loadingFollowUids.add(uid));
     try {
       final api = AppServicesScope.read(context).api.v1.follow;
@@ -293,6 +295,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
       return;
     }
     if (item.isDiscussNotification) {
+      if (item.discussSourceDeleted) return;
       Navigator.of(context).pushNamed(
         RouteNames.postDetail,
         arguments: {'item': item.toDiscussListItem()},
@@ -441,6 +444,7 @@ class _NotificationListItem extends StatelessWidget {
               uid: item.followUserUid,
               displayName: item.followUserName,
               avatarUrl: item.senderAvatar,
+              deleted: item.senderDeleted,
               isFollowed: followStateOverride ?? item.isFollowed,
               isLoading: followIsLoading,
               keyPrefix: 'message-follow',
@@ -591,9 +595,8 @@ class _JoinRequestReviewSummaryText extends StatelessWidget {
             text: item.requestWorldSummaryName,
             style: _originBlueTextStyle,
           ),
-          if (item.bizId.trim().isNotEmpty &&
-              item.requestWorldSummaryName != item.bizId.trim())
-            TextSpan(text: ' (${item.bizId})'),
+          if (item.shouldShowRequestWorldId)
+            TextSpan(text: ' (${item.requestWorldIdLabel})'),
         ],
       ),
     );
@@ -619,7 +622,8 @@ class _JoinRequestSummaryText extends StatelessWidget {
           TextSpan(text: item.requesterName, style: _originBlueTextStyle),
           const TextSpan(text: ' request to join '),
           TextSpan(text: item.requestWorldName, style: _originBlueTextStyle),
-          if (item.bizId.trim().isNotEmpty) TextSpan(text: ' (${item.bizId})'),
+          if (item.shouldShowRequestWorldId)
+            TextSpan(text: ' (${item.requestWorldIdLabel})'),
         ],
       ),
     );
@@ -738,6 +742,7 @@ class _NotificationItem {
     this.senderDeleted = false,
     required this.bizId,
     this.worldDeleted = false,
+    this.originDeleted = false,
     required this.objId,
     required this.rootDiscussId,
     required this.content,
@@ -821,7 +826,8 @@ class _NotificationItem {
       ),
       senderDeleted: entityDeleted(
         sender?['deleted'],
-        fallback: user?['deleted'],
+        fallback:
+            user?['deleted'] ?? json['sender_deleted'] ?? json['user_deleted'],
       ),
       bizId: bizId,
       worldDeleted: entityDeleted(
@@ -829,6 +835,14 @@ class _NotificationItem {
         fallback:
             _optionalJsonMap(json['world'])?['world_deleted'] ??
             _optionalJsonMap(json['world'])?['deleted'],
+      ),
+      originDeleted: entityDeleted(
+        json['origin_deleted'],
+        fallback:
+            _optionalJsonMap(json['origin'])?['origin_deleted'] ??
+            _optionalJsonMap(json['origin'])?['deleted'] ??
+            _optionalJsonMap(json['target'])?['origin_deleted'] ??
+            _optionalJsonMap(json['target'])?['deleted'],
       ),
       objId: _firstNonEmpty([
         asString(json['obj_id']),
@@ -881,6 +895,7 @@ class _NotificationItem {
   final bool senderDeleted;
   final String bizId;
   final bool worldDeleted;
+  final bool originDeleted;
   final String objId;
   final String rootDiscussId;
   final String content;
@@ -906,6 +921,7 @@ class _NotificationItem {
       senderDeleted: senderDeleted,
       bizId: bizId,
       worldDeleted: worldDeleted,
+      originDeleted: originDeleted,
       objId: objId,
       rootDiscussId: rootDiscussId,
       content: content,
@@ -962,18 +978,26 @@ class _NotificationItem {
     return cleanWorldName;
   }
 
+  String get requestWorldIdLabel {
+    return deletedAwareIdLabel(bizId, deleted: worldDeleted);
+  }
+
+  bool get shouldShowRequestWorldId {
+    if (worldDeleted) return true;
+    final id = bizId.trim();
+    return id.isNotEmpty && requestWorldSummaryName != id;
+  }
+
   String get joinRequestSummary {
     final name = requesterName;
     final world = requestWorldSummaryName;
-    final id = bizId.trim();
-    final suffix = id.isEmpty || world == id ? '' : '($id)';
+    final suffix = shouldShowRequestWorldId ? '($requestWorldIdLabel)' : '';
     return '$name request to join $world$suffix';
   }
 
   String get reviewTitleText {
     final world = requestWorldSummaryName;
-    final id = bizId.trim();
-    return 'request to $world${id.isEmpty || world == id ? '' : '($id)'}';
+    return 'request to $world${shouldShowRequestWorldId ? '($requestWorldIdLabel)' : ''}';
   }
 
   _JoinRequestApprovalStatus get joinRequestApprovalStatus {
@@ -1050,7 +1074,7 @@ class _NotificationItem {
         fallback: 'User',
       );
     }
-    return formatUidForDisplay(followUserUid, fallback: 'User');
+    return 'User';
   }
 
   String get followUserUid {
@@ -1072,12 +1096,24 @@ class _NotificationItem {
 
   String get metaText {
     final source = isDiscussNotification
-        ? _firstNonEmpty([originName, worldName])
-        : _firstNonEmpty([originName, worldName, bizId]);
+        ? discussSourceLabel
+        : _firstNonEmpty([
+            originName.trim(),
+            worldName.trim(),
+            requestWorldIdLabel,
+          ]);
     final time = createdAtText;
     if (source.isEmpty) return time;
     if (time.isEmpty) return '#$source';
     return '#$source · $time';
+  }
+
+  bool get discussSourceDeleted => originDeleted || worldDeleted;
+
+  String get discussSourceLabel {
+    if (originName.trim().isNotEmpty) return originName.trim();
+    if (worldName.trim().isNotEmpty) return worldName.trim();
+    return bizId.trim();
   }
 
   String get createdAtText {

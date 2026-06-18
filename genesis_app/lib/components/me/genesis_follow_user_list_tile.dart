@@ -100,7 +100,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
                   height: _actionHeight,
                   child: FilledButton(
                     key: ValueKey('$keyPrefix-action-$cleanUid'),
-                    onPressed: isLoading ? null : onToggleFollow,
+                    onPressed: deleted || isLoading ? null : onToggleFollow,
                     style: FilledButton.styleFrom(
                       fixedSize: const Size(_actionWidth, _actionHeight),
                       minimumSize: const Size(_actionWidth, _actionHeight),
