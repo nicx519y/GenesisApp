@@ -72,6 +72,13 @@ class GenesisImageResource {
     required double? logicalHeight,
     required double devicePixelRatio,
   }) {
+    final resizedXlUrl = _resizedXlUrl(
+      this,
+      logicalWidth: logicalWidth,
+      devicePixelRatio: devicePixelRatio,
+    );
+    if (resizedXlUrl.isNotEmpty) return resizedXlUrl;
+
     final candidates = <_ImageCandidate>[
       _ImageCandidate(smUrl.trim()),
       _ImageCandidate(xlUrl.trim()),
@@ -122,6 +129,51 @@ class GenesisImageResource {
       if (key.isNotEmpty) yield key;
     }
   }
+}
+
+const List<int> _imageResizeWidthTiers = <int>[
+  45,
+  90,
+  180,
+  360,
+  720,
+  1080,
+  2160,
+];
+
+const String _ossResizeProcessPrefix = '?x-oss-process=image/resize,w_';
+const String _ossResizeProcessSuffix = ',image/format,webp';
+
+String _resizedXlUrl(
+  GenesisImageResource resource, {
+  required double? logicalWidth,
+  required double devicePixelRatio,
+}) {
+  final xl = resource.xlUrl.trim();
+  if (xl.isEmpty || xl.startsWith('assets/')) return '';
+  final requiredWidth = _requiredPixels(logicalWidth, devicePixelRatio);
+  if (requiredWidth == null) return '';
+  final width = _ceilImageWidthTier(requiredWidth);
+  return '${_stripUrlParams(xl)}$_ossResizeProcessPrefix$width$_ossResizeProcessSuffix';
+}
+
+int _ceilImageWidthTier(double requiredWidth) {
+  for (final tier in _imageResizeWidthTiers) {
+    if (requiredWidth < tier) return tier;
+  }
+  return _imageResizeWidthTiers.last;
+}
+
+String _stripUrlParams(String url) {
+  final queryIndex = url.indexOf('?');
+  final fragmentIndex = url.indexOf('#');
+  final cutPoints = <int>[
+    if (queryIndex >= 0) queryIndex,
+    if (fragmentIndex >= 0) fragmentIndex,
+  ];
+  if (cutPoints.isEmpty) return url;
+  cutPoints.sort();
+  return url.substring(0, cutPoints.first);
 }
 
 class GenesisImageResourceRegistry {

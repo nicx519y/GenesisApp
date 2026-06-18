@@ -87,7 +87,7 @@ void main() {
     expect(tester.getSize(find.byType(GenesisAvatar)), const Size(40, 60));
   });
 
-  testWidgets('GenesisAvatar chooses xl image when sm would be blurry', (
+  testWidgets('GenesisAvatar builds xl resize URL from display width', (
     tester,
   ) async {
     final resource = GenesisImageResourceRegistry.register(
@@ -116,7 +116,11 @@ void main() {
     final image = tester.widget<CachedNetworkImage>(
       find.byType(CachedNetworkImage),
     );
-    expect(image.imageUrl, 'https://cdn.example.com/avatar_800_600.webp');
+    expect(
+      image.imageUrl,
+      'https://cdn.example.com/avatar_800_600.webp'
+      '?x-oss-process=image/resize,w_720,image/format,webp',
+    );
     expect(image.fadeInDuration, Duration.zero);
     expect(image.fadeOutDuration, Duration.zero);
     expect(image.placeholderFadeInDuration, Duration.zero);

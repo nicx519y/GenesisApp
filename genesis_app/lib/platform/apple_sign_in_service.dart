@@ -47,9 +47,13 @@ class AppleSignInService {
       throw const _AppleSignInFailure('Apple 未返回 identityToken，请稍后重试');
     }
 
-    final oauthCredential = OAuthProvider('apple.com').credential(
-      idToken: identityToken,
-      rawNonce: rawNonce,
+    final oauthCredential = AppleAuthProvider.credentialWithIDToken(
+      identityToken,
+      rawNonce,
+      AppleFullPersonName(
+        givenName: credential.givenName,
+        familyName: credential.familyName,
+      ),
     );
     final UserCredential userCredential;
     try {

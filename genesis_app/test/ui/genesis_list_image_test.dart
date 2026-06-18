@@ -35,7 +35,7 @@ void main() {
     expect(clip.borderRadius, GenesisImageRadii.content);
   });
 
-  testWidgets('GenesisListImage chooses the smallest sharp image candidate', (
+  testWidgets('GenesisListImage builds xl resize URL from display width', (
     WidgetTester tester,
   ) async {
     final resource = GenesisImageResourceRegistry.register(
@@ -63,10 +63,53 @@ void main() {
     final image = tester.widget<CachedNetworkImage>(
       find.byType(CachedNetworkImage),
     );
-    expect(image.imageUrl, 'https://cdn.example.com/photo_400_300.webp');
+    expect(
+      image.imageUrl,
+      'https://cdn.example.com/photo_800_600.webp'
+      '?x-oss-process=image/resize,w_360,image/format,webp',
+    );
     expect(image.fadeInDuration, Duration.zero);
     expect(image.fadeOutDuration, Duration.zero);
     expect(image.placeholderFadeInDuration, Duration.zero);
+  });
+
+  test('selectGenesisImageUrl strips xl query before adding resize params', () {
+    final resource = GenesisImageResourceRegistry.register(
+      const GenesisImageResource(
+        smUrl: 'https://cdn.example.com/photo-sm.webp',
+        xlUrl: 'https://cdn.example.com/photo-xl.webp?old=true#frag',
+      ),
+    );
+
+    expect(
+      selectGenesisImageUrl(
+        resource.displayUrl,
+        logicalWidth: 44,
+        logicalHeight: 44,
+        devicePixelRatio: 1,
+      ),
+      'https://cdn.example.com/photo-xl.webp'
+      '?x-oss-process=image/resize,w_45,image/format,webp',
+    );
+  });
+
+  test('selectGenesisImageUrl uses the next greater width tier', () {
+    final resource = GenesisImageResourceRegistry.register(
+      const GenesisImageResource(
+        xlUrl: 'https://cdn.example.com/exact-tier.webp',
+      ),
+    );
+
+    expect(
+      selectGenesisImageUrl(
+        resource.displayUrl,
+        logicalWidth: 90,
+        logicalHeight: 90,
+        devicePixelRatio: 1,
+      ),
+      'https://cdn.example.com/exact-tier.webp'
+      '?x-oss-process=image/resize,w_180,image/format,webp',
+    );
   });
 }
 

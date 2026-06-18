@@ -5611,7 +5611,8 @@ void main() {
         logicalHeight: 90,
         devicePixelRatio: 2,
       ),
-      'https://cdn.example.com/me_avatar_400_300.webp',
+      'https://cdn.example.com/me_avatar_800_600.webp'
+      '?x-oss-process=image/resize,w_360,image/format,webp',
     );
   });
 
