@@ -100,8 +100,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       <String, List<String>>{};
   final Map<String, WorldMapMessageBubble> _activeMapMessageBubblesByLocation =
       <String, WorldMapMessageBubble>{};
-  final Map<String, List<UserAvatar>> _mapMessageBubbleUsersByLocation =
-      <String, List<UserAvatar>>{};
   final Set<String> _shownMapMessageBubbleKeys = <String>{};
   String _mapMessageBubblePrimeKey = '';
   Future<void>? _mapMessageBubblePrimeFuture;
@@ -246,7 +244,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     for (final message in messages) {
       final candidate = _mapBubbleCandidate(message);
       if (candidate == null) continue;
-      _rememberMapBubbleSender(candidate);
       final key = _mapMessageKey(candidate);
       if (key.isEmpty || !_shownMapMessageBubbleKeys.add(key)) continue;
       final queueLocationId = _mapBubbleQueueLocationId(candidate.locationId);
@@ -291,39 +288,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       if (_visibleMapLocationIds.contains(key)) return key;
     }
     return id;
-  }
-
-  void _rememberMapBubbleSender(WorldChatroomMessage message) {
-    final senderName = message.senderName.trim().isNotEmpty
-        ? message.senderName.trim()
-        : 'Character';
-    final sender = UserAvatar(
-      initialsForAvatarName(senderName),
-      id: _mapBubbleSenderStableId(message),
-      name: senderName,
-      avatarUrl: _mapBubbleSenderAvatarUrl(message),
-      showStar: true,
-    );
-    final locationKeys = _mapBubbleLocationKeys(message.locationId);
-    final keys = locationKeys.isEmpty
-        ? <String>[message.locationId.trim()]
-        : locationKeys;
-    for (final locationId in keys) {
-      if (locationId.trim().isEmpty) continue;
-      final users = _mapMessageBubbleUsersByLocation.putIfAbsent(
-        locationId.trim(),
-        () => <UserAvatar>[],
-      );
-      final senderId = sender.id.trim().toLowerCase();
-      final senderNameKey = (sender.name ?? '').trim().toLowerCase();
-      final exists = users.any((user) {
-        final userId = user.id.trim().toLowerCase();
-        final userName = (user.name ?? '').trim().toLowerCase();
-        return (senderId.isNotEmpty && userId == senderId) ||
-            (senderNameKey.isNotEmpty && userName == senderNameKey);
-      });
-      if (!exists) users.add(sender);
-    }
   }
 
   WorldChatroomMessage? _mapBubbleCandidate(WorldChatroomMessage message) {
@@ -642,7 +606,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _mapMessageBubbleLocationCursor = 0;
       _mapMessageBubbleKeysByLocation.clear();
       _activeMapMessageBubblesByLocation.clear();
-      _mapMessageBubbleUsersByLocation.clear();
       _shownMapMessageBubbleKeys.clear();
       _mapMessageBubblePrimeKey = '';
       _mapMessageBubblePrimeFuture = null;
@@ -1648,7 +1611,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             onVisibleLocationIdsChanged: _handleVisibleMapLocationIdsChanged,
             onPointTap: _openChatForPoint,
             messageBubbles: _mapMessageBubbles,
-            extraUsersByLocation: _mapMessageBubbleUsersByLocation,
           ),
         ),
         slivers: [

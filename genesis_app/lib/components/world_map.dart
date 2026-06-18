@@ -37,7 +37,6 @@ class WorldMap extends StatefulWidget {
     this.overlayTop = 0,
     this.drillExitTop = 68,
     this.messageBubbles = const <String, WorldMapMessageBubble>{},
-    this.extraUsersByLocation = const <String, List<UserAvatar>>{},
     this.onDrillIntoLocation,
     this.onSecondaryMapChanged,
     this.onVisibleLocationIdsChanged,
@@ -57,7 +56,6 @@ class WorldMap extends StatefulWidget {
   final double overlayTop;
   final double drillExitTop;
   final Map<String, WorldMapMessageBubble> messageBubbles;
-  final Map<String, List<UserAvatar>> extraUsersByLocation;
   final VoidCallback? onDrillIntoLocation;
   final ValueChanged<bool>? onSecondaryMapChanged;
   final ValueChanged<List<String>>? onVisibleLocationIdsChanged;
@@ -200,10 +198,6 @@ class _WorldMapState extends State<WorldMap> {
                                         for (final p in visiblePoints)
                                           _WorldPointPositioned(
                                             point: p,
-                                            extraUsers:
-                                                widget.extraUsersByLocation[p
-                                                    .sceneId] ??
-                                                const <UserAvatar>[],
                                             width: viewport.width,
                                             height: viewport.height,
                                             transform: transform,
@@ -1283,34 +1277,6 @@ class WorldMapMessageBubble {
   final DateTime createdAt;
 }
 
-List<UserAvatar> _mergePointUsers(
-  List<UserAvatar> users,
-  List<UserAvatar> extraUsers,
-) {
-  if (extraUsers.isEmpty) return users;
-  final merged = <UserAvatar>[...users];
-  for (final extra in extraUsers) {
-    final extraId = extra.id.trim().toLowerCase();
-    final extraName = (extra.name ?? '').trim().toLowerCase();
-    final exists = merged.any((user) {
-      final userId = user.id.trim().toLowerCase();
-      final userName = (user.name ?? '').trim().toLowerCase();
-      return (extraId.isNotEmpty && userId == extraId) ||
-          (extraName.isNotEmpty && userName == extraName);
-    });
-    if (!exists) merged.add(extra);
-  }
-  return merged;
-}
-
-String _bubbleSenderFallbackId(WorldMapMessageBubble bubble) {
-  final senderId = bubble.senderId.trim();
-  if (senderId.isNotEmpty) return senderId;
-  final senderName = bubble.senderName.trim().toLowerCase();
-  if (senderName.isNotEmpty) return 'bubble-sender-name:$senderName';
-  return 'bubble-sender-location:${bubble.locationId.trim()}';
-}
-
 class _MapBackgroundPlaceholder extends StatelessWidget {
   const _MapBackgroundPlaceholder();
 
@@ -1323,7 +1289,6 @@ class _MapBackgroundPlaceholder extends StatelessWidget {
 class _WorldPointPositioned extends StatelessWidget {
   const _WorldPointPositioned({
     required this.point,
-    this.extraUsers = const <UserAvatar>[],
     required this.width,
     required this.height,
     this.transform,
@@ -1333,7 +1298,6 @@ class _WorldPointPositioned extends StatelessWidget {
   });
 
   final WorldPoint point;
-  final List<UserAvatar> extraUsers;
   final double width;
   final double height;
   final Matrix4? transform;
@@ -1391,7 +1355,7 @@ class _WorldPointPositioned extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final users = _mergePointUsers(point.users, extraUsers);
+    final users = point.users;
     final markerWidth = _markerWidth(users.length);
     final markerHeight = _markerHeight(users.length);
     final pointCenterY = _labelHeight + _labelToPointSpacing + _pointSize / 2;
@@ -1616,11 +1580,7 @@ class _WorldPointMarker extends StatelessWidget {
         }
       }
     }
-    final fallbackKey = _bubbleSenderFallbackId(bubble).toLowerCase();
-    for (var i = 0; i < avatars.length; i += 1) {
-      if (avatars[i].id.trim().toLowerCase() == fallbackKey) return i;
-    }
-    return avatars.isEmpty ? -1 : 0;
+    return -1;
   }
 }
 
