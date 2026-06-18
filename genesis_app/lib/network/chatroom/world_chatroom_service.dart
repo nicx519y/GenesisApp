@@ -109,6 +109,12 @@ class WorldChatroomService {
     );
   }
 
+  Future<void> refreshUserLocations() async {
+    _throwIfDisposed();
+    if (_worldId.trim().isEmpty) return;
+    await _refreshUserLocations();
+  }
+
   Future<void> connect({
     required String worldId,
     required ChatroomConnectionIdentity identity,
@@ -184,16 +190,68 @@ class WorldChatroomService {
     );
   }
 
+  Future<List<WorldChatroomMessage>> loadCachedMessages({
+    required String worldId,
+    required String locationId,
+    String? ownerUid,
+    Iterable<String> locationAliases = const <String>[],
+    int limit = 20,
+    bool updateState = true,
+  }) async {
+    _throwIfDisposed();
+    final resolvedWorldId = worldId.trim();
+    final resolvedLocationId = locationId.trim();
+    if (resolvedWorldId.isEmpty || resolvedLocationId.isEmpty || limit <= 0) {
+      return const <WorldChatroomMessage>[];
+    }
+    if (_worldId.isEmpty) _worldId = resolvedWorldId;
+    final resolvedOwnerUid = ownerUid?.trim().isNotEmpty == true
+        ? ownerUid!.trim()
+        : _storageOwnerUid;
+    if (resolvedOwnerUid.isEmpty) return const <WorldChatroomMessage>[];
+
+    final storageLocationIds = _orderedNonEmpty([
+      ...locationAliases,
+      resolvedLocationId,
+    ]);
+    var messages = const <WorldChatroomMessage>[];
+    for (final storageLocationId in storageLocationIds) {
+      final localMessages = await _messageStorage.loadLatestMessages(
+        ownerUid: resolvedOwnerUid,
+        worldId: resolvedWorldId,
+        locationId: storageLocationId,
+        limit: limit,
+      );
+      for (final json in localMessages) {
+        final message = WorldChatroomMessage.fromStorageJson(json);
+        messages = _trimMessageList(
+          _upsertIntoList(
+            messages,
+            message.locationId == resolvedLocationId
+                ? message
+                : message.copyWith(locationId: resolvedLocationId),
+          ),
+          limit,
+        );
+      }
+    }
+    if (updateState && messages.isNotEmpty) {
+      _upsertMessages(messages, persist: false);
+    }
+    return messages;
+  }
+
   Future<List<WorldChatroomMessage>> refreshLatestMessages({
     required String locationId,
     int limit = 20,
+    bool emitLatestFetched = true,
   }) async {
     _throwIfDisposed();
     final resolvedLocationId = locationId.trim();
     if (resolvedLocationId.isEmpty || limit <= 0) {
       return const <WorldChatroomMessage>[];
     }
-    final fetchKey = '$resolvedLocationId\u001F$limit';
+    final fetchKey = '$resolvedLocationId\u001F$limit\u001F$emitLatestFetched';
     final existingFetch = _latestMessageFetchFutures[fetchKey];
     if (existingFetch != null) {
       return existingFetch;
@@ -201,6 +259,7 @@ class WorldChatroomService {
     final fetch = _fetchLatestMessagesWithFailure(
       resolvedLocationId,
       limit: limit,
+      emitLatestFetched: emitLatestFetched,
     );
     _latestMessageFetchFutures[fetchKey] = fetch;
     try {
@@ -966,6 +1025,7 @@ class WorldChatroomService {
   Future<List<WorldChatroomMessage>> _fetchLatestMessages(
     String locationId, {
     required int limit,
+    bool emitLatestFetched = true,
   }) async {
     final stopwatch = _chatroomHydrateMetricsEnabled
         ? (Stopwatch()..start())
@@ -985,7 +1045,9 @@ class WorldChatroomService {
       resolvedLocationId,
       response.messages,
     );
-    if (messages.isNotEmpty && !_latestFetchedMessages.isClosed) {
+    if (emitLatestFetched &&
+        messages.isNotEmpty &&
+        !_latestFetchedMessages.isClosed) {
       _latestFetchedMessages.add(messages);
     }
     _logChatroomHydrateMetric(
@@ -1000,9 +1062,14 @@ class WorldChatroomService {
   Future<List<WorldChatroomMessage>> _fetchLatestMessagesWithFailure(
     String locationId, {
     required int limit,
+    bool emitLatestFetched = true,
   }) async {
     try {
-      return await _fetchLatestMessages(locationId, limit: limit);
+      return await _fetchLatestMessages(
+        locationId,
+        limit: limit,
+        emitLatestFetched: emitLatestFetched,
+      );
     } catch (e) {
       _logChatroomSocketEvent(
         'latest messages fetch failed location=$locationId '

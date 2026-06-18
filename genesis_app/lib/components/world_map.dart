@@ -37,7 +37,10 @@ class WorldMap extends StatefulWidget {
     this.overlayTop = 0,
     this.drillExitTop = 68,
     this.messageBubbles = const <String, WorldMapMessageBubble>{},
+    this.extraUsersByLocation = const <String, List<UserAvatar>>{},
     this.onDrillIntoLocation,
+    this.onSecondaryMapChanged,
+    this.onVisibleLocationIdsChanged,
     this.onPointTap,
   });
 
@@ -54,7 +57,10 @@ class WorldMap extends StatefulWidget {
   final double overlayTop;
   final double drillExitTop;
   final Map<String, WorldMapMessageBubble> messageBubbles;
+  final Map<String, List<UserAvatar>> extraUsersByLocation;
   final VoidCallback? onDrillIntoLocation;
+  final ValueChanged<bool>? onSecondaryMapChanged;
+  final ValueChanged<List<String>>? onVisibleLocationIdsChanged;
   final WorldPointTapCallback? onPointTap;
 
   @override
@@ -72,6 +78,7 @@ class _WorldMapState extends State<WorldMap> {
   );
   String _loadedBackgroundUrl = '';
   String _currentBackgroundUrl = '';
+  String _lastVisibleLocationIdsSignature = '';
 
   bool get _hasDrillTree => widget.locationNodes.isNotEmpty;
 
@@ -86,13 +93,17 @@ class _WorldMapState extends State<WorldMap> {
     super.didUpdateWidget(oldWidget);
     _debugPrintLocationTree('update');
     if (!_hasDrillTree) {
-      if (_locationTrail.isNotEmpty) _locationTrail.clear();
+      if (_locationTrail.isNotEmpty) {
+        _locationTrail.clear();
+        widget.onSecondaryMapChanged?.call(false);
+      }
       return;
     }
 
     final currentId = _locationTrail.isEmpty ? '' : _locationTrail.last.id;
     if (currentId.isNotEmpty && _findNode(currentId) == null) {
       _locationTrail.clear();
+      widget.onSecondaryMapChanged?.call(false);
     }
   }
 
@@ -105,6 +116,7 @@ class _WorldMapState extends State<WorldMap> {
     final visiblePoints = _hasDrillTree
         ? visibleNodes.map((node) => node.point).toList(growable: false)
         : widget.points;
+    _notifyVisibleLocationIds(visiblePoints);
     final flattenedPoints = _hasDrillTree
         ? _flattenNodes(
             widget.locationNodes,
@@ -188,6 +200,10 @@ class _WorldMapState extends State<WorldMap> {
                                         for (final p in visiblePoints)
                                           _WorldPointPositioned(
                                             point: p,
+                                            extraUsers:
+                                                widget.extraUsersByLocation[p
+                                                    .sceneId] ??
+                                                const <UserAvatar>[],
                                             width: viewport.width,
                                             height: viewport.height,
                                             transform: transform,
@@ -311,6 +327,7 @@ class _WorldMapState extends State<WorldMap> {
                 ),
               );
           });
+          widget.onSecondaryMapChanged?.call(_locationTrail.isNotEmpty);
           await WidgetsBinding.instance.endOfFrame;
         });
         return;
@@ -375,6 +392,21 @@ class _WorldMapState extends State<WorldMap> {
         direction: _MapTransitionDirection.drillOut,
       );
       _locationTrail.removeLast();
+    });
+    widget.onSecondaryMapChanged?.call(_locationTrail.isNotEmpty);
+  }
+
+  void _notifyVisibleLocationIds(List<WorldPoint> points) {
+    final ids = points
+        .map((point) => point.sceneId.trim())
+        .where((id) => id.isNotEmpty)
+        .toList(growable: false);
+    final signature = ids.join('\u001F');
+    if (signature == _lastVisibleLocationIdsSignature) return;
+    _lastVisibleLocationIdsSignature = signature;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _lastVisibleLocationIdsSignature != signature) return;
+      widget.onVisibleLocationIdsChanged?.call(ids);
     });
   }
 
@@ -1237,14 +1269,46 @@ class WorldMapMessageBubble {
   const WorldMapMessageBubble({
     required this.locationId,
     required this.senderId,
+    this.senderName = '',
+    this.senderAvatarUrl = '',
     required this.content,
     required this.createdAt,
   });
 
   final String locationId;
   final String senderId;
+  final String senderName;
+  final String senderAvatarUrl;
   final String content;
   final DateTime createdAt;
+}
+
+List<UserAvatar> _mergePointUsers(
+  List<UserAvatar> users,
+  List<UserAvatar> extraUsers,
+) {
+  if (extraUsers.isEmpty) return users;
+  final merged = <UserAvatar>[...users];
+  for (final extra in extraUsers) {
+    final extraId = extra.id.trim().toLowerCase();
+    final extraName = (extra.name ?? '').trim().toLowerCase();
+    final exists = merged.any((user) {
+      final userId = user.id.trim().toLowerCase();
+      final userName = (user.name ?? '').trim().toLowerCase();
+      return (extraId.isNotEmpty && userId == extraId) ||
+          (extraName.isNotEmpty && userName == extraName);
+    });
+    if (!exists) merged.add(extra);
+  }
+  return merged;
+}
+
+String _bubbleSenderFallbackId(WorldMapMessageBubble bubble) {
+  final senderId = bubble.senderId.trim();
+  if (senderId.isNotEmpty) return senderId;
+  final senderName = bubble.senderName.trim().toLowerCase();
+  if (senderName.isNotEmpty) return 'bubble-sender-name:$senderName';
+  return 'bubble-sender-location:${bubble.locationId.trim()}';
 }
 
 class _MapBackgroundPlaceholder extends StatelessWidget {
@@ -1259,6 +1323,7 @@ class _MapBackgroundPlaceholder extends StatelessWidget {
 class _WorldPointPositioned extends StatelessWidget {
   const _WorldPointPositioned({
     required this.point,
+    this.extraUsers = const <UserAvatar>[],
     required this.width,
     required this.height,
     this.transform,
@@ -1268,6 +1333,7 @@ class _WorldPointPositioned extends StatelessWidget {
   });
 
   final WorldPoint point;
+  final List<UserAvatar> extraUsers;
   final double width;
   final double height;
   final Matrix4? transform;
@@ -1282,8 +1348,8 @@ class _WorldPointPositioned extends StatelessWidget {
   static const double _labelToPointSpacing = 6;
   static const double _avatarTopGap = 10;
 
-  double _markerWidth() {
-    final count = point.users.length;
+  double _markerWidth(int userCount) {
+    final count = userCount;
     final avatarWidth = _avatarGroupWidth(count);
     final estimatedCharWidth = 10.0;
     final labelWidth = (point.name.runes.length * estimatedCharWidth + 12)
@@ -1292,8 +1358,8 @@ class _WorldPointPositioned extends StatelessWidget {
     return math.max(math.max(_pointSize, avatarWidth), labelWidth);
   }
 
-  double _markerHeight() {
-    final count = point.users.length;
+  double _markerHeight(int userCount) {
+    final count = userCount;
     final pointCenterY = _labelHeight + _labelToPointSpacing + _pointSize / 2;
     if (count <= 0) return pointCenterY + _pointSize / 2;
     if (count < 4) return pointCenterY + _avatarTopGap + _avatarSize;
@@ -1325,8 +1391,9 @@ class _WorldPointPositioned extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final markerWidth = _markerWidth();
-    final markerHeight = _markerHeight();
+    final users = _mergePointUsers(point.users, extraUsers);
+    final markerWidth = _markerWidth(users.length);
+    final markerHeight = _markerHeight(users.length);
     final pointCenterY = _labelHeight + _labelToPointSpacing + _pointSize / 2;
 
     final baseX = (point.position.dx * width).clamp(0, width).toDouble();
@@ -1351,6 +1418,7 @@ class _WorldPointPositioned extends StatelessWidget {
       height: markerHeight,
       child: _WorldPointMarker(
         point: point,
+        users: users,
         markerWidth: markerWidth,
         markerHeight: markerHeight,
         pointCenterY: pointCenterY,
@@ -1375,6 +1443,7 @@ class _WorldPointPositioned extends StatelessWidget {
 class _WorldPointMarker extends StatelessWidget {
   const _WorldPointMarker({
     required this.point,
+    required this.users,
     required this.markerWidth,
     required this.markerHeight,
     required this.pointCenterY,
@@ -1384,6 +1453,7 @@ class _WorldPointMarker extends StatelessWidget {
   });
 
   final WorldPoint point;
+  final List<UserAvatar> users;
   final double markerWidth;
   final double markerHeight;
   final double pointCenterY;
@@ -1407,12 +1477,12 @@ class _WorldPointMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasUsers = point.users.isNotEmpty;
-    final avatars = point.users;
+    final hasUsers = users.isNotEmpty;
+    final avatars = users;
     final bubble = messageBubble;
     final bubbleAvatarIndex = bubble == null
         ? -1
-        : _bubbleAvatarIndex(bubble.senderId, avatars);
+        : _bubbleAvatarIndex(bubble, avatars);
 
     return Listener(
       behavior: HitTestBehavior.opaque,
@@ -1528,12 +1598,27 @@ class _WorldPointMarker extends StatelessWidget {
     return ringCenterY + math.sin(angle) * radius - _avatarSize / 2;
   }
 
-  int _bubbleAvatarIndex(String senderId, List<UserAvatar> avatars) {
-    final senderKey = senderId.trim().toLowerCase();
+  int _bubbleAvatarIndex(
+    WorldMapMessageBubble bubble,
+    List<UserAvatar> avatars,
+  ) {
+    final senderKey = bubble.senderId.trim().toLowerCase();
     if (senderKey.isNotEmpty) {
       for (var i = 0; i < avatars.length; i += 1) {
         if (avatars[i].id.trim().toLowerCase() == senderKey) return i;
       }
+    }
+    final senderNameKey = bubble.senderName.trim().toLowerCase();
+    if (senderNameKey.isNotEmpty) {
+      for (var i = 0; i < avatars.length; i += 1) {
+        if ((avatars[i].name ?? '').trim().toLowerCase() == senderNameKey) {
+          return i;
+        }
+      }
+    }
+    final fallbackKey = _bubbleSenderFallbackId(bubble).toLowerCase();
+    for (var i = 0; i < avatars.length; i += 1) {
+      if (avatars[i].id.trim().toLowerCase() == fallbackKey) return i;
     }
     return avatars.isEmpty ? -1 : 0;
   }
@@ -1638,7 +1723,7 @@ class _PositionedMapMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final maxWidth = MediaQuery.sizeOf(context).width * 0.6;
-    final bubbleTop = top + avatarSize + 8;
+    final bubbleTop = top + avatarSize + 12;
     return Positioned(
       left: left + avatarSize / 2 - maxWidth / 2,
       top: bubbleTop,
@@ -1691,9 +1776,9 @@ class _MapMessageBubble extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Color(0xFF1F1F1F),
-                fontSize: 13,
+                fontSize: 11,
                 height: 1.25,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),

@@ -65,6 +65,14 @@ class WorldPage extends StatefulWidget {
 }
 
 class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
+  static const Duration _mapMessageBubbleInterval = Duration(seconds: 1);
+  static const Duration _mapMessageBubbleHiddenInterval = Duration(
+    milliseconds: 500,
+  );
+  static const int _mapMessageBubbleQueueLimit = 60;
+  static const int _mapMessageBubbleHistoryLimit = 20;
+  static const int _mapMessageBubbleCacheLimit = 60;
+
   late final TabController _tabController;
   late final TabController _sectionController;
   WorldDetail? _world;
@@ -79,12 +87,27 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   final Set<String> _readyLocationChatIds = <String>{};
   final Map<String, WorldMapMessageBubble> _mapMessageBubbles =
       <String, WorldMapMessageBubble>{};
-  final Queue<WorldChatroomMessage> _mapMessageBubbleQueue =
-      Queue<WorldChatroomMessage>();
-  final Set<String> _shownMapMessageBubbleKeys = <String>{};
+  final Map<String, Queue<WorldChatroomMessage>>
+  _mapMessageBubbleQueuesByLocation = <String, Queue<WorldChatroomMessage>>{};
+  final Map<String, Queue<WorldChatroomMessage>>
+  _priorityMapMessageBubbleQueuesByLocation =
+      <String, Queue<WorldChatroomMessage>>{};
+  final List<String> _mapMessageBubbleLocationOrder = <String>[];
+  int _mapMessageBubbleLocationCursor = 0;
   Timer? _mapMessageBubbleTimer;
-  WorldMapMessageBubble? _activeMapMessageBubble;
+  final Map<String, List<String>> _mapMessageBubbleKeysByLocation =
+      <String, List<String>>{};
+  final Map<String, WorldMapMessageBubble> _activeMapMessageBubblesByLocation =
+      <String, WorldMapMessageBubble>{};
+  final Map<String, List<UserAvatar>> _mapMessageBubbleUsersByLocation =
+      <String, List<UserAvatar>>{};
+  final Set<String> _shownMapMessageBubbleKeys = <String>{};
+  String _mapMessageBubblePrimeKey = '';
+  Future<void>? _mapMessageBubblePrimeFuture;
   String _activeChatLocationId = '';
+  Set<String> _visibleMapLocationIds = <String>{};
+  String _visibleMapLocationIdsSignature = '';
+  bool _isInSecondaryMap = false;
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
   bool _tick1WaitDialogStarted = false;
@@ -125,9 +148,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
     unawaited(_worldChatroomLatestSub?.cancel());
-    _mapMessageBubbleTimer?.cancel();
-    _mapMessageBubbleTimer = null;
-    _mapMessageBubbleQueue.clear();
+    _clearMapMessageBubbleState(updateUi: false);
     final chatroom = _worldChatroom;
     _worldChatroom = null;
     if (chatroom != null) {
@@ -206,76 +227,555 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (shouldSyncRelationStatus) {
       _syncWorldChatroomForRelationStatus(world!.relationStatus);
     }
+    _maybePrimeMapMessageBubbles();
   }
 
   void _handleLatestFetchedChatroomMessages(
     List<WorldChatroomMessage> messages,
   ) {
-    final candidates = messages
-        .where((message) {
-          final content = message.content.trim();
-          if (content.isEmpty || message.streaming) return false;
-          final senderType = message.senderType.trim().toLowerCase();
-          if (senderType == 'tick' || senderType == 'system') return false;
-          final key = _mapMessageKey(message);
-          return key.isNotEmpty && _shownMapMessageBubbleKeys.add(key);
-        })
-        .toList(growable: false);
-    if (candidates.isEmpty) return;
-    candidates.sort(_compareMapBubbleMessages);
-    _mapMessageBubbleQueue.addAll(candidates);
-    _showNextMapMessageBubble();
+    _enqueueMapMessageBubbles(messages, priority: true);
   }
 
-  void _showNextMapMessageBubble() {
-    if (_activeMapMessageBubble != null || _mapMessageBubbleQueue.isEmpty) {
-      return;
+  void _enqueueMapMessageBubbles(
+    Iterable<WorldChatroomMessage> messages, {
+    required bool priority,
+  }) {
+    final byLocation = <String, List<WorldChatroomMessage>>{};
+    for (final message in messages) {
+      final candidate = _mapBubbleCandidate(message);
+      if (candidate == null) continue;
+      _rememberMapBubbleSender(candidate);
+      final key = _mapMessageKey(candidate);
+      if (key.isEmpty || !_shownMapMessageBubbleKeys.add(key)) continue;
+      final queueLocationId = _mapBubbleQueueLocationId(candidate.locationId);
+      byLocation
+          .putIfAbsent(queueLocationId, () => <WorldChatroomMessage>[])
+          .add(candidate);
     }
-    _showMapMessageBubble(_mapMessageBubbleQueue.removeFirst());
+    if (byLocation.isEmpty) return;
+    for (final entry in byLocation.entries) {
+      final locationId = entry.key;
+      final locationMessages = _interleaveMapBubbleMessagesBySender(
+        entry.value,
+      );
+      _registerMapMessageBubbleLocation(locationId);
+      final queueMap = priority
+          ? _priorityMapMessageBubbleQueuesByLocation
+          : _mapMessageBubbleQueuesByLocation;
+      final queue = queueMap.putIfAbsent(
+        locationId,
+        () => Queue<WorldChatroomMessage>(),
+      );
+      queue.addAll(locationMessages);
+      _trimMapMessageBubbleQueues(locationId);
+      _ensureMapMessageBubbleCarousel();
+    }
   }
 
-  void _showMapMessageBubble(WorldChatroomMessage message) {
+  void _registerMapMessageBubbleLocation(String locationId) {
+    final id = locationId.trim();
+    if (id.isEmpty || _mapMessageBubbleLocationOrder.contains(id)) return;
+    _mapMessageBubbleLocationOrder.add(id);
+  }
+
+  String _mapBubbleQueueLocationId(String locationId) {
+    final id = locationId.trim();
+    if (id.isEmpty) return '';
+    final locationKeys = _mapBubbleLocationKeys(id);
+    for (final key in locationKeys) {
+      if (_visibleMapLocationIds.contains(key)) return key;
+    }
+    return id;
+  }
+
+  void _rememberMapBubbleSender(WorldChatroomMessage message) {
+    final senderName = message.senderName.trim().isNotEmpty
+        ? message.senderName.trim()
+        : 'Character';
+    final sender = UserAvatar(
+      initialsForAvatarName(senderName),
+      id: _mapBubbleSenderStableId(message),
+      name: senderName,
+      avatarUrl: _mapBubbleSenderAvatarUrl(message),
+      showStar: true,
+    );
+    final locationKeys = _mapBubbleLocationKeys(message.locationId);
+    final keys = locationKeys.isEmpty
+        ? <String>[message.locationId.trim()]
+        : locationKeys;
+    for (final locationId in keys) {
+      if (locationId.trim().isEmpty) continue;
+      final users = _mapMessageBubbleUsersByLocation.putIfAbsent(
+        locationId.trim(),
+        () => <UserAvatar>[],
+      );
+      final senderId = sender.id.trim().toLowerCase();
+      final senderNameKey = (sender.name ?? '').trim().toLowerCase();
+      final exists = users.any((user) {
+        final userId = user.id.trim().toLowerCase();
+        final userName = (user.name ?? '').trim().toLowerCase();
+        return (senderId.isNotEmpty && userId == senderId) ||
+            (senderNameKey.isNotEmpty && userName == senderNameKey);
+      });
+      if (!exists) users.add(sender);
+    }
+  }
+
+  WorldChatroomMessage? _mapBubbleCandidate(WorldChatroomMessage message) {
+    final locationId = message.locationId.trim();
     final content = message.content.trim();
-    if (content.isEmpty) {
-      _showNextMapMessageBubble();
+    if (locationId.isEmpty || content.isEmpty || message.streaming) return null;
+    final senderType = message.senderType.trim().toLowerCase();
+    if (senderType != 'character') return null;
+    if (content == message.content && locationId == message.locationId) {
+      return message;
+    }
+    return message.copyWith(locationId: locationId, content: content);
+  }
+
+  void _trimMapMessageBubbleQueues(String locationId) {
+    final normal = _mapMessageBubbleQueuesByLocation[locationId];
+    final priority = _priorityMapMessageBubbleQueuesByLocation[locationId];
+    var total = (normal?.length ?? 0) + (priority?.length ?? 0);
+    while (total > _mapMessageBubbleQueueLimit) {
+      if (normal?.isNotEmpty == true) {
+        final removed = _removeLeastFairMapBubbleMessage(normal!);
+        if (!removed) break;
+      } else if (priority?.isNotEmpty == true) {
+        final removed = _removeLeastFairMapBubbleMessage(priority!);
+        if (!removed) break;
+      } else {
+        break;
+      }
+      total -= 1;
+    }
+    if (normal?.isEmpty == true) {
+      _mapMessageBubbleQueuesByLocation.remove(locationId);
+    }
+    if (priority?.isEmpty == true) {
+      _priorityMapMessageBubbleQueuesByLocation.remove(locationId);
+    }
+  }
+
+  void _ensureMapMessageBubbleCarousel() {
+    if (_mapMessageBubbleTimer != null) return;
+    _advanceMapMessageBubbleCarousel();
+  }
+
+  void _advanceMapMessageBubbleCarousel() {
+    if (!mounted) return;
+    if (!_showNextMapMessageBubble()) {
+      _mapMessageBubbleTimer?.cancel();
+      _mapMessageBubbleTimer = null;
+      _clearActiveMapMessageBubble();
       return;
     }
+
+    _mapMessageBubbleTimer?.cancel();
+    _mapMessageBubbleTimer = Timer(
+      _mapMessageBubbleInterval,
+      _hideMapMessageBubbleBeforeNext,
+    );
+  }
+
+  void _hideMapMessageBubbleBeforeNext() {
+    if (!mounted) return;
+    _clearActiveMapMessageBubble();
+    _mapMessageBubbleTimer?.cancel();
+    _mapMessageBubbleTimer = Timer(
+      _mapMessageBubbleHiddenInterval,
+      _advanceMapMessageBubbleCarousel,
+    );
+  }
+
+  bool _showNextMapMessageBubble() {
+    final triedLocationIds = <String>{};
+    while (true) {
+      final locationId = _nextPlayableMapBubbleLocationId(triedLocationIds);
+      if (locationId == null) return false;
+      triedLocationIds.add(locationId);
+      final nextMessage = _nextMapMessageBubble(locationId);
+      if (nextMessage == null) continue;
+      if (_showMapMessageBubble(locationId, nextMessage)) {
+        return true;
+      }
+    }
+  }
+
+  String? _nextPlayableMapBubbleLocationId(Set<String> excludedLocationIds) {
+    for (final locationId in _priorityMapMessageBubbleQueuesByLocation.keys) {
+      _registerMapMessageBubbleLocation(locationId);
+    }
+    for (final locationId in _mapMessageBubbleQueuesByLocation.keys) {
+      _registerMapMessageBubbleLocation(locationId);
+    }
+    final total = _mapMessageBubbleLocationOrder.length;
+    if (total == 0) return null;
+    var cursor = _mapMessageBubbleLocationCursor % total;
+    for (var offset = 0; offset < total; offset += 1) {
+      final index = (cursor + offset) % total;
+      final locationId = _mapMessageBubbleLocationOrder[index];
+      if (excludedLocationIds.contains(locationId)) continue;
+      if (!_hasPlayableMapBubbleQueue(locationId)) continue;
+      _mapMessageBubbleLocationCursor = (index + 1) % total;
+      return locationId;
+    }
+    _mapMessageBubbleLocationCursor = cursor;
+    return null;
+  }
+
+  bool _hasPlayableMapBubbleQueue(String locationId) {
+    return (_priorityMapMessageBubbleQueuesByLocation[locationId]?.isNotEmpty ??
+            false) ||
+        (_mapMessageBubbleQueuesByLocation[locationId]?.isNotEmpty ?? false);
+  }
+
+  WorldChatroomMessage? _nextMapMessageBubble(String locationId) {
+    final priority = _priorityMapMessageBubbleQueuesByLocation[locationId];
+    while (priority != null && priority.isNotEmpty) {
+      final message = priority.removeFirst();
+      if (priority.isEmpty) {
+        _priorityMapMessageBubbleQueuesByLocation.remove(locationId);
+      }
+      if (!_hasMapBubbleDisplayContent(message)) {
+        _trimMapMessageBubbleQueues(locationId);
+        continue;
+      }
+      _mapMessageBubbleQueuesByLocation
+          .putIfAbsent(locationId, () => Queue<WorldChatroomMessage>())
+          .addLast(message);
+      _trimMapMessageBubbleQueues(locationId);
+      return message;
+    }
+    final normal = _mapMessageBubbleQueuesByLocation[locationId];
+    if (normal != null && normal.isNotEmpty) {
+      final attempts = normal.length;
+      for (var index = 0; index < attempts; index += 1) {
+        final message = normal.removeFirst();
+        if (!_hasMapBubbleDisplayContent(message)) continue;
+        normal.addLast(message);
+        return message;
+      }
+      if (normal.isEmpty) {
+        _mapMessageBubbleQueuesByLocation.remove(locationId);
+      }
+    }
+    return null;
+  }
+
+  bool _removeLeastFairMapBubbleMessage(Queue<WorldChatroomMessage> queue) {
+    if (queue.isEmpty) return false;
+    if (queue.length == 1) {
+      queue.removeFirst();
+      return true;
+    }
+    final countsBySender = <String, int>{};
+    for (final message in queue) {
+      final sender = _mapBubbleSenderStableId(message);
+      countsBySender[sender] = (countsBySender[sender] ?? 0) + 1;
+    }
+    var maxCount = 0;
+    for (final count in countsBySender.values) {
+      if (count > maxCount) maxCount = count;
+    }
+    final next = Queue<WorldChatroomMessage>();
+    var removed = false;
+    for (final message in queue) {
+      final sender = _mapBubbleSenderStableId(message);
+      if (!removed && (countsBySender[sender] ?? 0) == maxCount) {
+        removed = true;
+        continue;
+      }
+      next.addLast(message);
+    }
+    if (!removed) {
+      queue.removeFirst();
+      return true;
+    }
+    queue
+      ..clear()
+      ..addAll(next);
+    return true;
+  }
+
+  bool _hasMapBubbleDisplayContent(WorldChatroomMessage message) {
+    return _mapBubbleDisplayContent(message.content).isNotEmpty;
+  }
+
+  bool _showMapMessageBubble(
+    String queueLocationId,
+    WorldChatroomMessage message,
+  ) {
+    final content = _mapBubbleDisplayContent(message.content);
+    if (content.isEmpty) {
+      return false;
+    }
+    final locationId = message.locationId.trim().isNotEmpty
+        ? message.locationId.trim()
+        : queueLocationId;
     final bubble = WorldMapMessageBubble(
-      locationId: message.locationId,
+      locationId: locationId,
       senderId: _firstNonEmpty([message.senderId, message.userId]),
+      senderName: message.senderName,
+      senderAvatarUrl: _mapBubbleSenderAvatarUrl(message),
       content: content,
       createdAt: DateTime.now(),
     );
-    final locationKeys = _mapBubbleLocationKeys(message.locationId);
+    final locationKeys = _mapBubbleLocationKeys(locationId);
     if (locationKeys.isEmpty) {
-      _showNextMapMessageBubble();
-      return;
+      return false;
     }
-    _mapMessageBubbleTimer?.cancel();
-    _activeMapMessageBubble = bubble;
     setState(() {
-      _mapMessageBubbles.clear();
+      _removeActiveMapMessageBubble();
+      _activeMapMessageBubblesByLocation[queueLocationId] = bubble;
+      _mapMessageBubbleKeysByLocation[queueLocationId] = locationKeys;
       for (final locationId in locationKeys) {
         _mapMessageBubbles[locationId] = bubble;
       }
     });
-    _mapMessageBubbleTimer = Timer(
-      const Duration(seconds: 2),
-      () => _hideMapMessageBubble(bubble.createdAt),
+    return true;
+  }
+
+  String _mapBubbleDisplayContent(String raw) {
+    var text = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    text = text.replaceAll(
+      RegExp(r'(^|\n)[ \t]*(`{3,}|~{3,})[\s\S]*?(\n[ \t]*\2[ \t]*(?=\n|$)|$)'),
+      '\n',
+    );
+    text = text.replaceAll(RegExp(r'<!--[\s\S]*?-->'), ' ');
+    text = text
+        .split('\n')
+        .where((line) => !_isMapBubbleMarkdownLine(line))
+        .join('\n');
+    text = _removeMapBubbleInlineMarkdown(text);
+    text = text.replaceAllMapped(
+      RegExp(r'\\([\\`*_{}\[\]()#+\-.!|>])'),
+      (match) => match.group(1) ?? '',
+    );
+    text = text.replaceAll(RegExp(r'[「」]'), '');
+    text = text.replaceAll(RegExp(r'[ \t]+'), ' ');
+    text = text.replaceAll(RegExp(r' *\n+ *'), ' ');
+    text = text.replaceAllMapped(
+      RegExp(r'\s+([,.!?;:])'),
+      (match) => match.group(1) ?? '',
+    );
+    text = text.replaceAllMapped(
+      RegExp(r'([([{])\s+'),
+      (match) => match.group(1) ?? '',
+    );
+    return text.trim();
+  }
+
+  bool _isMapBubbleMarkdownLine(String line) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty) return false;
+    return RegExp(r'^#{1,6}\s+').hasMatch(trimmed) ||
+        RegExp(r'^>\s*').hasMatch(trimmed) ||
+        RegExp(r'^[-*+]\s+').hasMatch(trimmed) ||
+        RegExp(r'^\d+[.)]\s+').hasMatch(trimmed) ||
+        RegExp(r'^[-*_]{3,}$').hasMatch(trimmed) ||
+        RegExp(r'^\[[^\]]+\]:\s*\S+').hasMatch(trimmed) ||
+        RegExp(r'^\|.*\|$').hasMatch(trimmed) ||
+        RegExp(
+          r'^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$',
+        ).hasMatch(trimmed);
+  }
+
+  String _removeMapBubbleInlineMarkdown(String input) {
+    var text = input;
+    final patterns = <RegExp>[
+      RegExp(r'!\[[^\]\n]*\]\([^)\n]*\)'),
+      RegExp(r'!\[[^\]\n]*\]\[[^\]\n]*\]'),
+      RegExp(r'\[[^\]\n]+\]\([^)\n]*\)'),
+      RegExp(r'\[[^\]\n]+\]\[[^\]\n]*\]'),
+      RegExp(r'`+[^`\n]+`+'),
+      RegExp(r'\*\*[^*\n]+\*\*'),
+      RegExp(r'__[^_\n]+__'),
+      RegExp(r'~~[^~\n]+~~'),
+      RegExp(r'\*[^*\n]+\*'),
+      RegExp(r'_[^_\n]+_'),
+      RegExp(r'<https?://[^>\s]+>'),
+      RegExp(r'\[[^\]\n]+\]'),
+    ];
+    var changed = true;
+    while (changed) {
+      changed = false;
+      for (final pattern in patterns) {
+        final next = text.replaceAll(pattern, ' ');
+        if (next != text) {
+          changed = true;
+          text = next;
+        }
+      }
+    }
+    return text;
+  }
+
+  void _clearActiveMapMessageBubble() {
+    if (!mounted) {
+      _removeActiveMapMessageBubble();
+      return;
+    }
+    setState(() {
+      _removeActiveMapMessageBubble();
+    });
+  }
+
+  void _removeActiveMapMessageBubble() {
+    _activeMapMessageBubblesByLocation.clear();
+    _mapMessageBubbleKeysByLocation.clear();
+    _mapMessageBubbles.clear();
+  }
+
+  void _clearMapMessageBubbleState({bool updateUi = true}) {
+    _mapMessageBubbleTimer?.cancel();
+    _mapMessageBubbleTimer = null;
+    void clearState() {
+      _mapMessageBubbleQueuesByLocation.clear();
+      _priorityMapMessageBubbleQueuesByLocation.clear();
+      _mapMessageBubbleLocationOrder.clear();
+      _mapMessageBubbleLocationCursor = 0;
+      _mapMessageBubbleKeysByLocation.clear();
+      _activeMapMessageBubblesByLocation.clear();
+      _mapMessageBubbleUsersByLocation.clear();
+      _shownMapMessageBubbleKeys.clear();
+      _mapMessageBubblePrimeKey = '';
+      _mapMessageBubblePrimeFuture = null;
+      _mapMessageBubbles.clear();
+    }
+
+    if (updateUi && mounted) {
+      setState(clearState);
+    } else {
+      clearState();
+    }
+  }
+
+  void _maybePrimeMapMessageBubbles() {
+    if (!_isInSecondaryMap) return;
+    final service = _worldChatroom;
+    final world = _world;
+    final identity = service?.identity;
+    if (service == null || world == null || identity == null) return;
+    if (!_shouldConnectWorldChatroom(world.relationStatus)) return;
+    final ownerUid = _firstNonEmpty([identity.userId, identity.senderId]);
+    if (ownerUid.isEmpty) return;
+    final descriptors = _leafLocationChatDescriptors();
+    if (descriptors.isEmpty) return;
+    if (_visibleMapLocationIds.isEmpty) return;
+    final primeKey = [
+      widget.wid,
+      ownerUid,
+      for (final locationId in (_visibleMapLocationIds.toList()..sort()))
+        locationId,
+      for (final descriptor in descriptors) descriptor.locationId,
+    ].join('\u001F');
+    if (_mapMessageBubblePrimeKey == primeKey) return;
+    _mapMessageBubblePrimeKey = primeKey;
+    final future = _primeMapMessageBubbles(
+      service: service,
+      descriptors: descriptors,
+      primeKey: primeKey,
+    );
+    _mapMessageBubblePrimeFuture = future;
+    unawaited(
+      future
+          .catchError((Object error) {
+            debugPrint('[WorldPage] map bubble prime failed: $error');
+            if (_mapMessageBubblePrimeKey == primeKey) {
+              _mapMessageBubblePrimeKey = '';
+            }
+          })
+          .whenComplete(() {
+            if (identical(_mapMessageBubblePrimeFuture, future)) {
+              _mapMessageBubblePrimeFuture = null;
+            }
+          }),
     );
   }
 
-  void _hideMapMessageBubble(DateTime createdAt) {
-    if (!mounted) return;
-    final current = _activeMapMessageBubble;
-    if (current == null || current.createdAt != createdAt) return;
-    setState(() {
-      _mapMessageBubbles.clear();
-    });
-    _activeMapMessageBubble = null;
-    _mapMessageBubbleTimer?.cancel();
-    _mapMessageBubbleTimer = null;
-    _showNextMapMessageBubble();
+  Future<void> _primeMapMessageBubbles({
+    required WorldChatroomService service,
+    required List<_LocationChatPanelDescriptor> descriptors,
+    required String primeKey,
+  }) async {
+    try {
+      await service.refreshUserLocations();
+    } catch (error) {
+      debugPrint('[WorldPage] map bubble location refresh failed: $error');
+    }
+    if (!_isCurrentMapBubblePrime(service, primeKey)) return;
+    for (final descriptor in descriptors) {
+      if (!_isCurrentMapBubblePrime(service, primeKey)) return;
+      var cachedMessages = await service.loadCachedMessages(
+        worldId: widget.wid,
+        locationId: descriptor.locationId,
+        locationAliases: descriptor.localMessageLocationIds,
+        limit: _mapMessageBubbleCacheLimit,
+      );
+      if (!_isCurrentMapBubblePrime(service, primeKey)) return;
+      if (cachedMessages.isEmpty) {
+        await service.refreshLatestMessages(
+          locationId: descriptor.locationId,
+          limit: _mapMessageBubbleHistoryLimit,
+          emitLatestFetched: false,
+        );
+        if (!_isCurrentMapBubblePrime(service, primeKey)) return;
+        cachedMessages = await service.loadCachedMessages(
+          worldId: widget.wid,
+          locationId: descriptor.locationId,
+          locationAliases: descriptor.localMessageLocationIds,
+          limit: _mapMessageBubbleCacheLimit,
+        );
+      }
+      if (!_isCurrentMapBubblePrime(service, primeKey)) return;
+      _enqueueMapMessageBubbles(cachedMessages, priority: false);
+    }
+  }
+
+  bool _isCurrentMapBubblePrime(WorldChatroomService service, String primeKey) {
+    return mounted &&
+        identical(_worldChatroom, service) &&
+        _mapMessageBubblePrimeKey == primeKey;
+  }
+
+  List<_LocationChatPanelDescriptor> _leafLocationChatDescriptors() {
+    final descriptors =
+        _locationChatDescriptors.values
+            .where(
+              (descriptor) =>
+                  descriptor.isLeafLocation &&
+                  descriptor.locationId.trim().isNotEmpty,
+            )
+            .toList()
+          ..sort((a, b) => a.locationId.compareTo(b.locationId));
+    return descriptors;
+  }
+
+  void _handleSecondaryMapChanged(bool isInSecondaryMap) {
+    if (_isInSecondaryMap == isInSecondaryMap) return;
+    _isInSecondaryMap = isInSecondaryMap;
+    if (isInSecondaryMap) {
+      _visibleMapLocationIds = <String>{};
+      _visibleMapLocationIdsSignature = '';
+      _clearMapMessageBubbleState();
+      return;
+    }
+    _clearMapMessageBubbleState();
+  }
+
+  void _handleVisibleMapLocationIdsChanged(List<String> locationIds) {
+    final ids = locationIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final signature = (ids.toList()..sort()).join('\u001F');
+    if (signature == _visibleMapLocationIdsSignature) return;
+    _visibleMapLocationIds = ids;
+    _visibleMapLocationIdsSignature = signature;
+    if (!_isInSecondaryMap) return;
+    _clearMapMessageBubbleState();
+    _maybePrimeMapMessageBubbles();
   }
 
   List<String> _mapBubbleLocationKeys(String locationId) {
@@ -307,6 +807,50 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     ].join('|');
   }
 
+  String _mapBubbleSenderStableId(WorldChatroomMessage message) {
+    final senderId = _firstNonEmpty([message.senderId, message.userId]).trim();
+    if (senderId.isNotEmpty) return senderId;
+    final senderName = message.senderName.trim().toLowerCase();
+    if (senderName.isNotEmpty) return 'bubble-sender-name:$senderName';
+    return 'bubble-sender-location:${message.locationId.trim()}';
+  }
+
+  List<WorldChatroomMessage> _interleaveMapBubbleMessagesBySender(
+    List<WorldChatroomMessage> messages,
+  ) {
+    if (messages.length < 3) {
+      return messages..sort(_compareMapBubbleMessages);
+    }
+    final sorted = [...messages]..sort(_compareMapBubbleMessages);
+    final bySender = <String, Queue<WorldChatroomMessage>>{};
+    final senderOrder = <String>[];
+    for (final message in sorted) {
+      final sender = _mapBubbleSenderStableId(message);
+      if (!bySender.containsKey(sender)) {
+        senderOrder.add(sender);
+        bySender[sender] = Queue<WorldChatroomMessage>();
+      }
+      bySender[sender]!.addLast(message);
+    }
+    if (senderOrder.length < 2) return sorted;
+    final out = <WorldChatroomMessage>[];
+    var senderIndex = 0;
+    while (out.length < sorted.length) {
+      var advanced = false;
+      for (var offset = 0; offset < senderOrder.length; offset += 1) {
+        final index = (senderIndex + offset) % senderOrder.length;
+        final queue = bySender[senderOrder[index]];
+        if (queue == null || queue.isEmpty) continue;
+        out.add(queue.removeFirst());
+        senderIndex = (index + 1) % senderOrder.length;
+        advanced = true;
+        break;
+      }
+      if (!advanced) break;
+    }
+    return out;
+  }
+
   int _compareMapBubbleMessages(
     WorldChatroomMessage a,
     WorldChatroomMessage b,
@@ -324,6 +868,34 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     );
     if (round != 0) return round;
     return a.roundOrder.compareTo(b.roundOrder);
+  }
+
+  String _mapBubbleSenderAvatarUrl(WorldChatroomMessage message) {
+    final senderId = _firstNonEmpty([message.senderId, message.userId]).trim();
+    final senderKey = senderId.toLowerCase();
+    final senderNameKey = message.senderName.trim().toLowerCase();
+    final world = _world;
+    if (world == null) return '';
+    for (final character in world.characters) {
+      final characterId = _mapString(character, const [
+        'character_id',
+        'char_id',
+        'id',
+        'uid',
+        'player_uid',
+      ]).trim();
+      final characterName = _mapString(character, const ['name']).trim();
+      final matchesId =
+          senderKey.isNotEmpty && characterId.toLowerCase() == senderKey;
+      final matchesName =
+          senderNameKey.isNotEmpty &&
+          characterName.toLowerCase() == senderNameKey;
+      if (!matchesId && !matchesName) continue;
+      return _resolveAssetUrl(
+        _mapString(character, const ['avatar', 'avatar_url']),
+      );
+    }
+    return '';
   }
 
   void _syncWorldChatroomForRelationStatus(String relationStatus) {
@@ -349,8 +921,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         _activeChatLocationId = '';
         _cachedLocationChatIds.clear();
         _readyLocationChatIds.clear();
+        _isInSecondaryMap = false;
       });
     }
+    _clearMapMessageBubbleState();
     unawaited(_disposeWorldChatroom(chatroom));
   }
 
@@ -362,6 +936,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       final identity = await _chatroomIdentity(services);
       if (!mounted || !identical(_worldChatroom, service)) return;
       await service.connect(worldId: widget.wid, identity: identity);
+      if (!mounted || !identical(_worldChatroom, service)) return;
+      _maybePrimeMapMessageBubbles();
     } catch (_) {
       // The service emits failures and keeps reconnecting while desired.
     }
@@ -436,6 +1012,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _syncLocationChatDescriptors(world);
     });
     _syncWorldChatroomForRelationStatus(world.relationStatus);
+    _maybePrimeMapMessageBubbles();
   }
 
   String _rootMapImageUrlForWorld(WorldDetail world) {
@@ -1052,8 +1629,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             overlayTop: topPadding + 8 + 48,
             drillExitTop: topPadding + 68,
             onDrillIntoLocation: _showMapTab,
+            onSecondaryMapChanged: _handleSecondaryMapChanged,
+            onVisibleLocationIdsChanged: _handleVisibleMapLocationIdsChanged,
             onPointTap: _openChatForPoint,
             messageBubbles: _mapMessageBubbles,
+            extraUsersByLocation: _mapMessageBubbleUsersByLocation,
           ),
         ),
         slivers: [

@@ -31,7 +31,7 @@ class ChatroomHttpMessage {
 
   factory ChatroomHttpMessage.fromJson(Map<String, dynamic> json) {
     return ChatroomHttpMessage(
-      messageId: asInt(json['msg_id']),
+      messageId: asInt(json['msg_id'], fallback: asInt(json['message_id'])),
       locationId: asString(json['location_id']),
       conversationRoundId: asInt(json['conversation_round_id']),
       roundOrder: asInt(json['round_order']),
@@ -42,7 +42,7 @@ class ChatroomHttpMessage {
       userId: asString(json['user_id']),
       clientMsgId: asString(json['client_msg_id']),
       content: asString(json['content']),
-      createdAt: asDateTime(json['ts']),
+      createdAt: asDateTime(json['ts']) ?? asDateTime(json['created_at']),
     );
   }
 }
