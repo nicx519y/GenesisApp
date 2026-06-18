@@ -445,6 +445,7 @@ class _DeveloperEndpointField extends StatelessWidget {
                     hintStyle: const TextStyle(
                       color: Color(0xFFA8A8AD),
                       fontSize: 13,
+                      letterSpacing: 0,
                       height: 1.3,
                     ),
                   ),

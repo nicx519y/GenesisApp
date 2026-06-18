@@ -384,7 +384,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         controller: _worldViewController,
                         hintText:
                             'Describe what users see at first glance: the grand cities, immediate crises, and well-known legends...',
-                        maxLength: 1000,
+                        maxLength: 300,
                         minLines: 4,
                         onChanged: (_) => _onFormChanged(),
                       ),

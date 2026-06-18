@@ -117,6 +117,7 @@ class CreateTextFieldBlock extends StatelessWidget {
                       hintStyle: const TextStyle(
                         color: createFormHint,
                         fontSize: 14,
+                        letterSpacing: 0,
                         height: 1.42,
                       ),
                     ),

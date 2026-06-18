@@ -70,6 +70,7 @@ class GenesisUiTheme extends ThemeExtension<GenesisUiTheme> {
       // 搜索提示文案复用正文尺寸，但颜色弱化。
       searchHintStyle: GenesisTypography.body.copyWith(
         color: GenesisColors.textDisabled,
+        letterSpacing: 0,
       ),
       // 搜索输入文字复用正文样式。
       searchTextStyle: GenesisTypography.body,
