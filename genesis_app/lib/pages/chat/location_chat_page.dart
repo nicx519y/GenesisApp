@@ -1152,6 +1152,23 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       }
     }
 
+    if (state.joinedLocationId == widget.locationId) {
+      final selfId = firstNonEmpty([_myUserId, _mySenderId]);
+      final selfName = _localSelfDisplayName();
+      if (selfId.isNotEmpty || selfName.isNotEmpty) {
+        addUser(
+          WorldChatroomEntity(
+            id: selfId.isEmpty ? selfName : selfId,
+            name: selfName,
+            avatarUrl: _localSelfAvatarUrl(),
+            type: WorldChatroomEntityType.player,
+            locationId: widget.locationId,
+            isAi: false,
+          ),
+        );
+      }
+    }
+
     return users;
   }
 
@@ -1172,7 +1189,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   }
 
   bool _isRealUserEntity(WorldChatroomEntity entity) {
-    return entity.type == WorldChatroomEntityType.player && !entity.isAi;
+    return !entity.isAi;
   }
 
   String _realUserDedupKey(WorldChatroomEntity entity) {

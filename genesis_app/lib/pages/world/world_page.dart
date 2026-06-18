@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -71,10 +72,18 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   WorldChatroomService? _worldChatroom;
   StreamSubscription<WorldChatroomState>? _worldChatroomSub;
   StreamSubscription? _worldChatroomFailureSub;
+  StreamSubscription<List<WorldChatroomMessage>>? _worldChatroomLatestSub;
   Map<String, _LocationChatPanelDescriptor> _locationChatDescriptors =
       <String, _LocationChatPanelDescriptor>{};
   final Set<String> _cachedLocationChatIds = <String>{};
   final Set<String> _readyLocationChatIds = <String>{};
+  final Map<String, WorldMapMessageBubble> _mapMessageBubbles =
+      <String, WorldMapMessageBubble>{};
+  final Queue<WorldChatroomMessage> _mapMessageBubbleQueue =
+      Queue<WorldChatroomMessage>();
+  final Set<String> _shownMapMessageBubbleKeys = <String>{};
+  Timer? _mapMessageBubbleTimer;
+  WorldMapMessageBubble? _activeMapMessageBubble;
   String _activeChatLocationId = '';
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
@@ -115,6 +124,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     GenesisSystemUiChrome.applyDefault();
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
+    unawaited(_worldChatroomLatestSub?.cancel());
+    _mapMessageBubbleTimer?.cancel();
+    _mapMessageBubbleTimer = null;
+    _mapMessageBubbleQueue.clear();
     final chatroom = _worldChatroom;
     _worldChatroom = null;
     if (chatroom != null) {
@@ -164,6 +177,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     );
     _worldChatroom = service;
     _worldChatroomSub = service.states.listen(_handleWorldChatroomState);
+    _worldChatroomLatestSub = service.latestFetchedMessages.listen(
+      _handleLatestFetchedChatroomMessages,
+    );
     _worldChatroomFailureSub = bindChatroomFailureToast(
       context,
       service.failures,
@@ -192,6 +208,124 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     }
   }
 
+  void _handleLatestFetchedChatroomMessages(
+    List<WorldChatroomMessage> messages,
+  ) {
+    final candidates = messages
+        .where((message) {
+          final content = message.content.trim();
+          if (content.isEmpty || message.streaming) return false;
+          final senderType = message.senderType.trim().toLowerCase();
+          if (senderType == 'tick' || senderType == 'system') return false;
+          final key = _mapMessageKey(message);
+          return key.isNotEmpty && _shownMapMessageBubbleKeys.add(key);
+        })
+        .toList(growable: false);
+    if (candidates.isEmpty) return;
+    candidates.sort(_compareMapBubbleMessages);
+    _mapMessageBubbleQueue.addAll(candidates);
+    _showNextMapMessageBubble();
+  }
+
+  void _showNextMapMessageBubble() {
+    if (_activeMapMessageBubble != null || _mapMessageBubbleQueue.isEmpty) {
+      return;
+    }
+    _showMapMessageBubble(_mapMessageBubbleQueue.removeFirst());
+  }
+
+  void _showMapMessageBubble(WorldChatroomMessage message) {
+    final content = message.content.trim();
+    if (content.isEmpty) {
+      _showNextMapMessageBubble();
+      return;
+    }
+    final bubble = WorldMapMessageBubble(
+      locationId: message.locationId,
+      senderId: _firstNonEmpty([message.senderId, message.userId]),
+      content: content,
+      createdAt: DateTime.now(),
+    );
+    final locationKeys = _mapBubbleLocationKeys(message.locationId);
+    if (locationKeys.isEmpty) {
+      _showNextMapMessageBubble();
+      return;
+    }
+    _mapMessageBubbleTimer?.cancel();
+    _activeMapMessageBubble = bubble;
+    setState(() {
+      _mapMessageBubbles.clear();
+      for (final locationId in locationKeys) {
+        _mapMessageBubbles[locationId] = bubble;
+      }
+    });
+    _mapMessageBubbleTimer = Timer(
+      const Duration(seconds: 2),
+      () => _hideMapMessageBubble(bubble.createdAt),
+    );
+  }
+
+  void _hideMapMessageBubble(DateTime createdAt) {
+    if (!mounted) return;
+    final current = _activeMapMessageBubble;
+    if (current == null || current.createdAt != createdAt) return;
+    setState(() {
+      _mapMessageBubbles.clear();
+    });
+    _activeMapMessageBubble = null;
+    _mapMessageBubbleTimer?.cancel();
+    _mapMessageBubbleTimer = null;
+    _showNextMapMessageBubble();
+  }
+
+  List<String> _mapBubbleLocationKeys(String locationId) {
+    final id = locationId.trim();
+    if (id.isEmpty) return const <String>[];
+    final world = _world;
+    final result = <String>[id];
+    final tree = world?.processedLocationTree;
+    if (tree == null) return result;
+    var node = tree.nodeById(id);
+    while (node != null && node.parentId.trim().isNotEmpty) {
+      final parentId = node.parentId.trim();
+      if (!result.contains(parentId)) result.add(parentId);
+      node = tree.nodeById(parentId);
+    }
+    return result;
+  }
+
+  String _mapMessageKey(WorldChatroomMessage message) {
+    if (message.messageId > 0) return 'm:${message.messageId}';
+    final clientMsgId = message.clientMsgId.trim();
+    if (clientMsgId.isNotEmpty) return 'c:$clientMsgId';
+    return [
+      message.locationId,
+      message.conversationRoundId,
+      message.roundOrder,
+      message.senderId,
+      message.content,
+    ].join('|');
+  }
+
+  int _compareMapBubbleMessages(
+    WorldChatroomMessage a,
+    WorldChatroomMessage b,
+  ) {
+    if (a.messageId > 0 && b.messageId > 0) {
+      return a.messageId.compareTo(b.messageId);
+    }
+    final createdAtA = a.createdAt;
+    final createdAtB = b.createdAt;
+    if (createdAtA != null && createdAtB != null) {
+      return createdAtA.compareTo(createdAtB);
+    }
+    final round = a.conversationRoundNumber.compareTo(
+      b.conversationRoundNumber,
+    );
+    if (round != 0) return round;
+    return a.roundOrder.compareTo(b.roundOrder);
+  }
+
   void _syncWorldChatroomForRelationStatus(String relationStatus) {
     if (_shouldConnectWorldChatroom(relationStatus)) {
       _startWorldChatroom();
@@ -205,8 +339,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (chatroom == null) return;
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
+    unawaited(_worldChatroomLatestSub?.cancel());
     _worldChatroomSub = null;
     _worldChatroomFailureSub = null;
+    _worldChatroomLatestSub = null;
     _worldChatroom = null;
     if (mounted) {
       setState(() {
@@ -920,6 +1056,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             drillExitTop: topPadding + 68,
             onDrillIntoLocation: _showMapTab,
             onPointTap: _openChatForPoint,
+            messageBubbles: _mapMessageBubbles,
           ),
         ),
         slivers: [

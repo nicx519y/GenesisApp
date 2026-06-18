@@ -36,6 +36,7 @@ class WorldMap extends StatefulWidget {
     this.pointsListOuterScrollHandoff = true,
     this.overlayTop = 0,
     this.drillExitTop = 68,
+    this.messageBubbles = const <String, WorldMapMessageBubble>{},
     this.onDrillIntoLocation,
     this.onPointTap,
   });
@@ -52,6 +53,7 @@ class WorldMap extends StatefulWidget {
   final bool pointsListOuterScrollHandoff;
   final double overlayTop;
   final double drillExitTop;
+  final Map<String, WorldMapMessageBubble> messageBubbles;
   final VoidCallback? onDrillIntoLocation;
   final WorldPointTapCallback? onPointTap;
 
@@ -189,6 +191,11 @@ class _WorldMapState extends State<WorldMap> {
                                             width: viewport.width,
                                             height: viewport.height,
                                             transform: transform,
+                                            messageBubble:
+                                                _locationTrail.isEmpty
+                                                ? null
+                                                : widget.messageBubbles[p
+                                                      .sceneId],
                                             onPointerDown: onOverlayPointerDown,
                                             onTap: _pointTapHandler(p),
                                           ),
@@ -1226,6 +1233,20 @@ class _FallbackMapBackground extends StatelessWidget {
   }
 }
 
+class WorldMapMessageBubble {
+  const WorldMapMessageBubble({
+    required this.locationId,
+    required this.senderId,
+    required this.content,
+    required this.createdAt,
+  });
+
+  final String locationId;
+  final String senderId;
+  final String content;
+  final DateTime createdAt;
+}
+
 class _MapBackgroundPlaceholder extends StatelessWidget {
   const _MapBackgroundPlaceholder();
 
@@ -1241,6 +1262,7 @@ class _WorldPointPositioned extends StatelessWidget {
     required this.width,
     required this.height,
     this.transform,
+    this.messageBubble,
     required this.onPointerDown,
     required this.onTap,
   });
@@ -1249,6 +1271,7 @@ class _WorldPointPositioned extends StatelessWidget {
   final double width;
   final double height;
   final Matrix4? transform;
+  final WorldMapMessageBubble? messageBubble;
   final ValueChanged<PointerDownEvent> onPointerDown;
   final VoidCallback? onTap;
 
@@ -1331,6 +1354,7 @@ class _WorldPointPositioned extends StatelessWidget {
         markerWidth: markerWidth,
         markerHeight: markerHeight,
         pointCenterY: pointCenterY,
+        messageBubble: messageBubble,
         onPointerDown: onPointerDown,
         onTap: onTap,
       ),
@@ -1354,6 +1378,7 @@ class _WorldPointMarker extends StatelessWidget {
     required this.markerWidth,
     required this.markerHeight,
     required this.pointCenterY,
+    this.messageBubble,
     required this.onPointerDown,
     this.onTap,
   });
@@ -1362,6 +1387,7 @@ class _WorldPointMarker extends StatelessWidget {
   final double markerWidth;
   final double markerHeight;
   final double pointCenterY;
+  final WorldMapMessageBubble? messageBubble;
   final ValueChanged<PointerDownEvent> onPointerDown;
   final VoidCallback? onTap;
 
@@ -1383,6 +1409,10 @@ class _WorldPointMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasUsers = point.users.isNotEmpty;
     final avatars = point.users;
+    final bubble = messageBubble;
+    final bubbleAvatarIndex = bubble == null
+        ? -1
+        : _bubbleAvatarIndex(bubble.senderId, avatars);
 
     return Listener(
       behavior: HitTestBehavior.opaque,
@@ -1448,6 +1478,13 @@ class _WorldPointMarker extends StatelessWidget {
                     left: _avatarLeft(i, avatars.length),
                     top: _avatarTop(i, avatars.length),
                   ),
+              if (bubble != null && bubbleAvatarIndex >= 0)
+                _PositionedMapMessageBubble(
+                  bubble: bubble,
+                  left: _avatarLeft(bubbleAvatarIndex, avatars.length),
+                  top: _avatarTop(bubbleAvatarIndex, avatars.length),
+                  avatarSize: _avatarSize,
+                ),
             ],
           ),
         ),
@@ -1489,6 +1526,16 @@ class _WorldPointMarker extends StatelessWidget {
     final ringCenterY = pointCenterY + radius + _avatarTopGap + _avatarSize / 2;
     final angle = -math.pi / 2 + math.pi * 2 * index / count;
     return ringCenterY + math.sin(angle) * radius - _avatarSize / 2;
+  }
+
+  int _bubbleAvatarIndex(String senderId, List<UserAvatar> avatars) {
+    final senderKey = senderId.trim().toLowerCase();
+    if (senderKey.isNotEmpty) {
+      for (var i = 0; i < avatars.length; i += 1) {
+        if (avatars[i].id.trim().toLowerCase() == senderKey) return i;
+      }
+    }
+    return avatars.isEmpty ? -1 : 0;
   }
 }
 
@@ -1571,6 +1618,87 @@ class _PositionedMapAvatar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PositionedMapMessageBubble extends StatelessWidget {
+  const _PositionedMapMessageBubble({
+    required this.bubble,
+    required this.left,
+    required this.top,
+    required this.avatarSize,
+  });
+
+  final WorldMapMessageBubble bubble;
+  final double left;
+  final double top;
+  final double avatarSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxWidth = MediaQuery.sizeOf(context).width * 0.6;
+    final bubbleTop = top + avatarSize + 8;
+    return Positioned(
+      left: left + avatarSize / 2 - maxWidth / 2,
+      top: bubbleTop,
+      width: maxWidth,
+      child: IgnorePointer(child: _MapMessageBubble(content: bubble.content)),
+    );
+  }
+}
+
+class _MapMessageBubble extends StatelessWidget {
+  const _MapMessageBubble({required this.content});
+
+  final String content;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.topCenter,
+      children: [
+        Positioned(
+          top: -7,
+          child: Transform.rotate(
+            angle: math.pi / 4,
+            child: const SizedBox.square(
+              dimension: 14,
+              child: DecoratedBox(
+                decoration: BoxDecoration(color: Colors.white),
+              ),
+            ),
+          ),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.16),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            child: Text(
+              content,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF1F1F1F),
+                fontSize: 13,
+                height: 1.25,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
