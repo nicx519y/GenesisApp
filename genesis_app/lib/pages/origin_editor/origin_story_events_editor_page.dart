@@ -121,7 +121,7 @@ class _OriginStoryEventsEditorPageState
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(22, 16, 22, 28),
+                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -129,18 +129,18 @@ class _OriginStoryEventsEditorPageState
                         'Optional story beats or scenes. Each event is free text; keep them short and clear for the world runtime.',
                         style: TextStyle(
                           color: createFormMuted,
-                          fontSize: 14,
-                          height: 1.4,
+                          fontSize: 12,
+                          height: 1.35,
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                       Align(
                         alignment: Alignment.centerRight,
                         child: Text(
                           '${_eventControllers.length}/$_maxEvents (Added / Max)',
                           style: const TextStyle(
                             color: createFormText,
-                            fontSize: 12,
+                            fontSize: 14,
                             height: 1.2,
                           ),
                         ),

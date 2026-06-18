@@ -198,7 +198,7 @@ class _OriginCharactersEditorPageState
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 14, 24, 28),
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -206,11 +206,11 @@ class _OriginCharactersEditorPageState
                         'Define the souls that inhabit your world. Each character requires an identity and personality to interact authentically.',
                         style: TextStyle(
                           color: createFormMuted,
-                          fontSize: 14,
-                          height: 1.4,
+                          fontSize: 12,
+                          height: 1.35,
                         ),
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 16),
                       Align(
                         alignment: Alignment.centerRight,
                         child: Text(

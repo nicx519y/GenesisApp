@@ -349,7 +349,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 28),
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -357,17 +357,18 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         'Define the core settings of your new world.',
                         style: TextStyle(
                           color: createFormMuted,
-                          fontSize: 14,
+                          fontSize: 12,
                           height: 1.35,
                         ),
                       ),
-                      const SizedBox(height: 26),
+                      const SizedBox(height: 16),
                       CreateTextFieldBlock(
                         label: 'Origin Name *',
                         controller: _originNameController,
                         hintText: 'Enter world name...',
                         maxLength: 30,
                         maxLines: 1,
+                        labelInputGap: _fieldLabelInputGap,
                         prefix: const Text(
                           '#',
                           style: TextStyle(
@@ -378,7 +379,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         ),
                         onChanged: (_) => _onFormChanged(),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: _fieldGroupGap),
                       CreateTextFieldBlock(
                         label: 'World View - Public*',
                         controller: _worldViewController,
@@ -386,9 +387,10 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             'Describe what users see at first glance: the grand cities, immediate crises, and well-known legends...',
                         maxLength: 300,
                         minLines: 4,
+                        labelInputGap: _fieldLabelInputGap,
                         onChanged: (_) => _onFormChanged(),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: _fieldGroupGap),
                       const Text(
                         'Cover Image *',
                         style: TextStyle(
@@ -398,7 +400,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                           height: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: _fieldLabelInputGap),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -434,11 +436,12 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             'Define the logic for AI to drive the story: hidden conspiracies, physical laws, undisclosed boss weaknesses, and numerical boundaries...',
                         maxLength: 2000,
                         minLines: 5,
+                        labelInputGap: _fieldLabelInputGap,
                         onChanged: (_) => _onFormChanged(),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: _fieldGroupGap),
                       const Text(
-                        'Simulation Settings (Optional)',
+                        'World Time (Optional)',
                         style: TextStyle(
                           color: createFormText,
                           fontSize: 14,
@@ -448,7 +451,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                       ),
                       const SizedBox(height: 14),
                       const _SimulationFieldLabel('World Start Time'),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: _fieldLabelInputGap),
                       CreateTextFieldBlock(
                         label: '',
                         controller: _worldStartTimeController,
@@ -456,21 +459,14 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         maxLines: 1,
                         onChanged: (_) => _onFormChanged(),
                       ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'Time per Progress',
-                        style: TextStyle(
-                          color: createFormMuted,
-                          fontSize: 12,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: _fieldGroupGap),
+                      const _SimulationFieldLabel('Time per Progress'),
+                      const SizedBox(height: _fieldLabelInputGap),
                       _TimeProgressPicker(
                         selected: _selectedTimeProgress,
                         onSelected: _selectTimeProgress,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: _fieldLabelInputGap),
                       CreateTextFieldBlock(
                         label: '',
                         controller: _timeProgressCustomController,
@@ -478,9 +474,19 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         maxLines: 1,
                         onChanged: _handleTimeProgressCustomChanged,
                       ),
-                      const SizedBox(height: 18),
-                      const _SimulationFieldLabel('Progress Metric'),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: _fieldGroupGap),
+                      const Text(
+                        'Progress Metric (Optional)',
+                        style: TextStyle(
+                          color: createFormText,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const _SimulationFieldLabel('Label'),
+                      const SizedBox(height: _fieldLabelInputGap),
                       CreateTextFieldBlock(
                         label: '',
                         controller: _progressMetricController,
@@ -488,9 +494,9 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         maxLines: 1,
                         onChanged: (_) => _onFormChanged(),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: _fieldGroupGap),
                       const _SimulationFieldLabel('Label note'),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: _fieldLabelInputGap),
                       CreateTextFieldBlock(
                         label: '',
                         controller: _labelNoteController,
@@ -498,9 +504,9 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         maxLines: 1,
                         onChanged: (_) => _onFormChanged(),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: _fieldGroupGap),
                       const _SimulationFieldLabel('Unit'),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: _fieldLabelInputGap),
                       CreateTextFieldBlock(
                         label: '',
                         controller: _unitController,
@@ -508,16 +514,9 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         maxLines: 1,
                         onChanged: (_) => _onFormChanged(),
                       ),
-                      const SizedBox(height: 18),
-                      const Text(
-                        'Value Range',
-                        style: TextStyle(
-                          color: createFormMuted,
-                          fontSize: 12,
-                          height: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: _fieldGroupGap),
+                      const _SimulationFieldLabel('Value Range'),
+                      const SizedBox(height: _fieldLabelInputGap),
                       Row(
                         children: [
                           Expanded(
@@ -571,6 +570,9 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
   }
 }
 
+const double _fieldLabelInputGap = 8;
+const double _fieldGroupGap = 22;
+
 class _AdvancedSettingsDivider extends StatelessWidget {
   const _AdvancedSettingsDivider();
 
@@ -606,7 +608,11 @@ class _SimulationFieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(color: createFormMuted, fontSize: 12, height: 1.2),
+      style: const TextStyle(
+        color: Color(0xFF111111),
+        fontSize: 12,
+        height: 1.2,
+      ),
     );
   }
 }
