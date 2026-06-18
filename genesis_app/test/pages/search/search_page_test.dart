@@ -288,6 +288,8 @@ Future<AppServices> _servicesWithTransport(
       sessionStore: sessionStore,
       storage: MemoryDirectMessageMessageStorage(),
     ),
+    appVersionCheck: base.appVersionCheck,
+    externalUrlOpener: base.externalUrlOpener,
   );
 }
 

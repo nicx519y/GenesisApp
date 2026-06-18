@@ -4,6 +4,21 @@ import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 
 void main() {
+  test('local mock app version check defaults to no upgrade', () async {
+    final api = GenesisApi(useMock: true);
+
+    final response = await api.v1.app.versionCheck(
+      appId: 'aitown',
+      platform: 'android',
+      channel: 'default',
+      versionCode: 1,
+    );
+
+    expect(response.needUpgrade, false);
+    expect(response.forceUpgrade, false);
+    expect(response.shouldForceUpgrade, false);
+  });
+
   test('local mock supports origin world and chat flow', () async {
     final api = GenesisApi(useMock: true);
 

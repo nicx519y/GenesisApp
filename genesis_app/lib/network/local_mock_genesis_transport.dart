@@ -270,6 +270,24 @@ class LocalMockGenesisTransport implements HttpTransport {
     Map<String, String> query,
     Map<String, dynamic> body,
   ) async {
+    if (method == 'POST' && path == 'app/version/check') {
+      return _v1Ok({
+        'need_upgrade': false,
+        'force_upgrade': false,
+        'latest_version_name': '',
+        'latest_version_code': 0,
+        'min_version_code': 0,
+        'upgrade_type': 0,
+        'title': '',
+        'content': '',
+        'download_url': '',
+        'store_url': '',
+        'package_size': 0,
+        'package_md5': '',
+        'can_ignore': true,
+      });
+    }
+
     if (method == 'POST' &&
         (path == 'user/oauth/google' || path == 'user/oauth/apple')) {
       _state.markAuthenticated();

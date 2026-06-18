@@ -291,6 +291,8 @@ AppServices _servicesWithTransport(_DiscussPageTransport transport) {
     chatroomMessages: MemoryChatroomMessageStorage(),
     directMessageConversations: base.directMessageConversations,
     directMessageMessages: base.directMessageMessages,
+    appVersionCheck: base.appVersionCheck,
+    externalUrlOpener: base.externalUrlOpener,
   );
 }
 

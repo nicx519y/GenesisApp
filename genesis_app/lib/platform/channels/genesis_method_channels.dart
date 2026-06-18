@@ -18,4 +18,5 @@ class GenesisMethodChannels {
   static const getSignInDiagnostics = 'getSignInDiagnostics';
   static const getAppName = 'getAppName';
   static const getAppVersion = 'getAppVersion';
+  static const openExternalUrl = 'openExternalUrl';
 }

@@ -23,6 +23,7 @@
 - Apifox chatroom tick unlock 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446397e0
 - Apifox chatroom narrator write 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446399e0
 - Apifox 获取 Origin 原始编辑数据页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/470977899e0
+- App 版本升级检查：`/Users/ionix/Downloads/version_check.md`
 - Apifox LLM 索引：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/llms.txt
 
 提取时间：2026-06-15
@@ -31,10 +32,11 @@
 
 ## 总览
 
-本文档当前覆盖 45 个接口，分为 `用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify` 和 `upload` 九组：
+本文档当前覆盖 46 个接口，分为 `app`、`用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify` 和 `upload` 十组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
+| app | POST | `/api/v1/app/version/check` | App 版本升级检查 |
 | 用户 | POST | `/api/v1/user/oauth/google` | Google login |
 | 用户 | POST | `/api/v1/user/logout` | Logout current session |
 | 用户 | POST | `/api/v1/user/delete` | 删除当前账号 |
@@ -1478,10 +1480,11 @@ query：
 
 ## 当前代码对齐状态
 
-截至 2026-06-15，本文档覆盖的 45 个接口已完成主要 HTTP 契约对齐；本次更新的账号删除接口、Origin popular 讨论预览和 Origin 热门标签已按 Apifox 新契约补齐当前封装、本地 mock 与测试：
+截至 2026-06-18，本文档覆盖的 46 个接口已完成主要 HTTP 契约对齐；本次更新的 App 版本升级检查接口已按文档补齐当前封装、本地 mock 与测试：
 
 | Apifox 接口 | 当前实现状态 |
 | --- | --- |
+| `POST /api/v1/app/version/check` | 已新增 `AppV1Api.versionCheck`，body 使用 `app_id/platform/channel/version_name/version_code/device_id/uid`，响应消费 `need_upgrade/force_upgrade/latest_version_name/latest_version_code/min_version_code/upgrade_type/title/content/download_url/store_url/package_size/package_md5/can_ignore`；`ForceUpgradeGate` 会在启动、回前台和登录态变化后检查，强更命中时阻断继续使用；本地 mock 默认返回无升级。 |
 | `POST /api/v1/user/oauth/google` | `UserV1Api.googleAuth` 与 `GenesisApi.loginWithGoogle/loginWithIdentity` 已走 `/user/oauth/google`，body 使用 `id_token/nonce/name/avatar`。 |
 | `POST /api/v1/user/oauth/apple` | `UserV1Api.appleAuth` 与 `GenesisApi.loginWithApple/loginWithIdentity` 已走 `/user/oauth/apple`，body 使用 `id_token/nonce/name/avatar`；不再向后端发送 `firebase_id_token`。 |
 | `POST /api/v1/user/logout` | `GenesisApi.logout` 已走 `/user/logout`。 |

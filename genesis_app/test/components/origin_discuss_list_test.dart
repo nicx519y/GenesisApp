@@ -1221,6 +1221,8 @@ AppServices _servicesWithTransport(_FakeTransport transport) {
     chatroomMessages: MemoryChatroomMessageStorage(),
     directMessageConversations: base.directMessageConversations,
     directMessageMessages: base.directMessageMessages,
+    appVersionCheck: base.appVersionCheck,
+    externalUrlOpener: base.externalUrlOpener,
   );
 }
 

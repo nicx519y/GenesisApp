@@ -24,6 +24,14 @@ class AppConfig {
       'GENESIS_DEBUG_WS_LOG',
       defaultValue: false,
     ),
+    this.appId = const String.fromEnvironment(
+      'GENESIS_APP_ID',
+      defaultValue: 'aitown',
+    ),
+    this.appChannel = const String.fromEnvironment(
+      'GENESIS_APP_CHANNEL',
+      defaultValue: 'default',
+    ),
     this.chatroomHeartbeatInterval = const Duration(seconds: 2),
     this.chatroomAckTimeout = const Duration(seconds: 12),
     bool? useMock,
@@ -36,6 +44,8 @@ class AppConfig {
   final String chatroomHttpBaseUrl;
   final String debugProxy;
   final bool debugWsLog;
+  final String appId;
+  final String appChannel;
   final Duration chatroomHeartbeatInterval;
   final Duration chatroomAckTimeout;
   final bool? _useMockOverride;
@@ -54,6 +64,8 @@ class AppConfig {
     String? chatroomHttpBaseUrl,
     String? debugProxy,
     bool? debugWsLog,
+    String? appId,
+    String? appChannel,
     Duration? chatroomHeartbeatInterval,
     Duration? chatroomAckTimeout,
     bool? useMock,
@@ -66,6 +78,8 @@ class AppConfig {
       chatroomHttpBaseUrl: chatroomHttpBaseUrl ?? this.chatroomHttpBaseUrl,
       debugProxy: debugProxy ?? this.debugProxy,
       debugWsLog: debugWsLog ?? this.debugWsLog,
+      appId: appId ?? this.appId,
+      appChannel: appChannel ?? this.appChannel,
       chatroomHeartbeatInterval:
           chatroomHeartbeatInterval ?? this.chatroomHeartbeatInterval,
       chatroomAckTimeout: chatroomAckTimeout ?? this.chatroomAckTimeout,

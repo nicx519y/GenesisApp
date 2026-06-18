@@ -1,4 +1,5 @@
 import '../api_client.dart';
+import 'app_api.dart';
 import 'common_api.dart';
 import 'discuss_api.dart';
 import 'dm_api.dart';
@@ -13,7 +14,8 @@ import 'world_api.dart';
 
 class GenesisV1Api {
   GenesisV1Api(ApiClient client)
-    : user = UserV1Api(client),
+    : app = AppV1Api(client),
+      user = UserV1Api(client),
       origin = OriginV1Api(client),
       world = WorldV1Api(client),
       messages = MessagesV1Api(client),
@@ -25,6 +27,7 @@ class GenesisV1Api {
       upload = UploadV1Api(client),
       common = CommonV1Api(client);
 
+  final AppV1Api app;
   final UserV1Api user;
   final OriginV1Api origin;
   final WorldV1Api world;

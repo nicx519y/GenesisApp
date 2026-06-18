@@ -14,6 +14,8 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
+import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
+import 'package:genesis_flutter_android/app/version/force_upgrade_gate.dart';
 import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/copyable_id_label.dart';
@@ -44,6 +46,7 @@ import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
+import 'package:genesis_flutter_android/network/models/app_version_check.dart';
 import 'package:genesis_flutter_android/network/models/user.dart';
 import 'package:genesis_flutter_android/components/origin/stat_item.dart';
 import 'package:genesis_flutter_android/components/search_bar.dart';
@@ -67,6 +70,7 @@ import 'package:genesis_flutter_android/pages/world/world_page.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
 import 'package:genesis_flutter_android/platform/auth/identity_auth_service.dart';
+import 'package:genesis_flutter_android/platform/app/external_url_opener.dart';
 import 'package:genesis_flutter_android/platform/channels/genesis_method_channels.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
@@ -122,6 +126,8 @@ Future<AppServices> _testServices({
   DirectMessageConversationStore? directMessageConversations,
   DirectMessageMessageStore? directMessageMessages,
   ChatroomMessageStorage? chatroomMessages,
+  AppVersionCheckService? appVersionCheck,
+  ExternalUrlOpener? externalUrlOpener,
 }) async {
   const config = AppConfig(useMock: true);
   final platformConfig = DefaultPlatformConfig(appConfig: config);
@@ -180,6 +186,8 @@ Future<AppServices> _testServices({
           sessionStore: sessionStore,
           storage: MemoryDirectMessageMessageStorage(),
         ),
+    appVersionCheck: appVersionCheck ?? const _NoUpgradeVersionCheckService(),
+    externalUrlOpener: externalUrlOpener ?? _FakeExternalUrlOpener(),
   );
 }
 
@@ -199,6 +207,39 @@ class _FakeDeviceIdService implements DeviceIdService {
 
   @override
   Future<String> getDeviceId() async => 'test-device-id';
+}
+
+class _NoUpgradeVersionCheckService implements AppVersionCheckService {
+  const _NoUpgradeVersionCheckService();
+
+  @override
+  Future<AppVersionCheckResult> check() async {
+    return const AppVersionCheckResult.noUpgrade();
+  }
+}
+
+class _QueueVersionCheckService implements AppVersionCheckService {
+  _QueueVersionCheckService(this.results);
+
+  final List<AppVersionCheckResult> results;
+  int checkCount = 0;
+
+  @override
+  Future<AppVersionCheckResult> check() async {
+    checkCount += 1;
+    if (results.isEmpty) return const AppVersionCheckResult.noUpgrade();
+    return results.removeAt(0);
+  }
+}
+
+class _FakeExternalUrlOpener implements ExternalUrlOpener {
+  final openedUrls = <String>[];
+
+  @override
+  Future<bool> open(String url) async {
+    openedUrls.add(url);
+    return true;
+  }
 }
 
 class _FakeIdentityAuthService implements IdentityAuthService {
@@ -1728,6 +1769,115 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
+
+  testWidgets('force upgrade gate renders child when upgrade is not required', (
+    WidgetTester tester,
+  ) async {
+    final checker = _QueueVersionCheckService([
+      const AppVersionCheckResult.noUpgrade(),
+    ]);
+    final services = await _testServices(appVersionCheck: checker);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(
+          home: ForceUpgradeGate(child: Text('app child')),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(checker.checkCount, 1);
+    expect(find.text('app child'), findsOneWidget);
+    expect(find.text('Update now'), findsNothing);
+  });
+
+  testWidgets('force upgrade gate blocks app and opens update URL', (
+    WidgetTester tester,
+  ) async {
+    final checker = _QueueVersionCheckService([
+      AppVersionCheckResult.fromResponse(
+        const AppVersionCheckResponse(
+          needUpgrade: true,
+          forceUpgrade: true,
+          latestVersionName: '1.1.0',
+          latestVersionCode: 10100,
+          minVersionCode: 10000,
+          upgradeType: 2,
+          title: '发现新版本',
+          content: '请升级后继续使用。',
+          downloadUrl: 'https://example.com/app.apk',
+          storeUrl: 'https://apps.apple.com/app/id000000',
+          packageSize: 0,
+          packageMd5: '',
+          canIgnore: false,
+        ),
+      ),
+    ]);
+    final opener = _FakeExternalUrlOpener();
+    final services = await _testServices(
+      appVersionCheck: checker,
+      externalUrlOpener: opener,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: ForceUpgradeGate(child: const Text('app child')),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('app child'), findsNothing);
+    expect(find.text('发现新版本'), findsOneWidget);
+    expect(find.text('Version 1.1.0'), findsOneWidget);
+    expect(find.text('Update now'), findsOneWidget);
+    expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, false);
+
+    await tester.tap(find.text('Update now'));
+    await tester.pump();
+
+    expect(opener.openedUrls, ['https://apps.apple.com/app/id000000']);
+  });
+
+  testWidgets(
+    'force upgrade gate checks again on session revision and resume',
+    (WidgetTester tester) async {
+      final checker = _QueueVersionCheckService([
+        const AppVersionCheckResult.noUpgrade(),
+        const AppVersionCheckResult.noUpgrade(),
+        const AppVersionCheckResult.noUpgrade(),
+      ]);
+      final services = await _testServices(appVersionCheck: checker);
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(
+            home: ForceUpgradeGate(child: Text('app child')),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(checker.checkCount, 1);
+
+      services.notifySessionChanged();
+      await tester.pump();
+      await tester.pump();
+      expect(checker.checkCount, 2);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump();
+      expect(checker.checkCount, 3);
+    },
+  );
 
   testWidgets('Home is default tab', (WidgetTester tester) async {
     await _pumpGenesisApp(tester);

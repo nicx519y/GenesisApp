@@ -77,6 +77,16 @@ import UniformTypeIdentifiers
         result(displayName ?? bundleName ?? "")
       case "getAppVersion":
         result(self.appVersionInfo())
+      case "openExternalUrl":
+        let args = call.arguments as? [String: Any]
+        let value = (args?["url"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: value), !value.isEmpty else {
+          result(false)
+          return
+        }
+        UIApplication.shared.open(url, options: [:]) { success in
+          result(success)
+        }
       default:
         result(FlutterMethodNotImplemented)
       }

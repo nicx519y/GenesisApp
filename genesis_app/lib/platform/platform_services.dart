@@ -4,6 +4,7 @@ export 'auth/backend_auth_coordinator.dart';
 export 'auth/google_firebase_auth_service.dart';
 export 'auth/identity_auth_service.dart';
 export 'channels/genesis_method_channels.dart';
+export 'app/external_url_opener.dart';
 export 'device/device_id_service.dart';
 export 'device/method_channel_device_id_service.dart';
 export 'session/memory_user_session_store.dart';

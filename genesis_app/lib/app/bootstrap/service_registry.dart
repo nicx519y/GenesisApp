@@ -16,6 +16,7 @@ import '../../network/io_http_transport.dart';
 import '../../platform/platform_services.dart';
 import '../config/app_config.dart';
 import '../config/platform_config.dart';
+import '../version/app_version_check_service.dart';
 
 class AppServices {
   AppServices({
@@ -30,6 +31,8 @@ class AppServices {
     required this.chatroomMessages,
     required this.directMessageConversations,
     required this.directMessageMessages,
+    required this.appVersionCheck,
+    required this.externalUrlOpener,
     ValueNotifier<int>? sessionRevision,
   }) : sessionRevision = sessionRevision ?? ValueNotifier<int>(0);
 
@@ -44,6 +47,8 @@ class AppServices {
   final ChatroomMessageStorage chatroomMessages;
   final DirectMessageConversationStore directMessageConversations;
   final DirectMessageMessageStore directMessageMessages;
+  final AppVersionCheckService appVersionCheck;
+  final ExternalUrlOpener externalUrlOpener;
   final ValueNotifier<int> sessionRevision;
 
   void notifySessionChanged() {
@@ -150,6 +155,12 @@ class ServiceRegistry {
     );
     final chatroomMessages =
         chatroomMessagesOverride ?? SqfliteChatroomMessageStorage();
+    final appVersionCheck = GenesisAppVersionCheckService(
+      config: config,
+      api: api,
+      deviceIdService: deviceId,
+      sessionStore: sessionStore,
+    );
     return AppServices(
       config: config,
       platformConfig: platformConfig,
@@ -162,6 +173,8 @@ class ServiceRegistry {
       chatroomMessages: chatroomMessages,
       directMessageConversations: directMessageConversations,
       directMessageMessages: directMessageMessages,
+      appVersionCheck: appVersionCheck,
+      externalUrlOpener: const NativeExternalUrlOpener(),
       sessionRevision: sessionRevision,
     );
   }

@@ -71,6 +71,98 @@ void main() {
     );
   });
 
+  test('AppConfig provides default version check app id and channel', () {
+    expect(const AppConfig().appId, 'aitown');
+    expect(const AppConfig().appChannel, 'default');
+  });
+
+  test(
+    'v1 app version check posts documented body and parses response',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"err_no":0,"err_msg":"succ","data":{"need_upgrade":true,"force_upgrade":true,"latest_version_name":"1.1.0","latest_version_code":"10100","min_version_code":"10000","upgrade_type":"2","title":"发现新版本","content":"请升级","download_url":"https://example.com/app.apk","store_url":"https://apps.apple.com/app/id000000","package_size":"0","package_md5":"","can_ignore":false}}',
+        ),
+      );
+      final api = _apiWith(
+        apiTransport,
+        _FakeTransport(
+          handler: (_) => const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body: '{"status":"ok"}',
+          ),
+        ),
+      );
+
+      final response = await api.v1.app.versionCheck(
+        appId: 'aitown',
+        platform: 'ios',
+        channel: 'appstore',
+        versionName: '1.0.0',
+        versionCode: 10000,
+        deviceId: 'device_xxx',
+        uid: 'u_4LA63V',
+      );
+
+      expect(apiTransport.lastRequest!.method, 'POST');
+      expect(
+        apiTransport.lastRequest!.uri.toString(),
+        'http://localhost:8080/api/v1/app/version/check',
+      );
+      expect(jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)), {
+        'app_id': 'aitown',
+        'platform': 'ios',
+        'channel': 'appstore',
+        'version_name': '1.0.0',
+        'version_code': 10000,
+        'device_id': 'device_xxx',
+        'uid': 'u_4LA63V',
+      });
+      expect(response.shouldForceUpgrade, true);
+      expect(response.latestVersionCode, 10100);
+      expect(response.minVersionCode, 10000);
+      expect(response.upgradeType, 2);
+      expect(response.updateUrl, 'https://apps.apple.com/app/id000000');
+    },
+  );
+
+  test(
+    'v1 app version check throws ApiException for non-zero err_no',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":4004,"err_msg":"ErrorParamInvalid","data":{}}',
+        ),
+      );
+      final api = _apiWith(
+        apiTransport,
+        _FakeTransport(
+          handler: (_) => const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body: '{"status":"ok"}',
+          ),
+        ),
+      );
+
+      expect(
+        () => api.v1.app.versionCheck(
+          appId: 'aitown',
+          platform: 'ios',
+          channel: 'default',
+          versionCode: 1,
+        ),
+        throwsA(isA<ApiException>()),
+      );
+    },
+  );
+
   test('bindDevice uses GET /v1/user/info', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(

@@ -90,6 +90,10 @@ class MainActivity : FlutterActivity() {
                 "getAppVersion" -> {
                     result.success(buildAppVersion())
                 }
+                "openExternalUrl" -> {
+                    val url = call.argument<String>("url") ?: ""
+                    result.success(openExternalUrl(url))
+                }
                 "signInGoogleLegacy" -> {
                     val serverClientId = call.argument<String>("serverClientId") ?: ""
                     signInGoogleLegacy(serverClientId, result)
@@ -130,6 +134,17 @@ class MainActivity : FlutterActivity() {
             "versionCode" to versionCode,
             "packageName" to packageName,
         )
+    }
+
+    private fun openExternalUrl(url: String): Boolean {
+        if (url.isBlank()) return false
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            startActivity(intent)
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun signInGoogleLegacy(serverClientId: String, result: MethodChannel.Result) {
