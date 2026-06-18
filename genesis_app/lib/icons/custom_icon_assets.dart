@@ -11,6 +11,14 @@ const String connectStatIconAsset = 'assets/custom-icons/svg/connect_icon.svg';
 const String characterStatIconAsset =
     'assets/custom-icons/svg/ai_char_icon.svg';
 const String userStatIconAsset = 'assets/custom-icons/svg/user_icon.svg';
+const String createOriginBasicsIconAsset =
+    'assets/custom-icons/svg/create_origin_basics.svg';
+const String createOriginCharactersIconAsset =
+    'assets/custom-icons/svg/create_origin_characters.svg';
+const String createOriginLocationsIconAsset =
+    'assets/custom-icons/svg/create_origin_locations.svg';
+const String createOriginStoryEventsIconAsset =
+    'assets/custom-icons/svg/create_origin_story_events.svg';
 
 const double _characterIconBaseSize = 11;
 const double _characterIconVisualSize = 13.75;

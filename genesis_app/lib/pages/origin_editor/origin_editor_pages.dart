@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
@@ -9,6 +10,7 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/origin/origin_character_form.dart';
 import '../../components/page_header.dart';
+import '../../icons/custom_icon_assets.dart';
 import '../../network/api_exception.dart';
 import '../../ui/genesis_ui.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
@@ -324,12 +326,13 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
               children: [
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
                       children: [
                         const SizedBox(height: 14),
                         Expanded(
                           child: ListView(
+                            padding: const EdgeInsets.only(bottom: 10),
                             children: [
                               if (widget.showCurrentVersion) ...[
                                 Text(
@@ -339,7 +342,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                 const SizedBox(height: 20),
                               ],
                               _SectionRow(
-                                icon: '🌐',
+                                icon: createOriginBasicsIconAsset,
                                 title: 'Basics',
                                 summary: _basicsSummary(_draft),
                                 completed: _draft.basicsSaved,
@@ -349,7 +352,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                 ),
                               ),
                               _SectionRow(
-                                icon: '👤',
+                                icon: createOriginCharactersIconAsset,
                                 title: 'Characters (>=1)',
                                 summary: _charactersSummary(_draft),
                                 completed: _draft.charactersSaved,
@@ -361,7 +364,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                 ),
                               ),
                               _SectionRow(
-                                icon: '📍',
+                                icon: createOriginLocationsIconAsset,
                                 title: 'Locations (Optional)',
                                 summary: _locationsSummary(_draft),
                                 completed: _draft.locationsSaved,
@@ -373,7 +376,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                 ),
                               ),
                               _SectionRow(
-                                icon: '📜',
+                                icon: createOriginStoryEventsIconAsset,
                                 title: 'Story Events (Optional)',
                                 summary: _storyEventsSummary(_draft),
                                 completed: _draft.storyEventsSaved,

@@ -216,7 +216,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const GenesisBackAppBar(pageName: '📍 Locations'),
+      appBar: const GenesisBackAppBar(pageName: 'Locations'),
       body: CreateKeyboardDismissArea(
         child: SafeArea(
           top: false,

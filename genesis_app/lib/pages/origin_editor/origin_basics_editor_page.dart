@@ -341,7 +341,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const GenesisBackAppBar(pageName: '🌐 Basics'),
+      appBar: const GenesisBackAppBar(pageName: 'Basics'),
       body: CreateKeyboardDismissArea(
         child: SafeArea(
           top: false,

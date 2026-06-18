@@ -190,7 +190,7 @@ class _OriginCharactersEditorPageState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const GenesisBackAppBar(pageName: '👤 Characters'),
+      appBar: const GenesisBackAppBar(pageName: 'Characters'),
       body: CreateKeyboardDismissArea(
         child: SafeArea(
           top: false,
