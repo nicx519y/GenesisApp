@@ -9,6 +9,7 @@ import '../../network/models/origin.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 
 class UserInfoPage extends StatefulWidget {
@@ -112,6 +113,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
       uid: profileUid.trim().isEmpty ? 'Unknown' : profileUid,
       followingCount: _mapInt(user, 'following_cnt'),
       followerCount: _mapInt(user, 'follower_cnt'),
+      deleted: entityDeleted(user['deleted']),
       isSelf:
           _mapBool(relation, 'is_self') ||
           (localUid.isNotEmpty && localUid == profileUid),
@@ -201,6 +203,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
             oid: item.oid,
             title: item.name.trim().isEmpty ? item.oid : item.name.trim(),
             subtitle: _originSubtitle(item),
+            deleted: item.deleted,
             imageUrl: resolveAssetUrl(item.mapImage),
             copyCount: item.copyCount,
             interactCount: item.interactCount,
@@ -225,7 +228,12 @@ class _UserInfoPageState extends State<UserInfoPage> {
           (item) => UserProfileWorldItem(
             wid: item.wid,
             title: item.name.trim().isEmpty ? item.wid : item.name.trim(),
-            subtitle: _worldSubtitle(item.wid, item.ownerName),
+            subtitle: _worldSubtitle(
+              item.wid,
+              item.ownerName,
+              deleted: item.deleted,
+            ),
+            deleted: item.deleted,
             imageUrl: resolveAssetUrl(item.snapshotCoverUrl),
             progressCount: item.progressCount,
             interactCount: item.interactCount,
@@ -559,7 +567,7 @@ class _UserInfoSkeletonBone extends StatelessWidget {
 }
 
 String _originSubtitle(OriginSummary item) {
-  final oid = item.oid.trim().isEmpty ? '-' : item.oid.trim();
+  final oid = deletedAwareIdLabel(item.oid, deleted: item.deleted);
   final originator = item.originator.trim().isEmpty
       ? '-'
       : formatUidForDisplay(item.originator);
@@ -569,8 +577,8 @@ String _originSubtitle(OriginSummary item) {
       'Latest Version: $version · $updated';
 }
 
-String _worldSubtitle(String wid, String ownerName) {
-  final displayWid = wid.trim().isEmpty ? '-' : wid.trim();
+String _worldSubtitle(String wid, String ownerName, {bool deleted = false}) {
+  final displayWid = deletedAwareIdLabel(wid, deleted: deleted);
   final owner = formatUidForDisplay(ownerName, fallback: '-');
   return 'WID: $displayWid  Owner: $owner';
 }

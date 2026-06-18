@@ -12,6 +12,7 @@ import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_image_viewer_overlay.dart';
@@ -144,6 +145,7 @@ class OriginDiscussListItem {
     this.bizId = '',
     this.worldId = '',
     this.authorUid = '',
+    this.authorDeleted = false,
     required this.authorName,
     required this.avatar,
     required this.content,
@@ -199,6 +201,7 @@ class OriginDiscussListItem {
         ),
       ),
       authorUid: uid,
+      authorDeleted: entityDeleted(author?['deleted']),
       authorName: formatUidForDisplay(name, fallback: 'User'),
       avatar: asImageUrl(author?['avatar'] ?? author?['avatar_url']),
       content: asString(json['content']),
@@ -222,6 +225,7 @@ class OriginDiscussListItem {
   final String bizId;
   final String worldId;
   final String authorUid;
+  final bool authorDeleted;
   final String authorName;
   final String avatar;
   final String content;
@@ -255,6 +259,7 @@ class OriginDiscussListItem {
       bizId: bizId,
       worldId: worldId ?? this.worldId,
       authorUid: authorUid,
+      authorDeleted: authorDeleted,
       authorName: authorName,
       avatar: avatar,
       content: content,
@@ -1620,7 +1625,7 @@ class _DiscussAvatarLink extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final avatar = _DiscussAvatar(item: item);
-    if (item.authorUid.trim().isEmpty) return avatar;
+    if (item.authorUid.trim().isEmpty || item.authorDeleted) return avatar;
     return GestureDetector(
       key: ValueKey('origin-discuss-avatar-${item.authorUid}'),
       behavior: HitTestBehavior.opaque,

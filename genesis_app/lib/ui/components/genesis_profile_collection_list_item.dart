@@ -11,14 +11,14 @@ class GenesisProfileCollectionItemData {
     required this.title,
     required this.subtitle,
     this.stats = const <GenesisProfileCollectionStat>[],
-    required this.onTap,
+    this.onTap,
   });
 
   final String imageUrl;
   final String title;
   final String subtitle;
   final List<GenesisProfileCollectionStat> stats;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 }
 
 class GenesisProfileCollectionStat {

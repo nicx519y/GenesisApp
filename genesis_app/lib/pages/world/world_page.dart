@@ -38,6 +38,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../chat/location_chat_page.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
@@ -2937,12 +2938,15 @@ class _WorldInfoHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = world.name.trim().isEmpty ? world.worldId : world.name.trim();
     final wid = world.worldId;
-    final owner = world.origin.originator.trim().isNotEmpty
+    final owner = world.ownerDeleted
+        ? deletedEntityDisplayText
+        : world.origin.originator.trim().isNotEmpty
         ? world.origin.originator.trim()
         : formatUidForDisplay(world.ownerUid);
     final ownerUid = world.ownerUid.trim();
     final action = _worldHeaderActionFor(world.relationStatus);
-    final actionEnabled = !worldActionRunning && action.isClickable;
+    final actionEnabled =
+        !world.deleted && !worldActionRunning && action.isClickable;
     final counters = <Map<String, dynamic>>[
       {'icon': 'tick', 'value': world.tickCount},
       {'icon': 'connect', 'value': world.connectCount},
@@ -2984,11 +2988,16 @@ class _WorldInfoHeader extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: CopyableIdLabel(label: 'WID', value: wid),
+              child: CopyableIdLabel(
+                label: 'WID',
+                value: wid,
+                displayValue: world.deleted ? deletedEntityDisplayText : null,
+                enabled: !world.deleted,
+              ),
             ),
             _OwnerMetaLink(
               owner: owner,
-              onTap: ownerUid.isEmpty
+              onTap: ownerUid.isEmpty || world.ownerDeleted
                   ? null
                   : () => Navigator.of(context).pushNamed(
                       RouteNames.userInfo,
@@ -3152,7 +3161,7 @@ class _OwnerMetaLink extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                'Owner: ${formatUidForDisplay(owner)}',
+                'Owner: ${owner == deletedEntityDisplayText ? owner : formatUidForDisplay(owner)}',
                 textAlign: TextAlign.right,
                 style: const TextStyle(
                   fontSize: 12,
@@ -3164,16 +3173,18 @@ class _OwnerMetaLink extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 4),
-            const Text(
-              '>',
-              style: TextStyle(
-                fontSize: 14,
-                height: 1,
-                fontWeight: FontWeight.w400,
-                color: Color(0xFF8A8A8A),
+            if (onTap != null) ...[
+              const SizedBox(width: 4),
+              const Text(
+                '>',
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1,
+                  fontWeight: FontWeight.w400,
+                  color: Color(0xFF8A8A8A),
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -3384,10 +3395,12 @@ class _CharacterRow extends StatelessWidget {
     final name = _mapString(character, const ['name'], fallback: 'Character');
     final playerUid = _mapString(character, const ['player_uid']);
     final username = _mapString(character, const ['player_username']);
+    final playerDeleted = entityDeleted(character['player_deleted']);
     final suffix = _characterNameSuffix(
       currentUid: currentUid,
       playerUid: playerUid,
       username: username,
+      playerDeleted: playerDeleted,
     );
     final isCharacterRole = _isCharacterRole(character);
     final roleLabel = isCharacterRole ? 'Character' : 'Player';
@@ -3514,7 +3527,11 @@ String _characterNameSuffix({
   required String currentUid,
   required String playerUid,
   required String username,
+  required bool playerDeleted,
 }) {
+  if (playerUid.isNotEmpty && playerDeleted) {
+    return '($deletedEntityDisplayText)';
+  }
   if (currentUid.isNotEmpty &&
       playerUid.isNotEmpty &&
       playerUid == currentUid) {

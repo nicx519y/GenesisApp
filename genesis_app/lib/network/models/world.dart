@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../json_utils.dart';
 import 'location_tree.dart';
 import 'origin.dart';
+import '../../utils/entity_deleted.dart';
 
 @immutable
 class World {
@@ -12,6 +13,7 @@ class World {
     required this.originId,
     required this.ownerUid,
     required this.name,
+    this.deleted = false,
     required this.progressCount,
     required this.interactCount,
     required this.inviteToken,
@@ -23,6 +25,7 @@ class World {
   final int originId;
   final String ownerUid;
   final String name;
+  final bool deleted;
   final int progressCount;
   final int interactCount;
   final String inviteToken;
@@ -35,6 +38,7 @@ class World {
       originId: asInt(json['origin_id']),
       ownerUid: asString(json['owner_uid']),
       name: asString(json['name']),
+      deleted: entityDeleted(json['world_deleted'], fallback: json['deleted']),
       progressCount: asInt(json['progress_count']),
       interactCount: asInt(json['interact_count']),
       inviteToken: asString(json['invite_token']),
@@ -51,6 +55,8 @@ class WorldDetail {
     required this.originId,
     required this.ownerUid,
     required this.name,
+    this.deleted = false,
+    this.ownerDeleted = false,
     required this.tickCount,
     required this.connectCount,
     required this.characterCount,
@@ -80,6 +86,8 @@ class WorldDetail {
   final int originId;
   final String ownerUid;
   final String name;
+  final bool deleted;
+  final bool ownerDeleted;
   final int tickCount;
   final int connectCount;
   final int characterCount;
@@ -107,6 +115,8 @@ class WorldDetail {
     int? originId,
     String? ownerUid,
     String? name,
+    bool? deleted,
+    bool? ownerDeleted,
     int? tickCount,
     int? connectCount,
     int? characterCount,
@@ -150,6 +160,8 @@ class WorldDetail {
       originId: originId ?? this.originId,
       ownerUid: ownerUid ?? this.ownerUid,
       name: name ?? this.name,
+      deleted: deleted ?? this.deleted,
+      ownerDeleted: ownerDeleted ?? this.ownerDeleted,
       tickCount: tickCount ?? this.tickCount,
       connectCount: connectCount ?? this.connectCount,
       characterCount: characterCount ?? this.characterCount,
@@ -174,6 +186,9 @@ class WorldDetail {
   }
 
   factory WorldDetail.fromJson(Map<String, dynamic> json) {
+    final ownerUser = json['owner_user'] is Map
+        ? asJsonMap(json['owner_user'])
+        : const <String, dynamic>{};
     final rawWorldLocations = (json['locations'] is List)
         ? asJsonList(
             json['locations'],
@@ -190,6 +205,11 @@ class WorldDetail {
       originId: asInt(json['origin_id']),
       ownerUid: asString(json['owner_uid']),
       name: asString(json['name']),
+      deleted: entityDeleted(json['deleted'], fallback: json['world_deleted']),
+      ownerDeleted: entityDeleted(
+        ownerUser['deleted'],
+        fallback: json['owner_deleted'],
+      ),
       tickCount: asInt(json['tick_count']),
       connectCount: asInt(json['connect_count']),
       characterCount: asInt(json['character_count']),
@@ -198,7 +218,9 @@ class WorldDetail {
       latestNarrator: asString(json['latest_narrator']),
       isProgressing: asBool(json['is_progressing']),
       relationStatus: asString(json['relation_status']),
-      metric: asJsonMap(json['metric']),
+      metric: json['metric'] is Map
+          ? asJsonMap(json['metric'])
+          : const <String, dynamic>{},
       inviteToken: asString(json['invite_token']),
       createdAt: asDateTime(json['created_at']),
       updatedAt: asDateTime(json['updated_at']),
@@ -212,6 +234,7 @@ class WorldDetail {
               mapImage: '',
               worldMap: '',
               worldView: '',
+              deleted: false,
               copyCount: 0,
               interactCount: 0,
               tags: <String>[],

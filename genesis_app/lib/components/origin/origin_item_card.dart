@@ -7,6 +7,7 @@ import '../../network/json_utils.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
@@ -21,6 +22,7 @@ class OriginListItem {
     required this.versionNum,
     this.tickCount = 0,
     required this.name,
+    this.deleted = false,
     required this.cover,
     required this.displaySubtitle,
     required this.worldView,
@@ -61,6 +63,7 @@ class OriginListItem {
         ),
       ),
       name: name.trim().isEmpty ? oid : name,
+      deleted: entityDeleted(info['deleted'], fallback: info['origin_deleted']),
       cover: resolveAssetUrl(
         asImageUrl(info['cover'], fallback: info['map_url']),
       ),
@@ -92,6 +95,7 @@ class OriginListItem {
   final int versionNum;
   final int tickCount;
   final String name;
+  final bool deleted;
   final String cover;
   final String displaySubtitle;
   final String worldView;

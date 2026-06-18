@@ -9,6 +9,7 @@ import '../../components/common/genesis_timestamp_text.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
@@ -21,6 +22,7 @@ class WorldListItem {
     required this.wid,
     required this.status,
     required this.name,
+    this.deleted = false,
     required this.cover,
     required this.displaySubtitle,
     required this.createdUid,
@@ -66,6 +68,13 @@ class WorldListItem {
       wid: wid,
       status: asInt(info['status']),
       name: name.trim().isEmpty ? wid : name,
+      deleted: entityDeleted(
+        json['world_deleted'],
+        fallback: entityDeleted(
+          info['world_deleted'],
+          fallback: info['deleted'],
+        ),
+      ),
       cover: resolveAssetUrl(
         asImageUrl(info['cover'], fallback: info['map_url']),
       ),
@@ -115,6 +124,7 @@ class WorldListItem {
   final String wid;
   final int status;
   final String name;
+  final bool deleted;
   final String cover;
   final String displaySubtitle;
   final String createdUid;
@@ -276,7 +286,7 @@ class _WorldSummary extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                'WID: ${item.wid}',
+                'WID: ${deletedAwareIdLabel(item.wid, deleted: item.deleted)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: _worldMetaStyle,

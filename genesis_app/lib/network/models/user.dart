@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../json_utils.dart';
+import '../../utils/entity_deleted.dart';
 
 @immutable
 class User {
@@ -10,6 +11,7 @@ class User {
     required this.did,
     required this.nickname,
     required this.avatar,
+    this.deleted = false,
     required this.createdAt,
   });
 
@@ -18,6 +20,7 @@ class User {
   final String did;
   final String nickname;
   final String avatar;
+  final bool deleted;
   final DateTime? createdAt;
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -27,6 +30,7 @@ class User {
       did: asString(json['did']),
       nickname: asString(json['nickname']),
       avatar: asImageUrl(json['avatar']),
+      deleted: entityDeleted(json['deleted']),
       createdAt: asDateTime(json['created_at']),
     );
   }

@@ -15,6 +15,7 @@ import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import 'search_history_store.dart';
@@ -517,6 +518,7 @@ class _SearchPageState extends State<SearchPage>
   }
 
   void _openResult(_SearchResultItem item) {
+    if (item.deleted) return;
     _dismissKeyboard();
     unawaited(_recordActiveSearchQuery());
     switch (item.tab) {
@@ -788,7 +790,7 @@ class _SearchResultListState extends State<_SearchResultList>
             padding: const EdgeInsets.only(bottom: 22),
             child: _SearchResultTile(
               item: item,
-              onTap: () => widget.onOpen(item),
+              onTap: item.deleted ? null : () => widget.onOpen(item),
             ),
           ),
           _SearchMoreRow(:final tab) => _SearchMoreButton(
@@ -916,7 +918,7 @@ class _SearchResultTile extends StatelessWidget {
   const _SearchResultTile({required this.item, required this.onTap});
 
   final _SearchResultItem item;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1154,6 +1156,7 @@ class _SearchResultItem {
     required this.characterCount,
     required this.playerCount,
     required this.memberCount,
+    this.deleted = false,
   });
 
   factory _SearchResultItem.fromJson(
@@ -1187,6 +1190,18 @@ class _SearchResultItem {
       characterCount: asInt(json['character_cnt']),
       playerCount: asInt(json['player_cnt']),
       memberCount: asInt(json['member_cnt'], fallback: asInt(json['user_cnt'])),
+      deleted: switch (tab) {
+        _SearchTab.origin => entityDeleted(
+          json['deleted'],
+          fallback: json['origin_deleted'],
+        ),
+        _SearchTab.world => entityDeleted(
+          json['world_deleted'],
+          fallback: json['deleted'],
+        ),
+        _SearchTab.user => entityDeleted(json['deleted']),
+        _SearchTab.all => entityDeleted(json['deleted']),
+      },
     );
   }
 
@@ -1215,6 +1230,7 @@ class _SearchResultItem {
         characterCount: 0,
         playerCount: 0,
         memberCount: 0,
+        deleted: entityDeleted(raw['deleted']),
       );
     }
 
@@ -1247,6 +1263,13 @@ class _SearchResultItem {
         characterCount: asInt(stats['character_cnt']),
         playerCount: asInt(stats['player_cnt']),
         memberCount: asInt(stats['location_cnt']),
+        deleted: entityDeleted(
+          json['world_deleted'],
+          fallback: entityDeleted(
+            info['world_deleted'],
+            fallback: info['deleted'],
+          ),
+        ),
       );
     }
 
@@ -1270,6 +1293,7 @@ class _SearchResultItem {
       characterCount: asInt(stats['character_cnt']),
       playerCount: 0,
       memberCount: asInt(stats['location_cnt']),
+      deleted: entityDeleted(info['deleted'], fallback: info['origin_deleted']),
     );
   }
 
@@ -1285,6 +1309,7 @@ class _SearchResultItem {
   final int characterCount;
   final int playerCount;
   final int memberCount;
+  final bool deleted;
 
   String get displayTitle {
     final trimmed = title.trim();
@@ -1296,6 +1321,12 @@ class _SearchResultItem {
   }
 
   String get displaySubtitle {
+    if (deleted &&
+        (tab == _SearchTab.origin ||
+            tab == _SearchTab.world ||
+            tab == _SearchTab.user)) {
+      return deletedEntityDisplayText;
+    }
     if (tab == _SearchTab.user) {
       return shortCode.trim().isNotEmpty ? shortCode : entityId;
     }

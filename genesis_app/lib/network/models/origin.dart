@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../json_utils.dart';
 import 'location_tree.dart';
+import '../../utils/entity_deleted.dart';
 
 @immutable
 class OriginListResponse {
@@ -47,6 +48,7 @@ class OriginSummary {
     required this.mapImage,
     required this.worldMap,
     required this.worldView,
+    this.deleted = false,
     this.originator = '',
     this.versionNum = 0,
     required this.copyCount,
@@ -66,6 +68,7 @@ class OriginSummary {
   final String mapImage;
   final String worldMap;
   final String worldView;
+  final bool deleted;
   final String originator;
   final int versionNum;
   final int copyCount;
@@ -87,6 +90,7 @@ class OriginSummary {
       mapImage: mapImage,
       worldMap: asImageUrl(json['world_map'], fallback: mapImage),
       worldView: asString(json['world_view']),
+      deleted: entityDeleted(json['deleted'], fallback: json['origin_deleted']),
       originator: asString(
         json['owner_name'],
         fallback: asString(
@@ -125,6 +129,8 @@ class OriginDetail {
     required this.mapImage,
     required this.worldMap,
     required this.worldView,
+    this.deleted = false,
+    this.ownerDeleted = false,
     this.ownerUid = '',
     this.originator = '',
     this.versionNum = 0,
@@ -155,6 +161,8 @@ class OriginDetail {
   final String mapImage;
   final String worldMap;
   final String worldView;
+  final bool deleted;
+  final bool ownerDeleted;
   final String ownerUid;
   final String originator;
   final int versionNum;
@@ -176,6 +184,9 @@ class OriginDetail {
 
   factory OriginDetail.fromJson(Map<String, dynamic> json) {
     final mapImage = asImageUrl(json['map_image']);
+    final ownerUser = json['owner_user'] is Map
+        ? asJsonMap(json['owner_user'])
+        : const <String, dynamic>{};
     final flatLocations = (json['locations'] is List)
         ? asJsonList(json['locations'])
               .map((e) => OriginLocation.fromJson(asJsonMap(e)))
@@ -194,6 +205,11 @@ class OriginDetail {
       mapImage: mapImage,
       worldMap: asImageUrl(json['world_map'], fallback: mapImage),
       worldView: asString(json['world_view']),
+      deleted: entityDeleted(json['deleted'], fallback: json['origin_deleted']),
+      ownerDeleted: entityDeleted(
+        ownerUser['deleted'],
+        fallback: json['owner_deleted'],
+      ),
       ownerUid: asString(json['owner_uid']),
       originator: asString(json['owner_name']),
       versionNum: asInt(json['version_num']),
@@ -282,6 +298,9 @@ class OriginCharacter {
     this.characterId = '',
     required this.originId,
     required this.name,
+    this.playerUid = '',
+    this.playerUsername = '',
+    this.playerDeleted = false,
     required this.avatar,
     required this.tags,
     this.tagline = '',
@@ -297,6 +316,9 @@ class OriginCharacter {
   final String characterId;
   final int originId;
   final String name;
+  final String playerUid;
+  final String playerUsername;
+  final bool playerDeleted;
   final String avatar;
   final String tags;
   final String tagline;
@@ -321,6 +343,9 @@ class OriginCharacter {
         fallback: asInt(map['location_id'], fallback: 0),
       );
     }
+    final playerUser = json['player_user'] is Map
+        ? asJsonMap(json['player_user'])
+        : const <String, dynamic>{};
 
     return OriginCharacter(
       id: asInt(json['id']),
@@ -330,6 +355,15 @@ class OriginCharacter {
       ),
       originId: asInt(json['origin_id']),
       name: asString(json['name']),
+      playerUid: asString(json['player_uid']),
+      playerUsername: asString(
+        playerUser['name'],
+        fallback: asString(json['player_username']),
+      ),
+      playerDeleted: entityDeleted(
+        playerUser['deleted'],
+        fallback: json['player_deleted'],
+      ),
       avatar: asImageUrl(json['avatar']),
       tags: asString(json['tags'], fallback: asString(json['identity'])),
       tagline: asString(json['tagline'], fallback: asString(json['brief'])),

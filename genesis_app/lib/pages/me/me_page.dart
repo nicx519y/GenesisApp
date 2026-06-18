@@ -18,6 +18,7 @@ import '../../platform/auth/auth_cancelled_exception.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 import 'settings_page.dart';
 
 class MePage extends StatefulWidget {
@@ -179,6 +180,7 @@ class _MePageState extends State<MePage> {
       uid: uid.isEmpty ? 'Unknown' : uid,
       followingCount: resolvedFollowingCount,
       followerCount: resolvedFollowerCount,
+      deleted: entityDeleted(cachedUser?['deleted']),
       isSelf: true,
       isFollowed: false,
       origins: const [],
@@ -724,6 +726,7 @@ UserProfileData _mergeRemoteUserInfoForRender(
         currentData.followingCount,
     followerCount:
         _mapIntOrNull(remoteUser, 'follower_cnt') ?? currentData.followerCount,
+    deleted: entityDeleted(remoteUser['deleted']),
   );
 }
 
@@ -749,7 +752,8 @@ bool _sameRenderedUserInfoExceptAvatarAndDisplayName(
 ) {
   return currentData.uid == nextData.uid &&
       currentData.followingCount == nextData.followingCount &&
-      currentData.followerCount == nextData.followerCount;
+      currentData.followerCount == nextData.followerCount &&
+      currentData.deleted == nextData.deleted;
 }
 
 UserProfileOriginItem _profileOriginItemFromSummary(OriginSummary item) {
@@ -758,6 +762,7 @@ UserProfileOriginItem _profileOriginItemFromSummary(OriginSummary item) {
     oid: item.oid,
     title: item.name.trim().isEmpty ? item.oid : item.name.trim(),
     subtitle: _originSubtitle(item),
+    deleted: item.deleted,
     imageUrl: resolveAssetUrl(item.mapImage),
     copyCount: item.copyCount,
     interactCount: item.interactCount,
@@ -769,7 +774,8 @@ UserProfileWorldItem _profileWorldItemFromSummary(MyWorldSummary item) {
   return UserProfileWorldItem(
     wid: item.wid,
     title: item.name.trim().isEmpty ? item.wid : item.name.trim(),
-    subtitle: _worldSubtitle(item.wid, item.ownerName),
+    subtitle: _worldSubtitle(item.wid, item.ownerName, deleted: item.deleted),
+    deleted: item.deleted,
     imageUrl: resolveAssetUrl(item.snapshotCoverUrl),
     progressCount: item.progressCount,
     interactCount: item.interactCount,
@@ -780,7 +786,7 @@ UserProfileWorldItem _profileWorldItemFromSummary(MyWorldSummary item) {
 }
 
 String _originSubtitle(OriginSummary item) {
-  final oid = item.oid.trim().isEmpty ? '-' : item.oid.trim();
+  final oid = deletedAwareIdLabel(item.oid, deleted: item.deleted);
   final originator = item.originator.trim().isEmpty
       ? '-'
       : formatUidForDisplay(item.originator);
@@ -789,8 +795,8 @@ String _originSubtitle(OriginSummary item) {
       'Latest Version: $version';
 }
 
-String _worldSubtitle(String wid, String ownerName) {
-  final displayWid = wid.trim().isEmpty ? '-' : wid.trim();
+String _worldSubtitle(String wid, String ownerName, {bool deleted = false}) {
+  final displayWid = deletedAwareIdLabel(wid, deleted: deleted);
   final owner = formatUidForDisplay(ownerName, fallback: '-');
   return 'WID: $displayWid  Owner: $owner';
 }

@@ -32,6 +32,7 @@ import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
+import '../../utils/entity_deleted.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
@@ -953,7 +954,9 @@ class _OriginHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final originator = origin.originator.trim().isEmpty
+    final originator = origin.ownerDeleted
+        ? deletedEntityDisplayText
+        : origin.originator.trim().isEmpty
         ? '-'
         : formatUidForDisplay(origin.originator);
     final ownerUid = origin.ownerUid.trim();
@@ -982,13 +985,18 @@ class _OriginHeader extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: CopyableIdLabel(label: 'OID', value: origin.oid),
+              child: CopyableIdLabel(
+                label: 'OID',
+                value: origin.oid,
+                displayValue: origin.deleted ? deletedEntityDisplayText : null,
+                enabled: !origin.deleted,
+              ),
             ),
             // Header inner spacing: OID label -> originator link.
             const SizedBox(width: 12),
             _OriginatorMetaLink(
               originator: originator,
-              onTap: ownerUid.isEmpty
+              onTap: ownerUid.isEmpty || origin.ownerDeleted
                   ? null
                   : () => Navigator.of(context).pushNamed(
                       RouteNames.userInfo,
@@ -1052,12 +1060,14 @@ class _OriginatorMetaLink extends StatelessWidget {
               ),
             ),
             // Originator link inner spacing: text -> chevron.
-            const SizedBox(width: 4),
-            const Icon(
-              Icons.chevron_right,
-              size: 18,
-              color: CopyableIdLabel.iconColor,
-            ),
+            if (onTap != null) ...[
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: CopyableIdLabel.iconColor,
+              ),
+            ],
           ],
         ),
       ),
@@ -1354,9 +1364,11 @@ class _CopyWorldProgressCard extends StatelessWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => Navigator.of(
-        context,
-      ).pushNamed(RouteNames.world, arguments: {'wid': item.worldId}),
+      onTap: item.deleted
+          ? null
+          : () => Navigator.of(
+              context,
+            ).pushNamed(RouteNames.world, arguments: {'wid': item.worldId}),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1431,7 +1443,7 @@ class _CopyWorldProgressMeta extends StatelessWidget {
                 children: [
                   Flexible(
                     child: Text(
-                      'WID: ${item.worldId}',
+                      'WID: ${deletedAwareIdLabel(item.worldId, deleted: item.deleted)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: _copyWorldProgressMetaStyle,

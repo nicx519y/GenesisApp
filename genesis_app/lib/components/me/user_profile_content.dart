@@ -10,6 +10,7 @@ import '../../routers/app_router.dart';
 import '../../ui/genesis_ui.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
 import 'profile_collection_list.dart';
 
@@ -205,7 +206,11 @@ class _UserProfileContentState extends State<UserProfileContent>
                         SizedBox(height: widget.nameUidGap),
                       CopyableIdLabel(
                         label: 'UID',
-                        value: formatUidForDisplay(data.uid),
+                        value: data.uid,
+                        displayValue: data.deleted
+                            ? deletedEntityDisplayText
+                            : formatUidForDisplay(data.uid),
+                        enabled: !data.deleted,
                       ),
                     ],
                   ),
@@ -375,6 +380,7 @@ class UserProfileData {
     required this.followerCount,
     this.isSelf = true,
     this.isFollowed = false,
+    this.deleted = false,
     required this.origins,
     required this.worlds,
   });
@@ -386,6 +392,7 @@ class UserProfileData {
   final int followerCount;
   final bool isSelf;
   final bool isFollowed;
+  final bool deleted;
   final List<UserProfileOriginItem> origins;
   final List<UserProfileWorldItem> worlds;
 
@@ -397,6 +404,7 @@ class UserProfileData {
     int? followerCount,
     bool? isSelf,
     bool? isFollowed,
+    bool? deleted,
     List<UserProfileOriginItem>? origins,
     List<UserProfileWorldItem>? worlds,
   }) {
@@ -408,6 +416,7 @@ class UserProfileData {
       followerCount: followerCount ?? this.followerCount,
       isSelf: isSelf ?? this.isSelf,
       isFollowed: isFollowed ?? this.isFollowed,
+      deleted: deleted ?? this.deleted,
       origins: origins ?? this.origins,
       worlds: worlds ?? this.worlds,
     );
@@ -471,17 +480,22 @@ class _OriginProfileCollectionList extends StatelessWidget {
                   value: item.characterCount,
                 ),
               ],
-              onTap: () {
-                Navigator.of(context)
-                    .pushNamed(
-                      RouteNames.originWorld,
-                      arguments: {'originId': item.originId, 'oid': item.oid},
-                    )
-                    .then((_) {
-                      if (!context.mounted) return;
-                      onRefresh?.call();
-                    });
-              },
+              onTap: item.deleted
+                  ? null
+                  : () {
+                      Navigator.of(context)
+                          .pushNamed(
+                            RouteNames.originWorld,
+                            arguments: {
+                              'originId': item.originId,
+                              'oid': item.oid,
+                            },
+                          )
+                          .then((_) {
+                            if (!context.mounted) return;
+                            onRefresh?.call();
+                          });
+                    },
             ),
           )
           .toList(growable: false),
@@ -555,9 +569,11 @@ class _WorldProfileCollectionList extends StatelessWidget {
                   value: item.playerCount,
                 ),
               ],
-              onTap: () => Navigator.of(
-                context,
-              ).pushNamed(RouteNames.world, arguments: {'wid': item.wid}),
+              onTap: item.deleted
+                  ? null
+                  : () => Navigator.of(
+                      context,
+                    ).pushNamed(RouteNames.world, arguments: {'wid': item.wid}),
             ),
           )
           .toList(growable: false),
@@ -576,6 +592,7 @@ class UserProfileOriginItem {
     required this.oid,
     required this.title,
     required this.subtitle,
+    this.deleted = false,
     required this.imageUrl,
     required this.copyCount,
     required this.interactCount,
@@ -586,6 +603,7 @@ class UserProfileOriginItem {
   final String oid;
   final String title;
   final String subtitle;
+  final bool deleted;
   final String imageUrl;
   final int copyCount;
   final int interactCount;
@@ -597,6 +615,7 @@ class UserProfileWorldItem {
     required this.wid,
     required this.title,
     required this.subtitle,
+    this.deleted = false,
     required this.imageUrl,
     required this.progressCount,
     required this.interactCount,
@@ -608,6 +627,7 @@ class UserProfileWorldItem {
   final String wid;
   final String title;
   final String subtitle;
+  final bool deleted;
   final String imageUrl;
   final int progressCount;
   final int interactCount;

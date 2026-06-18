@@ -11,6 +11,7 @@ import '../../components/page_header.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 
 class MessageCategoryListPage extends StatefulWidget {
@@ -164,8 +165,12 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
       content: _JoinRequestDialogContent(
         item: item,
         statusOnly: false,
-        onOpenUser: () => _openUserFromDialog(item.senderUid),
-        onOpenWorld: () => _openWorldFromDialog(item.bizId),
+        onOpenUser: item.senderDeleted
+            ? null
+            : () => _openUserFromDialog(item.senderUid),
+        onOpenWorld: item.worldDeleted
+            ? null
+            : () => _openWorldFromDialog(item.bizId),
       ),
       actions: const [
         GenesisActionBoxAction<_JoinRequestAction>(
@@ -190,8 +195,12 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
       content: _JoinRequestDialogContent(
         item: item,
         statusOnly: true,
-        onOpenUser: () => _openUserFromDialog(item.senderUid),
-        onOpenWorld: () => _openWorldFromDialog(item.bizId),
+        onOpenUser: item.senderDeleted
+            ? null
+            : () => _openUserFromDialog(item.senderUid),
+        onOpenWorld: item.worldDeleted
+            ? null
+            : () => _openWorldFromDialog(item.bizId),
       ),
       actions: const <GenesisActionBoxAction<void>>[],
       cancelLabel: 'OK',
@@ -280,7 +289,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
       return;
     }
     if (item.isJoinRequestReview) {
-      _openWorld(item.bizId);
+      if (!item.worldDeleted) _openWorld(item.bizId);
       return;
     }
     if (item.isDiscussNotification) {
@@ -726,7 +735,9 @@ class _NotificationItem {
     required this.senderName,
     required this.senderUid,
     required this.senderAvatar,
+    this.senderDeleted = false,
     required this.bizId,
+    this.worldDeleted = false,
     required this.objId,
     required this.rootDiscussId,
     required this.content,
@@ -808,7 +819,17 @@ class _NotificationItem {
           json['avatar_url'],
         ]),
       ),
+      senderDeleted: entityDeleted(
+        sender?['deleted'],
+        fallback: user?['deleted'],
+      ),
       bizId: bizId,
+      worldDeleted: entityDeleted(
+        json['world_deleted'],
+        fallback:
+            _optionalJsonMap(json['world'])?['world_deleted'] ??
+            _optionalJsonMap(json['world'])?['deleted'],
+      ),
       objId: _firstNonEmpty([
         asString(json['obj_id']),
         asString(json['apply_id']),
@@ -857,7 +878,9 @@ class _NotificationItem {
   final String senderName;
   final String senderUid;
   final String senderAvatar;
+  final bool senderDeleted;
   final String bizId;
+  final bool worldDeleted;
   final String objId;
   final String rootDiscussId;
   final String content;
@@ -880,7 +903,9 @@ class _NotificationItem {
       senderName: senderName,
       senderUid: senderUid,
       senderAvatar: senderAvatar,
+      senderDeleted: senderDeleted,
       bizId: bizId,
+      worldDeleted: worldDeleted,
       objId: objId,
       rootDiscussId: rootDiscussId,
       content: content,
@@ -1065,6 +1090,7 @@ class _NotificationItem {
       rootDiscussId: rootDiscussId,
       bizId: bizId,
       authorUid: senderUid,
+      authorDeleted: senderDeleted,
       authorName: senderDisplayName,
       avatar: senderAvatar,
       content: commentText,
@@ -1120,8 +1146,8 @@ class _JoinRequestDialogContent extends StatelessWidget {
 
   final _NotificationItem item;
   final bool statusOnly;
-  final VoidCallback onOpenUser;
-  final VoidCallback onOpenWorld;
+  final VoidCallback? onOpenUser;
+  final VoidCallback? onOpenWorld;
 
   @override
   Widget build(BuildContext context) {
@@ -1132,7 +1158,10 @@ class _JoinRequestDialogContent extends StatelessWidget {
         children: [
           _JoinRequestDialogInfoRow(
             title: item.requesterName,
-            subtitle: item.senderUid,
+            subtitle: deletedAwareIdLabel(
+              item.senderUid,
+              deleted: item.senderDeleted,
+            ),
             onTap: onOpenUser,
           ),
           const SizedBox(height: 4),
@@ -1140,7 +1169,10 @@ class _JoinRequestDialogContent extends StatelessWidget {
             title: item.requestWorldName.isEmpty
                 ? 'this world'
                 : item.requestWorldName,
-            subtitle: item.bizId,
+            subtitle: deletedAwareIdLabel(
+              item.bizId,
+              deleted: item.worldDeleted,
+            ),
             onTap: onOpenWorld,
           ),
           if (statusOnly) ...[
@@ -1162,7 +1194,7 @@ class _JoinRequestDialogInfoRow extends StatelessWidget {
 
   final String title;
   final String subtitle;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1192,16 +1224,18 @@ class _JoinRequestDialogInfoRow extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            const Text(
-              '>',
-              style: TextStyle(
-                color: Color(0xFF8A8D93),
-                fontSize: 12,
-                height: 1,
-                fontWeight: FontWeight.w400,
+            if (onTap != null) ...[
+              const SizedBox(width: 8),
+              const Text(
+                '>',
+                style: TextStyle(
+                  color: Color(0xFF8A8D93),
+                  fontSize: 12,
+                  height: 1,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),

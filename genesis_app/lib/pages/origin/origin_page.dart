@@ -385,10 +385,12 @@ class _OriginFeedState extends State<_OriginFeed>
                 final item = _items[index];
                 return GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => Navigator.of(context).pushNamed(
-                    RouteNames.originWorld,
-                    arguments: {'originId': 0, 'oid': item.oid},
-                  ),
+                  onTap: item.deleted
+                      ? null
+                      : () => Navigator.of(context).pushNamed(
+                          RouteNames.originWorld,
+                          arguments: {'originId': 0, 'oid': item.oid},
+                        ),
                   child: OriginItemCard(item: item),
                 );
               },

@@ -10,6 +10,7 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
 
 class FollowsPage extends StatefulWidget {
@@ -306,6 +307,7 @@ class _FollowUsersPane extends StatelessWidget {
                 uid: item.uid,
                 displayName: item.displayName,
                 avatarUrl: item.avatarUrl,
+                deleted: item.deleted,
                 isFollowed: isFollowed,
                 isLoading: loadingUids.contains(item.uid),
                 onToggleFollow: () => onToggleFollow(item, isFollowed),
@@ -325,12 +327,14 @@ class _FollowUserItem {
     required this.uid,
     required this.displayName,
     required this.avatarUrl,
+    this.deleted = false,
     required this.isFollowed,
   });
 
   final String uid;
   final String displayName;
   final String avatarUrl;
+  final bool deleted;
   final bool isFollowed;
 
   factory _FollowUserItem.fromJson(
@@ -364,6 +368,7 @@ class _FollowUserItem {
       uid: uid,
       displayName: formatUidForDisplay(displayName, fallback: 'User'),
       avatarUrl: avatar,
+      deleted: entityDeleted(user['deleted']),
       isFollowed: isFollowed,
     );
   }

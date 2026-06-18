@@ -8,7 +8,9 @@ class CopyableIdLabel extends StatelessWidget {
     super.key,
     required this.label,
     required this.value,
+    this.displayValue,
     this.showCopyIcon = true,
+    this.enabled = true,
   });
 
   static const TextStyle textStyle = TextStyle(
@@ -22,14 +24,18 @@ class CopyableIdLabel extends StatelessWidget {
 
   final String label;
   final String value;
+  final String? displayValue;
   final bool showCopyIcon;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    final displayValue = formatCopyableIdValue(value);
+    final resolvedDisplayValue = displayValue ?? formatCopyableIdValue(value);
     final normalizedLabel = label.trim().toUpperCase();
     return InkWell(
-      onTap: () => _copy(context, displayValue, normalizedLabel),
+      onTap: enabled
+          ? () => _copy(context, resolvedDisplayValue, normalizedLabel)
+          : null,
       borderRadius: BorderRadius.circular(6),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
@@ -38,13 +44,13 @@ class CopyableIdLabel extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                '$normalizedLabel: $displayValue',
+                '$normalizedLabel: $resolvedDisplayValue',
                 style: textStyle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (showCopyIcon) ...[
+            if (enabled && showCopyIcon) ...[
               const SizedBox(width: 6),
               const Icon(Icons.copy_outlined, size: 16, color: iconColor),
             ],

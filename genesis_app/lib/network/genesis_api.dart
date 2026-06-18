@@ -25,6 +25,7 @@ import '../platform/device/device_id_service.dart';
 import '../platform/device/method_channel_device_id_service.dart';
 import '../platform/session/method_channel_user_session_store.dart';
 import '../platform/session/user_session_store.dart';
+import '../utils/entity_deleted.dart';
 import '../utils/genesis_image_resource.dart';
 
 class GenesisApi {
@@ -967,6 +968,7 @@ class MyWorldSummary {
   const MyWorldSummary({
     required this.wid,
     required this.name,
+    this.deleted = false,
     required this.snapshotCoverUrl,
     required this.updatedAtText,
     required this.ownerName,
@@ -978,6 +980,7 @@ class MyWorldSummary {
 
   final String wid;
   final String name;
+  final bool deleted;
   final String snapshotCoverUrl;
   final String updatedAtText;
   final String ownerName;
@@ -991,6 +994,7 @@ class WorldSummaryLatestItem {
   const WorldSummaryLatestItem({
     required this.worldId,
     required this.originId,
+    this.deleted = false,
     required this.tickNo,
     required this.summary,
     required this.tickTime,
@@ -999,6 +1003,7 @@ class WorldSummaryLatestItem {
 
   final String worldId;
   final String originId;
+  final bool deleted;
   final int tickNo;
   final String summary;
   final int tickTime;
@@ -1023,12 +1028,14 @@ class SearchUserSummary {
     required this.displayName,
     required this.avatarUrl,
     required this.userCode,
+    this.deleted = false,
   });
 
   final String uid;
   final String displayName;
   final String avatarUrl;
   final String userCode;
+  final bool deleted;
 }
 
 HttpTransport? _resolveTransport({
@@ -1277,6 +1284,10 @@ OriginSummary _originSummaryFromV1ListItem(Map<String, dynamic> raw) {
       origin['world_view'],
       fallback: asString(origin['setting']),
     ),
+    deleted: entityDeleted(
+      origin['deleted'],
+      fallback: origin['origin_deleted'],
+    ),
     originator: _originatorFromOriginMap(origin),
     versionNum: asInt(
       origin['version_num'],
@@ -1311,6 +1322,13 @@ MyWorldSummary _myWorldSummaryFromV1ListItem(Map<String, dynamic> raw) {
   return MyWorldSummary(
     wid: wid,
     name: name,
+    deleted: entityDeleted(
+      raw['world_deleted'],
+      fallback: entityDeleted(
+        world['world_deleted'],
+        fallback: world['deleted'],
+      ),
+    ),
     snapshotCoverUrl: cover,
     updatedAtText: _apiDateTimeText(world['updated_at'] ?? world['created_at']),
     ownerName: asString(
@@ -1331,6 +1349,7 @@ WorldSummaryLatestItem _worldSummaryLatestItemFromV1(Map<String, dynamic> raw) {
   return WorldSummaryLatestItem(
     worldId: asString(raw['world_id']),
     originId: asString(raw['origin_id']),
+    deleted: entityDeleted(raw['world_deleted'], fallback: raw['deleted']),
     tickNo: asInt(raw['tick_no']),
     summary: asString(raw['summary']),
     tickTime: asInt(raw['tick_time']),
@@ -1509,6 +1528,9 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
   final origin = raw['origin'] is Map
       ? asJsonMap(raw['origin'])
       : asJsonMap(raw['info']);
+  final ownerUser = origin['owner_user'] is Map
+      ? asJsonMap(origin['owner_user'])
+      : const <String, dynamic>{};
   final stats = raw['stats'] is Map ? asJsonMap(raw['stats']) : origin;
   final oid = asString(origin['oid'], fallback: asString(origin['origin_id']));
   final id = _stableInt(oid);
@@ -1563,6 +1585,14 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
         origin['world_view'],
         fallback: asString(origin['setting']),
       ),
+    ),
+    deleted: entityDeleted(
+      origin['deleted'],
+      fallback: origin['origin_deleted'],
+    ),
+    ownerDeleted: entityDeleted(
+      ownerUser['deleted'],
+      fallback: origin['owner_deleted'],
     ),
     ownerUid: asString(
       origin['owner_uid'],
@@ -1706,6 +1736,9 @@ OriginEvent _originEventFromV1(Object? raw) {
 
 WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
   final world = asJsonMap(raw['info']);
+  final ownerUser = world['owner_user'] is Map
+      ? asJsonMap(world['owner_user'])
+      : const <String, dynamic>{};
   final stats = asJsonMap(raw['stats']);
   final wid = asString(world['world_id']);
   final oid = asString(world['origin_id']);
@@ -1759,6 +1792,17 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
     originId: originId,
     ownerUid: asString(world['owner_uid']),
     name: asString(world['world_name']),
+    deleted: entityDeleted(
+      raw['world_deleted'],
+      fallback: entityDeleted(
+        world['world_deleted'],
+        fallback: world['deleted'],
+      ),
+    ),
+    ownerDeleted: entityDeleted(
+      ownerUser['deleted'],
+      fallback: world['owner_deleted'],
+    ),
     tickCount: asInt(stats['tick_cnt']),
     connectCount: asInt(stats['connect_cnt']),
     characterCount: asInt(stats['character_cnt']),
@@ -1784,6 +1828,12 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
       mapImage: cover,
       worldMap: mapUrl,
       worldView: asString(world['setting']),
+      deleted: entityDeleted(
+        world['origin_deleted'],
+        fallback: world['origin'] is Map
+            ? asJsonMap(world['origin'])['deleted']
+            : null,
+      ),
       originator: asString(world['owner_name']),
       versionNum: asInt(world['origin_version']),
       copyCount: 0,
@@ -1806,6 +1856,9 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
 }
 
 OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
+  final playerUser = raw['player_user'] is Map
+      ? asJsonMap(raw['player_user'])
+      : const <String, dynamic>{};
   final characterId = asString(
     raw['character_id'],
     fallback: asString(raw['char_id']),
@@ -1820,6 +1873,15 @@ OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
     characterId: characterId,
     originId: originId,
     name: asString(raw['name']),
+    playerUid: asString(raw['player_uid']),
+    playerUsername: asString(
+      playerUser['name'],
+      fallback: asString(raw['player_username']),
+    ),
+    playerDeleted: entityDeleted(
+      playerUser['deleted'],
+      fallback: raw['player_deleted'],
+    ),
     avatar: _resolveImageAssetUrl(raw['avatar']),
     tags: asString(raw['identity']),
     tagline: asString(raw['tagline'], fallback: asString(raw['brief'])),
@@ -1884,11 +1946,22 @@ Map<String, dynamic>? _worldCharacterPositionFromV1(Map<String, dynamic> raw) {
 }
 
 Map<String, dynamic> _worldCharacterFromV1(Map<String, dynamic> raw) {
+  final playerUser = raw['player_user'] is Map
+      ? asJsonMap(raw['player_user'])
+      : const <String, dynamic>{};
   return {
     'char_id': asString(raw['char_id']),
     'type': asString(raw['type']),
     'player_uid': asString(raw['player_uid']),
-    'player_username': asString(raw['player_username']),
+    'player_username': asString(
+      playerUser['name'],
+      fallback: asString(raw['player_username']),
+    ),
+    'player_user': playerUser,
+    'player_deleted': entityDeleted(
+      playerUser['deleted'],
+      fallback: raw['player_deleted'],
+    ),
     'name': asString(raw['name']),
     'identity': asString(raw['identity']),
     'brief': asString(raw['brief']),
@@ -1936,7 +2009,17 @@ Map<String, dynamic>? _worldUserPositionFromV1(Map<String, dynamic> raw) {
   if (playerUid.isEmpty) return null;
   final locationId = asString(raw['location_id']);
   if (locationId.isEmpty) return null;
-  return {'uid': playerUid, 'location_id': locationId};
+  final playerUser = raw['player_user'] is Map
+      ? asJsonMap(raw['player_user'])
+      : const <String, dynamic>{};
+  return {
+    'uid': playerUid,
+    'location_id': locationId,
+    'deleted': entityDeleted(
+      playerUser['deleted'],
+      fallback: raw['player_deleted'],
+    ),
+  };
 }
 
 List<String> _tagsFromV1(Object? raw) {
@@ -2040,6 +2123,7 @@ OriginSummary _originSummaryFromSearchItem(Map<String, dynamic> raw) {
     mapImage: mapImage,
     worldMap: _resolveImageAssetUrl(raw['world_map'], fallback: mapImage),
     worldView: asString(raw['world_view']),
+    deleted: entityDeleted(raw['deleted'], fallback: raw['origin_deleted']),
     originator: _originatorFromOriginMap(raw),
     versionNum: asInt(raw['version_num']),
     copyCount: asInt(raw['copy_count'], fallback: asInt(raw['copyCount'])),
@@ -2066,6 +2150,7 @@ MyWorldSummary _worldSummaryFromSearchItem(Map<String, dynamic> raw) {
       fallback: asString(raw['wid'], fallback: asString(raw['id'])),
     ),
     name: asString(raw['world_name'], fallback: asString(raw['name'])),
+    deleted: entityDeleted(raw['world_deleted'], fallback: raw['deleted']),
     snapshotCoverUrl: _resolveImageAssetUrl(
       raw['snapshot_cover_url'],
       fallback: raw['cover_url'] ?? raw['cover'],
@@ -2095,6 +2180,7 @@ SearchUserSummary _userSummaryFromSearchItem(Map<String, dynamic> raw) {
     ),
     avatarUrl: asImageUrl(raw['avatar_url'], fallback: raw['avatar']),
     userCode: asString(raw['user_code'], fallback: uid),
+    deleted: entityDeleted(raw['deleted']),
   );
 }
 

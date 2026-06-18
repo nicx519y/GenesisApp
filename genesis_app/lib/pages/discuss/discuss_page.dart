@@ -14,6 +14,7 @@ import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 
 class DiscussPage extends StatefulWidget {
   const DiscussPage({super.key, required this.oid, this.originId = 0});
@@ -513,7 +514,7 @@ class _DiscussOriginSummary extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'OID: ${origin.oid}${originator.isEmpty ? '' : ' · Originator: $originator'}',
+                'OID: ${deletedAwareIdLabel(origin.oid, deleted: origin.deleted)}${originator.isEmpty ? '' : ' · Originator: ${origin.ownerDeleted ? deletedEntityDisplayText : originator}'}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(

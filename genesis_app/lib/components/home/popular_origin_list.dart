@@ -9,6 +9,7 @@ import '../../network/genesis_api.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../origin/origin_item_card.dart';
@@ -137,7 +138,7 @@ class _PopularOriginListState extends State<PopularOriginList> {
             : null;
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => widget.onItemTap(item),
+          onTap: item.deleted ? null : () => widget.onItemTap(item),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: PopularOriginListItem(
@@ -256,7 +257,7 @@ class _OriginSummary extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                'OID: ${item.oid}',
+                'OID: ${deletedAwareIdLabel(item.oid, deleted: item.deleted)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: _metaStyle,
@@ -431,6 +432,7 @@ class _ProgressSummary extends StatelessWidget {
   Widget _buildContent(WorldSummaryLatestItem? summary) {
     final body = summary?.summary.trim() ?? '';
     final worldId = summary?.worldId.trim() ?? item.wid.trim();
+    final worldDeleted = summary?.deleted ?? false;
     final tickNo = summary?.tickNo ?? item.tickCount;
     final timeText = summary == null
         ? fallbackTimeText
@@ -447,7 +449,12 @@ class _ProgressSummary extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 6),
-        _MetaRow(worldId: worldId, tickCount: tickNo, timeText: timeText),
+        _MetaRow(
+          worldId: worldId,
+          worldDeleted: worldDeleted,
+          tickCount: tickNo,
+          timeText: timeText,
+        ),
       ],
     );
   }
@@ -456,11 +463,13 @@ class _ProgressSummary extends StatelessWidget {
 class _MetaRow extends StatelessWidget {
   const _MetaRow({
     required this.worldId,
+    required this.worldDeleted,
     required this.tickCount,
     required this.timeText,
   });
 
   final String worldId;
+  final bool worldDeleted;
   final int tickCount;
   final String timeText;
 
@@ -486,7 +495,7 @@ class _MetaRow extends StatelessWidget {
                 children: [
                   Flexible(
                     child: Text(
-                      'WID: ${displayWorldId.isEmpty ? '-' : displayWorldId}',
+                      'WID: ${deletedAwareIdLabel(displayWorldId, deleted: worldDeleted)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: _metaStyle,

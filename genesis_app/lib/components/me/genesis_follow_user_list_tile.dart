@@ -4,6 +4,7 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 
 class GenesisFollowUserListTile extends StatelessWidget {
   const GenesisFollowUserListTile({
@@ -11,6 +12,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
     required this.uid,
     required this.displayName,
     required this.avatarUrl,
+    this.deleted = false,
     required this.isFollowed,
     required this.isLoading,
     required this.onToggleFollow,
@@ -26,6 +28,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
   final String uid;
   final String displayName;
   final String avatarUrl;
+  final bool deleted;
   final bool isFollowed;
   final bool isLoading;
   final VoidCallback onToggleFollow;
@@ -37,11 +40,12 @@ class GenesisFollowUserListTile extends StatelessWidget {
     final cleanUid = uid.trim();
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap:
-          onTap ??
-          () => Navigator.of(
-            context,
-          ).pushNamed(RouteNames.userInfo, arguments: {'uid': cleanUid}),
+      onTap: deleted
+          ? null
+          : onTap ??
+                () => Navigator.of(
+                  context,
+                ).pushNamed(RouteNames.userInfo, arguments: {'uid': cleanUid}),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
@@ -80,7 +84,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
                     height: 4,
                   ),
                   Text(
-                    'UID: ${formatUidForDisplay(cleanUid)}',
+                    'UID: ${deletedAwareIdLabel(formatUidForDisplay(cleanUid), deleted: deleted)}',
                     style: _uidTextStyle,
                   ),
                 ],

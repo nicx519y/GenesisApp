@@ -564,9 +564,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                 final vm = _items[index];
                 return GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => Navigator.of(
-                    context,
-                  ).pushNamed(RouteNames.world, arguments: {'wid': vm.wid}),
+                  onTap: vm.deleted
+                      ? null
+                      : () => Navigator.of(context).pushNamed(
+                          RouteNames.world,
+                          arguments: {'wid': vm.wid},
+                        ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: WorldItemCard(item: vm, showPreviewImages: false),
@@ -884,6 +887,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
               isLoadingMore: _isLoadingMore,
               preloadedDiscussItems: _discussPreviews,
               onItemTap: (item) {
+                if (item.deleted) return;
                 Navigator.of(context).pushNamed(
                   RouteNames.originWorld,
                   arguments: {'originId': 0, 'oid': item.oid},

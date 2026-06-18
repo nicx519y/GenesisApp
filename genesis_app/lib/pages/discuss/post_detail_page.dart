@@ -18,6 +18,7 @@ import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 
 const String _postDetailLikeFilledAsset =
@@ -743,7 +744,7 @@ class _PostAvatarLink extends StatelessWidget {
       size: size,
       borderRadius: borderRadius,
     );
-    if (item.authorUid.trim().isEmpty) return avatar;
+    if (item.authorUid.trim().isEmpty || item.authorDeleted) return avatar;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => Navigator.of(
@@ -767,7 +768,7 @@ class _ReplyAvatarLink extends StatelessWidget {
       size: 52,
       borderRadius: GenesisAvatarRadii.user,
     );
-    if (data.authorUid.trim().isEmpty) return avatar;
+    if (data.authorUid.trim().isEmpty || data.authorDeleted) return avatar;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => Navigator.of(
@@ -818,6 +819,7 @@ class _ReplyViewData {
   const _ReplyViewData({
     required this.discussId,
     required this.authorUid,
+    required this.authorDeleted,
     required this.authorName,
     required this.avatar,
     required this.content,
@@ -845,6 +847,7 @@ class _ReplyViewData {
     return _ReplyViewData(
       discussId: asString(json['discuss_id']),
       authorUid: uid,
+      authorDeleted: entityDeleted(author?['deleted']),
       authorName: formatUidForDisplay(name, fallback: 'User'),
       avatar: asImageUrl(author?['avatar'] ?? author?['avatar_url']),
       content: asString(json['content']),
@@ -869,6 +872,7 @@ class _ReplyViewData {
 
   final String discussId;
   final String authorUid;
+  final bool authorDeleted;
   final String authorName;
   final String avatar;
   final String content;
