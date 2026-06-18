@@ -65,7 +65,7 @@ class WorldPage extends StatefulWidget {
 }
 
 class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
-  static const Duration _mapMessageBubbleInterval = Duration(seconds: 1);
+  static const Duration _mapMessageBubbleInterval = Duration(seconds: 4);
   static const Duration _mapMessageBubbleHiddenInterval = Duration(
     milliseconds: 500,
   );
