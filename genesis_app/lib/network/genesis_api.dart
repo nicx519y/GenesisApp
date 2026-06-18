@@ -916,7 +916,8 @@ class GenesisApi {
     final updated = await v1.origin.update(
       originId: asString(payload['origin_id'], fallback: oid),
       originName: asString(payload['name']),
-      originVersion: _createOriginOptionalString(payload['origin_version']),
+      // Version increments are owned by the backend when an edit is published.
+      originVersion: null,
       brief: asString(payload['world_view']),
       setting: asString(payload['world_setting']),
       events: events.isEmpty ? null : events,
@@ -1741,7 +1742,7 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
       .map(_worldUserPositionFromV1)
       .whereType<Map<String, dynamic>>()
       .toList(growable: false);
-  final ticksRaw = raw['ticks'];
+  final ticksRaw = raw['tick_list'] ?? raw['ticks'];
   final ticks = ticksRaw is List
       ? asJsonList(ticksRaw).indexed
             .map((entry) => _worldTickFromV1(asJsonMap(entry.$2), entry.$1))

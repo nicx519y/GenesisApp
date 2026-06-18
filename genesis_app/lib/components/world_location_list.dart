@@ -11,11 +11,15 @@ class WorldLocationList extends StatefulWidget {
     super.key,
     required this.points,
     this.locationNodes = const <WorldMapLocationNode>[],
+    this.physics,
+    this.enableOuterScrollHandoff = true,
     this.onPointTap,
   });
 
   final List<WorldPoint> points;
   final List<WorldMapLocationNode> locationNodes;
+  final ScrollPhysics? physics;
+  final bool enableOuterScrollHandoff;
   final ValueChanged<WorldPoint>? onPointTap;
 
   @override
@@ -33,8 +37,22 @@ class _WorldLocationListState extends State<WorldLocationList> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _setOuterController(
-      WorldDetailsPanelScrollControllerScope.maybeOf(context),
+      widget.enableOuterScrollHandoff
+          ? WorldDetailsPanelScrollControllerScope.maybeOf(context)
+          : null,
     );
+  }
+
+  @override
+  void didUpdateWidget(covariant WorldLocationList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.enableOuterScrollHandoff != widget.enableOuterScrollHandoff) {
+      _setOuterController(
+        widget.enableOuterScrollHandoff
+            ? WorldDetailsPanelScrollControllerScope.maybeOf(context)
+            : null,
+      );
+    }
   }
 
   @override
@@ -85,6 +103,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
         onNotification: (notification) {
           if (outerController == null ||
               !outerController.hasClients ||
+              !widget.enableOuterScrollHandoff ||
               notification.metrics.axis != Axis.vertical) {
             return false;
           }
@@ -98,9 +117,11 @@ class _WorldLocationListState extends State<WorldLocationList> {
         },
         child: ListView(
           controller: _listController,
-          physics: _outerPageAtTop
-              ? const ClampingScrollPhysics()
-              : const NeverScrollableScrollPhysics(),
+          physics:
+              widget.physics ??
+              (_outerPageAtTop
+                  ? const ClampingScrollPhysics()
+                  : const NeverScrollableScrollPhysics()),
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
           children: widget.locationNodes.isNotEmpty
               ? _buildNodeRows(widget.locationNodes)

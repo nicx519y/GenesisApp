@@ -559,12 +559,6 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
         child: GenesisPrimaryButton(
           label: launching ? 'Launching...' : 'Launch to send',
           onPressed: launching ? null : onLaunch,
-          backgroundColor: const Color(0xFF238861),
-          disabledBackgroundColor: const Color(
-            0xFF238861,
-          ).withValues(alpha: 0.62),
-          foregroundColor: Colors.white,
-          disabledForegroundColor: Colors.white,
         ),
       ),
     );
@@ -891,38 +885,17 @@ class _OriginBottomLaunchBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 18),
-              SizedBox(
+              GenesisPrimaryButton(
+                label: 'Launch',
+                onPressed: launching ? null : onLaunch,
                 width: 140,
                 height: 35,
-                child: FilledButton(
-                  onPressed: launching ? null : onLaunch,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF238861),
-                    disabledBackgroundColor: const Color(
-                      0xFF238861,
-                    ).withValues(alpha: 0.62),
-                    foregroundColor: Colors.white,
-                    disabledForegroundColor: Colors.white,
-                    padding: EdgeInsets.zero,
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      height: 1,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: launching
-                      ? const SizedBox.square(
-                          dimension: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.4,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Launch'),
-                ),
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                isLoading: launching,
+                loadingSize: 22,
+                loadingStrokeWidth: 2.4,
               ),
             ],
           ),
@@ -1636,6 +1609,9 @@ class _OriginCharacterRow extends StatelessWidget {
     final identity = _splitTags(character.tags).join(' · ');
     final tagline = character.tagline.trim();
     final description = character.description.trim();
+    final visibleDescription = _sameCharacterText(tagline, description)
+        ? ''
+        : description;
     final goal = character.goal.trim();
     final avatarUrl = _resolveAssetUrl(character.avatar);
 
@@ -1657,7 +1633,7 @@ class _OriginCharacterRow extends StatelessWidget {
               Text(
                 character.name,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 16,
                   height: 1.15,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF111111),
@@ -1669,7 +1645,7 @@ class _OriginCharacterRow extends StatelessWidget {
                 Text(
                   identity,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 14,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
                     color: Color(0xFF111111),
@@ -1682,22 +1658,22 @@ class _OriginCharacterRow extends StatelessWidget {
                 Text(
                   tagline,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 14,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
                     color: Color(0xFFF42C47),
                   ),
                 ),
               ],
-              if (description.isNotEmpty) ...[
+              if (visibleDescription.isNotEmpty) ...[
                 // Character text spacing: previous line -> description.
                 const SizedBox(height: 9),
-                Text(description, style: _bodyTextStyle),
+                Text(visibleDescription, style: _characterBodyTextStyle),
               ],
               if (goal.isNotEmpty) ...[
                 // Character text spacing: description/previous line -> goal.
                 const SizedBox(height: 9),
-                Text('Goal: $goal', style: _bodyTextStyle),
+                Text('Goal: $goal', style: _characterBodyTextStyle),
               ],
             ],
           ),
@@ -1939,6 +1915,13 @@ const _bodyTextStyle = TextStyle(
   color: Color(0xFF111111),
 );
 
+const _characterBodyTextStyle = TextStyle(
+  fontSize: 14,
+  height: 1.35,
+  fontWeight: FontWeight.w400,
+  color: Color(0xFF111111),
+);
+
 const _mutedBodyTextStyle = TextStyle(
   fontSize: 12,
   height: 1.3,
@@ -1960,6 +1943,12 @@ List<String> _splitTags(String tags) {
       .map((e) => e.trim())
       .where((e) => e.isNotEmpty)
       .toList();
+}
+
+bool _sameCharacterText(String a, String b) {
+  final left = a.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+  final right = b.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+  return left.isNotEmpty && left == right;
 }
 
 String _resolveAssetUrl(String raw) {

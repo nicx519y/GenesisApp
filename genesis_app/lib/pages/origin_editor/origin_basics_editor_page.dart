@@ -29,7 +29,6 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
   final TextEditingController _maxValueController = TextEditingController();
 
   bool _isSaving = false;
-  bool _isFinalSynced = false;
   String _metricMode = 'qualitative';
   String _selectedTimeProgress = '';
 
@@ -53,12 +52,11 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
       tickDurationTime: draft.basics.tickDurationTime,
       tickDurationDays: draft.basics.tickDurationDays,
     );
-    _isFinalSynced = draft.basicsSaved;
     setState(() {});
   }
 
   void _onFormChanged() {
-    setState(() => _isFinalSynced = false);
+    setState(() {});
   }
 
   Future<CreateOriginDraft> _draftWithCurrentBasics({
@@ -122,14 +120,9 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     );
     await widget.repository.saveFinalDraft(updatedDraft);
     if (!mounted) return;
-    setState(() {
-      _isSaving = false;
-      _isFinalSynced = true;
-    });
+    setState(() => _isSaving = false);
     Navigator.of(context).pop(true);
   }
-
-  bool get _isEditMode => !widget.repository.supportsTempDrafts;
 
   bool get _canSaveCurrentBasics {
     if (_originNameController.text.trim().isEmpty ||
@@ -149,8 +142,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
 
   bool get _canUseSaveButton {
     if (_isSaving) return false;
-    if (_isEditMode) return _canSaveCurrentBasics;
-    return !_isFinalSynced;
+    return _canSaveCurrentBasics;
   }
 
   void _showError(String message) {
@@ -310,7 +302,6 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
         _selectedTimeProgress = value;
         _timeProgressCustomController.clear();
       }
-      _isFinalSynced = false;
     });
   }
 
@@ -319,7 +310,6 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
       if (value.trim().isNotEmpty) {
         _selectedTimeProgress = '';
       }
-      _isFinalSynced = false;
     });
   }
 
@@ -571,9 +561,6 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
                   onPressed: _canUseSaveButton ? _onSave : null,
-                  backgroundColor: createFormGreen,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: const Color(0xFFBFD8CD),
                 ),
               ),
             ],

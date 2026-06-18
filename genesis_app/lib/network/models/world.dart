@@ -225,9 +225,9 @@ class WorldDetail {
               json['characters'],
             ).map((e) => asJsonMap(e)).toList(growable: false)
           : const [],
-      ticks: (json['ticks'] is List)
+      ticks: ((json['tick_list'] ?? json['ticks']) is List)
           ? asJsonList(
-              json['ticks'],
+              json['tick_list'] ?? json['ticks'],
             ).map((e) => asJsonMap(e)).toList(growable: false)
           : const [],
       locations: rawWorldLocations,

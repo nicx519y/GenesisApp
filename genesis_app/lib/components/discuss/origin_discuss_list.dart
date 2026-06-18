@@ -140,6 +140,7 @@ class OriginDiscussPage {
 class OriginDiscussListItem {
   const OriginDiscussListItem({
     required this.discussId,
+    this.rootDiscussId = '',
     this.bizId = '',
     this.worldId = '',
     this.authorUid = '',
@@ -188,6 +189,7 @@ class OriginDiscussListItem {
     );
     return OriginDiscussListItem(
       discussId: asString(json['discuss_id']),
+      rootDiscussId: asString(json['root_discuss_id']),
       bizId: asString(json['biz_id']),
       worldId: asString(
         json['world_id'],
@@ -216,6 +218,7 @@ class OriginDiscussListItem {
   }
 
   final String discussId;
+  final String rootDiscussId;
   final String bizId;
   final String worldId;
   final String authorUid;
@@ -232,7 +235,13 @@ class OriginDiscussListItem {
   final String seed;
   final List<Map<String, dynamic>> latestReplies;
 
+  String get replyRootDiscussId {
+    final rootId = rootDiscussId.trim();
+    return rootId.isEmpty ? discussId : rootId;
+  }
+
   OriginDiscussListItem copyWith({
+    String? rootDiscussId,
     String? worldId,
     int? storyCount,
     int? replyCount,
@@ -242,6 +251,7 @@ class OriginDiscussListItem {
   }) {
     return OriginDiscussListItem(
       discussId: discussId,
+      rootDiscussId: rootDiscussId ?? this.rootDiscussId,
       bizId: bizId,
       worldId: worldId ?? this.worldId,
       authorUid: authorUid,
@@ -588,7 +598,7 @@ class OriginDiscussListController extends ChangeNotifier {
   }
 
   int replyButtonCount(OriginDiscussListItem item) {
-    final discussId = item.discussId;
+    final discussId = item.replyRootDiscussId;
     if (!hasLoadedReplies(discussId)) {
       if (item.latestReplies.isEmpty) return item.replyCount;
       final visibleCount = math.min(item.latestReplies.length, 2);
@@ -639,7 +649,9 @@ class OriginDiscussListController extends ChangeNotifier {
   }
 
   void _applyRepliesPage(String rootDiscussId, OriginDiscussRepliesPage page) {
-    final index = _items.indexWhere((item) => item.discussId == rootDiscussId);
+    final index = _items.indexWhere(
+      (item) => item.replyRootDiscussId == rootDiscussId,
+    );
     if (index < 0) return;
     final item = _items[index];
     final nextReplies = page.pn <= 1
@@ -1392,7 +1404,7 @@ class _DiscussReplyPreview extends StatelessWidget {
   Future<void> _loadMoreReplies(BuildContext context) async {
     try {
       await controller.loadMoreReplies(
-        rootDiscussId: item.discussId,
+        rootDiscussId: item.replyRootDiscussId,
         loader: ({required rootDiscussId, required pn, required rn}) async {
           final data = await AppServicesScope.read(context).api.v1.discuss
               .replies(rootDiscussId: rootDiscussId, pn: pn, rn: rn);

@@ -798,6 +798,8 @@ void main() {
     await _waitFor(
       () => service.state.entitiesById['user-1']?.locationId == 'loc-1',
     );
+    expect(service.state.entitiesById['user-1']?.name, 'Role One');
+    expect(service.state.entitiesById['user-1']?.name, isNot('Player One'));
 
     expect(http.detailRequests, 2);
     expect(http.userLocationRequests, 2);

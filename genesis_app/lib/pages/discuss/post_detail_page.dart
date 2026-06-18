@@ -101,7 +101,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
   Future<void> _loadMoreReplies(OriginDiscussListItem item) async {
     try {
       await _controller.loadMoreReplies(
-        rootDiscussId: item.discussId,
+        rootDiscussId: item.replyRootDiscussId,
         loader: ({required rootDiscussId, required pn, required rn}) async {
           final data = await AppServicesScope.read(context).api.v1.discuss
               .replies(rootDiscussId: rootDiscussId, pn: pn, rn: rn);

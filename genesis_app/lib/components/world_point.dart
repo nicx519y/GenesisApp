@@ -28,6 +28,7 @@ class WorldPoint {
     this.sceneId = '',
     this.pointId = '',
     this.iconUrl = '',
+    this.mapImageUrl = '',
     this.description = '',
     this.locationDescription = '',
     this.depth = 0,
@@ -42,6 +43,7 @@ class WorldPoint {
   final String sceneId;
   final String pointId;
   final String iconUrl;
+  final String mapImageUrl;
   final String description;
   final String locationDescription;
   final int depth;

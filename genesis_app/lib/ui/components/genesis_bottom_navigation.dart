@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'genesis_unread_badge.dart';
 import '../tokens/genesis_spacing.dart';
@@ -131,7 +132,7 @@ class GenesisBottomNavigationTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: uiTheme.tabLabelStyle.copyWith(
                 color: color,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -169,12 +170,19 @@ class _BadgedIcon extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           if (assetName != null)
-            Image.asset(
-              assetName!,
-              width: size,
-              height: size,
-              fit: BoxFit.contain,
-            )
+            assetName!.endsWith('.svg')
+                ? SvgPicture.asset(
+                    assetName!,
+                    width: size,
+                    height: size,
+                    fit: BoxFit.contain,
+                  )
+                : Image.asset(
+                    assetName!,
+                    width: size,
+                    height: size,
+                    fit: BoxFit.contain,
+                  )
           else if (icon != null)
             Icon(icon, color: color, size: size)
           else

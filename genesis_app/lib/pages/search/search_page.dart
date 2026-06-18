@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/copyable_id_label.dart';
@@ -458,8 +459,15 @@ class _SearchPageState extends State<SearchPage>
                 labels: [for (final tab in _SearchTab.values) tab.label],
                 horizontalPadding: 16,
                 labelPadding: const EdgeInsets.symmetric(horizontal: 15),
+                verticalPadding: 0,
               ),
-            Expanded(child: _buildBody()),
+            Expanded(
+              child: Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (_) => _dismissKeyboard(),
+                child: _buildBody(),
+              ),
+            ),
           ],
         ),
       ),
@@ -490,6 +498,7 @@ class _SearchPageState extends State<SearchPage>
             onLoadMore: () => _loadNextPage(tab),
             onOpen: _openResult,
             onOpenMore: _openTabFromAllResults,
+            onDismissKeyboard: _dismissKeyboard,
           ),
       ],
     );
@@ -509,6 +518,7 @@ class _SearchPageState extends State<SearchPage>
   }
 
   void _openResult(_SearchResultItem item) {
+    _dismissKeyboard();
     unawaited(_recordActiveSearchQuery());
     switch (item.tab) {
       case _SearchTab.origin:
@@ -527,6 +537,10 @@ class _SearchPageState extends State<SearchPage>
       case _SearchTab.all:
         break;
     }
+  }
+
+  void _dismissKeyboard() {
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 }
 
@@ -579,7 +593,7 @@ class _SearchHistoryPanel extends StatelessWidget {
                   style: TextStyle(
                     color: Color(0xFF111111),
                     fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -662,6 +676,7 @@ class _SearchResultList extends StatefulWidget {
     required this.onLoadMore,
     required this.onOpen,
     required this.onOpenMore,
+    required this.onDismissKeyboard,
   });
 
   final _SearchTab tab;
@@ -670,6 +685,7 @@ class _SearchResultList extends StatefulWidget {
   final VoidCallback onLoadMore;
   final ValueChanged<_SearchResultItem> onOpen;
   final ValueChanged<_SearchTab> onOpenMore;
+  final VoidCallback onDismissKeyboard;
 
   @override
   State<_SearchResultList> createState() => _SearchResultListState();
@@ -699,6 +715,7 @@ class _SearchResultListState extends State<_SearchResultList>
   }
 
   void _handleScroll() {
+    widget.onDismissKeyboard();
     if (!_scrollController.hasClients ||
         _scrollController.position.extentAfter > _loadMoreThreshold) {
       return;
@@ -746,7 +763,8 @@ class _SearchResultListState extends State<_SearchResultList>
     return ListView.builder(
       controller: _scrollController,
       primary: false,
-      cacheExtent: 900,
+      scrollCacheExtent: const ScrollCacheExtent.pixels(900),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
@@ -857,7 +875,7 @@ class _SectionTitle extends StatelessWidget {
         style: const TextStyle(
           color: Color(0xFF111111),
           fontSize: 16,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -883,7 +901,7 @@ class _SearchMoreButton extends StatelessWidget {
             child: Text(
               'More >',
               style: TextStyle(
-                color: Color(0xFF4B6192),
+                color: Color(0xFF666666),
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
               ),
@@ -924,7 +942,7 @@ class _SearchResultTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ResultThumb(item: item),
-          SizedBox(width: isUser ? 18 : 16),
+          const SizedBox(width: 10),
           Expanded(
             child: Padding(
               padding: EdgeInsets.zero,
@@ -937,12 +955,13 @@ class _SearchResultTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: titleStyle,
                   ),
-                  const SizedBox(height: 9),
+                  const SizedBox(height: 5),
                   if (isUser)
-                    CopyableIdLabel(
-                      label: 'UID',
-                      value: item.displaySubtitle,
-                      showCopyIcon: false,
+                    Text(
+                      'UID: ${formatCopyableIdValue(item.displaySubtitle)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: CopyableIdLabel.textStyle,
                     )
                   else
                     Text(
@@ -953,11 +972,11 @@ class _SearchResultTile extends StatelessWidget {
                         color: Color(0xFF888888),
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
-                        height: 1.33,
+                        height: 1.3,
                       ),
                     ),
                   if (!isUser) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     _ResultStats(item: item),
                   ],
                 ],
@@ -977,7 +996,7 @@ class _ResultThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = item.tab == _SearchTab.user ? 48.0 : 62.0;
+    const size = 52.0;
     if (item.tab == _SearchTab.user) {
       return GenesisAvatar(
         url: item.coverImage,
@@ -1302,12 +1321,108 @@ String _originSearchSubtitle(
     'version_num',
     'origin_version',
     'origin_version_num',
+    'latest_version',
+    'latest_version_num',
+    'latest_origin_version',
+    'latest_origin_version_num',
+    'latestVersion',
+    'latestVersionNum',
+    'latestOriginVersion',
+    'latestOriginVersionNum',
+    'version',
+    'version_no',
+    'versionNo',
   ]);
-  final version = versionNum <= 0 ? '-' : 'V$versionNum';
-  final updated = formatGenesisDateTime(asDateTime(raw['updated_at']));
+  final version = _originVersionLabel(raw, fallbackVersionNum: versionNum);
+  final updated = formatGenesisTimestamp(
+    _firstSearchValue(raw, const [
+      'updated_at',
+      'origin_version_time',
+      'version_time',
+      'latest_version_time',
+      'latest_origin_version_time',
+    ]),
+  );
   return 'OID: $displayOid  Originator: '
       '${formatUidForDisplay(originator, fallback: '-')}\n'
       'Latest Version: $version · $updated';
+}
+
+String _originVersionLabel(
+  Map<dynamic, dynamic> raw, {
+  required int fallbackVersionNum,
+}) {
+  if (fallbackVersionNum > 0) return 'V$fallbackVersionNum';
+  final directValue = _firstSearchVersionLabel(raw, const [
+    'version_num',
+    'origin_version',
+    'origin_version_num',
+    'latest_version',
+    'latest_version_num',
+    'latest_origin_version',
+    'latest_origin_version_num',
+    'latestVersion',
+    'latestVersionNum',
+    'latestOriginVersion',
+    'latestOriginVersionNum',
+    'version',
+    'version_no',
+    'versionNo',
+  ]);
+  if (directValue.isNotEmpty) return directValue;
+
+  for (final key in const [
+    'latest_version',
+    'latestVersion',
+    'latest_origin_version',
+    'latestOriginVersion',
+    'origin_version_info',
+    'originVersionInfo',
+    'version_info',
+    'versionInfo',
+  ]) {
+    final value = raw[key];
+    if (value is Map) {
+      final nestedLabel = _firstSearchVersionLabel(value, const [
+        'version_num',
+        'versionNum',
+        'origin_version',
+        'originVersion',
+        'origin_version_num',
+        'originVersionNum',
+        'latest_version',
+        'latestVersion',
+        'num',
+        'version',
+        'version_no',
+        'versionNo',
+        'label',
+        'name',
+      ]);
+      if (nestedLabel.isNotEmpty) return nestedLabel;
+    }
+  }
+
+  return '-';
+}
+
+String _firstSearchVersionLabel(Map<dynamic, dynamic> raw, List<String> keys) {
+  for (final key in keys) {
+    final label = _searchVersionLabelFromValue(raw[key]);
+    if (label.isNotEmpty) return label;
+  }
+  return '';
+}
+
+String _searchVersionLabelFromValue(Object? raw) {
+  if (raw is Map || raw is List) return '';
+  final value = asString(raw).trim();
+  if (_isBlankSearchValue(value) || value == '0') return '';
+  final numeric = int.tryParse(value);
+  if (numeric != null) return numeric <= 0 ? '' : 'V$numeric';
+  final prefixedVersion = RegExp(r'^[vV]\s*(\d+)$').firstMatch(value);
+  if (prefixedVersion != null) return 'V${prefixedVersion.group(1)}';
+  return value;
 }
 
 String _worldSearchSubtitle(
@@ -1328,7 +1443,7 @@ String _worldSearchSubtitle(
 String _firstSearchString(Map<dynamic, dynamic> raw, List<String> keys) {
   for (final key in keys) {
     final value = asString(raw[key]).trim();
-    if (value.isNotEmpty) return value;
+    if (!_isBlankSearchValue(value)) return value;
   }
   return '';
 }
@@ -1341,7 +1456,27 @@ int _firstSearchInt(Map<dynamic, dynamic> raw, List<String> keys) {
   return 0;
 }
 
+Object? _firstSearchValue(Map<dynamic, dynamic> raw, List<String> keys) {
+  for (final key in keys) {
+    final value = raw[key];
+    if (value == null) continue;
+    final text = asString(value).trim();
+    if (!_isBlankSearchValue(text)) return value;
+  }
+  return null;
+}
+
 String _dashOrValue(String value) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? '-' : trimmed;
+}
+
+bool _isBlankSearchValue(String value) {
+  final normalized = value.trim().toLowerCase();
+  return normalized.isEmpty ||
+      normalized == '-' ||
+      normalized == '--' ||
+      normalized == 'null' ||
+      normalized == 'none' ||
+      normalized == 'n/a';
 }

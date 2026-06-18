@@ -307,6 +307,9 @@ class CreateOriginDraft {
         errors.add('Characters #${i + 1}: Personality is required.');
       }
     }
+    if (!characters.any(_characterIsComplete)) {
+      errors.add('Characters: At least one character is required.');
+    }
 
     for (int i = 0; i < locations.length; i++) {
       final item = locations[i];
@@ -394,6 +397,12 @@ bool _characterHasContent(CharacterDraft item) {
       item.personality.trim().isNotEmpty ||
       item.bio.trim().isNotEmpty ||
       item.goal.trim().isNotEmpty;
+}
+
+bool _characterIsComplete(CharacterDraft item) {
+  return item.name.trim().isNotEmpty &&
+      item.identity.trim().isNotEmpty &&
+      item.personality.trim().isNotEmpty;
 }
 
 bool _locationHasContent(LocationDraft item) {

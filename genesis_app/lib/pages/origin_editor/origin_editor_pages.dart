@@ -301,6 +301,8 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     }
 
     const disabledSubmitColor = Color(0xFFBFD8CD);
+    final canUseSubmitButton =
+        !_isSubmitting && _submitBlockReason(_draft) == null;
 
     return PopScope(
       canPop: false,
@@ -318,88 +320,104 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
           onTap: _clearInputFocus,
           child: SafeArea(
             top: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: [
-                  const SizedBox(height: 14),
-                  Expanded(
-                    child: ListView(
+            child: Column(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
                       children: [
-                        if (widget.showCurrentVersion) ...[
-                          Text(
-                            'Current Version: ${_versionLabel(_draft.basics.originVersion)}',
-                            style: _editSummaryLabelStyle,
-                          ),
-                          const SizedBox(height: 20),
-                        ],
-                        _SectionRow(
-                          icon: '🌐',
-                          title: 'Basics',
-                          summary: _basicsSummary(_draft),
-                          completed: _draft.basicsSaved,
-                          modified: _basicsModified(_draft),
-                          onTap: () => _openSection(
-                            widget.basicsPageBuilder(widget.repository),
+                        const SizedBox(height: 14),
+                        Expanded(
+                          child: ListView(
+                            children: [
+                              if (widget.showCurrentVersion) ...[
+                                Text(
+                                  'Current Version: ${_versionLabel(_draft.basics.originVersion)}',
+                                  style: _editSummaryLabelStyle,
+                                ),
+                                const SizedBox(height: 20),
+                              ],
+                              _SectionRow(
+                                icon: '🌐',
+                                title: 'Basics',
+                                summary: _basicsSummary(_draft),
+                                completed: _draft.basicsSaved,
+                                modified: _basicsModified(_draft),
+                                onTap: () => _openSection(
+                                  widget.basicsPageBuilder(widget.repository),
+                                ),
+                              ),
+                              _SectionRow(
+                                icon: '👤',
+                                title: 'Characters (>=1)',
+                                summary: _charactersSummary(_draft),
+                                completed: _draft.charactersSaved,
+                                modified: _charactersModified(_draft),
+                                onTap: () => _openSection(
+                                  widget.charactersPageBuilder(
+                                    widget.repository,
+                                  ),
+                                ),
+                              ),
+                              _SectionRow(
+                                icon: '📍',
+                                title: 'Locations (Optional)',
+                                summary: _locationsSummary(_draft),
+                                completed: _draft.locationsSaved,
+                                modified: _locationsModified(_draft),
+                                onTap: () => _openSection(
+                                  widget.locationsPageBuilder(
+                                    widget.repository,
+                                  ),
+                                ),
+                              ),
+                              _SectionRow(
+                                icon: '📜',
+                                title: 'Story Events (Optional)',
+                                summary: _storyEventsSummary(_draft),
+                                completed: _draft.storyEventsSaved,
+                                modified: _storyEventsModified(_draft),
+                                showDivider: false,
+                                onTap: () => _openSection(
+                                  widget.storyEventsPageBuilder(
+                                    widget.repository,
+                                  ),
+                                ),
+                              ),
+                              if (widget.updateNotesController != null) ...[
+                                const SizedBox(height: 20),
+                                const _UpdateNotesFieldLabel(),
+                                const SizedBox(height: 8),
+                                _UpdateNotesField(
+                                  controller: widget.updateNotesController!,
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                        _SectionRow(
-                          icon: '👤',
-                          title: 'Characters',
-                          summary: _charactersSummary(_draft),
-                          completed: _draft.charactersSaved,
-                          modified: _charactersModified(_draft),
-                          onTap: () => _openSection(
-                            widget.charactersPageBuilder(widget.repository),
-                          ),
-                        ),
-                        _SectionRow(
-                          icon: '📍',
-                          title: 'Locations',
-                          summary: _locationsSummary(_draft),
-                          completed: _draft.locationsSaved,
-                          modified: _locationsModified(_draft),
-                          onTap: () => _openSection(
-                            widget.locationsPageBuilder(widget.repository),
-                          ),
-                        ),
-                        _SectionRow(
-                          icon: '📜',
-                          title: 'Story Events (Optional)',
-                          summary: _storyEventsSummary(_draft),
-                          completed: _draft.storyEventsSaved,
-                          modified: _storyEventsModified(_draft),
-                          showDivider: false,
-                          onTap: () => _openSection(
-                            widget.storyEventsPageBuilder(widget.repository),
-                          ),
-                        ),
-                        if (widget.updateNotesController != null) ...[
-                          const SizedBox(height: 20),
-                          const _UpdateNotesFieldLabel(),
-                          const SizedBox(height: 8),
-                          _UpdateNotesField(
-                            controller: widget.updateNotesController!,
-                          ),
-                        ],
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                SafeArea(
+                  top: false,
+                  minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
+                  child: GenesisPrimaryButton(
+                    label: _isSubmitting
+                        ? widget.submittingLabel
+                        : widget.submitLabel,
+                    onPressed: canUseSubmitButton
+                        ? () => unawaited(_submit())
+                        : null,
+                    backgroundColor: createFormGreen,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: disabledSubmitColor,
+                    disabledForegroundColor: Colors.white,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ),
-        bottomNavigationBar: SafeArea(
-          top: false,
-          minimum: const EdgeInsets.fromLTRB(20, 8, 20, 14),
-          child: GenesisPrimaryButton(
-            label: _isSubmitting ? widget.submittingLabel : widget.submitLabel,
-            onPressed: _isSubmitting ? null : () => unawaited(_submit()),
-            backgroundColor: createFormGreen,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: disabledSubmitColor,
-            disabledForegroundColor: Colors.white,
           ),
         ),
       ),
@@ -413,6 +431,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       'World Name: ${_summaryValue(basics.originName)}',
       'World View: ${_summaryValue(basics.worldView)}',
       'World Logic: ${_summaryValue(basics.worldLogic)}',
+      'Cover Image: ${basics.coverImageUrl.trim().isEmpty ? 'Not uploaded' : 'Uploaded'}',
     ].join('\n');
   }
 
