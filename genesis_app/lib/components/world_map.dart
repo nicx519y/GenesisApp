@@ -1736,6 +1736,8 @@ class _PositionedMapMessageBubble extends StatelessWidget {
 class _MapMessageBubble extends StatelessWidget {
   const _MapMessageBubble({required this.content});
 
+  static const Color _backgroundColor = Color(0xFFFFFFFF);
+
   final String content;
 
   @override
@@ -1744,21 +1746,9 @@ class _MapMessageBubble extends StatelessWidget {
       clipBehavior: Clip.none,
       alignment: Alignment.topCenter,
       children: [
-        Positioned(
-          top: -7,
-          child: Transform.rotate(
-            angle: math.pi / 4,
-            child: const SizedBox.square(
-              dimension: 14,
-              child: DecoratedBox(
-                decoration: BoxDecoration(color: Colors.white),
-              ),
-            ),
-          ),
-        ),
         DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: _backgroundColor,
             borderRadius: BorderRadius.circular(10),
             boxShadow: [
               BoxShadow(
@@ -1779,6 +1769,18 @@ class _MapMessageBubble extends StatelessWidget {
                 fontSize: 11,
                 height: 1.25,
                 fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: -7,
+          child: Transform.rotate(
+            angle: math.pi / 4,
+            child: const SizedBox.square(
+              dimension: 14,
+              child: DecoratedBox(
+                decoration: BoxDecoration(color: _backgroundColor),
               ),
             ),
           ),
