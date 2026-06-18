@@ -1,32 +1,48 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/widgets.dart';
 
-import '../config/app_endpoint_overrides.dart';
 import 'service_registry.dart';
 
 class AppBootstrap {
   const AppBootstrap._();
 
-  static Future<AppServices> initialize() async {
+  static const _firebaseInitializeTimeout = Duration(seconds: 4);
+  static const _sessionReadTimeout = Duration(seconds: 2);
+  static const _guestBindTimeout = Duration(seconds: 8);
+
+  static AppServices createInitialServices() {
     WidgetsFlutterBinding.ensureInitialized();
-    final config = await AppEndpointOverrideStore.loadConfig();
-    final services = ServiceRegistry.build(config: config);
+    return ServiceRegistry.build();
+  }
+
+  static Future<AppServices> initialize() async {
+    final services = createInitialServices();
+    await warmUp(services);
+    return services;
+  }
+
+  static Future<void> warmUp(AppServices services) async {
     try {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp().timeout(_firebaseInitializeTimeout);
     } catch (e, st) {
       debugPrint('[Auth][Firebase] initialize failed: $e');
       debugPrint('[Auth][Firebase] stacktrace:\n$st');
     }
 
-    final uid = await services.sessionStore.readUid();
+    String? uid;
+    try {
+      uid = await services.sessionStore.readUid().timeout(_sessionReadTimeout);
+    } catch (e, st) {
+      debugPrint('[Auth][Bootstrap] session read failed: $e');
+      debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
+    }
     if (uid == null) {
       try {
-        await services.api.bindDevice().timeout(const Duration(seconds: 8));
+        await services.api.bindDevice().timeout(_guestBindTimeout);
       } catch (e, st) {
         debugPrint('[Auth][Bootstrap] guest bind failed: $e');
         debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
       }
     }
-    return services;
   }
 }
