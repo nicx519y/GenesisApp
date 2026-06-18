@@ -557,7 +557,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       final status = message.streaming ? 'streaming' : 'sent';
       final isMe = _isMineMessage(message);
       final senderName = _messageSenderDisplayName(message);
-      final avatarUrl = _messageAvatarUrl(message);
       final clientMsgId = message.clientMsgId.trim();
       final existing =
           (clientMsgId.isEmpty ? null : existingByClientMsgId[clientMsgId]) ??
@@ -570,6 +569,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             message,
             usedLocalIds: usedLocalIds,
           );
+      final avatarUrl = _messageAvatarUrl(
+        message,
+        isMe: isMe,
+        fallback: existing?.avatarUrl ?? '',
+      );
       final createdAt = message.createdAt ?? DateTime.now();
       if (existing != null) {
         if (usedLocalIds.contains(existing.localId)) {
@@ -891,12 +895,23 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     ]);
   }
 
-  String _messageAvatarUrl(WorldChatroomMessage message) {
-    return firstNonEmpty([
-      _entityAvatarForIdentity(message.userId),
-      _entityAvatarForIdentity(message.senderId),
-      _roleAvatarForIdentityCandidates([message.userId, message.senderId]),
-    ]);
+  String _messageAvatarUrl(
+    WorldChatroomMessage message, {
+    bool? isMe,
+    String fallback = '',
+  }) {
+    final mine = isMe ?? _isMineMessage(message);
+    return resolveLocationChatMessageAvatarForTesting(
+      entityUserAvatar: _entityAvatarForIdentity(message.userId),
+      entitySenderAvatar: _entityAvatarForIdentity(message.senderId),
+      roleAvatar: _roleAvatarForIdentityCandidates([
+        message.userId,
+        message.senderId,
+      ]),
+      isMine: mine,
+      localSelfAvatar: mine ? _localSelfAvatarUrl() : '',
+      fallback: fallback,
+    );
   }
 
   String _localSelfDisplayName() {
@@ -1333,6 +1348,24 @@ String _resolvedProfileAvatar(
   );
   if (resolved.isNotEmpty) return resolved;
   return asResolvedImageUrl(profileAvatar, resolveAssetUrl);
+}
+
+@visibleForTesting
+String resolveLocationChatMessageAvatarForTesting({
+  String entityUserAvatar = '',
+  String entitySenderAvatar = '',
+  String roleAvatar = '',
+  bool isMine = false,
+  String localSelfAvatar = '',
+  String fallback = '',
+}) {
+  return firstNonEmpty([
+    entityUserAvatar,
+    entitySenderAvatar,
+    roleAvatar,
+    if (isMine) localSelfAvatar,
+    fallback,
+  ]);
 }
 
 Object? _mapValue(Map<dynamic, dynamic> map, List<String> keys) {
