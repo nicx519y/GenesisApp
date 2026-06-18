@@ -507,7 +507,7 @@ class _DiscussOriginSummary extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 14,
                   height: 1.2,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: Color(0xFF2F4F7A),
                 ),
               ),

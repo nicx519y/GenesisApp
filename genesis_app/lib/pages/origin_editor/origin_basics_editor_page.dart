@@ -373,7 +373,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                           style: TextStyle(
                             color: createFormText,
                             fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         onChanged: (_) => _onFormChanged(),
@@ -394,7 +394,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         style: TextStyle(
                           color: createFormText,
                           fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           height: 1.2,
                         ),
                       ),
@@ -442,7 +442,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         style: TextStyle(
                           color: createFormText,
                           fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                           height: 1.2,
                         ),
                       ),
@@ -586,7 +586,7 @@ class _AdvancedSettingsDivider extends StatelessWidget {
             style: TextStyle(
               color: createFormMuted,
               fontSize: 12,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               height: 1.2,
             ),
           ),
@@ -674,7 +674,7 @@ class _TimeProgressOption extends StatelessWidget {
             style: TextStyle(
               color: selected ? createFormGreen : createFormMuted,
               fontSize: 12,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
               height: 1.2,
             ),
           ),

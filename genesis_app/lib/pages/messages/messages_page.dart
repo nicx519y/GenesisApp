@@ -207,7 +207,7 @@ class _MessagesPageState extends State<MessagesPage> {
             padding: const EdgeInsets.symmetric(horizontal: 18),
             child: const Text(
               'Private chats',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
           const SizedBox(height: 8),
@@ -480,7 +480,7 @@ class _ConversationTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                           color: Color(0xFF80848D),
                         ),
                       ),
@@ -564,7 +564,7 @@ class _NoMessagesFooter extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 color: Color(0xFF94979E),
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

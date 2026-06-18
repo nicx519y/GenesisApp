@@ -22,7 +22,7 @@ class CharactersList extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               'Characters (${characters.length})',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -143,7 +143,7 @@ class _CharacterTile extends StatelessWidget {
                       name,
                       style: const TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                         color: Color(0xFF111111),
                       ),
                     ),
@@ -182,7 +182,7 @@ class _CharacterTile extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   height: 1.25,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                   color: Colors.black.withValues(alpha: 0.78),
                 ),
               ),

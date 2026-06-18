@@ -157,7 +157,7 @@ class _DebugButton extends StatelessWidget {
                 color: Colors.white,
                 fontSize: 10,
                 height: 1,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

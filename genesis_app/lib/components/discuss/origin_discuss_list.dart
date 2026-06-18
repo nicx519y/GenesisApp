@@ -1284,7 +1284,7 @@ class _DiscussActions extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             height: 1.2,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
             color: activeColor,
           ),
         ),
@@ -1320,7 +1320,7 @@ class _DiscussActions extends StatelessWidget {
         const SizedBox(width: 7),
         Text(
           '${item.replyCount}',
-          style: _subtleStyle.copyWith(fontWeight: FontWeight.w500),
+          style: _subtleStyle.copyWith(fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -1590,7 +1590,7 @@ class _DiscussPreviewMeta extends StatelessWidget {
                       color: Color(0xFF888888),
                       fontSize: 12,
                       height: 1.18,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),

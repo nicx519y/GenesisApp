@@ -270,7 +270,7 @@ class _SectionRow extends StatelessWidget {
                               style: TextStyle(
                                 color: Color(0xFF1C7D56),
                                 fontSize: 16,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w600,
                                 height: 1,
                               ),
                             ),
@@ -444,7 +444,7 @@ class _InitialCharactersField extends StatelessWidget {
           style: TextStyle(
             color: createFormText,
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             height: 1.2,
           ),
         ),
@@ -565,7 +565,7 @@ class _InitialCharactersField extends StatelessWidget {
     final textPainter = TextPainter(
       text: TextSpan(
         text: name,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
       ),
       maxLines: 1,
       textDirection: Directionality.of(context),
@@ -617,7 +617,7 @@ class _InitialCharacterChip extends StatelessWidget {
               style: const TextStyle(
                 color: createFormText,
                 fontSize: 11,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 height: 1.2,
               ),
             ),
@@ -802,7 +802,7 @@ class _CharacterPickerTile extends StatelessWidget {
             style: const TextStyle(
               color: createFormText,
               fontSize: 14,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               height: 1.2,
             ),
           ),

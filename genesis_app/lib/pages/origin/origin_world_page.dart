@@ -970,9 +970,9 @@ class _OriginHeader extends StatelessWidget {
             originDisplayName(origin.name, fallback: origin.oid),
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 16,
+              fontSize: 18,
               height: 1.25,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
               color: Color(0xFF4B6192),
             ),
           ),
@@ -1346,7 +1346,7 @@ class _CopyWorldProgressCard extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           height: 1.3,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
           color: Color(0xFF999999),
         ),
       );
@@ -1633,7 +1633,7 @@ class _OriginCharacterRow extends StatelessWidget {
               Text(
                 character.name,
                 style: const TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   height: 1.15,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF111111),
@@ -1645,7 +1645,7 @@ class _OriginCharacterRow extends StatelessWidget {
                 Text(
                   identity,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
                     color: Color(0xFF111111),
@@ -1658,7 +1658,7 @@ class _OriginCharacterRow extends StatelessWidget {
                 Text(
                   tagline,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
                     color: Color(0xFFF42C47),
@@ -1898,7 +1898,7 @@ class _SectionTitle extends StatelessWidget {
             style: const TextStyle(
               fontSize: 14,
               height: 1.2,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: Color(0xFF111111),
             ),
           ),
@@ -1916,7 +1916,7 @@ const _bodyTextStyle = TextStyle(
 );
 
 const _characterBodyTextStyle = TextStyle(
-  fontSize: 14,
+  fontSize: 12,
   height: 1.35,
   fontWeight: FontWeight.w400,
   color: Color(0xFF111111),
@@ -1925,7 +1925,7 @@ const _characterBodyTextStyle = TextStyle(
 const _mutedBodyTextStyle = TextStyle(
   fontSize: 12,
   height: 1.3,
-  fontWeight: FontWeight.w500,
+  fontWeight: FontWeight.w600,
   color: Color(0xFF999999),
 );
 

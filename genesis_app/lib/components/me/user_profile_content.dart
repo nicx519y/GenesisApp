@@ -912,7 +912,7 @@ class _DisplayNameText extends StatelessWidget {
       style: const TextStyle(
         fontSize: 18,
         height: 1,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         color: Colors.black,
       ),
     );

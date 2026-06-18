@@ -1557,7 +1557,7 @@ class _PointLabel extends StatelessWidget {
         fontSize: 10,
         height: 1.2,
         leadingDistribution: TextLeadingDistribution.even,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w600,
         color: color ?? Colors.black,
       ),
     );

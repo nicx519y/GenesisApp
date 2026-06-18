@@ -28,7 +28,7 @@ class DiscussStoryBadge extends StatelessWidget {
             style: const TextStyle(
               fontSize: 11,
               height: 1,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w600,
               color: _chipForeground,
             ),
           ),

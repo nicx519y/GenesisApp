@@ -765,7 +765,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
                                         textStyle: const TextStyle(
                                           fontSize: 16,
                                           height: 1.1,
-                                          fontWeight: FontWeight.w700,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                       child: _submitting

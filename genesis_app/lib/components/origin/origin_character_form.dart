@@ -113,9 +113,9 @@ class OriginCharacterFormFields extends StatelessWidget {
     this.labelInputGap = 8,
     this.avatarEmptyIconLabelGap = 8,
     this.labelSize = 14,
-    this.labelFontWeight = FontWeight.w700,
-    this.avatarEmptyLabelFontWeight = FontWeight.w700,
-    this.avatarRemoveLinkFontWeight = FontWeight.w700,
+    this.labelFontWeight = FontWeight.w600,
+    this.avatarEmptyLabelFontWeight = FontWeight.w600,
+    this.avatarRemoveLinkFontWeight = FontWeight.w600,
     this.bioMaxLines,
     this.identityBelowAvatarRow = false,
   });

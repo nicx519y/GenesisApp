@@ -183,7 +183,7 @@ class GenesisAvatarFallback extends StatelessWidget {
                 color: Colors.white,
                 fontSize: fontSize,
                 height: 1,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
         ),
       ),

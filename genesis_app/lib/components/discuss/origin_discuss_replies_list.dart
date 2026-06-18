@@ -66,7 +66,7 @@ class OriginDiscussRepliesList extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 12,
                             height: 1.25,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: Color(0xFF2F4F7A),
                           ),
                         ),
