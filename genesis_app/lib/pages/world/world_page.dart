@@ -236,9 +236,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _enqueueMapMessageBubbles(messages, priority: true);
   }
 
-  void _enqueueMapMessageBubbles(
+  bool _enqueueMapMessageBubbles(
     Iterable<WorldChatroomMessage> messages, {
     required bool priority,
+    bool startCarousel = true,
   }) {
     final byLocation = <String, List<WorldChatroomMessage>>{};
     for (final message in messages) {
@@ -252,7 +253,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           .putIfAbsent(queueLocationId, () => <WorldChatroomMessage>[])
           .add(candidate);
     }
-    if (byLocation.isEmpty) return;
+    if (byLocation.isEmpty) return false;
     for (final entry in byLocation.entries) {
       final locationId = entry.key;
       final locationMessages = _interleaveMapBubbleMessagesBySender(
@@ -268,8 +269,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       );
       queue.addAll(locationMessages);
       _trimMapMessageBubbleQueues(locationId);
+    }
+    if (startCarousel) {
       _ensureMapMessageBubbleCarousel();
     }
+    return true;
   }
 
   void _registerMapMessageBubbleLocation(String locationId) {
@@ -705,6 +709,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       debugPrint('[WorldPage] map bubble location refresh failed: $error');
     }
     if (!_isCurrentMapBubblePrime(service, primeKey)) return;
+    var queuedAny = false;
     for (final descriptor in descriptors) {
       if (!_isCurrentMapBubblePrime(service, primeKey)) return;
       var cachedMessages = await service.loadCachedMessages(
@@ -729,7 +734,16 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         );
       }
       if (!_isCurrentMapBubblePrime(service, primeKey)) return;
-      _enqueueMapMessageBubbles(cachedMessages, priority: false);
+      queuedAny =
+          _enqueueMapMessageBubbles(
+            cachedMessages,
+            priority: false,
+            startCarousel: false,
+          ) ||
+          queuedAny;
+    }
+    if (_isCurrentMapBubblePrime(service, primeKey) && queuedAny) {
+      _ensureMapMessageBubbleCarousel();
     }
   }
 
