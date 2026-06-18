@@ -132,17 +132,18 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final viewportHeight = constraints.maxHeight;
+          final bottomSafeArea = _bottomSafeAreaOf(context);
+          final mapBottomOffset = bottomBar == null ? bottomSafeArea : 0.0;
+          final maxMapHeight =
+              (viewportHeight - widget.panelTopGap - mapBottomOffset)
+                  .clamp(0.0, viewportHeight)
+                  .toDouble();
           final mapHeight =
               (viewportHeight *
                           (1 - WorldDetailsPanel.defaultExposedChildSize) +
-                      widget.panelCollapsedHeightOffset)
-                  .clamp(
-                    0.0,
-                    (viewportHeight - widget.panelTopGap).clamp(
-                      0.0,
-                      viewportHeight,
-                    ),
-                  )
+                      widget.panelCollapsedHeightOffset -
+                      mapBottomOffset)
+                  .clamp(0.0, maxMapHeight)
                   .toDouble();
           final panelTopOverlap = widget.panelTopOverlap
               .clamp(0.0, mapHeight)
@@ -150,7 +151,6 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
           final bottomPadding = bottomBar == null
               ? WorldDetailsPageScaffold.contentBottomPadding
               : WorldDetailsPageScaffold.contentBottomPaddingWithBottomBar;
-          final bottomSafeArea = MediaQuery.paddingOf(context).bottom;
           final statusBarHeight = MediaQuery.paddingOf(context).top;
 
           return AnimatedBuilder(
@@ -306,7 +306,7 @@ class WorldDetailsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomPadding = this.bottomPadding;
-    final bottomSafeArea = MediaQuery.paddingOf(context).bottom;
+    final bottomSafeArea = _bottomSafeAreaOf(context);
     return WorldDetailsShell(
       topGap: topGap,
       minChildSize: exposedChildSize,
@@ -329,6 +329,17 @@ class WorldDetailsPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+double _bottomSafeAreaOf(BuildContext context) {
+  final mediaQuery = MediaQuery.of(context);
+  final paddingBottom = mediaQuery.padding.bottom;
+  final viewPaddingBottom = mediaQuery.viewPadding.bottom;
+  final systemGestureBottom = mediaQuery.systemGestureInsets.bottom;
+  final maxPadding = paddingBottom > viewPaddingBottom
+      ? paddingBottom
+      : viewPaddingBottom;
+  return maxPadding > systemGestureBottom ? maxPadding : systemGestureBottom;
 }
 
 class WorldDetailsPanelScrollControllerScope extends InheritedWidget {
