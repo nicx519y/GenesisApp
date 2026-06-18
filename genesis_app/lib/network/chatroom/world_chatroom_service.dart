@@ -659,7 +659,7 @@ class WorldChatroomService {
         entities[id] = WorldChatroomEntity(
           id: id,
           name: isPlayer
-              ? _firstNonEmpty([character.playerUsername, id])
+              ? _firstNonEmpty([existing?.name, character.name, id])
               : _firstNonEmpty([existing?.name, character.name]),
           avatarUrl: existing?.avatarUrl ?? '',
           type: isPlayer
@@ -1307,6 +1307,12 @@ class WorldChatroomService {
     if (id.isEmpty) return null;
     final name = isPlayer
         ? _firstNonEmpty([
+            _firstString(character, const [
+              'name',
+              'role_nickname',
+              'role_name',
+              'character_name',
+            ]),
             _firstString(character, const [
               'player_username',
               'user_name',

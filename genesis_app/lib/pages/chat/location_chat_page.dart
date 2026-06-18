@@ -1214,19 +1214,15 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     return nameKey.isEmpty ? '' : 'name:$nameKey';
   }
 
-  String _realUserDisplayName(WorldChatroomEntity entity) {
-    return firstNonEmpty([entity.name, formatUidForDisplay(entity.id)]);
-  }
-
   @override
   Widget build(BuildContext context) {
     final realUsers = _realUsersForCurrentLocation(_chatroomState);
-    final realUserNames = realUsers
-        .map(_realUserDisplayName)
-        .where((name) => name.isNotEmpty)
-        .toList(growable: false);
+    final aiRoleNames = resolveLocationChatAiRoleNamesForTesting(
+      _chatroomState,
+      _currentLocationIds(),
+    );
     final title = firstNonEmpty([widget.locationName, widget.locationId]);
-    final subtitle = realUserNames.join(', ');
+    final subtitle = aiRoleNames.join(', ');
     final joined = _chatroomState.joinedLocationId == widget.locationId;
     final connecting =
         _chatroomState.reconnecting ||
@@ -1254,7 +1250,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
               connecting: connecting && realUsers.isEmpty,
               onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
               showSubtitle:
-                  widget.showConnectionStatus && realUserNames.isNotEmpty,
+                  widget.showConnectionStatus && aiRoleNames.isNotEmpty,
               style: style,
             ),
             Expanded(
@@ -1366,6 +1362,38 @@ String resolveLocationChatMessageAvatarForTesting({
     if (isMine) localSelfAvatar,
     fallback,
   ]);
+}
+
+@visibleForTesting
+List<String> resolveLocationChatAiRoleNamesForTesting(
+  WorldChatroomState state,
+  Iterable<String> locationIds,
+) {
+  final names = <String>[];
+  final seen = <String>{};
+  for (final locationId in locationIds) {
+    final trimmedLocationId = locationId.trim();
+    if (trimmedLocationId.isEmpty) continue;
+    final entities =
+        state.entitiesByLocation[trimmedLocationId] ??
+        const <WorldChatroomEntity>[];
+    for (final entity in entities) {
+      if (!entity.isAi) continue;
+      final name = entity.name.trim();
+      if (name.isEmpty) continue;
+      final key = _locationChatEntityDedupKey(entity);
+      if (key.isEmpty || !seen.add(key)) continue;
+      names.add(name);
+    }
+  }
+  return names;
+}
+
+String _locationChatEntityDedupKey(WorldChatroomEntity entity) {
+  final idKey = _chatroomIdentityKey(entity.id);
+  if (idKey.isNotEmpty) return 'id:$idKey';
+  final nameKey = entity.name.trim().toLowerCase();
+  return nameKey.isEmpty ? '' : 'name:$nameKey';
 }
 
 Object? _mapValue(Map<dynamic, dynamic> map, List<String> keys) {
