@@ -635,8 +635,12 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   Future<void> _openChatForPoint(WorldPoint point) async {
     final chatroom = _worldChatroom;
     if (!_canOpenLocationChat(chatroom)) {
+      if (_world?.relationStatus.trim().toLowerCase() == 'approved') {
+        await _runWorldAction(_WorldHeaderActionKind.launch);
+        return;
+      }
       if (mounted) {
-        showGenesisToast(context, _chatroomStatusLabel(chatroom?.state));
+        showGenesisToast(context, 'Request approval to launch');
       }
       return;
     }
@@ -938,13 +942,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   bool _canOpenLocationChat(WorldChatroomService? service) {
     return service != null;
-  }
-
-  String _chatroomStatusLabel(WorldChatroomState? state) {
-    if (state == null) return 'Disconnect';
-    if (state.reconnecting) return 'Reconnecting';
-    if (state.connected) return 'Connected';
-    return 'Connecting';
   }
 
   void _showMapTab() {
@@ -2481,6 +2478,7 @@ class _WorldHeaderAction {
 _WorldHeaderAction _worldHeaderActionFor(String relationStatus) {
   switch (relationStatus.trim().toLowerCase()) {
     case 'anonymous':
+    case 'reject':
     case 'rejected':
     case 'none':
       return const _WorldHeaderAction(
