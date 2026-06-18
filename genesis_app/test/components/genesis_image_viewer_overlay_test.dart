@@ -4,6 +4,7 @@ import 'package:genesis_flutter_android/components/common/genesis_image_viewer_o
 
 const _firstImage = 'assets/images/mock_maps/steam_kingdom_isometric.png';
 const _secondImage = 'assets/images/mock_maps/location_rail_gate_map.png';
+const _thirdImage = 'assets/images/mock_maps/location_clocktower_map.png';
 
 void main() {
   testWidgets('single image viewer supports zoom and hides page dots', (
@@ -113,6 +114,36 @@ void main() {
     );
     await gesture.up();
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('viewer preloads adjacent full-size images', (tester) async {
+    final preloadedAssetNames = <String>[];
+    debugGenesisImageViewerPrecacheImage = (imageProvider, context) async {
+      if (imageProvider is AssetImage) {
+        preloadedAssetNames.add(imageProvider.assetName);
+      }
+    };
+    addTearDown(() => debugGenesisImageViewerPrecacheImage = null);
+
+    await _pumpViewerHost(tester, const [
+      _firstImage,
+      _secondImage,
+      _thirdImage,
+    ], initialIndex: 1);
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(preloadedAssetNames, [_firstImage, _thirdImage]);
+
+    preloadedAssetNames.clear();
+    await tester.drag(
+      find.byKey(const ValueKey('genesis-image-viewer-page-view')),
+      const Offset(-500, 0),
+    );
+    await tester.pumpAndSettle();
+
+    expect(preloadedAssetNames, [_secondImage]);
   });
 
   testWidgets('image zoom resets after paging away and back', (tester) async {
@@ -242,16 +273,20 @@ void main() {
 
 Future<void> _pumpViewerHost(
   WidgetTester tester,
-  List<String> imageUrls,
-) async {
+  List<String> imageUrls, {
+  int initialIndex = 0,
+}) async {
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
         body: Builder(
           builder: (context) {
             return TextButton(
-              onPressed: () =>
-                  showGenesisImageViewer(context, imageUrls: imageUrls),
+              onPressed: () => showGenesisImageViewer(
+                context,
+                imageUrls: imageUrls,
+                initialIndex: initialIndex,
+              ),
               child: const Text('Open'),
             );
           },

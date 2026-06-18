@@ -1,8 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../utils/genesis_image_resource.dart';
 import 'genesis_modal_routes.dart';
+
+@visibleForTesting
+typedef GenesisImageViewerPrecacheImage =
+    Future<void> Function(
+      ImageProvider<Object> imageProvider,
+      BuildContext context,
+    );
+
+@visibleForTesting
+GenesisImageViewerPrecacheImage? debugGenesisImageViewerPrecacheImage;
 
 Future<void> showGenesisImageViewer(
   BuildContext context, {
@@ -65,6 +77,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
   late final List<TransformationController> _transformationControllers;
   late int _currentIndex;
   final Set<int> _activePointers = <int>{};
+  final Set<String> _preloadedImageUrls = <String>{};
   bool _pinchGestureActive = false;
   Offset? _dragStart;
   double _dragOffsetY = 0;
@@ -75,6 +88,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       SystemChrome.setSystemUIOverlayStyle(_immersiveStatusBarStyle);
+      _precacheAdjacentImages();
     });
     _currentIndex = widget.initialIndex.clamp(0, widget.imageUrls.length - 1);
     _pageController = PageController(
@@ -102,6 +116,46 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
       if (i == index) continue;
       _transformationControllers[i].value = Matrix4.identity();
     }
+    _precacheAdjacentImages(centerIndex: index);
+  }
+
+  void _precacheAdjacentImages({int? centerIndex}) {
+    final index = centerIndex ?? _currentIndex;
+    _precacheImageAt(index - 1);
+    _precacheImageAt(index + 1);
+  }
+
+  void _precacheImageAt(int index) {
+    if (index < 0 || index >= widget.imageUrls.length) return;
+    final imageUrl = _selectedViewerImageUrl(widget.imageUrls[index]);
+    if (imageUrl.isEmpty || !_preloadedImageUrls.add(imageUrl)) return;
+    final imageProvider = _viewerImageProvider(imageUrl);
+    final precache = debugGenesisImageViewerPrecacheImage;
+    final future = precache == null
+        ? precacheImage(
+            imageProvider,
+            context,
+            onError: (exception, stackTrace) {},
+          )
+        : precache(imageProvider, context);
+    unawaited(future);
+  }
+
+  String _selectedViewerImageUrl(String source) {
+    final mediaQuery = MediaQuery.maybeOf(context);
+    final size = mediaQuery?.size;
+    final logicalWidth = size != null && size.width.isFinite
+        ? size.width / _pageViewportFraction
+        : null;
+    final logicalHeight = size != null && size.height.isFinite
+        ? size.height
+        : null;
+    return selectGenesisImageUrl(
+      source,
+      logicalWidth: logicalWidth,
+      logicalHeight: logicalHeight,
+      devicePixelRatio: mediaQuery?.devicePixelRatio ?? 1,
+    ).trim();
   }
 
   void _handlePointerUp(PointerUpEvent event) {
@@ -267,6 +321,11 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
       ),
     );
   }
+}
+
+ImageProvider<Object> _viewerImageProvider(String url) {
+  if (url.startsWith('assets/')) return AssetImage(url);
+  return NetworkImage(url);
 }
 
 class _ViewerPageSlot extends StatelessWidget {

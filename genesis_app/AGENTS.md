@@ -110,7 +110,7 @@ WebSocket 当前协议规则：
 - map 支持 `url`、`image_url`、`image`、`avatar`、`cover`、`sm_url`、`xl_url`、`object_key`。
 - `displayUrl` 优先级是 `xl_url -> sm_url -> legacy url`。
 - `GenesisImageResourceRegistry` 会用 legacy/sm/xl/object key/display url 建索引；如果后续 UI 只拿到其中一个 key，可以回查完整资源。
-- `selectGenesisImageUrl` 会根据组件逻辑尺寸、DPR 和 URL 中的 `width/w/height/h` query 或文件名尺寸，选择足够清晰的最小图；没有尺寸信息时回退到 `displayUrl`。
+- `selectGenesisImageUrl` 有 `xl_url` 和组件逻辑宽度时，会按 `逻辑宽度 * DPR` 匹配 `45/90/180/360/720/1080/2160` 中刚好大于所需宽度的阶梯，并基于清空参数后的 `xl_url` 生成 `?x-oss-process=image/resize,w_{width},image/format,webp`；没有 `xl_url` 或没有宽度信息时回退到旧 display/candidate 兼容逻辑。
 
 HTTP 映射层的图片规则：
 
