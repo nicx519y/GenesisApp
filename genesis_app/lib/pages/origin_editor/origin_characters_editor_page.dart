@@ -222,7 +222,7 @@ class _OriginCharactersEditorPageState
                           ),
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 12),
                       for (int i = 0; i < _forms.length; i++) ...[
                         _CharacterCard(
                           index: i + 1,

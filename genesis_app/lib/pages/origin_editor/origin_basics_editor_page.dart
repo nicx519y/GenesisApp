@@ -533,7 +533,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             child: CreateTextFieldBlock(
                               label: '',
                               controller: _minValueController,
-                              hintText: 'Min',
+                              hintText: 'Delta Min',
                               maxLines: 1,
                               onChanged: (_) => _onFormChanged(),
                             ),
@@ -543,7 +543,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             child: CreateTextFieldBlock(
                               label: '',
                               controller: _maxValueController,
-                              hintText: 'Max',
+                              hintText: 'Delta Max',
                               maxLines: 1,
                               onChanged: (_) => _onFormChanged(),
                             ),

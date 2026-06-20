@@ -596,8 +596,6 @@ class _CustomRoleForm extends StatelessWidget {
               onChanged: onChanged,
               showPersonality: false,
               showGoal: false,
-              avatarWidth: 80,
-              avatarHeight: 80,
               avatarCropSize: const Size(512, 512),
               showAvatarRemoveLink: true,
               labelFontWeight: FontWeight.w600,

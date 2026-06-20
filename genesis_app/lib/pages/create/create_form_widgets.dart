@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -21,6 +22,8 @@ const Color createFormMuted = Color(0xFF6F6F6F);
 const Color createFormBorder = Color(0xFFE1E1E6);
 const Color createFormDash = Color(0xFFB8CDBF);
 const Color createFormDanger = Color(0xFFE14949);
+const String createFormDeleteIconAsset =
+    'assets/custom-icons/svg/delete-icon.svg';
 
 final Object createFormTextFieldTapRegionGroup = Object();
 
@@ -175,7 +178,7 @@ class CreateFormCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 22),
+      padding: const EdgeInsets.fromLTRB(18, 6, 18, 22),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -191,20 +194,24 @@ class CreateFormCard extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     color: createFormText,
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                     height: 1.1,
                   ),
                 ),
               ),
               Transform.translate(
-                offset: const Offset(13, 0),
+                offset: const Offset(13, -4),
                 child: IconButton(
                   onPressed: onDelete,
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    size: 26,
-                    color: Color(0xFF8F8F8F),
+                  icon: SvgPicture.asset(
+                    createFormDeleteIconAsset,
+                    width: 20,
+                    height: 20,
+                    colorFilter: const ColorFilter.mode(
+                      Color(0xFF888888),
+                      BlendMode.srcIn,
+                    ),
                   ),
                   splashRadius: 22,
                   visualDensity: VisualDensity.compact,
@@ -735,7 +742,7 @@ class CreateAddButton extends StatelessWidget {
                 label,
                 style: const TextStyle(
                   color: createFormText,
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
               ),

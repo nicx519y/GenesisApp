@@ -102,11 +102,11 @@ class OriginCharacterFormFields extends StatelessWidget {
     this.showPersonality = true,
     this.showGoal = true,
     this.avatarWidth = 104,
-    this.avatarHeight = 168,
+    this.avatarHeight = 104,
     this.avatarIconSize = 38,
     this.avatarCropSize = const Size(512, 512),
     this.showAvatarRemoveLink = true,
-    this.topSpacing = 12,
+    this.topSpacing = 6,
     this.horizontalGap = 12,
     this.fieldGap = 12,
     this.sectionGap = 12,
@@ -117,7 +117,7 @@ class OriginCharacterFormFields extends StatelessWidget {
     this.avatarEmptyLabelFontWeight = FontWeight.w600,
     this.avatarRemoveLinkFontWeight = FontWeight.w600,
     this.bioMaxLines,
-    this.identityBelowAvatarRow = false,
+    this.identityBelowAvatarRow = true,
   });
 
   final OriginCharacterForm form;
@@ -200,7 +200,7 @@ class OriginCharacterFormFields extends StatelessWidget {
                       onChanged: (_) => onChanged(),
                     ),
                   ],
-                  if (showPersonality) ...[
+                  if (showPersonality && !identityBelowAvatarRow) ...[
                     SizedBox(height: fieldGap),
                     CreateTextFieldBlock(
                       label: 'Personality *',
@@ -232,13 +232,41 @@ class OriginCharacterFormFields extends StatelessWidget {
             maxLines: 1,
             onChanged: (_) => onChanged(),
           ),
+          if (showPersonality) ...[
+            SizedBox(height: fieldGap),
+            CreateTextFieldBlock(
+              label: 'Personality *',
+              controller: form.personality,
+              hintText: 'How they speak and behave',
+              maxLength: 50,
+              labelSize: labelSize,
+              labelFontWeight: labelFontWeight,
+              labelInputGap: labelInputGap,
+              maxLines: 1,
+              onChanged: (_) => onChanged(),
+            ),
+          ],
+          SizedBox(height: sectionGap),
+        ],
+        if (showGoal) ...[
+          CreateTextFieldBlock(
+            label: 'Goal (Optional)',
+            controller: form.goal,
+            hintText: 'What they want to achieve',
+            maxLength: 100,
+            minLines: 2,
+            labelSize: labelSize,
+            labelFontWeight: labelFontWeight,
+            labelInputGap: labelInputGap,
+            onChanged: (_) => onChanged(),
+          ),
           SizedBox(height: sectionGap),
         ],
         CreateTextFieldBlock(
-          label: 'Bio (Optional)',
+          label: 'Backgroud - Hidden (Optional)',
           controller: form.bio,
           hintText: 'Background and relationships',
-          maxLength: 1000,
+          maxLength: 500,
           minLines: 3,
           maxLines: bioMaxLines,
           labelSize: labelSize,
@@ -246,20 +274,6 @@ class OriginCharacterFormFields extends StatelessWidget {
           labelInputGap: labelInputGap,
           onChanged: (_) => onChanged(),
         ),
-        if (showGoal) ...[
-          SizedBox(height: sectionGap),
-          CreateTextFieldBlock(
-            label: 'Goal (Optional)',
-            controller: form.goal,
-            hintText: 'What they want to achieve',
-            maxLength: 300,
-            minLines: 2,
-            labelSize: labelSize,
-            labelFontWeight: labelFontWeight,
-            labelInputGap: labelInputGap,
-            onChanged: (_) => onChanged(),
-          ),
-        ],
       ],
     );
   }

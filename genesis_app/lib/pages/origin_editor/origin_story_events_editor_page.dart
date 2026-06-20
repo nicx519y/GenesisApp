@@ -145,7 +145,7 @@ class _OriginStoryEventsEditorPageState
                           ),
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 12),
                       for (int i = 0; i < _eventControllers.length; i++) ...[
                         _StoryEventCard(
                           index: i + 1,
@@ -371,7 +371,7 @@ class _LocationCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 14),
+          const SizedBox(height: 6),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -893,7 +893,7 @@ class _StoryEventCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           CreateTextFieldBlock(
             label: '',
             controller: controller,

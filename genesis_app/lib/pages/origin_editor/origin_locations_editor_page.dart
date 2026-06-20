@@ -248,7 +248,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 12),
                       for (int i = 0; i < _forms.length; i++) ...[
                         _LocationCard(
                           index: i + 1,
