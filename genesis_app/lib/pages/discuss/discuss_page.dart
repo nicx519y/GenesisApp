@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/discuss/discuss_page_comment_list.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/page_header.dart';
@@ -138,25 +139,19 @@ class _DiscussPageState extends State<DiscussPage> {
                   child: ListView(
                     controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(20, 18, 20, bottomPadding),
+                    padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),
                     children: [
                       _DiscussOriginSummary(origin: data),
                       const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
+                        padding: EdgeInsets.only(top: 10, bottom: 16),
                         child: Divider(
                           height: 1,
                           thickness: 1,
                           color: Color(0xFFEDEDED),
                         ),
                       ),
-                      OriginDiscussList(
+                      DiscussPageCommentList(
                         controller: _discussController,
-                        showHeader: false,
-                        collapseInitialItems: false,
-                        enableViewMore: false,
-                        showActions: true,
-                        showReplies: true,
-                        imageTapOpensViewer: true,
                         onItemReplyTap: _openReplyComposer,
                         onReplyTap: _handleReplyListItemTap,
                         onViewAllRepliesTap: _openPostDetail,
@@ -284,11 +279,11 @@ class _DiscussPageLoadingSkeleton extends StatelessWidget {
       child: ListView(
         key: const ValueKey<String>('discuss-page-loading-skeleton'),
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
         children: const [
           _DiscussOriginSummarySkeleton(),
           Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
+            padding: EdgeInsets.only(top: 10, bottom: 16),
             child: Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
           ),
           _DiscussCommentSkeleton(),
@@ -509,7 +504,7 @@ class _DiscussOriginSummary extends StatelessWidget {
                   fontSize: 14,
                   height: 1.2,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF2F4F7A),
+                  color: Color(0xFF4B6192),
                 ),
               ),
               const SizedBox(height: 8),
@@ -521,7 +516,7 @@ class _DiscussOriginSummary extends StatelessWidget {
                   fontSize: 12,
                   height: 1.2,
                   fontWeight: FontWeight.w400,
-                  color: Color(0xFF8B8B8B),
+                  color: Color(0xFF666666),
                 ),
               ),
             ],

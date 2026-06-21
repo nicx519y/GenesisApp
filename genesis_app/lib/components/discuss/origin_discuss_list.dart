@@ -852,6 +852,7 @@ class OriginDiscussList extends StatelessWidget {
     this.showActions = false,
     this.showReplies = false,
     this.imageTapOpensViewer = false,
+    this.disableAvatarProfileTap = false,
     this.onViewMoreTap,
     this.onItemReplyTap,
     this.onReplyTap,
@@ -866,6 +867,7 @@ class OriginDiscussList extends StatelessWidget {
   final bool showActions;
   final bool showReplies;
   final bool imageTapOpensViewer;
+  final bool disableAvatarProfileTap;
   final Future<void> Function()? onViewMoreTap;
   final OriginDiscussItemTap? onItemReplyTap;
   final OriginDiscussReplyTap? onReplyTap;
@@ -916,6 +918,7 @@ class OriginDiscussList extends StatelessWidget {
                         showActions: showActions,
                         showReplies: showReplies,
                         imageTapOpensViewer: imageTapOpensViewer,
+                        disableAvatarProfileTap: disableAvatarProfileTap,
                         onViewMoreTap: onViewMoreTap,
                         onItemReplyTap: onItemReplyTap,
                         onReplyTap: onReplyTap,
@@ -958,7 +961,7 @@ class _ViewMoreButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: controller.isLoadingMore ? null : onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: controller.isLoadingMore
               ? const SizedBox.square(
                   key: ValueKey('origin-discuss-view-more-loading'),
@@ -1019,6 +1022,7 @@ class OriginDiscussCommentRow extends StatefulWidget {
     required this.showActions,
     required this.showReplies,
     required this.imageTapOpensViewer,
+    this.disableAvatarProfileTap = false,
     this.onViewMoreTap,
     this.onItemReplyTap,
     this.onReplyTap,
@@ -1030,6 +1034,7 @@ class OriginDiscussCommentRow extends StatefulWidget {
   final bool showActions;
   final bool showReplies;
   final bool imageTapOpensViewer;
+  final bool disableAvatarProfileTap;
   final Future<void> Function()? onViewMoreTap;
   final OriginDiscussItemTap? onItemReplyTap;
   final OriginDiscussReplyTap? onReplyTap;
@@ -1146,13 +1151,19 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _DiscussAvatarLink(item: widget.item),
+        _DiscussAvatarLink(
+          item: widget.item,
+          disabled: widget.disableAvatarProfileTap,
+        ),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _DiscussPreviewMeta(item: widget.item),
+              _DiscussPreviewMeta(
+                item: widget.item,
+                disabled: widget.disableAvatarProfileTap,
+              ),
               const SizedBox(height: 4),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -1570,12 +1581,36 @@ class _DiscussImageThumbnail extends StatelessWidget {
 }
 
 class _DiscussPreviewMeta extends StatelessWidget {
-  const _DiscussPreviewMeta({required this.item});
+  const _DiscussPreviewMeta({required this.item, this.disabled = false});
 
   final OriginDiscussListItem item;
+  final bool disabled;
 
   @override
   Widget build(BuildContext context) {
+    final authorMeta = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            item.authorName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF888888),
+              fontSize: 12,
+              height: 1.18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        DiscussStoryBadge(count: item.storyCount),
+      ],
+    );
+    final canOpenProfile =
+        !disabled && item.authorUid.trim().isNotEmpty && !item.authorDeleted;
+
     return SizedBox(
       key: ValueKey('origin-discuss-meta-${item.discussId}'),
       width: double.infinity,
@@ -1583,26 +1618,16 @@ class _DiscussPreviewMeta extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: Text(
-                    item.authorName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF888888),
-                      fontSize: 12,
-                      height: 1.18,
-                      fontWeight: FontWeight.w600,
+            child: canOpenProfile
+                ? GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => Navigator.of(context).pushNamed(
+                      RouteNames.userInfo,
+                      arguments: {'uid': item.authorUid},
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                DiscussStoryBadge(count: item.storyCount),
-              ],
-            ),
+                    child: authorMeta,
+                  )
+                : authorMeta,
           ),
           if (item.createdAt != null) ...[
             const SizedBox(width: 8),
@@ -1618,13 +1643,15 @@ class _DiscussPreviewMeta extends StatelessWidget {
 }
 
 class _DiscussAvatarLink extends StatelessWidget {
-  const _DiscussAvatarLink({required this.item});
+  const _DiscussAvatarLink({required this.item, this.disabled = false});
 
   final OriginDiscussListItem item;
+  final bool disabled;
 
   @override
   Widget build(BuildContext context) {
     final avatar = _DiscussAvatar(item: item);
+    if (disabled) return avatar;
     if (item.authorUid.trim().isEmpty || item.authorDeleted) return avatar;
     return GestureDetector(
       key: ValueKey('origin-discuss-avatar-${item.authorUid}'),
