@@ -3,17 +3,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
+import '../../utils/display_name_formatter.dart';
 import '../auth/login_guard.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_image_viewer_overlay.dart';
 import '../common/genesis_timestamp_text.dart';
 import 'origin_discuss_list.dart';
-import 'origin_discuss_replies_list.dart';
 import 'story_badge.dart';
 
 class DiscussPageCommentList extends StatelessWidget {
@@ -53,14 +54,14 @@ class DiscussPageCommentList extends StatelessWidget {
         return Column(
           children: [
             for (final entry in comments.indexed) ...[
-              _DiscussPageCommentRow(
+              DiscussPagePostRow(
                 controller: controller,
                 item: entry.$2,
                 onItemReplyTap: onItemReplyTap,
                 onReplyTap: onReplyTap,
                 onViewAllRepliesTap: onViewAllRepliesTap,
               ),
-              if (entry.$1 != comments.length - 1) const SizedBox(height: 16),
+              if (entry.$1 != comments.length - 1) const SizedBox(height: 28),
             ],
           ],
         );
@@ -69,10 +70,12 @@ class DiscussPageCommentList extends StatelessWidget {
   }
 }
 
-class _DiscussPageCommentRow extends StatefulWidget {
-  const _DiscussPageCommentRow({
+class DiscussPagePostRow extends StatefulWidget {
+  const DiscussPagePostRow({
+    super.key,
     required this.controller,
     required this.item,
+    this.showReplyPreview = true,
     this.onItemReplyTap,
     this.onReplyTap,
     this.onViewAllRepliesTap,
@@ -80,20 +83,21 @@ class _DiscussPageCommentRow extends StatefulWidget {
 
   final OriginDiscussListController controller;
   final OriginDiscussListItem item;
+  final bool showReplyPreview;
   final OriginDiscussItemTap? onItemReplyTap;
   final OriginDiscussReplyTap? onReplyTap;
   final OriginDiscussItemTap? onViewAllRepliesTap;
 
   @override
-  State<_DiscussPageCommentRow> createState() => _DiscussPageCommentRowState();
+  State<DiscussPagePostRow> createState() => _DiscussPagePostRowState();
 }
 
-class _DiscussPageCommentRowState extends State<_DiscussPageCommentRow> {
+class _DiscussPagePostRowState extends State<DiscussPagePostRow> {
   static const double _avatarSize = 40;
   static const double _avatarTextGap = 14;
-  static const double _metaBodyGap = 8;
+  static const double _metaBodyGap = 6;
   static const double _bodyImageGap = 8;
-  static const double _storyBadgeOffsetY = -2;
+  static const double _storyBadgeOffsetY = 0;
   static const double _progressPrefetchExtent = 600;
 
   ScrollPosition? _scrollPosition;
@@ -118,7 +122,7 @@ class _DiscussPageCommentRowState extends State<_DiscussPageCommentRow> {
   }
 
   @override
-  void didUpdateWidget(covariant _DiscussPageCommentRow oldWidget) {
+  void didUpdateWidget(covariant DiscussPagePostRow oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.item.discussId != widget.item.discussId ||
         oldWidget.item.authorUid != widget.item.authorUid ||
@@ -207,19 +211,13 @@ class _DiscussPageCommentRowState extends State<_DiscussPageCommentRow> {
             children: [
               _DiscussPageMeta(item: widget.item),
               const SizedBox(height: _metaBodyGap),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: widget.onItemReplyTap == null
-                    ? null
-                    : () => widget.onItemReplyTap!(widget.item),
-                child: Text(
-                  widget.item.content,
-                  style: const TextStyle(
-                    color: Color(0xFF111111),
-                    fontSize: 14,
-                    height: 1.45,
-                    fontWeight: FontWeight.w400,
-                  ),
+              Text(
+                widget.item.content,
+                style: const TextStyle(
+                  color: Color(0xFF111111),
+                  fontSize: 14,
+                  height: 1.45,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
               if (widget.item.imageUrls.isNotEmpty) ...[
@@ -233,19 +231,19 @@ class _DiscussPageCommentRowState extends State<_DiscussPageCommentRow> {
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               _DiscussPageActions(
                 controller: widget.controller,
                 item: widget.item,
                 onReplyTap: widget.onItemReplyTap,
               ),
-              if (widget.item.latestReplies.isNotEmpty ||
-                  widget.controller.hasMoreReplies(widget.item)) ...[
-                const SizedBox(height: 12),
+              if (widget.showReplyPreview &&
+                  (widget.item.latestReplies.isNotEmpty ||
+                      widget.controller.hasMoreReplies(widget.item))) ...[
+                const SizedBox(height: 8),
                 _DiscussPageReplyPreview(
                   controller: widget.controller,
                   item: widget.item,
-                  onReplyTap: widget.onReplyTap,
                   onViewAllTap: widget.onViewAllRepliesTap,
                 ),
               ],
@@ -273,7 +271,7 @@ class _DiscussPageMeta extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Color(0xFF888888),
+              color: Color(0xFF666666),
               fontSize: 14,
               height: 1.18,
               fontWeight: FontWeight.w600,
@@ -282,10 +280,7 @@ class _DiscussPageMeta extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Transform.translate(
-          offset: const Offset(
-            0,
-            _DiscussPageCommentRowState._storyBadgeOffsetY,
-          ),
+          offset: const Offset(0, _DiscussPagePostRowState._storyBadgeOffsetY),
           child: DiscussStoryBadge(count: item.storyCount),
         ),
       ],
@@ -300,13 +295,16 @@ class _DiscussPageMeta extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            child: canOpenProfile
-                ? GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _openProfile(context, item),
-                    child: tappableMeta,
-                  )
-                : tappableMeta,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: canOpenProfile
+                  ? GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _openProfile(context, item),
+                      child: tappableMeta,
+                    )
+                  : tappableMeta,
+            ),
           ),
           if (item.createdAt != null) ...[
             const SizedBox(width: 8),
@@ -328,7 +326,7 @@ class _ProfileAvatarLink extends StatelessWidget {
     final avatar = GenesisAvatar(
       url: item.avatar.trim(),
       name: item.authorName,
-      size: _DiscussPageCommentRowState._avatarSize,
+      size: _DiscussPagePostRowState._avatarSize,
       borderRadius: GenesisAvatarRadii.user,
     );
     if (item.authorUid.trim().isEmpty || item.authorDeleted) return avatar;
@@ -344,32 +342,33 @@ class _ProfileAvatarLink extends StatelessWidget {
 class _DiscussPageImageThumbnails extends StatelessWidget {
   const _DiscussPageImageThumbnails({required this.urls, required this.onTap});
 
+  static const int _maxVisibleImages = 6;
+  static const double _imageSize = 80;
+  static const double _imageGap = 6;
+
   final List<String> urls;
   final ValueChanged<int> onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (final entry in urls.indexed)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: GestureDetector(
-                key: ValueKey('discuss-page-image-${entry.$2}'),
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onTap(entry.$1),
-                child: GenesisListImage(
-                  imageUrl: entry.$2.trim(),
-                  width: 48,
-                  height: 48,
-                  borderRadius: GenesisImageRadii.content,
-                ),
-              ),
+    final visibleUrls = urls.take(_maxVisibleImages).toList(growable: false);
+    return Wrap(
+      spacing: _imageGap,
+      runSpacing: _imageGap,
+      children: [
+        for (final entry in visibleUrls.indexed)
+          GestureDetector(
+            key: ValueKey('discuss-page-image-${entry.$2}'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onTap(entry.$1),
+            child: GenesisListImage(
+              imageUrl: entry.$2.trim(),
+              width: _imageSize,
+              height: _imageSize,
+              borderRadius: GenesisImageRadii.content,
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }
@@ -392,33 +391,19 @@ class _DiscussPageActions extends StatelessWidget {
         ? const Color(0xFFF42C47)
         : const Color(0xFF7D8178);
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         GestureDetector(
           key: ValueKey('discuss-page-like-${item.discussId}'),
           behavior: HitTestBehavior.opaque,
           onTap: likePending ? null : () => _toggleLike(context),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Image.asset(
-              _discussLikeFilledOrOutline(item.isLiked),
-              width: 21,
-              height: 21,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.high,
-            ),
-          ),
-        ),
-        const SizedBox(width: 7),
-        Text(
-          '${item.likeCount}',
-          style: TextStyle(
-            fontSize: 12,
-            height: 1.2,
-            fontWeight: FontWeight.w600,
+          child: _DiscussActionCluster(
+            iconAsset: _discussLikeFilledOrOutline(item.isLiked),
+            count: item.likeCount,
             color: activeColor,
           ),
         ),
-        const SizedBox(width: 28),
+        const SizedBox(width: 10),
         GestureDetector(
           key: ValueKey('discuss-page-reply-${item.discussId}'),
           behavior: HitTestBehavior.opaque,
@@ -436,21 +421,11 @@ class _DiscussPageActions extends StatelessWidget {
               ),
             );
           },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Image.asset(
-              _discussReplyAsset,
-              width: 20,
-              height: 20,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.high,
-            ),
+          child: _DiscussActionCluster(
+            iconAsset: _discussReplyAsset,
+            count: item.replyCount,
+            color: _timeStyle.color ?? const Color(0xFF8B8B8B),
           ),
-        ),
-        const SizedBox(width: 7),
-        Text(
-          '${item.replyCount}',
-          style: _timeStyle.copyWith(fontWeight: FontWeight.w600),
         ),
       ],
     );
@@ -493,17 +468,59 @@ class _DiscussPageActions extends StatelessWidget {
   }
 }
 
+class _DiscussActionCluster extends StatelessWidget {
+  const _DiscussActionCluster({
+    required this.iconAsset,
+    required this.count,
+    required this.color,
+  });
+
+  static const double _iconSize = 15;
+
+  final String iconAsset;
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, right: 10, bottom: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Image.asset(
+            iconAsset,
+            width: _iconSize,
+            height: _iconSize,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.2,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DiscussPageReplyPreview extends StatelessWidget {
   const _DiscussPageReplyPreview({
     required this.controller,
     required this.item,
-    this.onReplyTap,
     this.onViewAllTap,
   });
 
   final OriginDiscussListController controller;
   final OriginDiscussListItem item;
-  final OriginDiscussReplyTap? onReplyTap;
   final OriginDiscussItemTap? onViewAllTap;
 
   @override
@@ -512,12 +529,13 @@ class _DiscussPageReplyPreview extends StatelessWidget {
     final replies = hasLoadedReplies
         ? item.latestReplies
         : item.latestReplies.take(2).toList(growable: false);
-    return OriginDiscussRepliesList(
-      discussId: item.discussId,
-      replies: replies,
-      remainingReplyCount: controller.replyButtonCount(item),
-      isLoading: controller.isReplyLoading(item.discussId),
-      onLoadMore: () {
+    final visibleReplies = replies.take(2).toList(growable: false);
+    final showViewAll = item.replyCount >= 3;
+
+    return GestureDetector(
+      key: ValueKey('discuss-page-reply-preview-${item.discussId}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
         final viewAllHandler = onViewAllTap;
         if (viewAllHandler != null) {
           viewAllHandler(item);
@@ -525,9 +543,46 @@ class _DiscussPageReplyPreview extends StatelessWidget {
         }
         unawaited(_loadMoreReplies(context));
       },
-      onReplyTap: onReplyTap == null
-          ? null
-          : (reply) => onReplyTap!(item, reply),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(width: 3, color: const Color(0xFFD7DBE3)),
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                color: const Color(0xFFF6F7F9),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final reply in visibleReplies) ...[
+                      _DiscussPageReplyPreviewLine(reply: reply),
+                      if (reply != visibleReplies.last)
+                        const SizedBox(height: 6),
+                    ],
+                    if (showViewAll) ...[
+                      if (visibleReplies.isNotEmpty) const SizedBox(height: 6),
+                      Text(
+                        'View all ${item.replyCount} replies',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          height: 1.25,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF4B6192),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -544,6 +599,69 @@ class _DiscussPageReplyPreview extends StatelessWidget {
     } catch (_) {
       if (context.mounted) showGenesisToast(context, 'Load replies failed');
     }
+  }
+}
+
+class _DiscussPageReplyPreviewLine extends StatelessWidget {
+  const _DiscussPageReplyPreviewLine({required this.reply});
+
+  final Map<String, dynamic> reply;
+
+  @override
+  Widget build(BuildContext context) {
+    final author = reply['author'] is Map ? asJsonMap(reply['author']) : null;
+    final uid = asString(author?['uid'], fallback: asString(reply['uid']));
+    final name = asString(
+      author?['name'] ??
+          author?['user_name'] ??
+          author?['nickname'] ??
+          author?['display_name'] ??
+          reply['author_name'] ??
+          reply['user_name'],
+      fallback: formatUidForDisplay(uid, fallback: 'User'),
+    );
+    final authorName = formatUidForDisplay(name, fallback: 'User');
+    final content = asString(reply['content']);
+    final parentDiscussId = asString(reply['parent_discuss_id']).trim();
+    final rootDiscussId = asString(reply['root_discuss_id']).trim();
+    final replyToUid = asString(reply['reply_to_uid']).trim();
+    final replyToUsername = asString(reply['reply_to_username']).trim();
+    final replyToName = replyToUsername.isNotEmpty
+        ? replyToUsername
+        : replyToUid;
+    final showReplyTo =
+        parentDiscussId.isNotEmpty &&
+        rootDiscussId.isNotEmpty &&
+        parentDiscussId != rootDiscussId &&
+        replyToName.isNotEmpty;
+
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '$authorName: ',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          if (showReplyTo)
+            TextSpan(
+              text: '@$replyToName ',
+              style: const TextStyle(
+                fontWeight: FontWeight.w400,
+                color: Color(0xFF4B6192),
+              ),
+            ),
+          TextSpan(text: content),
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontSize: 12,
+        height: 1.25,
+        fontWeight: FontWeight.w400,
+        color: Color(0xFF666666),
+      ),
+    );
   }
 }
 

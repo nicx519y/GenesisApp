@@ -29,18 +29,19 @@ class DiscussPage extends StatefulWidget {
 
 class _DiscussPageState extends State<DiscussPage> {
   static const double _loadMoreThreshold = 600;
+  static const double _loadMoreDragDistance = 48;
   static const double _postInputReservedHeight = 96;
 
   late final OriginDiscussListController _discussController;
   final ScrollController _scrollController = ScrollController();
   Future<OriginDetail>? _future;
   OriginDetail? _origin;
+  double _downwardDragDistance = 0;
 
   @override
   void initState() {
     super.initState();
     _discussController = OriginDiscussListController();
-    _scrollController.addListener(_handleScroll);
   }
 
   @override
@@ -60,17 +61,27 @@ class _DiscussPageState extends State<DiscussPage> {
 
   @override
   void dispose() {
-    _scrollController
-      ..removeListener(_handleScroll)
-      ..dispose();
+    _scrollController.dispose();
     _discussController.dispose();
     super.dispose();
   }
 
-  void _handleScroll() {
-    if (!_scrollController.hasClients) return;
-    if (_scrollController.position.extentAfter > _loadMoreThreshold) return;
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+    if (notification is ScrollStartNotification) {
+      _downwardDragDistance = 0;
+      return false;
+    }
+    if (notification is! ScrollUpdateNotification) return false;
+    if (notification.dragDetails == null) return false;
+    final delta = notification.scrollDelta;
+    if (delta == null || delta <= 0) return false;
+    _downwardDragDistance += delta;
+    if (_downwardDragDistance < _loadMoreDragDistance) return false;
+    if (notification.metrics.extentAfter > _loadMoreThreshold) return false;
+    _downwardDragDistance = 0;
     unawaited(_discussController.loadNextPage());
+    return false;
   }
 
   Future<OriginDetail> _loadOriginDetail({
@@ -136,46 +147,49 @@ class _DiscussPageState extends State<DiscussPage> {
               Positioned.fill(
                 child: RefreshIndicator(
                   onRefresh: _refresh,
-                  child: ListView(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),
-                    children: [
-                      _DiscussOriginSummary(origin: data),
-                      const Padding(
-                        padding: EdgeInsets.only(top: 10, bottom: 16),
-                        child: Divider(
-                          height: 1,
-                          thickness: 1,
-                          color: Color(0xFFEDEDED),
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: _handleScrollNotification,
+                    child: ListView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),
+                      children: [
+                        _DiscussOriginSummary(origin: data),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 10, bottom: 16),
+                          child: Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: Color(0xFFEDEDED),
+                          ),
                         ),
-                      ),
-                      DiscussPageCommentList(
-                        controller: _discussController,
-                        onItemReplyTap: _openReplyComposer,
-                        onReplyTap: _handleReplyListItemTap,
-                        onViewAllRepliesTap: _openPostDetail,
-                      ),
-                      AnimatedBuilder(
-                        animation: _discussController,
-                        builder: (context, _) {
-                          if (!_discussController.isLoadingMore) {
-                            return const SizedBox.shrink();
-                          }
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Center(
-                              child: SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                        DiscussPageCommentList(
+                          controller: _discussController,
+                          onItemReplyTap: _openReplyComposer,
+                          onReplyTap: _handleReplyListItemTap,
+                          onViewAllRepliesTap: _openPostDetail,
+                        ),
+                        AnimatedBuilder(
+                          animation: _discussController,
+                          builder: (context, _) {
+                            if (!_discussController.isLoadingMore) {
+                              return const SizedBox.shrink();
+                            }
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16),
+                              child: Center(
+                                child: SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

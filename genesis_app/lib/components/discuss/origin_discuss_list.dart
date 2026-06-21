@@ -119,6 +119,7 @@ class OriginDiscussPage {
               .whereType<Map>()
               .map((raw) => asJsonMap(raw))
               .map(OriginDiscussListItem.fromEnvelopeJson)
+              .where((item) => item.level <= 1)
               .where((item) => item.content.trim().isNotEmpty)
               .toList(growable: false)
         : const <OriginDiscussListItem>[];
@@ -756,7 +757,7 @@ class OriginDiscussListController extends ChangeNotifier {
       );
       if (serial != _requestSerial || oid != _oid) return;
       _mergePage(page, mode);
-      _totalAll = page.totalAll;
+      _totalAll = page.topTotal;
       _currentPage = mode == _LoadMode.refresh
           ? (_currentPage < page.pn ? page.pn : _currentPage)
           : page.pn;
@@ -1440,6 +1441,7 @@ Future<bool> showOriginDiscussReplyComposer({
   String? parentDiscussId,
   String? replyToUid,
   String? replyToUsername,
+  String? placeholder,
 }) async {
   final discussId = item.discussId.trim();
   final bizId = item.bizId.trim();
@@ -1448,7 +1450,7 @@ Future<bool> showOriginDiscussReplyComposer({
   return showDiscussPostComposer(
     context: context,
     title: 'Reply',
-    placeholder: 'Write a reply',
+    placeholder: placeholder ?? 'Write a reply',
     submitter: (content, images) => submitOriginDiscussReply(
       context: context,
       controller: controller,

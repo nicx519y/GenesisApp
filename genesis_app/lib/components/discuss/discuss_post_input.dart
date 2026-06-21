@@ -280,7 +280,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
 
   bool get _canSend {
     if (_submitting || _images.any((image) => image.failed)) return false;
-    return _controller.text.trim().isNotEmpty || _images.isNotEmpty;
+    return _controller.text.trim().isNotEmpty;
   }
 
   @override
