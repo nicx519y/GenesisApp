@@ -4,7 +4,7 @@ abstract final class GenesisColors {
   static const Color brand = Color(0xFF338960);
   static const Color brandBright = Color(0xFF00C27A);
   static const Color brandSoft = Color(0xFFBFD8CD);
-  static const Color create = Color(0xFFF42C47);
+  static const Color create = Color(0xFFFF2344);
 
   static const Color surface = Colors.white;
   static const Color surfaceMuted = Color(0xFFF9F9F9);
@@ -20,5 +20,5 @@ abstract final class GenesisColors {
 
   static const Color border = Color(0xFFE6E6E8);
   static const Color borderStrong = Color(0xFFDCDCDC);
-  static const Color danger = Color(0xFFF42C47);
+  static const Color danger = Color(0xFFFF2344);
 }

@@ -405,7 +405,7 @@ class _ProgressHeader extends StatelessWidget {
       children: [
         const Icon(
           MyFlutterApp.lastProgress,
-          color: Color(0xFFF42C47),
+          color: Color(0xFFFF2344),
           size: 14,
         ),
         const SizedBox(width: 5),

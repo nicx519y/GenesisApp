@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 
@@ -15,7 +16,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
     this.deleted = false,
     required this.isFollowed,
     required this.isLoading,
-    required this.onToggleFollow,
+    this.onToggleFollow,
     this.onTap,
     this.keyPrefix = 'follows',
   });
@@ -31,7 +32,7 @@ class GenesisFollowUserListTile extends StatelessWidget {
   final bool deleted;
   final bool isFollowed;
   final bool isLoading;
-  final VoidCallback onToggleFollow;
+  final VoidCallback? onToggleFollow;
   final VoidCallback? onTap;
   final String keyPrefix;
 
@@ -90,54 +91,64 @@ class GenesisFollowUserListTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: _actionWidth,
-              height: _avatarSize,
-              child: Center(
-                child: SizedBox(
-                  width: _actionWidth,
-                  height: _actionHeight,
-                  child: FilledButton(
-                    key: ValueKey('$keyPrefix-action-$cleanUid'),
-                    onPressed: deleted || isLoading ? null : onToggleFollow,
-                    style: FilledButton.styleFrom(
-                      fixedSize: const Size(_actionWidth, _actionHeight),
-                      minimumSize: const Size(_actionWidth, _actionHeight),
-                      backgroundColor: isFollowed
-                          ? const Color(0xFFE5E5E5)
-                          : const Color(0xFFF42C47),
-                      disabledBackgroundColor: isFollowed
-                          ? const Color(0xFFE5E5E5)
-                          : const Color(0xFFF42C47).withValues(alpha: 0.55),
-                      foregroundColor: isFollowed ? Colors.black : Colors.white,
-                      disabledForegroundColor: isFollowed
-                          ? Colors.black54
-                          : Colors.white,
-                      alignment: Alignment.center,
-                      padding: EdgeInsets.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+            if (onToggleFollow != null) ...[
+              const SizedBox(width: 12),
+              SizedBox(
+                width: _actionWidth,
+                height: _avatarSize,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    width: _actionWidth,
+                    height: _actionHeight,
+                    child: FilledButton(
+                      key: ValueKey('$keyPrefix-action-$cleanUid'),
+                      onPressed: deleted || isLoading ? null : onToggleFollow,
+                      style: FilledButton.styleFrom(
+                        fixedSize: const Size(_actionWidth, _actionHeight),
+                        minimumSize: const Size(_actionWidth, _actionHeight),
+                        backgroundColor: isFollowed
+                            ? const Color(0xFFE5E5E5)
+                            : const Color(0xFFFF2344),
+                        disabledBackgroundColor: isFollowed
+                            ? const Color(0xFFE5E5E5)
+                            : const Color(0xFFFF2344).withValues(alpha: 0.55),
+                        foregroundColor: isFollowed
+                            ? Colors.black
+                            : Colors.white,
+                        disabledForegroundColor: isFollowed
+                            ? Colors.black54
+                            : Colors.white,
+                        alignment: Alignment.center,
+                        padding: EdgeInsets.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: GenesisRadii.button,
+                        ),
                       ),
-                    ),
-                    child: isLoading
-                        ? SizedBox(
-                            width: 15,
-                            height: 15,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: isFollowed ? Colors.black54 : Colors.white,
+                      child: isLoading
+                          ? SizedBox(
+                              width: 15,
+                              height: 15,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: isFollowed
+                                    ? Colors.black54
+                                    : Colors.white,
+                              ),
+                            )
+                          : Text(
+                              isFollowed ? 'Following' : 'Follow',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          )
-                        : Text(
-                            isFollowed ? 'Following' : 'Follow',
-                            style: const TextStyle(fontSize: 12),
-                          ),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),

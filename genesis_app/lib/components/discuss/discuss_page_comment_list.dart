@@ -388,7 +388,7 @@ class _DiscussPageActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final likePending = controller.isLikePending(item.discussId);
     final activeColor = item.isLiked
-        ? const Color(0xFFF42C47)
+        ? const Color(0xFFFF2344)
         : const Color(0xFF7D8178);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,

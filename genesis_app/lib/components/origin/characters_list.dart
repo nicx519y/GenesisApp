@@ -168,7 +168,7 @@ class _CharacterTile extends StatelessWidget {
                       child: Text(
                         tag,
                         style: const TextStyle(
-                          color: Color(0xFFF42C47),
+                          color: Color(0xFFFF2344),
                           fontSize: 10,
                           fontWeight: FontWeight.w400,
                         ),

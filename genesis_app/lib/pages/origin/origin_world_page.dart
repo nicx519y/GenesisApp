@@ -1091,7 +1091,7 @@ class _WorldViewSection extends StatelessWidget {
       children: [
         const _SectionTitle(
           icon: MyFlutterApp.eye,
-          iconColor: Color(0xFFF42C47),
+          iconColor: Color(0xFFFF2344),
           title: 'World View',
         ),
         // World view inner spacing: section title -> body text.
@@ -1317,7 +1317,7 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
       children: [
         const _SectionTitle(
           icon: MyFlutterApp.lastProgress,
-          iconColor: Color(0xFFF42C47),
+          iconColor: Color(0xFFFF2344),
           title: 'Copy World Progress',
         ),
         // Copy progress inner spacing: section title -> summary body.
@@ -1821,7 +1821,7 @@ class _OriginCharacterPortraitState extends State<_OriginCharacterPortrait> {
             child: Icon(
               MyFlutterApp.redstarCharIcon,
               size: _OriginCharacterPortrait._starSize,
-              color: const Color(0xFFF42C47),
+              color: const Color(0xFFFF2344),
             ),
           ),
       ],

@@ -382,7 +382,7 @@ class _ProgressHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Row(
       children: [
-        Icon(MyFlutterApp.lastProgress, color: Color(0xFFF42C47), size: 14),
+        Icon(MyFlutterApp.lastProgress, color: Color(0xFFFF2344), size: 14),
         SizedBox(width: 4),
         Expanded(
           child: Text(

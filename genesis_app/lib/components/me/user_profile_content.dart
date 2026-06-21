@@ -737,19 +737,19 @@ class _ProfileActionButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     final backgroundColor = isFollowed
         ? const Color(0xFFE5E5E5)
-        : const Color(0xFFF42C47);
+        : const Color(0xFFFF2344);
     final foregroundColor = isFollowed ? Colors.black : Colors.white;
     final disabledBackgroundColor = isFollowed
         ? const Color(0xFFE5E5E5)
-        : const Color(0xFFF42C47).withValues(alpha: 0.55);
+        : const Color(0xFFFF2344).withValues(alpha: 0.55);
     final disabledForegroundColor = isFollowed ? Colors.black54 : Colors.white;
-    const actionTextStyle = TextStyle(fontWeight: FontWeight.w400);
+    const actionTextStyle = TextStyle(fontWeight: FontWeight.w600);
 
     return Row(
       children: [
         Expanded(
           child: SizedBox(
-            height: 42,
+            height: 36,
             child: FilledButton(
               key: const ValueKey('user-profile-follow-button'),
               onPressed: followLoading ? null : onFollowToggle,
@@ -781,7 +781,7 @@ class _ProfileActionButtons extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: SizedBox(
-            height: 42,
+            height: 36,
             child: FilledButton(
               key: const ValueKey('user-profile-message-button'),
               onPressed: onMessage,

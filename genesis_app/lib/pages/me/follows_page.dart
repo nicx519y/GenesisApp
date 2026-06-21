@@ -32,11 +32,13 @@ class FollowsPage extends StatefulWidget {
 class _FollowsPageState extends State<FollowsPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  late Future<List<_FollowUserItem>> _followingFuture;
-  late Future<List<_FollowUserItem>> _followersFuture;
+  Future<List<_FollowUserItem>>? _followingFuture;
+  Future<List<_FollowUserItem>>? _followersFuture;
   final Set<String> _loadingUids = <String>{};
   final Map<String, bool> _followStateOverrides = <String, bool>{};
   String _title = 'Follows';
+  bool _canToggleFollow = false;
+  bool _didLoad = false;
   int? _followingTotal;
   int? _followersTotal;
 
@@ -49,12 +51,30 @@ class _FollowsPageState extends State<FollowsPage>
       vsync: this,
       initialIndex: widget.initialIndex.clamp(0, 1),
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didLoad) return;
+    _didLoad = true;
     unawaited(_loadCachedTotals());
     _followingFuture = _loadUsers(_FollowListType.following);
     _followersFuture = _loadUsers(_FollowListType.followers);
+    unawaited(_loadCanToggleFollow());
     if (_cleanTitle(widget.initialTitle) == null) {
       _loadTitle();
     }
+  }
+
+  Future<void> _loadCanToggleFollow() async {
+    final uid = widget.uid.trim();
+    if (uid.isEmpty) return;
+    final localUid =
+        (await AppServicesScope.read(context).sessionStore.readUid())?.trim() ??
+        '';
+    if (!mounted) return;
+    setState(() => _canToggleFollow = localUid.isNotEmpty && localUid == uid);
   }
 
   @override
@@ -168,8 +188,8 @@ class _FollowsPageState extends State<FollowsPage>
       }
     });
     await (type == _FollowListType.following
-        ? _followingFuture
-        : _followersFuture);
+        ? _followingFuture!
+        : _followersFuture!);
   }
 
   @override
@@ -198,20 +218,26 @@ class _FollowsPageState extends State<FollowsPage>
                 controller: _tabController,
                 children: [
                   _FollowUsersPane(
-                    future: _followingFuture,
+                    future:
+                        _followingFuture ??
+                        Future.value(const <_FollowUserItem>[]),
                     emptyText: 'No following yet.',
                     defaultFollowed: true,
                     loadingUids: _loadingUids,
                     followStateOverrides: _followStateOverrides,
+                    canToggleFollow: _canToggleFollow,
                     onRefresh: () => _refresh(_FollowListType.following),
                     onToggleFollow: _toggleFollow,
                   ),
                   _FollowUsersPane(
-                    future: _followersFuture,
+                    future:
+                        _followersFuture ??
+                        Future.value(const <_FollowUserItem>[]),
                     emptyText: 'No followers yet.',
                     defaultFollowed: false,
                     loadingUids: _loadingUids,
                     followStateOverrides: _followStateOverrides,
+                    canToggleFollow: _canToggleFollow,
                     onRefresh: () => _refresh(_FollowListType.followers),
                     onToggleFollow: _toggleFollow,
                   ),
@@ -232,6 +258,7 @@ class _FollowUsersPane extends StatelessWidget {
     required this.defaultFollowed,
     required this.loadingUids,
     required this.followStateOverrides,
+    required this.canToggleFollow,
     required this.onRefresh,
     required this.onToggleFollow,
   });
@@ -241,6 +268,7 @@ class _FollowUsersPane extends StatelessWidget {
   final bool defaultFollowed;
   final Set<String> loadingUids;
   final Map<String, bool> followStateOverrides;
+  final bool canToggleFollow;
   final Future<void> Function() onRefresh;
   final Future<void> Function(_FollowUserItem item, bool isFollowed)
   onToggleFollow;
@@ -293,6 +321,7 @@ class _FollowUsersPane extends StatelessWidget {
         return RefreshIndicator(
           onRefresh: onRefresh,
           child: ListView.builder(
+            // ignore: deprecated_member_use
             cacheExtent: 0,
             itemExtent: GenesisFollowUserListTile.itemExtent,
             physics: const AlwaysScrollableScrollPhysics(),
@@ -310,7 +339,9 @@ class _FollowUsersPane extends StatelessWidget {
                 deleted: item.deleted,
                 isFollowed: isFollowed,
                 isLoading: loadingUids.contains(item.uid),
-                onToggleFollow: () => onToggleFollow(item, isFollowed),
+                onToggleFollow: canToggleFollow
+                    ? () => onToggleFollow(item, isFollowed)
+                    : null,
               );
             },
           ),
