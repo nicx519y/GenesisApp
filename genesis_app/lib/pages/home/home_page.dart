@@ -143,6 +143,7 @@ class _HomeTabsState extends State<_HomeTabs> {
     return SecendTabs(
       labels: HomePage.tabs,
       verticalPadding: 0,
+      tabAlignment: TabAlignment.center,
       onTap: _handleTap,
     );
   }
@@ -540,7 +541,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
               controller: _scrollController,
               primary: false,
               scrollCacheExtent: ScrollCacheExtent.pixels(900),
-              padding: const EdgeInsets.only(top: 4, bottom: 36),
+              padding: const EdgeInsets.only(top: 10, bottom: 36),
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),

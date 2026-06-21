@@ -359,7 +359,7 @@ class _OriginFeedState extends State<_OriginFeed>
               controller: _scrollController,
               primary: false,
               cacheExtent: 900,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),

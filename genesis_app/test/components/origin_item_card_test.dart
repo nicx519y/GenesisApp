@@ -68,6 +68,10 @@ void main() {
     expect(find.text('2.3K'), findsOneWidget);
     expect(find.text('4.4M'), findsOneWidget);
     expect(find.text('v3'), findsNothing);
+
+    final subtitle = tester.widget<Text>(find.text('Tycoon idols'));
+    expect(subtitle.style?.fontSize, 12);
+    expect(subtitle.maxLines, 4);
   });
 }
 

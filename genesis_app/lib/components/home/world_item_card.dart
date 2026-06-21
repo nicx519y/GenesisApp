@@ -587,7 +587,7 @@ class _ProgressHeader extends StatelessWidget {
           color: Color(0xFFFF2344),
           size: 14,
         ),
-        const SizedBox(width: 5),
+        const SizedBox(width: 8),
         const Expanded(
           child: Text(
             'Last Progress',

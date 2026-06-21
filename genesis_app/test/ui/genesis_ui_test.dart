@@ -692,6 +692,28 @@ void main() {
     expect(find.text('World'), findsOneWidget);
   });
 
+  testWidgets('SecendTabs can center scrollable tabs as a group', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            body: SecendTabs(
+              labels: ['My Worlds', 'Popular'],
+              tabAlignment: TabAlignment.center,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+    expect(tabBar.isScrollable, isTrue);
+    expect(tabBar.tabAlignment, TabAlignment.center);
+  });
+
   testWidgets('SecendTabs can remove vertical padding', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(

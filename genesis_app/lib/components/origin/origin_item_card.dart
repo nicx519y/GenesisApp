@@ -183,10 +183,10 @@ class OriginItemCard extends StatelessWidget {
           style: const TextStyle(
             color: Color(0xFF111111),
             fontWeight: FontWeight.w400,
-            fontSize: 10,
+            fontSize: 12,
             height: 1.5,
           ),
-          maxLines: 2,
+          maxLines: 4,
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 6),

@@ -21,6 +21,7 @@ class GenesisTabBar extends StatelessWidget {
     this.indicatorHeight,
     this.labelFontSize,
     this.expanded = false,
+    this.tabAlignment,
     this.onTap,
   });
 
@@ -33,6 +34,7 @@ class GenesisTabBar extends StatelessWidget {
   final double? indicatorHeight;
   final double? labelFontSize;
   final bool expanded;
+  final TabAlignment? tabAlignment;
   final ValueChanged<int>? onTap;
 
   @override
@@ -49,7 +51,8 @@ class GenesisTabBar extends StatelessWidget {
       child: TabBar(
         controller: controller,
         isScrollable: !expanded,
-        tabAlignment: expanded ? TabAlignment.fill : TabAlignment.start,
+        tabAlignment:
+            tabAlignment ?? (expanded ? TabAlignment.fill : TabAlignment.start),
         dividerColor: Colors.transparent,
         padding: EdgeInsets.zero,
         labelPadding: labelPadding,

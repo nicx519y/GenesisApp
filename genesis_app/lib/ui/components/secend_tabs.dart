@@ -13,6 +13,7 @@ class SecendTabs extends StatelessWidget {
     this.labelPadding = const EdgeInsets.symmetric(horizontal: 8),
     this.labelFontSize,
     this.expanded = false,
+    this.tabAlignment,
     this.verticalPadding = secendTabsVerticalPadding,
     this.onTap,
   });
@@ -23,6 +24,7 @@ class SecendTabs extends StatelessWidget {
   final EdgeInsets labelPadding;
   final double? labelFontSize;
   final bool expanded;
+  final TabAlignment? tabAlignment;
   final double verticalPadding;
   final ValueChanged<int>? onTap;
 
@@ -37,6 +39,7 @@ class SecendTabs extends StatelessWidget {
         labelPadding: labelPadding,
         labelFontSize: labelFontSize,
         expanded: expanded,
+        tabAlignment: tabAlignment,
         onTap: onTap,
       ),
     );

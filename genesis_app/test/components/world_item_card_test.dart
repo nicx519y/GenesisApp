@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/home/world_item_card.dart';
+import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_image_radii.dart';
 
@@ -37,6 +38,14 @@ void main() {
     );
 
     expect(find.text('Last Progress'), findsOneWidget);
+    expect(
+      _horizontalGap(
+        tester,
+        find.byIcon(MyFlutterApp.lastProgress),
+        find.text('Last Progress'),
+      ),
+      8,
+    );
     expect(find.text('2999-1-1'), findsOneWidget);
     expect(find.text('Tick 3 · Day 3, 08:00'), findsOneWidget);
     expect(find.text('The city chooses a new route.'), findsOneWidget);
@@ -61,4 +70,10 @@ void main() {
         .dx;
     expect(bodyLeft, lessThan(titleLeft));
   });
+}
+
+double _horizontalGap(WidgetTester tester, Finder left, Finder right) {
+  final leftRect = tester.getRect(left);
+  final rightRect = tester.getRect(right);
+  return rightRect.left - leftRect.right;
 }

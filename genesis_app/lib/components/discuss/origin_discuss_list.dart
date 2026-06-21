@@ -854,6 +854,7 @@ class OriginDiscussList extends StatelessWidget {
     this.showReplies = false,
     this.imageTapOpensViewer = false,
     this.disableAvatarProfileTap = false,
+    this.onAuthorTap,
     this.onViewMoreTap,
     this.onItemReplyTap,
     this.onReplyTap,
@@ -869,6 +870,7 @@ class OriginDiscussList extends StatelessWidget {
   final bool showReplies;
   final bool imageTapOpensViewer;
   final bool disableAvatarProfileTap;
+  final OriginDiscussItemTap? onAuthorTap;
   final Future<void> Function()? onViewMoreTap;
   final OriginDiscussItemTap? onItemReplyTap;
   final OriginDiscussReplyTap? onReplyTap;
@@ -920,6 +922,7 @@ class OriginDiscussList extends StatelessWidget {
                         showReplies: showReplies,
                         imageTapOpensViewer: imageTapOpensViewer,
                         disableAvatarProfileTap: disableAvatarProfileTap,
+                        onAuthorTap: onAuthorTap,
                         onViewMoreTap: onViewMoreTap,
                         onItemReplyTap: onItemReplyTap,
                         onReplyTap: onReplyTap,
@@ -1024,6 +1027,7 @@ class OriginDiscussCommentRow extends StatefulWidget {
     required this.showReplies,
     required this.imageTapOpensViewer,
     this.disableAvatarProfileTap = false,
+    this.onAuthorTap,
     this.onViewMoreTap,
     this.onItemReplyTap,
     this.onReplyTap,
@@ -1036,6 +1040,7 @@ class OriginDiscussCommentRow extends StatefulWidget {
   final bool showReplies;
   final bool imageTapOpensViewer;
   final bool disableAvatarProfileTap;
+  final OriginDiscussItemTap? onAuthorTap;
   final Future<void> Function()? onViewMoreTap;
   final OriginDiscussItemTap? onItemReplyTap;
   final OriginDiscussReplyTap? onReplyTap;
@@ -1155,6 +1160,7 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
         _DiscussAvatarLink(
           item: widget.item,
           disabled: widget.disableAvatarProfileTap,
+          onTap: widget.onAuthorTap,
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -1164,6 +1170,7 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
               _DiscussPreviewMeta(
                 item: widget.item,
                 disabled: widget.disableAvatarProfileTap,
+                onAuthorTap: widget.onAuthorTap,
               ),
               const SizedBox(height: 4),
               GestureDetector(
@@ -1175,7 +1182,7 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
                   widget.item.content,
                   style: const TextStyle(
                     color: Color(0xFF111111),
-                    fontSize: 12,
+                    fontSize: 13,
                     height: 1.45,
                     fontWeight: FontWeight.w400,
                   ),
@@ -1583,10 +1590,15 @@ class _DiscussImageThumbnail extends StatelessWidget {
 }
 
 class _DiscussPreviewMeta extends StatelessWidget {
-  const _DiscussPreviewMeta({required this.item, this.disabled = false});
+  const _DiscussPreviewMeta({
+    required this.item,
+    this.disabled = false,
+    this.onAuthorTap,
+  });
 
   final OriginDiscussListItem item;
   final bool disabled;
+  final OriginDiscussItemTap? onAuthorTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1610,8 +1622,11 @@ class _DiscussPreviewMeta extends StatelessWidget {
         DiscussStoryBadge(count: item.storyCount),
       ],
     );
-    final canOpenProfile =
-        !disabled && item.authorUid.trim().isNotEmpty && !item.authorDeleted;
+    final authorTap = onAuthorTap;
+    final canOpenAuthor =
+        !disabled &&
+        (authorTap != null ||
+            (item.authorUid.trim().isNotEmpty && !item.authorDeleted));
 
     return SizedBox(
       key: ValueKey('origin-discuss-meta-${item.discussId}'),
@@ -1620,13 +1635,19 @@ class _DiscussPreviewMeta extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            child: canOpenProfile
+            child: canOpenAuthor
                 ? GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () => Navigator.of(context).pushNamed(
-                      RouteNames.userInfo,
-                      arguments: {'uid': item.authorUid},
-                    ),
+                    onTap: () {
+                      if (authorTap != null) {
+                        authorTap(item);
+                        return;
+                      }
+                      Navigator.of(context).pushNamed(
+                        RouteNames.userInfo,
+                        arguments: {'uid': item.authorUid},
+                      );
+                    },
                     child: authorMeta,
                   )
                 : authorMeta,
@@ -1645,22 +1666,37 @@ class _DiscussPreviewMeta extends StatelessWidget {
 }
 
 class _DiscussAvatarLink extends StatelessWidget {
-  const _DiscussAvatarLink({required this.item, this.disabled = false});
+  const _DiscussAvatarLink({
+    required this.item,
+    this.disabled = false,
+    this.onTap,
+  });
 
   final OriginDiscussListItem item;
   final bool disabled;
+  final OriginDiscussItemTap? onTap;
 
   @override
   Widget build(BuildContext context) {
     final avatar = _DiscussAvatar(item: item);
     if (disabled) return avatar;
-    if (item.authorUid.trim().isEmpty || item.authorDeleted) return avatar;
+    final authorTap = onTap;
+    if (authorTap == null &&
+        (item.authorUid.trim().isEmpty || item.authorDeleted)) {
+      return avatar;
+    }
     return GestureDetector(
       key: ValueKey('origin-discuss-avatar-${item.authorUid}'),
       behavior: HitTestBehavior.opaque,
-      onTap: () => Navigator.of(
-        context,
-      ).pushNamed(RouteNames.userInfo, arguments: {'uid': item.authorUid}),
+      onTap: () {
+        if (authorTap != null) {
+          authorTap(item);
+          return;
+        }
+        Navigator.of(
+          context,
+        ).pushNamed(RouteNames.userInfo, arguments: {'uid': item.authorUid});
+      },
       child: avatar,
     );
   }

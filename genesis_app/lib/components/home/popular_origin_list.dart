@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../discuss/origin_discuss_preview_list.dart';
 import '../origin/stat_item.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
@@ -18,6 +20,15 @@ typedef PopularWorldSummaryLoader =
     Future<List<WorldSummaryLatestItem>> Function(String originId);
 
 const double _popularOriginHeroImageHeight = 160.5;
+const double _popularOriginSectionGap = 16;
+const double _popularOriginSectionTitleFontSize = 13;
+const double _popularOriginSectionBodyFontSize = 13;
+const double _popularOriginSectionBodyLineHeight = 1.42;
+const double _popularOriginProgressBodyHeight =
+    _popularOriginSectionBodyFontSize *
+        _popularOriginSectionBodyLineHeight *
+        5 +
+    6;
 
 class PopularOriginList extends StatefulWidget {
   const PopularOriginList({
@@ -108,14 +119,16 @@ class _PopularOriginListState extends State<PopularOriginList> {
       key: widget.storageKey,
       controller: widget.controller,
       primary: false,
-      cacheExtent: 900,
-      padding: const EdgeInsets.only(top: 4, bottom: 24),
+      scrollCacheExtent: ScrollCacheExtent.pixels(900),
+      padding: const EdgeInsets.only(top: 10, bottom: 24),
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
       itemCount: widget.items.length + (widget.isLoadingMore ? 1 : 0),
-      separatorBuilder: (context, index) =>
-          const Divider(height: 25, thickness: 1, color: Color(0xFFEFEFEF)),
+      separatorBuilder: (context, index) => const Padding(
+        padding: EdgeInsets.only(top: 24, bottom: 16),
+        child: Divider(height: 1, thickness: 1, color: Color(0xFFEFEFEF)),
+      ),
       itemBuilder: (context, index) {
         if (index >= widget.items.length) {
           return const Padding(
@@ -131,23 +144,21 @@ class _PopularOriginListState extends State<PopularOriginList> {
 
         final item = widget.items[index];
         final oid = item.oid.trim();
+        final onOpenOrigin = item.deleted ? null : () => widget.onItemTap(item);
         final initialDiscussItems =
             widget.preloadedDiscussItems.containsKey(oid)
             ? widget.preloadedDiscussItems[oid] ??
                   const <OriginDiscussPreviewItem>[]
             : null;
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: item.deleted ? null : () => widget.onItemTap(item),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: PopularOriginListItem(
-              item: item,
-              initialDiscussItems: initialDiscussItems,
-              discussLoader: _loadDiscuss,
-              summaryFuture: _loadSummary(item.oid),
-              thumbnailBorderRadius: widget.thumbnailBorderRadius,
-            ),
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: PopularOriginListItem(
+            item: item,
+            onOpenOrigin: onOpenOrigin,
+            initialDiscussItems: initialDiscussItems,
+            discussLoader: _loadDiscuss,
+            summaryFuture: _loadSummary(item.oid),
+            thumbnailBorderRadius: widget.thumbnailBorderRadius,
           ),
         );
       },
@@ -159,6 +170,7 @@ class PopularOriginListItem extends StatelessWidget {
   const PopularOriginListItem({
     super.key,
     required this.item,
+    this.onOpenOrigin,
     this.initialDiscussItems,
     this.discussLoader,
     this.summaryFuture,
@@ -166,6 +178,7 @@ class PopularOriginListItem extends StatelessWidget {
   });
 
   final OriginListItem item;
+  final VoidCallback? onOpenOrigin;
   final List<OriginDiscussPreviewItem>? initialDiscussItems;
   final OriginDiscussPreviewLoader? discussLoader;
   final Future<WorldSummaryLatestItem?>? summaryFuture;
@@ -182,49 +195,108 @@ class PopularOriginListItem extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _OriginImage(
-              imageUrl: item.cover,
-              width: 60,
-              height: 60,
-              borderRadius: thumbnailBorderRadius,
+            _OpenOriginTap(
+              onTap: onOpenOrigin,
+              child: _OriginImage(
+                key: ValueKey('popular-origin-thumbnail-${item.oid}'),
+                imageUrl: item.cover,
+                width: 60,
+                height: 60,
+                borderRadius: thumbnailBorderRadius,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: _OriginSummary(item: item, title: title),
+              child: _OpenOriginTap(
+                onTap: onOpenOrigin,
+                child: _OriginSummary(item: item, title: title),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        Text(
-          item.subtitle,
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF111111),
-            fontSize: 12,
-            height: 1.33,
-            fontWeight: FontWeight.w400,
+        const SizedBox(
+          key: ValueKey('popular-origin-gap-meta-world-view'),
+          height: _popularOriginSectionGap,
+        ),
+        _WorldViewSection(item: item, onOpenOrigin: onOpenOrigin),
+        const SizedBox(
+          key: ValueKey('popular-origin-gap-world-view-progress'),
+          height: _popularOriginSectionGap,
+        ),
+        _OpenOriginTap(
+          onTap: onOpenOrigin,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ProgressHeader(),
+              const SizedBox(
+                key: ValueKey('popular-origin-gap-progress-title-body'),
+                height: 8,
+              ),
+              _ProgressSummary(
+                item: item,
+                fallbackTimeText: metaTime,
+                future: summaryFuture,
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 14),
-        _OriginHeroImage(item: item),
-        const SizedBox(height: 16),
-        _ProgressHeader(),
-        const SizedBox(height: 6),
-        _ProgressSummary(
+        const SizedBox(
+          key: ValueKey('popular-origin-gap-progress-discuss'),
+          height: _popularOriginSectionGap,
+        ),
+        _DiscussSection(
           item: item,
-          fallbackTimeText: metaTime,
-          future: summaryFuture,
+          onOpenOrigin: onOpenOrigin,
+          initialDiscussItems: initialDiscussItems,
+          discussLoader: discussLoader,
         ),
-        const SizedBox(height: 6),
-        OriginDiscussPreviewList(
-          oid: item.oid,
-          count: item.discussCnt,
-          initialItems: initialDiscussItems,
-          loader: discussLoader,
+        const SizedBox(height: _popularOriginSectionGap),
+        _OpenOriginTap(
+          onTap: onOpenOrigin,
+          child: _EnterOriginRow(title: title),
         ),
-        const SizedBox(height: 14),
-        _EnterOriginRow(title: title),
+      ],
+    );
+  }
+}
+
+class _WorldViewSection extends StatelessWidget {
+  const _WorldViewSection({required this.item, this.onOpenOrigin});
+
+  final OriginListItem item;
+  final VoidCallback? onOpenOrigin;
+
+  @override
+  Widget build(BuildContext context) {
+    final body = item.subtitle;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _OpenOriginTap(
+          onTap: onOpenOrigin,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _SectionHeader(icon: MyFlutterApp.eye, title: 'World View'),
+              const SizedBox(
+                key: ValueKey('popular-origin-gap-world-view-title-body'),
+                height: 8,
+              ),
+              Text(
+                body,
+                maxLines: 5,
+                overflow: TextOverflow.ellipsis,
+                style: _bodyStyle,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(
+          key: ValueKey('popular-origin-gap-world-view-image'),
+          height: 8,
+        ),
+        _OriginHeroImage(item: item),
       ],
     );
   }
@@ -252,7 +324,7 @@ class _OriginSummary extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Row(
           children: [
             Flexible(
@@ -312,12 +384,21 @@ class _OriginHeroImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: _OriginImage(
-        imageUrl: item.cover,
+    return GestureDetector(
+      key: ValueKey('popular-origin-cover-${item.oid}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _showCover(context, item.cover),
+      child: SizedBox(
+        width: double.infinity,
         height: _popularOriginHeroImageHeight,
-        borderRadius: GenesisImageRadii.contentValue,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: _OriginImage(
+            imageUrl: item.cover,
+            height: _popularOriginHeroImageHeight,
+            borderRadius: GenesisImageRadii.contentValue,
+          ),
+        ),
       ),
     );
   }
@@ -325,6 +406,7 @@ class _OriginHeroImage extends StatelessWidget {
 
 class _OriginImage extends StatelessWidget {
   const _OriginImage({
+    super.key,
     required this.imageUrl,
     this.width,
     this.height,
@@ -343,6 +425,24 @@ class _OriginImage extends StatelessWidget {
       width: width,
       height: height,
       borderRadius: BorderRadius.circular(borderRadius),
+    );
+  }
+}
+
+class _OpenOriginTap extends StatelessWidget {
+  const _OpenOriginTap({required this.child, this.onTap});
+
+  final Widget child;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tap = onTap;
+    if (tap == null) return child;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: tap,
+      child: child,
     );
   }
 }
@@ -377,27 +477,53 @@ class _OriginStat extends StatelessWidget {
   }
 }
 
-class _ProgressHeader extends StatelessWidget {
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({this.icon, this.iconAsset, required this.title})
+    : assert(icon != null || iconAsset != null);
+
+  final IconData? icon;
+  final String? iconAsset;
+  final String title;
+
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
-        Icon(MyFlutterApp.lastProgress, color: Color(0xFFFF2344), size: 14),
-        SizedBox(width: 4),
+        if (iconAsset case final asset?)
+          Image.asset(
+            asset,
+            width: 16,
+            height: 16,
+            fit: BoxFit.contain,
+            excludeFromSemantics: true,
+          )
+        else
+          Icon(icon, color: const Color(0xFFFF2344), size: 14),
+        const SizedBox(width: 8),
         Expanded(
           child: Text(
-            'Copy World Progress',
+            title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
+            style: const TextStyle(
               color: Color(0xFF1D1D1D),
-              fontSize: 14,
+              fontSize: _popularOriginSectionTitleFontSize,
               height: 1,
               fontWeight: FontWeight.w600,
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ProgressHeader extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return const _SectionHeader(
+      icon: MyFlutterApp.lastProgress,
+      title: 'Copy World Progress',
     );
   }
 }
@@ -442,13 +568,25 @@ class _ProgressSummary extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          body.isEmpty ? _emptyText : body,
-          style: body.isEmpty ? _emptyBodyStyle : _bodyStyle,
-          maxLines: 4,
-          overflow: TextOverflow.ellipsis,
+        SizedBox(
+          key: const ValueKey('popular-origin-progress-body'),
+          height: _popularOriginProgressBodyHeight,
+          child: Text(
+            body.isEmpty ? _emptyText : body,
+            style: body.isEmpty ? _emptyBodyStyle : _bodyStyle,
+            maxLines: 5,
+            overflow: TextOverflow.ellipsis,
+            strutStyle: const StrutStyle(
+              fontSize: _popularOriginSectionBodyFontSize,
+              height: _popularOriginSectionBodyLineHeight,
+              forceStrutHeight: true,
+            ),
+          ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(
+          key: ValueKey('popular-origin-gap-progress-meta'),
+          height: 0,
+        ),
         _MetaRow(
           worldId: worldId,
           worldDeleted: worldDeleted,
@@ -456,6 +594,53 @@ class _ProgressSummary extends StatelessWidget {
           timeText: timeText,
         ),
       ],
+    );
+  }
+}
+
+class _DiscussSection extends StatelessWidget {
+  const _DiscussSection({
+    required this.item,
+    this.onOpenOrigin,
+    this.initialDiscussItems,
+    this.discussLoader,
+  });
+
+  final OriginListItem item;
+  final VoidCallback? onOpenOrigin;
+  final List<OriginDiscussPreviewItem>? initialDiscussItems;
+  final OriginDiscussPreviewLoader? discussLoader;
+
+  @override
+  Widget build(BuildContext context) {
+    return _OpenOriginTap(
+      onTap: onOpenOrigin,
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionHeader(
+              iconAsset: discussIconAsset,
+              title: 'Discuss (${formatStatCount(item.discussCnt)})',
+            ),
+            const SizedBox(
+              key: ValueKey('popular-origin-gap-discuss-list'),
+              height: 8,
+            ),
+            OriginDiscussPreviewList(
+              oid: item.oid,
+              count: item.discussCnt,
+              showHeader: false,
+              initialItems: initialDiscussItems,
+              loader: discussLoader,
+              onPreviewTap: onOpenOrigin == null
+                  ? null
+                  : () async => onOpenOrigin!(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -579,7 +764,7 @@ class _EnterOriginRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Color(0xFF4B6192),
-              fontSize: 14,
+              fontSize: 13,
               height: 1.2,
               fontWeight: FontWeight.w600,
             ),
@@ -590,7 +775,7 @@ class _EnterOriginRow extends StatelessWidget {
           'Enter',
           style: TextStyle(
             color: Color(0xFF4B6192),
-            fontSize: 14,
+            fontSize: 13,
             height: 1.2,
             fontWeight: FontWeight.w600,
           ),
@@ -610,9 +795,15 @@ String _originatorLabel(OriginListItem item) {
   return formatUidForDisplay(item.createdUid, fallback: '-');
 }
 
+void _showCover(BuildContext context, String cover) {
+  final url = cover.trim();
+  if (url.isEmpty) return;
+  showGenesisImageViewer(context, imageUrls: [url]);
+}
+
 const _bodyStyle = TextStyle(
-  color: Color(0xFF1D1D1D),
-  fontSize: 12,
+  color: Color(0xFF111111),
+  fontSize: _popularOriginSectionBodyFontSize,
   height: 1.42,
   fontWeight: FontWeight.w400,
 );
@@ -625,8 +816,8 @@ const _emptyBodyStyle = TextStyle(
 );
 
 const _metaStyle = TextStyle(
-  color: Color(0xFF8B8B8B),
+  color: Color(0xFF666666),
   fontSize: 12,
-  height: 1.1,
+  height: 1.2,
   fontWeight: FontWeight.w400,
 );

@@ -30,6 +30,7 @@ class OriginDiscussPreviewList extends StatefulWidget {
     this.showHeader = true,
     this.initialItems,
     this.loader,
+    this.onPreviewTap,
   });
 
   final String oid;
@@ -37,6 +38,7 @@ class OriginDiscussPreviewList extends StatefulWidget {
   final bool showHeader;
   final List<OriginDiscussPreviewItem>? initialItems;
   final OriginDiscussPreviewLoader? loader;
+  final Future<void> Function()? onPreviewTap;
 
   @override
   State<OriginDiscussPreviewList> createState() =>
@@ -124,6 +126,13 @@ class _OriginDiscussPreviewListState extends State<OriginDiscussPreviewList> {
       count: widget.count,
       showHeader: widget.showHeader,
       enableViewMore: false,
+      onAuthorTap: widget.onPreviewTap == null
+          ? null
+          : (_) => unawaited(widget.onPreviewTap!()),
+      onItemReplyTap: widget.onPreviewTap == null
+          ? null
+          : (_) => unawaited(widget.onPreviewTap!()),
+      onViewMoreTap: widget.onPreviewTap,
     );
   }
 }
