@@ -13,6 +13,9 @@ class WorldTickEventItem extends StatelessWidget {
     this.dateLabel,
     this.timeAgoLabel,
     this.stackedContent = false,
+    this.contentTextStyle,
+    this.contentLabelStyle,
+    this.contentTimestampStyle,
   });
 
   final Map<String, dynamic> tick;
@@ -23,6 +26,9 @@ class WorldTickEventItem extends StatelessWidget {
   final String? dateLabel;
   final String? timeAgoLabel;
   final bool stackedContent;
+  final TextStyle? contentTextStyle;
+  final TextStyle? contentLabelStyle;
+  final TextStyle? contentTimestampStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -42,13 +48,21 @@ class WorldTickEventItem extends StatelessWidget {
         children: [
           _TickHeader(tickNumber: tickNumber, date: date, timeAgo: timeAgo),
           const SizedBox(height: 6),
-          _GlobalEventCard(body: body, stacked: stackedContent),
+          _GlobalEventCard(
+            body: body,
+            stacked: stackedContent,
+            labelStyle: contentLabelStyle,
+            bodyStyle: contentTextStyle,
+          ),
           const SizedBox(height: 6),
           for (final paragraph in paragraphs) ...[
             _TickParagraphRow(
               paragraph: paragraph,
               locationsById: locationsById,
               stacked: stackedContent,
+              labelStyle: contentLabelStyle,
+              bodyStyle: contentTextStyle,
+              timestampStyle: contentTimestampStyle,
             ),
             const SizedBox(height: 6),
           ],
@@ -116,15 +130,22 @@ class _TickHeader extends StatelessWidget {
 }
 
 class _GlobalEventCard extends StatelessWidget {
-  const _GlobalEventCard({required this.body, required this.stacked});
+  const _GlobalEventCard({
+    required this.body,
+    required this.stacked,
+    this.labelStyle,
+    this.bodyStyle,
+  });
 
   final String body;
   final bool stacked;
+  final TextStyle? labelStyle;
+  final TextStyle? bodyStyle;
 
   @override
   Widget build(BuildContext context) {
-    final label = Text('Global', style: _labelStyle);
-    final bodyText = Text(body, style: _bodyStyle);
+    final label = Text('Global', style: labelStyle ?? _labelStyle);
+    final bodyText = Text(body, style: bodyStyle ?? _bodyStyle);
 
     return Container(
       width: double.infinity,
@@ -154,11 +175,17 @@ class _TickParagraphRow extends StatelessWidget {
     required this.paragraph,
     required this.locationsById,
     required this.stacked,
+    this.labelStyle,
+    this.bodyStyle,
+    this.timestampStyle,
   });
 
   final Map<String, dynamic> paragraph;
   final Map<String, Map<String, dynamic>> locationsById;
   final bool stacked;
+  final TextStyle? labelStyle;
+  final TextStyle? bodyStyle;
+  final TextStyle? timestampStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -177,14 +204,21 @@ class _TickParagraphRow extends StatelessWidget {
     ]);
     final characterDetails = _characterDetails(paragraph);
 
-    final label = _LocationLabel(text: name.isEmpty ? 'Location' : name);
-    final bodyText = Text(body, style: _bodyStyle);
+    final label = _LocationLabel(
+      text: name.isEmpty ? 'Location' : name,
+      style: labelStyle,
+    );
+    final resolvedBodyStyle = bodyStyle ?? _bodyStyle;
+    final bodyText = Text(body, style: resolvedBodyStyle);
     final timestampText = timestamp.isEmpty
         ? null
-        : Text(timestamp, style: _timestampStyle);
+        : Text(timestamp, style: timestampStyle ?? _timestampStyle);
     final characterDetailsText = characterDetails.isEmpty
         ? null
-        : Text(characterDetails, style: _bodyStyle);
+        : _CharacterDetailsText(
+            details: characterDetails,
+            style: resolvedBodyStyle,
+          );
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -252,10 +286,46 @@ const _timestampStyle = TextStyle(
   color: Color(0xFF111111),
 );
 
+const _characterDetailNameColor = Color(0xFF4B6192);
+
+class _CharacterDetailsText extends StatelessWidget {
+  const _CharacterDetailsText({required this.details, required this.style});
+
+  final List<_CharacterDetailLine> details;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final nameStyle = style.copyWith(
+      color: _characterDetailNameColor,
+      fontWeight: FontWeight.w600,
+    );
+    return Text.rich(
+      TextSpan(
+        children: [
+          for (int index = 0; index < details.length; index++) ...[
+            if (index > 0) const TextSpan(text: '\n'),
+            if (details[index].name.isNotEmpty)
+              TextSpan(text: details[index].name, style: nameStyle),
+            if (details[index].delta.isNotEmpty)
+              TextSpan(
+                text: details[index].name.isEmpty
+                    ? details[index].delta
+                    : ' ${details[index].delta}',
+              ),
+          ],
+        ],
+      ),
+      style: style,
+    );
+  }
+}
+
 class _LocationLabel extends StatelessWidget {
-  const _LocationLabel({required this.text});
+  const _LocationLabel({required this.text, this.style});
 
   final String text;
+  final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
@@ -264,7 +334,7 @@ class _LocationLabel extends StatelessWidget {
       children: [
         const Icon(Icons.place_outlined, size: 12, color: Color(0xFF111111)),
         const SizedBox(width: 4),
-        Flexible(child: Text(text, style: _labelStyle)),
+        Flexible(child: Text(text, style: style ?? _labelStyle)),
       ],
     );
   }
@@ -307,20 +377,29 @@ String _locationName(
   return _mapString(location, const ['location_name', 'name']);
 }
 
-String _characterDetails(Map<String, dynamic> paragraph) {
+class _CharacterDetailLine {
+  const _CharacterDetailLine({required this.name, required this.delta});
+
+  final String name;
+  final String delta;
+
+  bool get isNotEmpty => name.isNotEmpty || delta.isNotEmpty;
+}
+
+List<_CharacterDetailLine> _characterDetails(Map<String, dynamic> paragraph) {
   final raw = paragraph['character_deltas'];
-  if (raw is! List) return '';
-  final lines = raw
+  if (raw is! List) return const <_CharacterDetailLine>[];
+  return raw
       .whereType<Map>()
       .map((item) {
         final detail = item.cast<String, dynamic>();
-        final name = _mapString(detail, const ['name']);
-        final delta = _mapString(detail, const ['delta']);
-        return [name, delta].where((part) => part.isNotEmpty).join(' ');
+        return _CharacterDetailLine(
+          name: _mapString(detail, const ['name']),
+          delta: _mapString(detail, const ['delta']),
+        );
       })
       .where((line) => line.isNotEmpty)
       .toList(growable: false);
-  return lines.join('\n');
 }
 
 int _mapInt(Map<String, dynamic> map, List<String> keys, {int fallback = 0}) {

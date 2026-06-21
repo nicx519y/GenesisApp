@@ -1703,13 +1703,37 @@ class _WorldSectionFloatingTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final safePadding = MediaQuery.paddingOf(context);
-    return Positioned(
-      right: _edgePadding,
-      top: safePadding.top + 400,
-      child: AnimatedBuilder(
-        animation: controller,
-        builder: (context, _) =>
-            SizedBox(width: _width, height: _height, child: _buildTabs()),
+    return Positioned.fill(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final mapHeight =
+              WorldDetailsPanelScrollControllerScope.maybeMapHeightOf(
+                context,
+              ) ??
+              constraints.maxHeight * 0.69;
+          final top = (mapHeight * 0.5)
+              .clamp(
+                safePadding.top + 72,
+                constraints.maxHeight - safePadding.bottom - _height - 16,
+              )
+              .toDouble();
+          return Stack(
+            children: [
+              Positioned(
+                right: _edgePadding,
+                top: top,
+                child: AnimatedBuilder(
+                  animation: controller,
+                  builder: (context, _) => SizedBox(
+                    width: _width,
+                    height: _height,
+                    child: _buildTabs(),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1756,7 +1780,7 @@ class _WorldSectionFloatingTabs extends StatelessWidget {
   }
 
   static const double _width = 48;
-  static const double _height = 174;
+  static const double _height = 175;
   static const double _edgePadding = 8;
 
   static const _items = <_WorldSectionFloatingTabItem>[
@@ -1788,7 +1812,6 @@ class _WorldSectionFloatingTabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? const Color(0xFF111111) : const Color(0xFF6F6F6F);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -1799,7 +1822,10 @@ class _WorldSectionFloatingTabButton extends StatelessWidget {
             item.asset,
             width: 19,
             height: 19,
-            colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+            colorFilter: const ColorFilter.mode(
+              Color(0xFF111111),
+              BlendMode.srcIn,
+            ),
           ),
           const SizedBox(height: 3),
           Text(
@@ -1807,7 +1833,7 @@ class _WorldSectionFloatingTabButton extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: color,
+              color: const Color(0xFF666666),
               fontSize: 11,
               height: 1.1,
               fontWeight: FontWeight.w600,
@@ -2390,7 +2416,7 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
     with SingleTickerProviderStateMixin {
   static const int _eventsPageSize = 20;
   static const double _eventsLoadMoreExtent = 160;
-  static const double _sheetHeightFactor = 0.86;
+  static const double _sheetHeightFactor = 0.85;
 
   late final TabController _controller;
   var _currentUid = '';
@@ -2560,38 +2586,59 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
         ),
         child: Column(
           children: [
-            const SizedBox(height: 16),
-            Container(
-              width: 64,
-              height: 5,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD2D2D2),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 24),
-                child: Transform.translate(
-                  offset: const Offset(0, -8),
-                  child: IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, size: 20),
-                    style: IconButton.styleFrom(
-                      backgroundColor: const Color(0xFFF4F4F6),
-                      foregroundColor: Colors.black,
-                      fixedSize: const Size(44, 44),
-                      minimumSize: const Size(44, 44),
-                      padding: EdgeInsets.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            SizedBox(
+              height: 50,
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 16,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        width: 64,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD2D2D2),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  Positioned(
+                    top: 10,
+                    right: 24,
+                    child: SizedBox(
+                      width: 34,
+                      height: 34,
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(34, 34),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          backgroundColor: const Color(0xFFF3F3F5),
+                          foregroundColor: const Color(0xFF111111),
+                          shape: const CircleBorder(),
+                        ),
+                        child: const Text(
+                          '×',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFF111111),
+                            fontSize: 21,
+                            fontWeight: FontWeight.w400,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
               child: _WorldSectionsSheetTabs(controller: _controller),
             ),
             const SizedBox(height: 6),
@@ -2625,10 +2672,10 @@ class _WorldSectionsSheetTabs extends StatelessWidget {
       animation: controller,
       builder: (context, _) {
         return Container(
-          height: 46,
+          height: 38,
           padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
-            color: const Color(0xFFF0F0F2),
+            color: const Color(0x1F767680),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -2684,7 +2731,7 @@ class _WorldSectionsSheetTabButton extends StatelessWidget {
           style: TextStyle(
             color: selected ? const Color(0xFF111111) : const Color(0xFF727276),
             fontSize: 14,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w600,
             height: 1.1,
           ),
         ),
@@ -2946,27 +2993,23 @@ class _WorldInfoHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: CopyableIdLabel(
-                label: 'WID',
-                value: wid,
-                displayValue: world.deleted ? deletedEntityDisplayText : null,
-                enabled: !world.deleted,
-              ),
-            ),
-            _OwnerMetaLink(
-              owner: owner,
-              onTap: ownerUid.isEmpty || world.ownerDeleted
-                  ? null
-                  : () => Navigator.of(context).pushNamed(
-                      RouteNames.userInfo,
-                      arguments: {'uid': ownerUid},
-                    ),
-            ),
-          ],
+        const SizedBox(height: 4),
+        GenesisPairedMetaRow(
+          leftLabel: 'WID',
+          leftValue: wid,
+          leftDisplayValue: world.deleted ? deletedEntityDisplayText : null,
+          leftCopyEnabled: !world.deleted,
+          leftStyle: _worldHeaderMetaTextStyle,
+          leftIconColor: _worldHeaderMetaColor,
+          rightText:
+              'Owner: ${owner == deletedEntityDisplayText ? owner : formatUidForDisplay(owner)}',
+          rightOnTap: ownerUid.isEmpty || world.ownerDeleted
+              ? null
+              : () => Navigator.of(
+                  context,
+                ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
+          rightStyle: _worldHeaderMetaTextStyle,
+          rightIconColor: _worldHeaderMetaColor,
         ),
         const SizedBox(height: 12),
         Row(
@@ -3104,55 +3147,13 @@ String _worldHeaderActionLabel(_WorldHeaderActionKind action) {
   }
 }
 
-class _OwnerMetaLink extends StatelessWidget {
-  const _OwnerMetaLink({required this.owner, required this.onTap});
-
-  final String owner;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Flexible(
-              child: Text(
-                'Owner: ${owner == deletedEntityDisplayText ? owner : formatUidForDisplay(owner)}',
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 12,
-                  height: 1.1,
-                  fontWeight: FontWeight.w400,
-                  color: Color(0xFF8A8A8A),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (onTap != null) ...[
-              const SizedBox(width: 4),
-              const Text(
-                '>',
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1,
-                  fontWeight: FontWeight.w400,
-                  color: Color(0xFF8A8A8A),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
+const Color _worldHeaderMetaColor = Color(0xFF666666);
+const TextStyle _worldHeaderMetaTextStyle = TextStyle(
+  fontSize: 12,
+  height: 1.1,
+  fontWeight: FontWeight.w400,
+  color: _worldHeaderMetaColor,
+);
 
 IconData? _counterIcon(String key) {
   switch (key) {
@@ -3224,6 +3225,10 @@ class _WorldEventsSection extends StatelessWidget {
             fallbackBody: fallbackBody,
             locationsById: locationsById,
             dateLabel: _tickParagraphTimestamp(ticks[index]),
+            stackedContent: true,
+            contentLabelStyle: _worldEventContentLabelStyle,
+            contentTextStyle: _worldEventContentTextStyle,
+            contentTimestampStyle: _worldEventContentTimestampStyle,
             isLast: index == ticks.length - 1 && !loadingMore,
           ),
         if (loadingMore) const _WorldEventsLoadingMoreIndicator(),
@@ -3231,6 +3236,27 @@ class _WorldEventsSection extends StatelessWidget {
     );
   }
 }
+
+const TextStyle _worldEventContentLabelStyle = TextStyle(
+  fontSize: 13,
+  height: 1.6,
+  fontWeight: FontWeight.w600,
+  color: Color(0xFF111111),
+);
+
+const TextStyle _worldEventContentTextStyle = TextStyle(
+  fontSize: 13,
+  height: 1.6,
+  fontWeight: FontWeight.w400,
+  color: Color(0xFF444444),
+);
+
+const TextStyle _worldEventContentTimestampStyle = TextStyle(
+  fontSize: 13,
+  height: 1.4,
+  fontWeight: FontWeight.w600,
+  color: Color(0xFF111111),
+);
 
 String? _tickParagraphTimestamp(Map<String, dynamic> tick) {
   final result = tick['tick_result'];
@@ -3277,6 +3303,7 @@ class _WorldStatusSection extends StatelessWidget {
       emptyText: 'No character status yet.',
       subtitleBuilder: (character) =>
           _metricStatusText(world.metric, character),
+      subtitleColor: const Color(0xFF666666),
     );
   }
 }
@@ -3297,6 +3324,7 @@ class _WorldCharactersSection extends StatelessWidget {
       currentUid: currentUid,
       emptyText: 'No characters yet.',
       subtitleBuilder: _characterDescriptionText,
+      subtitleColor: const Color(0xFF666666),
     );
   }
 }
@@ -3307,12 +3335,14 @@ class _CharacterList extends StatelessWidget {
     required this.currentUid,
     required this.emptyText,
     required this.subtitleBuilder,
+    required this.subtitleColor,
   });
 
   final List<Map<String, dynamic>> characters;
   final String currentUid;
   final String emptyText;
   final String Function(Map<String, dynamic> character) subtitleBuilder;
+  final Color subtitleColor;
 
   @override
   Widget build(BuildContext context) {
@@ -3332,6 +3362,7 @@ class _CharacterList extends StatelessWidget {
               character: sortedCharacters[i],
               currentUid: currentUid,
               subtitle: subtitleBuilder(sortedCharacters[i]),
+              subtitleColor: subtitleColor,
             ),
             if (i != sortedCharacters.length - 1) const SizedBox(height: 22),
           ],
@@ -3346,11 +3377,13 @@ class _CharacterRow extends StatelessWidget {
     required this.character,
     required this.currentUid,
     required this.subtitle,
+    required this.subtitleColor,
   });
 
   final Map<String, dynamic> character;
   final String currentUid;
   final String subtitle;
+  final Color subtitleColor;
 
   @override
   Widget build(BuildContext context) {
@@ -3436,8 +3469,7 @@ class _CharacterRow extends StatelessWidget {
                     fontSize: 12,
                     height: 1.35,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF6F6F6F),
-                  ),
+                  ).copyWith(color: subtitleColor),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),

@@ -982,28 +982,17 @@ class _OriginHeader extends StatelessWidget {
         ),
         // Header inner spacing: title -> OID/originator row.
         const SizedBox(height: 4),
-        Row(
-          children: [
-            Expanded(
-              child: CopyableIdLabel(
-                label: 'OID',
-                value: origin.oid,
-                displayValue: origin.deleted ? deletedEntityDisplayText : null,
-                enabled: !origin.deleted,
-              ),
-            ),
-            // Header inner spacing: OID label -> originator link.
-            const SizedBox(width: 12),
-            _OriginatorMetaLink(
-              originator: originator,
-              onTap: ownerUid.isEmpty || origin.ownerDeleted
-                  ? null
-                  : () => Navigator.of(context).pushNamed(
-                      RouteNames.userInfo,
-                      arguments: {'uid': ownerUid},
-                    ),
-            ),
-          ],
+        GenesisPairedMetaRow(
+          leftLabel: 'OID',
+          leftValue: origin.oid,
+          leftDisplayValue: origin.deleted ? deletedEntityDisplayText : null,
+          leftCopyEnabled: !origin.deleted,
+          rightText: 'Originator: ${formatUidForDisplay(originator)}',
+          rightOnTap: ownerUid.isEmpty || origin.ownerDeleted
+              ? null
+              : () => Navigator.of(
+                  context,
+                ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
         ),
         // Header inner spacing: OID/originator row -> latest version.
         const SizedBox(height: 0),
@@ -1029,48 +1018,6 @@ class _OriginHeader extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-class _OriginatorMetaLink extends StatelessWidget {
-  const _OriginatorMetaLink({required this.originator, required this.onTap});
-
-  final String originator;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Flexible(
-              child: Text(
-                'Originator: ${formatUidForDisplay(originator)}',
-                textAlign: TextAlign.right,
-                style: CopyableIdLabel.textStyle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            // Originator link inner spacing: text -> chevron.
-            if (onTap != null) ...[
-              const SizedBox(width: 4),
-              const Icon(
-                Icons.chevron_right,
-                size: 18,
-                color: CopyableIdLabel.iconColor,
-              ),
-            ],
-          ],
-        ),
-      ),
     );
   }
 }
