@@ -70,8 +70,94 @@ void main() {
     expect(find.text('v3'), findsNothing);
 
     final subtitle = tester.widget<Text>(find.text('Tycoon idols'));
+    expect(subtitle.style?.color, const Color(0xFF888888));
     expect(subtitle.style?.fontSize, 12);
+    expect(subtitle.style?.height, 1.2);
     expect(subtitle.maxLines, 4);
+  });
+
+  testWidgets('shows all tags that fit within two rows', (
+    WidgetTester tester,
+  ) async {
+    const item = OriginListItem(
+      oid: 'o_alpha',
+      status: 1,
+      versionNum: 3,
+      name: 'Alpha Empire',
+      cover: '',
+      displaySubtitle: 'Tycoon idols',
+      worldView: '',
+      createdUid: 'u_1',
+      createdUserName: 'Shawn',
+      createdAt: '2026-05-01T00:00:00Z',
+      updatedAt: '2026-05-02T00:00:00Z',
+      tags: <String>['one', 'two', 'three', 'four', 'five'],
+      copyCnt: 2300,
+      connectCnt: 4400000,
+      discussCnt: 0,
+      characterCnt: 0,
+      locationCnt: 0,
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(width: 300, child: OriginItemCard(item: item)),
+        ),
+      ),
+    );
+
+    expect(find.text('one'), findsOneWidget);
+    expect(find.text('two'), findsOneWidget);
+    expect(find.text('three'), findsOneWidget);
+    expect(find.text('four'), findsOneWidget);
+    expect(find.text('five'), findsOneWidget);
+  });
+
+  testWidgets('hides tags that would overflow past two rows', (
+    WidgetTester tester,
+  ) async {
+    const item = OriginListItem(
+      oid: 'o_alpha',
+      status: 1,
+      versionNum: 3,
+      name: 'Alpha Empire',
+      cover: '',
+      displaySubtitle: 'Tycoon idols',
+      worldView: '',
+      createdUid: 'u_1',
+      createdUserName: 'Shawn',
+      createdAt: '2026-05-01T00:00:00Z',
+      updatedAt: '2026-05-02T00:00:00Z',
+      tags: <String>[
+        'alphaalphaalphaalphaalpha',
+        'betabetabetabetabeta',
+        'gammagammagammagamma',
+        'deltadeltadeltadelta',
+      ],
+      copyCnt: 2300,
+      connectCnt: 4400000,
+      discussCnt: 0,
+      characterCnt: 0,
+      locationCnt: 0,
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(width: 180, child: OriginItemCard(item: item)),
+        ),
+      ),
+    );
+
+    expect(find.text('alphaalphaalphaalphaalpha'), findsOneWidget);
+    expect(find.text('betabetabetabetabeta'), findsOneWidget);
+    expect(find.text('gammagammagammagamma'), findsNothing);
+    expect(find.text('deltadeltadeltadelta'), findsNothing);
+
+    final alpha = tester.widget<Text>(find.text('alphaalphaalphaalphaalpha'));
+    expect(alpha.overflow, TextOverflow.visible);
+    expect(alpha.softWrap, isFalse);
   });
 }
 

@@ -181,10 +181,10 @@ class OriginItemCard extends StatelessWidget {
         Text(
           item.subtitle,
           style: const TextStyle(
-            color: Color(0xFF111111),
+            color: Color(0xFF888888),
             fontWeight: FontWeight.w400,
             fontSize: 12,
-            height: 1.5,
+            height: 1.2,
           ),
           maxLines: 4,
           overflow: TextOverflow.ellipsis,
@@ -227,32 +227,93 @@ class _TagWrap extends StatelessWidget {
 
   final List<String> tags;
 
+  static const double _spacing = 6;
+  static const double _runSpacing = 6;
+  static const double _horizontalPadding = 4;
+  static const TextStyle _textStyle = TextStyle(
+    color: Color(0xFF4B6192),
+    fontSize: 10,
+    height: 1.7,
+    fontWeight: FontWeight.w400,
+  );
+
   @override
   Widget build(BuildContext context) {
     if (tags.isEmpty) return const SizedBox.shrink();
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: [
-        for (final tag in tags.take(3))
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F3F6),
-              borderRadius: BorderRadius.circular(2),
-            ),
-            child: Text(
-              tag,
-              style: const TextStyle(
-                color: Color(0xFF4B6192),
-                fontSize: 10,
-                height: 1.7,
-                fontWeight: FontWeight.w400,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final visibleTags = _visibleTagsForRows(
+          tags: tags,
+          maxWidth: constraints.maxWidth,
+          textDirection: Directionality.of(context),
+        );
+        if (visibleTags.isEmpty) return const SizedBox.shrink();
+        return Wrap(
+          spacing: _spacing,
+          runSpacing: _runSpacing,
+          children: [
+            for (final tag in visibleTags)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: _horizontalPadding,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F3F6),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Text(
+                  tag,
+                  softWrap: false,
+                  overflow: TextOverflow.visible,
+                  style: _textStyle,
+                ),
               ),
-            ),
-          ),
-      ],
+          ],
+        );
+      },
     );
+  }
+
+  List<String> _visibleTagsForRows({
+    required List<String> tags,
+    required double maxWidth,
+    required TextDirection textDirection,
+  }) {
+    if (!maxWidth.isFinite) return tags;
+
+    const maxRows = 2;
+    final visibleTags = <String>[];
+    var row = 1;
+    var rowWidth = 0.0;
+
+    for (final tag in tags) {
+      final tagWidth = _measureTagWidth(tag, textDirection);
+      final nextWidth = rowWidth == 0
+          ? tagWidth
+          : rowWidth + _spacing + tagWidth;
+      if (nextWidth <= maxWidth || rowWidth == 0) {
+        visibleTags.add(tag);
+        rowWidth = nextWidth;
+        continue;
+      }
+
+      row += 1;
+      if (row > maxRows) break;
+      visibleTags.add(tag);
+      rowWidth = tagWidth;
+    }
+
+    return visibleTags;
+  }
+
+  double _measureTagWidth(String tag, TextDirection textDirection) {
+    final painter = TextPainter(
+      text: TextSpan(text: tag, style: _textStyle),
+      maxLines: 1,
+      textDirection: textDirection,
+    )..layout();
+    return painter.width + _horizontalPadding * 2;
   }
 }
 
