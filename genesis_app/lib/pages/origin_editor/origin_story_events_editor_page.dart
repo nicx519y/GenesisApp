@@ -379,12 +379,13 @@ class _LocationCard extends StatelessWidget {
                 controller: form.imageUrl,
                 label: 'IMAGE\n(Optional)',
                 width: 96,
-                height: 150,
+                height: 144,
                 iconSize: 36,
                 cropSize: const Size(800, 1200),
+                emptyIconLabelGap: 8,
                 onChanged: onChanged,
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: CreateTextFieldBlock(
                   label: 'Location Name *',
@@ -392,21 +393,23 @@ class _LocationCard extends StatelessWidget {
                   hintText: 'Enter location name...',
                   maxLength: 25,
                   maxLines: 1,
+                  labelInputGap: 8,
                   onChanged: (_) => onChanged(),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 12),
           CreateTextFieldBlock(
             label: 'Description (Optional)',
             controller: form.description,
             hintText: 'Show in Origin location list',
             maxLength: 100,
-            minLines: 2,
+            minLines: 3,
+            labelInputGap: 8,
             onChanged: (_) => onChanged(),
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 12),
           _InitialCharactersField(
             form: form,
             characters: characters,
@@ -565,7 +568,7 @@ class _InitialCharactersField extends StatelessWidget {
     final textPainter = TextPainter(
       text: TextSpan(
         text: name,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
       ),
       maxLines: 1,
       textDirection: Directionality.of(context),
@@ -596,43 +599,43 @@ class _InitialCharacterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: ValueKey('initial-character-chip-$characterId'),
-      constraints: const BoxConstraints(maxWidth: 180),
-      height: 30,
-      padding: const EdgeInsets.only(left: 10, right: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFD9E5DF)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: createFormText,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                height: 1.2,
+    return GestureDetector(
+      key: ValueKey('initial-character-chip-remove-$characterId'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onRemove(characterId),
+      child: Container(
+        key: ValueKey('initial-character-chip-$characterId'),
+        constraints: const BoxConstraints(maxWidth: 180),
+        height: 32,
+        padding: const EdgeInsets.only(left: 10, right: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: const Color(0xFFD9E5DF)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: createFormText,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 4),
-          GestureDetector(
-            key: ValueKey('initial-character-chip-remove-$characterId'),
-            behavior: HitTestBehavior.opaque,
-            onTap: () => onRemove(characterId),
-            child: const Padding(
+            const SizedBox(width: 4),
+            const Padding(
               padding: EdgeInsets.all(3),
               child: Icon(Icons.close, size: 14, color: createFormMuted),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -659,10 +662,15 @@ class _CharacterPickerSheetState extends State<_CharacterPickerSheet> {
     return GenesisBottomSheetPanel(
       title: 'Select Characters',
       height: MediaQuery.sizeOf(context).height * 0.58,
-      trailing: IconButton(
-        onPressed: () => Navigator.of(context).pop(),
-        icon: const Icon(Icons.close, size: 30, color: createFormMuted),
-        splashRadius: 24,
+      titleBottomSpacing: 8,
+      trailing: Transform.translate(
+        offset: const Offset(0, -3),
+        child: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.close, size: 22, color: Color(0xFF666666)),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints.tightFor(width: 42, height: 42),
+        ),
       ),
       child: Column(
         children: [
@@ -670,10 +678,10 @@ class _CharacterPickerSheetState extends State<_CharacterPickerSheet> {
             child: GridView.builder(
               padding: EdgeInsets.zero,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                mainAxisSpacing: 22,
-                crossAxisSpacing: 14,
-                childAspectRatio: 0.78,
+                crossAxisCount: 3,
+                mainAxisExtent: 116,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 2,
               ),
               itemCount: widget.characters.length,
               itemBuilder: (context, index) {
@@ -744,66 +752,57 @@ class _CharacterPickerTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
+          SizedBox(
+            width: 82,
+            height: 82,
             child: Stack(
+              clipBehavior: Clip.none,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(
-                    GenesisAvatarRadii.character,
-                  ),
-                  child: Container(
-                    width: double.infinity,
-                    height: double.infinity,
-                    color: createFormFieldFill,
-                    child: character.avatarUrl.trim().isEmpty
-                        ? GenesisAvatarFallback(
-                            name: character.name,
-                            width: double.infinity,
-                            height: double.infinity,
-                            borderRadius: GenesisAvatarRadii.character,
-                          )
-                        : GenesisAvatar(
-                            url: character.avatarUrl.trim(),
-                            name: character.name,
-                            width: double.infinity,
-                            height: double.infinity,
-                            borderRadius: GenesisAvatarRadii.character,
-                          ),
-                  ),
+                GenesisCharacterAvatar(
+                  url: character.avatarUrl.trim(),
+                  name: character.name,
+                  size: 82,
+                  borderRadius: GenesisAvatarRadii.character,
                 ),
                 Positioned(
                   top: 6,
                   right: 6,
                   child: Container(
-                    width: 24,
-                    height: 24,
+                    width: 26,
+                    height: 26,
                     decoration: BoxDecoration(
-                      color: selected
-                          ? createFormGreen
-                          : const Color(0xFF9B9B9B),
-                      borderRadius: BorderRadius.circular(6),
+                      color: selected ? GenesisColors.brand : Colors.white10,
+                      borderRadius: BorderRadius.circular(7),
                       border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33000000),
+                          blurRadius: 5,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
                     ),
                     child: selected
-                        ? const Icon(Icons.check, color: Colors.white, size: 16)
+                        ? const Icon(Icons.check, color: Colors.white, size: 18)
                         : null,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 7),
           Text(
             character.name.trim(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: createFormText,
               fontSize: 14,
-              fontWeight: FontWeight.w600,
-              height: 1.2,
+              height: 1.1,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF111111),
             ),
           ),
         ],
