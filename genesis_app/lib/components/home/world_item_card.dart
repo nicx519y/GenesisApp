@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/origin/stat_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
+import '../../network/models/world.dart';
 import '../../network/json_utils.dart';
 import '../../components/common/genesis_timestamp_text.dart';
+import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -207,25 +210,201 @@ class WorldItemCard extends StatelessWidget {
             Expanded(child: _WorldSummary(item: item)),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         _ProgressHeader(timestamp: item.lastProgressAt),
         if (item.progressTickTimeLabel.isNotEmpty) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _ProgressTickTime(label: item.progressTickTimeLabel),
         ],
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         Text(
           item.progressSummary,
-          maxLines: 5,
+          maxLines: 10,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             color: Color(0xFF111111),
-            fontSize: 12,
+            fontSize: 13,
             height: 1.4,
             fontWeight: FontWeight.w400,
           ),
         ),
+        _CurrentUserStatusPreview(wid: item.wid),
         if (showPreviewImages) _WorldPreviewImages(item: item),
+      ],
+    );
+  }
+}
+
+class _CurrentUserStatusPreview extends StatefulWidget {
+  const _CurrentUserStatusPreview({required this.wid});
+
+  final String wid;
+
+  @override
+  State<_CurrentUserStatusPreview> createState() =>
+      _CurrentUserStatusPreviewState();
+}
+
+class _CurrentUserStatusPreviewState extends State<_CurrentUserStatusPreview> {
+  Future<_CurrentUserStatusData?>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _loadStatus();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CurrentUserStatusPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.wid != widget.wid) {
+      _future = _loadStatus();
+    }
+  }
+
+  Future<_CurrentUserStatusData?> _loadStatus() async {
+    final services = AppServicesScope.read(context);
+    final currentUid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (currentUid.isEmpty || widget.wid.trim().isEmpty) return null;
+    final world = await services.api.getWorld(widget.wid);
+    final character = world.characters
+        .where((item) => _isCurrentUserCharacter(item, currentUid))
+        .firstOrNull;
+    if (character == null) return null;
+    return _CurrentUserStatusData(
+      world: world,
+      character: character,
+      currentUid: currentUid,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_CurrentUserStatusData?>(
+      future: _future,
+      builder: (context, snapshot) {
+        final data = snapshot.data;
+        if (data == null) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: _CurrentUserStatusRow(data: data),
+        );
+      },
+    );
+  }
+}
+
+class _CurrentUserStatusData {
+  const _CurrentUserStatusData({
+    required this.world,
+    required this.character,
+    required this.currentUid,
+  });
+
+  final WorldDetail world;
+  final Map<String, dynamic> character;
+  final String currentUid;
+}
+
+class _CurrentUserStatusRow extends StatelessWidget {
+  const _CurrentUserStatusRow({required this.data});
+
+  final _CurrentUserStatusData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final character = data.character;
+    final name = _mapString(character, const ['name'], fallback: 'Character');
+    final playerUid = _mapString(character, const ['player_uid']);
+    final username = _mapString(character, const ['player_username']);
+    final suffix = _characterNameSuffix(
+      currentUid: data.currentUid,
+      playerUid: playerUid,
+      username: username,
+      playerDeleted: entityDeleted(character['player_deleted']),
+    );
+    final isCharacterRole = _isCharacterRole(character);
+    final roleLabel = isCharacterRole ? 'Character' : 'Player';
+    final subtitle = _metricStatusText(data.world.metric, character);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(right: isCharacterRole ? 6 : 0),
+          child: GenesisCharacterAvatar(
+            url: _mapString(character, const ['avatar']),
+            name: name,
+            showStar: isCharacterRole,
+            starSize: 20,
+            showFallbackWhileLoading: false,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          text: name,
+                          children: [
+                            if (suffix.isNotEmpty)
+                              TextSpan(
+                                text: ' $suffix',
+                                style: const TextStyle(
+                                  color: Color(0xFF888888),
+                                ),
+                              ),
+                          ],
+                        ),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      roleLabel,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.15,
+                        fontWeight: FontWeight.w400,
+                        color: Color(0xFF8F8F8F),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.35,
+                    fontWeight: FontWeight.w400,
+                    color: Color(0xFF666666),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -251,9 +430,9 @@ class _ProgressTickTime extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
           color: Color(0xFF111111),
-          fontSize: 14,
+          fontSize: 12,
           height: 1.1,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w400,
         ),
       ),
     );
@@ -281,7 +460,7 @@ class _WorldSummary extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         Row(
           children: [
             Flexible(
@@ -416,7 +595,7 @@ class _ProgressHeader extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: Color(0xFF1D1D1D),
-              fontSize: 14,
+              fontSize: 13,
               height: 1,
               fontWeight: FontWeight.w600,
             ),
@@ -466,11 +645,92 @@ class _WorldImage extends StatelessWidget {
 }
 
 const _worldMetaStyle = TextStyle(
-  color: Color(0xFF8B8B8B),
+  color: Color(0xFF666666),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,
 );
+
+bool _isCurrentUserCharacter(
+  Map<String, dynamic> character,
+  String currentUid,
+) {
+  final playerUid = _mapString(character, const ['player_uid']);
+  return currentUid.isNotEmpty &&
+      playerUid.isNotEmpty &&
+      playerUid == currentUid;
+}
+
+bool _isCharacterRole(Map<String, dynamic> character) {
+  return _mapString(character, const ['player_uid']).isEmpty;
+}
+
+String _characterNameSuffix({
+  required String currentUid,
+  required String playerUid,
+  required String username,
+  required bool playerDeleted,
+}) {
+  if (playerUid.isNotEmpty && playerDeleted) {
+    return '($deletedEntityDisplayText)';
+  }
+  if (currentUid.isNotEmpty &&
+      playerUid.isNotEmpty &&
+      playerUid == currentUid) {
+    return '(Me)';
+  }
+  if (playerUid.isNotEmpty && username.isNotEmpty) return '($username)';
+  return '';
+}
+
+String _metricStatusText(
+  Map<String, dynamic> metric,
+  Map<String, dynamic> character,
+) {
+  final label = _mapString(metric, const ['label']);
+  final unit = _mapString(metric, const ['unit']);
+  final value = _resolvedMetricValueText(
+    character['metric_value'],
+    metric['default'],
+  );
+  return '$label: $value$unit';
+}
+
+String _resolvedMetricValueText(Object? metricValue, Object? defaultValue) {
+  final parsedMetricValue = _metricNumber(metricValue);
+  final resolved = parsedMetricValue == null || parsedMetricValue == 0
+      ? defaultValue
+      : metricValue;
+  return _metricDisplayValue(resolved);
+}
+
+num? _metricNumber(Object? value) {
+  if (value is num) return value;
+  final text = '$value'.trim();
+  if (text.isEmpty || text == 'null') return null;
+  return num.tryParse(text);
+}
+
+String _metricDisplayValue(Object? value) {
+  if (value is num) {
+    return value % 1 == 0 ? value.toInt().toString() : value.toString();
+  }
+  final text = '$value'.trim();
+  if (text.isEmpty || text == 'null') return '0';
+  return text;
+}
+
+String _mapString(
+  Map<String, dynamic> map,
+  List<String> keys, {
+  String fallback = '',
+}) {
+  for (final key in keys) {
+    final value = asString(map[key]).trim();
+    if (value.isNotEmpty) return value;
+  }
+  return fallback;
+}
 
 List<String> _tagsFromJson(Object? value) {
   if (value is! List) return const <String>[];

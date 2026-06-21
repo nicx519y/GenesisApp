@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/list_loading_skeleton.dart';
@@ -538,16 +539,19 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
               key: const PageStorageKey<String>('home-feed-my-world'),
               controller: _scrollController,
               primary: false,
-              cacheExtent: 900,
-              padding: const EdgeInsets.only(top: 4),
+              scrollCacheExtent: ScrollCacheExtent.pixels(900),
+              padding: const EdgeInsets.only(top: 4, bottom: 36),
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
               itemCount: _items.length + (_isLoadingMore ? 1 : 0),
-              separatorBuilder: (context, index) => const Divider(
-                height: 25,
-                thickness: 1,
-                color: Color(0xFFEFEFEF),
+              separatorBuilder: (context, index) => const Padding(
+                padding: EdgeInsets.only(top: 24, bottom: 16),
+                child: Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFEFEFEF),
+                ),
               ),
               itemBuilder: (context, index) {
                 if (index >= _items.length) {
