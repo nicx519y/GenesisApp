@@ -53,15 +53,7 @@ class _OriginCharactersEditorPageState
     _onFormChanged();
   }
 
-  Future<void> _requestRemoveCharacter(int index) async {
-    final form = _forms[index];
-    if (form.hasContent) {
-      final confirmed = await confirmCreateFormDelete(
-        context,
-        itemLabel: 'Character ${index + 1}',
-      );
-      if (!confirmed || !mounted) return;
-    }
+  void _requestRemoveCharacter(int index) {
     _removeCharacter(index);
   }
 

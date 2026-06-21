@@ -357,6 +357,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                 summary: _charactersSummary(_draft),
                                 completed: _draft.charactersSaved,
                                 modified: _charactersModified(_draft),
+                                summaryWrap: true,
                                 onTap: () => _openSection(
                                   widget.charactersPageBuilder(
                                     widget.repository,
@@ -369,6 +370,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                 summary: _locationsSummary(_draft),
                                 completed: _draft.locationsSaved,
                                 modified: _locationsModified(_draft),
+                                summaryWrap: true,
                                 onTap: () => _openSection(
                                   widget.locationsPageBuilder(
                                     widget.repository,
@@ -431,11 +433,57 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     if (!draft.basicsSaved) return 'Not started yet';
     final basics = draft.basics;
     return [
-      'World Name: ${_summaryValue(basics.originName)}',
+      'Origin Name: ${_originNameSummaryValue(basics.originName)}',
       'World View: ${_summaryValue(basics.worldView)}',
-      'World Logic: ${_summaryValue(basics.worldLogic)}',
       'Cover Image: ${basics.coverImageUrl.trim().isEmpty ? 'Not uploaded' : 'Uploaded'}',
+      'World Logic: ${_summaryValue(basics.worldLogic)}',
+      'World Time: ${_summaryValue(_worldTimeSummary(basics))}',
+      'Progress Metric: ${_summaryValue(_progressMetricSummary(basics))}',
     ].join('\n');
+  }
+
+  String _worldTimeSummary(BasicsDraft basics) {
+    final parts = <String>[
+      if (_singleLineSummaryText(basics.startedAt).isNotEmpty)
+        _singleLineSummaryText(basics.startedAt),
+      if (_singleLineSummaryText(basics.tickDurationTime).isNotEmpty)
+        _singleLineSummaryText(basics.tickDurationTime)
+      else if (basics.tickDurationDays != null)
+        basics.tickDurationDays == 1
+            ? '1 day'
+            : '${basics.tickDurationDays} days',
+    ];
+    return parts.join(', ');
+  }
+
+  String _progressMetricSummary(BasicsDraft basics) {
+    final raw = basics.metricJson.trim();
+    if (raw.isEmpty) return '';
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return raw;
+      final parts = <String>[
+        _summaryMetricValue(decoded['label']),
+        _summaryMetricValue(decoded['label_note']),
+        _summaryMetricValue(decoded['unit']),
+        _summaryMetricValue(decoded['default']),
+        _summaryMetricValue(decoded['range']),
+      ];
+      return parts.where((item) => item.isNotEmpty).join(', ');
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  String _summaryMetricValue(Object? value) {
+    if (value == null) return '';
+    if (value is List) {
+      return value
+          .map((item) => item?.toString().trim() ?? '')
+          .where((item) => item.isNotEmpty)
+          .join(' - ');
+    }
+    return _singleLineSummaryText(value.toString());
   }
 
   String _charactersSummary(CreateOriginDraft draft) {
@@ -444,18 +492,11 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
         .where(_characterDraftHasContent)
         .toList(growable: false);
     if (characters.isEmpty) return '0 characters';
-    return characters
-        .take(3)
-        .map((item) {
-          final title = _summaryValue(item.name, maxLength: 18);
-          final detail = [
-            item.identity.trim(),
-            item.personality.trim(),
-          ].where((value) => value.isNotEmpty).join(' / ');
-          if (detail.isEmpty) return title;
-          return '$title: ${_summaryValue(detail, maxLength: 34)}';
-        })
-        .join('\n');
+    final names = characters
+        .map((item) => _singleLineSummaryText(item.name))
+        .where((name) => name.isNotEmpty)
+        .join(', ');
+    return '${characters.length} characters: $names';
   }
 
   String _locationsSummary(CreateOriginDraft draft) {
@@ -464,15 +505,11 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
         .where(_locationDraftHasContent)
         .toList(growable: false);
     if (locations.isEmpty) return '0 locations';
-    return locations
-        .take(3)
-        .map((item) {
-          final title = _summaryValue(item.name, maxLength: 20);
-          final description = item.description.trim();
-          if (description.isEmpty) return title;
-          return '$title: ${_summaryValue(description, maxLength: 34)}';
-        })
-        .join('\n');
+    final names = locations
+        .map((item) => _singleLineSummaryText(item.name))
+        .where((name) => name.isNotEmpty)
+        .join(', ');
+    return '${locations.length} locations: $names';
   }
 
   String _storyEventsSummary(CreateOriginDraft draft) {
@@ -481,14 +518,24 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
         .map((item) => item.event.trim())
         .where((item) => item.isNotEmpty)
         .length;
-    return '$count Events';
+    return '$count events';
   }
 
   String _summaryValue(String value, {int maxLength = 48}) {
-    final trimmed = value.trim();
+    final trimmed = _singleLineSummaryText(value);
     if (trimmed.isEmpty) return '-';
     if (trimmed.length <= maxLength) return trimmed;
     return '${trimmed.substring(0, maxLength)}...';
+  }
+
+  String _originNameSummaryValue(String value) {
+    final trimmed = _singleLineSummaryText(value);
+    if (trimmed.isEmpty) return '-';
+    return _summaryValue('#$trimmed');
+  }
+
+  String _singleLineSummaryText(String value) {
+    return value.trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 
   String _versionLabel(String value) {

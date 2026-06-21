@@ -12,7 +12,7 @@ class OriginStoryEventsEditorPage extends StatefulWidget {
 
 class _OriginStoryEventsEditorPageState
     extends State<OriginStoryEventsEditorPage> {
-  static const int _maxEvents = 20;
+  static const int _maxEvents = 10;
   final List<TextEditingController> _eventControllers =
       <TextEditingController>[];
 
@@ -45,15 +45,7 @@ class _OriginStoryEventsEditorPageState
     _onFormChanged();
   }
 
-  Future<void> _requestRemoveEvent(int index) async {
-    final controller = _eventControllers[index];
-    if (controller.text.trim().isNotEmpty) {
-      final confirmed = await confirmCreateFormDelete(
-        context,
-        itemLabel: 'Event ${index + 1}',
-      );
-      if (!confirmed || !mounted) return;
-    }
+  void _requestRemoveEvent(int index) {
     _removeEvent(index);
   }
 
@@ -85,7 +77,7 @@ class _OriginStoryEventsEditorPageState
         .toList(growable: false);
 
     await widget.repository.saveFinalDraft(
-      draft.copyWith(storyEvents: events, storyEventsSaved: true),
+      draft.copyWith(storyEvents: events, storyEventsSaved: events.isNotEmpty),
     );
 
     if (!mounted) return;
@@ -187,6 +179,7 @@ class _SectionRow extends StatelessWidget {
     required this.completed,
     required this.onTap,
     this.modified = false,
+    this.summaryWrap = false,
     this.showDivider = true,
   });
 
@@ -196,6 +189,7 @@ class _SectionRow extends StatelessWidget {
   final bool completed;
   final VoidCallback onTap;
   final bool modified;
+  final bool summaryWrap;
   final bool showDivider;
 
   @override
@@ -236,24 +230,35 @@ class _SectionRow extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    for (final line in _summaryLines)
-                                      Text(
-                                        line,
+                                summaryWrap
+                                    ? Text(
+                                        _summarySingleLine,
                                         textAlign: TextAlign.left,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        softWrap: false,
                                         style: const TextStyle(
                                           color: Color(0xFF666666),
                                           fontSize: 12,
-                                          height: 1.35,
+                                          height: 1.4,
                                         ),
+                                      )
+                                    : Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          for (final line in _summaryLines)
+                                            Text(
+                                              line,
+                                              textAlign: TextAlign.left,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              softWrap: false,
+                                              style: const TextStyle(
+                                                color: Color(0xFF666666),
+                                                fontSize: 12,
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                        ],
                                       ),
-                                  ],
-                                ),
                               ],
                             ),
                           ),
@@ -300,6 +305,10 @@ class _SectionRow extends StatelessWidget {
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
         .toList(growable: false);
+  }
+
+  String get _summarySingleLine {
+    return summary.trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 }
 
@@ -897,8 +906,8 @@ class _StoryEventCard extends StatelessWidget {
             label: '',
             controller: controller,
             hintText: 'Event (any language)',
-            maxLength: 1000,
-            minLines: 7,
+            maxLength: 100,
+            minLines: 5,
             labelSize: 0,
             onChanged: (_) => onChanged(),
           ),

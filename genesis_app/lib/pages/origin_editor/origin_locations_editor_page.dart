@@ -54,15 +54,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     _onFormChanged();
   }
 
-  Future<void> _requestRemoveLocation(int index) async {
-    final form = _forms[index];
-    if (form.hasContent) {
-      final confirmed = await confirmCreateFormDelete(
-        context,
-        itemLabel: 'Location ${index + 1}',
-      );
-      if (!confirmed || !mounted) return;
-    }
+  void _requestRemoveLocation(int index) {
     _removeLocation(index);
   }
 
@@ -179,7 +171,10 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
         .toList(growable: false);
 
     await widget.repository.saveFinalDraft(
-      draft.copyWith(locations: locations, locationsSaved: true),
+      draft.copyWith(
+        locations: locations,
+        locationsSaved: locations.isNotEmpty,
+      ),
     );
 
     if (!mounted) return;
