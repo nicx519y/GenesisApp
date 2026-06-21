@@ -987,18 +987,22 @@ class _OriginHeader extends StatelessWidget {
           leftValue: origin.oid,
           leftDisplayValue: origin.deleted ? deletedEntityDisplayText : null,
           leftCopyEnabled: !origin.deleted,
+          leftStyle: _originHeaderMetaTextStyle,
+          leftIconColor: _originHeaderMetaColor,
           rightText: 'Originator: ${formatUidForDisplay(originator)}',
           rightOnTap: ownerUid.isEmpty || origin.ownerDeleted
               ? null
               : () => Navigator.of(
                   context,
                 ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
+          rightStyle: _originHeaderMetaTextStyle,
+          rightIconColor: _originHeaderMetaColor,
         ),
         // Header inner spacing: OID/originator row -> latest version.
         const SizedBox(height: 0),
         Text(
           'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
-          style: CopyableIdLabel.textStyle,
+          style: _originHeaderMetaTextStyle,
         ),
         if (canEditOrigin) ...[
           // Header inner spacing: latest version -> edit button.
@@ -1172,6 +1176,9 @@ class _LaunchPreviewSection extends StatelessWidget {
               : formatGenesisTimestamp(origin.startTime),
           timeAgoLabel: '',
           stackedContent: true,
+          contentLabelStyle: _originTickContentLabelStyle,
+          contentTextStyle: _originTickContentTextStyle,
+          contentTimestampStyle: _originTickContentTimestampStyle,
         ),
       ],
     );
@@ -1278,11 +1285,14 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
 class _CopyWorldProgressCard extends StatelessWidget {
   const _CopyWorldProgressCard({required this.summary});
 
-  static const double _bodyFontSize = 12;
+  static const double _bodyFontSize = 13;
   static const double _bodyLineHeight = 1.45;
   static const double _bodyHeight = _bodyFontSize * _bodyLineHeight * 5 + 6;
-  static final _bodyStyle = _bodyTextStyle.copyWith(
-    color: const Color(0xFF111111),
+  static const _bodyStyle = TextStyle(
+    fontSize: _bodyFontSize,
+    height: _bodyLineHeight,
+    fontWeight: FontWeight.w400,
+    color: Color(0xFF111111),
   );
   static const _bodyStrutStyle = StrutStyle(
     fontSize: _bodyFontSize,
@@ -1301,7 +1311,7 @@ class _CopyWorldProgressCard extends StatelessWidget {
         'No launched world',
         key: ValueKey('copy-world-progress-empty'),
         style: TextStyle(
-          fontSize: 12,
+          fontSize: 13,
           height: 1.3,
           fontWeight: FontWeight.w600,
           color: Color(0xFF999999),
@@ -1605,7 +1615,7 @@ class _OriginCharacterRow extends StatelessWidget {
                 Text(
                   identity,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
                     color: Color(0xFF111111),
@@ -1618,7 +1628,7 @@ class _OriginCharacterRow extends StatelessWidget {
                 Text(
                   tagline,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
                     color: Color(0xFFFF2344),
@@ -1869,24 +1879,53 @@ class _SectionTitle extends StatelessWidget {
 }
 
 const _bodyTextStyle = TextStyle(
-  fontSize: 12,
+  fontSize: 13,
   height: 1.45,
   fontWeight: FontWeight.w400,
   color: Color(0xFF111111),
 );
 
-const _characterBodyTextStyle = TextStyle(
+const _originHeaderMetaColor = Color(0xFF666666);
+const _originHeaderMetaTextStyle = TextStyle(
   fontSize: 12,
+  height: 1.1,
+  fontWeight: FontWeight.w400,
+  color: _originHeaderMetaColor,
+);
+
+const _characterBodyTextStyle = TextStyle(
+  fontSize: 13,
   height: 1.35,
   fontWeight: FontWeight.w400,
   color: Color(0xFF111111),
 );
 
 const _mutedBodyTextStyle = TextStyle(
-  fontSize: 12,
+  fontSize: 13,
   height: 1.3,
   fontWeight: FontWeight.w600,
   color: Color(0xFF999999),
+);
+
+const _originTickContentLabelStyle = TextStyle(
+  fontSize: 13,
+  height: 1.6,
+  fontWeight: FontWeight.w600,
+  color: Color(0xFF111111),
+);
+
+const _originTickContentTextStyle = TextStyle(
+  fontSize: 13,
+  height: 1.6,
+  fontWeight: FontWeight.w400,
+  color: Color(0xFF444444),
+);
+
+const _originTickContentTimestampStyle = TextStyle(
+  fontSize: 13,
+  height: 1.4,
+  fontWeight: FontWeight.w600,
+  color: Color(0xFF111111),
 );
 
 const _copyWorldProgressMetaStyle = TextStyle(

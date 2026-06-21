@@ -270,7 +270,11 @@ class _PointListItem extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.place, size: 14, color: Colors.black),
+                      const Icon(
+                        Icons.place_outlined,
+                        size: 14,
+                        color: Colors.black,
+                      ),
                       const SizedBox(width: 2),
                       Expanded(
                         child: Text(
@@ -359,7 +363,11 @@ class _LocationCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.place, size: 14, color: Colors.black),
+                      const Icon(
+                        Icons.place_outlined,
+                        size: 14,
+                        color: Colors.black,
+                      ),
                       const SizedBox(width: 2),
                       Expanded(
                         child: Text(
