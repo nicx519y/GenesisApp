@@ -27,7 +27,7 @@ const String createFormDeleteIconAsset =
 
 final Object createFormTextFieldTapRegionGroup = Object();
 
-class CreateTextFieldBlock extends StatelessWidget {
+class CreateTextFieldBlock extends StatefulWidget {
   const CreateTextFieldBlock({
     super.key,
     required this.label,
@@ -44,6 +44,7 @@ class CreateTextFieldBlock extends StatelessWidget {
     this.textInputAction,
     this.onEditingComplete,
     this.onSubmitted,
+    this.scrollPadding,
   });
 
   final String label;
@@ -60,24 +61,106 @@ class CreateTextFieldBlock extends StatelessWidget {
   final TextInputAction? textInputAction;
   final VoidCallback? onEditingComplete;
   final ValueChanged<String>? onSubmitted;
+  final EdgeInsets? scrollPadding;
+
+  @override
+  State<CreateTextFieldBlock> createState() => _CreateTextFieldBlockState();
+}
+
+class _CreateTextFieldBlockState extends State<CreateTextFieldBlock>
+    with WidgetsBindingObserver {
+  final GlobalKey _fieldKey = GlobalKey();
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    _focusNode.addListener(_handleFocusChanged);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _focusNode
+      ..removeListener(_handleFocusChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (!_focusNode.hasFocus) return;
+    _scheduleEnsureFieldVisible();
+  }
+
+  void _handleFocusChanged() {
+    if (!_focusNode.hasFocus) return;
+    _scheduleEnsureFieldVisible();
+  }
+
+  void _scheduleEnsureFieldVisible() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_focusNode.hasFocus) return;
+      _ensureFieldBottomVisible();
+    });
+  }
+
+  void _ensureFieldBottomVisible() {
+    final fieldContext = _fieldKey.currentContext;
+    if (fieldContext == null) return;
+    final renderObject = fieldContext.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return;
+
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    if (keyboardInset <= 0) return;
+
+    final scrollable = Scrollable.maybeOf(fieldContext);
+    if (scrollable == null) return;
+    final position = scrollable.position;
+    if (!position.hasPixels) return;
+
+    final fieldOffset = renderObject.localToGlobal(Offset.zero);
+    final fieldBottom = fieldOffset.dy + renderObject.size.height;
+    final keyboardTop = MediaQuery.sizeOf(context).height - keyboardInset;
+    final desiredGap = widget.scrollPadding?.bottom ?? 24;
+    final overflow = fieldBottom + desiredGap - keyboardTop;
+    if (overflow <= 0) return;
+
+    final target = (position.pixels + overflow).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if ((target - position.pixels).abs() < 0.5) return;
+    unawaited(
+      position.animateTo(
+        target,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return Column(
+      key: _fieldKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (label.isNotEmpty) ...[
+        if (widget.label.isNotEmpty) ...[
           Text(
-            label,
+            widget.label,
             style: TextStyle(
               color: createFormText,
-              fontSize: labelSize,
-              fontWeight: labelFontWeight,
+              fontSize: widget.labelSize,
+              fontWeight: widget.labelFontWeight,
               height: 1.2,
             ),
           ),
           // Field internal spacing: label -> input box.
-          SizedBox(height: labelInputGap),
+          SizedBox(height: widget.labelInputGap),
         ],
         Container(
           decoration: BoxDecoration(
@@ -91,21 +174,33 @@ class CreateTextFieldBlock extends StatelessWidget {
                 ? CrossAxisAlignment.center
                 : CrossAxisAlignment.start,
             children: [
-              if (prefix != null) ...[prefix!, const SizedBox(width: 8)],
+              if (widget.prefix != null) ...[
+                widget.prefix!,
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: TextFieldTapRegion(
                   groupId: createFormTextFieldTapRegionGroup,
                   child: TextField(
-                    controller: controller,
-                    onChanged: onChanged,
+                    controller: widget.controller,
+                    focusNode: _focusNode,
+                    scrollPadding:
+                        widget.scrollPadding ??
+                        EdgeInsets.only(
+                          left: 4,
+                          top: 4,
+                          right: 4,
+                          bottom: keyboardInset > 0 ? 4 : 20,
+                        ),
+                    onChanged: widget.onChanged,
                     onTapOutside: (_) =>
                         FocusManager.instance.primaryFocus?.unfocus(),
-                    textInputAction: textInputAction,
-                    onEditingComplete: onEditingComplete,
-                    onSubmitted: onSubmitted,
-                    maxLength: maxLength,
-                    minLines: minLines,
-                    maxLines: maxLines,
+                    textInputAction: widget.textInputAction,
+                    onEditingComplete: widget.onEditingComplete,
+                    onSubmitted: widget.onSubmitted,
+                    maxLength: widget.maxLength,
+                    minLines: widget.minLines,
+                    maxLines: widget.maxLines,
                     style: const TextStyle(
                       color: createFormText,
                       fontSize: 14,
@@ -114,7 +209,7 @@ class CreateTextFieldBlock extends StatelessWidget {
                     decoration: InputDecoration(
                       border: InputBorder.none,
                       counterText: '',
-                      hintText: hintText,
+                      hintText: widget.hintText,
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
                       hintStyle: const TextStyle(
@@ -130,12 +225,12 @@ class CreateTextFieldBlock extends StatelessWidget {
             ],
           ),
         ),
-        if (maxLength != null) ...[
+        if (widget.maxLength != null) ...[
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerRight,
             child: Text(
-              '${controller.text.length} / $maxLength',
+              '${widget.controller.text.length} / ${widget.maxLength}',
               style: const TextStyle(
                 color: createFormMuted,
                 fontSize: 12,
@@ -148,7 +243,8 @@ class CreateTextFieldBlock extends StatelessWidget {
     );
   }
 
-  bool get _isSingleLine => (maxLines ?? minLines) == 1 && minLines == 1;
+  bool get _isSingleLine =>
+      (widget.maxLines ?? widget.minLines) == 1 && widget.minLines == 1;
 }
 
 class CreateKeyboardDismissArea extends StatelessWidget {

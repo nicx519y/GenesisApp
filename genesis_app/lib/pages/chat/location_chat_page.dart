@@ -109,7 +109,7 @@ class LocationChatPanel extends StatefulWidget {
 class _LocationChatPanelState extends State<LocationChatPanel>
     with WidgetsBindingObserver {
   static const Duration _keyboardAnimationDuration = Duration(
-    milliseconds: 180,
+    milliseconds: 120,
   );
   static double _cachedKeyboardInset = 0;
 
@@ -148,7 +148,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   double _lastHeaderHeight = 0;
   double _lastComposerHeight = 0;
   Timer? _keyboardMetricsTimer;
-  Timer? _keyboardCloseTimer;
+  Timer? _keyboardTargetProbeTimer;
 
   @override
   void initState() {
@@ -169,7 +169,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _keyboardMetricsTimer?.cancel();
-    _keyboardCloseTimer?.cancel();
+    _keyboardTargetProbeTimer?.cancel();
     final service = _service;
     if (_ownsService && service != null) {
       unawaited(service.disconnect().catchError((Object _) {}));
@@ -1380,7 +1380,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   void _handleComposerFocusChanged() {
     if (_composerFocusNode.hasFocus) {
-      _keyboardCloseTimer?.cancel();
       _keyboardTargetLocked = false;
       if (_cachedKeyboardInset > 0) {
         _waitingForKeyboardTarget = false;
@@ -1388,10 +1387,16 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _setKeyboardInset(_cachedKeyboardInset);
       } else {
         _waitingForKeyboardTarget = true;
+        _setKeyboardInset(_estimatedKeyboardInset());
+        _startKeyboardTargetProbe();
       }
       return;
     }
-    _scheduleKeyboardClose();
+    _keyboardMetricsTimer?.cancel();
+    _keyboardTargetProbeTimer?.cancel();
+    _waitingForKeyboardTarget = false;
+    _keyboardTargetLocked = false;
+    _setKeyboardInset(0);
   }
 
   void _handleDraftTextChanged() {
@@ -1403,7 +1408,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   void _handleKeyboardMetricsChanged() {
     final rawInset = _rawKeyboardInset();
     if (rawInset > 0) {
-      _keyboardCloseTimer?.cancel();
+      _keyboardTargetProbeTimer?.cancel();
       _keyboardMetricsTimer?.cancel();
       final currentTarget = _clampKeyboardInset(rawInset);
       if (_waitingForKeyboardTarget || !_keyboardTargetLocked) {
@@ -1419,30 +1424,44 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         final stableInset = _rawKeyboardInset();
         if (stableInset <= 0) return;
         _cachedKeyboardInset = _clampKeyboardInset(stableInset);
-        if (_composerFocusNode.hasFocus && !_keyboardTargetLocked) {
+        if (_composerFocusNode.hasFocus) {
           _setKeyboardInset(_cachedKeyboardInset);
         }
       });
       return;
     }
-    if (!_composerFocusNode.hasFocus) {
-      _scheduleKeyboardClose();
-    }
+    if (!_composerFocusNode.hasFocus) return;
   }
 
-  void _scheduleKeyboardClose() {
-    _keyboardMetricsTimer?.cancel();
-    _keyboardCloseTimer?.cancel();
-    _waitingForKeyboardTarget = false;
-    _keyboardTargetLocked = false;
-    _keyboardCloseTimer = Timer(const Duration(milliseconds: 120), () {
-      if (!mounted || _composerFocusNode.hasFocus) return;
-      if (_rawKeyboardInset() > 0) {
-        _scheduleKeyboardClose();
-        return;
-      }
-      _setKeyboardInset(0);
-    });
+  void _startKeyboardTargetProbe() {
+    _keyboardTargetProbeTimer?.cancel();
+    var ticks = 0;
+    _keyboardTargetProbeTimer = Timer.periodic(
+      const Duration(milliseconds: 24),
+      (timer) {
+        if (!mounted || !_composerFocusNode.hasFocus || ticks++ >= 14) {
+          timer.cancel();
+          return;
+        }
+        final rawInset = _rawKeyboardInset();
+        if (rawInset <= 0) return;
+        final currentTarget = _clampKeyboardInset(rawInset);
+        if (currentTarget <= 0) return;
+        _waitingForKeyboardTarget = false;
+        _keyboardTargetLocked = true;
+        _cachedKeyboardInset = currentTarget;
+        _setKeyboardInset(currentTarget);
+        _keyboardMetricsTimer?.cancel();
+        _keyboardMetricsTimer = Timer(const Duration(milliseconds: 90), () {
+          if (!mounted || !_composerFocusNode.hasFocus) return;
+          final stableInset = _rawKeyboardInset();
+          if (stableInset <= 0) return;
+          _cachedKeyboardInset = _clampKeyboardInset(stableInset);
+          _setKeyboardInset(_cachedKeyboardInset);
+        });
+        timer.cancel();
+      },
+    );
   }
 
   double _rawKeyboardInset() {
@@ -1461,6 +1480,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         minVisibleMessageListHeight;
     if (maxInset <= 0) return 0;
     return rawInset.clamp(0.0, maxInset).toDouble();
+  }
+
+  double _estimatedKeyboardInset() {
+    final panelHeight = _lastPanelHeight.isFinite && _lastPanelHeight > 0
+        ? _lastPanelHeight
+        : MediaQuery.sizeOf(context).height;
+    return _clampKeyboardInset(panelHeight * 0.38);
   }
 
   void _setKeyboardInset(double inset) {

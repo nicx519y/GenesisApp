@@ -136,6 +136,7 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
     final bottomBar = widget.bottomBar;
     final topOverlay = widget.topOverlay;
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: LayoutBuilder(
         builder: (context, constraints) {
           final viewportHeight = constraints.maxHeight;
