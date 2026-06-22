@@ -461,6 +461,75 @@ void main() {
     expect(origin.locations.single.locationParagraph, 'Gate launch paragraph.');
   });
 
+  test('getOriginInfo uses lightweight origin info contract', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'info': {
+              'origin_id': 'o_info_1',
+              'origin_name': 'Origin Info',
+              'origin_version': '2',
+              'owner_uid': 'u_1',
+              'owner_name': 'Tester',
+              'brief': 'Lightweight brief.',
+              'tags': ['light'],
+              'created_at': 1716000000,
+              'cover': const <String, Object?>{
+                'sm_url': 'https://cdn.example.com/origin_400.webp',
+                'xl_url': 'https://cdn.example.com/origin_800.webp',
+                'object_key': 'uploads/origin_800.webp',
+              },
+              'map_url': 'https://cdn.example.com/map.png',
+              'status': 10,
+            },
+            'stats': {
+              'copy_cnt': 3,
+              'discuss_cnt': 4,
+              'character_cnt': 5,
+              'connect_cnt': 6,
+              'location_cnt': 7,
+              'max_tick_cnt': 8,
+            },
+          },
+        }),
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final origin = await api.getOriginInfo('o_info_1');
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/info');
+    expect(
+      apiTransport.lastRequest!.uri.queryParameters['origin_id'],
+      'o_info_1',
+    );
+    expect(origin.oid, 'o_info_1');
+    expect(origin.name, 'Origin Info');
+    expect(origin.worldView, 'Lightweight brief.');
+    expect(origin.copyCount, 3);
+    expect(origin.discussCount, 4);
+    expect(origin.interactCount, 6);
+    expect(origin.characterCount, 5);
+    expect(origin.characters, isEmpty);
+    expect(origin.allLocations, isEmpty);
+    expect(origin.ticks, isEmpty);
+  });
+
   test('v1 origin forEdit uses Apifox query and flat edit response', () async {
     final apiTransport = _FakeTransport(
       handler: (request) => TransportResponse(
@@ -850,6 +919,78 @@ void main() {
       'name': 'Iris Vale',
       'delta': '+3 focus',
     });
+  });
+
+  test('getWorldInfo uses lightweight world info contract', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'info': {
+              'world_id': 'w_info_1',
+              'world_name': 'World Info',
+              'origin_id': 'o_info_1',
+              'origin_version': '3',
+              'current_time': 'Day 7, 19:10',
+              'owner_uid': 'u_1',
+              'owner_name': 'Tester',
+              'brief': 'World brief.',
+              'tags': ['light'],
+              'created_at': 1716000000,
+              'cover': const <String, Object?>{
+                'sm_url': 'https://cdn.example.com/world_400.webp',
+                'xl_url': 'https://cdn.example.com/world_800.webp',
+                'object_key': 'uploads/world_800.webp',
+              },
+              'map_url': 'https://cdn.example.com/world-map.png',
+              'status': 10,
+            },
+            'stats': {
+              'character_cnt': 2,
+              'connect_cnt': 3,
+              'location_cnt': 4,
+              'tick_cnt': 5,
+              'player_cnt': 6,
+            },
+          },
+        }),
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final world = await api.getWorldInfo('w_info_1');
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/world/info');
+    expect(
+      apiTransport.lastRequest!.uri.queryParameters['world_id'],
+      'w_info_1',
+    );
+    expect(world.worldId, 'w_info_1');
+    expect(world.name, 'World Info');
+    expect(world.origin.oid, 'o_info_1');
+    expect(world.currentTime, 'Day 7, 19:10');
+    expect(world.tickCount, 5);
+    expect(world.connectCount, 3);
+    expect(world.characterCount, 2);
+    expect(world.playerCount, 6);
+    expect(world.relationStatus, '');
+    expect(world.characters, isEmpty);
+    expect(world.locations, isEmpty);
+    expect(world.ticks, isEmpty);
   });
 
   test('getWorld treats missing detail metric as empty map', () async {

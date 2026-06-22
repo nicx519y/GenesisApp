@@ -367,6 +367,12 @@ class LocalMockGenesisTransport implements HttpTransport {
       );
     }
 
+    if (method == 'GET' && path == 'origin/info') {
+      return _v1Ok(
+        _state.v1OriginContractInfo(query['origin_id'] ?? query['oid']),
+      );
+    }
+
     if (method == 'GET' && path == 'origin/foredit') {
       return _v1Ok(_state.v1OriginForEdit(query['origin_id'] ?? query['oid']));
     }
@@ -414,6 +420,10 @@ class LocalMockGenesisTransport implements HttpTransport {
 
     if (method == 'GET' && path == 'world/detail') {
       return _v1Ok(_state.v1WorldContractDetail(query['world_id']));
+    }
+
+    if (method == 'GET' && path == 'world/info') {
+      return _v1Ok(_state.v1WorldContractInfo(query['world_id']));
     }
 
     if (method == 'GET' && path == 'world/tick/list') {
@@ -1396,6 +1406,10 @@ class _MockState {
     };
   }
 
+  Map<String, dynamic> v1OriginContractInfo(String? originId) {
+    return _v1OriginContractItem(_findV1Origin(originId));
+  }
+
   Map<String, dynamic> v1OriginForEdit(String? originId) {
     final origin = _findV1Origin(originId);
     final item = _v1OriginContractItem(origin);
@@ -1708,6 +1722,10 @@ class _MockState {
       'locations': kMockV1Locations.map(_contractLocation).toList(),
       'ticks': _v1WorldTicks(world).map(_deepCopyMap).toList(),
     };
+  }
+
+  Map<String, dynamic> v1WorldContractInfo(String? worldId) {
+    return _v1WorldContractItem(_findV1World(worldId));
   }
 
   Map<String, dynamic> v1WorldTickList({

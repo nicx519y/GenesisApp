@@ -93,6 +93,29 @@ class OriginV1Api extends V1ApiResource {
     return getMap('origin/detail', {'origin_id': resolvedOriginId});
   }
 
+  /// GET /api/v1/origin/info
+  ///
+  /// 提交参数:
+  /// ```json
+  /// {"origin_id":"string"}
+  /// ```
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":{"info":{"origin_id":"string","origin_name":"string","brief":"string","cover":{},"status":10},"stats":{"copy_cnt":0,"discuss_cnt":0,"character_cnt":0,"connect_cnt":0,"location_cnt":0,"max_tick_cnt":0}}}
+  /// ```
+  Future<Map<String, dynamic>> info({String? originId, String? oid}) {
+    final resolvedOriginId = (originId ?? oid ?? '').trim();
+    if (resolvedOriginId.isEmpty) {
+      throw ArgumentError.value(
+        originId ?? oid,
+        'originId',
+        'must not be empty',
+      );
+    }
+    return getMap('origin/info', {'origin_id': resolvedOriginId});
+  }
+
   /// GET /api/v1/origin/foredit
   ///
   /// 提交参数:

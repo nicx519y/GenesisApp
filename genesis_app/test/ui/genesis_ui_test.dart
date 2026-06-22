@@ -106,14 +106,14 @@ void main() {
       MaterialApp(
         home: Scaffold(
           body: GenesisPageHeader(
-            title: 'Origin',
+            title: 'Worldo',
             onSearchTap: () => tapped = true,
           ),
         ),
       ),
     );
 
-    expect(find.text('Origin'), findsOneWidget);
+    expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('Explore'), findsOneWidget);
 
     await tester.tap(find.text('Explore'));
@@ -142,11 +142,11 @@ void main() {
   testWidgets('PageHeader reuses SearchBarPlaceholder', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(body: PageHeader(pageName: 'Origin')),
+        home: Scaffold(body: PageHeader(pageName: 'Worldo')),
       ),
     );
 
-    expect(find.text('Origin'), findsOneWidget);
+    expect(find.text('Worldo'), findsOneWidget);
     expect(find.byType(SearchBarPlaceholder), findsOneWidget);
   });
 
@@ -674,12 +674,12 @@ void main() {
             children: [
               SecendTabs(
                 controller: controller,
-                labels: const ['Origin', 'World'],
+                labels: const ['Worldo', 'World'],
               ),
               Expanded(
                 child: TabBarView(
                   controller: controller,
-                  children: const [Text('Origin list'), Text('World list')],
+                  children: const [Text('Worldo list'), Text('World list')],
                 ),
               ),
             ],
@@ -688,7 +688,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Origin'), findsOneWidget);
+    expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('World'), findsOneWidget);
   });
 
@@ -722,7 +722,7 @@ void main() {
           child: Scaffold(
             body: Column(
               children: [
-                SecendTabs(labels: ['Origin', 'World'], verticalPadding: 0),
+                SecendTabs(labels: ['Worldo', 'World'], verticalPadding: 0),
               ],
             ),
           ),

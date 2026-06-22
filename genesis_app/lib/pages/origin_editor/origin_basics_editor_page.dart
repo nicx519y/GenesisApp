@@ -87,7 +87,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     final coverImage = _coverImageController.text.trim();
 
     if (originName.isEmpty) {
-      _showError('Origin Name is required.');
+      _showError('Worldo Name is required.');
       return;
     }
     if (worldView.isEmpty) {
@@ -363,7 +363,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                       ),
                       const SizedBox(height: 16),
                       CreateTextFieldBlock(
-                        label: 'Origin Name *',
+                        label: 'Worldo Name *',
                         controller: _originNameController,
                         hintText: 'Enter world name...',
                         maxLength: 30,

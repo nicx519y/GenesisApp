@@ -468,6 +468,12 @@ class GenesisApi {
     return detail;
   }
 
+  Future<OriginDetail> getOriginInfo(String oid) async {
+    final detail = _originDetailFromV1(await v1.origin.info(oid: oid));
+    _originIdToWorldview[detail.id] = detail.oid;
+    return detail;
+  }
+
   Future<PagedResponse<OriginSummary>> getMyLaunchedOrigins({
     String? uid,
     String scene = 'mine',
@@ -643,6 +649,10 @@ class GenesisApi {
 
   Future<WorldDetail> getWorld(String wid) async {
     return _worldDetailFromV1(await v1.world.detail(worldId: wid));
+  }
+
+  Future<WorldDetail> getWorldInfo(String wid) async {
+    return _worldDetailFromV1(await v1.world.info(worldId: wid));
   }
 
   Future<PagedResponse<Map<String, dynamic>>> getWorldTicks({
@@ -917,8 +927,7 @@ class GenesisApi {
     final updated = await v1.origin.update(
       originId: asString(payload['origin_id'], fallback: oid),
       originName: asString(payload['name']),
-      // Version increments are owned by the backend when an edit is published.
-      originVersion: null,
+      originVersion: _createOriginOptionalString(payload['origin_version']),
       brief: asString(payload['world_view']),
       setting: asString(payload['world_setting']),
       events: events.isEmpty ? null : events,

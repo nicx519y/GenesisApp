@@ -83,7 +83,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        appBar: GenesisBackAppBar(pageName: 'Edit Origin'),
+        appBar: GenesisBackAppBar(pageName: 'Edit Worldo'),
         body: Center(child: CircularProgressIndicator()),
       );
     }
@@ -91,7 +91,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
     final repository = _repository;
     if (_error != null || repository == null) {
       return Scaffold(
-        appBar: const GenesisBackAppBar(pageName: 'Edit Origin'),
+        appBar: const GenesisBackAppBar(pageName: 'Edit Worldo'),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -99,7 +99,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _error ?? 'Origin detail is unavailable.',
+                  _error ?? 'Worldo detail is unavailable.',
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
@@ -116,7 +116,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
 
     return OriginDraftFlowPage(
       key: ValueKey('edit-origin-${widget.originId}'),
-      title: 'Edit Origin',
+      title: 'Edit Worldo',
       repository: repository,
       basicsPageBuilder: (repository) => EditBasicsPage(repository: repository),
       charactersPageBuilder: (repository) =>
@@ -157,7 +157,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
       repository.markCurrentAsOriginal();
     }
     return OriginSubmitResult(
-      message: 'Origin published successfully: ${result.oid}',
+      message: 'Worldo published successfully: ${result.oid}',
     );
   }
 }

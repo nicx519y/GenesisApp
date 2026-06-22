@@ -412,7 +412,7 @@ class _LocationCard extends StatelessWidget {
           CreateTextFieldBlock(
             label: 'Description (Optional)',
             controller: form.description,
-            hintText: 'Show in Origin location list',
+            hintText: 'Show in Worldo location list',
             maxLength: 100,
             minLines: 3,
             labelInputGap: 8,

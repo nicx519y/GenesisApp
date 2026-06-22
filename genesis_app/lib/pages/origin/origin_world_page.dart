@@ -1005,7 +1005,7 @@ class _OriginHeader extends StatelessWidget {
           // Header inner spacing: latest version -> edit button.
           const SizedBox(height: 8),
           GenesisPrimaryButton(
-            label: 'Edit Origin',
+            label: 'Edit Worldo',
             onPressed: () async {
               await Navigator.of(context).pushNamed(
                 RouteNames.edit,

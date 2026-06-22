@@ -77,7 +77,7 @@ class _LoginSheetState extends State<LoginSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Create origin, launch worlds and invite friends',
+            'Create worldo, launch worlds and invite friends',
             style: TextStyle(
               fontSize: 14,
               color: Color(0xFF666666),

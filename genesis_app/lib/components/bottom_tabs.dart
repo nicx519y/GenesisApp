@@ -27,7 +27,7 @@ class BottomTabs extends StatelessWidget {
           selectedIconAsset: bottomNavHomePressIconAsset,
         ),
         const GenesisBottomNavigationItem(
-          label: 'Origin',
+          label: 'Worldo',
           iconAsset: bottomNavOriginIconAsset,
           selectedIconAsset: bottomNavOriginPressIconAsset,
         ),

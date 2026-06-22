@@ -149,7 +149,7 @@ void main() {
     final editable = tester.state<EditableTextState>(find.byType(EditableText));
     expect(editable.widget.focusNode.hasFocus, isTrue);
 
-    await tester.tap(find.text('Origins').first);
+    await tester.tap(find.text('Worldos').first);
     await tester.pump();
 
     expect(editable.widget.focusNode.hasFocus, isFalse);
