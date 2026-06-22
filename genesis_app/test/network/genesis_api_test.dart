@@ -8,6 +8,7 @@ import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
+import 'package:genesis_flutter_android/network/v1/upload_api.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
 import 'package:genesis_flutter_android/platform/auth/identity_auth_service.dart';
@@ -930,7 +931,10 @@ void main() {
               'characters': [
                 {
                   'char_id': 'c_1',
-                  'type': 'ai',
+                  'type': 'player',
+                  'player_uid': 'u_1',
+                  'player_username': 'Tester',
+                  'player_deleted': 0,
                   'name': 'Iris',
                   'avatar': image('avatar'),
                   'location_id': 'loc_1',
@@ -960,6 +964,8 @@ void main() {
       final api = _apiWith(apiTransport, healthTransport);
       final world = await api.getWorld('w_1');
       final character = world.characters.single;
+      final mapCharacter =
+          world.characterPositions.single['character'] as Map<String, dynamic>;
       final location = world.locations.single;
 
       expect(
@@ -970,6 +976,9 @@ void main() {
         character['avatar'],
         'https://cdn.example.com/avatar_800_600.webp',
       );
+      expect(mapCharacter['player_uid'], 'u_1');
+      expect(mapCharacter['player_username'], 'Tester');
+      expect(mapCharacter['player_deleted'], false);
       expect(location['icon'], 'https://cdn.example.com/location_800_600.webp');
       expect(location['map_url'], 'https://cdn.example.com/location_map.png');
     },
@@ -2097,6 +2106,7 @@ void main() {
 
     expect(result['file_url'], 'https://cdn/x.png');
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/common/upload');
+    expect(apiTransport.lastRequest!.timeoutMs, 15000);
     expect(
       apiTransport.lastRequest!.headers['content-type'],
       startsWith('multipart/form-data; boundary='),
@@ -2143,6 +2153,10 @@ void main() {
     expect(result['object_key'], 'uploads/20260526/123_800_600.jpg');
     expect(apiTransport.lastRequest!.method, 'POST');
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/upload/image');
+    expect(
+      apiTransport.lastRequest!.timeoutMs,
+      UploadV1Api.imageUploadTimeoutMs,
+    );
     expect(
       apiTransport.lastRequest!.headers['content-type'],
       startsWith('multipart/form-data; boundary='),

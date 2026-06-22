@@ -1,7 +1,10 @@
+import '../json_utils.dart';
 import 'v1_api_resource.dart';
 
 class UploadV1Api extends V1ApiResource {
   const UploadV1Api(super.client);
+
+  static const int imageUploadTimeoutMs = 120000;
 
   /// POST /api/v1/upload/image
   ///
@@ -16,7 +19,7 @@ class UploadV1Api extends V1ApiResource {
     required List<int> bytes,
     String filename = 'upload.jpg',
     String contentType = 'image/jpeg',
-  }) {
+  }) async {
     final boundary = '----genesis-${DateTime.now().microsecondsSinceEpoch}';
     final body = multipartBody(
       boundary: boundary,
@@ -24,8 +27,14 @@ class UploadV1Api extends V1ApiResource {
       filename: filename,
       contentType: contentType,
     );
-    return postMap('upload/image', body, {
-      'content-type': 'multipart/form-data; boundary=$boundary',
-    });
+    final json = await client
+        .copyWith(timeoutMs: imageUploadTimeoutMs)
+        .post<Object?>(
+          'v1/upload/image',
+          body: body,
+          headers: {'content-type': 'multipart/form-data; boundary=$boundary'},
+        );
+    final data = handleV1ResponseErrNo(json);
+    return data == null ? <String, dynamic>{} : asJsonMap(data);
   }
 }

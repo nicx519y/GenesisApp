@@ -851,7 +851,8 @@ void main() {
         service.state.world?.characterPositions.any(
           (position) =>
               position['location_id'] == 'loc-1' &&
-              (position['character'] as Map?)?['name'] == 'Role One',
+              (position['character'] as Map?)?['name'] == 'Role One' &&
+              (position['character'] as Map?)?['player_uid'] == 'user-1',
         ),
         true,
       );

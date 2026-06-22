@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -56,6 +57,7 @@ const double _worldTimePillMinWidth = 96;
 const double _worldTimePillHorizontalPadding = 12;
 const double _worldMapContentTopOffset =
     _worldMapTabsHeight + _worldTimePillTopGap + _worldTimePillHeight + 8;
+const int _worldSectionEventsIndex = 0;
 const double _worldCharacterAvatarLogicalSize = 48;
 
 class WorldPage extends StatefulWidget {
@@ -119,6 +121,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
   bool _tick1WaitDialogStarted = false;
+  var _currentUid = '';
+  var _currentUidRequested = false;
+  late final ValueNotifier<WorldDetail?> _sectionsWorldNotifier =
+      ValueNotifier<WorldDetail?>(_world);
+  final _sectionsEventsCache = _WorldSectionsEventsCache();
 
   @override
   void initState() {
@@ -130,6 +137,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final initialWorld = widget.initialWorldDetail;
     if (initialWorld != null) {
       _world = initialWorld;
+      _sectionsWorldNotifier.value = initialWorld;
       _syncLocationChatDescriptors(initialWorld);
       _syncWorldChatroomForRelationStatus(initialWorld.relationStatus);
       _maybeShowTick1WaitDialog();
@@ -149,6 +157,15 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_currentUidRequested) {
+      _currentUidRequested = true;
+      unawaited(_loadCurrentUid());
+    }
+  }
+
+  @override
   void dispose() {
     _tabController.removeListener(_handleMapModeTabChanged);
     WorldDetailsStatusBarOverride.clearStyle();
@@ -164,6 +181,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     }
     _tabController.dispose();
     _sectionController.dispose();
+    _sectionsEventsCache.clear();
+    _sectionsWorldNotifier.dispose();
     super.dispose();
   }
 
@@ -193,6 +212,14 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       return;
     }
     WorldDetailsStatusBarOverride.clearStyle();
+  }
+
+  Future<void> _loadCurrentUid() async {
+    final uid =
+        (await AppServicesScope.of(context).sessionStore.readUid())?.trim() ??
+        '';
+    if (!mounted || uid == _currentUid) return;
+    setState(() => _currentUid = uid);
   }
 
   void _startWorldChatroom() {
@@ -995,6 +1022,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }) {
     setState(() {
       _world = world;
+      _sectionsWorldNotifier.value = world;
       if (clearInitialLoadError) _initialLoadError = null;
       _syncLocationChatDescriptors(world);
     });
@@ -1060,6 +1088,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         showGenesisToast(context, message);
       }
       await _fetchWorld();
+      if (!mounted) return;
+      if (action == _WorldHeaderActionKind.progress) {
+        _openWorldSectionSheet(
+          _worldSectionEventsIndex,
+          scrollEventsToLatest: true,
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       showGenesisToast(context, '${_worldHeaderActionLabel(action)} failed');
@@ -1544,6 +1579,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
     final avatarsByLocation = _avatarsByLocationFromCharacterPositions(
       world.characterPositions,
+      currentUid: _currentUid,
     );
     final processedLocationTree = world.processedLocationTree;
     final rootLocationNodes = processedLocationTree.mapRoots;
@@ -1701,10 +1737,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     );
   }
 
-  void _openWorldSectionSheet(int index) {
+  void _openWorldSectionSheet(int index, {bool scrollEventsToLatest = false}) {
     final world = _world;
     if (world == null) return;
     _sectionController.animateTo(index);
+    _sectionsWorldNotifier.value = world;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1712,9 +1749,15 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       enableDrag: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.18),
-      builder: (context) =>
-          _WorldSectionsBottomSheet(world: world, initialIndex: index),
+      builder: (context) => _WorldSectionsBottomSheet(
+        initialWorld: world,
+        worldListenable: _sectionsWorldNotifier,
+        eventsCache: _sectionsEventsCache,
+        initialIndex: index,
+        scrollEventsToLatest: scrollEventsToLatest,
+      ),
     );
+    unawaited(_fetchWorld());
   }
 }
 
@@ -2481,16 +2524,46 @@ class _WorldFeedContent extends StatelessWidget {
 
 class _WorldSectionsBottomSheet extends StatefulWidget {
   const _WorldSectionsBottomSheet({
-    required this.world,
+    required this.initialWorld,
+    required this.worldListenable,
+    required this.eventsCache,
     required this.initialIndex,
+    this.scrollEventsToLatest = false,
   });
 
-  final WorldDetail world;
+  final WorldDetail initialWorld;
+  final ValueListenable<WorldDetail?> worldListenable;
+  final _WorldSectionsEventsCache eventsCache;
   final int initialIndex;
+  final bool scrollEventsToLatest;
 
   @override
   State<_WorldSectionsBottomSheet> createState() =>
       _WorldSectionsBottomSheetState();
+}
+
+class _WorldSectionsEventsCache {
+  var worldId = '';
+  var ticks = const <Map<String, dynamic>>[];
+  var total = 0;
+  var page = 0;
+  var initialLoading = false;
+  var loadingMore = false;
+  Object? error;
+
+  void reset(String nextWorldId) {
+    worldId = nextWorldId;
+    ticks = const <Map<String, dynamic>>[];
+    total = 0;
+    page = 0;
+    initialLoading = false;
+    loadingMore = false;
+    error = null;
+  }
+
+  void clear() {
+    reset('');
+  }
 }
 
 class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
@@ -2500,15 +2573,15 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
   static const double _sheetHeightFactor = 0.85;
 
   late final TabController _controller;
+  late final ScrollController _eventsScrollController = ScrollController();
   var _currentUid = '';
   var _currentUidRequested = false;
-  var _eventsWorldId = '';
-  var _eventTicks = const <Map<String, dynamic>>[];
-  var _eventsTotal = 0;
-  var _eventsPage = 0;
-  var _eventsInitialLoading = false;
-  var _eventsLoadingMore = false;
-  Object? _eventsError;
+  var _scrollEventsToLatestAfterLoad = false;
+
+  WorldDetail get _currentWorld =>
+      widget.worldListenable.value ?? widget.initialWorld;
+
+  _WorldSectionsEventsCache get _eventsCache => widget.eventsCache;
 
   @override
   void initState() {
@@ -2519,6 +2592,8 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
       initialIndex: widget.initialIndex.clamp(0, 2),
     );
     _controller.addListener(_handleTabChanged);
+    widget.worldListenable.addListener(_handleWorldDetailChanged);
+    _scrollEventsToLatestAfterLoad = widget.scrollEventsToLatest;
   }
 
   @override
@@ -2528,25 +2603,27 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
       _currentUidRequested = true;
       unawaited(_loadCurrentUid());
     }
-    if (_eventsWorldId != widget.world.worldId) {
-      _resetEvents(widget.world.worldId);
-      unawaited(_loadEventsPage(1));
-    }
+    _ensureEventsForCurrentWorld();
   }
 
   @override
   void didUpdateWidget(covariant _WorldSectionsBottomSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.world.worldId != widget.world.worldId) {
-      _resetEvents(widget.world.worldId);
-      unawaited(_loadEventsPage(1));
+    if (oldWidget.worldListenable != widget.worldListenable) {
+      oldWidget.worldListenable.removeListener(_handleWorldDetailChanged);
+      widget.worldListenable.addListener(_handleWorldDetailChanged);
+    }
+    if (oldWidget.eventsCache != widget.eventsCache) {
+      _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
     }
   }
 
   @override
   void dispose() {
+    widget.worldListenable.removeListener(_handleWorldDetailChanged);
     _controller.removeListener(_handleTabChanged);
     _controller.dispose();
+    _eventsScrollController.dispose();
     super.dispose();
   }
 
@@ -2560,71 +2637,98 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
 
   void _handleTabChanged() {
     if (mounted) setState(() {});
-    if (_controller.index == 0 && _eventTicks.isEmpty) {
+    if (_controller.index == 0 && _eventsCache.ticks.isEmpty) {
       unawaited(_loadEventsPage(1));
     }
   }
 
-  void _resetEvents(String worldId) {
+  void _handleWorldDetailChanged() {
+    _ensureEventsForCurrentWorld();
+    if (mounted) setState(() {});
+  }
+
+  void _ensureEventsForCurrentWorld({bool forceFirstPageRefresh = false}) {
+    final worldId = _currentWorld.worldId;
+    if (_eventsCache.worldId != worldId) {
+      _eventsCache.reset(worldId);
+      unawaited(_loadEventsPage(1));
+      return;
+    }
+    if (_eventsCache.ticks.isEmpty ||
+        forceFirstPageRefresh ||
+        _scrollEventsToLatestAfterLoad) {
+      unawaited(_loadEventsPage(1));
+    }
+    if (_scrollEventsToLatestAfterLoad && _eventsCache.ticks.isNotEmpty) {
+      _scheduleScrollEventsToLatest();
+    }
+  }
+
+  void _mutateEventsCache(VoidCallback update) {
     setState(() {
-      _eventsWorldId = worldId;
-      _eventTicks = const <Map<String, dynamic>>[];
-      _eventsTotal = 0;
-      _eventsPage = 0;
-      _eventsInitialLoading = false;
-      _eventsLoadingMore = false;
-      _eventsError = null;
+      update();
     });
   }
 
   bool get _eventsHasMore {
-    return _eventsTotal > 0 && _eventTicks.length < _eventsTotal;
+    return _eventsCache.total > 0 &&
+        _eventsCache.ticks.length < _eventsCache.total;
   }
 
   void _loadNextEventsPage() {
-    if (!_eventsHasMore || _eventsLoadingMore || _eventsInitialLoading) return;
-    unawaited(_loadEventsPage(_eventsPage + 1));
+    if (!_eventsHasMore ||
+        _eventsCache.loadingMore ||
+        _eventsCache.initialLoading) {
+      return;
+    }
+    unawaited(_loadEventsPage(_eventsCache.page + 1));
   }
 
   Future<void> _loadEventsPage(int page) async {
     if (page <= 0) return;
     if (page == 1) {
-      if (_eventsInitialLoading) return;
-      setState(() {
-        _eventsInitialLoading = true;
-        _eventsError = null;
+      if (_eventsCache.initialLoading) return;
+      _mutateEventsCache(() {
+        _eventsCache.initialLoading = true;
+        _eventsCache.error = null;
       });
     } else {
-      if (_eventsLoadingMore || !_eventsHasMore) return;
-      setState(() => _eventsLoadingMore = true);
+      if (_eventsCache.loadingMore || !_eventsHasMore) return;
+      _mutateEventsCache(() => _eventsCache.loadingMore = true);
     }
 
-    final worldId = widget.world.worldId;
+    final worldId = _currentWorld.worldId;
     try {
       final response = await AppServicesScope.of(context).api.getWorldTicks(
         wid: worldId,
         limit: _eventsPageSize,
         offset: (page - 1) * _eventsPageSize,
       );
-      if (!mounted || worldId != widget.world.worldId) return;
-      setState(() {
-        _eventTicks = page == 1
-            ? response.data
-            : [..._eventTicks, ...response.data];
-        _eventsTotal = response.total;
-        _eventsPage = page;
-        _eventsError = null;
+      if (!mounted || worldId != _currentWorld.worldId) return;
+      final loadedTicks = _eventTicksAscending(response.data);
+      _mutateEventsCache(() {
+        _eventsCache.ticks = _mergeEventTicksAscending(
+          _eventsCache.ticks,
+          loadedTicks,
+        );
+        _eventsCache.total = response.total;
+        _eventsCache.page = math.max(_eventsCache.page, page);
+        _eventsCache.error = null;
       });
+      if (page == 1 && _scrollEventsToLatestAfterLoad) {
+        _scrollEventsToLatestAfterLoad = false;
+        _scheduleScrollEventsToLatest();
+      }
     } catch (e) {
-      if (!mounted || worldId != widget.world.worldId) return;
-      setState(() => _eventsError = e);
+      if (!mounted || worldId != _currentWorld.worldId) return;
+      _mutateEventsCache(() => _eventsCache.error = e);
     } finally {
-      if (mounted && worldId == widget.world.worldId) {
-        setState(() {
+      if (mounted && worldId == _currentWorld.worldId) {
+        _mutateEventsCache(() {
           if (page == 1) {
-            _eventsInitialLoading = false;
+            _eventsCache.initialLoading = false;
           } else {
-            _eventsLoadingMore = false;
+            _eventsCache.loadingMore = false;
           }
         });
       }
@@ -2632,10 +2736,25 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
   }
 
   bool _handleEventsScrollNotification(ScrollNotification notification) {
-    if (notification.metrics.extentAfter <= _eventsLoadMoreExtent) {
+    if (notification.metrics.extentBefore <= _eventsLoadMoreExtent) {
       _loadNextEventsPage();
     }
     return false;
+  }
+
+  void _scheduleScrollEventsToLatest() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_eventsScrollController.hasClients) return;
+      final maxScrollExtent = _eventsScrollController.position.maxScrollExtent;
+      if (maxScrollExtent <= 0) return;
+      unawaited(
+        _eventsScrollController.animateTo(
+          maxScrollExtent,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    });
   }
 
   Widget _buildEventsSectionPage() {
@@ -2643,12 +2762,13 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
       onNotification: _handleEventsScrollNotification,
       child: _WorldSectionListView(
         storageKey: 'world-events-section',
+        controller: _eventsScrollController,
         child: _WorldEventsSection(
-          world: widget.world,
-          ticks: _eventTicks,
-          initialLoading: _eventsInitialLoading,
-          loadingMore: _eventsLoadingMore,
-          error: _eventsError,
+          world: _currentWorld,
+          ticks: _eventsCache.ticks,
+          initialLoading: _eventsCache.initialLoading,
+          loadingMore: _eventsCache.loadingMore,
+          error: _eventsCache.error,
         ),
       ),
     );
@@ -2657,7 +2777,7 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
   Widget _buildStatusSectionPage() {
     return _WorldSectionListView(
       storageKey: 'world-status-section',
-      child: _WorldStatusSection(world: widget.world, currentUid: _currentUid),
+      child: _WorldStatusSection(world: _currentWorld, currentUid: _currentUid),
     );
   }
 
@@ -2670,7 +2790,7 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
         _WorldSectionListView(
           storageKey: 'world-cast-section',
           child: _WorldCharactersSection(
-            world: widget.world,
+            world: _currentWorld,
             currentUid: _currentUid,
           ),
         ),
@@ -2755,15 +2875,21 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
 }
 
 class _WorldSectionListView extends StatelessWidget {
-  const _WorldSectionListView({required this.storageKey, required this.child});
+  const _WorldSectionListView({
+    required this.storageKey,
+    this.controller,
+    required this.child,
+  });
 
   final String storageKey;
+  final ScrollController? controller;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       key: PageStorageKey<String>(storageKey),
+      controller: controller,
       primary: false,
       padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
       children: [child],
@@ -3294,6 +3420,55 @@ bool _counterIconAssetPreservesColor(String key) {
   return key == 'character';
 }
 
+List<Map<String, dynamic>> _eventTicksAscending(
+  List<Map<String, dynamic>> ticks,
+) {
+  final indexedTicks = ticks.indexed.toList(growable: false);
+  indexedTicks.sort((a, b) {
+    final tickCompare = _eventTickNumber(
+      a.$2,
+    ).compareTo(_eventTickNumber(b.$2));
+    if (tickCompare != 0) return tickCompare;
+    return a.$1.compareTo(b.$1);
+  });
+  return [for (final entry in indexedTicks) entry.$2];
+}
+
+List<Map<String, dynamic>> _mergeEventTicksAscending(
+  List<Map<String, dynamic>> existing,
+  List<Map<String, dynamic>> incoming,
+) {
+  final keyedTicks = <String, Map<String, dynamic>>{};
+  final unkeyedTicks = <Map<String, dynamic>>[];
+  for (final tick in [...existing, ...incoming]) {
+    final key = _eventTickIdentity(tick);
+    if (key.isEmpty) {
+      unkeyedTicks.add(tick);
+      continue;
+    }
+    keyedTicks[key] = tick;
+  }
+  return _eventTicksAscending([...keyedTicks.values, ...unkeyedTicks]);
+}
+
+String _eventTickIdentity(Map<String, dynamic> tick) {
+  final tickId = _mapString(tick, const ['tick_id', 'id']);
+  if (tickId.isNotEmpty) return 'id:$tickId';
+  final tickNo = _eventTickNumber(tick);
+  if (tickNo > 0) return 'no:$tickNo';
+  return '';
+}
+
+int _eventTickNumber(Map<String, dynamic> tick) {
+  final tickNo = _mapString(tick, const ['tick_no', 'tick_number', 'no']);
+  final parsed = int.tryParse(tickNo);
+  if (parsed != null) return parsed;
+
+  final id = _mapString(tick, const ['tick_id', 'id']);
+  final suffix = RegExp(r'(\d+)$').firstMatch(id)?.group(1);
+  return int.tryParse(suffix ?? '') ?? 0;
+}
+
 class _WorldEventsSection extends StatelessWidget {
   const _WorldEventsSection({
     required this.world,
@@ -3328,6 +3503,7 @@ class _WorldEventsSection extends StatelessWidget {
 
     return Column(
       children: [
+        if (loadingMore) const _WorldEventsLoadingMoreIndicator(),
         for (int index = 0; index < ticks.length; index++)
           WorldTickEventItem(
             tick: ticks[index],
@@ -3341,7 +3517,6 @@ class _WorldEventsSection extends StatelessWidget {
             contentTimestampStyle: _worldEventContentTimestampStyle,
             isLast: index == ticks.length - 1 && !loadingMore,
           ),
-        if (loadingMore) const _WorldEventsLoadingMoreIndicator(),
       ],
     );
   }
@@ -3896,8 +4071,9 @@ String _locationMapImageUrl(
 }
 
 Map<String, List<UserAvatar>> _avatarsByLocationFromCharacterPositions(
-  List<Map<String, dynamic>> characterPositions,
-) {
+  List<Map<String, dynamic>> characterPositions, {
+  required String currentUid,
+}) {
   final map = <String, List<UserAvatar>>{};
   for (final cp in characterPositions) {
     final rawLocationId = cp['location_id'] ?? cp['current_location_id'];
@@ -3906,6 +4082,7 @@ Map<String, List<UserAvatar>> _avatarsByLocationFromCharacterPositions(
     final character = cp['character'];
     if (character is! Map) continue;
     final c = character.map((key, value) => MapEntry('$key', value));
+    if (_isCurrentUserCharacter(c, currentUid)) continue;
     final name = (c['name'] ?? '').toString();
     final avatar = _resolveAssetUrl((c['avatar'] ?? '').toString());
     final isAi = '${c['type'] ?? ''}'.trim().toLowerCase() == 'ai';
