@@ -12,6 +12,7 @@ import android.webkit.MimeTypeMap
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.google.android.gms.ads.identifier.AdvertisingIdClient
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
@@ -21,6 +22,8 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
+import java.util.Locale
+import java.util.UUID
 
 class MainActivity : FlutterActivity() {
     private val channel = "com.worldo.ai/device"
@@ -30,6 +33,7 @@ class MainActivity : FlutterActivity() {
     private val uidKey = "uid"
     private val authTokenKey = "auth_token"
     private val userInfoKey = "user_info"
+    private val generatedDeviceIdKey = "generated_device_id"
     private val prefsName = "genesis"
     private var pendingDiscussImagePickerResult: MethodChannel.Result? = null
     private var pendingDiscussImagePickerLimit = 0
@@ -46,9 +50,16 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channel).setMethodCallHandler { call, result ->
             when (call.method) {
                 "getAndroidId", "getDeviceId" -> {
-                    val androidId =
-                        Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
-                    result.success(androidId ?: "")
+                    Thread {
+                        val deviceId = resolveAndroidDeviceId()
+                        runOnUiThread { result.success(deviceId) }
+                    }.start()
+                }
+                "getAndroidDeviceIdDiagnostics" -> {
+                    Thread {
+                        val diagnostics = resolveAndroidDeviceIdDiagnostics()
+                        runOnUiThread { result.success(diagnostics) }
+                    }.start()
                 }
                 "setUid" -> {
                     val uid = call.argument<String>("uid") ?: ""
@@ -119,6 +130,62 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    private fun resolveAndroidDeviceId(): String {
+        val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        if (isValidDeviceIdentifier(androidId)) return androidId.trim()
+
+        val advertisingId = readAdvertisingId()
+        if (isValidDeviceIdentifier(advertisingId)) return advertisingId!!.trim()
+
+        return generatedAndroidDeviceId()
+    }
+
+    private fun resolveAndroidDeviceIdDiagnostics(): Map<String, String> {
+        val androidId =
+            Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)?.trim() ?: ""
+        val advertisingId = readAdvertisingId()?.trim() ?: ""
+        val deviceId = when {
+            isValidDeviceIdentifier(androidId) -> androidId
+            isValidDeviceIdentifier(advertisingId) -> advertisingId
+            else -> generatedAndroidDeviceId()
+        }
+
+        return mapOf(
+            "android_id" to androidId,
+            "aaid" to advertisingId,
+            "device_id" to deviceId,
+        )
+    }
+
+    private fun readAdvertisingId(): String? {
+        return try {
+            AdvertisingIdClient.getAdvertisingIdInfo(applicationContext).id
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun generatedAndroidDeviceId(): String {
+        synchronized(this) {
+            val prefs = getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+            val existing = prefs.getString(generatedDeviceIdKey, "") ?: ""
+            if (isValidDeviceIdentifier(existing)) return existing.trim()
+
+            val generated = UUID.randomUUID().toString()
+            prefs.edit().putString(generatedDeviceIdKey, generated).apply()
+            return generated
+        }
+    }
+
+    private fun isValidDeviceIdentifier(value: String?): Boolean {
+        val normalized = value?.trim()?.lowercase(Locale.US) ?: return false
+        if (normalized.isEmpty()) return false
+        if (normalized == "9774d56d682e549c") return false
+
+        val compact = normalized.replace("-", "")
+        return compact.isNotEmpty() && compact.any { it != '0' }
     }
 
     private fun buildAppVersion(): Map<String, Any> {

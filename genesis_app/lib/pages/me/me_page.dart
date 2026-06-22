@@ -105,33 +105,24 @@ class _MePageState extends State<MePage> {
   Future<_MePageContent> _loadData() async {
     if (!await _hasLocalLoginSession()) {
       _loadGeneration += 1;
-      _originsState.value =
-          const UserProfileCollectionState<UserProfileOriginItem>(
-            items: <UserProfileOriginItem>[],
-            isLoading: false,
-          );
-      _worldsState.value =
-          const UserProfileCollectionState<UserProfileWorldItem>(
-            items: <UserProfileWorldItem>[],
-            isLoading: false,
-          );
+      _setOriginsState(const <UserProfileOriginItem>[], isLoading: false);
+      _setWorldsState(const <UserProfileWorldItem>[], isLoading: false);
       return const _MePageContent.signedOut();
     }
     return _MePageContent.signedIn(await _loadProfileData());
   }
 
-  Future<UserProfileData> _loadProfileData() async {
+  Future<UserProfileData> _loadProfileData({
+    bool showCollectionLoading = true,
+  }) async {
     final generation = _loadGeneration + 1;
     _loadGeneration = generation;
-    _originsState.value =
-        const UserProfileCollectionState<UserProfileOriginItem>(
-          items: <UserProfileOriginItem>[],
-          isLoading: true,
-        );
-    _worldsState.value = const UserProfileCollectionState<UserProfileWorldItem>(
-      items: <UserProfileWorldItem>[],
-      isLoading: true,
-    );
+    final currentOrigins = _originsState.value.items;
+    final currentWorlds = _worldsState.value.items;
+    if (showCollectionLoading) {
+      _setOriginsState(currentOrigins, isLoading: true);
+      _setWorldsState(currentWorlds, isLoading: true);
+    }
     final services = AppServicesScope.read(context);
     final api = services.api;
     final profile = services.identityAuth.currentProfile();
@@ -171,8 +162,10 @@ class _MePageState extends State<MePage> {
       fallbackUid: uid,
     );
 
-    unawaited(_loadOrigins(generation, api, uid));
-    unawaited(_loadWorlds(generation, api, uid));
+    unawaited(
+      _loadOrigins(generation, api, uid, fallbackItems: currentOrigins),
+    );
+    unawaited(_loadWorlds(generation, api, uid, fallbackItems: currentWorlds));
 
     final data = UserProfileData(
       avatarUrl: resolvedAvatarUrl,
@@ -204,7 +197,12 @@ class _MePageState extends State<MePage> {
     return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
   }
 
-  Future<void> _loadOrigins(int generation, GenesisApi api, String uid) async {
+  Future<void> _loadOrigins(
+    int generation,
+    GenesisApi api,
+    String uid, {
+    required List<UserProfileOriginItem> fallbackItems,
+  }) async {
     try {
       final originPage = await api.getMyLaunchedOrigins(
         uid: uid.trim().isEmpty ? null : uid,
@@ -213,19 +211,15 @@ class _MePageState extends State<MePage> {
         offset: 0,
       );
       if (!mounted || generation != _loadGeneration) return;
-      _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
-        items: originPage.data
+      _setOriginsState(
+        originPage.data
             .map(_profileOriginItemFromSummary)
             .toList(growable: false),
         isLoading: false,
       );
     } catch (_) {
       if (!mounted || generation != _loadGeneration) return;
-      _originsState.value =
-          const UserProfileCollectionState<UserProfileOriginItem>(
-            items: <UserProfileOriginItem>[],
-            isLoading: false,
-          );
+      _setOriginsState(fallbackItems, isLoading: false);
     }
   }
 
@@ -245,11 +239,7 @@ class _MePageState extends State<MePage> {
     if (!await _hasLocalLoginSession()) return;
     _isActivationRefreshing = true;
     try {
-      final data = await _loadProfileData();
-      if (!mounted) return;
-      setState(() {
-        _future = Future<_MePageContent>.value(_MePageContent.signedIn(data));
-      });
+      await _loadProfileData(showCollectionLoading: false);
     } finally {
       _isActivationRefreshing = false;
     }
@@ -260,7 +250,12 @@ class _MePageState extends State<MePage> {
     setState(() => _profileCollapsed = collapsed);
   }
 
-  Future<void> _loadWorlds(int generation, GenesisApi api, String uid) async {
+  Future<void> _loadWorlds(
+    int generation,
+    GenesisApi api,
+    String uid, {
+    required List<UserProfileWorldItem> fallbackItems,
+  }) async {
     try {
       final worlds = await api.getMyWorlds(
         uid: uid.trim().isEmpty ? null : uid,
@@ -269,18 +264,44 @@ class _MePageState extends State<MePage> {
         offset: 0,
       );
       if (!mounted || generation != _loadGeneration) return;
-      _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
-        items: worlds.map(_profileWorldItemFromSummary).toList(growable: false),
+      _setWorldsState(
+        worlds.map(_profileWorldItemFromSummary).toList(growable: false),
         isLoading: false,
       );
     } catch (_) {
       if (!mounted || generation != _loadGeneration) return;
-      _worldsState.value =
-          const UserProfileCollectionState<UserProfileWorldItem>(
-            items: <UserProfileWorldItem>[],
-            isLoading: false,
-          );
+      _setWorldsState(fallbackItems, isLoading: false);
     }
+  }
+
+  void _setOriginsState(
+    List<UserProfileOriginItem> items, {
+    required bool isLoading,
+  }) {
+    final current = _originsState.value;
+    if (current.isLoading == isLoading &&
+        _sameOriginItems(current.items, items)) {
+      return;
+    }
+    _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
+      items: items,
+      isLoading: isLoading,
+    );
+  }
+
+  void _setWorldsState(
+    List<UserProfileWorldItem> items, {
+    required bool isLoading,
+  }) {
+    final current = _worldsState.value;
+    if (current.isLoading == isLoading &&
+        _sameWorldItems(current.items, items)) {
+      return;
+    }
+    _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
+      items: items,
+      isLoading: isLoading,
+    );
   }
 
   Future<String> _readCurrentBackendUid() async {
@@ -370,10 +391,7 @@ class _MePageState extends State<MePage> {
     final uid = await _readCurrentBackendUid();
     debugPrint('[MePage] refresh origins uid: $uid');
     final current = _originsState.value;
-    _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
-      items: current.items,
-      isLoading: true,
-    );
+    _setOriginsState(current.items, isLoading: true);
     try {
       final originPage = await services.api.getMyLaunchedOrigins(
         uid: uid.isEmpty ? null : uid,
@@ -382,18 +400,15 @@ class _MePageState extends State<MePage> {
         offset: 0,
       );
       if (!mounted) return;
-      _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
-        items: originPage.data
+      _setOriginsState(
+        originPage.data
             .map(_profileOriginItemFromSummary)
             .toList(growable: false),
         isLoading: false,
       );
     } catch (_) {
       if (!mounted) return;
-      _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
-        items: current.items,
-        isLoading: false,
-      );
+      _setOriginsState(current.items, isLoading: false);
     }
   }
 
@@ -401,10 +416,7 @@ class _MePageState extends State<MePage> {
     final services = AppServicesScope.read(context);
     final uid = (await services.sessionStore.readUid())?.trim() ?? '';
     final current = _worldsState.value;
-    _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
-      items: current.items,
-      isLoading: true,
-    );
+    _setWorldsState(current.items, isLoading: true);
     try {
       final worlds = await services.api.getMyWorlds(
         uid: uid.isEmpty ? null : uid,
@@ -413,16 +425,13 @@ class _MePageState extends State<MePage> {
         offset: 0,
       );
       if (!mounted) return;
-      _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
-        items: worlds.map(_profileWorldItemFromSummary).toList(growable: false),
+      _setWorldsState(
+        worlds.map(_profileWorldItemFromSummary).toList(growable: false),
         isLoading: false,
       );
     } catch (_) {
       if (!mounted) return;
-      _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
-        items: current.items,
-        isLoading: false,
-      );
+      _setWorldsState(current.items, isLoading: false);
     }
   }
 
@@ -754,6 +763,55 @@ bool _sameRenderedUserInfoExceptAvatarAndDisplayName(
       currentData.followingCount == nextData.followingCount &&
       currentData.followerCount == nextData.followerCount &&
       currentData.deleted == nextData.deleted;
+}
+
+bool _sameOriginItems(
+  List<UserProfileOriginItem> current,
+  List<UserProfileOriginItem> next,
+) {
+  if (identical(current, next)) return true;
+  if (current.length != next.length) return false;
+  for (var index = 0; index < current.length; index += 1) {
+    final a = current[index];
+    final b = next[index];
+    if (a.originId != b.originId ||
+        a.oid != b.oid ||
+        a.title != b.title ||
+        a.subtitle != b.subtitle ||
+        a.deleted != b.deleted ||
+        a.imageUrl != b.imageUrl ||
+        a.copyCount != b.copyCount ||
+        a.interactCount != b.interactCount ||
+        a.characterCount != b.characterCount) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool _sameWorldItems(
+  List<UserProfileWorldItem> current,
+  List<UserProfileWorldItem> next,
+) {
+  if (identical(current, next)) return true;
+  if (current.length != next.length) return false;
+  for (var index = 0; index < current.length; index += 1) {
+    final a = current[index];
+    final b = next[index];
+    if (a.wid != b.wid ||
+        a.title != b.title ||
+        a.subtitle != b.subtitle ||
+        a.deleted != b.deleted ||
+        a.imageUrl != b.imageUrl ||
+        a.progressCount != b.progressCount ||
+        a.interactCount != b.interactCount ||
+        a.characterCount != b.characterCount ||
+        a.playerCount != b.playerCount ||
+        a.ownerName != b.ownerName) {
+      return false;
+    }
+  }
+  return true;
 }
 
 UserProfileOriginItem _profileOriginItemFromSummary(OriginSummary item) {

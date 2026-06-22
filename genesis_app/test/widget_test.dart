@@ -128,10 +128,11 @@ Future<AppServices> _testServices({
   ChatroomMessageStorage? chatroomMessages,
   AppVersionCheckService? appVersionCheck,
   ExternalUrlOpener? externalUrlOpener,
+  DeviceIdService? deviceIdService,
 }) async {
   const config = AppConfig(useMock: true);
   final platformConfig = DefaultPlatformConfig(appConfig: config);
-  const deviceId = _FakeDeviceIdService();
+  final deviceId = deviceIdService ?? const _FakeDeviceIdService();
   final sessionStore = sessionStoreOverride ?? MemoryUserSessionStore();
   if (initialUid != null) {
     await sessionStore.saveUid(initialUid);
@@ -207,6 +208,23 @@ class _FakeDeviceIdService implements DeviceIdService {
 
   @override
   Future<String> getDeviceId() async => 'test-device-id';
+}
+
+class _FakeDeviceIdDiagnosticsService
+    implements DeviceIdService, DeviceIdDiagnosticsService {
+  const _FakeDeviceIdDiagnosticsService();
+
+  @override
+  Future<String> getDeviceId() async => 'resolved-device-id';
+
+  @override
+  Future<DeviceIdDiagnostics> getDeviceIdDiagnostics() async {
+    return const DeviceIdDiagnostics(
+      androidId: 'android-id',
+      aaid: '38400000-8cf0-11bd-b23e-10b96e40000d',
+      deviceId: 'resolved-device-id',
+    );
+  }
 }
 
 class _NoUpgradeVersionCheckService implements AppVersionCheckService {
@@ -7689,7 +7707,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Developer page'), findsWidgets);
-      expect(find.text('Device ID'), findsOneWidget);
+      expect(find.text('Device ID:'), findsOneWidget);
       expect(find.text('test-device-id'), findsOneWidget);
 
       await tester.tap(find.text('Clear direct message cache'));
@@ -7710,6 +7728,41 @@ void main() {
       );
     },
   );
+
+  testWidgets('developer page shows android device id diagnostics', (
+    WidgetTester tester,
+  ) async {
+    final services = await _testServices(
+      deviceIdService: const _FakeDeviceIdDiagnosticsService(),
+    );
+    expect(services.deviceId, isA<DeviceIdDiagnosticsService>());
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const Scaffold(
+            body: SingleChildScrollView(child: DeveloperPageContent()),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('ANDROID_ID:'), findsOneWidget);
+    expect(find.text('android-id'), findsOneWidget);
+    expect(find.text('AAID:'), findsOneWidget);
+    final aaid = find.text('38400000-8cf0-11bd-b23e-10b96e40000d');
+    expect(aaid, findsOneWidget);
+    expect(tester.widget<Text>(aaid).softWrap, isNot(false));
+    expect(tester.widget<Text>(aaid).maxLines, isNull);
+    expect(
+      tester.getTopLeft(aaid).dx,
+      tester.getTopLeft(find.text('AAID:')).dx,
+    );
+    expect(find.text('Device ID:'), findsOneWidget);
+    expect(find.text('resolved-device-id'), findsOneWidget);
+  });
 
   testWidgets('developer page saves and clears endpoint overrides', (
     WidgetTester tester,

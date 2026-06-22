@@ -6,6 +6,10 @@ platform :ios, '15.0'
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
+# Firebase/Auth 12.15.0 raises the minimum iOS target beyond this app's iOS 15
+# support floor. Keep FlutterFire on the last verified Firebase iOS SDK.
+$FirebaseSDKVersion = '12.14.0'
+
 project 'Runner', {
   'Debug' => :debug,
   'Profile' => :release,

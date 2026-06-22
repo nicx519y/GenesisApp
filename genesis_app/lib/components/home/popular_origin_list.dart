@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
 import '../discuss/origin_discuss_preview_list.dart';
 import '../origin/stat_item.dart';
@@ -119,7 +118,7 @@ class _PopularOriginListState extends State<PopularOriginList> {
       key: widget.storageKey,
       controller: widget.controller,
       primary: false,
-      scrollCacheExtent: ScrollCacheExtent.pixels(900),
+      cacheExtent: 900,
       padding: const EdgeInsets.only(top: 10, bottom: 24),
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
