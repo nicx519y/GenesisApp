@@ -250,25 +250,22 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     }
     final wid = world.worldId.trim();
     try {
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        RouteNames.world,
-        _removeOriginWorldAndLaterRoutes(),
-        arguments: {'wid': wid, 'initial_world_detail': world},
+      final navigator = Navigator.of(context);
+      navigator.pushNamedAndRemoveUntil(
+        RouteNames.home,
+        (_) => false,
+        arguments: {'home_tab': 'my_world'},
       );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!navigator.mounted) return;
+        navigator.pushNamed(
+          RouteNames.world,
+          arguments: {'wid': wid, 'initial_world_detail': world},
+        );
+      });
     } finally {
       if (mounted) setState(() => _launching = false);
     }
-  }
-
-  RoutePredicate _removeOriginWorldAndLaterRoutes() {
-    var removedOriginWorld = false;
-    return (route) {
-      if (removedOriginWorld) return true;
-      if (route.settings.name == RouteNames.originWorld) {
-        removedOriginWorld = true;
-      }
-      return false;
-    };
   }
 
   Future<OriginCustomRoleDraft?> _customRoleFromProfile() async {
@@ -1015,7 +1012,7 @@ class _OriginHeader extends StatelessWidget {
           // Header inner spacing: latest version -> edit button.
           const SizedBox(height: 8),
           GenesisPrimaryButton(
-            label: 'Edit Origin',
+            label: 'Edit Worldo',
             onPressed: () async {
               await Navigator.of(context).pushNamed(
                 RouteNames.edit,

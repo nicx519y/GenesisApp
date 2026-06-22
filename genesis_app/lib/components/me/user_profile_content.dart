@@ -119,7 +119,7 @@ class _UserProfileContentState extends State<UserProfileContent>
                 alignment: Alignment.centerLeft,
                 child: GenesisTabBar(
                   controller: _tabController,
-                  labels: const ['Origin', 'World'],
+                  labels: const ['Worldo', 'World'],
                   horizontalPadding: 8,
                   labelPadding: const EdgeInsets.symmetric(horizontal: 8),
                   labelFontSize: widget.tabLabelFontSize,
@@ -499,7 +499,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
             ),
           )
           .toList(growable: false),
-      emptyText: 'No Origins you created yet.',
+      emptyText: 'No Worldos you created yet.',
       isLoading: isLoading,
       loadingKey: const ValueKey('profile-origin-list-loading'),
       onRefresh: onRefresh,

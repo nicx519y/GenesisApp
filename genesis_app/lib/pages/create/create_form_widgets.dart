@@ -24,6 +24,9 @@ const Color createFormDash = Color(0xFFB8CDBF);
 const Color createFormDanger = Color(0xFFE14949);
 const String createFormDeleteIconAsset =
     'assets/custom-icons/svg/delete-icon.svg';
+const Duration _createUploadProgressTick = Duration(milliseconds: 270);
+const int _createUploadProgressBytesPerSecond = 50 * 1024;
+const double _createUploadProgressCap = 0.92;
 
 final Object createFormTextFieldTapRegionGroup = Object();
 
@@ -444,7 +447,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       });
       widget.controller.clear();
       widget.onChanged();
-      _startProgressTimer();
+      _startProgressTimer(crop.bytes.length);
       unawaited(_uploadCroppedImage(context, crop, previousUrl));
     } catch (_) {
       if (!context.mounted) return;
@@ -504,19 +507,31 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
     }
   }
 
-  void _startProgressTimer() {
+  void _startProgressTimer(int byteCount) {
     _progressTimer?.cancel();
-    _progressTimer = Timer.periodic(const Duration(milliseconds: 90), (_) {
+    final stopwatch = Stopwatch()..start();
+    _progressTimer = Timer.periodic(_createUploadProgressTick, (_) {
       if (!mounted || !_isUploading) return;
       setState(() {
-        final remaining = 0.92 - _uploadProgress;
-        if (remaining <= 0) {
-          _uploadProgress = 0.92;
-        } else {
-          _uploadProgress += remaining < 0.02 ? remaining : 0.02;
-        }
+        _uploadProgress = _estimatedCreateUploadProgress(
+          byteCount: byteCount,
+          elapsed: stopwatch.elapsed,
+        );
       });
     });
+  }
+
+  double _estimatedCreateUploadProgress({
+    required int byteCount,
+    required Duration elapsed,
+  }) {
+    final estimatedBytes = byteCount <= 0 ? 1 : byteCount;
+    final estimatedDurationMs =
+        estimatedBytes / _createUploadProgressBytesPerSecond * 1000;
+    if (estimatedDurationMs <= 0) return _createUploadProgressCap;
+    return (elapsed.inMilliseconds / estimatedDurationMs)
+        .clamp(0.0, _createUploadProgressCap)
+        .toDouble();
   }
 
   String _pngFilenameFor(String filename) {

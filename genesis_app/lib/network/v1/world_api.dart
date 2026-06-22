@@ -58,6 +58,25 @@ class WorldV1Api extends V1ApiResource {
     return getMap('world/detail', {'world_id': resolvedWorldId});
   }
 
+  /// GET /api/v1/world/info
+  ///
+  /// 提交参数:
+  /// ```json
+  /// {"world_id":"string"}
+  /// ```
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":{"info":{"world_id":"string","world_name":"string","origin_id":"string","brief":"string","cover":{},"status":10},"stats":{"character_cnt":0,"connect_cnt":0,"location_cnt":0,"tick_cnt":0,"player_cnt":0}}}
+  /// ```
+  Future<Map<String, dynamic>> info({required String worldId}) {
+    final resolvedWorldId = worldId.trim();
+    if (resolvedWorldId.isEmpty) {
+      throw ArgumentError.value(worldId, 'worldId', 'must not be empty');
+    }
+    return getMap('world/info', {'world_id': resolvedWorldId});
+  }
+
   /// GET /api/v1/world/origin_progress
   ///
   /// 提交参数:

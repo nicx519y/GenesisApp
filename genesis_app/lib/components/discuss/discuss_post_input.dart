@@ -38,6 +38,9 @@ const Duration _discussComposerScrimDismissDuration = Duration.zero;
 const Duration _discussComposerSheetDismissDuration = Duration(
   milliseconds: 160,
 );
+const Duration _discussUploadProgressTick = Duration(milliseconds: 270);
+const int _discussUploadProgressBytesPerSecond = 50 * 1024;
+const double _discussUploadProgressCap = 0.92;
 const int _discussUploadMaxWidth = 800;
 
 class DiscussPostInput extends StatefulWidget {
@@ -513,25 +516,33 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
 
   void _startAttachmentProgressTimer(_DiscussImageAttachment attachment) {
     attachment.progressTimer?.cancel();
-    attachment.progressTimer = Timer.periodic(
-      const Duration(milliseconds: 90),
-      (_) {
-        if (!mounted ||
-            !_images.contains(attachment) ||
-            !attachment.uploading) {
-          attachment.progressTimer?.cancel();
-          return;
-        }
-        setState(() {
-          final remaining = 0.92 - attachment.progress;
-          if (remaining <= 0) {
-            attachment.progress = 0.92;
-          } else {
-            attachment.progress += remaining < 0.02 ? remaining : 0.02;
-          }
-        });
-      },
-    );
+    final byteCount = attachment.image.bytes.length;
+    final stopwatch = Stopwatch()..start();
+    attachment.progressTimer = Timer.periodic(_discussUploadProgressTick, (_) {
+      if (!mounted || !_images.contains(attachment) || !attachment.uploading) {
+        attachment.progressTimer?.cancel();
+        return;
+      }
+      setState(() {
+        attachment.progress = _estimatedDiscussUploadProgress(
+          byteCount: byteCount,
+          elapsed: stopwatch.elapsed,
+        );
+      });
+    });
+  }
+
+  double _estimatedDiscussUploadProgress({
+    required int byteCount,
+    required Duration elapsed,
+  }) {
+    final estimatedBytes = byteCount <= 0 ? 1 : byteCount;
+    final estimatedDurationMs =
+        estimatedBytes / _discussUploadProgressBytesPerSecond * 1000;
+    if (estimatedDurationMs <= 0) return _discussUploadProgressCap;
+    return (elapsed.inMilliseconds / estimatedDurationMs)
+        .clamp(0.0, _discussUploadProgressCap)
+        .toDouble();
   }
 
   void _handleScrimTap() {

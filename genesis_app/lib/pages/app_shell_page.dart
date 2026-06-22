@@ -16,9 +16,14 @@ import 'messages/messages_page.dart';
 import 'origin/origin_page.dart';
 
 class AppShellPage extends StatefulWidget {
-  const AppShellPage({super.key, required this.initialIndex});
+  const AppShellPage({
+    super.key,
+    required this.initialIndex,
+    this.homeInitialTabIndex,
+  });
 
   final int initialIndex;
+  final int? homeInitialTabIndex;
 
   @override
   State<AppShellPage> createState() => _AppShellPageState();
@@ -47,6 +52,7 @@ class _AppShellPageState extends State<AppShellPage>
     _messagesTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 3);
     _homeTabActivationNotifier = ValueNotifier<int>(0);
     _meTabActivationNotifier = ValueNotifier<int>(0);
+    _homeInitialTabIndexOverride = widget.homeInitialTabIndex;
     _visitedTabIndexes = <int>{_selectedIndex};
     _messagesPoller = GenesisPollingScheduler(
       interval: _messagesPollInterval,

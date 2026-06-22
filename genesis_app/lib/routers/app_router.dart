@@ -116,6 +116,38 @@ class _OriginWorldRouteArgs {
   final int originId;
 }
 
+class _HomeRouteArgs {
+  const _HomeRouteArgs({required this.homeInitialTabIndex});
+
+  factory _HomeRouteArgs.from(Object? raw) {
+    final args = _RouteArgs(raw);
+    final rawTab = args._first(const [
+      'home_tab',
+      'homeTab',
+      'homeTabIndex',
+      'homeInitialTabIndex',
+    ]);
+    final tabText = rawTab?.toString().trim().toLowerCase() ?? '';
+    final tabIndex = switch (tabText) {
+      'my_world' || 'my_worlds' || 'mine' => 0,
+      'popular' => 1,
+      _ => args.integer(const [
+        'home_tab',
+        'homeTab',
+        'homeTabIndex',
+        'homeInitialTabIndex',
+      ], fallback: -1),
+    };
+    return _HomeRouteArgs(homeInitialTabIndex: tabIndex);
+  }
+
+  final int homeInitialTabIndex;
+
+  int? get resolvedHomeInitialTabIndex {
+    return homeInitialTabIndex < 0 ? null : homeInitialTabIndex;
+  }
+}
+
 class _DiscussRouteArgs {
   const _DiscussRouteArgs({required this.oid, required this.originId});
 
@@ -360,9 +392,13 @@ sealed class AppRouter {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
       case RouteNames.home:
+        final args = _HomeRouteArgs.from(settings.arguments);
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => const AppShellPage(initialIndex: 0),
+          builder: (_) => AppShellPage(
+            initialIndex: 0,
+            homeInitialTabIndex: args.resolvedHomeInitialTabIndex,
+          ),
         );
       case RouteNames.origin:
         return MaterialPageRoute<void>(

@@ -48,7 +48,7 @@ class SignedOutMeView extends StatelessWidget {
                           ),
                           const SizedBox(height: 18),
                           const Text(
-                            'Launch world, create origin, invite\n'
+                            'Launch world, create worldo, invite\n'
                             'friends, and continue them anywhere.',
                             textAlign: TextAlign.center,
                             style: TextStyle(

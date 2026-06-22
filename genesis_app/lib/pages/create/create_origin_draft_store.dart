@@ -278,7 +278,7 @@ class CreateOriginDraft {
     }
 
     if (basics.originName.trim().isEmpty) {
-      errors.add('Basics: Origin Name is required.');
+      errors.add('Basics: Worldo Name is required.');
     }
     if (basics.worldView.trim().isEmpty) {
       errors.add('Basics: World View is required.');

@@ -88,7 +88,7 @@ class _OriginPageState extends State<OriginPage> {
       length: categories.length,
       child: Column(
         children: [
-          const PageHeader(pageName: 'Origin'),
+          const PageHeader(pageName: 'Worldo'),
           const SizedBox(height: 4),
           SecendTabs(
             labels: categories.map((item) => item.name).toList(),

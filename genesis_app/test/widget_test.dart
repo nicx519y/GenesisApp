@@ -1903,7 +1903,7 @@ void main() {
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('My World'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
-    expect(find.text('Origin'), findsOneWidget);
+    expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('Create'), findsOneWidget);
     expect(find.text('Messages'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
@@ -1958,16 +1958,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('All'), findsOneWidget);
-    expect(find.text('Origin'), findsOneWidget);
+    expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('World'), findsOneWidget);
     expect(find.text('User'), findsOneWidget);
     expect(find.text('No results.'), findsOneWidget);
 
-    await tester.tap(find.text('Origin'));
+    await tester.tap(find.text('Worldo'));
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
     expect(find.text('No results.'), findsOneWidget);
-    expect(find.text('Origins'), findsNothing);
+    expect(find.text('Worldos'), findsNothing);
 
     await tester.tap(find.text('World'));
     await tester.pump(const Duration(seconds: 2));
@@ -2012,7 +2012,7 @@ void main() {
     );
     expect(searchRequests.single.uri.queryParameters['pn'], '1');
     expect(searchRequests.single.uri.queryParameters['rn'], '20');
-    expect(find.text('Origins'), findsOneWidget);
+    expect(find.text('Worldos'), findsOneWidget);
     expect(find.text('#Search Origin'), findsOneWidget);
     final title = tester.widget<Text>(find.text('#Search Origin'));
     expect(title.style?.fontSize, 14);
@@ -2062,7 +2062,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
-    expect(find.text('Origins'), findsOneWidget);
+    expect(find.text('Worldos'), findsOneWidget);
     expect(find.textContaining('老肖'), findsWidgets);
   });
 
@@ -2842,12 +2842,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Comments'), findsWidgets);
-    expect(
-      find.text('Penny Hardaway commented on your origin'),
-      findsOneWidget,
-    );
+    expect(find.text('Penny Hardaway comment your worldo'), findsOneWidget);
     expect(find.text('Love this world setting!'), findsOneWidget);
-    await tester.tap(find.text('Penny Hardaway commented on your origin'));
+    await tester.tap(find.text('Penny Hardaway comment your worldo'));
     await tester.pumpAndSettle();
 
     expect(find.byType(PostDetailPage), findsOneWidget);
@@ -3310,7 +3307,7 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text('Alex comment your origin'), findsOneWidget);
+    expect(find.text('Alex comment your worldo'), findsOneWidget);
     expect(find.text('Blair reply to you'), findsOneWidget);
     expect(find.text('Casey like your comment'), findsOneWidget);
     expect(find.textContaining('#Comment Origin'), findsOneWidget);
@@ -3320,7 +3317,7 @@ void main() {
     expect(find.textContaining('#O_REPLY'), findsNothing);
     expect(find.textContaining('#O_LIKE'), findsNothing);
 
-    final title = tester.widget<Text>(find.text('Alex comment your origin'));
+    final title = tester.widget<Text>(find.text('Alex comment your worldo'));
     expect(title.style?.fontSize, 14);
     expect(title.style?.fontWeight, FontWeight.w700);
     expect(title.style?.color, const Color(0xFF111111));
@@ -3338,7 +3335,7 @@ void main() {
     final itemRect = tester.getRect(
       find.byKey(const ValueKey('ntf_comment_001')),
     );
-    final titleRect = tester.getRect(find.text('Alex comment your origin'));
+    final titleRect = tester.getRect(find.text('Alex comment your worldo'));
     final bodyRect = tester.getRect(find.text('Comment text'));
     final metaRect = tester.getRect(find.textContaining('#Comment Origin'));
     expect(itemRect.left, 20);
@@ -3349,7 +3346,7 @@ void main() {
     expect((metaRect.top - bodyRect.bottom).round(), 8);
 
     for (final title in [
-      'Alex comment your origin',
+      'Alex comment your worldo',
       'Blair reply to you',
       'Casey like your comment',
     ]) {
@@ -3361,7 +3358,7 @@ void main() {
     }
   });
 
-  testWidgets('tap Origin switches to Origin page', (
+  testWidgets('tap Worldo switches to Worldo page', (
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
@@ -3369,11 +3366,11 @@ void main() {
     expect(find.text('My World'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
 
-    await tester.tap(find.text('Origin'));
+    await tester.tap(find.text('Worldo'));
     await tester.pumpAndSettle();
 
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Origin'), findsNWidgets(2));
+    expect(find.text('Worldo'), findsNWidgets(2));
     expect(find.text('For you'), findsOneWidget);
   });
 
@@ -3399,7 +3396,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
 
-    await tester.tap(find.text('Origin'));
+    await tester.tap(find.text('Worldo'));
     await tester.pumpAndSettle();
 
     originRequests = transport.requestsFor('/api/v1/origin/list');
@@ -4487,7 +4484,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Edit Origin'), findsOneWidget);
+    expect(find.text('Edit Worldo'), findsOneWidget);
   });
 
   testWidgets('Origin detail hides edit button from non-owner', (
@@ -4509,7 +4506,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Edit Origin'), findsNothing);
+    expect(find.text('Edit Worldo'), findsNothing);
   });
 
   testWidgets('Origin detail launch sheet sends custom role payload', (
@@ -5456,12 +5453,12 @@ void main() {
     expect(find.text('Cancel'), findsNothing);
     expect(_loginLegalTextFinder(), findsOneWidget);
     expect(
-      find.text('Create origin, launch worlds and invite friends'),
+      find.text('Create worldo, launch worlds and invite friends'),
       findsOneWidget,
     );
     final title = tester.widget<Text>(find.text('Sign in to continue'));
     final subtitle = tester.widget<Text>(
-      find.text('Create origin, launch worlds and invite friends'),
+      find.text('Create worldo, launch worlds and invite friends'),
     );
     final googleLabel = tester.widget<Text>(find.text('Continue with Google'));
     expect(title.style?.fontSize, 22);
@@ -6140,14 +6137,14 @@ void main() {
     );
     await tester.pump();
 
-    final initialTabTop = tester.getTopLeft(find.text('Origin')).dy;
+    final initialTabTop = tester.getTopLeft(find.text('Worldo')).dy;
     expect(initialTabTop, greaterThan(80));
 
     await tester.drag(find.byType(NestedScrollView), const Offset(0, -260));
     await tester.pumpAndSettle();
 
     expect(collapsed, isTrue);
-    expect(tester.getTopLeft(find.text('Origin')).dy, lessThanOrEqualTo(10));
+    expect(tester.getTopLeft(find.text('Worldo')).dy, lessThanOrEqualTo(10));
     expect(find.text('Scrollable User'), findsNothing);
   });
 
@@ -6358,7 +6355,7 @@ void main() {
     expect(find.text('Sign in to continue'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.text('Continue with Apple'), findsOneWidget);
-    expect(find.text('Create Origin'), findsNothing);
+    expect(find.text('Create Worldo'), findsNothing);
     expect(find.text('Basics'), findsNothing);
   });
 
@@ -6369,7 +6366,7 @@ void main() {
     await tester.tap(find.text('Create'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Create Origin'), findsOneWidget);
+    expect(find.text('Create Worldo'), findsOneWidget);
     expect(find.text('Basics'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Create'), findsOneWidget);
   });
@@ -6385,7 +6382,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Create Origin'), findsOneWidget);
+    expect(find.text('Create Worldo'), findsOneWidget);
     expect(find.text('Basics'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Create'), findsOneWidget);
   });
@@ -6619,7 +6616,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('World Name: #Cff'), findsOneWidget);
+    expect(find.textContaining('Worldo Name: #Cff'), findsOneWidget);
     expect(find.textContaining('World View: Xkkdd'), findsOneWidget);
     expect(find.textContaining('World Logic:'), findsNothing);
     expect(find.textContaining('Cover Image: Uploaded'), findsOneWidget);
@@ -6681,7 +6678,7 @@ void main() {
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Create Origin'), findsOneWidget);
+    expect(find.text('Create Worldo'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
     await tester.pumpAndSettle();
@@ -6689,7 +6686,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Open create'), findsOneWidget);
-    expect(find.text('Create Origin'), findsNothing);
+    expect(find.text('Create Worldo'), findsNothing);
     expect((await CreateOriginDraftStore.load()).basics.originName, isEmpty);
   });
 
@@ -7103,7 +7100,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Origin Name is required.'), findsOneWidget);
+    expect(find.text('Worldo Name is required.'), findsOneWidget);
     await tester.pump(const Duration(seconds: 2));
   });
 
@@ -7252,9 +7249,9 @@ void main() {
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
     expect(find.text('Open create'), findsOneWidget);
-    expect(find.text('Create Origin'), findsNothing);
+    expect(find.text('Create Worldo'), findsNothing);
     expect(
-      find.text('Origin created successfully: o_created_1'),
+      find.text('Worldo created successfully: o_created_1'),
       findsOneWidget,
     );
     await tester.pump(const Duration(seconds: 2));
@@ -7285,7 +7282,7 @@ void main() {
     expect(detailRequests, hasLength(1));
     expect(detailRequests.single.uri.queryParameters['origin_id'], 'o_edit_1');
     expect(find.text('Current Version: V1'), findsOneWidget);
-    expect(find.textContaining('World Name: Editable Origin'), findsOneWidget);
+    expect(find.textContaining('Worldo Name: Editable Origin'), findsOneWidget);
 
     var rootPublish = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Publish'),
@@ -7306,14 +7303,14 @@ void main() {
     await tester.tap(find.text('Basics'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Edit Origin'), findsNothing);
+    expect(find.text('Edit Worldo'), findsNothing);
     expect(find.text('🌐 Basics'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'Edited Origin');
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('World Name: Edited Origin'), findsOneWidget);
+    expect(find.textContaining('Worldo Name: Edited Origin'), findsOneWidget);
     rootPublish = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Publish'),
     );
@@ -7409,7 +7406,7 @@ void main() {
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
     expect(
-      find.text('Origin published successfully: o_edit_1'),
+      find.text('Worldo published successfully: o_edit_1'),
       findsOneWidget,
     );
     await tester.pump(const Duration(seconds: 2));
@@ -7463,7 +7460,7 @@ void main() {
         for (var i = 0; i < 10; i++) {
           await tester.pump(const Duration(milliseconds: 100));
           if (find
-              .textContaining('World Name: Editable Origin')
+              .textContaining('Worldo Name: Editable Origin')
               .evaluate()
               .isNotEmpty) {
             break;
@@ -7474,7 +7471,7 @@ void main() {
       await tester.tap(find.text('Open edit'));
       await waitForEditLoad(1);
       expect(
-        find.textContaining('World Name: Editable Origin'),
+        find.textContaining('Worldo Name: Editable Origin'),
         findsOneWidget,
       );
 
@@ -7484,7 +7481,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.widgetWithText(FilledButton, 'Save'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('World Name: Edited Origin'), findsOneWidget);
+      expect(find.textContaining('Worldo Name: Edited Origin'), findsOneWidget);
 
       await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
       await tester.pumpAndSettle();
@@ -7496,10 +7493,10 @@ void main() {
       await waitForEditLoad(2);
       expect(transport.requestsFor('/api/v1/origin/foredit'), hasLength(2));
       expect(
-        find.textContaining('World Name: Editable Origin'),
+        find.textContaining('Worldo Name: Editable Origin'),
         findsOneWidget,
       );
-      expect(find.textContaining('World Name: Edited Origin'), findsNothing);
+      expect(find.textContaining('Worldo Name: Edited Origin'), findsNothing);
     },
   );
 

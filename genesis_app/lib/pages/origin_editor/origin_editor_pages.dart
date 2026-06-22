@@ -433,7 +433,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     if (!draft.basicsSaved) return 'Not started yet';
     final basics = draft.basics;
     return [
-      'Origin Name: ${_originNameSummaryValue(basics.originName)}',
+      'Worldo Name: ${_originNameSummaryValue(basics.originName)}',
       'World View: ${_summaryValue(basics.worldView)}',
       'Cover Image: ${basics.coverImageUrl.trim().isEmpty ? 'Not uploaded' : 'Uploaded'}',
       'World Logic: ${_summaryValue(basics.worldLogic)}',

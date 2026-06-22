@@ -18,7 +18,7 @@ class CreateOriginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return OriginDraftFlowPage(
-      title: 'Create Origin',
+      title: 'Create Worldo',
       repository: _repository,
       basicsPageBuilder: (_) => const CreateBasicsPage(),
       charactersPageBuilder: (_) => const CreateCharactersPage(),
@@ -45,7 +45,7 @@ class CreateOriginPage extends StatelessWidget {
     );
     await CreateOriginDraftStore.clear();
     return OriginSubmitResult(
-      message: 'Origin created successfully: ${result.oid}',
+      message: 'Worldo created successfully: ${result.oid}',
       draft: CreateOriginDraft.empty(),
     );
   }

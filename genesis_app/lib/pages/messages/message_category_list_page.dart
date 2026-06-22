@@ -1034,7 +1034,7 @@ class _NotificationItem {
     final normalizedType = type.toLowerCase();
     final normalizedContent = content.toLowerCase();
     if (normalizedType == 'discuss_comment') {
-      return ' comment your origin';
+      return ' comment your worldo';
     }
     if (normalizedType == 'discuss_reply') {
       return ' reply to you';
@@ -1055,7 +1055,7 @@ class _NotificationItem {
     if (normalizedType.contains('comment') ||
         normalizedContent.contains('commented on your origin') ||
         normalizedContent.contains('comment your origin')) {
-      return ' comment your origin';
+      return ' comment your worldo';
     }
     return content.isEmpty ? ' sent you a message' : ' $content';
   }

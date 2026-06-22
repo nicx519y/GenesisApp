@@ -22,7 +22,7 @@ import 'search_history_store.dart';
 
 enum _SearchTab {
   all('', 'All', 'Results'),
-  origin('origin', 'Origin', 'Origins'),
+  origin('origin', 'Worldo', 'Worldos'),
   world('world', 'World', 'Worlds'),
   user('user', 'User', 'Users');
 

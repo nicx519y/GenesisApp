@@ -843,6 +843,13 @@ class WorldChatroomService {
         'id': _firstString(character, const ['char_id', 'character_id', 'id']),
         'name': _firstString(character, const ['name']),
         'type': _firstString(character, const ['type']),
+        'player_uid': _firstString(character, const ['player_uid', 'user_id']),
+        'player_username': _firstString(character, const [
+          'player_username',
+          'user_name',
+          'username',
+        ]),
+        'player_deleted': character['player_deleted'],
         'identity': _firstString(character, const ['identity']),
         'tagline': _firstString(character, const ['brief', 'tagline']),
         'description': _firstString(character, const ['description']),
