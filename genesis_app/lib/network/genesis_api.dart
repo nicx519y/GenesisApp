@@ -1521,6 +1521,7 @@ Map<String, dynamic> _normalizeWorldLocation(Map<String, dynamic> location) {
     'location_description': locationDescription,
     'location_paragraph': asString(location['location_paragraph']),
     'location_timestamp': asString(location['location_timestamp']),
+    'image': location['image'],
     'icon': _resolveImageAssetUrl(location['image']),
     'map_url': asString(location['map_url']),
     'dialogue': location['dialogue'] is List

@@ -242,6 +242,7 @@ class _LocationChatRouteArgs {
     required this.worldName,
     required this.locationName,
     required this.backgroundImageUrl,
+    required this.backgroundPreviewImageUrl,
     required this.isLeafLocation,
     required this.chatroomConnection,
     required this.worldChatroomService,
@@ -267,6 +268,14 @@ class _LocationChatRouteArgs {
         'map_url',
         'mapUrl',
       ]),
+      backgroundPreviewImageUrl: args.string(const [
+        'background_preview_image_url',
+        'backgroundPreviewImageUrl',
+        'preview_image_url',
+        'previewImageUrl',
+        'sm_url',
+        'smUrl',
+      ]),
       isLeafLocation: args.boolean(const [
         'is_leaf_location',
         'isLeafLocation',
@@ -287,6 +296,7 @@ class _LocationChatRouteArgs {
   final String worldName;
   final String locationName;
   final String backgroundImageUrl;
+  final String backgroundPreviewImageUrl;
   final bool isLeafLocation;
   final ChatroomConnectionController? chatroomConnection;
   final WorldChatroomService? worldChatroomService;
@@ -455,6 +465,7 @@ sealed class AppRouter {
             worldName: args.worldName,
             locationName: args.locationName,
             backgroundImageUrl: args.backgroundImageUrl,
+            backgroundPreviewImageUrl: args.backgroundPreviewImageUrl,
             isLeafLocation: args.isLeafLocation,
             service: args.worldChatroomService,
             connection: args.chatroomConnection,

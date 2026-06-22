@@ -29,6 +29,7 @@ class LocationChatPage extends StatelessWidget {
     this.worldName,
     this.locationName,
     this.backgroundImageUrl,
+    this.backgroundPreviewImageUrl,
     this.service,
     this.connection,
   });
@@ -40,6 +41,7 @@ class LocationChatPage extends StatelessWidget {
   final String? worldName;
   final String? locationName;
   final String? backgroundImageUrl;
+  final String? backgroundPreviewImageUrl;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
 
@@ -56,6 +58,7 @@ class LocationChatPage extends StatelessWidget {
         worldName: worldName,
         locationName: locationName,
         backgroundImageUrl: backgroundImageUrl,
+        backgroundPreviewImageUrl: backgroundPreviewImageUrl,
         service: service,
         connection: connection,
         active: true,
@@ -75,6 +78,7 @@ class LocationChatPanel extends StatefulWidget {
     this.worldName,
     this.locationName,
     this.backgroundImageUrl,
+    this.backgroundPreviewImageUrl,
     this.service,
     this.connection,
     this.active = true,
@@ -94,6 +98,7 @@ class LocationChatPanel extends StatefulWidget {
   final String? worldName;
   final String? locationName;
   final String? backgroundImageUrl;
+  final String? backgroundPreviewImageUrl;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
   final bool active;
@@ -128,6 +133,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   String _myAvatarUrl = '';
   double _devicePixelRatio = 1;
   late String _backgroundImageUrl;
+  late String _backgroundPreviewImageUrl;
   bool _ownsService = false;
   bool _joinedLocation = false;
   bool _sending = false;
@@ -142,6 +148,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   void initState() {
     super.initState();
     _backgroundImageUrl = widget.backgroundImageUrl?.trim() ?? '';
+    _backgroundPreviewImageUrl = widget.backgroundPreviewImageUrl?.trim() ?? '';
     _logPanelMetric(
       'init active=${widget.active} leaf=${widget.isLeafLocation} '
       'aliases=${widget.localMessageLocationIds.join(',')}',
@@ -169,9 +176,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   void didUpdateWidget(LocationChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     final nextBackgroundImageUrl = widget.backgroundImageUrl?.trim() ?? '';
+    final nextBackgroundPreviewImageUrl =
+        widget.backgroundPreviewImageUrl?.trim() ?? '';
     if (nextBackgroundImageUrl.isNotEmpty &&
         nextBackgroundImageUrl != _backgroundImageUrl) {
       _backgroundImageUrl = nextBackgroundImageUrl;
+    }
+    if (nextBackgroundPreviewImageUrl != _backgroundPreviewImageUrl) {
+      _backgroundPreviewImageUrl = nextBackgroundPreviewImageUrl;
     }
     if (oldWidget.service != widget.service ||
         oldWidget.worldId != widget.worldId ||
@@ -1281,6 +1293,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                   Positioned.fill(
                     child: _LocationChatBackgroundImage(
                       imageUrl: _backgroundImageUrl,
+                      previewImageUrl: _backgroundPreviewImageUrl,
                     ),
                   ),
                   Positioned.fill(
@@ -1320,10 +1333,52 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   }
 }
 
-class _LocationChatBackgroundImage extends StatelessWidget {
-  const _LocationChatBackgroundImage({required this.imageUrl});
+class _LocationChatBackgroundImage extends StatefulWidget {
+  const _LocationChatBackgroundImage({
+    required this.imageUrl,
+    required this.previewImageUrl,
+  });
 
   final String imageUrl;
+  final String previewImageUrl;
+
+  @override
+  State<_LocationChatBackgroundImage> createState() =>
+      _LocationChatBackgroundImageState();
+}
+
+class _LocationChatBackgroundImageState
+    extends State<_LocationChatBackgroundImage> {
+  bool _showFullImage = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.imageUrl.trim().isEmpty) {
+      _scheduleFullImage();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _LocationChatBackgroundImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl ||
+        oldWidget.previewImageUrl != widget.previewImageUrl) {
+      _showFullImage = false;
+      if (widget.imageUrl.trim().isEmpty) {
+        _scheduleFullImage();
+      }
+    }
+  }
+
+  void _scheduleFullImage() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _showFullImage) return;
+      setState(() {
+        _showFullImage = true;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1332,30 +1387,116 @@ class _LocationChatBackgroundImage extends StatelessWidget {
         final logicalWidth = constraints.hasBoundedWidth
             ? constraints.maxWidth
             : MediaQuery.sizeOf(context).width;
-        final provider = _locationChatBackgroundProvider(
-          imageUrl,
+        final resolvedPreviewUrl = widget.previewImageUrl.trim().isNotEmpty
+            ? widget.previewImageUrl
+            : widget.imageUrl;
+        final previewProvider = _locationChatBackgroundProvider(
+          resolvedPreviewUrl,
+          logicalWidth: 120,
+          devicePixelRatio: 1,
+          resizeNetworkImage: true,
+        );
+        final fullProvider = _locationChatBackgroundProvider(
+          widget.imageUrl,
           logicalWidth: logicalWidth,
           devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+          resizeNetworkImage: true,
         );
-        if (provider == null) return const SizedBox.shrink();
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            image: DecorationImage(image: provider, fit: BoxFit.cover),
-          ),
+        if (previewProvider == null && fullProvider == null) {
+          return const SizedBox.shrink();
+        }
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            if (previewProvider != null)
+              _LocationChatBackgroundLayer(
+                provider: previewProvider,
+                onReady: _scheduleFullImage,
+                onError: _scheduleFullImage,
+              )
+            else ...[
+              const ColoredBox(color: Color(0xFFEDEFF2)),
+              _LocationChatFullImageBootstrap(onReady: _scheduleFullImage),
+            ],
+            if (_showFullImage && fullProvider != null)
+              _LocationChatBackgroundLayer(provider: fullProvider),
+          ],
         );
       },
     );
   }
 }
 
+class _LocationChatBackgroundLayer extends StatelessWidget {
+  const _LocationChatBackgroundLayer({
+    required this.provider,
+    this.onReady,
+    this.onError,
+  });
+
+  final ImageProvider provider;
+  final VoidCallback? onReady;
+  final VoidCallback? onError;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image(
+      image: provider,
+      fit: BoxFit.cover,
+      gaplessPlayback: true,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) {
+          onReady?.call();
+        }
+        return child;
+      },
+      errorBuilder: (context, error, stackTrace) {
+        onError?.call();
+        return const SizedBox.shrink();
+      },
+      loadingBuilder: (context, child, loadingProgress) {
+        return loadingProgress == null ? child : const SizedBox.shrink();
+      },
+    );
+  }
+}
+
+class _LocationChatFullImageBootstrap extends StatefulWidget {
+  const _LocationChatFullImageBootstrap({required this.onReady});
+
+  final VoidCallback onReady;
+
+  @override
+  State<_LocationChatFullImageBootstrap> createState() =>
+      _LocationChatFullImageBootstrapState();
+}
+
+class _LocationChatFullImageBootstrapState
+    extends State<_LocationChatFullImageBootstrap> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.onReady();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
 ImageProvider? _locationChatBackgroundProvider(
   String rawUrl, {
   required double logicalWidth,
   required double devicePixelRatio,
+  bool resizeNetworkImage = true,
 }) {
   final url = rawUrl.trim();
   if (url.isEmpty) return null;
   if (url.startsWith('assets/')) return AssetImage(url);
+  if (!resizeNetworkImage) return NetworkImage(url);
   final resizedUrl = resizeGenesisImageUrl(
     url,
     logicalWidth: logicalWidth,

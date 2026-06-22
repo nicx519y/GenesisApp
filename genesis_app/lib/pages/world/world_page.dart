@@ -1259,7 +1259,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final descriptor = _LocationChatPanelDescriptor(
       locationId: locationId,
       locationName: point.name,
-      backgroundImageUrl: point.mapImageUrl,
+      backgroundImageUrl: point.iconUrl.trim().isNotEmpty
+          ? point.iconUrl
+          : point.mapImageUrl,
+      backgroundPreviewImageUrl: '',
       isLeafLocation: point.isLeafLocation,
       localMessageLocationIds: _orderedNonEmptyStrings([
         pointId,
@@ -1267,8 +1270,28 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         point.id,
       ]),
     );
+    final syncedDescriptor =
+        _locationChatDescriptors[locationId] ??
+        _locationChatDescriptors[pointId] ??
+        _locationChatDescriptors[point.id.trim()];
     unawaited(_updateUserPositionForLocation(locationId));
-    await _showCachedLocationChat(descriptor);
+    await _showCachedLocationChat(
+      syncedDescriptor?.copyWith(
+            locationId: locationId,
+            locationName: point.name,
+            backgroundImageUrl:
+                syncedDescriptor.backgroundImageUrl.trim().isNotEmpty
+                ? syncedDescriptor.backgroundImageUrl
+                : descriptor.backgroundImageUrl,
+            backgroundPreviewImageUrl:
+                syncedDescriptor.backgroundPreviewImageUrl.trim().isNotEmpty
+                ? syncedDescriptor.backgroundPreviewImageUrl
+                : descriptor.backgroundPreviewImageUrl,
+            isLeafLocation: point.isLeafLocation,
+            localMessageLocationIds: descriptor.localMessageLocationIds,
+          ) ??
+          descriptor,
+    );
   }
 
   Future<void> _updateUserPositionForLocation(String locationId) async {
@@ -1518,6 +1541,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                   locationId: descriptor.locationId,
                   locationName: descriptor.locationName,
                   backgroundImageUrl: descriptor.backgroundImageUrl,
+                  backgroundPreviewImageUrl:
+                      descriptor.backgroundPreviewImageUrl,
                   isLeafLocation: descriptor.isLeafLocation,
                   localMessageLocationIds: descriptor.localMessageLocationIds,
                   service: chatroom,
@@ -2020,6 +2045,7 @@ class _LocationChatPanelDescriptor {
     required this.locationId,
     required this.locationName,
     required this.backgroundImageUrl,
+    required this.backgroundPreviewImageUrl,
     required this.isLeafLocation,
     this.localMessageLocationIds = const <String>[],
   });
@@ -2037,7 +2063,8 @@ class _LocationChatPanelDescriptor {
         'location_name',
         'name',
       ], fallback: locationId),
-      backgroundImageUrl: _locationMapImageUrl(value),
+      backgroundImageUrl: _locationChatImageUrl(value, preferredKey: 'xl_url'),
+      backgroundPreviewImageUrl: '',
       isLeafLocation: node.children.isEmpty,
       localMessageLocationIds: _orderedNonEmptyStrings([
         pointId,
@@ -2059,7 +2086,11 @@ class _LocationChatPanelDescriptor {
         'location_name',
         'name',
       ], fallback: locationId),
-      backgroundImageUrl: _locationMapImageUrl(location),
+      backgroundImageUrl: _locationChatImageUrl(
+        location,
+        preferredKey: 'xl_url',
+      ),
+      backgroundPreviewImageUrl: '',
       isLeafLocation: isLeafLocation,
       localMessageLocationIds: _orderedNonEmptyStrings([pointId, locationId]),
     );
@@ -2068,8 +2099,29 @@ class _LocationChatPanelDescriptor {
   final String locationId;
   final String locationName;
   final String backgroundImageUrl;
+  final String backgroundPreviewImageUrl;
   final bool isLeafLocation;
   final List<String> localMessageLocationIds;
+
+  _LocationChatPanelDescriptor copyWith({
+    String? locationId,
+    String? locationName,
+    String? backgroundImageUrl,
+    String? backgroundPreviewImageUrl,
+    bool? isLeafLocation,
+    List<String>? localMessageLocationIds,
+  }) {
+    return _LocationChatPanelDescriptor(
+      locationId: locationId ?? this.locationId,
+      locationName: locationName ?? this.locationName,
+      backgroundImageUrl: backgroundImageUrl ?? this.backgroundImageUrl,
+      backgroundPreviewImageUrl:
+          backgroundPreviewImageUrl ?? this.backgroundPreviewImageUrl,
+      isLeafLocation: isLeafLocation ?? this.isLeafLocation,
+      localMessageLocationIds:
+          localMessageLocationIds ?? this.localMessageLocationIds,
+    );
+  }
 }
 
 class _LocationChatPanelSkeleton extends StatelessWidget {
@@ -4106,6 +4158,28 @@ String _locationMapImageUrl(
     _mapString(location, const ['map_url', 'mapUrl']),
   );
   return url.isEmpty ? fallback : url;
+}
+
+String _locationChatImageUrl(
+  Map<String, dynamic> location, {
+  required String preferredKey,
+}) {
+  final image = _mapValue(location, const ['image']);
+  if (image is Map) {
+    final imageMap = asJsonMap(image);
+    final preferredUrl = _resolveAssetUrl(_mapString(imageMap, [preferredKey]));
+    if (preferredUrl.isNotEmpty) return preferredUrl;
+
+    final fallbackUrl = _resolveAssetUrl(
+      _mapString(imageMap, const ['xl_url', 'sm_url', 'url', 'image_url']),
+    );
+    if (fallbackUrl.isNotEmpty) return fallbackUrl;
+  }
+
+  final iconUrl = _resolveAssetUrl(_mapString(location, const ['icon']));
+  if (iconUrl.isNotEmpty) return iconUrl;
+
+  return _locationMapImageUrl(location);
 }
 
 Map<String, List<UserAvatar>> _avatarsByLocationFromCharacterPositions(
