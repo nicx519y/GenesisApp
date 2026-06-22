@@ -33,18 +33,10 @@ const double _discussComposerFontSize = 14;
 const double _discussComposerLineHeight = 1.25;
 const double _discussComposerTextHeightAllowance = 2;
 const double _discussComposerActionHeight = 50;
-const Duration _discussComposerKeyboardPreopenTimeout = Duration(
-  milliseconds: 760,
-);
-const Duration _discussComposerKeyboardStableDelay = Duration(
-  milliseconds: 140,
-);
-const Duration _discussComposerScrimFadeDuration = Duration(milliseconds: 160);
-const Duration _discussComposerSheetRevealDuration = Duration(
-  milliseconds: 500,
-);
-const Duration _discussComposerKeyboardHideLeadDuration = Duration(
-  milliseconds: 350,
+const Duration _discussComposerScrimFadeDuration = Duration(milliseconds: 300);
+const Duration _discussComposerScrimDismissDuration = Duration.zero;
+const Duration _discussComposerSheetDismissDuration = Duration(
+  milliseconds: 160,
 );
 const int _discussUploadMaxWidth = 800;
 
@@ -245,26 +237,25 @@ class _DiscussComposerSheet extends StatefulWidget {
 }
 
 class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
-    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _composerFocusNode = FocusNode();
-  final TextEditingController _keyboardWarmUpController =
-      TextEditingController();
-  final FocusNode _keyboardWarmUpFocusNode = FocusNode();
   late final AnimationController _scrimController = AnimationController(
     vsync: this,
     duration: _discussComposerScrimFadeDuration,
-    reverseDuration: _discussComposerScrimFadeDuration,
+    reverseDuration: _discussComposerScrimDismissDuration,
+  );
+  late final AnimationController _sheetDismissController = AnimationController(
+    vsync: this,
+    duration: _discussComposerSheetDismissDuration,
   );
   final List<_DiscussImageAttachment> _images = <_DiscussImageAttachment>[];
   final List<Timer> _metricsSyncTimers = <Timer>[];
   Timer? _pickerReturnScrimGuardTimer;
-  Timer? _keyboardPreopenTimer;
-  Timer? _keyboardStableTimer;
+  Timer? _composerRevealFallbackTimer;
   bool _submitting = false;
   bool _pickerOpen = false;
   bool _closing = false;
-  bool _composerReady = false;
   bool _composerVisible = false;
   bool _keyboardWasVisible = false;
   bool _ignoreKeyboardHideUntilVisible = false;
@@ -274,9 +265,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
   bool _keyboardHideDismissQueued = false;
   int _nextImageId = 0;
   int _metricsSyncToken = 0;
-  double? _closingKeyboardInset;
   double _lastMeasuredKeyboardInset = -1;
-  double _lastWarmUpKeyboardInset = -1;
 
   bool get _canSend {
     if (_submitting || _images.any((image) => image.failed)) return false;
@@ -288,14 +277,19 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _controller.addListener(_handleTextChanged);
+    _sheetDismissController.addListener(_handleSheetDismissTick);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       unawaited(_scrimController.forward());
       _syncKeyboardMetrics();
-      _keyboardWarmUpFocusNode.requestFocus();
-      _keyboardPreopenTimer = Timer(
-        _discussComposerKeyboardPreopenTimeout,
-        _showComposerAfterKeyboardReady,
+      _composerFocusNode.requestFocus();
+      _syncKeyboardMetrics();
+      _composerRevealFallbackTimer = Timer(
+        const Duration(milliseconds: 320),
+        () {
+          if (!mounted || _closing || _composerVisible) return;
+          setState(() => _composerVisible = true);
+        },
       );
     });
   }
@@ -305,18 +299,17 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     WidgetsBinding.instance.removeObserver(this);
     _metricsSyncToken += 1;
     _pickerReturnScrimGuardTimer?.cancel();
-    _keyboardPreopenTimer?.cancel();
-    _keyboardStableTimer?.cancel();
+    _composerRevealFallbackTimer?.cancel();
     for (final timer in _metricsSyncTimers) {
       timer.cancel();
     }
     _metricsSyncTimers.clear();
+    _sheetDismissController.removeListener(_handleSheetDismissTick);
     _controller.removeListener(_handleTextChanged);
     _controller.dispose();
     _composerFocusNode.dispose();
-    _keyboardWarmUpController.dispose();
-    _keyboardWarmUpFocusNode.dispose();
     _scrimController.dispose();
+    _sheetDismissController.dispose();
     for (final image in _images) {
       image.progressTimer?.cancel();
     }
@@ -332,19 +325,9 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     setState(() {});
   }
 
-  void _showComposerAfterKeyboardReady() {
-    if (!mounted || _composerReady || _closing) return;
-    _keyboardPreopenTimer?.cancel();
-    _keyboardPreopenTimer = null;
-    _keyboardStableTimer?.cancel();
-    _keyboardStableTimer = null;
-    setState(() => _composerReady = true);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _closing) return;
-      setState(() => _composerVisible = true);
-      _composerFocusNode.requestFocus();
-      _syncKeyboardMetrics();
-    });
+  void _handleSheetDismissTick() {
+    if (!mounted || !_closing) return;
+    setState(() {});
   }
 
   void _scheduleKeyboardMetricsSync() {
@@ -376,32 +359,20 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
   void _syncKeyboardMetrics() {
     if (!mounted) return;
     final measuredInset = _keyboardInsetBottom(context, MediaQuery.of(context));
-    if (!_composerReady) {
-      _handleKeyboardWarmUpInset(measuredInset);
-      return;
-    }
     final insetChanged = (measuredInset - _lastMeasuredKeyboardInset).abs() > 1;
     _lastMeasuredKeyboardInset = measuredInset;
-    if (!_composerReady) return;
     _trackVisibleKeyboard(measuredInset);
+    if (!_composerVisible && measuredInset > 0 && !_closing) {
+      _composerRevealFallbackTimer?.cancel();
+      _composerRevealFallbackTimer = null;
+      setState(() => _composerVisible = true);
+      return;
+    }
     if (measuredInset <= 0 && _shouldDismissForHiddenKeyboard) {
       unawaited(_dismiss());
       return;
     }
     if (insetChanged) setState(() {});
-  }
-
-  void _handleKeyboardWarmUpInset(double measuredInset) {
-    if (measuredInset <= 0 || _closing) return;
-    final insetChanged = (measuredInset - _lastWarmUpKeyboardInset).abs() > 1;
-    _lastWarmUpKeyboardInset = measuredInset;
-    if (insetChanged) {
-      _keyboardStableTimer?.cancel();
-      _keyboardStableTimer = Timer(
-        _discussComposerKeyboardStableDelay,
-        _showComposerAfterKeyboardReady,
-      );
-    }
   }
 
   void _trackVisibleKeyboard(double measuredInset) {
@@ -578,19 +549,10 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     if (_submitting || _closing) return;
     setState(() {
       _closing = true;
-      _closingKeyboardInset = _keyboardInsetBottom(
-        context,
-        MediaQuery.of(context),
-      );
-      _composerVisible = false;
     });
-    await Future<void>.delayed(_discussComposerKeyboardHideLeadDuration);
-    if (!mounted) return;
+    _scrimController.value = 0;
+    unawaited(_sheetDismissController.forward());
     unawaited(SystemChannels.textInput.invokeMethod<void>('TextInput.hide'));
-    await Future<void>.delayed(
-      _discussComposerSheetRevealDuration -
-          _discussComposerKeyboardHideLeadDuration,
-    );
     if (!mounted) return;
     await _waitForKeyboardHidden();
     if (!mounted) return;
@@ -620,9 +582,10 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     if (measuredKeyboardInset <= 0 && _shouldDismissForHiddenKeyboard) {
       _queueDismissForHiddenKeyboard();
     }
-    final keyboardInset = _closing && _closingKeyboardInset != null
-        ? _closingKeyboardInset!
-        : measuredKeyboardInset;
+    final keyboardInset = measuredKeyboardInset;
+    final closingSlideProgress = _closing
+        ? Curves.easeInCubic.transform(_sheetDismissController.value)
+        : 0.0;
     final maxSheetHeight = math.max(
       0.0,
       media.size.height - keyboardInset - media.padding.top - 12,
@@ -642,9 +605,6 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
       ),
       maxSheetHeight,
     );
-    final hiddenSlideOffset = _closing && sheetHeight > 0
-        ? Offset(0, 1 + keyboardInset / sheetHeight)
-        : const Offset(0, 1);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -671,153 +631,117 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
               padding: EdgeInsets.only(bottom: keyboardInset),
               child: Align(
                 alignment: Alignment.bottomCenter,
-                child: !_composerReady
-                    ? _DiscussHiddenKeyboardWarmUpField(
-                        controller: _keyboardWarmUpController,
-                        focusNode: _keyboardWarmUpFocusNode,
-                      )
-                    : AnimatedSlide(
-                        duration: _discussComposerSheetRevealDuration,
-                        curve: Curves.easeOutCubic,
-                        offset: _composerVisible
-                            ? Offset.zero
-                            : hiddenSlideOffset,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {},
-                          child: GenesisBottomSheetPanel(
-                            key: const ValueKey('discuss-composer-sheet'),
-                            title: widget.title,
-                            height: sheetHeight,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                TextField(
-                                  controller: _controller,
-                                  focusNode: _composerFocusNode,
-                                  keyboardType: TextInputType.multiline,
-                                  textInputAction: TextInputAction.newline,
-                                  minLines: _discussComposerMinTextLines,
-                                  maxLines: _discussComposerMaxTextLines,
-                                  cursorColor: const Color(0xFF6C657A),
-                                  style: const TextStyle(
+                child: IgnorePointer(
+                  ignoring: !_composerVisible,
+                  child: FractionalTranslation(
+                    translation: Offset(0, closingSlideProgress),
+                    child: Opacity(
+                      opacity: _composerVisible ? 1 : 0,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {},
+                        child: GenesisBottomSheetPanel(
+                          key: const ValueKey('discuss-composer-sheet'),
+                          title: widget.title,
+                          height: sheetHeight,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextField(
+                                controller: _controller,
+                                focusNode: _composerFocusNode,
+                                keyboardType: TextInputType.multiline,
+                                textInputAction: TextInputAction.newline,
+                                minLines: _discussComposerMinTextLines,
+                                maxLines: _discussComposerMaxTextLines,
+                                cursorColor: const Color(0xFF6C657A),
+                                style: const TextStyle(
+                                  fontSize: _discussComposerFontSize,
+                                  height: _discussComposerLineHeight,
+                                  fontWeight: FontWeight.w400,
+                                  color: Color(0xFF111111),
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: widget.placeholder,
+                                  hintStyle: const TextStyle(
                                     fontSize: _discussComposerFontSize,
                                     height: _discussComposerLineHeight,
                                     fontWeight: FontWeight.w400,
-                                    color: Color(0xFF111111),
+                                    letterSpacing: 0,
+                                    color: Color(0xFFB8B8B8),
                                   ),
-                                  decoration: InputDecoration(
-                                    hintText: widget.placeholder,
-                                    hintStyle: const TextStyle(
-                                      fontSize: _discussComposerFontSize,
-                                      height: _discussComposerLineHeight,
-                                      fontWeight: FontWeight.w400,
-                                      letterSpacing: 0,
-                                      color: Color(0xFFB8B8B8),
-                                    ),
-                                    border: InputBorder.none,
-                                    isCollapsed: true,
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
+                                  border: InputBorder.none,
+                                  isCollapsed: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              if (hasImages) ...[
+                                _DiscussImageStrip(
+                                  images: _images,
+                                  showAddButton:
+                                      _images.length < discussPostMaxImages,
+                                  submitting: _submitting,
+                                  onAdd: _pickAndUploadImages,
+                                  onRemove: _removeImage,
                                 ),
                                 const SizedBox(height: 14),
-                                if (hasImages) ...[
-                                  _DiscussImageStrip(
-                                    images: _images,
-                                    showAddButton:
-                                        _images.length < discussPostMaxImages,
-                                    submitting: _submitting,
-                                    onAdd: _pickAndUploadImages,
-                                    onRemove: _removeImage,
-                                  ),
-                                  const SizedBox(height: 14),
-                                ],
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      key: const ValueKey(
-                                        'discuss-image-picker-button',
-                                      ),
-                                      onPressed: _submitting
-                                          ? null
-                                          : _pickAndUploadImages,
-                                      padding: EdgeInsets.zero,
-                                      constraints:
-                                          const BoxConstraints.tightFor(
-                                            width: 36,
-                                            height: 36,
-                                          ),
-                                      icon: const Icon(
-                                        Icons.add_photo_alternate_outlined,
-                                        size: 30,
-                                        color: Color(0xFF00834C),
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    TextButton(
-                                      onPressed: _canSend ? _send : null,
-                                      style: TextButton.styleFrom(
-                                        foregroundColor: const Color(
-                                          0xFF4B5F8E,
-                                        ),
-                                        disabledForegroundColor: const Color(
-                                          0xFF9BA4B8,
-                                        ),
-                                        textStyle: const TextStyle(
-                                          fontSize: 16,
-                                          height: 1.1,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      child: _submitting
-                                          ? const SizedBox.square(
-                                              dimension: 18,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
-                                            )
-                                          : const Text('Send'),
-                                    ),
-                                  ],
-                                ),
                               ],
-                            ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    key: const ValueKey(
+                                      'discuss-image-picker-button',
+                                    ),
+                                    onPressed: _submitting
+                                        ? null
+                                        : _pickAndUploadImages,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 36,
+                                      height: 36,
+                                    ),
+                                    icon: const Icon(
+                                      Icons.add_photo_alternate_outlined,
+                                      size: 30,
+                                      color: Color(0xFF00834C),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  TextButton(
+                                    onPressed: _canSend ? _send : null,
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: const Color(0xFF4B5F8E),
+                                      disabledForegroundColor: const Color(
+                                        0xFF9BA4B8,
+                                      ),
+                                      textStyle: const TextStyle(
+                                        fontSize: 16,
+                                        height: 1.1,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    child: _submitting
+                                        ? const SizedBox.square(
+                                            dimension: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Text('Send'),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DiscussHiddenKeyboardWarmUpField extends StatelessWidget {
-  const _DiscussHiddenKeyboardWarmUpField({
-    required this.controller,
-    required this.focusNode,
-  });
-
-  final TextEditingController controller;
-  final FocusNode focusNode;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 1,
-      height: 1,
-      child: Opacity(
-        opacity: 0,
-        child: Material(
-          type: MaterialType.transparency,
-          child: TextField(
-            controller: controller,
-            focusNode: focusNode,
-            keyboardType: TextInputType.multiline,
-            textInputAction: TextInputAction.newline,
-          ),
         ),
       ),
     );

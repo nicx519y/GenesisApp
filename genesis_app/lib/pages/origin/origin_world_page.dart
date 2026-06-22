@@ -405,9 +405,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         }
 
         final processedLocationTree = origin.processedLocationTree;
-        final rootLocationNodes = processedLocationTree.mapRoots;
+        final rootLocationNodes = processedLocationTree.collapsedMapRoots;
         final mapImageUrl = _originRootMapImageUrl(rootLocationNodes);
-        final renderLocationNodes = processedLocationTree.renderRoots;
+        final renderLocationNodes =
+            processedLocationTree.collapsedMapRenderRoots;
         final allLocationNodes = processedLocationTree.flattened;
         final avatarsByLocation = _originAvatarsByLocation(
           origin.characters,
@@ -415,6 +416,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         );
         final locationNodes = _originMapLocationNodes(
           rootLocationNodes,
+          avatarsByLocation,
+          processedLocationTree,
+        );
+        final listLocationNodes = _originMapLocationNodes(
+          processedLocationTree.mapRoots,
           avatarsByLocation,
           processedLocationTree,
         );
@@ -498,6 +504,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                 points: points,
                 listPoints: listPoints,
                 locationNodes: locationNodes,
+                listLocationNodes: listLocationNodes,
                 mapImageUrl: mapImageUrl,
                 dimmed: pointMode,
                 showPointsList: pointMode,
@@ -2075,15 +2082,14 @@ List<OriginLocation> _rootOriginLocations(List<OriginLocation> locations) {
 List<WorldMapLocationNode> _originMapLocationNodes(
   List<LocationTreeNode<OriginLocation>> nodes,
   Map<String, List<UserAvatar>> avatarsByLocation,
-  ProcessedLocationTree<OriginLocation> processedLocationTree,
-) {
+  ProcessedLocationTree<OriginLocation> processedLocationTree, {
+  bool markAsMapRoot = true,
+}) {
   return nodes
       .map((node) {
         return WorldMapLocationNode(
           id: node.id,
-          isRoot:
-              node.id == processedLocationTree.root?.id &&
-              node.children.isNotEmpty,
+          isRoot: markAsMapRoot && node.children.isNotEmpty,
           point: _pointsFromLocations(
             [node.value],
             avatarsByLocation,
@@ -2102,6 +2108,7 @@ List<WorldMapLocationNode> _originMapLocationNodes(
             node.children,
             avatarsByLocation,
             processedLocationTree,
+            markAsMapRoot: false,
           ),
         );
       })

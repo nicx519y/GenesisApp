@@ -28,6 +28,7 @@ class WorldMap extends StatefulWidget {
     required this.points,
     this.listPoints,
     this.locationNodes = const <WorldMapLocationNode>[],
+    this.listLocationNodes = const <WorldMapLocationNode>[],
     this.mapImageUrl = '',
     this.preloadMapImageUrls = const <String>[],
     this.fallbackOnEmptyMapUrl = true,
@@ -37,6 +38,7 @@ class WorldMap extends StatefulWidget {
     this.pointsListOuterScrollHandoff = true,
     this.overlayTop = 0,
     this.drillExitTop = 68,
+    this.drillExitMaxWidth,
     this.messageBubbles = const <String, WorldMapMessageBubble>{},
     this.onDrillIntoLocation,
     this.onSecondaryMapChanged,
@@ -47,6 +49,7 @@ class WorldMap extends StatefulWidget {
   final List<WorldPoint> points;
   final List<WorldPoint>? listPoints;
   final List<WorldMapLocationNode> locationNodes;
+  final List<WorldMapLocationNode> listLocationNodes;
   final String mapImageUrl;
   final List<String> preloadMapImageUrls;
   final bool fallbackOnEmptyMapUrl;
@@ -56,6 +59,7 @@ class WorldMap extends StatefulWidget {
   final bool pointsListOuterScrollHandoff;
   final double overlayTop;
   final double drillExitTop;
+  final double? drillExitMaxWidth;
   final Map<String, WorldMapMessageBubble> messageBubbles;
   final VoidCallback? onDrillIntoLocation;
   final ValueChanged<bool>? onSecondaryMapChanged;
@@ -244,7 +248,9 @@ class _WorldMapState extends State<WorldMap> {
                     Expanded(
                       child: WorldLocationList(
                         points: flattenedPoints,
-                        locationNodes: widget.locationNodes,
+                        locationNodes: widget.listLocationNodes.isNotEmpty
+                            ? widget.listLocationNodes
+                            : widget.locationNodes,
                         physics: widget.pointsListPhysics,
                         enableOuterScrollHandoff:
                             widget.pointsListOuterScrollHandoff,
@@ -260,9 +266,12 @@ class _WorldMapState extends State<WorldMap> {
               Positioned(
                 left: 12,
                 top: widget.drillExitTop,
-                child: _ExitLocationButton(
-                  label: exitLocationLabel,
-                  onPressed: _exitLocation,
+                child: _ConstrainedMaxWidth(
+                  maxWidth: widget.drillExitMaxWidth,
+                  child: _ExitLocationButton(
+                    label: exitLocationLabel,
+                    onPressed: _exitLocation,
+                  ),
                 ),
               ),
           ],
@@ -615,38 +624,39 @@ class _ExitLocationButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayLabel = label.trim();
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 220),
-      child: Container(
-        height: 36,
-        padding: EdgeInsets.only(left: 0, right: displayLabel.isEmpty ? 0 : 12),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.82),
+    return Container(
+      height: 36,
+      padding: EdgeInsets.only(left: 0, right: displayLabel.isEmpty ? 0 : 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
           borderRadius: BorderRadius.circular(12),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: onPressed,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(
-                  width: 36,
-                  height: 36,
-                  child: Icon(
-                    Icons.subdirectory_arrow_left,
-                    color: Colors.black,
-                    size: 18,
-                  ),
+          onTap: onPressed,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 36,
+                height: 36,
+                child: Icon(
+                  Icons.subdirectory_arrow_left,
+                  color: Colors.black,
+                  size: 18,
                 ),
-                if (displayLabel.isNotEmpty)
-                  Flexible(
+              ),
+              if (displayLabel.isNotEmpty)
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
                     child: Text(
                       displayLabel,
                       maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.black,
                         fontSize: 13,
@@ -655,11 +665,28 @@ class _ExitLocationButton extends StatelessWidget {
                       ),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ConstrainedMaxWidth extends StatelessWidget {
+  const _ConstrainedMaxWidth({required this.maxWidth, required this.child});
+
+  final double? maxWidth;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedMaxWidth = maxWidth;
+    if (resolvedMaxWidth == null) return child;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: resolvedMaxWidth),
+      child: child,
     );
   }
 }

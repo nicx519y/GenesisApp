@@ -53,6 +53,7 @@ const double _worldMapTabsHeight = 38;
 const double _worldTimePillTopGap = 12;
 const double _worldTimePillHeight = 22;
 const double _worldTimePillMinWidth = 96;
+const double _worldSecondaryMapControlWidth = 160;
 const double _worldTimePillHorizontalPadding = 12;
 const double _worldMapContentTopOffset =
     _worldMapTabsHeight + _worldTimePillTopGap + _worldTimePillHeight + 8;
@@ -116,6 +117,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   Set<String> _visibleMapLocationIds = <String>{};
   String _visibleMapLocationIdsSignature = '';
   bool _isInSecondaryMap = false;
+  int _mapModeTargetIndex = 0;
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
   bool _tick1WaitDialogStarted = false;
@@ -182,6 +184,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   void _handleMapModeTabTap(int index) {
+    if (_mapModeTargetIndex != index) {
+      setState(() => _mapModeTargetIndex = index);
+    }
     if (_activeChatLocationId.isNotEmpty) {
       WorldDetailsStatusBarOverride.setStyle(kChatWhiteSystemUiOverlayStyle);
       return;
@@ -1004,7 +1009,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   String _rootMapImageUrlForWorld(WorldDetail world) {
     final rootLocationMapUrl = _rootWorldMapImageUrl(
-      world.processedLocationTree.mapRoots,
+      world.processedLocationTree.collapsedMapRoots,
     ).trim();
     if (rootLocationMapUrl.isNotEmpty) return rootLocationMapUrl;
     return world.origin.worldMap.trim();
@@ -1510,6 +1515,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   void _showMapTab() {
     if (_tabController.index == 0) return;
+    if (_mapModeTargetIndex != 0) {
+      setState(() => _mapModeTargetIndex = 0);
+    }
     _tabController.animateTo(
       0,
       duration: const Duration(milliseconds: 120),
@@ -1546,12 +1554,17 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       world.characterPositions,
     );
     final processedLocationTree = world.processedLocationTree;
-    final rootLocationNodes = processedLocationTree.mapRoots;
+    final rootLocationNodes = processedLocationTree.collapsedMapRoots;
     final rootMapImageUrl = _rootMapImageUrlForWorld(world);
-    final renderLocationNodes = processedLocationTree.renderRoots;
+    final renderLocationNodes = processedLocationTree.collapsedMapRenderRoots;
     final allLocationNodes = processedLocationTree.flattened;
     final locationNodes = _worldMapLocationNodes(
       rootLocationNodes,
+      avatarsByLocation,
+      processedLocationTree,
+    );
+    final listLocationNodes = _worldMapLocationNodes(
+      processedLocationTree.mapRoots,
       avatarsByLocation,
       processedLocationTree,
     );
@@ -1611,12 +1624,20 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             points: points,
             listPoints: listPoints,
             locationNodes: locationNodes,
+            listLocationNodes: listLocationNodes,
             mapImageUrl: rootMapImageUrl,
             dimmed: pointMode,
             showPointsList: pointMode,
             pointsListOuterScrollHandoff: false,
-            overlayTop: topPadding + 8 + _worldMapContentTopOffset,
-            drillExitTop: topPadding + 8 + _worldMapContentTopOffset + 12,
+            overlayTop:
+                topPadding +
+                8 +
+                (pointMode
+                    ? _worldMapTabsHeight + 8
+                    : _worldMapContentTopOffset),
+            drillExitTop:
+                topPadding + 8 + _worldMapTabsHeight + _worldTimePillTopGap,
+            drillExitMaxWidth: _worldSecondaryMapControlWidth,
             onDrillIntoLocation: _showMapTab,
             onSecondaryMapChanged: _handleSecondaryMapChanged,
             onVisibleLocationIdsChanged: _handleVisibleMapLocationIdsChanged,
@@ -1687,10 +1708,20 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           ),
           if (worldTimeLabel.isNotEmpty)
             Positioned(
-              left: 0,
-              right: 0,
+              right: 12,
               top: top + _worldMapTabsHeight + _worldTimePillTopGap,
-              child: Center(child: _WorldTimePill(text: worldTimeLabel)),
+              child: AnimatedBuilder(
+                animation: _tabController.animation ?? _tabController,
+                builder: (context, _) {
+                  if (_mapModeTargetIndex != 0) {
+                    return const SizedBox.shrink();
+                  }
+                  return _WorldTimePill(
+                    text: worldTimeLabel,
+                    width: _worldSecondaryMapControlWidth,
+                  );
+                },
+              ),
             ),
           _WorldSectionFloatingTabs(
             controller: _sectionController,
@@ -1719,18 +1750,17 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 }
 
 class _WorldTimePill extends StatelessWidget {
-  const _WorldTimePill({required this.text});
+  const _WorldTimePill({required this.text, this.width});
 
   final String text;
+  final double? width;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: width,
       height: _worldTimePillHeight,
-      constraints: const BoxConstraints(
-        minWidth: _worldTimePillMinWidth,
-        maxWidth: 240,
-      ),
+      constraints: const BoxConstraints(minWidth: _worldTimePillMinWidth),
       padding: const EdgeInsets.symmetric(
         horizontal: _worldTimePillHorizontalPadding,
       ),
@@ -1739,21 +1769,27 @@ class _WorldTimePill extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       alignment: Alignment.center,
-      child: Text(
-        text,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: Color(0xFF111111),
-          fontSize: 12,
-          height: 1,
-          leadingDistribution: TextLeadingDistribution.even,
-          fontWeight: FontWeight.w400,
-        ),
-        strutStyle: StrutStyle(fontSize: 12, height: 1, forceStrutHeight: true),
-        textHeightBehavior: const TextHeightBehavior(
-          applyHeightToFirstAscent: false,
-          applyHeightToLastDescent: false,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          text,
+          maxLines: 1,
+          style: const TextStyle(
+            color: Color(0xFF111111),
+            fontSize: 12,
+            height: 1,
+            leadingDistribution: TextLeadingDistribution.even,
+            fontWeight: FontWeight.w400,
+          ),
+          strutStyle: const StrutStyle(
+            fontSize: 12,
+            height: 1,
+            forceStrutHeight: true,
+          ),
+          textHeightBehavior: const TextHeightBehavior(
+            applyHeightToFirstAscent: false,
+            applyHeightToLastDescent: false,
+          ),
         ),
       ),
     );
@@ -3862,13 +3898,14 @@ List<WorldPoint> _pointsFromWorldLocationNodes(
 List<WorldMapLocationNode> _worldMapLocationNodes(
   List<LocationTreeNode<Map<String, dynamic>>> nodes,
   Map<String, List<UserAvatar>> avatarsByLocation,
-  ProcessedLocationTree<Map<String, dynamic>> processedLocationTree,
-) {
+  ProcessedLocationTree<Map<String, dynamic>> processedLocationTree, {
+  bool markAsMapRoot = true,
+}) {
   return nodes
       .map((node) {
         return WorldMapLocationNode(
           id: node.id,
-          isRoot: node.id == processedLocationTree.root?.id,
+          isRoot: markAsMapRoot && node.children.isNotEmpty,
           point: _pointsFromWorldLocationNodes(
             [node],
             avatarsByLocation,
@@ -3879,6 +3916,7 @@ List<WorldMapLocationNode> _worldMapLocationNodes(
             node.children,
             avatarsByLocation,
             processedLocationTree,
+            markAsMapRoot: false,
           ),
         );
       })

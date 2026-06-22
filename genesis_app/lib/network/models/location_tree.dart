@@ -42,6 +42,12 @@ class ProcessedLocationTree<T> {
     return singleRoot.children;
   }
 
+  List<LocationTreeNode<T>> get collapsedMapRoots =>
+      collapseSingleChildMapRoots(mapRoots);
+
+  List<LocationTreeNode<T>> get collapsedMapRenderRoots =>
+      initialVisibleMapNodes(collapsedMapRoots);
+
   List<LocationTreeNode<T>> get flattened => flattenLocationTree(roots);
 
   List<LocationTreeNode<T>> get flattenedRenderNodes =>
@@ -131,6 +137,30 @@ List<LocationTreeNode<T>> buildLocationTree<T>(
   }
 
   return roots.map((node) => node.freeze(0)).toList(growable: false);
+}
+
+List<LocationTreeNode<T>> collapseSingleChildMapRoots<T>(
+  List<LocationTreeNode<T>> roots,
+) {
+  return roots.map(collapseSingleChildMapRoot).toList(growable: false);
+}
+
+LocationTreeNode<T> collapseSingleChildMapRoot<T>(LocationTreeNode<T> root) {
+  var current = root;
+  while (current.children.length == 1 &&
+      current.children.single.children.isNotEmpty) {
+    current = current.children.single;
+  }
+  return current;
+}
+
+List<LocationTreeNode<T>> initialVisibleMapNodes<T>(
+  List<LocationTreeNode<T>> roots,
+) {
+  if (roots.length == 1 && roots.single.children.isNotEmpty) {
+    return roots.single.children;
+  }
+  return roots;
 }
 
 LocationTreeNode<T>? _singleRoot<T>(List<LocationTreeNode<T>> roots) {
