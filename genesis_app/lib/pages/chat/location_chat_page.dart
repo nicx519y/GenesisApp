@@ -15,6 +15,9 @@ import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/genesis_image_resource.dart';
+
+const double _locationChatAvatarLogicalSize = 40;
 
 class LocationChatPage extends StatelessWidget {
   const LocationChatPage({
@@ -123,6 +126,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   String _mySenderId = '';
   String _mySenderName = '';
   String _myAvatarUrl = '';
+  double _devicePixelRatio = 1;
   late String _backgroundImageUrl;
   bool _ownsService = false;
   bool _joinedLocation = false;
@@ -189,6 +193,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     } else if (oldWidget.active && !widget.active) {
       unawaited(_deactivateConnection());
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _devicePixelRatio =
+        MediaQuery.maybeOf(context)?.devicePixelRatio ?? _devicePixelRatio;
   }
 
   @override
@@ -762,7 +773,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       clientMsgId: clientMsgId,
       senderId: _mySenderId,
       senderName: _localSelfDisplayName(),
-      avatarUrl: _localSelfAvatarUrl(),
+      avatarUrl: _resizedLocationChatAvatarUrl(_localSelfAvatarUrl()),
       text: text,
       isMe: true,
       status: 'sending',
@@ -901,7 +912,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     String fallback = '',
   }) {
     final mine = isMe ?? _isMineMessage(message);
-    return resolveLocationChatMessageAvatarForTesting(
+    final avatarUrl = resolveLocationChatMessageAvatarForTesting(
       entityUserAvatar: _entityAvatarForIdentity(message.userId),
       entitySenderAvatar: _entityAvatarForIdentity(message.senderId),
       roleAvatar: _roleAvatarForIdentityCandidates([
@@ -912,6 +923,17 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       localSelfAvatar: mine ? _localSelfAvatarUrl() : '',
       fallback: fallback,
     );
+    return _resizedLocationChatAvatarUrl(avatarUrl);
+  }
+
+  String _resizedLocationChatAvatarUrl(String rawUrl) {
+    final url = rawUrl.trim();
+    final resizedUrl = resizeGenesisImageUrl(
+      url,
+      logicalWidth: _locationChatAvatarLogicalSize,
+      devicePixelRatio: _devicePixelRatio,
+    );
+    return resizedUrl.isNotEmpty ? resizedUrl : url;
   }
 
   String _localSelfDisplayName() {
@@ -1305,20 +1327,41 @@ class _LocationChatBackgroundImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = _locationChatBackgroundProvider(imageUrl);
-    if (provider == null) return const SizedBox.shrink();
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        image: DecorationImage(image: provider, fit: BoxFit.cover),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final logicalWidth = constraints.hasBoundedWidth
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width;
+        final provider = _locationChatBackgroundProvider(
+          imageUrl,
+          logicalWidth: logicalWidth,
+          devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+        );
+        if (provider == null) return const SizedBox.shrink();
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            image: DecorationImage(image: provider, fit: BoxFit.cover),
+          ),
+        );
+      },
     );
   }
 }
 
-ImageProvider? _locationChatBackgroundProvider(String rawUrl) {
+ImageProvider? _locationChatBackgroundProvider(
+  String rawUrl, {
+  required double logicalWidth,
+  required double devicePixelRatio,
+}) {
   final url = rawUrl.trim();
   if (url.isEmpty) return null;
-  return url.startsWith('assets/') ? AssetImage(url) : NetworkImage(url);
+  if (url.startsWith('assets/')) return AssetImage(url);
+  final resizedUrl = resizeGenesisImageUrl(
+    url,
+    logicalWidth: logicalWidth,
+    devicePixelRatio: devicePixelRatio,
+  );
+  return NetworkImage(resizedUrl.isNotEmpty ? resizedUrl : url);
 }
 
 String _mapString(Map<String, dynamic>? map, String key) {
