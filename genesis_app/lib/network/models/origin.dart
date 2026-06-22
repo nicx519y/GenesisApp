@@ -430,9 +430,9 @@ class OriginLocation {
       icon: asImageUrl(json['icon'], fallback: json['image']),
       mapUrl: asString(json['map_url']),
       description: asString(
-        json['description'],
+        json['location_description'],
         fallback: asString(
-          json['location_description'],
+          json['description'],
           fallback: asString(json['location_summary']),
         ),
       ),

@@ -1907,9 +1907,9 @@ OriginLocation _originLocationFromV1(Map<String, dynamic> raw, int originId) {
     icon: _resolveImageAssetUrl(raw['image']),
     mapUrl: resolveAssetUrl(asString(raw['map_url'])),
     description: asString(
-      raw['description'],
+      raw['location_description'],
       fallback: asString(
-        raw['location_description'],
+        raw['description'],
         fallback: asString(raw['location_summary']),
       ),
     ),

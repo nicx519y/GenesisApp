@@ -2160,6 +2160,7 @@ List<WorldPoint> _pointsFromLocations(
       pointId: locationId,
       iconUrl: _resolveAssetUrl(l.icon),
       description: l.description,
+      locationDescription: l.description,
       depth: depths == null || i >= depths.length ? 0 : depths[i],
       isLeafLocation: isLeafLocations == null || i >= isLeafLocations.length
           ? true
