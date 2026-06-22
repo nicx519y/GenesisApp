@@ -1475,7 +1475,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                   active: active,
                   leaveOnInactive: false,
                   systemUiOverlayStyle: kChatWhiteSystemUiOverlayStyle,
-                  style: kChatWhiteHeaderStyle,
+                  style: kLocationChatStyle,
                   onBack: _closeCachedLocationChat,
                   onInitialContentReady: () =>
                       _markLocationChatPanelReady(descriptor.locationId),
@@ -1920,7 +1920,7 @@ class _LocationChatPanelSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = kChatWhiteHeaderStyle;
+    final style = kLocationChatStyle;
     return ColoredBox(
       color: style.conversationBackgroundColor,
       child: Column(

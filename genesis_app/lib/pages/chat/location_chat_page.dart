@@ -1229,7 +1229,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _chatroomState.joining ||
         (_chatroomState.connected && !joined);
     final inputBlocked = _chatroomState.inputBlocked;
-    final baseStyle = widget.style ?? kChatWhiteHeaderStyle;
+    final baseStyle = widget.style ?? kLocationChatStyle;
     final style = baseStyle.copyWith(
       headerSubtitleTextStyle: baseStyle.headerSubtitleTextStyle.copyWith(
         fontSize: 12,
@@ -1241,56 +1241,57 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       value: widget.systemUiOverlayStyle,
       child: ColoredBox(
         color: style.conversationBackgroundColor,
-        child: Column(
+        child: Stack(
           children: [
-            ChatHeader(
-              title: '$title (${realUsers.length})',
-              subtitle: subtitle,
-              connected: realUsers.isNotEmpty,
-              connecting: connecting && realUsers.isEmpty,
-              onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
-              showSubtitle:
-                  widget.showConnectionStatus && aiRoleNames.isNotEmpty,
-              style: style,
-            ),
-            Expanded(
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: _LocationChatBackgroundImage(
-                      imageUrl: _backgroundImageUrl,
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: ChatMessageList(
-                      controller: _scrollController,
-                      messages: _messages,
-                      topTitle: '',
-                    ),
-                  ),
-                  if (_unseenIncomingCount > 0)
-                    Positioned(
-                      right: 16,
-                      bottom: 12,
-                      child: _LocationChatNewMessageNotice(
-                        count: _unseenIncomingCount,
-                        onTap: _openUnseenIncomingMessages,
-                      ),
-                    ),
-                ],
+            Positioned.fill(
+              child: _LocationChatBackgroundImage(
+                imageUrl: _backgroundImageUrl,
               ),
             ),
-            widget.composerReplacement ??
-                ChatComposer(
-                  controller: _textController,
-                  inputEnabled: widget.active,
-                  sendEnabled:
-                      widget.active && joined && !_sending && !inputBlocked,
-                  sending: _sending,
-                  onSend: _send,
-                  sendLabel: 'Send',
-                  onHeightChanged: (_) => _keepBottomAfterLayoutIfNeeded(),
+            Positioned.fill(
+              child: ChatMessageList(
+                controller: _scrollController,
+                messages: _messages,
+                topTitle: '',
+              ),
+            ),
+            if (_unseenIncomingCount > 0)
+              Positioned(
+                right: 16,
+                bottom: 12,
+                child: _LocationChatNewMessageNotice(
+                  count: _unseenIncomingCount,
+                  onTap: _openUnseenIncomingMessages,
                 ),
+              ),
+            Column(
+              children: [
+                ChatHeader(
+                  title: '$title (${realUsers.length})',
+                  subtitle: subtitle,
+                  connected: realUsers.isNotEmpty,
+                  connecting: connecting && realUsers.isEmpty,
+                  onBack:
+                      widget.onBack ?? () => Navigator.of(context).maybePop(),
+                  showSubtitle:
+                      widget.showConnectionStatus && aiRoleNames.isNotEmpty,
+                  style: style,
+                ),
+                const Spacer(),
+                widget.composerReplacement ??
+                    ChatComposer(
+                      controller: _textController,
+                      inputEnabled: widget.active,
+                      sendEnabled:
+                          widget.active && joined && !_sending && !inputBlocked,
+                      sending: _sending,
+                      onSend: _send,
+                      sendLabel: 'Send',
+                      style: style,
+                      onHeightChanged: (_) => _keepBottomAfterLayoutIfNeeded(),
+                    ),
+              ],
+            ),
           ],
         ),
       ),

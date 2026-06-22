@@ -11,6 +11,10 @@ class ChatUiStyleConfig {
     required this.headerHeight,
     // 顶部聊天栏背景色。
     required this.headerBackgroundColor,
+    // 顶部聊天栏背景渐变；存在时优先于纯色背景。
+    this.headerBackgroundGradient,
+    // 顶部聊天栏背景模糊半径。
+    this.headerBackdropBlurSigma = 0,
     // 顶部聊天栏主标题文字样式。
     required this.headerTitleTextStyle,
     // 顶部聊天栏副标题文字样式。
@@ -37,6 +41,10 @@ class ChatUiStyleConfig {
     required this.headerTrailingPlaceholderWidth,
     // 底部输入栏背景色。
     required this.composerBackgroundColor,
+    // 底部输入栏背景渐变；存在时优先于纯色背景。
+    this.composerBackgroundGradient,
+    // 底部输入栏背景模糊半径。
+    this.composerBackdropBlurSigma = 0,
     // 底部输入栏外边距。
     required this.composerPadding,
     // 输入栏图标按钮点击区域尺寸。
@@ -178,9 +186,14 @@ class ChatUiStyleConfig {
   });
 
   static const standard = ChatUiStyleConfig(
-    conversationBackgroundColor: Color(0xFFE7E1E5), // 聊天页面整体背景色。
+    conversationBackgroundColor: Color(0xFFEDEDED), // 聊天页面整体背景色。
     headerHeight: 50, // 顶部聊天栏高度，不包含系统安全区。
     headerBackgroundColor: Color(0xF5F2EFF2), // 顶部聊天栏背景色。
+    headerBackgroundGradient: LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0xE6111111), Color(0x00111111)],
+    ), // 顶部聊天栏背景渐变。
     headerTitleTextStyle: TextStyle(
       fontSize: 16, // 顶部主标题字号。
       fontWeight: FontWeight.w600, // 顶部主标题字重。
@@ -202,6 +215,11 @@ class ChatUiStyleConfig {
     headerStatusIconGap: 5, // 顶部状态图标和文字间距。
     headerTrailingPlaceholderWidth: 48, // 隐藏更多按钮时右侧占位宽度。
     composerBackgroundColor: Color(0xFAF1EFF1), // 底部输入栏背景色。
+    composerBackgroundGradient: LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0x00111111), Color(0xE6111111)],
+    ), // 底部输入栏背景渐变。
     composerPadding: EdgeInsets.fromLTRB(10, 8, 10, 16), // 底部输入栏内边距。
     composerIconButtonSize: 32, // 输入栏图标按钮点击区域尺寸。
     composerIconSize: 30, // 输入栏图标视觉尺寸。
@@ -311,6 +329,10 @@ class ChatUiStyleConfig {
   final double headerHeight;
   // 顶部聊天栏背景色。
   final Color headerBackgroundColor;
+  // 顶部聊天栏背景渐变；存在时优先于纯色背景。
+  final Gradient? headerBackgroundGradient;
+  // 顶部聊天栏背景模糊半径。
+  final double headerBackdropBlurSigma;
   // 顶部聊天栏主标题文字样式。
   final TextStyle headerTitleTextStyle;
   // 顶部聊天栏副标题文字样式。
@@ -337,6 +359,10 @@ class ChatUiStyleConfig {
   final double headerTrailingPlaceholderWidth;
   // 底部输入栏背景色。
   final Color composerBackgroundColor;
+  // 底部输入栏背景渐变；存在时优先于纯色背景。
+  final Gradient? composerBackgroundGradient;
+  // 底部输入栏背景模糊半径。
+  final double composerBackdropBlurSigma;
   // 底部输入栏外边距。
   final EdgeInsets composerPadding;
   // 输入栏图标按钮点击区域尺寸。
@@ -477,24 +503,46 @@ class ChatUiStyleConfig {
   final TextStyle systemMessageTextStyle;
 
   ChatUiStyleConfig copyWith({
+    Color? conversationBackgroundColor,
     Color? headerBackgroundColor,
+    Gradient? headerBackgroundGradient,
+    bool clearHeaderBackgroundGradient = false,
+    double? headerBackdropBlurSigma,
+    Color? composerBackgroundColor,
+    Gradient? composerBackgroundGradient,
+    bool clearComposerBackgroundGradient = false,
+    double? composerBackdropBlurSigma,
     TextStyle? headerTitleTextStyle,
     TextStyle? headerSubtitleTextStyle,
+    Color? headerTitleIconColor,
+    Color? headerStatusIconColor,
     double? headerStatusIconSize,
     double? headerSubtitleTopGap,
     bool? showComposerSendButton,
   }) {
     return ChatUiStyleConfig(
-      conversationBackgroundColor: conversationBackgroundColor,
+      conversationBackgroundColor:
+          conversationBackgroundColor ?? this.conversationBackgroundColor,
       headerHeight: headerHeight,
       headerBackgroundColor:
           headerBackgroundColor ?? this.headerBackgroundColor,
+      headerBackgroundGradient: clearHeaderBackgroundGradient
+          ? null
+          : headerBackgroundGradient ?? this.headerBackgroundGradient,
+      headerBackdropBlurSigma:
+          headerBackdropBlurSigma ?? this.headerBackdropBlurSigma,
+      composerBackgroundGradient: clearComposerBackgroundGradient
+          ? null
+          : composerBackgroundGradient ?? this.composerBackgroundGradient,
+      composerBackdropBlurSigma:
+          composerBackdropBlurSigma ?? this.composerBackdropBlurSigma,
       headerTitleTextStyle: headerTitleTextStyle ?? this.headerTitleTextStyle,
       headerSubtitleTextStyle:
           headerSubtitleTextStyle ?? this.headerSubtitleTextStyle,
-      headerTitleIconColor: headerTitleIconColor,
+      headerTitleIconColor: headerTitleIconColor ?? this.headerTitleIconColor,
       headerTitleIconSize: headerTitleIconSize,
-      headerStatusIconColor: headerStatusIconColor,
+      headerStatusIconColor:
+          headerStatusIconColor ?? this.headerStatusIconColor,
       headerStatusIconSize: headerStatusIconSize ?? this.headerStatusIconSize,
       headerMoreIconSize: headerMoreIconSize,
       headerBackIconSize: headerBackIconSize,
@@ -502,7 +550,8 @@ class ChatUiStyleConfig {
       headerSubtitleTopGap: headerSubtitleTopGap ?? this.headerSubtitleTopGap,
       headerStatusIconGap: headerStatusIconGap,
       headerTrailingPlaceholderWidth: headerTrailingPlaceholderWidth,
-      composerBackgroundColor: composerBackgroundColor,
+      composerBackgroundColor:
+          composerBackgroundColor ?? this.composerBackgroundColor,
       composerPadding: composerPadding,
       composerIconButtonSize: composerIconButtonSize,
       composerIconSize: composerIconSize,

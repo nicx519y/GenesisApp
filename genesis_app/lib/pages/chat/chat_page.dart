@@ -53,6 +53,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   String _lastSavedDraft = '';
   String _myUid = '';
   String _myAvatarUrl = '';
+  double _composerHeight = 0;
 
   String get _peerUid => widget.peerUid.trim();
 
@@ -534,49 +535,54 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: kChatWhiteSystemUiOverlayStyle,
       child: Scaffold(
-        backgroundColor: ChatUiStyleConfig.standard.conversationBackgroundColor,
+        backgroundColor: kPrivateChatStyle.conversationBackgroundColor,
         resizeToAvoidBottomInset: true,
-        body: Column(
+        body: Stack(
           children: [
-            ChatHeader(
-              title: peerTitle,
-              subtitle: '',
-              connected: !_syncing,
-              connecting: _syncing,
-              onBack: () => Navigator.of(context).maybePop(),
-              showTitleIcon: false,
-              showSubtitle: false,
-              showMoreButton: false,
-              style: kChatWhiteHeaderStyle,
+            Stack(
+              children: [
+                Positioned.fill(child: _buildMessages()),
+                if (_unseenIncomingCount > 0)
+                  Positioned(
+                    right: 16,
+                    bottom: _privateChatComposerHeight() + 12,
+                    child: _NewIncomingMessageNotice(
+                      count: _unseenIncomingCount,
+                      onTap: _openUnseenIncomingMessages,
+                    ),
+                  ),
+              ],
             ),
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.translucent,
-                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-                child: Stack(
-                  children: [
-                    Positioned.fill(child: _buildMessages()),
-                    if (_unseenIncomingCount > 0)
-                      Positioned(
-                        right: 16,
-                        bottom: 12,
-                        child: _NewIncomingMessageNotice(
-                          count: _unseenIncomingCount,
-                          onTap: _openUnseenIncomingMessages,
-                        ),
-                      ),
-                  ],
-                ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: ChatHeader(
+                title: peerTitle,
+                subtitle: '',
+                connected: !_syncing,
+                connecting: _syncing,
+                onBack: () => Navigator.of(context).maybePop(),
+                showTitleIcon: false,
+                showSubtitle: false,
+                showMoreButton: false,
+                style: kPrivateChatStyle,
               ),
             ),
-            ChatComposer(
-              controller: _textController,
-              inputEnabled: _peerUid.isNotEmpty,
-              sendEnabled: _peerUid.isNotEmpty && !_sending,
-              sending: _sending,
-              onSend: _send,
-              sendLabel: 'Send',
-              onHeightChanged: (_) => _revealLatestMessageAfterLayout(),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: ChatComposer(
+                controller: _textController,
+                inputEnabled: _peerUid.isNotEmpty,
+                sendEnabled: _peerUid.isNotEmpty && !_sending,
+                sending: _sending,
+                onSend: _send,
+                sendLabel: 'Send',
+                style: kPrivateChatStyle,
+                onHeightChanged: _handleComposerHeightChanged,
+              ),
             ),
           ],
         ),
@@ -586,6 +592,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   Widget _buildMessages() {
     const style = ChatUiStyleConfig.standard;
+    final listPadding = _messageListPadding(style);
     return ValueListenableBuilder<List<String>>(
       valueListenable: _messageStore.orderedMessageIds,
       builder: (context, messageIds, _) {
@@ -595,23 +602,10 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         }
         return LayoutBuilder(
           builder: (context, constraints) {
-            final contentHeight = _estimatedContentHeight(renderIds);
-            final fitsViewport =
-                constraints.maxHeight.isFinite &&
-                contentHeight <= constraints.maxHeight;
-            if (fitsViewport) {
-              return ListView.builder(
-                controller: _scrollController,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: style.messageListPadding,
-                itemCount: renderIds.length,
-                itemBuilder: (context, index) =>
-                    _buildMessageItem(renderIds, index),
-              );
-            }
             return ListView.builder(
               controller: _scrollController,
-              padding: style.messageListPadding,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: listPadding,
               itemCount: renderIds.length + 1,
               itemBuilder: (context, index) {
                 if (index == 0) {
@@ -673,49 +667,32 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
   }
 
-  double _estimatedContentHeight(List<String> messageIds) {
-    if (messageIds.isEmpty) return 0;
-    const style = ChatUiStyleConfig.standard;
-    var estimatedContentHeight = style.messageListPadding.vertical;
-    DirectMessageMessageRecord? previous;
-    for (final messageId in messageIds) {
-      final record = _recordForMessageId(messageId);
-      if (record == null) continue;
-      if (shouldShowChatDateDivider(previous?.createdAt, record.createdAt)) {
-        estimatedContentHeight +=
-            style.dateDividerBottomPadding +
-            (style.dateDividerTextStyle.fontSize ?? 10);
-      }
-      estimatedContentHeight += _estimatedMessageRowHeight(record);
-      previous = record;
-    }
-    return estimatedContentHeight;
+  EdgeInsets _messageListPadding(ChatUiStyleConfig style) {
+    return style.messageListPadding.copyWith(
+      top: style.messageListPadding.top + _privateChatHeaderHeight(),
+      bottom: style.messageListPadding.bottom + _privateChatComposerHeight(),
+    );
   }
 
-  double _estimatedMessageRowHeight(DirectMessageMessageRecord record) {
-    const style = ChatUiStyleConfig.standard;
-    final isMe = _myUid.trim().isNotEmpty && record.senderUid == _myUid.trim();
-    final width = MediaQuery.sizeOf(context).width;
-    final maxBubbleWidth =
-        width *
-        (isMe
-            ? style.selfBubbleMaxWidthFactor
-            : style.otherBubbleMaxWidthFactor);
-    final charsPerLine = (maxBubbleWidth / 8).floor().clamp(12, 42).toInt();
-    final textLength = record.content.trim().isEmpty
-        ? 1
-        : record.content.trim().length;
-    final lineCount = (textLength / charsPerLine).ceil().clamp(1, 8).toInt();
-    final bubbleHeight =
-        style.bubblePadding.vertical + lineCount * style.bubbleLineHeight;
-    final senderNameHeight = style.showSenderNameAboveOtherBubble && !isMe
-        ? (style.senderNameTextStyle.fontSize ?? 14) + style.senderNameBottomGap
-        : 0;
-    final rowBodyHeight = isMe ? bubbleHeight : senderNameHeight + bubbleHeight;
-    final rowHeight = rowBodyHeight < style.avatarSize
-        ? style.avatarSize
-        : rowBodyHeight;
-    return rowHeight + style.rowBottomPadding;
+  double _privateChatHeaderHeight() {
+    final topInset = MediaQuery.viewPaddingOf(context).top;
+    return topInset + kPrivateChatStyle.headerHeight;
+  }
+
+  double _privateChatComposerHeight() {
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    return _composerHeight > 0
+        ? _composerHeight
+        : kPrivateChatStyle.composerPadding.vertical +
+              kPrivateChatStyle.inputMinHeight +
+              bottomInset;
+  }
+
+  void _handleComposerHeightChanged(double height) {
+    if ((_composerHeight - height).abs() > 0.5) {
+      setState(() => _composerHeight = height);
+    }
+    _revealLatestMessageAfterLayout();
   }
 
   List<String> _renderMessageIds(List<String> dbMessageIds) {
