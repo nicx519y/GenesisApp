@@ -57,6 +57,7 @@ Future<OriginDiscussPage> loadOriginDiscussPage(
 
 class OriginDiscussRepliesPage {
   const OriginDiscussRepliesPage({
+    required this.comment,
     required this.items,
     required this.total,
     required this.pn,
@@ -64,6 +65,9 @@ class OriginDiscussRepliesPage {
   });
 
   factory OriginDiscussRepliesPage.fromJson(Map<String, dynamic> json) {
+    final comment = json['comment'] is Map
+        ? OriginDiscussListItem.fromJson(asJsonMap(json['comment']))
+        : null;
     final rawList = json['list'];
     final items = rawList is List
         ? rawList
@@ -77,6 +81,7 @@ class OriginDiscussRepliesPage {
               .toList(growable: false)
         : const <Map<String, dynamic>>[];
     return OriginDiscussRepliesPage(
+      comment: comment,
       items: items,
       total: asInt(json['total'], fallback: items.length),
       pn: asInt(json['pn'], fallback: 1),
@@ -84,6 +89,7 @@ class OriginDiscussRepliesPage {
     );
   }
 
+  final OriginDiscussListItem? comment;
   final List<Map<String, dynamic>> items;
   final int total;
   final int pn;
@@ -344,6 +350,46 @@ class OriginDiscussListController extends ChangeNotifier {
     _replyTotals.clear();
     _replyRequestSerials.clear();
     notifyListeners();
+  }
+
+  bool seedRepliesPage({
+    required String rootDiscussId,
+    required OriginDiscussRepliesPage page,
+  }) {
+    final comment = page.comment;
+    if (comment == null) return false;
+
+    final normalizedRootId = rootDiscussId.trim();
+    final rootItem = comment.copyWith(
+      replyCount: page.total,
+      latestReplies: page.items,
+    );
+    _requestSerial += 1;
+    _items
+      ..clear()
+      ..add(rootItem);
+    _totalAll = 1;
+    _currentPage = 1;
+    _hasLoaded = true;
+    _isInitialLoading = false;
+    _isLoadingMore = false;
+    _isRefreshing = false;
+    _expanded = true;
+    _error = null;
+    _likePendingIds.clear();
+    _replyLoadingIds.clear();
+    _progressLoadingKeys.clear();
+    _progressCompletedKeys.clear();
+    _progressResults.clear();
+    _replyCurrentPages
+      ..clear()
+      ..[normalizedRootId] = page.pn;
+    _replyTotals
+      ..clear()
+      ..[normalizedRootId] = page.total;
+    _replyRequestSerials.clear();
+    notifyListeners();
+    return true;
   }
 
   void seedItems({
@@ -663,7 +709,8 @@ class OriginDiscussListController extends ChangeNotifier {
     final nextReplies = page.pn <= 1
         ? page.items
         : _mergeReplyAppend(item.latestReplies, page.items);
-    _items[index] = item.copyWith(
+    final rootItem = page.comment ?? item;
+    _items[index] = rootItem.copyWith(
       replyCount: page.total,
       latestReplies: nextReplies,
     );

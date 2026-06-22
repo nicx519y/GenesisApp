@@ -64,8 +64,6 @@ class _PostDetailPageState extends State<PostDetailPage> {
   void initState() {
     super.initState();
     _controller = OriginDiscussListController();
-    final item = widget.item;
-    if (item != null) _controller.seedSingleItem(_detailSeedItem(item));
   }
 
   @override
@@ -80,7 +78,6 @@ class _PostDetailPageState extends State<PostDetailPage> {
     final item = widget.item;
     if (item?.discussId == oldWidget.item?.discussId) return;
     _initialRepliesRequested = false;
-    if (item != null) _controller.seedSingleItem(_detailSeedItem(item));
     _loadInitialRepliesIfNeeded();
   }
 
@@ -93,19 +90,33 @@ class _PostDetailPageState extends State<PostDetailPage> {
   OriginDiscussListItem? get _currentItem {
     final items = _controller.items;
     if (items.isNotEmpty) return items.first;
-    return widget.item;
-  }
-
-  OriginDiscussListItem _detailSeedItem(OriginDiscussListItem item) {
-    return item.copyWith(latestReplies: const <Map<String, dynamic>>[]);
+    return null;
   }
 
   void _loadInitialRepliesIfNeeded() {
     if (_initialRepliesRequested) return;
-    final item = _currentItem;
-    if (item == null || item.discussId.trim().isEmpty) return;
+    final item = widget.item;
+    if (item == null || item.replyRootDiscussId.trim().isEmpty) return;
     _initialRepliesRequested = true;
-    unawaited(_loadMoreReplies(item));
+    unawaited(_loadInitialReplies(item.replyRootDiscussId));
+  }
+
+  Future<void> _loadInitialReplies(String rootDiscussId) async {
+    try {
+      final data = await AppServicesScope.read(context).api.v1.discuss.replies(
+        rootDiscussId: rootDiscussId,
+        pn: 1,
+        rn: originDiscussRepliesPageSize,
+      );
+      final page = OriginDiscussRepliesPage.fromJson(data);
+      final loaded = _controller.seedRepliesPage(
+        rootDiscussId: rootDiscussId,
+        page: page,
+      );
+      if (!loaded && mounted) showGenesisToast(context, 'Load replies failed');
+    } catch (_) {
+      if (mounted) showGenesisToast(context, 'Load replies failed');
+    }
   }
 
   Future<void> _loadMoreReplies(OriginDiscussListItem item) async {
@@ -152,7 +163,9 @@ class _PostDetailPageState extends State<PostDetailPage> {
         builder: (context, _) {
           final item = _currentItem;
           if (item == null) {
-            return const Center(child: Text('Post unavailable'));
+            return widget.item == null
+                ? const Center(child: Text('Post unavailable'))
+                : const Center(child: CircularProgressIndicator());
           }
 
           final bottomPadding =
