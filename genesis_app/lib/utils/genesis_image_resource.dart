@@ -72,8 +72,8 @@ class GenesisImageResource {
     required double? logicalHeight,
     required double devicePixelRatio,
   }) {
-    final resizedXlUrl = _resizedXlUrl(
-      this,
+    final resizedXlUrl = resizeGenesisImageUrl(
+      xlUrl,
       logicalWidth: logicalWidth,
       devicePixelRatio: devicePixelRatio,
     );
@@ -144,17 +144,17 @@ const List<int> _imageResizeWidthTiers = <int>[
 const String _ossResizeProcessPrefix = '?x-oss-process=image/resize,w_';
 const String _ossResizeProcessSuffix = ',image/format,webp';
 
-String _resizedXlUrl(
-  GenesisImageResource resource, {
+String resizeGenesisImageUrl(
+  String url, {
   required double? logicalWidth,
   required double devicePixelRatio,
 }) {
-  final xl = resource.xlUrl.trim();
-  if (xl.isEmpty || xl.startsWith('assets/')) return '';
+  final source = url.trim();
+  if (source.isEmpty || source.startsWith('assets/')) return '';
   final requiredWidth = _requiredPixels(logicalWidth, devicePixelRatio);
   if (requiredWidth == null) return '';
   final width = _ceilImageWidthTier(requiredWidth);
-  return '${_stripUrlParams(xl)}$_ossResizeProcessPrefix$width$_ossResizeProcessSuffix';
+  return '${_stripUrlParams(source)}$_ossResizeProcessPrefix$width$_ossResizeProcessSuffix';
 }
 
 int _ceilImageWidthTier(double requiredWidth) {

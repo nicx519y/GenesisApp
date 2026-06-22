@@ -5,7 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../ui/components/genesis_character_avatar.dart';
+import '../icons/my_flutter_app_icons.dart';
 import '../ui/tokens/genesis_avatar_radii.dart';
 import '../utils/genesis_image_resource.dart';
 import 'world_map_interaction_notification.dart';
@@ -18,6 +18,7 @@ export 'world_point.dart';
 const String kWorldMapFallbackBackgroundAsset =
     'assets/images/mock_maps/map_background.png';
 const double _worldMapAvatarImageLogicalSize = 42;
+const double _worldMapPreviewImageLogicalWidth = 120;
 
 typedef WorldPointTapCallback = FutureOr<void> Function(WorldPoint point);
 
@@ -74,8 +75,6 @@ class _WorldMapState extends State<WorldMap> {
     origin: Alignment.center,
     direction: _MapTransitionDirection.drillIn,
   );
-  String _loadedBackgroundUrl = '';
-  String _currentBackgroundUrl = '';
   String _lastVisibleLocationIdsSignature = '';
 
   bool get _hasDrillTree => widget.locationNodes.isNotEmpty;
@@ -124,37 +123,49 @@ class _WorldMapState extends State<WorldMap> {
         currentNode?.mapImageUrl.trim().isNotEmpty == true
         ? currentNode!.mapImageUrl
         : _initialMapImageUrl;
-    final preloadMapImageUrls = _hasDrillTree
+    final rawPreloadMapImageUrls = _hasDrillTree
         ? visibleNodes
               .map((node) => node.mapImageUrl.trim())
               .where((url) => url.isNotEmpty)
               .toSet()
               .toList(growable: false)
         : widget.preloadMapImageUrls;
-    final preloadAvatarUrls = _preloadAvatarUrls(context, visiblePoints);
     final exitLocationLabel = currentNode?.point.name ?? '';
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        final devicePixelRatio =
+            MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
         const designWidth = 375.0;
         const designHeight = 670.0;
-        final viewport = _MapViewport.cover(
+        final viewport = _MapViewport.screenWidth(
           viewportWidth: constraints.maxWidth,
-          viewportHeight: constraints.hasBoundedHeight
-              ? constraints.maxHeight
-              : constraints.maxWidth * designHeight / designWidth,
           designWidth: designWidth,
           designHeight: designHeight,
         );
-        final backgroundUrl = currentMapImageUrl.trim();
-        if (_currentBackgroundUrl != backgroundUrl) {
-          _currentBackgroundUrl = backgroundUrl;
-          if (_loadedBackgroundUrl != backgroundUrl) {
-            _loadedBackgroundUrl = '';
-          }
-        }
-        final backgroundLoaded =
-            backgroundUrl.isEmpty || _loadedBackgroundUrl == backgroundUrl;
+        final backgroundUrl = _selectWorldMapImageUrl(
+          currentMapImageUrl,
+          logicalWidth: viewport.width,
+          devicePixelRatio: devicePixelRatio,
+        );
+        final backgroundPreviewUrl = _selectWorldMapPreviewImageUrl(
+          currentMapImageUrl,
+        );
+        final preloadMapImageUrls = rawPreloadMapImageUrls
+            .map(
+              (url) => _selectWorldMapImageUrl(
+                url,
+                logicalWidth: viewport.width,
+                devicePixelRatio: devicePixelRatio,
+              ),
+            )
+            .where((url) => url.isNotEmpty)
+            .toSet()
+            .toList(growable: false);
+        final preloadAvatarUrls = _preloadAvatarUrls(
+          visiblePoints,
+          devicePixelRatio: devicePixelRatio,
+        );
         final mapKey = ValueKey<String>(
           _locationTrail.isEmpty ? '__world_root__' : _locationTrail.last.id,
         );
@@ -174,25 +185,19 @@ class _WorldMapState extends State<WorldMap> {
                       child: _ZoomableMapContent(
                         background: _MapBackgroundDeck(
                           currentUrl: backgroundUrl,
+                          previewUrl: backgroundPreviewUrl,
                           preloadUrls: preloadMapImageUrls,
                           preloadAvatarUrls: preloadAvatarUrls,
                           fallbackOnEmptyUrl: widget.fallbackOnEmptyMapUrl,
-                          onCurrentLoaded: _handleBackgroundLoaded,
                         ),
                         overlayBuilder:
                             (context, transform, onOverlayPointerDown) => Stack(
                               fit: StackFit.expand,
                               children: [
                                 IgnorePointer(
-                                  ignoring:
-                                      widget.showPointsList ||
-                                      !backgroundLoaded,
+                                  ignoring: widget.showPointsList,
                                   child: Opacity(
-                                    opacity: !backgroundLoaded
-                                        ? 0
-                                        : widget.showPointsList
-                                        ? 0.6
-                                        : 1,
+                                    opacity: widget.showPointsList ? 0.6 : 1,
                                     child: Stack(
                                       children: [
                                         for (final p in visiblePoints)
@@ -264,13 +269,6 @@ class _WorldMapState extends State<WorldMap> {
         );
       },
     );
-  }
-
-  void _handleBackgroundLoaded(String url) {
-    if (!mounted || _loadedBackgroundUrl == url) return;
-    setState(() {
-      _loadedBackgroundUrl = url;
-    });
   }
 
   VoidCallback? _pointTapHandler(WorldPoint point) {
@@ -513,17 +511,14 @@ class _WorldMapState extends State<WorldMap> {
   }
 
   List<String> _preloadAvatarUrls(
-    BuildContext context,
-    List<WorldPoint> visiblePoints,
-  ) {
-    final devicePixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
+    List<WorldPoint> visiblePoints, {
+    required double devicePixelRatio,
+  }) {
     return visiblePoints
         .expand((point) => point.users)
         .map(
-          (user) => selectGenesisImageUrl(
+          (user) => _selectWorldMapAvatarUrl(
             user.avatarUrl,
-            logicalWidth: _worldMapAvatarImageLogicalSize,
-            logicalHeight: _worldMapAvatarImageLogicalSize,
             devicePixelRatio: devicePixelRatio,
           ).trim(),
         )
@@ -598,24 +593,16 @@ class _MapViewport {
   final double width;
   final double height;
 
-  factory _MapViewport.cover({
+  factory _MapViewport.screenWidth({
     required double viewportWidth,
-    required double viewportHeight,
     required double designWidth,
     required double designHeight,
   }) {
-    final viewportAspect = viewportWidth / viewportHeight;
     final designAspect = designWidth / designHeight;
-    final coverByWidth = viewportAspect >= designAspect;
-    final width = coverByWidth ? viewportWidth : viewportHeight * designAspect;
-    final height = coverByWidth ? viewportWidth / designAspect : viewportHeight;
+    final width = viewportWidth;
+    final height = viewportWidth / designAspect;
 
-    return _MapViewport(
-      left: (viewportWidth - width) / 2,
-      top: (viewportHeight - height) / 2,
-      width: width,
-      height: height,
-    );
+    return _MapViewport(left: 0, top: 0, width: width, height: height);
   }
 }
 
@@ -794,6 +781,42 @@ Alignment _mapTransitionOrigin(WorldPoint point) {
   return Alignment(dx * 2 - 1, dy * 2 - 1);
 }
 
+String _selectWorldMapImageUrl(
+  String url, {
+  required double logicalWidth,
+  required double devicePixelRatio,
+}) {
+  final trimmed = url.trim();
+  if (trimmed.isEmpty) return '';
+  return resizeGenesisImageUrl(
+    trimmed,
+    logicalWidth: logicalWidth,
+    devicePixelRatio: devicePixelRatio,
+  ).trim();
+}
+
+String _selectWorldMapPreviewImageUrl(String url) {
+  final trimmed = url.trim();
+  if (trimmed.isEmpty) return '';
+  return resizeGenesisImageUrl(
+    trimmed,
+    logicalWidth: _worldMapPreviewImageLogicalWidth,
+    devicePixelRatio: 1,
+  ).trim();
+}
+
+String _selectWorldMapAvatarUrl(
+  String url, {
+  required double devicePixelRatio,
+}) {
+  return selectGenesisImageUrl(
+    url,
+    logicalWidth: _worldMapAvatarImageLogicalSize,
+    logicalHeight: _worldMapAvatarImageLogicalSize,
+    devicePixelRatio: devicePixelRatio,
+  ).trim();
+}
+
 double _lerpDouble(double begin, double end, double t) {
   return begin + (end - begin) * t;
 }
@@ -801,17 +824,17 @@ double _lerpDouble(double begin, double end, double t) {
 class _MapBackgroundDeck extends StatefulWidget {
   const _MapBackgroundDeck({
     required this.currentUrl,
+    required this.previewUrl,
     required this.preloadUrls,
     required this.preloadAvatarUrls,
     required this.fallbackOnEmptyUrl,
-    this.onCurrentLoaded,
   });
 
   final String currentUrl;
+  final String previewUrl;
   final List<String> preloadUrls;
   final List<String> preloadAvatarUrls;
   final bool fallbackOnEmptyUrl;
-  final ValueChanged<String>? onCurrentLoaded;
 
   @override
   State<_MapBackgroundDeck> createState() => _MapBackgroundDeckState();
@@ -834,7 +857,6 @@ class _MapBackgroundDeckState extends State<_MapBackgroundDeck> {
     final current = widget.currentUrl.trim();
     if (_loadedCurrentUrl == current) return;
     _loadedCurrentUrl = current;
-    widget.onCurrentLoaded?.call(current);
     final generation = ++_preloadGeneration;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || generation != _preloadGeneration) return;
@@ -887,6 +909,7 @@ class _MapBackgroundDeckState extends State<_MapBackgroundDeck> {
   Widget build(BuildContext context) {
     return _MapBackground(
       url: widget.currentUrl.trim(),
+      previewUrl: widget.previewUrl.trim(),
       fallbackOnEmptyUrl: widget.fallbackOnEmptyUrl,
       onLoaded: _handleCurrentLoaded,
     );
@@ -1184,29 +1207,63 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 }
 
-class _MapBackground extends StatelessWidget {
+class _MapBackground extends StatefulWidget {
   const _MapBackground({
     required this.url,
+    this.previewUrl = '',
     this.fallbackOnEmptyUrl = true,
     this.onLoaded,
   });
 
   final String url;
+  final String previewUrl;
   final bool fallbackOnEmptyUrl;
   final VoidCallback? onLoaded;
 
+  @override
+  State<_MapBackground> createState() => _MapBackgroundState();
+}
+
+class _MapBackgroundState extends State<_MapBackground> {
+  bool _showFullImage = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleFullImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant _MapBackground oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url ||
+        oldWidget.previewUrl != widget.previewUrl) {
+      _showFullImage = false;
+      _scheduleFullImage();
+    }
+  }
+
   void _notifyLoaded() {
-    final callback = onLoaded;
+    final callback = widget.onLoaded;
     if (callback == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) => callback());
   }
 
+  void _scheduleFullImage() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _showFullImage) return;
+      setState(() {
+        _showFullImage = true;
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final trimmedUrl = url.trim();
+    final trimmedUrl = widget.url.trim();
     if (trimmedUrl.isEmpty) {
       _notifyLoaded();
-      return fallbackOnEmptyUrl
+      return widget.fallbackOnEmptyUrl
           ? const _FallbackMapBackground()
           : const _MapBackgroundPlaceholder();
     }
@@ -1226,20 +1283,66 @@ class _MapBackground extends StatelessWidget {
       );
     }
 
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _MapBackgroundPreview(
+          url: widget.previewUrl,
+          fallbackOnEmptyUrl: widget.fallbackOnEmptyUrl,
+        ),
+        if (_showFullImage)
+          Image.network(
+            trimmedUrl,
+            fit: BoxFit.cover,
+            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+              if (wasSynchronouslyLoaded || frame != null) _notifyLoaded();
+              return child;
+            },
+            errorBuilder: (context, error, stackTrace) {
+              _notifyLoaded();
+              return widget.fallbackOnEmptyUrl
+                  ? const _FallbackMapBackground()
+                  : const SizedBox.shrink();
+            },
+            loadingBuilder: (context, child, loadingProgress) {
+              return loadingProgress == null ? child : const SizedBox.shrink();
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _MapBackgroundPreview extends StatelessWidget {
+  const _MapBackgroundPreview({
+    required this.url,
+    required this.fallbackOnEmptyUrl,
+  });
+
+  final String url;
+  final bool fallbackOnEmptyUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmedUrl = url.trim();
+    if (trimmedUrl.isEmpty || trimmedUrl.startsWith('assets/')) {
+      return fallbackOnEmptyUrl
+          ? const _FallbackMapBackground()
+          : const _MapBackgroundPlaceholder();
+    }
+
     return Image.network(
       trimmedUrl,
       fit: BoxFit.cover,
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (wasSynchronouslyLoaded || frame != null) _notifyLoaded();
-        return child;
-      },
       errorBuilder: (context, error, stackTrace) {
-        _notifyLoaded();
-        return const _FallbackMapBackground();
+        return fallbackOnEmptyUrl
+            ? const _FallbackMapBackground()
+            : const _MapBackgroundPlaceholder();
       },
       loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return const _MapBackgroundPlaceholder();
+        return loadingProgress == null
+            ? child
+            : const _MapBackgroundPlaceholder();
       },
     );
   }
@@ -1623,44 +1726,135 @@ class _PositionedMapAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final avatarUrl = _selectWorldMapAvatarUrl(
+      user.avatarUrl,
+      devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+    );
     return Positioned(
       left: left,
       top: top,
-      child: Stack(
-        children: [
-          GenesisCharacterAvatar(
-            key: ValueKey<String>('map-avatar-${_mapAvatarStableKey(user)}'),
-            url: user.avatarUrl,
-            name: user.name ?? user.initials,
-            showStar: user.showStar,
-            size: 42,
-            showFallbackWhileLoading: false,
-            showFallbackWhenUnavailable: false,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.22),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(
-                    GenesisAvatarRadii.character,
-                  ),
-                  border: Border.all(color: Color(0xFFDDDDDD), width: 1),
+      child: _MapAvatarImage(
+        key: ValueKey<String>('map-avatar-${_mapAvatarStableKey(user)}'),
+        url: avatarUrl,
+        showStar: user.showStar,
+      ),
+    );
+  }
+}
+
+class _MapAvatarImage extends StatelessWidget {
+  const _MapAvatarImage({super.key, required this.url, required this.showStar});
+
+  final String url;
+  final bool showStar;
+
+  static const double _size = _worldMapAvatarImageLogicalSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedUrl = url.trim();
+    return SizedBox(
+      width: _size,
+      height: _size,
+      child: resolvedUrl.isEmpty
+          ? const SizedBox.expand()
+          : resolvedUrl.startsWith('assets/')
+          ? Image.asset(
+              resolvedUrl,
+              width: _size,
+              height: _size,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                if (!wasSynchronouslyLoaded && frame == null) {
+                  return const SizedBox.expand();
+                }
+                return _LoadedMapAvatar(showStar: showStar, child: child);
+              },
+              errorBuilder: (context, error, stackTrace) =>
+                  const SizedBox.expand(),
+            )
+          : CachedNetworkImage(
+              imageUrl: resolvedUrl,
+              width: _size,
+              height: _size,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+              fadeInDuration: Duration.zero,
+              fadeOutDuration: Duration.zero,
+              placeholderFadeInDuration: Duration.zero,
+              imageBuilder: (context, imageProvider) => _LoadedMapAvatar(
+                showStar: showStar,
+                child: Image(
+                  image: imageProvider,
+                  width: _size,
+                  height: _size,
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
                 ),
               ),
+              placeholder: (context, url) => const SizedBox.expand(),
+              errorWidget: (context, url, error) => const SizedBox.expand(),
+            ),
+    );
+  }
+}
+
+class _LoadedMapAvatar extends StatelessWidget {
+  const _LoadedMapAvatar({required this.child, required this.showStar});
+
+  final Widget child;
+  final bool showStar;
+
+  static const double _size = _worldMapAvatarImageLogicalSize;
+  static const double _borderRadius = GenesisAvatarRadii.character;
+  static const double _starSize = 12;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: _size,
+      height: _size,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: _size,
+            height: _size,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(_borderRadius),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.22),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(_borderRadius),
+              border: Border.all(color: const Color(0xFFDDDDDD), width: 1),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(_borderRadius),
+              child: child,
             ),
           ),
+          if (showStar)
+            Positioned(
+              top: -_starSize / 4 - 2,
+              right: -_starSize / 4 - 3,
+              child: const Icon(
+                MyFlutterApp.redstarCharIcon,
+                size: _starSize,
+                color: Color(0xFFFF2344),
+              ),
+            ),
         ],
       ),
     );

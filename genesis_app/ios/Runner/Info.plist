@@ -41,6 +41,8 @@
 	<string>876583138986-igmuf8cnqkqfau2k4k30bamjn6482u2j.apps.googleusercontent.com</string>
 	<key>GIDServerClientID</key>
 	<string>876583138986-ivso4uo5cdj99hocecj78jhsudckuscg.apps.googleusercontent.com</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>

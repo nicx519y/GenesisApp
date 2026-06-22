@@ -8,6 +8,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
+import 'channels/genesis_method_channels.dart';
+
 class AppleSignInService {
   AppleSignInService._();
 
@@ -47,14 +49,18 @@ class AppleSignInService {
       throw const _AppleSignInFailure('Apple 未返回 identityToken，请稍后重试');
     }
 
-    final oauthCredential = AppleAuthProvider.credentialWithIDToken(
-      identityToken,
-      rawNonce,
-      AppleFullPersonName(
-        givenName: credential.givenName,
-        familyName: credential.familyName,
-      ),
-    );
+    final oauthCredential = Platform.isAndroid
+        ? OAuthProvider(
+            'apple.com',
+          ).credential(idToken: identityToken, rawNonce: rawNonce)
+        : AppleAuthProvider.credentialWithIDToken(
+            identityToken,
+            rawNonce,
+            AppleFullPersonName(
+              givenName: credential.givenName,
+              familyName: credential.familyName,
+            ),
+          );
     final UserCredential userCredential;
     try {
       userCredential = await FirebaseAuth.instance.signInWithCredential(
@@ -65,6 +71,10 @@ class AppleSignInService {
         '[Auth][AppleSignInService] Firebase sign-in failed '
         'code=${e.code} message=${e.message} plugin=${e.plugin}',
       );
+      await _logSignInDiagnostics();
+      if (e.code == 'network-request-failed') {
+        await _logFirebaseAuthNetworkProbe();
+      }
       debugPrint('[Auth][AppleSignInService] stacktrace:\n$st');
       throw _AppleSignInFailure(
         'Firebase Apple 登录失败：${e.code}${e.message == null ? '' : ' ${e.message}'}',
@@ -150,6 +160,71 @@ class AppleSignInService {
       throw const _AppleSignInFailure('Android Apple 登录回调地址配置无效');
     }
     return WebAuthenticationOptions(clientId: clientId, redirectUri: uri);
+  }
+
+  static Future<void> _logSignInDiagnostics() async {
+    if (kIsWeb || (!Platform.isAndroid && !Platform.isIOS)) return;
+    try {
+      final raw = await GenesisMethodChannels.device.invokeMethod<Object>(
+        GenesisMethodChannels.getSignInDiagnostics,
+      );
+      final map = raw is Map
+          ? raw.map((key, value) => MapEntry(key.toString(), value))
+          : const <String, Object?>{};
+      debugPrint('[Auth][AppleSignInService] signIn diagnostics: $map');
+    } catch (e) {
+      debugPrint('[Auth][AppleSignInService] diagnostics unavailable: $e');
+    }
+  }
+
+  static Future<void> _logFirebaseAuthNetworkProbe() async {
+    const host = 'identitytoolkit.googleapis.com';
+    try {
+      final addresses = await InternetAddress.lookup(
+        host,
+      ).timeout(const Duration(seconds: 6));
+      debugPrint(
+        '[Auth][AppleSignInService] Firebase Auth DNS $host -> '
+        '${addresses.map((address) => address.address).join(', ')}',
+      );
+    } catch (e) {
+      debugPrint('[Auth][AppleSignInService] Firebase Auth DNS failed: $e');
+      return;
+    }
+
+    Socket? socket;
+    try {
+      socket = await Socket.connect(
+        host,
+        443,
+        timeout: const Duration(seconds: 6),
+      );
+      debugPrint('[Auth][AppleSignInService] Firebase Auth TCP 443 reachable');
+    } catch (e) {
+      debugPrint('[Auth][AppleSignInService] Firebase Auth TCP failed: $e');
+      return;
+    } finally {
+      await socket?.close();
+    }
+
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 6);
+    try {
+      final request = await client
+          .getUrl(Uri.https(host, '/'))
+          .timeout(const Duration(seconds: 6));
+      final response = await request.close().timeout(
+        const Duration(seconds: 6),
+      );
+      debugPrint(
+        '[Auth][AppleSignInService] Firebase Auth HTTPS status '
+        '${response.statusCode}',
+      );
+      await response.drain<void>();
+    } catch (e) {
+      debugPrint('[Auth][AppleSignInService] Firebase Auth HTTPS failed: $e');
+    } finally {
+      client.close(force: true);
+    }
   }
 
   static String _generateNonce([int length = 32]) {

@@ -1,8 +1,10 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
+import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
+import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 
-import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/config/app_endpoint_overrides.dart';
 import '../../app/config/app_config.dart';
 import '../../app/debug_floating_button_visibility.dart';
@@ -118,18 +120,24 @@ class DeveloperPageContent extends StatefulWidget {
 class _DeveloperPageContentState extends State<DeveloperPageContent> {
   static const double _itemGap = 8;
 
-  late final Future<String> _deviceIdFuture;
+  late final Future<DeviceIdDiagnostics> _deviceIdDiagnosticsFuture;
   late final Future<AppVersionInfo> _appVersionFuture;
   late final TextEditingController _apiBaseUrlController;
   late final TextEditingController _chatroomWsBaseUrlController;
   bool _clearingDirectMessageCache = false;
+  bool _clearingImageCache = false;
   bool _loadingEndpointOverrides = true;
   bool _savingEndpointOverrides = false;
 
   @override
   void initState() {
     super.initState();
-    _deviceIdFuture = AppServicesScope.read(context).deviceId.getDeviceId();
+    final deviceId = AppServicesScope.read(context).deviceId;
+    _deviceIdDiagnosticsFuture = deviceId is DeviceIdDiagnosticsService
+        ? (deviceId as DeviceIdDiagnosticsService).getDeviceIdDiagnostics()
+        : deviceId.getDeviceId().then(
+            (value) => DeviceIdDiagnostics(deviceId: value),
+          );
     _appVersionFuture = AppMetadataService.appVersion();
     _apiBaseUrlController = TextEditingController();
     _chatroomWsBaseUrlController = TextEditingController();
@@ -170,6 +178,25 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     } finally {
       if (mounted) {
         setState(() => _clearingDirectMessageCache = false);
+      }
+    }
+  }
+
+  Future<void> _clearImageCache() async {
+    if (_clearingImageCache) return;
+    setState(() => _clearingImageCache = true);
+    try {
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+      await CachedNetworkImageProvider.defaultCacheManager.emptyCache();
+      if (!mounted) return;
+      showGenesisToast(context, 'Image cache cleared');
+    } catch (error) {
+      if (!mounted) return;
+      showGenesisToast(context, 'Clear failed: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _clearingImageCache = false);
       }
     }
   }
@@ -240,6 +267,35 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     Navigator.of(context).maybePop();
   }
 
+  Widget _buildDeviceIdDiagnostics(DeviceIdDiagnostics? diagnostics) {
+    final deviceId = _infoValue(diagnostics?.deviceId);
+    if (diagnostics?.hasAndroidBreakdown != true) {
+      return _DeveloperInfoRow(title: 'Device ID', content: deviceId);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _DeveloperInfoBlock(
+          title: 'ANDROID_ID',
+          content: _infoValue(diagnostics?.androidId),
+        ),
+        const SizedBox(height: _itemGap),
+        _DeveloperInfoBlock(
+          title: 'AAID',
+          content: _infoValue(diagnostics?.aaid),
+        ),
+        const SizedBox(height: _itemGap),
+        _DeveloperInfoBlock(title: 'Device ID', content: deviceId),
+      ],
+    );
+  }
+
+  String _infoValue(String? value) {
+    final trimmed = (value ?? '').trim();
+    return trimmed.isEmpty ? 'unknown' : trimmed;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -248,15 +304,16 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 18),
-          FutureBuilder<String>(
-            future: _deviceIdFuture,
+          FutureBuilder<DeviceIdDiagnostics>(
+            future: _deviceIdDiagnosticsFuture,
             builder: (context, snapshot) {
-              final value = snapshot.connectionState == ConnectionState.done
-                  ? (snapshot.data?.trim().isNotEmpty == true
-                        ? snapshot.data!.trim()
-                        : 'unknown')
-                  : 'Loading...';
-              return _DeveloperInfoRow(title: 'Device ID', content: value);
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const _DeveloperInfoRow(
+                  title: 'Device ID',
+                  content: 'Loading...',
+                );
+              }
+              return _buildDeviceIdDiagnostics(snapshot.data);
             },
           ),
           const SizedBox(height: _itemGap),
@@ -331,6 +388,13 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             onPressed: _clearingDirectMessageCache
                 ? null
                 : _clearDirectMessageCache,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            label: _clearingImageCache ? 'Clearing...' : 'Clear image cache',
+            onPressed: _clearingImageCache ? null : _clearImageCache,
             backgroundColor: const Color(0xFFE1E1E3),
             foregroundColor: Colors.black,
           ),
@@ -500,6 +564,49 @@ class _DeveloperInfoRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _copyContent(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: content));
+    if (!context.mounted) return;
+    showGenesisToast(context, 'Copied');
+  }
+}
+
+class _DeveloperInfoBlock extends StatelessWidget {
+  const _DeveloperInfoBlock({required this.title, required this.content});
+
+  final String title;
+  final String content;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => _copyContent(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '$title:',
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            content,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Color(0xFF666666),
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

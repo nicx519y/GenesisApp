@@ -111,6 +111,18 @@ void main() {
       '?x-oss-process=image/resize,w_180,image/format,webp',
     );
   });
+
+  test('resizeGenesisImageUrl resizes any plain network URL', () {
+    expect(
+      resizeGenesisImageUrl(
+        'https://cdn.example.com/map.webp?old=true#frag',
+        logicalWidth: 320,
+        devicePixelRatio: 3,
+      ),
+      'https://cdn.example.com/map.webp'
+      '?x-oss-process=image/resize,w_1080,image/format,webp',
+    );
+  });
 }
 
 Finder _defaultListImage() {

@@ -39,6 +39,7 @@ import '../../app/bootstrap/service_registry.dart';
 import '../chat/location_chat_page.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
+import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 
@@ -48,6 +49,7 @@ const String _worldSectionStatusIconAsset =
     'assets/custom-icons/svg/world_tab_status.svg';
 const String _worldSectionCastIconAsset =
     'assets/custom-icons/svg/world_tab_cast.svg';
+const double _worldCharacterAvatarLogicalSize = 48;
 
 class WorldPage extends StatefulWidget {
   const WorldPage({
@@ -2557,19 +2559,42 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
     return false;
   }
 
-  Widget _buildCurrentSection() {
-    return IndexedStack(
-      index: _controller.index,
-      children: [
-        _WorldEventsSection(
+  Widget _buildEventsSectionPage() {
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleEventsScrollNotification,
+      child: _WorldSectionListView(
+        storageKey: 'world-events-section',
+        child: _WorldEventsSection(
           world: widget.world,
           ticks: _eventTicks,
           initialLoading: _eventsInitialLoading,
           loadingMore: _eventsLoadingMore,
           error: _eventsError,
         ),
-        _WorldStatusSection(world: widget.world, currentUid: _currentUid),
-        _WorldCharactersSection(world: widget.world, currentUid: _currentUid),
+      ),
+    );
+  }
+
+  Widget _buildStatusSectionPage() {
+    return _WorldSectionListView(
+      storageKey: 'world-status-section',
+      child: _WorldStatusSection(world: widget.world, currentUid: _currentUid),
+    );
+  }
+
+  Widget _buildSectionsStack() {
+    return IndexedStack(
+      index: _controller.index,
+      children: [
+        _buildEventsSectionPage(),
+        _buildStatusSectionPage(),
+        _WorldSectionListView(
+          storageKey: 'world-cast-section',
+          child: _WorldCharactersSection(
+            world: widget.world,
+            currentUid: _currentUid,
+          ),
+        ),
       ],
     );
   }
@@ -2642,21 +2667,27 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
               child: _WorldSectionsSheetTabs(controller: _controller),
             ),
             const SizedBox(height: 6),
-            Expanded(
-              child: NotificationListener<ScrollNotification>(
-                onNotification: _controller.index == 0
-                    ? _handleEventsScrollNotification
-                    : null,
-                child: ListView(
-                  primary: false,
-                  padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
-                  children: [_buildCurrentSection()],
-                ),
-              ),
-            ),
+            Expanded(child: _buildSectionsStack()),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _WorldSectionListView extends StatelessWidget {
+  const _WorldSectionListView({required this.storageKey, required this.child});
+
+  final String storageKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      key: PageStorageKey<String>(storageKey),
+      primary: false,
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+      children: [child],
     );
   }
 }
@@ -3388,6 +3419,7 @@ class _CharacterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = _mapString(character, const ['name'], fallback: 'Character');
+    final avatarUrl = _resizedWorldCharacterAvatarUrl(context, character);
     final playerUid = _mapString(character, const ['player_uid']);
     final username = _mapString(character, const ['player_username']);
     final playerDeleted = entityDeleted(character['player_deleted']);
@@ -3406,7 +3438,7 @@ class _CharacterRow extends StatelessWidget {
         Padding(
           padding: EdgeInsets.only(right: isCharacterRole ? 6 : 0),
           child: GenesisCharacterAvatar(
-            url: _mapString(character, const ['avatar']),
+            url: avatarUrl,
             name: name,
             showStar: isCharacterRole,
             starSize: 20,
@@ -3480,6 +3512,19 @@ class _CharacterRow extends StatelessWidget {
       ],
     );
   }
+}
+
+String _resizedWorldCharacterAvatarUrl(
+  BuildContext context,
+  Map<String, dynamic> character,
+) {
+  final rawUrl = _mapString(character, const ['avatar']).trim();
+  final resizedUrl = resizeGenesisImageUrl(
+    rawUrl,
+    logicalWidth: _worldCharacterAvatarLogicalSize,
+    devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+  );
+  return resizedUrl.isNotEmpty ? resizedUrl : rawUrl;
 }
 
 List<Map<String, dynamic>> _sortedCharacters(
