@@ -1482,24 +1482,25 @@ Future<void> submitOriginDiscussReply({
   String? replyToUsername,
 }) async {
   final discussId = item.discussId.trim();
+  final rootDiscussId = item.replyRootDiscussId.trim();
   final bizId = item.bizId.trim();
   final resolvedParentDiscussId = parentDiscussId?.trim().isNotEmpty == true
       ? parentDiscussId!.trim()
-      : discussId;
+      : rootDiscussId;
   final resolvedReplyToUid = replyToUid?.trim().isNotEmpty == true
       ? replyToUid!.trim()
       : item.authorUid;
   final resolvedReplyToUsername = replyToUsername?.trim().isNotEmpty == true
       ? replyToUsername!.trim()
       : item.authorName;
-  if (discussId.isEmpty || bizId.isEmpty) return;
+  if (discussId.isEmpty || rootDiscussId.isEmpty || bizId.isEmpty) return;
 
   final services = AppServicesScope.read(context);
   final created = await services.api.v1.discuss.post(
     bizId: bizId,
     content: content,
     images: images,
-    rootDiscussId: discussId,
+    rootDiscussId: rootDiscussId,
     parentDiscussId: resolvedParentDiscussId,
   );
   final userInfo = await services.sessionStore.readUserInfo();
@@ -1510,7 +1511,7 @@ Future<void> submitOriginDiscussReply({
       content: content,
       images: images,
       bizId: bizId,
-      rootDiscussId: discussId,
+      rootDiscussId: rootDiscussId,
       parentDiscussId: resolvedParentDiscussId,
       replyToUid: resolvedReplyToUid,
       replyToUsername: resolvedReplyToUsername,

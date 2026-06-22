@@ -1807,6 +1807,7 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
     connectCount: asInt(stats['connect_cnt']),
     characterCount: asInt(stats['character_cnt']),
     playerCount: asInt(stats['player_cnt']),
+    currentTime: asString(world['current_time']),
     latestTickAt: _apiDateTime(lastTick['created_at'] ?? world['created_at']),
     latestNarrator: asString(lastTickResult['narrator']),
     isProgressing: asInt(world['status']) == 20,

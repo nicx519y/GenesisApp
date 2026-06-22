@@ -61,6 +61,7 @@ class WorldDetail {
     required this.connectCount,
     required this.characterCount,
     required this.playerCount,
+    required this.currentTime,
     required this.latestTickAt,
     required this.latestNarrator,
     required this.isProgressing,
@@ -92,6 +93,7 @@ class WorldDetail {
   final int connectCount;
   final int characterCount;
   final int playerCount;
+  final String currentTime;
   final DateTime? latestTickAt;
   final String latestNarrator;
   final bool isProgressing;
@@ -121,6 +123,7 @@ class WorldDetail {
     int? connectCount,
     int? characterCount,
     int? playerCount,
+    String? currentTime,
     DateTime? latestTickAt,
     String? latestNarrator,
     bool? isProgressing,
@@ -166,6 +169,7 @@ class WorldDetail {
       connectCount: connectCount ?? this.connectCount,
       characterCount: characterCount ?? this.characterCount,
       playerCount: playerCount ?? this.playerCount,
+      currentTime: currentTime ?? this.currentTime,
       latestTickAt: latestTickAt ?? this.latestTickAt,
       latestNarrator: latestNarrator ?? this.latestNarrator,
       isProgressing: isProgressing ?? this.isProgressing,
@@ -214,6 +218,7 @@ class WorldDetail {
       connectCount: asInt(json['connect_count']),
       characterCount: asInt(json['character_count']),
       playerCount: asInt(json['player_count']),
+      currentTime: asString(json['current_time']),
       latestTickAt: asDateTime(json['latest_tick_at']),
       latestNarrator: asString(json['latest_narrator']),
       isProgressing: asBool(json['is_progressing']),

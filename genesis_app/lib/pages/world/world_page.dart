@@ -48,6 +48,13 @@ const String _worldSectionStatusIconAsset =
     'assets/custom-icons/svg/world_tab_status.svg';
 const String _worldSectionCastIconAsset =
     'assets/custom-icons/svg/world_tab_cast.svg';
+const double _worldMapTabsHeight = 38;
+const double _worldTimePillTopGap = 12;
+const double _worldTimePillHeight = 22;
+const double _worldTimePillMinWidth = 96;
+const double _worldTimePillHorizontalPadding = 12;
+const double _worldMapContentTopOffset =
+    _worldMapTabsHeight + _worldTimePillTopGap + _worldTimePillHeight + 8;
 
 class WorldPage extends StatefulWidget {
   const WorldPage({
@@ -1590,6 +1597,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         persistentTopOverlay: _buildPersistentMapOverlay(
           thirdLevelLocationCount,
           topPadding + 8,
+          worldTime: world.currentTime,
+          tickIndex: world.tickCount,
         ),
         map: WorldMapStage(
           controller: _tabController,
@@ -1604,8 +1613,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             dimmed: pointMode,
             showPointsList: pointMode,
             pointsListOuterScrollHandoff: false,
-            overlayTop: topPadding + 8 + 48,
-            drillExitTop: topPadding + 68,
+            overlayTop: topPadding + 8 + _worldMapContentTopOffset,
+            drillExitTop: topPadding + 8 + _worldMapContentTopOffset + 12,
             onDrillIntoLocation: _showMapTab,
             onSecondaryMapChanged: _handleSecondaryMapChanged,
             onVisibleLocationIdsChanged: _handleVisibleMapLocationIdsChanged,
@@ -1643,15 +1652,24 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           dimmed: pointMode,
           showPointsList: pointMode,
           pointsListOuterScrollHandoff: false,
-          overlayTop: topPadding + 8 + 48,
-          drillExitTop: topPadding + 68,
+          overlayTop: topPadding + 8 + _worldMapContentTopOffset,
+          drillExitTop: topPadding + 8 + _worldMapContentTopOffset + 12,
         ),
       ),
       slivers: const [_WorldDetailsLoadingContent()],
     );
   }
 
-  Widget _buildPersistentMapOverlay(int pointsCount, double top) {
+  Widget _buildPersistentMapOverlay(
+    int pointsCount,
+    double top, {
+    String worldTime = '',
+    int tickIndex = -1,
+  }) {
+    final worldTimeLabel = _worldTimeLabel(
+      tickIndex: tickIndex,
+      worldTime: worldTime,
+    );
     return Positioned.fill(
       child: Stack(
         children: [
@@ -1665,6 +1683,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               onTabTap: _handleMapModeTabTap,
             ),
           ),
+          if (worldTimeLabel.isNotEmpty)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: top + _worldMapTabsHeight + _worldTimePillTopGap,
+              child: Center(child: _WorldTimePill(text: worldTimeLabel)),
+            ),
           _WorldSectionFloatingTabs(
             controller: _sectionController,
             onTap: _openWorldSectionSheet,
@@ -1689,6 +1714,60 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           _WorldSectionsBottomSheet(world: world, initialIndex: index),
     );
   }
+}
+
+class _WorldTimePill extends StatelessWidget {
+  const _WorldTimePill({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: _worldTimePillHeight,
+      constraints: const BoxConstraints(
+        minWidth: _worldTimePillMinWidth,
+        maxWidth: 240,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: _worldTimePillHorizontalPadding,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFFFF).withValues(alpha: 0.86),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Color(0xFF111111),
+          fontSize: 12,
+          height: 1,
+          leadingDistribution: TextLeadingDistribution.even,
+          fontWeight: FontWeight.w400,
+        ),
+        strutStyle: StrutStyle(fontSize: 12, height: 1, forceStrutHeight: true),
+        textHeightBehavior: const TextHeightBehavior(
+          applyHeightToFirstAscent: false,
+          applyHeightToLastDescent: false,
+        ),
+      ),
+    );
+  }
+}
+
+String _worldTimeLabel({required int tickIndex, required String worldTime}) {
+  final parts = <String>[];
+  if (tickIndex >= 0) {
+    parts.add('Tick $tickIndex');
+  }
+  final resolvedWorldTime = worldTime.trim();
+  if (resolvedWorldTime.isNotEmpty) {
+    parts.add(resolvedWorldTime);
+  }
+  return parts.join(' · ');
 }
 
 class _WorldSectionFloatingTabs extends StatelessWidget {

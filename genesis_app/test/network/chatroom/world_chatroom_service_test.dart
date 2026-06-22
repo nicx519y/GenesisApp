@@ -1118,6 +1118,7 @@ WorldDetail _worldSnapshot() {
     connectCount: 1,
     characterCount: 2,
     playerCount: 1,
+    currentTime: '',
     latestTickAt: null,
     latestNarrator: '',
     isProgressing: false,
