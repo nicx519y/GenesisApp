@@ -228,11 +228,11 @@ class ChatUiStyleConfig {
     showComposerStickerButton: false, // 是否显示输入框右侧表情按钮。
     showComposerAddButton: false, // 是否显示输入框右侧加号按钮。
     showComposerSendButton: true, // 是否显示最右侧发送按钮。
-    composerSendButtonWidth: 56, // 发送按钮宽度。
-    composerSendButtonHeight: 40, // 发送按钮高度。
-    composerSendButtonBorderRadius: 8, // 发送按钮圆角。
+    composerSendButtonWidth: 64, // 发送按钮宽度。
+    composerSendButtonHeight: 36, // 发送按钮高度。
+    composerSendButtonBorderRadius: 4, // 发送按钮圆角。
     composerSendButtonColor: GenesisColors.brand, // 发送按钮背景色。
-    composerSendButtonDisabledColor: Color(0xFFBDBDBD), // 发送按钮禁用背景色。
+    composerSendButtonDisabledColor: GenesisColors.brandSoft, // 发送按钮禁用背景色。
     composerSendButtonIconColor: Colors.white, // 发送按钮图标颜色。
     composerSendButtonIconSize: 18, // 发送按钮图标尺寸。
     composerSendButtonLoadingSize: 18, // 发送按钮 loading 圆环尺寸。
@@ -246,7 +246,7 @@ class ChatUiStyleConfig {
     inputHorizontalPadding: 14, // 输入框文字左右内边距。
     inputVerticalPadding: 10, // 输入框文字上下内边距。
     inputBackgroundColor: Colors.white, // 输入框背景色。
-    inputBorderRadius: 7, // 输入框圆角。
+    inputBorderRadius: 4, // 输入框圆角。
     inputTextStyle: TextStyle(
       color: Colors.black, // 输入框文字颜色。
       fontSize: 14, // 输入框文字字号。
@@ -276,7 +276,7 @@ class ChatUiStyleConfig {
     ),
     showSenderNameAboveOtherBubble: true, // 是否在对方气泡上方显示发送者名字。
     bubblePadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10), // 气泡内边距。
-    bubbleBorderRadius: 7, // 气泡圆角。
+    bubbleBorderRadius: 4, // 气泡圆角。
     selfBubbleColor: Color(0xFF26F24C), // 自己消息气泡颜色。
     otherBubbleColor: Colors.white, // 对方消息气泡颜色。
     bubbleTextStyle: TextStyle(

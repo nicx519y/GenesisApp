@@ -264,6 +264,8 @@ class ChatComposer extends StatelessWidget {
     this.onHeightChanged,
     this.sendLabel,
     this.style,
+    this.bottomSafeAreaInset,
+    this.focusNode,
   });
 
   final TextEditingController controller;
@@ -274,12 +276,15 @@ class ChatComposer extends StatelessWidget {
   final ValueChanged<double>? onHeightChanged;
   final String? sendLabel;
   final ChatUiStyleConfig? style;
+  final double? bottomSafeAreaInset;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
     final submitFromKeyboard = !style.showComposerSendButton;
-    final bottomInset = GenesisSafeAreaInsets.bottom(context);
+    final bottomInset =
+        bottomSafeAreaInset ?? GenesisSafeAreaInsets.bottom(context);
     return _ChatComposerHeightObserver(
       onHeightChanged: onHeightChanged,
       child: ClipRect(
@@ -300,7 +305,7 @@ class ChatComposer extends StatelessWidget {
             ),
             child: TextFieldTapRegion(
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   if (style.showComposerVoiceButton) ...[
                     _ComposerIconButton(
@@ -324,6 +329,7 @@ class ChatComposer extends StatelessWidget {
                       ),
                       child: TextField(
                         controller: controller,
+                        focusNode: focusNode,
                         enabled: inputEnabled,
                         minLines: style.inputMinLines,
                         maxLines: style.inputMaxLines,
@@ -541,7 +547,7 @@ class _ComposerSendButton extends StatelessWidget {
                   overflow: TextOverflow.clip,
                   style: TextStyle(
                     color: style.composerSendButtonIconColor,
-                    fontSize: 16,
+                    fontSize: 14,
                   ),
                 ),
         ),

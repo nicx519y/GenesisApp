@@ -85,7 +85,10 @@ void main() {
     );
 
     final name = tester.widget<Text>(find.text('Peer Name'));
-    expect(name.style?.color, const Color(0xFF222222));
+    expect(
+      name.style?.color,
+      ChatUiStyleConfig.standard.senderNameTextStyle.color,
+    );
   });
 
   testWidgets('self chat message places avatar on the right', (
@@ -490,7 +493,7 @@ void main() {
       tester.getSize(find.byKey(const ValueKey('chat-composer-send-button'))),
       Size(
         ChatUiStyleConfig.standard.composerSendButtonWidth,
-        ChatUiStyleConfig.standard.inputMinHeight,
+        ChatUiStyleConfig.standard.composerSendButtonHeight,
       ),
     );
     expect(

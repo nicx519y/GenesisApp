@@ -44,7 +44,7 @@ class LocationChatPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ChatUiStyleConfig.standard.conversationBackgroundColor,
-      resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: false,
       body: LocationChatPanel(
         worldId: worldId,
         locationId: locationId,
@@ -108,8 +108,14 @@ class LocationChatPanel extends StatefulWidget {
 
 class _LocationChatPanelState extends State<LocationChatPanel>
     with WidgetsBindingObserver {
+  static const Duration _keyboardAnimationDuration = Duration(
+    milliseconds: 180,
+  );
+  static double _cachedKeyboardInset = 0;
+
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
+  final _composerFocusNode = FocusNode();
   final Stopwatch _panelStopwatch = Stopwatch()..start();
   final _messages = <ChatMessageVm>[];
 
@@ -127,6 +133,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _ownsService = false;
   bool _joinedLocation = false;
   bool _sending = false;
+  bool _hasDraftText = false;
+  bool _waitingForKeyboardTarget = false;
+  bool _keyboardTargetLocked = false;
   bool _loadingOlderMessages = false;
   bool _hasMoreOlderMessages = true;
   bool _initialContentReadyNotified = false;
@@ -134,6 +143,12 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   int _unseenIncomingCount = 0;
   int _clientMsgCounter = 0;
   double _composerHeight = 0;
+  double _keyboardInset = 0;
+  double _lastPanelHeight = 0;
+  double _lastHeaderHeight = 0;
+  double _lastComposerHeight = 0;
+  Timer? _keyboardMetricsTimer;
+  Timer? _keyboardCloseTimer;
 
   @override
   void initState() {
@@ -144,6 +159,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       'aliases=${widget.localMessageLocationIds.join(',')}',
     );
     WidgetsBinding.instance.addObserver(this);
+    _composerFocusNode.addListener(_handleComposerFocusChanged);
+    _textController.addListener(_handleDraftTextChanged);
     _scrollController.addListener(_handleMessageListScroll);
     _prepareConnection();
   }
@@ -151,6 +168,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _keyboardMetricsTimer?.cancel();
+    _keyboardCloseTimer?.cancel();
     final service = _service;
     if (_ownsService && service != null) {
       unawaited(service.disconnect().catchError((Object _) {}));
@@ -158,6 +177,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     unawaited(_closeChatroom());
     _scrollController.removeListener(_handleMessageListScroll);
     _scrollController.dispose();
+    _composerFocusNode.removeListener(_handleComposerFocusChanged);
+    _composerFocusNode.dispose();
+    _textController.removeListener(_handleDraftTextChanged);
     _textController.dispose();
     super.dispose();
   }
@@ -194,6 +216,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   void didChangeMetrics() {
+    _handleKeyboardMetricsChanged();
     _keepBottomAfterLayoutIfNeeded();
   }
 
@@ -772,6 +795,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     setState(() {
       _sending = true;
       _messages.add(localMessage);
+      _hasDraftText = false;
       _textController.clear();
     });
     _scrollToBottom();
@@ -1239,18 +1263,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     );
     final headerHeight = _locationChatHeaderHeight();
     final composerHeight = _locationChatComposerHeight();
-    final composer =
-        widget.composerReplacement ??
-        ChatComposer(
-          controller: _textController,
-          inputEnabled: widget.active,
-          sendEnabled: widget.active && joined && !_sending && !inputBlocked,
-          sending: _sending,
-          onSend: _send,
-          sendLabel: 'Send',
-          style: style,
-          onHeightChanged: _handleComposerHeightChanged,
-        );
+    _lastHeaderHeight = headerHeight;
+    _lastComposerHeight = composerHeight;
 
     return GenesisBottomSystemBarStyleScope(
       style: GenesisBottomSystemBarStyle(color: style.composerBackgroundColor),
@@ -1258,49 +1272,90 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         value: widget.systemUiOverlayStyle,
         child: ColoredBox(
           color: style.conversationBackgroundColor,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: _LocationChatBackgroundImage(
-                  imageUrl: _backgroundImageUrl,
-                ),
-              ),
-              Positioned.fill(
-                top: headerHeight,
-                bottom: composerHeight,
-                child: ChatMessageList(
-                  controller: _scrollController,
-                  messages: _messages,
-                  topTitle: '',
-                ),
-              ),
-              if (_unseenIncomingCount > 0)
-                Positioned(
-                  right: 16,
-                  bottom: _locationChatComposerHeight() + 12,
-                  child: _LocationChatNewMessageNotice(
-                    count: _unseenIncomingCount,
-                    onTap: _openUnseenIncomingMessages,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              _lastPanelHeight = constraints.maxHeight;
+              final keyboardInset = _keyboardInset;
+              final composer =
+                  widget.composerReplacement ??
+                  ChatComposer(
+                    controller: _textController,
+                    focusNode: _composerFocusNode,
+                    inputEnabled: widget.active,
+                    sendEnabled:
+                        widget.active &&
+                        joined &&
+                        _hasDraftText &&
+                        !_sending &&
+                        !inputBlocked,
+                    sending: false,
+                    onSend: _send,
+                    sendLabel: 'Send',
+                    style: style,
+                    bottomSafeAreaInset: keyboardInset > 0 ? 0 : null,
+                    onHeightChanged: _handleComposerHeightChanged,
+                  );
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: RepaintBoundary(
+                      child: _LocationChatBackgroundImage(
+                        imageUrl: _backgroundImageUrl,
+                      ),
+                    ),
                   ),
-                ),
-              Positioned(
-                left: 0,
-                right: 0,
-                top: 0,
-                child: ChatHeader(
-                  title: '$title (${realUsers.length})',
-                  subtitle: subtitle,
-                  connected: realUsers.isNotEmpty,
-                  connecting: connecting && realUsers.isEmpty,
-                  onBack:
-                      widget.onBack ?? () => Navigator.of(context).maybePop(),
-                  showSubtitle:
-                      widget.showConnectionStatus && aiRoleNames.isNotEmpty,
-                  style: style,
-                ),
-              ),
-              Positioned(left: 0, right: 0, bottom: 0, child: composer),
-            ],
+                  AnimatedPositioned(
+                    duration: _keyboardAnimationDuration,
+                    curve: Curves.easeOutCubic,
+                    left: 0,
+                    right: 0,
+                    top: headerHeight,
+                    bottom: composerHeight + keyboardInset,
+                    child: ChatMessageList(
+                      controller: _scrollController,
+                      messages: _messages,
+                      topTitle: '',
+                    ),
+                  ),
+                  if (_unseenIncomingCount > 0)
+                    AnimatedPositioned(
+                      duration: _keyboardAnimationDuration,
+                      curve: Curves.easeOutCubic,
+                      right: 16,
+                      bottom: composerHeight + keyboardInset + 12,
+                      child: _LocationChatNewMessageNotice(
+                        count: _unseenIncomingCount,
+                        onTap: _openUnseenIncomingMessages,
+                      ),
+                    ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    child: ChatHeader(
+                      title: '$title (${realUsers.length})',
+                      subtitle: subtitle,
+                      connected: realUsers.isNotEmpty,
+                      connecting: connecting && realUsers.isEmpty,
+                      onBack:
+                          widget.onBack ??
+                          () => Navigator.of(context).maybePop(),
+                      showSubtitle:
+                          widget.showConnectionStatus && aiRoleNames.isNotEmpty,
+                      style: style,
+                    ),
+                  ),
+                  AnimatedPositioned(
+                    duration: _keyboardAnimationDuration,
+                    curve: Curves.easeOutCubic,
+                    left: 0,
+                    right: 0,
+                    bottom: keyboardInset,
+                    child: composer,
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -1321,6 +1376,98 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         : baseStyle.composerPadding.vertical +
               baseStyle.inputMinHeight +
               bottomInset;
+  }
+
+  void _handleComposerFocusChanged() {
+    if (_composerFocusNode.hasFocus) {
+      _keyboardCloseTimer?.cancel();
+      _keyboardTargetLocked = false;
+      if (_cachedKeyboardInset > 0) {
+        _waitingForKeyboardTarget = false;
+        _keyboardTargetLocked = true;
+        _setKeyboardInset(_cachedKeyboardInset);
+      } else {
+        _waitingForKeyboardTarget = true;
+      }
+      return;
+    }
+    _scheduleKeyboardClose();
+  }
+
+  void _handleDraftTextChanged() {
+    final hasText = _textController.text.trim().isNotEmpty;
+    if (_hasDraftText == hasText) return;
+    setState(() => _hasDraftText = hasText);
+  }
+
+  void _handleKeyboardMetricsChanged() {
+    final rawInset = _rawKeyboardInset();
+    if (rawInset > 0) {
+      _keyboardCloseTimer?.cancel();
+      _keyboardMetricsTimer?.cancel();
+      final currentTarget = _clampKeyboardInset(rawInset);
+      if (_waitingForKeyboardTarget || !_keyboardTargetLocked) {
+        _waitingForKeyboardTarget = false;
+        _keyboardTargetLocked = true;
+        _cachedKeyboardInset = currentTarget;
+        if (_composerFocusNode.hasFocus) {
+          _setKeyboardInset(currentTarget);
+        }
+      }
+      _keyboardMetricsTimer = Timer(const Duration(milliseconds: 90), () {
+        if (!mounted) return;
+        final stableInset = _rawKeyboardInset();
+        if (stableInset <= 0) return;
+        _cachedKeyboardInset = _clampKeyboardInset(stableInset);
+        if (_composerFocusNode.hasFocus && !_keyboardTargetLocked) {
+          _setKeyboardInset(_cachedKeyboardInset);
+        }
+      });
+      return;
+    }
+    if (!_composerFocusNode.hasFocus) {
+      _scheduleKeyboardClose();
+    }
+  }
+
+  void _scheduleKeyboardClose() {
+    _keyboardMetricsTimer?.cancel();
+    _keyboardCloseTimer?.cancel();
+    _waitingForKeyboardTarget = false;
+    _keyboardTargetLocked = false;
+    _keyboardCloseTimer = Timer(const Duration(milliseconds: 120), () {
+      if (!mounted || _composerFocusNode.hasFocus) return;
+      if (_rawKeyboardInset() > 0) {
+        _scheduleKeyboardClose();
+        return;
+      }
+      _setKeyboardInset(0);
+    });
+  }
+
+  double _rawKeyboardInset() {
+    final view = View.maybeOf(context);
+    if (view == null || view.devicePixelRatio == 0) return 0;
+    return view.viewInsets.bottom / view.devicePixelRatio;
+  }
+
+  double _clampKeyboardInset(double rawInset) {
+    if (rawInset <= 0 || !_lastPanelHeight.isFinite) return 0;
+    const minVisibleMessageListHeight = 96.0;
+    final maxInset =
+        _lastPanelHeight -
+        _lastHeaderHeight -
+        _lastComposerHeight -
+        minVisibleMessageListHeight;
+    if (maxInset <= 0) return 0;
+    return rawInset.clamp(0.0, maxInset).toDouble();
+  }
+
+  void _setKeyboardInset(double inset) {
+    final nextInset = _clampKeyboardInset(inset);
+    if ((_keyboardInset - nextInset).abs() <= 0.5) return;
+    setState(() => _keyboardInset = nextInset);
+    _keepBottomAfterLayoutIfNeeded();
   }
 
   void _handleComposerHeightChanged(double height) {

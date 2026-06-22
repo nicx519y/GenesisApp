@@ -1194,7 +1194,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   Future<void> _openChatForPoint(WorldPoint point) async {
     final chatroom = _worldChatroom;
-    if (!_canOpenLocationChat(chatroom)) {
+    if (chatroom == null) {
       if (_world?.relationStatus.trim().toLowerCase() == 'approved') {
         await _runWorldAction(_WorldHeaderActionKind.launch);
         return;
@@ -1224,7 +1224,27 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       ]),
     );
     unawaited(_updateUserPositionForLocation(locationId));
-    await _showCachedLocationChat(descriptor);
+    await _openLocationChatRoute(descriptor, chatroom);
+  }
+
+  Future<void> _openLocationChatRoute(
+    _LocationChatPanelDescriptor descriptor,
+    WorldChatroomService chatroom,
+  ) async {
+    if (!mounted) return;
+    await Navigator.of(context, rootNavigator: true).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => LocationChatPage(
+          worldId: widget.wid,
+          locationId: descriptor.locationId,
+          locationName: descriptor.locationName,
+          backgroundImageUrl: descriptor.backgroundImageUrl,
+          isLeafLocation: descriptor.isLeafLocation,
+          localMessageLocationIds: descriptor.localMessageLocationIds,
+          service: chatroom,
+        ),
+      ),
+    );
   }
 
   Future<void> _updateUserPositionForLocation(String locationId) async {
@@ -1237,6 +1257,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     }
   }
 
+  // ignore: unused_element
   Future<void> _showCachedLocationChat(
     _LocationChatPanelDescriptor descriptor,
   ) async {
@@ -1498,10 +1519,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (!_readyLocationChatIds.add(locationId)) return;
     _logLocationChatMetric('panel ready location=$locationId');
     setState(() {});
-  }
-
-  bool _canOpenLocationChat(WorldChatroomService? service) {
-    return service != null;
   }
 
   void _showMapTab() {
