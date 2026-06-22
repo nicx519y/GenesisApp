@@ -114,6 +114,10 @@ void main() {
     );
     expect(find.text('A city powered by celebrity markets.'), findsNothing);
     expect(find.text('WID: w_summary_alpha'), findsOneWidget);
+    final progressWid = tester.widget<Text>(find.text('WID: w_summary_alpha'));
+    final progressTime = tester.widget<Text>(find.text('2-18 21:20'));
+    expect(progressWid.style?.color, const Color(0xFF666666));
+    expect(progressTime.style?.color, const Color(0xFF888888));
     expect(find.text('Originator: Origin Owner'), findsOneWidget);
     expect(find.text('v3'), findsNothing);
     expect(find.text('12'), findsOneWidget);

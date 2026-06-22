@@ -112,6 +112,147 @@ void main() {
     expect(mapRect.height, closeTo(expectedMapHeight, 0.01));
   });
 
+  testWidgets('world details page scaffold can keep collapsed panel fixed', (
+    tester,
+  ) async {
+    const collapsedPanelHeight = 141.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    Future<double> pumpAndReadMapHeight(double viewportHeight) async {
+      tester.view.physicalSize = Size(400, viewportHeight);
+      tester.view.devicePixelRatio = 1;
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: WorldDetailsPageScaffold(
+            fixedCollapsedPanelHeight: collapsedPanelHeight,
+            map: ColoredBox(
+              key: ValueKey('fixed-panel-map'),
+              color: Colors.green,
+            ),
+            slivers: [
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  key: ValueKey('fixed-panel-content'),
+                  height: 80,
+                ),
+              ),
+            ],
+            contentBottomPaddingOverride: 0,
+            includeBottomSafeAreaInContentPadding: false,
+          ),
+        ),
+      );
+
+      final mapRect = tester.getRect(
+        find.byKey(const ValueKey('fixed-panel-map')),
+      );
+      final contentTop = tester
+          .getTopLeft(find.byKey(const ValueKey('fixed-panel-content')))
+          .dy;
+      expect(
+        contentTop - mapRect.bottom,
+        WorldDetailsPageScaffold.inlineContentTopPadding,
+      );
+      return mapRect.height;
+    }
+
+    final compactMapHeight = await pumpAndReadMapHeight(800);
+    final tallMapHeight = await pumpAndReadMapHeight(1000);
+
+    expect(compactMapHeight, closeTo(800 - collapsedPanelHeight, 0.01));
+    expect(tallMapHeight, closeTo(1000 - collapsedPanelHeight, 0.01));
+    expect(tallMapHeight - compactMapHeight, 200);
+  });
+
+  testWidgets('world details page scaffold ignores gesture exclusion insets', (
+    tester,
+  ) async {
+    const viewportSize = Size(400, 800);
+    const collapsedPanelHeight = 141.0;
+    const bottomPadding = 15.0;
+
+    tester.view.physicalSize = viewportSize;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(
+            size: viewportSize,
+            padding: EdgeInsets.only(bottom: bottomPadding),
+            viewPadding: EdgeInsets.only(bottom: bottomPadding),
+            systemGestureInsets: EdgeInsets.fromLTRB(30, 39, 30, 32),
+          ),
+          child: WorldDetailsPageScaffold(
+            fixedCollapsedPanelHeight: collapsedPanelHeight,
+            map: ColoredBox(
+              key: ValueKey('gesture-safe-map'),
+              color: Colors.green,
+            ),
+            slivers: [SliverToBoxAdapter(child: SizedBox(height: 80))],
+            contentBottomPaddingOverride: 0,
+          ),
+        ),
+      ),
+    );
+
+    final mapRect = tester.getRect(
+      find.byKey(const ValueKey('gesture-safe-map')),
+    );
+    expect(
+      mapRect.height,
+      closeTo(viewportSize.height - collapsedPanelHeight - bottomPadding, 0.01),
+    );
+  });
+
+  testWidgets(
+    'world details page scaffold can treat fixed height as including safe area',
+    (tester) async {
+      const viewportSize = Size(400, 800);
+      const collapsedPanelHeight = 156.0;
+      const bottomPadding = 15.0;
+
+      tester.view.physicalSize = viewportSize;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: viewportSize,
+              padding: EdgeInsets.only(bottom: bottomPadding),
+              viewPadding: EdgeInsets.only(bottom: bottomPadding),
+            ),
+            child: WorldDetailsPageScaffold(
+              fixedCollapsedPanelHeight: collapsedPanelHeight,
+              fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
+              map: ColoredBox(
+                key: ValueKey('safe-included-map'),
+                color: Colors.green,
+              ),
+              slivers: [SliverToBoxAdapter(child: SizedBox(height: 80))],
+              contentBottomPaddingOverride: 0,
+            ),
+          ),
+        ),
+      );
+
+      final mapRect = tester.getRect(
+        find.byKey(const ValueKey('safe-included-map')),
+      );
+      expect(
+        mapRect.height,
+        closeTo(viewportSize.height - collapsedPanelHeight, 0.01),
+      );
+    },
+  );
+
   testWidgets('world details panel owns title offset and horizontal padding', (
     tester,
   ) async {

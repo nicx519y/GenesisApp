@@ -19,10 +19,10 @@ class CopyableIdLabel extends StatelessWidget {
     fontSize: 12,
     height: 1.1,
     fontWeight: FontWeight.w400,
-    color: Color(0xFF8A8A8A),
+    color: Color(0xFF666666),
   );
 
-  static const Color iconColor = Color(0xFF8A8A8A);
+  static const Color iconColor = Color(0xFF666666);
 
   final String label;
   final String value;

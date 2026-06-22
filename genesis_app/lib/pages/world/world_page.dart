@@ -161,7 +161,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   void _handleMapModeTabChanged() {
     if (_activeChatLocationId.isNotEmpty) {
-      WorldDetailsStatusBarOverride.setStyle(kChatWhiteSystemUiOverlayStyle);
+      WorldDetailsStatusBarOverride.setStyle(
+        kChatDarkHeaderSystemUiOverlayStyle,
+      );
       return;
     }
     if (_tabController.index == 1) {
@@ -175,7 +177,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   void _handleMapModeTabTap(int index) {
     if (_activeChatLocationId.isNotEmpty) {
-      WorldDetailsStatusBarOverride.setStyle(kChatWhiteSystemUiOverlayStyle);
+      WorldDetailsStatusBarOverride.setStyle(
+        kChatDarkHeaderSystemUiOverlayStyle,
+      );
       return;
     }
     if (index == 1) {
@@ -1262,7 +1266,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       }
       _activeChatLocationId = locationId;
     });
-    WorldDetailsStatusBarOverride.setStyle(kChatWhiteSystemUiOverlayStyle);
+    WorldDetailsStatusBarOverride.setStyle(kChatDarkHeaderSystemUiOverlayStyle);
     unawaited(_hydrateActiveLocationChatMessages(descriptor));
     await WidgetsBinding.instance.endOfFrame;
     if (!wasCached && mounted && _activeChatLocationId == locationId) {
@@ -1475,7 +1479,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                   service: chatroom,
                   active: active,
                   leaveOnInactive: false,
-                  systemUiOverlayStyle: kChatWhiteSystemUiOverlayStyle,
+                  systemUiOverlayStyle: kChatDarkHeaderSystemUiOverlayStyle,
                   style: kLocationChatStyle,
                   onBack: _closeCachedLocationChat,
                   onInitialContentReady: () =>
@@ -1577,6 +1581,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final thirdLevelLocationCount = allLocationNodes
         .where((node) => node.depth == 2)
         .length;
+    final title = world.name.trim().isEmpty ? world.worldId : world.name.trim();
+    final collapsedPanelHeight = _worldCollapsedPanelHeightFor(context, title);
     return PopScope(
       canPop: _activeChatLocationId.isEmpty,
       onPopInvokedWithResult: (didPop, result) {
@@ -1614,6 +1620,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             messageBubbles: _mapMessageBubbles,
           ),
         ),
+        fixedCollapsedPanelHeight: collapsedPanelHeight,
+        fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
+        contentBottomPaddingOverride: 0,
         slivers: [
           _WorldFeedContent(
             world: world,
@@ -2393,7 +2402,6 @@ class _WorldFeedContent extends StatelessWidget {
                 worldActionRunning: worldActionRunning,
                 onWorldAction: onWorldAction,
               ),
-              const SizedBox(height: 8),
             ],
           ),
         ),
@@ -2977,12 +2985,7 @@ class _WorldInfoHeader extends StatelessWidget {
               child: Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 18,
-                  height: 1.25,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF4B6192),
-                ),
+                style: _worldTitleTextStyle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -3015,62 +3018,66 @@ class _WorldInfoHeader extends StatelessWidget {
           rightStyle: _worldHeaderMetaTextStyle,
           rightIconColor: _worldHeaderMetaColor,
         ),
-        const SizedBox(height: 12),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Wrap(
-                spacing: 20,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  for (final data in counters)
-                    StatItem(
-                      icon: _counterIcon(data['icon'] as String? ?? ''),
-                      iconAsset: _counterIconAsset(
-                        data['icon'] as String? ?? '',
+        const SizedBox(height: 0),
+        SizedBox(
+          height: 56,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    for (final data in counters)
+                      StatItem(
+                        icon: _counterIcon(data['icon'] as String? ?? ''),
+                        iconAsset: _counterIconAsset(
+                          data['icon'] as String? ?? '',
+                        ),
+                        preserveIconAssetColor: _counterIconAssetPreservesColor(
+                          data['icon'] as String? ?? '',
+                        ),
+                        iconSize: 14,
+                        iconColor: Colors.black,
+                        text: formatStatCount(
+                          data['value'] is num ? data['value'] as num : 0,
+                        ),
+                        gap: 4,
+                        textStyle: const TextStyle(
+                          fontSize: 14,
+                          height: 1,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.black,
+                        ),
                       ),
-                      preserveIconAssetColor: _counterIconAssetPreservesColor(
-                        data['icon'] as String? ?? '',
-                      ),
-                      iconSize: 14,
-                      iconColor: Colors.black,
-                      text: formatStatCount(
-                        data['value'] is num ? data['value'] as num : 0,
-                      ),
-                      gap: 4,
-                      textStyle: const TextStyle(
-                        fontSize: 14,
-                        height: 1,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.black,
-                      ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            // const Spacer(),
-            GenesisPrimaryButton(
-              label: action.label,
-              onPressed: actionEnabled
-                  ? () => onWorldAction(action.kind)
-                  : null,
-              height: 35,
-              width: 140,
-              backgroundColor: const Color(0xFF2F9663),
-              disabledBackgroundColor: const Color(
-                0xFF2F9663,
-              ).withValues(alpha: 0.62),
-              foregroundColor: Colors.white,
-              fontSize: 16,
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              isLoading: worldActionRunning,
-              loadingSize: 18,
-              loadingStrokeWidth: 2,
-            ),
-          ],
+              const SizedBox(width: 18),
+              GenesisPrimaryButton(
+                label: action.label,
+                onPressed: actionEnabled
+                    ? () => onWorldAction(action.kind)
+                    : null,
+                height: 35,
+                width: 140,
+                backgroundColor: const Color(0xFF2F9663),
+                disabledBackgroundColor: const Color(
+                  0xFF2F9663,
+                ).withValues(alpha: 0.62),
+                foregroundColor: Colors.white,
+                fontSize: 16,
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                isLoading: worldActionRunning,
+                loadingSize: 18,
+                loadingStrokeWidth: 2,
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -3152,6 +3159,45 @@ String _worldHeaderActionLabel(_WorldHeaderActionKind action) {
 }
 
 const Color _worldHeaderMetaColor = Color(0xFF666666);
+const TextStyle _worldTitleTextStyle = TextStyle(
+  fontSize: 18,
+  height: 1.25,
+  fontWeight: FontWeight.w600,
+  color: Color(0xFF4B6192),
+);
+const double _worldMetaRowHeight = 16 + 3 * 2;
+double _worldCollapsedPanelHeightFor(BuildContext context, String title) {
+  final availableTitleWidth =
+      MediaQuery.sizeOf(context).width -
+      WorldDetailsPageScaffold.contentHorizontalPadding * 2 -
+      38 * 2;
+  final textPainter =
+      TextPainter(
+        text: TextSpan(text: title, style: _worldTitleTextStyle),
+        maxLines: 2,
+        textDirection: TextDirection.ltr,
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(
+        maxWidth: availableTitleWidth.clamp(0.0, double.infinity).toDouble(),
+      );
+  final bottomSafeArea = _worldBottomSafeAreaOf(context);
+  final collapsedPanelHeight =
+      WorldDetailsPageScaffold.inlineContentTopPadding +
+      textPainter.height +
+      4 +
+      _worldMetaRowHeight +
+      56 +
+      bottomSafeArea;
+  return collapsedPanelHeight;
+}
+
+double _worldBottomSafeAreaOf(BuildContext context) {
+  final mediaQuery = MediaQuery.of(context);
+  final paddingBottom = mediaQuery.padding.bottom;
+  final viewPaddingBottom = mediaQuery.viewPadding.bottom;
+  return paddingBottom > viewPaddingBottom ? paddingBottom : viewPaddingBottom;
+}
+
 const TextStyle _worldHeaderMetaTextStyle = TextStyle(
   fontSize: 12,
   height: 1.1,

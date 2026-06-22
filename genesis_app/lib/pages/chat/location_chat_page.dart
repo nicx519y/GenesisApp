@@ -8,7 +8,6 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
-import '../../components/common/genesis_modal_routes.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
@@ -81,7 +80,7 @@ class LocationChatPanel extends StatefulWidget {
     this.onInitialContentReady,
     this.composerReplacement,
     this.showConnectionStatus = true,
-    this.systemUiOverlayStyle = kGenesisDefaultSystemUiOverlayStyle,
+    this.systemUiOverlayStyle = kChatDarkHeaderSystemUiOverlayStyle,
     this.style,
   });
 
@@ -134,6 +133,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   Future<void>? _initialLatestMessagesRefresh;
   int _unseenIncomingCount = 0;
   int _clientMsgCounter = 0;
+  double _composerHeight = 0;
 
   @override
   void initState() {
@@ -1237,6 +1237,20 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       ),
       headerStatusIconSize: 12,
     );
+    final headerHeight = _locationChatHeaderHeight();
+    final composerHeight = _locationChatComposerHeight();
+    final composer =
+        widget.composerReplacement ??
+        ChatComposer(
+          controller: _textController,
+          inputEnabled: widget.active,
+          sendEnabled: widget.active && joined && !_sending && !inputBlocked,
+          sending: _sending,
+          onSend: _send,
+          sendLabel: 'Send',
+          style: style,
+          onHeightChanged: _handleComposerHeightChanged,
+        );
 
     return GenesisBottomSystemBarStyleScope(
       style: GenesisBottomSystemBarStyle(color: style.composerBackgroundColor),
@@ -1252,6 +1266,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                 ),
               ),
               Positioned.fill(
+                top: headerHeight,
+                bottom: composerHeight,
                 child: ChatMessageList(
                   controller: _scrollController,
                   messages: _messages,
@@ -1261,49 +1277,57 @@ class _LocationChatPanelState extends State<LocationChatPanel>
               if (_unseenIncomingCount > 0)
                 Positioned(
                   right: 16,
-                  bottom: 12,
+                  bottom: _locationChatComposerHeight() + 12,
                   child: _LocationChatNewMessageNotice(
                     count: _unseenIncomingCount,
                     onTap: _openUnseenIncomingMessages,
                   ),
                 ),
-              Column(
-                children: [
-                  ChatHeader(
-                    title: '$title (${realUsers.length})',
-                    subtitle: subtitle,
-                    connected: realUsers.isNotEmpty,
-                    connecting: connecting && realUsers.isEmpty,
-                    onBack:
-                        widget.onBack ?? () => Navigator.of(context).maybePop(),
-                    showSubtitle:
-                        widget.showConnectionStatus && aiRoleNames.isNotEmpty,
-                    style: style,
-                  ),
-                  const Spacer(),
-                  widget.composerReplacement ??
-                      ChatComposer(
-                        controller: _textController,
-                        inputEnabled: widget.active,
-                        sendEnabled:
-                            widget.active &&
-                            joined &&
-                            !_sending &&
-                            !inputBlocked,
-                        sending: _sending,
-                        onSend: _send,
-                        sendLabel: 'Send',
-                        style: style,
-                        onHeightChanged: (_) =>
-                            _keepBottomAfterLayoutIfNeeded(),
-                      ),
-                ],
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: ChatHeader(
+                  title: '$title (${realUsers.length})',
+                  subtitle: subtitle,
+                  connected: realUsers.isNotEmpty,
+                  connecting: connecting && realUsers.isEmpty,
+                  onBack:
+                      widget.onBack ?? () => Navigator.of(context).maybePop(),
+                  showSubtitle:
+                      widget.showConnectionStatus && aiRoleNames.isNotEmpty,
+                  style: style,
+                ),
               ),
+              Positioned(left: 0, right: 0, bottom: 0, child: composer),
             ],
           ),
         ),
       ),
     );
+  }
+
+  double _locationChatHeaderHeight() {
+    final topInset = MediaQuery.viewPaddingOf(context).top;
+    final baseStyle = widget.style ?? kLocationChatStyle;
+    return topInset + baseStyle.headerHeight;
+  }
+
+  double _locationChatComposerHeight() {
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final baseStyle = widget.style ?? kLocationChatStyle;
+    return _composerHeight > 0
+        ? _composerHeight
+        : baseStyle.composerPadding.vertical +
+              baseStyle.inputMinHeight +
+              bottomInset;
+  }
+
+  void _handleComposerHeightChanged(double height) {
+    if ((_composerHeight - height).abs() > 0.5) {
+      setState(() => _composerHeight = height);
+    }
+    _keepBottomAfterLayoutIfNeeded();
   }
 }
 
@@ -1316,10 +1340,16 @@ class _LocationChatBackgroundImage extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = _locationChatBackgroundProvider(imageUrl);
     if (provider == null) return const SizedBox.shrink();
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        image: DecorationImage(image: provider, fit: BoxFit.cover),
-      ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            image: DecorationImage(image: provider, fit: BoxFit.cover),
+          ),
+        ),
+        const ColoredBox(color: Color(0x33000000)),
+      ],
     );
   }
 }

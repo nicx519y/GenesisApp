@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 enum GenesisSystemNavigationMode { gesture, threeButton }
@@ -61,7 +60,6 @@ class GenesisBottomSystemBarController {
     listenable.value = _styleStack.isEmpty
         ? const GenesisBottomSystemBarStyle()
         : _styleStack.last.style;
-    _debugLogSystemBarStyle(listenable.value);
   }
 }
 
@@ -194,7 +192,6 @@ class GenesisBottomSystemBarBoundary extends StatelessWidget {
     if (bottomInset <= 0) return child;
 
     final navigationMode = _navigationModeOf(mediaQuery);
-    _debugLogSystemBarMediaQuery(mediaQuery, navigationMode);
 
     final childMediaQuery =
         navigationMode == GenesisSystemNavigationMode.gesture
@@ -266,47 +263,4 @@ class GenesisBottomSystemBarBoundary extends StatelessWidget {
 
     return GenesisSystemNavigationMode.gesture;
   }
-}
-
-String? _lastLoggedSystemBarSignature;
-String? _lastLoggedSystemBarStyleSignature;
-
-void _debugLogSystemBarMediaQuery(
-  MediaQueryData mediaQuery,
-  GenesisSystemNavigationMode navigationMode,
-) {
-  if (kReleaseMode) return;
-  final signature = [
-    'mode=${navigationMode.name}',
-    'size=${_formatSize(mediaQuery.size)}',
-    'padding=${_formatInsets(mediaQuery.padding)}',
-    'viewPadding=${_formatInsets(mediaQuery.viewPadding)}',
-    'viewInsets=${_formatInsets(mediaQuery.viewInsets)}',
-    'systemGestureInsets=${_formatInsets(mediaQuery.systemGestureInsets)}',
-  ].join(' ');
-  if (signature == _lastLoggedSystemBarSignature) return;
-  _lastLoggedSystemBarSignature = signature;
-  debugPrint('[SystemBarProbe] $signature');
-}
-
-void _debugLogSystemBarStyle(GenesisBottomSystemBarStyle style) {
-  if (kReleaseMode) return;
-  final signature =
-      'color=${_formatColor(style.color)} transparentForGesture=${style.transparentForGesture} stackDepth=${GenesisBottomSystemBarController._styleStack.length}';
-  if (signature == _lastLoggedSystemBarStyleSignature) return;
-  _lastLoggedSystemBarStyleSignature = signature;
-  debugPrint('[SystemBarStyle] $signature');
-}
-
-String _formatSize(Size size) {
-  return '${size.width.toStringAsFixed(1)}x${size.height.toStringAsFixed(1)}';
-}
-
-String _formatInsets(EdgeInsets insets) {
-  return 'l=${insets.left.toStringAsFixed(1)},t=${insets.top.toStringAsFixed(1)},r=${insets.right.toStringAsFixed(1)},b=${insets.bottom.toStringAsFixed(1)}';
-}
-
-String _formatColor(Color? color) {
-  if (color == null) return 'null';
-  return '#${color.toARGB32().toRadixString(16).padLeft(8, '0')}';
 }

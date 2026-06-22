@@ -993,22 +993,18 @@ class _OriginHeader extends StatelessWidget {
           leftValue: origin.oid,
           leftDisplayValue: origin.deleted ? deletedEntityDisplayText : null,
           leftCopyEnabled: !origin.deleted,
-          leftStyle: _originHeaderMetaTextStyle,
-          leftIconColor: _originHeaderMetaColor,
           rightText: 'Originator: ${formatUidForDisplay(originator)}',
           rightOnTap: ownerUid.isEmpty || origin.ownerDeleted
               ? null
               : () => Navigator.of(
                   context,
                 ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
-          rightStyle: _originHeaderMetaTextStyle,
-          rightIconColor: _originHeaderMetaColor,
         ),
         // Header inner spacing: OID/originator row -> latest version.
         const SizedBox(height: 0),
         Text(
           'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
-          style: _originHeaderMetaTextStyle,
+          style: CopyableIdLabel.textStyle,
         ),
         if (canEditOrigin) ...[
           // Header inner spacing: latest version -> edit button.
@@ -1294,11 +1290,8 @@ class _CopyWorldProgressCard extends StatelessWidget {
   static const double _bodyFontSize = 13;
   static const double _bodyLineHeight = 1.45;
   static const double _bodyHeight = _bodyFontSize * _bodyLineHeight * 5 + 6;
-  static const _bodyStyle = TextStyle(
-    fontSize: _bodyFontSize,
-    height: _bodyLineHeight,
-    fontWeight: FontWeight.w400,
-    color: Color(0xFF111111),
+  static final _bodyStyle = _bodyTextStyle.copyWith(
+    color: const Color(0xFF111111),
   );
   static const _bodyStrutStyle = StrutStyle(
     fontSize: _bodyFontSize,
@@ -1409,7 +1402,7 @@ class _CopyWorldProgressMeta extends StatelessWidget {
                       'WID: ${deletedAwareIdLabel(item.worldId, deleted: item.deleted)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: _copyWorldProgressMetaStyle,
+                      style: _copyWorldProgressWidStyle,
                     ),
                   ),
                   // Copy progress meta spacing: WID -> tick badge.
@@ -1891,14 +1884,6 @@ const _bodyTextStyle = TextStyle(
   color: Color(0xFF111111),
 );
 
-const _originHeaderMetaColor = Color(0xFF666666);
-const _originHeaderMetaTextStyle = TextStyle(
-  fontSize: 12,
-  height: 1.1,
-  fontWeight: FontWeight.w400,
-  color: _originHeaderMetaColor,
-);
-
 const _characterBodyTextStyle = TextStyle(
   fontSize: 13,
   height: 1.35,
@@ -1939,6 +1924,13 @@ const _copyWorldProgressMetaStyle = TextStyle(
   height: 1.2,
   fontWeight: FontWeight.w400,
   color: Color(0xFF8C8C8C),
+);
+
+const _copyWorldProgressWidStyle = TextStyle(
+  fontSize: 12,
+  height: 1.2,
+  fontWeight: FontWeight.w400,
+  color: Color(0xFF666666),
 );
 
 List<String> _splitTags(String tags) {

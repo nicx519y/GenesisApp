@@ -276,12 +276,31 @@ void main() {
       tester.getSize(
         find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
       ),
-      const Size(700, 184),
+      const Size(700, 186),
     );
     expect(find.text('Log out of your account?'), findsOneWidget);
+    final dialogRect = tester.getRect(
+      find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
+    );
     final title = tester.widget<Text>(find.text('Log out of your account?'));
     final action = tester.widget<Text>(find.text('Log out'));
     final cancel = tester.widget<Text>(find.text('Cancel'));
+    expect(
+      (tester.getCenter(find.text('Log out of your account?')).dy -
+              dialogRect.top) /
+          dialogRect.height,
+      closeTo(0.22, 0.02),
+    );
+    expect(
+      (tester.getCenter(find.text('Log out')).dy - dialogRect.top) /
+          dialogRect.height,
+      closeTo(0.58, 0.02),
+    );
+    expect(
+      (tester.getCenter(find.text('Cancel')).dy - dialogRect.top) /
+          dialogRect.height,
+      closeTo(0.86, 0.02),
+    );
     expect(title.style?.fontSize, 15);
     expect(title.style?.fontWeight, FontWeight.w600);
     expect(action.style?.fontSize, 15);

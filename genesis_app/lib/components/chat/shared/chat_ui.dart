@@ -19,6 +19,13 @@ const SystemUiOverlayStyle kChatWhiteSystemUiOverlayStyle =
       statusBarBrightness: Brightness.light,
     );
 
+const SystemUiOverlayStyle kChatDarkHeaderSystemUiOverlayStyle =
+    SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+    );
+
 final ChatUiStyleConfig kChatWhiteHeaderStyle = ChatUiStyleConfig.standard
     .copyWith(headerBackgroundColor: Colors.white);
 
@@ -41,6 +48,8 @@ final ChatUiStyleConfig kLocationChatStyle = ChatUiStyleConfig.standard
           .copyWith(color: Colors.white),
       headerTitleIconColor: Colors.white,
       headerStatusIconColor: Colors.white,
+      headerBackdropBlurSigma: 20,
+      composerBackdropBlurSigma: 20,
     );
 
 class ChatMessageVm {

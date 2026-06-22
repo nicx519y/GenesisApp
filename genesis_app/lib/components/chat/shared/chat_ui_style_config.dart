@@ -192,7 +192,7 @@ class ChatUiStyleConfig {
     headerBackgroundGradient: LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xE6111111), Color(0x00111111)],
+      colors: [Color(0xF2111111), Color(0x00111111)],
     ), // 顶部聊天栏背景渐变。
     headerTitleTextStyle: TextStyle(
       fontSize: 16, // 顶部主标题字号。
@@ -218,7 +218,7 @@ class ChatUiStyleConfig {
     composerBackgroundGradient: LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0x00111111), Color(0xE6111111)],
+      colors: [Color(0x00111111), Color(0xF2111111)],
     ), // 底部输入栏背景渐变。
     composerPadding: EdgeInsets.fromLTRB(10, 8, 10, 16), // 底部输入栏内边距。
     composerIconButtonSize: 32, // 输入栏图标按钮点击区域尺寸。
@@ -518,6 +518,7 @@ class ChatUiStyleConfig {
     Color? headerStatusIconColor,
     double? headerStatusIconSize,
     double? headerSubtitleTopGap,
+    EdgeInsets? messageListPadding,
     bool? showComposerSendButton,
   }) {
     return ChatUiStyleConfig(
@@ -582,7 +583,7 @@ class ChatUiStyleConfig {
       inputBackgroundColor: inputBackgroundColor,
       inputBorderRadius: inputBorderRadius,
       inputTextStyle: inputTextStyle,
-      messageListPadding: messageListPadding,
+      messageListPadding: messageListPadding ?? this.messageListPadding,
       topTitleEmptyHeight: topTitleEmptyHeight,
       topTitleBottomPadding: topTitleBottomPadding,
       topTitleTextStyle: topTitleTextStyle,

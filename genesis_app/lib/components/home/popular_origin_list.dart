@@ -700,7 +700,7 @@ class _MetaRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
-                  style: _metaStyle,
+                  style: _progressTimeMetaStyle,
                 ),
               ),
             ],
@@ -817,6 +817,13 @@ const _emptyBodyStyle = TextStyle(
 
 const _metaStyle = TextStyle(
   color: Color(0xFF666666),
+  fontSize: 12,
+  height: 1.2,
+  fontWeight: FontWeight.w400,
+);
+
+const _progressTimeMetaStyle = TextStyle(
+  color: Color(0xFF888888),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,
