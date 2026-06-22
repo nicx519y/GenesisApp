@@ -30,6 +30,7 @@ import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/entity_deleted.dart';
@@ -349,7 +350,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   @override
   Widget build(BuildContext context) {
-    final topPadding = MediaQuery.paddingOf(context).top;
+    final topPadding = GenesisSafeAreaInsets.top(context);
     return FutureBuilder<OriginDetail>(
       future: _future,
       builder: (context, snapshot) {
@@ -547,19 +548,24 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
     required this.onLaunch,
   });
 
+  static const Color _backgroundColor = Color(0xFFF9F9F9);
+
   final bool launching;
   final VoidCallback onLaunch;
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
-    return DecoratedBox(
-      decoration: const BoxDecoration(color: Color(0xFFF9F9F9)),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomInset),
-        child: GenesisPrimaryButton(
-          label: launching ? 'Launching...' : 'Launch to send',
-          onPressed: launching ? null : onLaunch,
+    final bottomInset = GenesisSafeAreaInsets.bottom(context);
+    return GenesisBottomSystemBarStyleScope(
+      style: const GenesisBottomSystemBarStyle(color: _backgroundColor),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(color: _backgroundColor),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomInset),
+          child: GenesisPrimaryButton(
+            label: launching ? 'Launching...' : 'Launch to send',
+            onPressed: launching ? null : onLaunch,
+          ),
         ),
       ),
     );

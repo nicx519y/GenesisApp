@@ -13,6 +13,7 @@ import '../../network/direct_message_message_store.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/display_name_formatter.dart';
 
 class ChatPage extends StatefulWidget {
@@ -532,59 +533,64 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       formatUidForDisplay(_peerUid),
       'Direct message',
     ]);
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: kChatWhiteSystemUiOverlayStyle,
-      child: Scaffold(
-        backgroundColor: kPrivateChatStyle.conversationBackgroundColor,
-        resizeToAvoidBottomInset: true,
-        body: Stack(
-          children: [
-            Stack(
-              children: [
-                Positioned.fill(child: _buildMessages()),
-                if (_unseenIncomingCount > 0)
-                  Positioned(
-                    right: 16,
-                    bottom: _privateChatComposerHeight() + 12,
-                    child: _NewIncomingMessageNotice(
-                      count: _unseenIncomingCount,
-                      onTap: _openUnseenIncomingMessages,
+    return GenesisBottomSystemBarStyleScope(
+      style: GenesisBottomSystemBarStyle(
+        color: kPrivateChatStyle.composerBackgroundColor,
+      ),
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: kChatWhiteSystemUiOverlayStyle,
+        child: Scaffold(
+          backgroundColor: kPrivateChatStyle.conversationBackgroundColor,
+          resizeToAvoidBottomInset: true,
+          body: Stack(
+            children: [
+              Stack(
+                children: [
+                  Positioned.fill(child: _buildMessages()),
+                  if (_unseenIncomingCount > 0)
+                    Positioned(
+                      right: 16,
+                      bottom: _privateChatComposerHeight() + 12,
+                      child: _NewIncomingMessageNotice(
+                        count: _unseenIncomingCount,
+                        onTap: _openUnseenIncomingMessages,
+                      ),
                     ),
-                  ),
-              ],
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              child: ChatHeader(
-                title: peerTitle,
-                subtitle: '',
-                connected: !_syncing,
-                connecting: _syncing,
-                onBack: () => Navigator.of(context).maybePop(),
-                showTitleIcon: false,
-                showSubtitle: false,
-                showMoreButton: false,
-                style: kPrivateChatStyle,
+                ],
               ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: ChatComposer(
-                controller: _textController,
-                inputEnabled: _peerUid.isNotEmpty,
-                sendEnabled: _peerUid.isNotEmpty && !_sending,
-                sending: _sending,
-                onSend: _send,
-                sendLabel: 'Send',
-                style: kPrivateChatStyle,
-                onHeightChanged: _handleComposerHeightChanged,
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                child: ChatHeader(
+                  title: peerTitle,
+                  subtitle: '',
+                  connected: !_syncing,
+                  connecting: _syncing,
+                  onBack: () => Navigator.of(context).maybePop(),
+                  showTitleIcon: false,
+                  showSubtitle: false,
+                  showMoreButton: false,
+                  style: kPrivateChatStyle,
+                ),
               ),
-            ),
-          ],
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: ChatComposer(
+                  controller: _textController,
+                  inputEnabled: _peerUid.isNotEmpty,
+                  sendEnabled: _peerUid.isNotEmpty && !_sending,
+                  sending: _sending,
+                  onSend: _send,
+                  sendLabel: 'Send',
+                  style: kPrivateChatStyle,
+                  onHeightChanged: _handleComposerHeightChanged,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -675,12 +681,12 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   double _privateChatHeaderHeight() {
-    final topInset = MediaQuery.viewPaddingOf(context).top;
+    final topInset = GenesisSafeAreaInsets.top(context);
     return topInset + kPrivateChatStyle.headerHeight;
   }
 
   double _privateChatComposerHeight() {
-    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final bottomInset = GenesisSafeAreaInsets.bottom(context);
     return _composerHeight > 0
         ? _composerHeight
         : kPrivateChatStyle.composerPadding.vertical +

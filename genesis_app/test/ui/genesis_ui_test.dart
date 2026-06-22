@@ -150,6 +150,29 @@ void main() {
     expect(find.byType(SearchBarPlaceholder), findsOneWidget);
   });
 
+  testWidgets('PageHeader includes the top system view padding', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(
+            padding: EdgeInsets.zero,
+            viewPadding: EdgeInsets.only(top: 24),
+          ),
+          child: Scaffold(
+            body: Column(
+              children: [PageHeader(pageName: 'Origin', showSearchBar: false)],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.getSize(find.byType(PageHeader)).height, 74);
+    expect(tester.getTopLeft(find.text('Origin')).dy, greaterThanOrEqualTo(24));
+  });
+
   testWidgets('GenesisPrimaryButton uses the shared filled-button surface', (
     tester,
   ) async {
@@ -644,6 +667,186 @@ void main() {
       const EdgeInsets.only(bottom: GenesisBottomNavigation.minBottomPadding),
     );
   });
+
+  testWidgets('GenesisBottomNavigation uses bottom system view padding', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(
+            padding: EdgeInsets.zero,
+            viewPadding: EdgeInsets.only(bottom: 30),
+          ),
+          child: Scaffold(
+            bottomNavigationBar: GenesisBottomNavigation(
+              currentIndex: 0,
+              onTap: (_) {},
+              items: const [
+                GenesisBottomNavigationItem(
+                  label: 'Home',
+                  icon: Icons.home_outlined,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final padding = tester.widget<Padding>(
+      find.descendant(
+        of: find.byType(GenesisBottomNavigation),
+        matching: find.byType(Padding),
+      ),
+    );
+    expect(padding.padding, const EdgeInsets.only(bottom: 30));
+  });
+
+  testWidgets('GenesisBottomSystemBarBoundary excludes three-button area', (
+    tester,
+  ) async {
+    MediaQueryData? innerMediaQuery;
+    const systemBarColor = Color(0xFFEDF3EF);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(scaffoldBackgroundColor: systemBarColor),
+        home: MediaQuery(
+          data: const MediaQueryData(
+            size: Size(300, 600),
+            padding: EdgeInsets.only(bottom: 48),
+            viewPadding: EdgeInsets.only(bottom: 48),
+            systemGestureInsets: EdgeInsets.only(bottom: 48),
+          ),
+          child: GenesisBottomSystemBarStyleScope(
+            style: const GenesisBottomSystemBarStyle(color: systemBarColor),
+            child: GenesisBottomSystemBarBoundary(
+              child: Builder(
+                builder: (context) {
+                  innerMediaQuery = MediaQuery.of(context);
+                  return const ColoredBox(
+                    key: ValueKey('bounded-content'),
+                    color: Colors.red,
+                    child: SizedBox.expand(),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('bounded-content'))).height,
+      552,
+    );
+    expect(innerMediaQuery?.padding.bottom, 0);
+    expect(innerMediaQuery?.viewPadding.bottom, 0);
+    expect(innerMediaQuery?.systemGestureInsets.bottom, 0);
+    expect(
+      find.byKey(
+        const ValueKey<String>('genesis-bottom-system-bar-opaque-overlay'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widgetList<ColoredBox>(find.byType(ColoredBox))
+          .any((box) => box.color == systemBarColor),
+      isTrue,
+    );
+  });
+
+  testWidgets('GenesisBottomSystemBarBoundary detects Samsung gesture mode', (
+    tester,
+  ) async {
+    MediaQueryData? innerMediaQuery;
+    const systemBarColor = Color(0xFFEDF3EF);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(
+            size: Size(300, 600),
+            padding: EdgeInsets.only(bottom: 15),
+            viewPadding: EdgeInsets.only(bottom: 15),
+            systemGestureInsets: EdgeInsets.fromLTRB(30, 39, 30, 32),
+          ),
+          child: GenesisBottomSystemBarStyleScope(
+            style: const GenesisBottomSystemBarStyle(color: systemBarColor),
+            child: GenesisBottomSystemBarBoundary(
+              child: Builder(
+                builder: (context) {
+                  innerMediaQuery = MediaQuery.of(context);
+                  return const ColoredBox(
+                    key: ValueKey('gesture-content'),
+                    color: Colors.red,
+                    child: SizedBox.expand(),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('gesture-content'))).height,
+      600,
+    );
+    expect(innerMediaQuery?.padding.bottom, 15);
+    expect(innerMediaQuery?.viewPadding.bottom, 15);
+    expect(innerMediaQuery?.systemGestureInsets.bottom, 32);
+    expect(
+      find.byKey(
+        const ValueKey<String>('genesis-bottom-system-bar-opaque-overlay'),
+      ),
+      findsNothing,
+    );
+    expect(
+      tester
+          .widgetList<ColoredBox>(find.byType(ColoredBox))
+          .any((box) => box.color == systemBarColor),
+      isTrue,
+    );
+  });
+
+  testWidgets(
+    'GenesisBottomSystemBarBoundary defaults ambiguous values to gesture',
+    (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: Size(300, 600),
+              padding: EdgeInsets.only(bottom: 24),
+              viewPadding: EdgeInsets.only(bottom: 24),
+              systemGestureInsets: EdgeInsets.only(bottom: 24),
+            ),
+            child: GenesisBottomSystemBarBoundary(
+              child: ColoredBox(
+                key: ValueKey('ambiguous-content'),
+                color: Colors.red,
+                child: SizedBox.expand(),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        tester.getSize(find.byKey(const ValueKey('ambiguous-content'))).height,
+        600,
+      );
+      expect(
+        find.byKey(
+          const ValueKey<String>('genesis-bottom-system-bar-opaque-overlay'),
+        ),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets('GenesisTabBar renders labels inside a DefaultTabController', (
     tester,

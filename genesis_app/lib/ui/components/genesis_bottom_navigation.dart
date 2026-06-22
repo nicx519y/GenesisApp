@@ -1,8 +1,7 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import 'genesis_safe_area.dart';
 import 'genesis_unread_badge.dart';
 import '../tokens/genesis_spacing.dart';
 import '../theme/genesis_ui_theme.dart';
@@ -45,10 +44,6 @@ class GenesisBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = math.max(
-      MediaQuery.paddingOf(context).bottom,
-      minBottomPadding,
-    );
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -60,8 +55,8 @@ class GenesisBottomNavigation extends StatelessWidget {
           ),
         ],
       ),
-      child: Padding(
-        padding: EdgeInsets.only(bottom: bottomPadding),
+      child: GenesisBottomSafePadding(
+        minimum: minBottomPadding,
         child: SizedBox(
           height: height,
           child: Row(

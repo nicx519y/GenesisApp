@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 
 const _firstImage = 'assets/images/mock_maps/steam_kingdom_isometric.png';
@@ -7,6 +9,41 @@ const _secondImage = 'assets/images/mock_maps/location_rail_gate_map.png';
 const _thirdImage = 'assets/images/mock_maps/location_clocktower_map.png';
 
 void main() {
+  testWidgets('viewer restores default status bar style after closing', (
+    tester,
+  ) async {
+    final calls = <Map<dynamic, dynamic>>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          if (call.method == 'SystemChrome.setSystemUIOverlayStyle') {
+            calls.add(Map<dynamic, dynamic>.from(call.arguments as Map));
+          }
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    GenesisSystemUiChrome.applyDefault();
+    calls.clear();
+
+    await _pumpViewerHost(tester, const [_firstImage]);
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('genesis-image-viewer-close')));
+    await tester.pumpAndSettle();
+
+    expect(calls.length, greaterThanOrEqualTo(2));
+    expect(
+      calls.any(
+        (call) => call['statusBarIconBrightness'] == 'Brightness.light',
+      ),
+      isTrue,
+    );
+    expect(calls.last['statusBarIconBrightness'], 'Brightness.dark');
+  });
+
   testWidgets('single image viewer supports zoom and hides page dots', (
     tester,
   ) async {

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../../components/common/genesis_timestamp_text.dart';
 import '../../../icons/my_flutter_app_icons.dart';
 import '../../../ui/components/genesis_avatar.dart';
+import '../../../ui/components/genesis_safe_area.dart';
 import 'chat_ui_style_config.dart';
 
 export 'chat_ui_style_config.dart';
@@ -16,8 +17,6 @@ const SystemUiOverlayStyle kChatWhiteSystemUiOverlayStyle =
       statusBarColor: Colors.white,
       statusBarIconBrightness: Brightness.dark,
       statusBarBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.white,
-      systemNavigationBarIconBrightness: Brightness.dark,
     );
 
 final ChatUiStyleConfig kChatWhiteHeaderStyle = ChatUiStyleConfig.standard
@@ -122,7 +121,7 @@ class ChatHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
-    final topInset = MediaQuery.viewPaddingOf(context).top;
+    final topInset = GenesisSafeAreaInsets.top(context);
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(
@@ -271,7 +270,7 @@ class ChatComposer extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
     final submitFromKeyboard = !style.showComposerSendButton;
-    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final bottomInset = GenesisSafeAreaInsets.bottom(context);
     return _ChatComposerHeightObserver(
       onHeightChanged: onHeightChanged,
       child: ClipRect(
