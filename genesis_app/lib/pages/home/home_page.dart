@@ -6,7 +6,6 @@ import 'package:flutter/rendering.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/list_loading_skeleton.dart';
-import '../../components/auth/login_guard.dart';
 import '../../components/discuss/origin_discuss_preview_list.dart';
 import '../../components/genesis_logo.dart';
 import '../../components/home/popular_origin_list.dart';
@@ -105,38 +104,8 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _HomeTabs extends StatefulWidget {
+class _HomeTabs extends StatelessWidget {
   const _HomeTabs();
-
-  @override
-  State<_HomeTabs> createState() => _HomeTabsState();
-}
-
-class _HomeTabsState extends State<_HomeTabs> {
-  static const _myWorldsIndex = 0;
-  static const _popularIndex = 1;
-
-  bool _handlingLogin = false;
-
-  Future<void> _handleTap(int index) async {
-    if (index != _myWorldsIndex || _handlingLogin) return;
-    final controller = DefaultTabController.of(context);
-    final cameFromPopular =
-        controller.index == _popularIndex ||
-        controller.previousIndex == _popularIndex;
-    if (!cameFromPopular) return;
-
-    controller.animateTo(_popularIndex, duration: Duration.zero);
-
-    _handlingLogin = true;
-    try {
-      final loggedIn = await ensureGenesisLogin(context);
-      if (!mounted || !loggedIn) return;
-      controller.animateTo(_myWorldsIndex);
-    } finally {
-      _handlingLogin = false;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -144,104 +113,25 @@ class _HomeTabsState extends State<_HomeTabs> {
       labels: HomePage.tabs,
       verticalPadding: 0,
       tabAlignment: TabAlignment.center,
-      onTap: _handleTap,
     );
   }
 }
 
-class _HomeTabView extends StatefulWidget {
+class _HomeTabView extends StatelessWidget {
   const _HomeTabView({this.activationListenable});
 
   final ValueListenable<int>? activationListenable;
 
   @override
-  State<_HomeTabView> createState() => _HomeTabViewState();
-}
-
-class _HomeTabViewState extends State<_HomeTabView> {
-  static const _myWorldsIndex = HomePage.myWorldsTabIndex;
-  static const _popularIndex = HomePage.popularTabIndex;
-
-  bool? _loggedIn;
-  bool _handlingLogin = false;
-  double _dragDistance = 0;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _syncLoginState();
-  }
-
-  Future<void> _syncLoginState() async {
-    final loggedIn = await hasGenesisLoginSession(context);
-    if (!mounted || _loggedIn == loggedIn) return;
-    setState(() {
-      _loggedIn = loggedIn;
-    });
-  }
-
-  Future<void> _handleMyWorldsSwipe() async {
-    if (_handlingLogin) return;
-    final controller = DefaultTabController.of(context);
-    if (controller.index != _popularIndex) return;
-    if (await hasGenesisLoginSession(context)) return;
-    if (!mounted) return;
-
-    _handlingLogin = true;
-    controller.animateTo(_popularIndex, duration: Duration.zero);
-    try {
-      final loggedIn = await ensureGenesisLogin(context);
-      if (!mounted) return;
-      if (loggedIn) {
-        setState(() {
-          _loggedIn = true;
-        });
-        controller.animateTo(_myWorldsIndex);
-      } else {
-        controller.animateTo(_popularIndex, duration: Duration.zero);
-      }
-    } finally {
-      _handlingLogin = false;
-      _dragDistance = 0;
-    }
-  }
-
-  void _handleHorizontalDragStart(DragStartDetails details) {
-    _dragDistance = 0;
-  }
-
-  void _handleHorizontalDragUpdate(DragUpdateDetails details) {
-    _dragDistance += details.delta.dx;
-  }
-
-  void _handleHorizontalDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    if (velocity > 0 || _dragDistance > 24) {
-      _handleMyWorldsSwipe();
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final signedOut = _loggedIn == false;
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onHorizontalDragStart: signedOut ? _handleHorizontalDragStart : null,
-      onHorizontalDragUpdate: signedOut ? _handleHorizontalDragUpdate : null,
-      onHorizontalDragEnd: signedOut ? _handleHorizontalDragEnd : null,
-      child: TabBarView(
-        physics: signedOut ? const NeverScrollableScrollPhysics() : null,
-        children: [
-          _MyWorldFeed(
-            index: 0,
-            activationListenable: widget.activationListenable,
-          ),
-          _PopularOriginFeed(
-            index: 1,
-            activationListenable: widget.activationListenable,
-          ),
-        ],
-      ),
+    return TabBarView(
+      children: [
+        _MyWorldFeed(index: 0, activationListenable: activationListenable),
+        _PopularOriginFeed(
+          index: 1,
+          activationListenable: activationListenable,
+        ),
+      ],
     );
   }
 }
@@ -306,6 +196,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   var _isInitialLoading = false;
   var _isLoadingMore = false;
   var _isRefreshing = false;
+  var _isSignedOut = false;
   Object? _error;
 
   @override
@@ -364,6 +255,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _isInitialLoading = false;
     _isLoadingMore = false;
     _isRefreshing = false;
+    _isSignedOut = false;
     _error = null;
   }
 
@@ -434,12 +326,14 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isInitialLoading = false;
         _isLoadingMore = false;
         _isRefreshing = false;
+        _isSignedOut = true;
       });
       return;
     }
 
     setState(() {
       _error = null;
+      _isSignedOut = false;
       _isInitialLoading = _items.isEmpty;
       _isRefreshing = true;
     });
@@ -523,19 +417,33 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       );
     }
 
+    final emptyListView = ListView(
+      key: const PageStorageKey<String>('home-feed-my-world'),
+      physics: _isSignedOut
+          ? const NeverScrollableScrollPhysics()
+          : const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.45,
+          child: Center(
+            child: Text(
+              _isSignedOut
+                  ? '待处理： launch #worldo to generate my own word'
+                  : 'No data',
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (_items.isEmpty && _isSignedOut) {
+      return emptyListView;
+    }
+
     return RefreshIndicator(
       onRefresh: _refreshItems,
       child: _items.isEmpty
-          ? ListView(
-              key: const PageStorageKey<String>('home-feed-my-world'),
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                SizedBox(
-                  height: MediaQuery.sizeOf(context).height * 0.45,
-                  child: const Center(child: Text('No data')),
-                ),
-              ],
-            )
+          ? emptyListView
           : ListView.separated(
               key: const PageStorageKey<String>('home-feed-my-world'),
               controller: _scrollController,
