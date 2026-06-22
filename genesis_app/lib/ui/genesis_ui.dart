@@ -7,6 +7,7 @@ export 'components/genesis_page_title.dart';
 export 'components/genesis_page_header.dart';
 export 'components/genesis_primary_button.dart';
 export 'components/genesis_profile_collection_list_item.dart';
+export 'components/genesis_safe_area.dart';
 export 'components/genesis_search_field.dart';
 export 'components/genesis_tab_bar.dart';
 export 'components/secend_tabs.dart';

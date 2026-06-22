@@ -14,6 +14,7 @@ import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/display_name_formatter.dart';
 
 class LocationChatPage extends StatelessWidget {
@@ -1229,7 +1230,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _chatroomState.joining ||
         (_chatroomState.connected && !joined);
     final inputBlocked = _chatroomState.inputBlocked;
-    final baseStyle = widget.style ?? kChatWhiteHeaderStyle;
+    final baseStyle = widget.style ?? kLocationChatStyle;
     final style = baseStyle.copyWith(
       headerSubtitleTextStyle: baseStyle.headerSubtitleTextStyle.copyWith(
         fontSize: 12,
@@ -1237,61 +1238,69 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       headerStatusIconSize: 12,
     );
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: widget.systemUiOverlayStyle,
-      child: ColoredBox(
-        color: style.conversationBackgroundColor,
-        child: Column(
-          children: [
-            ChatHeader(
-              title: '$title (${realUsers.length})',
-              subtitle: subtitle,
-              connected: realUsers.isNotEmpty,
-              connecting: connecting && realUsers.isEmpty,
-              onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
-              showSubtitle:
-                  widget.showConnectionStatus && aiRoleNames.isNotEmpty,
-              style: style,
-            ),
-            Expanded(
-              child: Stack(
+    return GenesisBottomSystemBarStyleScope(
+      style: GenesisBottomSystemBarStyle(color: style.composerBackgroundColor),
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: widget.systemUiOverlayStyle,
+        child: ColoredBox(
+          color: style.conversationBackgroundColor,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: _LocationChatBackgroundImage(
+                  imageUrl: _backgroundImageUrl,
+                ),
+              ),
+              Positioned.fill(
+                child: ChatMessageList(
+                  controller: _scrollController,
+                  messages: _messages,
+                  topTitle: '',
+                ),
+              ),
+              if (_unseenIncomingCount > 0)
+                Positioned(
+                  right: 16,
+                  bottom: 12,
+                  child: _LocationChatNewMessageNotice(
+                    count: _unseenIncomingCount,
+                    onTap: _openUnseenIncomingMessages,
+                  ),
+                ),
+              Column(
                 children: [
-                  Positioned.fill(
-                    child: _LocationChatBackgroundImage(
-                      imageUrl: _backgroundImageUrl,
-                    ),
+                  ChatHeader(
+                    title: '$title (${realUsers.length})',
+                    subtitle: subtitle,
+                    connected: realUsers.isNotEmpty,
+                    connecting: connecting && realUsers.isEmpty,
+                    onBack:
+                        widget.onBack ?? () => Navigator.of(context).maybePop(),
+                    showSubtitle:
+                        widget.showConnectionStatus && aiRoleNames.isNotEmpty,
+                    style: style,
                   ),
-                  Positioned.fill(
-                    child: ChatMessageList(
-                      controller: _scrollController,
-                      messages: _messages,
-                      topTitle: '',
-                    ),
-                  ),
-                  if (_unseenIncomingCount > 0)
-                    Positioned(
-                      right: 16,
-                      bottom: 12,
-                      child: _LocationChatNewMessageNotice(
-                        count: _unseenIncomingCount,
-                        onTap: _openUnseenIncomingMessages,
+                  const Spacer(),
+                  widget.composerReplacement ??
+                      ChatComposer(
+                        controller: _textController,
+                        inputEnabled: widget.active,
+                        sendEnabled:
+                            widget.active &&
+                            joined &&
+                            !_sending &&
+                            !inputBlocked,
+                        sending: _sending,
+                        onSend: _send,
+                        sendLabel: 'Send',
+                        style: style,
+                        onHeightChanged: (_) =>
+                            _keepBottomAfterLayoutIfNeeded(),
                       ),
-                    ),
                 ],
               ),
-            ),
-            widget.composerReplacement ??
-                ChatComposer(
-                  controller: _textController,
-                  inputEnabled: widget.active,
-                  sendEnabled:
-                      widget.active && joined && !_sending && !inputBlocked,
-                  sending: _sending,
-                  onSend: _send,
-                  sendLabel: 'Send',
-                  onHeightChanged: (_) => _keepBottomAfterLayoutIfNeeded(),
-                ),
-          ],
+            ],
+          ),
         ),
       ),
     );

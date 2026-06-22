@@ -22,8 +22,8 @@ class PageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      bottom: false,
+    return GenesisTopSafeArea(
+      backgroundColor: Colors.white,
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           horizontalPadding,

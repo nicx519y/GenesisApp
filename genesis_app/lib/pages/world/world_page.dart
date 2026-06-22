@@ -34,6 +34,7 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_safe_area.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../chat/location_chat_page.dart';
@@ -1475,7 +1476,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                   active: active,
                   leaveOnInactive: false,
                   systemUiOverlayStyle: kChatWhiteSystemUiOverlayStyle,
-                  style: kChatWhiteHeaderStyle,
+                  style: kLocationChatStyle,
                   onBack: _closeCachedLocationChat,
                   onInitialContentReady: () =>
                       _markLocationChatPanelReady(descriptor.locationId),
@@ -1510,7 +1511,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final topPadding = MediaQuery.paddingOf(context).top;
+    final topPadding = GenesisSafeAreaInsets.top(context);
     final world = _world;
     if (world == null) {
       if (_initialLoadError != null) {
@@ -1920,23 +1921,26 @@ class _LocationChatPanelSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = kChatWhiteHeaderStyle;
-    return ColoredBox(
-      color: style.conversationBackgroundColor,
-      child: Column(
-        children: [
-          ChatHeader(
-            title: '$title (1)',
-            subtitle: 'Loading',
-            connected: false,
-            connecting: true,
-            onBack: onBack,
-            showMoreButton: true,
-            style: style,
-          ),
-          Expanded(child: _LocationChatMessageSkeletonList(style: style)),
-          _LocationChatComposerSkeleton(style: style),
-        ],
+    final style = kLocationChatStyle;
+    return GenesisBottomSystemBarStyleScope(
+      style: GenesisBottomSystemBarStyle(color: style.composerBackgroundColor),
+      child: ColoredBox(
+        color: style.conversationBackgroundColor,
+        child: Column(
+          children: [
+            ChatHeader(
+              title: '$title (1)',
+              subtitle: 'Loading',
+              connected: false,
+              connecting: true,
+              onBack: onBack,
+              showMoreButton: true,
+              style: style,
+            ),
+            Expanded(child: _LocationChatMessageSkeletonList(style: style)),
+            _LocationChatComposerSkeleton(style: style),
+          ],
+        ),
       ),
     );
   }
@@ -2157,7 +2161,7 @@ class _LocationChatComposerSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final bottomInset = GenesisSafeAreaInsets.bottom(context);
     return Container(
       padding: style.composerPadding.copyWith(
         bottom: style.composerPadding.bottom + bottomInset,

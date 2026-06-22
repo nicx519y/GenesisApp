@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../ui/components/genesis_safe_area.dart';
 import 'world_map_interaction_notification.dart';
 
 class WorldDetailsStatusBarOverride {
@@ -83,8 +84,6 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
     statusBarColor: _transparentStatusBarColor,
     statusBarIconBrightness: Brightness.light,
     statusBarBrightness: Brightness.dark,
-    systemNavigationBarColor: Color(0xFFFFFFFF),
-    systemNavigationBarIconBrightness: Brightness.dark,
   );
 
   @override
@@ -151,7 +150,7 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
           final bottomPadding = bottomBar == null
               ? WorldDetailsPageScaffold.contentBottomPadding
               : WorldDetailsPageScaffold.contentBottomPaddingWithBottomBar;
-          final statusBarHeight = MediaQuery.paddingOf(context).top;
+          final statusBarHeight = GenesisSafeAreaInsets.top(context);
 
           return AnimatedBuilder(
             animation: Listenable.merge([

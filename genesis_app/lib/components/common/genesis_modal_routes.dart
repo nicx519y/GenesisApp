@@ -10,8 +10,6 @@ const SystemUiOverlayStyle kGenesisDefaultSystemUiOverlayStyle =
       statusBarColor: Color(0xFFFFFFFF),
       statusBarIconBrightness: Brightness.dark,
       statusBarBrightness: Brightness.light,
-      systemNavigationBarColor: Color(0xFFFFFFFF),
-      systemNavigationBarIconBrightness: Brightness.dark,
     );
 
 class GenesisSystemUiChrome {
@@ -60,10 +58,6 @@ class GenesisSystemUiChrome {
           ? Brightness.dark
           : Brightness.light,
       statusBarBrightness: useDarkIcons ? Brightness.light : Brightness.dark,
-      systemNavigationBarColor: systemBarColor,
-      systemNavigationBarIconBrightness: useDarkIcons
-          ? Brightness.dark
-          : Brightness.light,
     );
   }
 }

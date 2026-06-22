@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/debug_floating_button_visibility.dart';
 import '../pages/me/developer_page.dart';
+import '../ui/components/genesis_safe_area.dart';
 import 'common/genesis_modal_routes.dart';
 
 class DeveloperDebugFloatingButton extends StatefulWidget {
@@ -37,7 +38,7 @@ class _DeveloperDebugFloatingButtonState
         return LayoutBuilder(
           builder: (context, constraints) {
             final size = constraints.biggest;
-            final bottomPadding = MediaQuery.paddingOf(context).bottom;
+            final bottomPadding = GenesisSafeAreaInsets.bottom(context);
             final defaultPosition = Offset(
               (size.width - _buttonSize - _edgePadding).clamp(0.0, size.width),
               (size.height - _buttonSize - bottomPadding - 86).clamp(

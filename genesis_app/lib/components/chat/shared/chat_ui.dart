@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../components/common/genesis_timestamp_text.dart';
 import '../../../icons/my_flutter_app_icons.dart';
 import '../../../ui/components/genesis_avatar.dart';
+import '../../../ui/components/genesis_safe_area.dart';
 import 'chat_ui_style_config.dart';
 
 export 'chat_ui_style_config.dart';
@@ -14,12 +17,31 @@ const SystemUiOverlayStyle kChatWhiteSystemUiOverlayStyle =
       statusBarColor: Colors.white,
       statusBarIconBrightness: Brightness.dark,
       statusBarBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.white,
-      systemNavigationBarIconBrightness: Brightness.dark,
     );
 
 final ChatUiStyleConfig kChatWhiteHeaderStyle = ChatUiStyleConfig.standard
     .copyWith(headerBackgroundColor: Colors.white);
+
+final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
+  headerBackgroundColor: const Color(0xF2EDEDED),
+  clearHeaderBackgroundGradient: true,
+  headerBackdropBlurSigma: 20,
+  composerBackgroundColor: const Color(0xF2F6F6F6),
+  clearComposerBackgroundGradient: true,
+  composerBackdropBlurSigma: 20,
+);
+
+final ChatUiStyleConfig kLocationChatStyle = ChatUiStyleConfig.standard
+    .copyWith(
+      headerTitleTextStyle: ChatUiStyleConfig.standard.headerTitleTextStyle
+          .copyWith(color: Colors.white),
+      headerSubtitleTextStyle: ChatUiStyleConfig
+          .standard
+          .headerSubtitleTextStyle
+          .copyWith(color: Colors.white),
+      headerTitleIconColor: Colors.white,
+      headerStatusIconColor: Colors.white,
+    );
 
 class ChatMessageVm {
   ChatMessageVm({
@@ -99,103 +121,123 @@ class ChatHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
-    final topInset = MediaQuery.viewPaddingOf(context).top;
-    return Container(
-      height: topInset + style.headerHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 0),
-      color: style.headerBackgroundColor,
-      child: Padding(
-        padding: EdgeInsets.only(top: topInset),
-        child: Stack(
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: IconButton(
-                onPressed: onBack,
-                icon: Icon(
-                  Icons.arrow_back_ios_new,
-                  size: style.headerBackIconSize,
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: style.headerTrailingPlaceholderWidth,
+    final topInset = GenesisSafeAreaInsets.top(context);
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: style.headerBackdropBlurSigma,
+          sigmaY: style.headerBackdropBlurSigma,
+        ),
+        child: Container(
+          height: topInset + style.headerHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 0),
+          decoration: BoxDecoration(
+            color: style.headerBackgroundGradient == null
+                ? style.headerBackgroundColor
+                : null,
+            gradient: style.headerBackgroundGradient,
+          ),
+          child: Padding(
+            padding: EdgeInsets.only(top: topInset),
+            child: Stack(
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: onBack,
+                    icon: Icon(
+                      Icons.arrow_back_ios_new,
+                      size: style.headerBackIconSize,
+                      color: style.headerTitleTextStyle.color,
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (showTitleIcon) ...[
-                          Icon(
-                            Icons.location_on,
-                            size: style.headerTitleIconSize,
-                            color: style.headerTitleIconColor,
-                          ),
-                          SizedBox(width: style.headerTitleIconGap),
-                        ],
-                        Flexible(
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: style.headerTitleTextStyle,
+                  ),
+                ),
+                Positioned.fill(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: style.headerTrailingPlaceholderWidth,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (showTitleIcon) ...[
+                              Icon(
+                                Icons.location_on,
+                                size: style.headerTitleIconSize,
+                                color: style.headerTitleIconColor,
+                              ),
+                              SizedBox(width: style.headerTitleIconGap),
+                            ],
+                            Flexible(
+                              child: Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: style.headerTitleTextStyle,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (showSubtitle) ...[
+                        SizedBox(height: style.headerSubtitleTopGap),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                connected
+                                    ? Icons.groups_2
+                                    : connecting
+                                    ? Icons.sync
+                                    : Icons.cloud_off,
+                                size: style.headerStatusIconSize,
+                                color: style.headerStatusIconColor,
+                              ),
+                              SizedBox(width: style.headerStatusIconGap),
+                              Flexible(
+                                child: Text(
+                                  subtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: style.headerSubtitleTextStyle,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ),
+                    ],
                   ),
-                  if (showSubtitle) ...[
-                    SizedBox(height: style.headerSubtitleTopGap),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            connected
-                                ? Icons.groups_2
-                                : connecting
-                                ? Icons.sync
-                                : Icons.cloud_off,
-                            size: style.headerStatusIconSize,
-                            color: style.headerStatusIconColor,
-                          ),
-                          SizedBox(width: style.headerStatusIconGap),
-                          Flexible(
-                            child: Text(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: style.headerSubtitleTextStyle,
-                            ),
-                          ),
-                        ],
+                ),
+                if (showMoreButton)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      onPressed: () {},
+                      icon: Icon(
+                        Icons.more_horiz,
+                        size: style.headerMoreIconSize,
+                        color: style.headerTitleTextStyle.color,
                       ),
                     ),
-                  ],
-                ],
-              ),
+                  )
+                else
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: SizedBox(
+                      width: style.headerTrailingPlaceholderWidth,
+                    ),
+                  ),
+              ],
             ),
-            if (showMoreButton)
-              Align(
-                alignment: Alignment.centerRight,
-                child: IconButton(
-                  onPressed: () {},
-                  icon: Icon(Icons.more_horiz, size: style.headerMoreIconSize),
-                ),
-              )
-            else
-              Align(
-                alignment: Alignment.centerRight,
-                child: SizedBox(width: style.headerTrailingPlaceholderWidth),
-              ),
-          ],
+          ),
         ),
       ),
     );
@@ -228,93 +270,106 @@ class ChatComposer extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
     final submitFromKeyboard = !style.showComposerSendButton;
-    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final bottomInset = GenesisSafeAreaInsets.bottom(context);
     return _ChatComposerHeightObserver(
       onHeightChanged: onHeightChanged,
-      child: Container(
-        padding: style.composerPadding.copyWith(
-          bottom: style.composerPadding.bottom + bottomInset,
-        ),
-        color: style.composerBackgroundColor,
-        child: TextFieldTapRegion(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              if (style.showComposerVoiceButton) ...[
-                _ComposerIconButton(
-                  icon: MyFlutterApp.voice,
-                  onPressed: inputEnabled ? () {} : null,
-                  style: style,
-                ),
-                SizedBox(width: style.composerLeadingGap),
-              ],
-              Expanded(
-                child: Container(
-                  constraints: BoxConstraints(
-                    minHeight: style.inputMinHeight,
-                    maxHeight: style.inputMaxHeight,
-                  ),
-                  decoration: BoxDecoration(
-                    color: style.inputBackgroundColor,
-                    borderRadius: BorderRadius.circular(
-                      style.inputBorderRadius,
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: style.composerBackdropBlurSigma,
+            sigmaY: style.composerBackdropBlurSigma,
+          ),
+          child: Container(
+            padding: style.composerPadding.copyWith(
+              bottom: style.composerPadding.bottom + bottomInset,
+            ),
+            decoration: BoxDecoration(
+              color: style.composerBackgroundGradient == null
+                  ? style.composerBackgroundColor
+                  : null,
+              gradient: style.composerBackgroundGradient,
+            ),
+            child: TextFieldTapRegion(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (style.showComposerVoiceButton) ...[
+                    _ComposerIconButton(
+                      icon: MyFlutterApp.voice,
+                      onPressed: inputEnabled ? () {} : null,
+                      style: style,
                     ),
-                  ),
-                  child: TextField(
-                    controller: controller,
-                    enabled: inputEnabled,
-                    minLines: style.inputMinLines,
-                    maxLines: style.inputMaxLines,
-                    keyboardType: submitFromKeyboard
-                        ? TextInputType.text
-                        : TextInputType.multiline,
-                    textInputAction: submitFromKeyboard
-                        ? TextInputAction.send
-                        : TextInputAction.newline,
-                    onTapOutside: (_) =>
-                        FocusManager.instance.primaryFocus?.unfocus(),
-                    onSubmitted: submitFromKeyboard
-                        ? (_) {
-                            if (sendEnabled) unawaited(onSend());
-                          }
-                        : null,
-                    style: style.inputTextStyle,
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: style.inputHorizontalPadding,
-                        vertical: style.inputVerticalPadding,
+                    SizedBox(width: style.composerLeadingGap),
+                  ],
+                  Expanded(
+                    child: Container(
+                      constraints: BoxConstraints(
+                        minHeight: style.inputMinHeight,
+                        maxHeight: style.inputMaxHeight,
+                      ),
+                      decoration: BoxDecoration(
+                        color: style.inputBackgroundColor,
+                        borderRadius: BorderRadius.circular(
+                          style.inputBorderRadius,
+                        ),
+                      ),
+                      child: TextField(
+                        controller: controller,
+                        enabled: inputEnabled,
+                        minLines: style.inputMinLines,
+                        maxLines: style.inputMaxLines,
+                        keyboardType: submitFromKeyboard
+                            ? TextInputType.text
+                            : TextInputType.multiline,
+                        textInputAction: submitFromKeyboard
+                            ? TextInputAction.send
+                            : TextInputAction.newline,
+                        onTapOutside: (_) =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
+                        onSubmitted: submitFromKeyboard
+                            ? (_) {
+                                if (sendEnabled) unawaited(onSend());
+                              }
+                            : null,
+                        style: style.inputTextStyle,
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: style.inputHorizontalPadding,
+                            vertical: style.inputVerticalPadding,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+                  if (style.showComposerStickerButton) ...[
+                    SizedBox(width: style.composerActionGap),
+                    _ComposerIconButton(
+                      icon: MyFlutterApp.sticker,
+                      onPressed: inputEnabled ? () {} : null,
+                      style: style,
+                    ),
+                  ],
+                  if (style.showComposerAddButton) ...[
+                    SizedBox(width: style.composerActionGap),
+                    _ComposerIconButton(
+                      icon: MyFlutterApp.add2,
+                      onPressed: inputEnabled ? () {} : null,
+                      style: style,
+                    ),
+                  ],
+                  if (style.showComposerSendButton) ...[
+                    SizedBox(width: style.composerActionGap),
+                    _ComposerSendButton(
+                      sending: sending,
+                      onPressed: sendEnabled ? onSend : null,
+                      label: sendLabel,
+                      style: style,
+                    ),
+                  ],
+                ],
               ),
-              if (style.showComposerStickerButton) ...[
-                SizedBox(width: style.composerActionGap),
-                _ComposerIconButton(
-                  icon: MyFlutterApp.sticker,
-                  onPressed: inputEnabled ? () {} : null,
-                  style: style,
-                ),
-              ],
-              if (style.showComposerAddButton) ...[
-                SizedBox(width: style.composerActionGap),
-                _ComposerIconButton(
-                  icon: MyFlutterApp.add2,
-                  onPressed: inputEnabled ? () {} : null,
-                  style: style,
-                ),
-              ],
-              if (style.showComposerSendButton) ...[
-                SizedBox(width: style.composerActionGap),
-                _ComposerSendButton(
-                  sending: sending,
-                  onPressed: sendEnabled ? onSend : null,
-                  label: sendLabel,
-                  style: style,
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),

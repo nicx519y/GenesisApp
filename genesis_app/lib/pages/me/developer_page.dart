@@ -44,7 +44,7 @@ class DeveloperPageSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final bottomPadding = GenesisSafeAreaInsets.bottom(context);
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return AnimatedPadding(
       key: const ValueKey<String>('developer-page-sheet-keyboard-padding'),
