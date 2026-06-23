@@ -14,7 +14,7 @@ class ChatroomClient {
     required UserSessionStore sessionStore,
     DeviceIdService? deviceIdService,
     ChatroomSocketTransport? transport,
-    Duration heartbeatInterval = const Duration(seconds: 2),
+    Duration heartbeatInterval = const Duration(seconds: 10),
     Duration ackTimeout = const Duration(seconds: 12),
     bool autoHeartbeat = true,
     RequestHeaderProvider? requestHeaderProvider,
