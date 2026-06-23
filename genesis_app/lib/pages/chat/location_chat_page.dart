@@ -1326,6 +1326,15 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     });
   }
 
+  void _scrollToBottomForComposerInput() {
+    if (!_scrollController.hasClients || _isAtBottom()) return;
+    _scrollController.animateTo(
+      0,
+      duration: _keyboardAnimationDuration,
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   void _keepBottomAfterLayoutIfNeeded() {
     if (!_isAtBottom()) return;
     if (_keepBottomAfterLayoutScheduled) return;
@@ -1622,6 +1631,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   }
 
   void _handleComposerInputTap() {
+    _scrollToBottomForComposerInput();
     _startKeyboardProbeFromTap();
     if (!_composerFocusNode.hasFocus || _keyboardInset > 0) return;
     if (_cachedKeyboardInset >= _minUsableKeyboardInset) {
