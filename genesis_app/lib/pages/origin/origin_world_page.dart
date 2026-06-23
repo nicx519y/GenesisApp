@@ -997,6 +997,7 @@ class _OriginHeader extends StatelessWidget {
             SizedBox(
               width: 38,
               child: GenesisMoreActionMenuButton(
+                buttonSize: 18 * 1.25,
                 items: [
                   GenesisActionMenuItem(
                     label: 'Report',
