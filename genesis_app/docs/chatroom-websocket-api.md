@@ -14,7 +14,7 @@
 | Flutter 默认 WS | `wss://dev.hushie.ai/aitown-chat/ws` |
 | Flutter HTTP 配置 | `GENESIS_CHATROOM_HTTP_URL` |
 
-建联时服务端自动创建 Session；同一用户建立新连接时，服务端会踢掉该用户的旧连接。客户端需要通过心跳维持连接，建议每 2 秒发送一次。所有 WebSocket 消息使用 JSON，字段命名采用 `snake_case`。
+建联时服务端自动创建 Session；同一用户建立新连接时，服务端会踢掉该用户的旧连接。客户端需要通过心跳维持连接，当前 Flutter 默认每 10 秒发送一次。所有 WebSocket 消息使用 JSON，字段命名采用 `snake_case`。
 
 世界级广播使用单一世界通道：
 

@@ -32,7 +32,7 @@ class AppConfig {
       'GENESIS_APP_CHANNEL',
       defaultValue: 'default',
     ),
-    this.chatroomHeartbeatInterval = const Duration(seconds: 2),
+    this.chatroomHeartbeatInterval = const Duration(seconds: 10),
     this.chatroomAckTimeout = const Duration(seconds: 12),
     bool? useMock,
   }) : _useMockOverride = useMock;

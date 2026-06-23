@@ -712,7 +712,7 @@ class GenesisApi {
     if (tickCount > 0) {
       return 'Tick $tickCount';
     }
-    return asString(map['status'], fallback: 'Progress done');
+    return asString(map['status'], fallback: 'Progress complete');
   }
 
   Future<JoinedWorld> joinWorld({
@@ -1214,7 +1214,7 @@ Object? _defaultGenesisProcessor(ApiResponse response) {
   }
 
   throw ApiException(
-    message: 'HTTP error',
+    message: 'Something went wrong',
     statusCode: response.statusCode,
     responseBody: response.body,
     responseHeaders: response.headers,
@@ -1676,6 +1676,10 @@ List<Map<String, dynamic>> _originTicksFromV1(Map<String, dynamic> raw) {
           'status': asInt(tick['status']),
           'created_at': tick['created_at'],
           'tick_result': <String, dynamic>{
+            'current_time': asString(
+              result['current_time'],
+              fallback: asString(tick['current_time']),
+            ),
             'narrator': asString(
               result['narrator'],
               fallback: asString(

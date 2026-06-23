@@ -119,6 +119,8 @@ class ChatUiStyleConfig {
     required this.badgeBubbleGap,
     // 头像和气泡之间的间距。
     required this.avatarBubbleGap,
+    // 气泡远端和列表边缘之间保留的占位宽度。
+    required this.avatarSideSpacerWidth,
     // 发送者名字和气泡之间的垂直间距。
     required this.senderNameBottomGap,
     // 状态文字和气泡之间的垂直间距。
@@ -230,7 +232,7 @@ class ChatUiStyleConfig {
     showComposerSendButton: true, // 是否显示最右侧发送按钮。
     composerSendButtonWidth: 64, // 发送按钮宽度。
     composerSendButtonHeight: 36, // 发送按钮高度。
-    composerSendButtonBorderRadius: 4, // 发送按钮圆角。
+    composerSendButtonBorderRadius: 8, // 发送按钮圆角。
     composerSendButtonColor: GenesisColors.brand, // 发送按钮背景色。
     composerSendButtonDisabledColor: GenesisColors.brandSoft, // 发送按钮禁用背景色。
     composerSendButtonIconColor: Colors.white, // 发送按钮图标颜色。
@@ -246,7 +248,7 @@ class ChatUiStyleConfig {
     inputHorizontalPadding: 14, // 输入框文字左右内边距。
     inputVerticalPadding: 10, // 输入框文字上下内边距。
     inputBackgroundColor: Colors.white, // 输入框背景色。
-    inputBorderRadius: 4, // 输入框圆角。
+    inputBorderRadius: 8, // 输入框圆角。
     inputTextStyle: TextStyle(
       color: Colors.black, // 输入框文字颜色。
       fontSize: 14, // 输入框文字字号。
@@ -266,6 +268,7 @@ class ChatUiStyleConfig {
     otherBubbleMaxWidthFactor: 0.72, // 对方消息气泡最大宽度比例。
     badgeBubbleGap: 8, // loading/失败徽标和气泡之间的间距。
     avatarBubbleGap: 10, // 头像和气泡之间的间距。
+    avatarSideSpacerWidth: 50, // 气泡远端和列表边缘之间保留的占位宽度。
     senderNameBottomGap: 4, // 对方名字和气泡之间的垂直间距。
     statusTextTopGap: 4, // 状态文字和气泡之间的垂直间距。
     statusTextStyle: TextStyle(color: Colors.white70, fontSize: 11), // 状态文字样式。
@@ -276,8 +279,8 @@ class ChatUiStyleConfig {
     ),
     showSenderNameAboveOtherBubble: true, // 是否在对方气泡上方显示发送者名字。
     bubblePadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10), // 气泡内边距。
-    bubbleBorderRadius: 4, // 气泡圆角。
-    selfBubbleColor: Color(0xFF26F24C), // 自己消息气泡颜色。
+    bubbleBorderRadius: 8, // 气泡圆角。
+    selfBubbleColor: Color(0xFF95EC69), // 自己消息气泡颜色。
     otherBubbleColor: Colors.white, // 对方消息气泡颜色。
     bubbleTextStyle: TextStyle(
       color: Colors.black, // 气泡文字颜色。
@@ -315,7 +318,7 @@ class ChatUiStyleConfig {
       horizontal: 12,
       vertical: 6,
     ), // 系统消息内边距。
-    systemMessageBackgroundColor: Color(0x6B000000), // 系统消息背景色。
+    systemMessageBackgroundColor: Color(0xE6111111), // 系统消息背景色。
     systemMessageBorderRadius: 8, // 系统消息圆角。
     systemMessageTextStyle: TextStyle(
       color: Colors.white,
@@ -437,6 +440,8 @@ class ChatUiStyleConfig {
   final double badgeBubbleGap;
   // 头像和气泡之间的间距。
   final double avatarBubbleGap;
+  // 气泡远端和列表边缘之间保留的占位宽度。
+  final double avatarSideSpacerWidth;
   // 发送者名字和气泡之间的垂直间距。
   final double senderNameBottomGap;
   // 状态文字和气泡之间的垂直间距。
@@ -519,6 +524,8 @@ class ChatUiStyleConfig {
     double? headerStatusIconSize,
     double? headerSubtitleTopGap,
     EdgeInsets? messageListPadding,
+    double? avatarSideSpacerWidth,
+    EdgeInsets? systemMessageMargin,
     bool? showComposerSendButton,
   }) {
     return ChatUiStyleConfig(
@@ -592,6 +599,8 @@ class ChatUiStyleConfig {
       otherBubbleMaxWidthFactor: otherBubbleMaxWidthFactor,
       badgeBubbleGap: badgeBubbleGap,
       avatarBubbleGap: avatarBubbleGap,
+      avatarSideSpacerWidth:
+          avatarSideSpacerWidth ?? this.avatarSideSpacerWidth,
       senderNameBottomGap: senderNameBottomGap,
       statusTextTopGap: statusTextTopGap,
       statusTextStyle: statusTextStyle,
@@ -619,7 +628,7 @@ class ChatUiStyleConfig {
       failedBadgeIconSize: failedBadgeIconSize,
       dateDividerBottomPadding: dateDividerBottomPadding,
       dateDividerTextStyle: dateDividerTextStyle,
-      systemMessageMargin: systemMessageMargin,
+      systemMessageMargin: systemMessageMargin ?? this.systemMessageMargin,
       systemMessagePadding: systemMessagePadding,
       systemMessageBackgroundColor: systemMessageBackgroundColor,
       systemMessageBorderRadius: systemMessageBorderRadius,

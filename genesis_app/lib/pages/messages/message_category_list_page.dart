@@ -237,7 +237,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   ) async {
     final applyId = item.applyId.trim();
     if (applyId.isEmpty) {
-      showGenesisToast(context, 'Missing join request id');
+      showGenesisToast(context, 'Missing join request ID');
       return;
     }
 

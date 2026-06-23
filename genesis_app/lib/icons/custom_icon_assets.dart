@@ -10,6 +10,8 @@ const String tickStatIconAsset = 'assets/custom-icons/svg/tick_icon.svg';
 const String connectStatIconAsset = 'assets/custom-icons/svg/connect_icon.svg';
 const String characterStatIconAsset =
     'assets/custom-icons/svg/ai_char_icon.svg';
+const String locationChatCharacterIconAsset =
+    'assets/custom-icons/svg/location_chat_ai_char_icon.svg';
 const String userStatIconAsset = 'assets/custom-icons/svg/user_icon.svg';
 const String createOriginBasicsIconAsset =
     'assets/custom-icons/svg/create_origin_basics.svg';

@@ -54,9 +54,9 @@ class OriginPendingSubmissionCoordinator {
       savePending: OriginPendingSubmissionStore.saveCreating,
       clearPending: OriginPendingSubmissionStore.clearCreating,
       clearDraft: CreateOriginDraftStore.clear,
-      timeoutMessage: 'Worldo creation timed out. Please try again.',
+      timeoutMessage: 'Worldo creation timed out.',
       successTitle: (originName) =>
-          'Worldo $originName has been created successfully. Go to it?',
+          'Worldo $originName has been created successfully. ',
       notifyOutcome: _notifyCreateOutcome,
     );
     _publishPoller = _OriginPendingSubmissionPoller(
@@ -65,9 +65,9 @@ class OriginPendingSubmissionCoordinator {
       loadPending: OriginPendingSubmissionStore.loadPublishing,
       savePending: OriginPendingSubmissionStore.savePublishing,
       clearPending: OriginPendingSubmissionStore.clearPublishing,
-      timeoutMessage: 'Worldo publishing timed out. Please try again.',
+      timeoutMessage: 'Worldo publishing timed out',
       successTitle: (originName) =>
-          'Worldo $originName has been published successfully. Go to it?',
+          'Worldo $originName has been published successfully.',
       notifyOutcome: _notifyPublishOutcome,
     );
   }

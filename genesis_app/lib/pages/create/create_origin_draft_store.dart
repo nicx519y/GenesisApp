@@ -274,7 +274,7 @@ class CreateOriginDraft {
     }
 
     if (characters.where(_characterHasContent).isEmpty) {
-      errors.add('Characters: Please add at least one character.');
+      errors.add('Characters: Please create at least one character.');
     }
 
     if (basics.originName.trim().isEmpty) {

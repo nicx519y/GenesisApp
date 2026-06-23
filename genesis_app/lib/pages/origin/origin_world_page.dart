@@ -23,6 +23,7 @@ import '../../components/world_top_overlay_bar.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
+import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/location_tree.dart';
@@ -154,6 +155,15 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         ? point.sceneId.trim()
         : pointId;
     if (locationId.isEmpty) return;
+    final openingPreviewMessages = _originLocationOpeningPreviewMessages(
+      origin,
+      [locationId, pointId, point.id],
+    );
+    final openingPreviewEntities = _originLocationOpeningPreviewEntities(
+      origin.characters,
+      openingPreviewMessages,
+      locationId,
+    );
 
     setState(() {
       _activeChatLocation = _OriginLocationChatDescriptor(
@@ -165,6 +175,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             : point.mapImageUrl,
         backgroundPreviewImageUrl: '',
         isLeafLocation: point.isLeafLocation,
+        openingPreviewMessages: openingPreviewMessages,
+        openingPreviewEntities: openingPreviewEntities,
       );
     });
   }
@@ -200,11 +212,12 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         locationName: descriptor.locationName,
         backgroundImageUrl: descriptor.backgroundImageUrl,
         backgroundPreviewImageUrl: descriptor.backgroundPreviewImageUrl,
+        openingPreviewMessages: descriptor.openingPreviewMessages,
+        openingPreviewEntities: descriptor.openingPreviewEntities,
         isLeafLocation: descriptor.isLeafLocation,
         active: false,
         leaveOnInactive: false,
         onBack: _closeLocationChat,
-        showConnectionStatus: false,
         composerReplacement: _OriginLocationChatLaunchBar(
           launching: _launching,
           onLaunch: () => _showLaunchRoleSheet(origin),
@@ -547,6 +560,8 @@ class _OriginLocationChatDescriptor {
     required this.backgroundImageUrl,
     required this.backgroundPreviewImageUrl,
     required this.isLeafLocation,
+    required this.openingPreviewMessages,
+    required this.openingPreviewEntities,
   });
 
   final String originId;
@@ -555,6 +570,8 @@ class _OriginLocationChatDescriptor {
   final String backgroundImageUrl;
   final String backgroundPreviewImageUrl;
   final bool isLeafLocation;
+  final List<WorldChatroomMessage> openingPreviewMessages;
+  final List<WorldChatroomEntity> openingPreviewEntities;
 }
 
 class _OriginLocationChatLaunchBar extends StatelessWidget {
@@ -2040,6 +2057,190 @@ Map<String, dynamic>? _originPreviewTick(OriginDetail origin) {
       'paragraphs': paragraphs,
     },
   };
+}
+
+List<WorldChatroomMessage> _originLocationOpeningPreviewMessages(
+  OriginDetail origin,
+  Iterable<String> locationIds,
+) {
+  return originLocationOpeningPreviewMessagesForTesting(
+    origin.ticks,
+    locationIds,
+  );
+}
+
+@visibleForTesting
+List<WorldChatroomMessage> originLocationOpeningPreviewMessagesForTesting(
+  List<Map<String, dynamic>> ticks,
+  Iterable<String> locationIds,
+) {
+  final locationIdSet = locationIds
+      .map((id) => id.trim())
+      .where((id) => id.isNotEmpty)
+      .toSet();
+  if (locationIdSet.isEmpty) return const <WorldChatroomMessage>[];
+
+  final orderedTicks = ticks.toList(growable: false);
+  orderedTicks.sort((left, right) {
+    final leftTickNo = _mapInt(left, const ['tick_no']);
+    final rightTickNo = _mapInt(right, const ['tick_no']);
+    if (leftTickNo == 1 && rightTickNo != 1) return -1;
+    if (rightTickNo == 1 && leftTickNo != 1) return 1;
+    if (leftTickNo != 0 && rightTickNo != 0 && leftTickNo != rightTickNo) {
+      return leftTickNo.compareTo(rightTickNo);
+    }
+    return 0;
+  });
+
+  for (final tick in orderedTicks) {
+    final tickNo = _mapInt(tick, const ['tick_no']);
+    final createdAt = asDateTime(tick['created_at']);
+    final result = tick['tick_result'] is Map
+        ? (tick['tick_result'] as Map).cast<String, dynamic>()
+        : tick;
+    final resultCurrentTime = _mapString(result, const [
+      'current_time',
+      'time',
+    ]);
+    final currentTime = resultCurrentTime.isNotEmpty
+        ? resultCurrentTime
+        : _mapString(tick, const ['current_time', 'time']);
+    final groupsRaw = result['location_groups'] ?? tick['location_groups'];
+    if (groupsRaw is! List) continue;
+    for (final rawGroup in groupsRaw.whereType<Map>()) {
+      final group = rawGroup.cast<String, dynamic>();
+      final groupLocationId = _mapString(group, const [
+        'location_id',
+        'loc_id',
+        'id',
+      ]);
+      if (!locationIdSet.contains(groupLocationId)) continue;
+      final dialogueRaw =
+          group['initial_dialogue'] ??
+          group['initialDialogue'] ??
+          group['dialogue'];
+      if (dialogueRaw is! List) continue;
+      final messages = <WorldChatroomMessage>[];
+      if (tickNo > 0 || currentTime.isNotEmpty) {
+        messages.add(
+          WorldChatroomMessage(
+            messageId: 0,
+            conversationRoundId:
+                'opening-preview-tick-${tickNo == 0 ? 1 : tickNo}',
+            roundOrder: 0,
+            tickNo: tickNo == 0 ? 1 : tickNo,
+            locationId: groupLocationId,
+            senderType: 'tick',
+            senderId: 'tick',
+            senderName: 'Time',
+            content: currentTime,
+            createdAt: createdAt,
+          ),
+        );
+      }
+      messages.addAll(
+        dialogueRaw
+            .whereType<Map>()
+            .indexed
+            .map((entry) {
+              final index = entry.$1;
+              final line = entry.$2.cast<String, dynamic>();
+              final content = _mapString(line, const ['content', 'text']);
+              if (content.isEmpty) return null;
+              final charId = _mapString(line, const [
+                'char_id',
+                'character_id',
+                'sender_id',
+              ]);
+              final charName = _mapString(line, const [
+                'char_name',
+                'name',
+                'sender_name',
+              ]);
+              final senderId = charId.isEmpty
+                  ? 'opening-preview-$index'
+                  : charId;
+              final senderName = charName.isEmpty ? senderId : charName;
+              final isNarrator =
+                  charId.trim().toLowerCase() == 'nar' &&
+                  charName.trim().toLowerCase() == 'narrator';
+              return WorldChatroomMessage(
+                messageId: 0,
+                conversationRoundId: 'opening-preview-$index',
+                roundOrder: index,
+                tickNo: tickNo == 0 ? 1 : tickNo,
+                locationId: groupLocationId,
+                senderType: isNarrator ? 'narrator' : 'character',
+                senderId: senderId,
+                senderName: senderName,
+                content: content,
+                createdAt:
+                    createdAt ?? DateTime.fromMillisecondsSinceEpoch(index),
+              );
+            })
+            .whereType<WorldChatroomMessage>()
+            .toList(growable: false),
+      );
+      return messages;
+    }
+  }
+  return const <WorldChatroomMessage>[];
+}
+
+List<WorldChatroomEntity> _originLocationOpeningPreviewEntities(
+  List<OriginCharacter> characters,
+  List<WorldChatroomMessage> messages,
+  String locationId,
+) {
+  return originLocationOpeningPreviewEntitiesForTesting(
+    characters,
+    messages,
+    locationId,
+  );
+}
+
+@visibleForTesting
+List<WorldChatroomEntity> originLocationOpeningPreviewEntitiesForTesting(
+  List<OriginCharacter> characters,
+  List<WorldChatroomMessage> messages,
+  String locationId,
+) {
+  final charactersByKey = <String, OriginCharacter>{};
+  for (final character in characters) {
+    void addKey(String value) {
+      final key = value.trim().toLowerCase();
+      if (key.isEmpty) return;
+      charactersByKey.putIfAbsent(key, () => character);
+    }
+
+    addKey(character.characterId);
+    if (character.id > 0) addKey('${character.id}');
+    addKey(character.name);
+  }
+
+  final entities = <WorldChatroomEntity>[];
+  final seen = <String>{};
+  for (final message in messages) {
+    final senderId = message.senderId.trim();
+    if (senderId.isEmpty || !seen.add(senderId.toLowerCase())) continue;
+    final character =
+        charactersByKey[senderId.toLowerCase()] ??
+        charactersByKey[message.senderName.trim().toLowerCase()];
+    if (character == null) continue;
+    entities.add(
+      WorldChatroomEntity(
+        id: senderId,
+        name: message.senderName.trim().isNotEmpty
+            ? message.senderName.trim()
+            : character.name,
+        avatarUrl: _resolveAssetUrl(character.avatar),
+        type: WorldChatroomEntityType.character,
+        locationId: locationId,
+        isAi: true,
+      ),
+    );
+  }
+  return entities;
 }
 
 Map<String, dynamic>? _originTick1(OriginDetail origin) {

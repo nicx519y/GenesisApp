@@ -278,7 +278,7 @@ class WorldChatroomService {
       joinCompleter.completeError(
         const ChatroomFailureEvent(
           code: 'join_cancelled',
-          message: 'Join was cancelled',
+          message: 'Something went wrong',
           sourceType: 'leave',
           requestType: 'join',
         ),
@@ -294,7 +294,7 @@ class WorldChatroomService {
           ? e
           : ChatroomFailureEvent(
               code: 'leave_failed',
-              message: 'Failed to leave chatroom',
+              message: 'Something went wrong',
               sourceType: 'leave',
               requestType: 'leave',
               cause: e,
@@ -437,7 +437,7 @@ class WorldChatroomService {
           ? e
           : ChatroomFailureEvent(
               code: 'connect_failed',
-              message: 'Failed to connect chatroom',
+              message: 'Failed to connect to chatroom',
               sourceType: 'connect',
               requestType: 'connect',
               cause: e,
@@ -461,7 +461,7 @@ class WorldChatroomService {
       _recordFailure(
         ChatroomFailureEvent(
           code: 'snapshot_failed',
-          message: 'Failed to refresh chatroom snapshot',
+          message: 'Something went wrong',
           sourceType: 'snapshot',
           cause: e,
         ),
@@ -484,7 +484,7 @@ class WorldChatroomService {
           ? e
           : ChatroomFailureEvent(
               code: 'join_failed',
-              message: 'Failed to join location',
+              message: 'Something went wrong',
               sourceType: 'join',
               requestType: 'join',
               cause: e,
@@ -549,7 +549,7 @@ class WorldChatroomService {
       _recordFailure(
         ChatroomFailureEvent(
           code: 'event_handle_failed',
-          message: 'Failed to handle chatroom event',
+          message: 'Something went wrong',
           sourceType: chatroomEventType(event),
           cause: error,
         ),
@@ -982,7 +982,7 @@ class WorldChatroomService {
       _recordFailure(
         ChatroomFailureEvent(
           code: 'message_cache_load_failed',
-          message: 'Failed to load cached chatroom messages',
+          message: 'Something went wrong',
           sourceType: 'message_cache',
           cause: e,
         ),
@@ -1085,7 +1085,7 @@ class WorldChatroomService {
       _recordFailure(
         ChatroomFailureEvent(
           code: 'message_history_load_failed',
-          message: 'Failed to load chatroom history',
+          message: 'Something went wrong',
           sourceType: 'message_history',
           requestType: 'get_messages',
           cause: e,
@@ -1258,7 +1258,7 @@ class WorldChatroomService {
             _recordFailure(
               ChatroomFailureEvent(
                 code: 'message_cache_failed',
-                message: 'Failed to cache chatroom message',
+                message: 'Something went wrong',
                 sourceType: 'message_cache',
                 cause: error,
               ),

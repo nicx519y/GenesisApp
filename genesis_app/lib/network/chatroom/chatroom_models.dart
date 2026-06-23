@@ -205,7 +205,7 @@ class ChatroomFailureEvent extends ChatroomEvent implements Exception {
     return ChatroomFailureEvent(
       code: event.code.toString(),
       message: event.codeMsg.isEmpty
-          ? 'Chatroom request failed'
+          ? 'Something went wrong'
           : event.codeMsg,
       sourceType: sourceType.isEmpty ? chatroomEventType(event) : sourceType,
       requestType: requestType,

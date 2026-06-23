@@ -14,7 +14,7 @@ class ChatroomClient {
     required UserSessionStore sessionStore,
     DeviceIdService? deviceIdService,
     ChatroomSocketTransport? transport,
-    Duration heartbeatInterval = const Duration(seconds: 2),
+    Duration heartbeatInterval = const Duration(seconds: 10),
     Duration ackTimeout = const Duration(seconds: 12),
     bool autoHeartbeat = true,
     RequestHeaderProvider? requestHeaderProvider,
@@ -265,7 +265,7 @@ class ChatroomSession {
       }
       final failure = ChatroomFailureEvent(
         code: 'join_send_failed',
-        message: 'Failed to send join message',
+        message: 'Something went wrong',
         sourceType: 'join',
         requestType: 'join',
         cause: e,
@@ -285,7 +285,7 @@ class ChatroomSession {
       }
       final failure = ChatroomFailureEvent(
         code: 'heartbeat_failed',
-        message: 'Failed to send heartbeat message',
+        message: 'Something went wrong',
         sourceType: 'heartbeat',
         requestType: 'heartbeat',
         cause: e,
@@ -401,7 +401,7 @@ class ChatroomSession {
     } catch (e) {
       final failure = ChatroomFailureEvent(
         code: 'leave_failed',
-        message: 'Failed to send leave message',
+        message: 'Something went wrong',
         sourceType: 'leave',
         requestType: 'leave',
         cause: e,
@@ -415,7 +415,7 @@ class ChatroomSession {
     if (_closed) return;
     final reason = ChatroomFailureEvent(
       code: 'closed',
-      message: 'Chatroom session closed',
+      message: 'Something went wrong',
       sourceType: 'disconnect',
       requestType: 'disconnect',
     );
@@ -444,7 +444,7 @@ class ChatroomSession {
       _emitFailure(
         ChatroomFailureEvent(
           code: 'protocol_error',
-          message: 'Failed to parse chatroom message',
+          message: 'Something went wrong',
           sourceType: 'protocol_error',
           cause: e,
         ),
@@ -526,7 +526,7 @@ class ChatroomSession {
   void _handleSocketError(Object error) {
     final event = ChatroomErrorEvent(
       code: 'socket_error',
-      message: 'Chatroom socket error',
+      message: 'Something went wrong',
       cause: error,
     );
     _emitError(event);
@@ -541,7 +541,7 @@ class ChatroomSession {
   void _handleSocketDone() {
     final reason = ChatroomFailureEvent(
       code: 'socket_closed',
-      message: 'Chatroom socket closed',
+      message: 'Something went wrong',
       sourceType: 'socket_closed',
     );
     _emitFailure(reason);

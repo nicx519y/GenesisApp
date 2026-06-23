@@ -225,11 +225,11 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
 
   String get _launchValidationMessage {
     if (_tabIndex == 0) return 'Please select a preset role';
-    if (_customForm.name.text.trim().isEmpty) return 'Please enter name';
+    if (_customForm.name.text.trim().isEmpty) return 'Please enter a name';
     if (_customForm.identity.text.trim().isEmpty) {
-      return 'Please enter identity';
+      return 'Please enter an identity';
     }
-    return 'Please wait for profile fill';
+    return 'Please wait for the profile to finish loading.';
   }
 
   void _dismiss() {

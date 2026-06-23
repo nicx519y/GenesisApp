@@ -3,8 +3,10 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../components/common/genesis_timestamp_text.dart';
+import '../../../icons/custom_icon_assets.dart';
 import '../../../icons/my_flutter_app_icons.dart';
 import '../../../ui/components/genesis_avatar.dart';
 import '../../../ui/components/genesis_safe_area.dart';
@@ -38,19 +40,29 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
   composerBackdropBlurSigma: 20,
 );
 
-final ChatUiStyleConfig kLocationChatStyle = ChatUiStyleConfig.standard
-    .copyWith(
-      headerTitleTextStyle: ChatUiStyleConfig.standard.headerTitleTextStyle
-          .copyWith(color: Colors.white),
-      headerSubtitleTextStyle: ChatUiStyleConfig
-          .standard
-          .headerSubtitleTextStyle
-          .copyWith(color: Colors.white),
-      headerTitleIconColor: Colors.white,
-      headerStatusIconColor: Colors.white,
-      headerBackdropBlurSigma: 20,
-      composerBackdropBlurSigma: 20,
-    );
+const double _locationChatOuterPadding = 10;
+const double _locationChatAvatarOneThird = 40 / 3;
+
+ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
+  headerTitleTextStyle: ChatUiStyleConfig.standard.headerTitleTextStyle
+      .copyWith(color: Colors.white),
+  headerSubtitleTextStyle: ChatUiStyleConfig.standard.headerSubtitleTextStyle
+      .copyWith(color: Colors.white),
+  headerTitleIconColor: Colors.white,
+  headerStatusIconColor: Colors.white,
+  headerBackdropBlurSigma: 20,
+  composerBackdropBlurSigma: 20,
+  messageListPadding: ChatUiStyleConfig.standard.messageListPadding.copyWith(
+    left: _locationChatOuterPadding,
+    right: _locationChatOuterPadding,
+  ),
+  avatarSideSpacerWidth: _locationChatAvatarOneThird,
+  systemMessageMargin: EdgeInsets.only(
+    left: _locationChatAvatarOneThird,
+    right: _locationChatAvatarOneThird,
+    bottom: 18,
+  ),
+);
 
 class ChatMessageVm {
   ChatMessageVm({
@@ -121,6 +133,7 @@ class ChatHeader extends StatelessWidget {
     this.showTitleIcon = true,
     this.showSubtitle = true,
     this.showMoreButton = true,
+    this.subtitleIconAsset,
     this.style,
   });
 
@@ -132,6 +145,7 @@ class ChatHeader extends StatelessWidget {
   final bool showTitleIcon;
   final bool showSubtitle;
   final bool showMoreButton;
+  final String? subtitleIconAsset;
   final ChatUiStyleConfig? style;
 
   @override
@@ -182,7 +196,7 @@ class ChatHeader extends StatelessWidget {
                           children: [
                             if (showTitleIcon) ...[
                               Icon(
-                                Icons.location_on,
+                                Icons.place_outlined,
                                 size: style.headerTitleIconSize,
                                 color: style.headerTitleIconColor,
                               ),
@@ -206,15 +220,22 @@ class ChatHeader extends StatelessWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                connected
-                                    ? Icons.groups_2
-                                    : connecting
-                                    ? Icons.sync
-                                    : Icons.cloud_off,
-                                size: style.headerStatusIconSize,
-                                color: style.headerStatusIconColor,
-                              ),
+                              if (subtitleIconAsset != null)
+                                _ChatHeaderSubtitleAssetIcon(
+                                  asset: subtitleIconAsset!,
+                                  style: style,
+                                )
+                              else if (connected)
+                                _ChatHeaderSubtitleAssetIcon(
+                                  asset: characterStatIconAsset,
+                                  style: style,
+                                )
+                              else
+                                Icon(
+                                  connecting ? Icons.sync : Icons.cloud_off,
+                                  size: style.headerStatusIconSize,
+                                  color: style.headerStatusIconColor,
+                                ),
                               SizedBox(width: style.headerStatusIconGap),
                               Flexible(
                                 child: Text(
@@ -260,23 +281,65 @@ class ChatHeader extends StatelessWidget {
   }
 }
 
-class ChatComposerFrame extends StatelessWidget {
-  const ChatComposerFrame({
-    super.key,
-    required this.child,
-    this.onHeightChanged,
-    this.style,
-    this.bottomSafeAreaInset,
+class _ChatHeaderSubtitleAssetIcon extends StatelessWidget {
+  const _ChatHeaderSubtitleAssetIcon({
+    required this.asset,
+    required this.style,
   });
 
-  final Widget child;
+  final String asset;
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(
+      offset: Offset(
+        0,
+        customCharacterIconVerticalOffset(style.headerStatusIconSize),
+      ),
+      child: SvgPicture.asset(
+        asset,
+        width: customCharacterIconRenderSize(style.headerStatusIconSize),
+        height: customCharacterIconRenderSize(style.headerStatusIconSize),
+        fit: BoxFit.contain,
+        excludeFromSemantics: true,
+      ),
+    );
+  }
+}
+
+class ChatComposer extends StatelessWidget {
+  const ChatComposer({
+    super.key,
+    required this.controller,
+    required this.inputEnabled,
+    required this.sendEnabled,
+    required this.sending,
+    required this.onSend,
+    this.onHeightChanged,
+    this.sendLabel,
+    this.style,
+    this.bottomSafeAreaInset,
+    this.focusNode,
+    this.onInputTap,
+  });
+
+  final TextEditingController controller;
+  final bool inputEnabled;
+  final bool sendEnabled;
+  final bool sending;
+  final Future<void> Function() onSend;
   final ValueChanged<double>? onHeightChanged;
+  final String? sendLabel;
   final ChatUiStyleConfig? style;
   final double? bottomSafeAreaInset;
+  final FocusNode? focusNode;
+  final VoidCallback? onInputTap;
 
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
+    final submitFromKeyboard = !style.showComposerSendButton;
     final bottomInset =
         bottomSafeAreaInset ?? GenesisSafeAreaInsets.bottom(context);
     return _ChatComposerHeightObserver(
@@ -297,125 +360,91 @@ class ChatComposerFrame extends StatelessWidget {
                   : null,
               gradient: style.composerBackgroundGradient,
             ),
-            child: TextFieldTapRegion(child: child),
+            child: TextFieldTapRegion(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (style.showComposerVoiceButton) ...[
+                    _ComposerIconButton(
+                      icon: MyFlutterApp.voice,
+                      onPressed: inputEnabled ? () {} : null,
+                      style: style,
+                    ),
+                    SizedBox(width: style.composerLeadingGap),
+                  ],
+                  Expanded(
+                    child: Container(
+                      constraints: BoxConstraints(
+                        minHeight: style.inputMinHeight,
+                        maxHeight: style.inputMaxHeight,
+                      ),
+                      decoration: BoxDecoration(
+                        color: style.inputBackgroundColor,
+                        borderRadius: BorderRadius.circular(
+                          style.systemMessageBorderRadius,
+                        ),
+                      ),
+                      child: TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        enabled: inputEnabled,
+                        minLines: style.inputMinLines,
+                        maxLines: style.inputMaxLines,
+                        keyboardType: submitFromKeyboard
+                            ? TextInputType.text
+                            : TextInputType.multiline,
+                        textInputAction: submitFromKeyboard
+                            ? TextInputAction.send
+                            : TextInputAction.newline,
+                        onTapOutside: (_) =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
+                        onTap: onInputTap,
+                        onSubmitted: submitFromKeyboard
+                            ? (_) {
+                                if (sendEnabled) unawaited(onSend());
+                              }
+                            : null,
+                        style: style.inputTextStyle,
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: style.inputHorizontalPadding,
+                            vertical: style.inputVerticalPadding,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (style.showComposerStickerButton) ...[
+                    SizedBox(width: style.composerActionGap),
+                    _ComposerIconButton(
+                      icon: MyFlutterApp.sticker,
+                      onPressed: inputEnabled ? () {} : null,
+                      style: style,
+                    ),
+                  ],
+                  if (style.showComposerAddButton) ...[
+                    SizedBox(width: style.composerActionGap),
+                    _ComposerIconButton(
+                      icon: MyFlutterApp.add2,
+                      onPressed: inputEnabled ? () {} : null,
+                      style: style,
+                    ),
+                  ],
+                  if (style.showComposerSendButton) ...[
+                    SizedBox(width: style.composerActionGap),
+                    _ComposerSendButton(
+                      sending: sending,
+                      onPressed: sendEnabled ? onSend : null,
+                      label: sendLabel,
+                      style: style,
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class ChatComposer extends StatelessWidget {
-  const ChatComposer({
-    super.key,
-    required this.controller,
-    required this.inputEnabled,
-    required this.sendEnabled,
-    required this.sending,
-    required this.onSend,
-    this.onHeightChanged,
-    this.sendLabel,
-    this.style,
-    this.bottomSafeAreaInset,
-    this.focusNode,
-  });
-
-  final TextEditingController controller;
-  final bool inputEnabled;
-  final bool sendEnabled;
-  final bool sending;
-  final Future<void> Function() onSend;
-  final ValueChanged<double>? onHeightChanged;
-  final String? sendLabel;
-  final ChatUiStyleConfig? style;
-  final double? bottomSafeAreaInset;
-  final FocusNode? focusNode;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
-    final submitFromKeyboard = !style.showComposerSendButton;
-    return ChatComposerFrame(
-      style: style,
-      bottomSafeAreaInset: bottomSafeAreaInset,
-      onHeightChanged: onHeightChanged,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          if (style.showComposerVoiceButton) ...[
-            _ComposerIconButton(
-              icon: MyFlutterApp.voice,
-              onPressed: inputEnabled ? () {} : null,
-              style: style,
-            ),
-            SizedBox(width: style.composerLeadingGap),
-          ],
-          Expanded(
-            child: Container(
-              constraints: BoxConstraints(
-                minHeight: style.inputMinHeight,
-                maxHeight: style.inputMaxHeight,
-              ),
-              decoration: BoxDecoration(
-                color: style.inputBackgroundColor,
-                borderRadius: BorderRadius.circular(style.inputBorderRadius),
-              ),
-              child: TextField(
-                controller: controller,
-                focusNode: focusNode,
-                enabled: inputEnabled,
-                minLines: style.inputMinLines,
-                maxLines: style.inputMaxLines,
-                keyboardType: submitFromKeyboard
-                    ? TextInputType.text
-                    : TextInputType.multiline,
-                textInputAction: submitFromKeyboard
-                    ? TextInputAction.send
-                    : TextInputAction.newline,
-                onTapOutside: (_) =>
-                    FocusManager.instance.primaryFocus?.unfocus(),
-                onSubmitted: submitFromKeyboard
-                    ? (_) {
-                        if (sendEnabled) unawaited(onSend());
-                      }
-                    : null,
-                style: style.inputTextStyle,
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: style.inputHorizontalPadding,
-                    vertical: style.inputVerticalPadding,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          if (style.showComposerStickerButton) ...[
-            SizedBox(width: style.composerActionGap),
-            _ComposerIconButton(
-              icon: MyFlutterApp.sticker,
-              onPressed: inputEnabled ? () {} : null,
-              style: style,
-            ),
-          ],
-          if (style.showComposerAddButton) ...[
-            SizedBox(width: style.composerActionGap),
-            _ComposerIconButton(
-              icon: MyFlutterApp.add2,
-              onPressed: inputEnabled ? () {} : null,
-              style: style,
-            ),
-          ],
-          if (style.showComposerSendButton) ...[
-            SizedBox(width: style.composerActionGap),
-            _ComposerSendButton(
-              sending: sending,
-              onPressed: sendEnabled ? onSend : null,
-              label: sendLabel,
-              style: style,
-            ),
-          ],
-        ],
       ),
     );
   }
@@ -529,9 +558,7 @@ class _ComposerSendButton extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(
-            style.composerSendButtonBorderRadius,
-          ),
+          borderRadius: BorderRadius.circular(style.systemMessageBorderRadius),
         ),
         child: TextButton(
           style: TextButton.styleFrom(
@@ -548,7 +575,7 @@ class _ComposerSendButton extends StatelessWidget {
             foregroundColor: style.composerSendButtonIconColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(
-                style.composerSendButtonBorderRadius,
+                style.systemMessageBorderRadius,
               ),
             ),
           ),
@@ -592,6 +619,7 @@ class ChatMessageList extends StatelessWidget {
     required this.messages,
     required this.topTitle,
     this.onMessageLongPressStart,
+    this.showDateDividers = true,
     this.style,
   });
 
@@ -599,6 +627,7 @@ class ChatMessageList extends StatelessWidget {
   final List<ChatMessageVm> messages;
   final String topTitle;
   final ChatMessageLongPressStart? onMessageLongPressStart;
+  final bool showDateDividers;
   final ChatUiStyleConfig? style;
 
   @override
@@ -622,10 +651,9 @@ class ChatMessageList extends StatelessWidget {
           message: current,
           style: style,
           onMessageLongPressStart: onMessageLongPressStart,
-          showDateDivider: shouldShowChatDateDivider(
-            previous?.createdAt,
-            current.createdAt,
-          ),
+          showDateDivider:
+              showDateDividers &&
+              shouldShowChatDateDivider(previous?.createdAt, current.createdAt),
         );
       },
     );
@@ -677,7 +705,7 @@ class ChatMessageRow extends StatelessWidget {
     if (message.isSystem) {
       return ChatSystemMessage(
         text: message.isTick ? _tickAdvanceText(message) : message.text,
-        fullWidth: message.isTick,
+        fullWidth: message.isTick || message.isNarrator,
         singleLine: message.isTick,
         textAlign: message.isTick || message.isNarrator
             ? TextAlign.left
@@ -837,8 +865,11 @@ double _normalBubbleMaxWidth(BuildContext context, ChatUiStyleConfig style) {
 }
 
 double _normalBubbleMaxWidthForWidth(double width, ChatUiStyleConfig style) {
-  final sideReservation = style.avatarSize + style.avatarBubbleGap;
-  final rowAvailableWidth = width - sideReservation * 2;
+  final rowAvailableWidth =
+      width -
+      style.avatarSize -
+      style.avatarBubbleGap -
+      style.avatarSideSpacerWidth;
   return rowAvailableWidth > 0 ? rowAvailableWidth : width;
 }
 
@@ -849,7 +880,7 @@ class _ChatAvatarSideSpacer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(width: style.avatarSize + style.avatarBubbleGap);
+    return SizedBox(width: style.avatarSideSpacerWidth);
   }
 }
 
@@ -880,7 +911,7 @@ class ChatMessageBubble extends StatelessWidget {
         padding: style.bubblePadding,
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(style.bubbleBorderRadius),
+          borderRadius: BorderRadius.circular(style.systemMessageBorderRadius),
         ),
         child: _InlineMarkdownText(
           text: text.isEmpty ? '...' : text,
@@ -925,15 +956,18 @@ class ChatAvatar extends StatelessWidget {
               ),
             ),
           ),
-          Positioned.fill(
-            child: GenesisAvatar(
-              name: seed == null || seed.isEmpty ? label : seed,
-              url: imageUrl,
-              size: style.avatarSize,
-              borderRadius: style.avatarBorderRadius,
-              textStyle: style.avatarTextStyle,
+          if (imageUrl.isNotEmpty)
+            Positioned.fill(
+              child: GenesisAvatar(
+                name: seed == null || seed.isEmpty ? label : seed,
+                url: imageUrl,
+                size: style.avatarSize,
+                borderRadius: style.avatarBorderRadius,
+                textStyle: style.avatarTextStyle,
+                showFallbackWhileLoading: false,
+                showFallbackWhenUnavailable: false,
+              ),
             ),
-          ),
           Positioned.fill(
             child: IgnorePointer(
               child: DecoratedBox(
@@ -1146,15 +1180,17 @@ List<InlineSpan> _inlineMarkdownSpans(String text, TextStyle baseStyle) {
       index += 2;
       continue;
     }
-    if ((marker == '*' || marker == '_') &&
-        !_isRepeatedMarker(text, index, marker)) {
+    if (marker == '*' && !_isRepeatedMarker(text, index, marker)) {
       final end = _findInlineItalicEnd(text, index + 1, marker);
       if (end != -1 && end > index + 1) {
         flushPlain();
         spans.add(
           TextSpan(
             text: text.substring(index + 1, end),
-            style: baseStyle.copyWith(fontStyle: FontStyle.italic),
+            style: baseStyle.copyWith(
+              color: const Color(0xFF888888),
+              fontStyle: FontStyle.italic,
+            ),
           ),
         );
         index = end + 1;
