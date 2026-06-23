@@ -1073,7 +1073,7 @@ class _WorldViewSection extends StatelessWidget {
         const _SectionTitle(
           icon: MyFlutterApp.eye,
           iconColor: Color(0xFFFF2344),
-          title: 'World View',
+          title: 'Worldo Brief',
         ),
         // World view inner spacing: section title -> body text.
         const SizedBox(height: 8),

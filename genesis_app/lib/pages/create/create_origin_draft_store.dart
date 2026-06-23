@@ -281,7 +281,7 @@ class CreateOriginDraft {
       errors.add('Basics: Worldo Name is required.');
     }
     if (basics.worldView.trim().isEmpty) {
-      errors.add('Basics: World View is required.');
+      errors.add('Basics: Worldo Brief is required.');
     }
     if (basics.coverImageUrl.trim().isEmpty) {
       errors.add('Basics: Cover Image is required.');

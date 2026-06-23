@@ -37,7 +37,7 @@ import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 - Create 入口页的分组标题使用 `14px`，例如 `Basics`、`Characters`、`Locations`、`Story Events`。
 - Create 入口页的终表摘要正文使用 `12px`，例如 `World Name: ...`、`1 characters: ...`、`2 Events`。
-- Create 入口页 Basics 摘要里的 `World Name`、`World View`、`World Logic` 每项固定单行显示，超长内容使用省略号，不允许自动换行。
+- Create 入口页 Basics 摘要里的 `World Name`、`Worldo Brief`、`Worldo Settings` 每项固定单行显示，超长内容使用省略号，不允许自动换行。
 - 分组完成态使用绿色 check 图标表达，不再用 `Completed` 文案占用摘要位置。
 
 ## Theme

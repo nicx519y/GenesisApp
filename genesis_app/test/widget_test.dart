@@ -6474,6 +6474,248 @@ void main() {
     );
   });
 
+  testWidgets('create basics worldo brief shows note beside counter', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    const note =
+        'The public hook players see first — the setting, the core conflict, and what makes it intriguing.';
+    expect(find.text(note), findsOneWidget);
+    expect(find.text('0 / 300'), findsOneWidget);
+
+    final noteRect = tester.getRect(find.text(note));
+    final counterRect = tester.getRect(find.text('0 / 300'));
+    expect((noteRect.top - counterRect.top).abs(), lessThan(6));
+    expect(counterRect.left, greaterThan(noteRect.left));
+  });
+
+  testWidgets('create basics cover image helper uses note text', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Used for cards and detail pages. Recommend ~768×1024 px. Supported formats: JPG, PNG, WEBP.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('create basics cover upload label is compact', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Upload'), findsOneWidget);
+    expect(find.text('Upload World Image'), findsNothing);
+    final uploadLabel = tester.widget<Text>(find.text('Upload'));
+    expect(uploadLabel.style?.fontSize, 14);
+  });
+
+  testWidgets('create basics worldo settings shows note beside counter', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    const note =
+        'The hidden rules and backstory that drive the story — agendas, mechanics, and secret limits.';
+    await tester.scrollUntilVisible(
+      find.text(note),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text(note), findsOneWidget);
+    expect(find.text('0 / 1000'), findsOneWidget);
+
+    final noteRect = tester.getRect(find.text(note));
+    final counterRect = tester.getRect(find.text('0 / 1000'));
+    expect((noteRect.top - counterRect.top).abs(), lessThan(6));
+    expect(counterRect.left, greaterThan(noteRect.left));
+  });
+
+  testWidgets('create basics worldo time shows markdown note', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    const note =
+        'This worldo starts at {Start Time}; each time the user taps progress, the timeline moves forward by {Time per Progress}.';
+    await tester.scrollUntilVisible(
+      find.text(note, findRichText: true),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text(note, findRichText: true), findsOneWidget);
+  });
+
+  testWidgets('create basics start time limits input without counter', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Start Time'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    final startTimeField = find.widgetWithText(
+      TextField,
+      'eg. Day 1, 09:00 / 2026-01-01',
+    );
+    await tester.enterText(startTimeField, '1234567890123456789012345678901');
+    await tester.pump();
+
+    final textField = tester.widget<TextField>(startTimeField);
+    expect(textField.controller?.text, '123456789012345678901234567890');
+    expect(find.text('30 / 30'), findsNothing);
+  });
+
+  testWidgets('create basics custom time progress uses fixed prefix', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Time per Progress'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Custom'), findsOneWidget);
+    final customField = find.widgetWithText(TextField, 'eg. 8 hours / 3 days');
+    await tester.enterText(customField, '12345678901');
+    await tester.pump();
+
+    final textField = tester.widget<TextField>(customField);
+    expect(textField.controller?.text, '1234567890');
+    expect(find.text('10 / 10'), findsNothing);
+  });
+
+  testWidgets('create basics worldo metric shows note', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    const note =
+        "This worldo updates each character's {Metric Label} every progress, shown in {Unit}. Each character starts at {Starting}, and the value can move within {Delta Min}–{Delta Max}.";
+    await tester.scrollUntilVisible(
+      find.text(note),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text(note), findsOneWidget);
+  });
+
+  testWidgets('create basics metric label limits input without counter', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Metric Label'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    final metricLabelField = find.widgetWithText(
+      TextField,
+      'eg. Wealth / Goal Progress',
+    );
+    await tester.enterText(metricLabelField, '123456789012345678901');
+    await tester.pump();
+
+    final textField = tester.widget<TextField>(metricLabelField);
+    expect(textField.controller?.text, '12345678901234567890');
+    expect(find.text('20 / 20'), findsNothing);
+  });
+
+  testWidgets('create basics label note limits input without counter', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Label note'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    final labelNoteField = find.widgetWithText(
+      TextField,
+      'Describe what this metric measures',
+    );
+    await tester.enterText(
+      labelNoteField,
+      '123456789012345678901234567890123456789012345678901',
+    );
+    await tester.pump();
+
+    final textField = tester.widget<TextField>(labelNoteField);
+    expect(
+      textField.controller?.text,
+      '12345678901234567890123456789012345678901234567890',
+    );
+    expect(find.text('50 / 50'), findsNothing);
+  });
+
+  testWidgets('create basics unit limits input without counter', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Unit'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    final unitField = find.widgetWithText(TextField, 'eg. coins / %');
+    await tester.enterText(unitField, '12345678901');
+    await tester.pump();
+
+    final textField = tester.widget<TextField>(unitField);
+    expect(textField.controller?.text, '1234567890');
+    expect(find.text('10 / 10'), findsNothing);
+  });
+
   testWidgets('saved valid create basics can be saved again', (
     WidgetTester tester,
   ) async {
@@ -6608,7 +6850,7 @@ void main() {
     await CreateOriginDraftStore.saveFinal(
       const CreateOriginDraft(
         basics: BasicsDraft(
-          originName: '#Cff',
+          originName: 'Cff',
           worldView: 'Xkkdd',
           worldLogic: 'Nfhnnfjdkd dndiengmcksowbdjcxjnsked rules',
           coverImageUrl: 'https://example.com/cover.png',
@@ -6639,8 +6881,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Worldo Name: #Cff'), findsOneWidget);
-    expect(find.textContaining('World View: Xkkdd'), findsOneWidget);
-    expect(find.textContaining('World Logic:'), findsNothing);
+    expect(find.textContaining('Worldo Brief: Xkkdd'), findsOneWidget);
+    expect(find.textContaining('Worldo Settings:'), findsNothing);
     expect(find.textContaining('Cover Image: Uploaded'), findsOneWidget);
     expect(find.text('Tff: Guide / Calm'), findsOneWidget);
     expect(find.text('Jenrn ff'), findsOneWidget);
@@ -6730,6 +6972,64 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Character 2'), findsOneWidget);
+  });
+
+  testWidgets('characters card shows field placeholders and notes', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateCharactersPage()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Identity *'), findsOneWidget);
+    expect(
+      find.text('eg. A hometown kid back for one real shot'),
+      findsOneWidget,
+    );
+    expect(find.text("The character's role in the worldo."), findsOneWidget);
+
+    expect(find.text('Personality *'), findsOneWidget);
+    expect(
+      find.text('eg. Underdog with goodwill but little capital'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        "The character's manner of speaking and behaving, which drives their dialogue.",
+      ),
+      findsOneWidget,
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('Background - Hidden (Optional)'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Goal (Optional)'), findsOneWidget);
+    expect(
+      find.text('eg. Be the richest owner on Main Street by Labor Day'),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        "The character's goal or behavioral direction, which drives how they act.",
+      ),
+      findsOneWidget,
+    );
+
+    expect(find.text('Background - Hidden (Optional)'), findsOneWidget);
+    expect(
+      find.text(
+        'eg. Left town years ago; returned to a boarded-up Main Street for one chance.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text("The character's background and relationships."),
+      findsOneWidget,
+    );
   });
 
   testWidgets('characters delete confirms before clearing edited form', (
@@ -6888,6 +7188,37 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Location 2'), findsOneWidget);
+  });
+
+  testWidgets('locations card shows placeholders and notes', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Location Name *'), findsOneWidget);
+    expect(find.text('eg. Main Street'), findsOneWidget);
+    expect(find.text('Description (Optional)'), findsOneWidget);
+    expect(
+      find.text('eg. The half-empty main drag where every deal goes down'),
+      findsOneWidget,
+    );
+    expect(
+      find.text("A short description shown in the worldo's location list."),
+      findsOneWidget,
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('Initial Characters (Optional)'),
+      260,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(
+      find.text('The characters who start here when the worldo begins.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
@@ -7111,6 +7442,24 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Event 2'), findsOneWidget);
+  });
+
+  testWidgets('story events card shows placeholder and note', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: CreateStoryEventsPage()));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'eg. A national chain scouts a vacant lot, threatening to undercut every local on price.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('A key story beat the AI uses to steer the storyline.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('basics save validates required starred fields', (
