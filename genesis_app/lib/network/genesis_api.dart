@@ -741,7 +741,6 @@ class GenesisApi {
   }) async {
     final resolvedLocationId = locationId.trim();
     if (resolvedLocationId.isEmpty) return '';
-    await _apiClient.post<Object?>('session/set-world', body: {'wid': wid});
     final json = await _apiClient.post<Object?>(
       'session/set-player-scene',
       body: {'location_id': resolvedLocationId},

@@ -7,6 +7,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
+import '../../components/common/genesis_report_actions.dart';
 import '../../components/discuss/discuss_page_comment_list.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
@@ -468,6 +469,19 @@ class _ReplyActionRow extends StatelessWidget {
             count: replyCount,
             color: _postDetailMetaStyle.color ?? const Color(0xFF8B8B8B),
           ),
+        ),
+        const Spacer(),
+        GenesisMoreActionMenuButton(
+          key: ValueKey('post-detail-reply-report-$normalizedDiscussId'),
+          buttonSize: 28,
+          iconSize: 18,
+          items: [
+            genesisReportMenuItem(
+              context: context,
+              targetType: 'discuss',
+              targetId: normalizedDiscussId,
+            ),
+          ],
         ),
       ],
     );

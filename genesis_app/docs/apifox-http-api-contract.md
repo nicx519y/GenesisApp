@@ -15,6 +15,7 @@
 - Apifox notify 通知列表页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463874828e0
 - Apifox notify 标记已读页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/463874829e0
 - Apifox search 页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/465724653e0
+- Report 提交举报：`/Users/ionix/Downloads/report.md`
 - Apifox chatroom 获取角色位置列表页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/470909609e0
 - Apifox chatroom 世界最近消息页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/465850374e0
 - Apifox chatroom 历史消息页：https://s.apifox.cn/5e96cda4-384c-445a-8cd8-e102f28814ba/462446394e0
@@ -32,7 +33,7 @@
 
 ## 总览
 
-本文档当前覆盖 46 个接口，分为 `app`、`用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify` 和 `upload` 十组：
+本文档当前覆盖 47 个接口，分为 `app`、`用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report` 和 `upload` 十一组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -81,6 +82,7 @@
 | notify | GET | `/api/v1/message/unread` | 获取消息页未读数 |
 | notify | GET | `/api/v1/message/notifications` | 按消息块拉取通知列表 |
 | notify | POST | `/api/v1/message/read` | 标记非私信通知已读 |
+| report | POST | `/api/v1/report/create` | 提交举报 |
 | upload | POST | `/api/v1/upload/image` | 上传图片到阿里云 OSS |
 
 所有 Apifox 200 响应都使用 envelope：
@@ -1438,6 +1440,57 @@ query：
 
 实现状态：已封装在 `MessagesV1Api.markNotificationsRead(block,notificationId)`；页面进入通知分组时按对应 `block` 标记已读，不再调用旧的 `/api/v1/message/notifications/read`。
 
+## Report 接口
+
+### POST `/api/v1/report/create`
+
+提交举报。登录或未登录用户均可提交；携带有效 session 时服务端记录 `reporter_uid`，未登录时保存为空字符串。
+
+客户端运行时 header 会经 `GenesisApi` 自动注入。服务端读取并 trim / 截断这些客户端元数据：
+
+- `device-id`：最长 128 字符
+- `app-id`：最长 64 字符
+- `app-version`：最长 64 字符
+- `app-platform`：最长 32 字符
+
+请求 body：
+
+- `target_type*`: string，举报对象类型，枚举 `origin`、`world`、`tick`、`message`、`discuss`
+- `target_id*`: string，举报对象业务 id；`message` 当前按 `message_id` 原样记录，不做存在性校验
+- `content*`: string，举报内容；服务端 trim 后不能为空，最长 1000 字符
+
+请求示例：
+
+```json
+{
+  "target_type": "origin",
+  "target_id": "o_A1B2C3",
+  "content": "内容疑似违规"
+}
+```
+
+响应 `data`：
+
+- `report_id*`: string
+
+响应示例：
+
+```json
+{
+  "err_no": 0,
+  "err_msg": "succ",
+  "data": {
+    "report_id": "rpt_X9KQ4M2A1B2C"
+  }
+}
+```
+
+错误码：
+
+- `4004`：`target_id` 为空或 `content` 为空
+- `20801`：`target_type` 不支持
+- `20802`：`content` 超过 1000 字符
+
 ## Upload 接口
 
 ### POST `/api/v1/upload/image`
@@ -1530,6 +1583,7 @@ query：
 | `GET /api/v1/message/unread` | `MessagesV1Api.unreadSummary` 已改用消息页未读统计接口，响应消费 `world_apply_unread/follow_unread/interaction_unread/direct_message_unread/total_unread`。 |
 | `GET /api/v1/message/notifications` | `MessagesV1Api.notifications` 已改为必传 `block` query，枚举 `world_apply/follow/interaction`；页面入口已从旧 `system/follower/comment` 映射为 Apifox 的三个 block。 |
 | `POST /api/v1/message/read` | `MessagesV1Api.markNotificationsRead` 已改为 `/message/read`，body 使用 `block` 或 `notification_id`，不再提交旧 `category/notification_ids`。 |
+| `POST /api/v1/report/create` | 已新增 `ReportV1Api.create`，body 使用 `target_type/target_id/content`，响应消费 `report_id`；World、Worldo、用户详情页和 location chat 长按菜单已接入；通过共享 `GenesisApi` runtime header path 自动带上 `device-id/app-id/app-version/app-platform/authorization`；本地 mock 校验 `target_type`、空 `target_id/content` 与 1000 字符长度限制，并为用户详情页 report 补充接受 `target_type=user`。 |
 | `POST /api/v1/direct_message/block` | 已新增 `DmV1Api.block`，body 使用 `target_uid`。 |
 | `POST /api/v1/direct_message/unblock` | 已新增 `DmV1Api.unblock`，body 使用 `target_uid`。 |
 | `GET /api/v1/direct_message/blocks` | 已新增 `DmV1Api.blocks`，响应消费拉黑用户分页列表。 |
@@ -1546,7 +1600,7 @@ query：
 
 - world 详情 mapper 只消费 Apifox 的 `info/stats/characters/locations/ticks`；origin 详情 mapper 暂保留旧字段兼容。
 - 关系字段在 mock 中同时保留 `is_followed` 与历史 `i_followed`，但 Apifox 新接口按 `is_followed` 生成。
-- Apifox 未声明 headers/security；当前客户端仍按应用运行时注入 `x-platform`、`device-id`、`authorization: Bearer <token>`。
+- 多数 Apifox 页面未声明 headers/security；当前客户端仍按应用运行时注入 `app-id`、`app-version`、`app-platform`、`device-id`、`authorization: Bearer <token>`，其中 report 页面明确声明会读取这些客户端元数据 header。
 
 ### Apifox 未覆盖但当前 v1 已封装的接口
 
@@ -1597,7 +1651,6 @@ World：
 - `GET /api/search`
 - `GET /api/characters`
 - `POST /api/tick`
-- `POST /api/session/set-world`
 - `POST /api/session/set-player-scene`
 - `GET /api/points/{pointId}/messages`
 - `POST /api/points/{pointId}/messages/enqueue`

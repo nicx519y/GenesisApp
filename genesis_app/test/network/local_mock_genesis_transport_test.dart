@@ -637,6 +637,12 @@ void main() {
     await api.v1.discuss.like(discussId: postId);
     await api.v1.discuss.unlike(discussId: postId);
     await api.v1.discuss.delete(discussId: postId);
+    final report = await api.v1.report.create(
+      targetType: 'origin',
+      targetId: createdOrigin,
+      content: '内容疑似违规',
+    );
+    expect(report['report_id'], startsWith('rpt_mock_'));
 
     final search = await api.v1.search.search(query: 'steam');
     expect((search['origins'] as Map)['list'] as List, isNotEmpty);

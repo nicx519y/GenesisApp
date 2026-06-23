@@ -8,6 +8,8 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
+import '../../components/common/genesis_center_toast.dart';
+import '../../components/common/genesis_report_actions.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
@@ -1204,6 +1206,56 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _scrollToBottom(jump: true);
   }
 
+  void _showMessageActionMenu(
+    BuildContext menuContext,
+    ChatMessageVm message,
+    LongPressStartDetails details,
+  ) {
+    final items = <GenesisActionMenuItem>[
+      GenesisActionMenuItem(
+        label: 'Copy',
+        onSelected: () => _copyMessageText(message),
+      ),
+      if (!message.isMe)
+        GenesisActionMenuItem(
+          label: 'Report',
+          onSelected: () {
+            showGenesisReportDialog(
+              context: context,
+              targetType: 'message',
+              targetId: _messageReportTargetId(message),
+            );
+          },
+        ),
+    ];
+    showGenesisActionMenuAt(
+      context: menuContext,
+      globalPosition: details.globalPosition,
+      items: items,
+    );
+  }
+
+  Future<void> _copyMessageText(ChatMessageVm message) async {
+    final text = message.isTick ? _tickReportText(message) : message.text;
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    showGenesisToast(context, 'Copied');
+  }
+
+  String _messageReportTargetId(ChatMessageVm message) {
+    final messageId = message.messageId ?? 0;
+    if (messageId > 0) return '$messageId';
+    final clientMsgId = message.clientMsgId.trim();
+    if (clientMsgId.isNotEmpty) return clientMsgId;
+    return message.localId;
+  }
+
+  String _tickReportText(ChatMessageVm message) {
+    final tick = message.tickNo > 0 ? 'Tick ${message.tickNo}' : 'Tick';
+    final text = message.text.trim();
+    return text.isEmpty ? tick : '$tick · $text';
+  }
+
   List<WorldChatroomEntity> _realUsersForCurrentLocation(
     WorldChatroomState state,
   ) {
@@ -1350,6 +1402,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                       controller: _scrollController,
                       messages: _messages,
                       topTitle: '',
+                      onMessageLongPressStart: _showMessageActionMenu,
                     ),
                   ),
                   if (_unseenIncomingCount > 0)

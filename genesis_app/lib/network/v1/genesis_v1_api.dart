@@ -7,6 +7,7 @@ import 'follow_api.dart';
 import 'home_api.dart';
 import 'messages_api.dart';
 import 'origin_api.dart';
+import 'report_api.dart';
 import 'search_api.dart';
 import 'upload_api.dart';
 import 'user_api.dart';
@@ -22,6 +23,7 @@ class GenesisV1Api {
       dm = DmV1Api(client),
       follow = FollowV1Api(client),
       discuss = DiscussV1Api(client),
+      report = ReportV1Api(client),
       search = SearchV1Api(client),
       home = HomeV1Api(client),
       upload = UploadV1Api(client),
@@ -35,6 +37,7 @@ class GenesisV1Api {
   final DmV1Api dm;
   final FollowV1Api follow;
   final DiscussV1Api discuss;
+  final ReportV1Api report;
   final SearchV1Api search;
   final HomeV1Api home;
   final UploadV1Api upload;

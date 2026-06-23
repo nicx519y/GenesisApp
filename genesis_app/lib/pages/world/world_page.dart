@@ -11,6 +11,7 @@ import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_modal_routes.dart';
+import '../../components/common/genesis_report_actions.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/login_sheet.dart';
@@ -3311,12 +3312,21 @@ class _WorldInfoHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(
+            SizedBox(
               width: 38,
-              child: Icon(
-                Icons.more_horiz_sharp,
-                size: 18,
-                color: Colors.black,
+              child: GenesisMoreActionMenuButton(
+                items: [
+                  GenesisActionMenuItem(
+                    label: 'Report',
+                    onSelected: () {
+                      showGenesisReportDialog(
+                        context: context,
+                        targetType: 'world',
+                        targetId: wid,
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
           ],

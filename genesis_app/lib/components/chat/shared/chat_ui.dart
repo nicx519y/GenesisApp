@@ -103,6 +103,13 @@ class ChatMessageVm {
   bool get isTick => senderType == 'tick';
 }
 
+typedef ChatMessageLongPressStart =
+    void Function(
+      BuildContext context,
+      ChatMessageVm message,
+      LongPressStartDetails details,
+    );
+
 class ChatHeader extends StatelessWidget {
   const ChatHeader({
     super.key,
@@ -562,12 +569,14 @@ class ChatMessageList extends StatelessWidget {
     required this.controller,
     required this.messages,
     required this.topTitle,
+    this.onMessageLongPressStart,
     this.style,
   });
 
   final ScrollController controller;
   final List<ChatMessageVm> messages;
   final String topTitle;
+  final ChatMessageLongPressStart? onMessageLongPressStart;
   final ChatUiStyleConfig? style;
 
   @override
@@ -590,6 +599,7 @@ class ChatMessageList extends StatelessWidget {
           key: ValueKey(current.localId),
           message: current,
           style: style,
+          onMessageLongPressStart: onMessageLongPressStart,
           showDateDivider: shouldShowChatDateDivider(
             previous?.createdAt,
             current.createdAt,
@@ -629,12 +639,14 @@ class ChatMessageRow extends StatelessWidget {
     required this.message,
     required this.showDateDivider,
     this.onAvatarTap,
+    this.onMessageLongPressStart,
     this.style,
   });
 
   final ChatMessageVm message;
   final bool showDateDivider;
   final VoidCallback? onAvatarTap;
+  final ChatMessageLongPressStart? onMessageLongPressStart;
   final ChatUiStyleConfig? style;
 
   @override
@@ -652,6 +664,9 @@ class ChatMessageRow extends StatelessWidget {
             ? const ValueKey('chat-tick-message-bubble')
             : const ValueKey('chat-system-message-bubble'),
         style: style,
+        onLongPressStart: onMessageLongPressStart == null
+            ? null
+            : (details) => onMessageLongPressStart!(context, message, details),
       );
     }
 
@@ -702,6 +717,13 @@ class ChatMessageRow extends StatelessWidget {
                         child: ChatMessageBubble(
                           message: message,
                           style: style,
+                          onLongPressStart: onMessageLongPressStart == null
+                              ? null
+                              : (details) => onMessageLongPressStart!(
+                                  context,
+                                  message,
+                                  details,
+                                ),
                         ),
                       ),
                     ),
@@ -766,7 +788,17 @@ class ChatMessageRow extends StatelessWidget {
                 ],
                 ConstrainedBox(
                   constraints: BoxConstraints(maxWidth: maxBubbleWidth),
-                  child: ChatMessageBubble(message: message, style: style),
+                  child: ChatMessageBubble(
+                    message: message,
+                    style: style,
+                    onLongPressStart: onMessageLongPressStart == null
+                        ? null
+                        : (details) => onMessageLongPressStart!(
+                            context,
+                            message,
+                            details,
+                          ),
+                  ),
                 ),
               ],
             ),
@@ -800,9 +832,15 @@ class _ChatAvatarSideSpacer extends StatelessWidget {
 }
 
 class ChatMessageBubble extends StatelessWidget {
-  const ChatMessageBubble({super.key, required this.message, this.style});
+  const ChatMessageBubble({
+    super.key,
+    required this.message,
+    this.onLongPressStart,
+    this.style,
+  });
 
   final ChatMessageVm message;
+  final GestureLongPressStartCallback? onLongPressStart;
   final ChatUiStyleConfig? style;
 
   @override
@@ -814,15 +852,18 @@ class ChatMessageBubble extends StatelessWidget {
     final text = message.error == null
         ? message.text
         : '${message.text}\n${message.error}';
-    return Container(
-      padding: style.bubblePadding,
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(style.bubbleBorderRadius),
-      ),
-      child: _InlineMarkdownText(
-        text: text.isEmpty ? '...' : text,
-        style: style.bubbleTextStyle,
+    return GestureDetector(
+      onLongPressStart: onLongPressStart,
+      child: Container(
+        padding: style.bubblePadding,
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(style.bubbleBorderRadius),
+        ),
+        child: _InlineMarkdownText(
+          text: text.isEmpty ? '...' : text,
+          style: style.bubbleTextStyle,
+        ),
       ),
     );
   }
@@ -862,18 +903,15 @@ class ChatAvatar extends StatelessWidget {
               ),
             ),
           ),
-          if (imageUrl.isNotEmpty)
-            Positioned.fill(
-              child: GenesisAvatar(
-                name: seed == null || seed.isEmpty ? label : seed,
-                url: imageUrl,
-                size: style.avatarSize,
-                borderRadius: style.avatarBorderRadius,
-                textStyle: style.avatarTextStyle,
-                showFallbackWhileLoading: false,
-                showFallbackWhenUnavailable: false,
-              ),
+          Positioned.fill(
+            child: GenesisAvatar(
+              name: seed == null || seed.isEmpty ? label : seed,
+              url: imageUrl,
+              size: style.avatarSize,
+              borderRadius: style.avatarBorderRadius,
+              textStyle: style.avatarTextStyle,
             ),
+          ),
           Positioned.fill(
             child: IgnorePointer(
               child: DecoratedBox(
@@ -988,6 +1026,7 @@ class ChatSystemMessage extends StatelessWidget {
     this.singleLine = false,
     this.textAlign = TextAlign.center,
     this.bubbleKey = const ValueKey('chat-system-message-bubble'),
+    this.onLongPressStart,
     this.style,
   });
 
@@ -996,6 +1035,7 @@ class ChatSystemMessage extends StatelessWidget {
   final bool singleLine;
   final TextAlign textAlign;
   final Key bubbleKey;
+  final GestureLongPressStartCallback? onLongPressStart;
   final ChatUiStyleConfig? style;
 
   @override
@@ -1012,22 +1052,25 @@ class ChatSystemMessage extends StatelessWidget {
               minWidth: fullWidth ? maxBubbleWidth : 0,
               maxWidth: maxBubbleWidth,
             ),
-            child: Container(
-              key: bubbleKey,
-              margin: style.systemMessageMargin,
-              padding: style.systemMessagePadding,
-              decoration: BoxDecoration(
-                color: style.systemMessageBackgroundColor,
-                borderRadius: BorderRadius.circular(
-                  style.systemMessageBorderRadius,
+            child: GestureDetector(
+              onLongPressStart: onLongPressStart,
+              child: Container(
+                key: bubbleKey,
+                margin: style.systemMessageMargin,
+                padding: style.systemMessagePadding,
+                decoration: BoxDecoration(
+                  color: style.systemMessageBackgroundColor,
+                  borderRadius: BorderRadius.circular(
+                    style.systemMessageBorderRadius,
+                  ),
                 ),
-              ),
-              child: _InlineMarkdownText(
-                text: text,
-                maxLines: singleLine ? 1 : null,
-                overflow: singleLine ? TextOverflow.ellipsis : null,
-                textAlign: textAlign,
-                style: style.systemMessageTextStyle,
+                child: _InlineMarkdownText(
+                  text: text,
+                  maxLines: singleLine ? 1 : null,
+                  overflow: singleLine ? TextOverflow.ellipsis : null,
+                  textAlign: textAlign,
+                  style: style.systemMessageTextStyle,
+                ),
               ),
             ),
           ),

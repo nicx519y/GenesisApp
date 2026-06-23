@@ -13,6 +13,7 @@ import '../../utils/display_name_formatter.dart';
 import '../auth/login_guard.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_image_viewer_overlay.dart';
+import '../common/genesis_report_actions.dart';
 import '../common/genesis_timestamp_text.dart';
 import 'origin_discuss_list.dart';
 import 'story_badge.dart';
@@ -426,6 +427,19 @@ class _DiscussPageActions extends StatelessWidget {
             count: item.replyCount,
             color: _timeStyle.color ?? const Color(0xFF8B8B8B),
           ),
+        ),
+        const Spacer(),
+        GenesisMoreActionMenuButton(
+          key: ValueKey('discuss-page-report-${item.discussId}'),
+          buttonSize: 28,
+          iconSize: 18,
+          items: [
+            genesisReportMenuItem(
+              context: context,
+              targetType: 'discuss',
+              targetId: item.discussId,
+            ),
+          ],
         ),
       ],
     );

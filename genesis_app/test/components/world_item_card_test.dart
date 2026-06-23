@@ -70,10 +70,67 @@ void main() {
         .dx;
     expect(bodyLeft, lessThan(titleLeft));
   });
+
+  testWidgets('renders scene mine my_character without detail services', (
+    WidgetTester tester,
+  ) async {
+    final item = WorldListItem.fromJson(const <String, dynamic>{
+      'info': {
+        'world_id': 'w_alpha',
+        'world_name': 'Alpha World',
+        'cover': '',
+        'owner_uid': 'u_owner',
+        'owner_name': 'Owner',
+        'updated_at': '2020-01-02T00:00:00Z',
+        'metric': {'label': 'Goal Progress', 'unit': '%', 'default': 42},
+      },
+      'stats': {
+        'tick_cnt': 3,
+        'connect_cnt': 4,
+        'character_cnt': 5,
+        'player_cnt': 6,
+      },
+      'last_tick': {
+        'tick_no': 3,
+        'current_time': 'Day 3, 08:00',
+        'created_at': '2999-01-01T00:00:00Z',
+        'narrator': 'The city chooses a new route.',
+      },
+      'my_character': {
+        'char_id': 'c_self',
+        'player_uid': 'u_mock',
+        'player_username': 'Mock User',
+        'name': 'Self Hero',
+        'brief': 'Current user character.',
+        'avatar': {'sm_url': '', 'xl_url': '', 'object_key': ''},
+        'metric_value': 0,
+      },
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(width: 390, child: WorldItemCard(item: item)),
+        ),
+      ),
+    );
+
+    expect(item.myCharacter?['char_id'], 'c_self');
+    expect(item.metric['default'], 42);
+    expect(_richTextFinder('Self Hero (Me)'), findsOneWidget);
+    expect(find.text('Player'), findsOneWidget);
+    expect(find.text('Goal Progress: 42%'), findsOneWidget);
+  });
 }
 
 double _horizontalGap(WidgetTester tester, Finder left, Finder right) {
   final leftRect = tester.getRect(left);
   final rightRect = tester.getRect(right);
   return rightRect.left - leftRect.right;
+}
+
+Finder _richTextFinder(String text) {
+  return find.byWidgetPredicate(
+    (widget) => widget is RichText && widget.text.toPlainText() == text,
+  );
 }

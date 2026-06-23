@@ -13,12 +13,14 @@ class PageHeader extends StatelessWidget {
     this.horizontalPadding = 16,
     this.topPadding = 0,
     this.showSearchBar = true,
+    this.trailing,
   });
 
   final String pageName;
   final double horizontalPadding;
   final double topPadding;
   final bool showSearchBar;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +37,14 @@ class PageHeader extends StatelessWidget {
           children: [
             SizedBox(
               height: kGenesisTopBarHeight,
-              child: Center(child: GenesisPageTitle(text: pageName)),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Center(child: GenesisPageTitle(text: pageName)),
+                  if (trailing != null)
+                    Align(alignment: Alignment.centerRight, child: trailing),
+                ],
+              ),
             ),
             if (showSearchBar) ...[
               SearchBarPlaceholder(

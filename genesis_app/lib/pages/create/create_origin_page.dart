@@ -1,19 +1,59 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../origin_editor/origin_draft_repository.dart';
 import '../origin_editor/origin_editor_pages.dart';
+import '../origin_editor/origin_pending_submission_coordinator.dart';
 import 'create_basics_page.dart';
 import 'create_characters_page.dart';
 import 'create_locations_page.dart';
 import 'create_origin_draft_store.dart';
 import 'create_story_events_page.dart';
 
-class CreateOriginPage extends StatelessWidget {
+class CreateOriginPage extends StatefulWidget {
   const CreateOriginPage({super.key});
 
+  @override
+  State<CreateOriginPage> createState() => _CreateOriginPageState();
+}
+
+class _CreateOriginPageState extends State<CreateOriginPage> {
   static const CreateOriginDraftRepository _repository =
       CreateOriginDraftRepository();
+
+  final OriginPendingSubmissionCoordinator _pendingCoordinator =
+      OriginPendingSubmissionCoordinator.instance;
+  OriginDraftSubmitStatus _submitStatus =
+      OriginDraftSubmitStatus.checkingPending;
+  int _reloadSignal = 0;
+  late final VoidCallback _removeCreateOutcomeListener;
+  bool _didResumePendingCreate = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pendingCoordinator.creatingState.addListener(_syncSubmitStatus);
+    _removeCreateOutcomeListener = _pendingCoordinator.addCreateOutcomeListener(
+      _handleCreateOutcome,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didResumePendingCreate) return;
+    _didResumePendingCreate = true;
+    _resumePendingCreate();
+  }
+
+  @override
+  void dispose() {
+    _pendingCoordinator.creatingState.removeListener(_syncSubmitStatus);
+    _removeCreateOutcomeListener();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +68,8 @@ class CreateOriginPage extends StatelessWidget {
       submitLabel: 'Create',
       submittingLabel: 'Creating...',
       onSubmit: _onCreate,
-      popOnSubmitSuccess: true,
+      submitStatus: _submitStatus,
+      reloadSignal: _reloadSignal,
       confirmLeaveWithDraftOptions: true,
       onDiscardDraft: (_) => CreateOriginDraftStore.clear(),
     );
@@ -43,10 +84,47 @@ class CreateOriginPage extends StatelessWidget {
     final result = await api.createOrigin(
       payload: draft.toCreateOriginPayload(),
     );
-    await CreateOriginDraftStore.clear();
-    return OriginSubmitResult(
-      message: 'Worldo created successfully: ${result.oid}',
-      draft: CreateOriginDraft.empty(),
+    final originId = result.oid.trim();
+    if (originId.isEmpty) {
+      throw StateError('origin_id is missing from create response');
+    }
+    await _pendingCoordinator.startCreating(
+      originId: originId,
+      loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
     );
+    return OriginSubmitResult(message: '', showMessage: false);
+  }
+
+  void _resumePendingCreate() {
+    final api = AppServicesScope.read(context).api;
+    unawaited(
+      _pendingCoordinator.ensureCreatingPolling(
+        loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
+        context: context,
+      ),
+    );
+    _syncSubmitStatus();
+  }
+
+  void _syncSubmitStatus() {
+    if (!mounted) return;
+    final state = _pendingCoordinator.creatingState.value;
+    final nextStatus = switch (state?.phase) {
+      OriginPendingSubmissionPhase.checkingPending =>
+        OriginDraftSubmitStatus.checkingPending,
+      OriginPendingSubmissionPhase.processing =>
+        OriginDraftSubmitStatus.processing,
+      null => OriginDraftSubmitStatus.idle,
+    };
+    if (_submitStatus == nextStatus) return;
+    setState(() => _submitStatus = nextStatus);
+  }
+
+  void _handleCreateOutcome(OriginPendingSubmissionOutcome outcome) {
+    if (!mounted) return;
+    setState(() {
+      _submitStatus = OriginDraftSubmitStatus.idle;
+      _reloadSignal++;
+    });
   }
 }

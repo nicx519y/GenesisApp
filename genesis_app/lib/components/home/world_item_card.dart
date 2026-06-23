@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/origin/stat_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
-import '../../network/models/world.dart';
 import '../../network/json_utils.dart';
 import '../../components/common/genesis_timestamp_text.dart';
 import '../../ui/components/genesis_character_avatar.dart';
@@ -40,6 +38,8 @@ class WorldListItem {
     required this.lastProgressCurrentTime,
     required this.previewImages,
     required this.tags,
+    required this.metric,
+    this.myCharacter,
     required this.tickCnt,
     required this.connectCnt,
     required this.aiCharacterCnt,
@@ -109,6 +109,10 @@ class WorldListItem {
       ),
       previewImages: _previewImagesFromJson(info),
       tags: _tagsFromJson(info['tags']),
+      metric: info['metric'] is Map
+          ? asJsonMap(info['metric'])
+          : const <String, dynamic>{},
+      myCharacter: _myCharacterFromJson(json['my_character']),
       tickCnt: asInt(stats['tick_cnt']),
       connectCnt: asInt(stats['connect_cnt']),
       aiCharacterCnt: asInt(
@@ -142,6 +146,8 @@ class WorldListItem {
   final String lastProgressCurrentTime;
   final List<String> previewImages;
   final List<String> tags;
+  final Map<String, dynamic> metric;
+  final Map<String, dynamic>? myCharacter;
   final int tickCnt;
   final int connectCnt;
   final int aiCharacterCnt;
@@ -228,80 +234,44 @@ class WorldItemCard extends StatelessWidget {
             fontWeight: FontWeight.w400,
           ),
         ),
-        _CurrentUserStatusPreview(wid: item.wid),
+        _CurrentUserStatusPreview(item: item),
         if (showPreviewImages) _WorldPreviewImages(item: item),
       ],
     );
   }
 }
 
-class _CurrentUserStatusPreview extends StatefulWidget {
-  const _CurrentUserStatusPreview({required this.wid});
+class _CurrentUserStatusPreview extends StatelessWidget {
+  const _CurrentUserStatusPreview({required this.item});
 
-  final String wid;
-
-  @override
-  State<_CurrentUserStatusPreview> createState() =>
-      _CurrentUserStatusPreviewState();
-}
-
-class _CurrentUserStatusPreviewState extends State<_CurrentUserStatusPreview> {
-  Future<_CurrentUserStatusData?>? _future;
-
-  @override
-  void initState() {
-    super.initState();
-    _future = _loadStatus();
-  }
-
-  @override
-  void didUpdateWidget(covariant _CurrentUserStatusPreview oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.wid != widget.wid) {
-      _future = _loadStatus();
-    }
-  }
-
-  Future<_CurrentUserStatusData?> _loadStatus() async {
-    final services = AppServicesScope.read(context);
-    final currentUid = (await services.sessionStore.readUid())?.trim() ?? '';
-    if (currentUid.isEmpty || widget.wid.trim().isEmpty) return null;
-    final world = await services.api.getWorld(widget.wid);
-    final character = world.characters
-        .where((item) => _isCurrentUserCharacter(item, currentUid))
-        .firstOrNull;
-    if (character == null) return null;
-    return _CurrentUserStatusData(
-      world: world,
-      character: character,
-      currentUid: currentUid,
-    );
-  }
+  final WorldListItem item;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<_CurrentUserStatusData?>(
-      future: _future,
-      builder: (context, snapshot) {
-        final data = snapshot.data;
-        if (data == null) return const SizedBox.shrink();
-        return Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: _CurrentUserStatusRow(data: data),
-        );
-      },
+    final character = item.myCharacter;
+    if (character == null) return const SizedBox.shrink();
+    final playerUid = _mapString(character, const ['player_uid']);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: _CurrentUserStatusRow(
+        data: _CurrentUserStatusData(
+          metric: item.metric,
+          character: character,
+          currentUid: playerUid,
+        ),
+      ),
     );
   }
 }
 
 class _CurrentUserStatusData {
   const _CurrentUserStatusData({
-    required this.world,
+    required this.metric,
     required this.character,
     required this.currentUid,
   });
 
-  final WorldDetail world;
+  final Map<String, dynamic> metric;
   final Map<String, dynamic> character;
   final String currentUid;
 }
@@ -325,7 +295,7 @@ class _CurrentUserStatusRow extends StatelessWidget {
     );
     final isCharacterRole = _isCharacterRole(character);
     final roleLabel = isCharacterRole ? 'Character' : 'Player';
-    final subtitle = _metricStatusText(data.world.metric, character);
+    final subtitle = _metricStatusText(data.metric, character);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,7 +303,7 @@ class _CurrentUserStatusRow extends StatelessWidget {
         Padding(
           padding: EdgeInsets.only(right: isCharacterRole ? 6 : 0),
           child: GenesisCharacterAvatar(
-            url: _mapString(character, const ['avatar']),
+            url: _mapImageUrl(character, const ['avatar']),
             name: name,
             showStar: isCharacterRole,
             starSize: 20,
@@ -651,16 +621,6 @@ const _worldMetaStyle = TextStyle(
   fontWeight: FontWeight.w400,
 );
 
-bool _isCurrentUserCharacter(
-  Map<String, dynamic> character,
-  String currentUid,
-) {
-  final playerUid = _mapString(character, const ['player_uid']);
-  return currentUid.isNotEmpty &&
-      playerUid.isNotEmpty &&
-      playerUid == currentUid;
-}
-
 bool _isCharacterRole(Map<String, dynamic> character) {
   return _mapString(character, const ['player_uid']).isEmpty;
 }
@@ -693,6 +653,7 @@ String _metricStatusText(
     character['metric_value'],
     metric['default'],
   );
+  if (label.isEmpty) return '$value$unit';
   return '$label: $value$unit';
 }
 
@@ -730,6 +691,27 @@ String _mapString(
     if (value.isNotEmpty) return value;
   }
   return fallback;
+}
+
+String _mapImageUrl(Map<String, dynamic> map, List<String> keys) {
+  for (final key in keys) {
+    final value = map[key];
+    if (value == null) continue;
+    final imageUrl = resolveAssetUrl(asImageUrl(value));
+    if (imageUrl.trim().isNotEmpty) return imageUrl;
+  }
+  return '';
+}
+
+Map<String, dynamic>? _myCharacterFromJson(Object? value) {
+  if (value is! Map) return null;
+  final character = asJsonMap(value);
+  final hasContent = const [
+    'char_id',
+    'name',
+    'player_uid',
+  ].any((key) => asString(character[key]).trim().isNotEmpty);
+  return hasContent ? character : null;
 }
 
 List<String> _tagsFromJson(Object? value) {

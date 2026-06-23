@@ -41,10 +41,15 @@ bool _locationDraftHasContent(LocationDraft item) {
 }
 
 class OriginSubmitResult {
-  const OriginSubmitResult({required this.message, this.draft});
+  const OriginSubmitResult({
+    required this.message,
+    this.draft,
+    this.showMessage = true,
+  });
 
   final String message;
   final CreateOriginDraft? draft;
+  final bool showMessage;
 }
 
 typedef OriginSubmitHandler =
@@ -55,6 +60,8 @@ typedef OriginSubmitHandler =
     );
 
 enum _DraftLeaveAction { submit, save, discard }
+
+enum OriginDraftSubmitStatus { idle, checkingPending, processing }
 
 const TextStyle _editSummaryLabelStyle = TextStyle(
   color: Colors.black,
@@ -85,6 +92,8 @@ class OriginDraftFlowPage extends StatefulWidget {
     this.onDiscardDraft,
     this.showCurrentVersion = false,
     this.updateNotesController,
+    this.submitStatus = OriginDraftSubmitStatus.idle,
+    this.reloadSignal = 0,
   });
 
   final String title;
@@ -107,6 +116,8 @@ class OriginDraftFlowPage extends StatefulWidget {
   final Future<void> Function(OriginDraftRepository repository)? onDiscardDraft;
   final bool showCurrentVersion;
   final TextEditingController? updateNotesController;
+  final OriginDraftSubmitStatus submitStatus;
+  final int reloadSignal;
 
   @override
   State<OriginDraftFlowPage> createState() => _OriginDraftFlowPageState();
@@ -133,6 +144,10 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
         _handleUpdateNotesChanged,
       );
       widget.updateNotesController?.addListener(_handleUpdateNotesChanged);
+    }
+    if (widget.reloadSignal != oldWidget.reloadSignal ||
+        widget.repository != oldWidget.repository) {
+      unawaited(_reloadDraft());
     }
   }
 
@@ -190,7 +205,9 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     try {
       final result = await widget.onSubmit(context, widget.repository, latest);
       if (!mounted) return false;
-      showGenesisToast(context, result.message);
+      if (result.showMessage && result.message.trim().isNotEmpty) {
+        showGenesisToast(context, result.message);
+      }
       if (result.draft != null) {
         setState(() {
           _draft = result.draft!;
@@ -240,6 +257,10 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     try {
       final latest = await widget.repository.loadSummaryDraft();
       if (!mounted) return;
+      if (widget.submitStatus != OriginDraftSubmitStatus.idle) {
+        Navigator.of(context).pop();
+        return;
+      }
       if (!widget.confirmLeaveWithDraftOptions ||
           !_shouldConfirmLeave(latest)) {
         Navigator.of(context).pop();
@@ -328,7 +349,10 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
 
     const disabledSubmitColor = Color(0xFFBFD8CD);
     final canUseSubmitButton =
-        !_isSubmitting && _submitBlockReason(_draft) == null;
+        !_isSubmitting &&
+        widget.submitStatus == OriginDraftSubmitStatus.idle &&
+        _submitBlockReason(_draft) == null;
+    final submitLabel = _submitButtonLabel();
 
     return PopScope(
       canPop: false,
@@ -436,9 +460,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                   top: false,
                   minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
                   child: GenesisPrimaryButton(
-                    label: _isSubmitting
-                        ? widget.submittingLabel
-                        : widget.submitLabel,
+                    label: submitLabel,
                     onPressed: canUseSubmitButton
                         ? () => unawaited(_submit())
                         : null,
@@ -454,6 +476,15 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
         ),
       ),
     );
+  }
+
+  String _submitButtonLabel() {
+    if (_isSubmitting) return widget.submittingLabel;
+    return switch (widget.submitStatus) {
+      OriginDraftSubmitStatus.idle => widget.submitLabel,
+      OriginDraftSubmitStatus.checkingPending => 'Checking...',
+      OriginDraftSubmitStatus.processing => widget.submittingLabel,
+    };
   }
 
   String _basicsSummary(CreateOriginDraft draft) {

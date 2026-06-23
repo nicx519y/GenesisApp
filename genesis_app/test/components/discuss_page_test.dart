@@ -11,8 +11,10 @@ import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/pages/discuss/discuss_page.dart';
+import 'package:genesis_flutter_android/pages/discuss/post_detail_page.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
+import 'package:genesis_flutter_android/components/discuss/origin_discuss_list.dart';
 
 void main() {
   testWidgets('shows skeleton instead of progress indicator while loading', (
@@ -159,6 +161,28 @@ void main() {
     expect(bottomInput.maxLines, 3);
   });
 
+  testWidgets('comment action row shows report menu', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 760);
+    addTearDown(tester.view.reset);
+
+    final transport = _DiscussPageTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
+        child: _discussTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('discuss-page-report-dis_1')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Report'), findsOneWidget);
+  });
+
   testWidgets('post detail bottom input opens composer for its root discuss', (
     tester,
   ) async {
@@ -219,6 +243,29 @@ void main() {
     expect(postBody['content'], 'reply from list item');
   });
 
+  testWidgets('post detail reply action row shows report menu', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 760);
+    addTearDown(tester.view.reset);
+
+    final transport = _DiscussPageTransport(includeReplies: true);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
+        child: _postDetailTestApp(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('post-detail-reply-report-reply_1')),
+    );
+    await tester.pump();
+
+    expect(find.text('Report'), findsOneWidget);
+  });
+
   testWidgets('post detail hides WID in root and reply discuss meta', (
     tester,
   ) async {
@@ -251,6 +298,28 @@ Widget _discussTestApp() {
     onGenerateRoute: AppRouter.onGenerateRoute,
     home: const DiscussPage(oid: 'o_auto'),
   );
+}
+
+Widget _postDetailTestApp() {
+  return MaterialApp(
+    onGenerateRoute: AppRouter.onGenerateRoute,
+    home: PostDetailPage(item: _postDetailRootItem()),
+  );
+}
+
+OriginDiscussListItem _postDetailRootItem() {
+  return OriginDiscussListItem.fromJson({
+    'discuss_id': 'dis_1',
+    'biz_type': 1,
+    'biz_id': 'o_auto',
+    'world_id': 'w_auto',
+    'author': {'uid': 'u_1', 'name': 'User 1'},
+    'content': 'Discuss item 1',
+    'reply_cnt': 1,
+    'like_cnt': 0,
+    'is_liked': false,
+    'created_at': '2026-02-09T00:00:00Z',
+  });
 }
 
 AppServices _servicesWithTransport(_DiscussPageTransport transport) {
@@ -397,6 +466,18 @@ class _DiscussPageTransport implements HttpTransport {
         'err_no': 0,
         'err_msg': 'succ',
         'data': {
+          'comment': {
+            'discuss_id': 'dis_1',
+            'biz_type': 1,
+            'biz_id': 'o_auto',
+            'world_id': 'w_auto',
+            'author': {'uid': 'u_1', 'name': 'User 1'},
+            'content': 'Discuss item 1',
+            'reply_cnt': 1,
+            'like_cnt': 0,
+            'is_liked': false,
+            'created_at': '2026-02-09T00:00:00Z',
+          },
           'list': [
             {
               'discuss_id': 'reply_1',

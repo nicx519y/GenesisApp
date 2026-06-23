@@ -151,6 +151,30 @@ void main() {
     );
   });
 
+  testWidgets('chat message avatar renders generated fallback for empty url', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'peer',
+              senderName: 'Peer Name',
+              text: 'hello',
+              isMe: false,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('PN'), findsOneWidget);
+  });
+
   testWidgets('chat message bubble parses markdown italic text', (
     WidgetTester tester,
   ) async {
@@ -362,6 +386,59 @@ void main() {
     expect(text.maxLines, isNull);
     expect(text.overflow, isNull);
     expect(text.textAlign, TextAlign.left);
+  });
+
+  testWidgets('message and narrator bubbles report long press starts', (
+    WidgetTester tester,
+  ) async {
+    final pressed = <String>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              ChatMessageRow(
+                message: ChatMessageVm(
+                  localId: 'peer-1',
+                  senderId: 'peer',
+                  senderName: 'Peer',
+                  text: 'Peer message',
+                  isMe: false,
+                  status: 'sent',
+                ),
+                showDateDivider: false,
+                onMessageLongPressStart: (_, message, _) {
+                  pressed.add(message.localId);
+                },
+              ),
+              ChatMessageRow(
+                message: ChatMessageVm(
+                  localId: 'nar-1',
+                  senderId: 'narrator',
+                  senderName: 'Narrator',
+                  text: 'Narrator message',
+                  isMe: false,
+                  status: 'sent',
+                  senderType: 'narrator',
+                ),
+                showDateDivider: false,
+                onMessageLongPressStart: (_, message, _) {
+                  pressed.add(message.localId);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.longPress(find.text('Peer message'));
+    await tester.pump();
+    await tester.longPress(find.text('Narrator message'));
+    await tester.pump();
+
+    expect(pressed, ['peer-1', 'nar-1']);
   });
 
   testWidgets('tick system message spans avatar-edge width with tick label', (

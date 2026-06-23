@@ -14,6 +14,7 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
+import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/app/version/force_upgrade_gate.dart';
 import 'package:genesis_flutter_android/main.dart';
@@ -41,7 +42,6 @@ import 'package:genesis_flutter_android/pages/create/create_story_events_page.da
 import 'package:genesis_flutter_android/pages/edit/edit_characters_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_locations_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
-import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
@@ -66,6 +66,8 @@ import 'package:genesis_flutter_android/pages/discuss/post_detail_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
+import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
+import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_store.dart';
 import 'package:genesis_flutter_android/pages/world/world_page.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
@@ -554,14 +556,6 @@ class _RecordingV1ListTransport implements HttpTransport {
         'err_no': 0,
         'err_str': 'success',
         'data': {'world_id': body['world_id'], 'char_id': 'char_1'},
-      });
-    }
-    if (request.method == 'POST' &&
-        request.uri.path.endsWith('/session/set-world')) {
-      return _jsonResponse({
-        'err_no': 0,
-        'err_str': 'success',
-        'data': {'ok': true},
       });
     }
     if (request.method == 'POST' &&
@@ -1673,7 +1667,16 @@ class _RecordingSearchTransport implements HttpTransport {
 }
 
 class _RecordingCreateOriginTransport implements HttpTransport {
+  _RecordingCreateOriginTransport({
+    Map<String, List<int>> originInfoStatuses = const <String, List<int>>{},
+    this.originInfoNames = const <String, String>{},
+  }) : originInfoStatuses = originInfoStatuses.map(
+         (key, value) => MapEntry(key, List<int>.of(value)),
+       );
+
   final requests = <TransportRequest>[];
+  final Map<String, List<int>> originInfoStatuses;
+  final Map<String, String> originInfoNames;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -1749,6 +1752,20 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         ],
       };
     }
+    if (request.method == 'GET' && request.uri.path == '/api/v1/origin/info') {
+      final oid = request.uri.queryParameters['origin_id'] ?? '';
+      final statuses =
+          originInfoStatuses[oid] ?? originInfoStatuses['*'] ?? <int>[];
+      final status = statuses.isEmpty ? 10 : statuses.removeAt(0);
+      final originName =
+          originInfoNames[oid] ??
+          originInfoNames['*'] ??
+          (oid.isEmpty ? 'Origin' : 'Origin $oid');
+      data = {
+        'info': {'origin_id': oid, 'origin_name': originName, 'status': status},
+        'stats': const <String, Object?>{},
+      };
+    }
     if (request.method == 'POST' &&
         request.uri.path == '/api/v1/origin/update') {
       final body = decodedBody(request);
@@ -1786,6 +1803,11 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    OriginPendingSubmissionCoordinator.instance.resetForTesting();
+  });
+
+  tearDown(() {
+    OriginPendingSubmissionCoordinator.instance.resetForTesting();
   });
 
   testWidgets('force upgrade gate renders child when upgrade is not required', (
@@ -7160,10 +7182,15 @@ void main() {
     );
   });
 
-  testWidgets('create save posts v1 origin and clears local draft', (
+  testWidgets('create save posts v1 origin and waits while processing', (
     WidgetTester tester,
   ) async {
-    final transport = _RecordingCreateOriginTransport();
+    final transport = _RecordingCreateOriginTransport(
+      originInfoStatuses: {
+        'o_created_1': [20, 10],
+      },
+      originInfoNames: {'o_created_1': 'Crystal City'},
+    );
     await CreateOriginDraftStore.saveFinal(
       const CreateOriginDraft(
         basics: BasicsDraft(
@@ -7196,6 +7223,7 @@ void main() {
       AppServicesScope(
         services: await _testServices(transport: transport, useMock: false),
         child: MaterialApp(
+          navigatorKey: genesisNavigatorKey,
           home: Builder(
             builder: (context) => Scaffold(
               body: FilledButton(
@@ -7217,9 +7245,27 @@ void main() {
 
     await tester.tap(find.text('Open create'));
     await tester.pumpAndSettle();
+    expect(find.textContaining('Crystal City'), findsOneWidget);
+    final readyCreateButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Create'),
+    );
+    expect(readyCreateButton.onPressed, isNotNull);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
-    await tester.pumpAndSettle();
+    readyCreateButton.onPressed!();
+    await tester.pump();
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/create').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/info').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pump();
 
     final requests = transport.requestsFor('/api/v1/origin/create');
     expect(requests, hasLength(1));
@@ -7247,27 +7293,194 @@ void main() {
     expect(locationList.single['location_name'], 'Gate');
 
     final draft = await CreateOriginDraftStore.load();
-    expect(draft.hasAllSectionsSaved, isFalse);
+    expect(draft.hasAllSectionsSaved, isTrue);
+    final pendingCreate = await OriginPendingSubmissionStore.loadCreating();
+    expect(pendingCreate?.originId, 'o_created_1');
+    expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
+    expect(find.widgetWithText(FilledButton, 'Creating...'), findsOneWidget);
+    final createButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Creating...'),
+    );
+    expect(createButton.onPressed, isNull);
+    expect(
+      find.text(
+        'Worldo Origin o_created_1 has been created successfully. Go to it?',
+      ),
+      findsNothing,
+    );
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
     expect(find.text('Open create'), findsOneWidget);
     expect(find.text('Create Worldo'), findsNothing);
+    expect(find.text('Save the draft before leaving?'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/info').length >= 2) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pumpAndSettle();
+    expect(transport.requestsFor('/api/v1/origin/info'), hasLength(2));
     expect(
-      find.text('Worldo created successfully: o_created_1'),
+      find.text('Worldo Crystal City has been created successfully. Go to it?'),
       findsOneWidget,
     );
-    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('create clears draft after origin info reports complete', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingCreateOriginTransport(
+      originInfoStatuses: {
+        'o_created_1': [10],
+      },
+      originInfoNames: {'o_created_1': 'Crystal City'},
+    );
+    await CreateOriginDraftStore.saveFinal(
+      const CreateOriginDraft(
+        basics: BasicsDraft(
+          originName: 'Crystal City',
+          worldView: 'A public world view.',
+          worldLogic: 'Hidden rules.',
+          coverImageUrl: 'https://example.com/cover.png',
+        ),
+        characters: <CharacterDraft>[
+          CharacterDraft(name: 'Ari', identity: 'Guide', personality: 'Calm'),
+        ],
+        locations: <LocationDraft>[LocationDraft(name: 'Gate')],
+        storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        basicsSaved: true,
+        charactersSaved: true,
+        locationsSaved: true,
+        storyEventsSaved: true,
+      ),
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          navigatorKey: genesisNavigatorKey,
+          home: const CreateOriginPage(),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
+    expect(find.textContaining('Crystal City'), findsOneWidget);
+
+    tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'Create'))
+        .onPressed!();
+    await tester.pump();
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/create').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/info').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pumpAndSettle();
+
+    final draft = await CreateOriginDraftStore.load();
+    expect(draft.hasAllSectionsSaved, isFalse);
+    expect(
+      find.text('Worldo Crystal City has been created successfully. Go to it?'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('create page resumes pending origin after app rebuild', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingCreateOriginTransport(
+      originInfoStatuses: {
+        'o_created_1': [20],
+      },
+    );
+    await CreateOriginDraftStore.saveFinal(
+      const CreateOriginDraft(
+        basics: BasicsDraft(
+          originName: 'Crystal City',
+          worldView: 'A public world view.',
+          worldLogic: 'Hidden rules.',
+          coverImageUrl: 'https://example.com/cover.png',
+        ),
+        characters: <CharacterDraft>[
+          CharacterDraft(name: 'Ari', identity: 'Guide', personality: 'Calm'),
+        ],
+        locations: <LocationDraft>[LocationDraft(name: 'Gate')],
+        storyEvents: <StoryEventDraft>[StoryEventDraft()],
+        basicsSaved: true,
+        charactersSaved: true,
+        locationsSaved: true,
+        storyEventsSaved: true,
+      ),
+    );
+    await OriginPendingSubmissionStore.saveCreating('o_created_1');
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: CreateOriginPage()),
+      ),
+    );
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/info').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pump();
+
+    expect(transport.requestsFor('/api/v1/origin/create'), isEmpty);
+    expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
+    expect(find.textContaining('Crystal City'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Creating...'), findsOneWidget);
+    OriginPendingSubmissionCoordinator.instance.resetForTesting();
   });
 
   testWidgets('edit flow loads origin detail and posts update after changes', (
     WidgetTester tester,
   ) async {
-    final transport = _RecordingCreateOriginTransport();
+    final transport = _RecordingCreateOriginTransport(
+      originInfoStatuses: {
+        'o_edit_1': [20, 10],
+      },
+      originInfoNames: {'o_edit_1': 'Edited Origin'},
+    );
     await tester.pumpWidget(
       AppServicesScope(
         services: await _testServices(transport: transport, useMock: false),
-        child: const MaterialApp(home: EditOriginPage(originId: 'o_edit_1')),
+        child: MaterialApp(
+          navigatorKey: genesisNavigatorKey,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: FilledButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          const EditOriginPage(originId: 'o_edit_1'),
+                    ),
+                  );
+                },
+                child: const Text('Open edit'),
+              ),
+            ),
+          ),
+        ),
       ),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Open edit'));
+    await tester.pump();
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
         if (transport.requestsFor('/api/v1/origin/foredit').isNotEmpty) break;
@@ -7276,58 +7489,53 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 50));
     });
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     final detailRequests = transport.requestsFor('/api/v1/origin/foredit');
     expect(detailRequests, hasLength(1));
     expect(detailRequests.single.uri.queryParameters['origin_id'], 'o_edit_1');
     expect(find.text('Current Version: V1'), findsOneWidget);
-    expect(find.textContaining('Worldo Name: Editable Origin'), findsOneWidget);
+    expect(find.textContaining('Editable Origin'), findsOneWidget);
 
     var rootPublish = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Publish'),
     );
-    expect(rootPublish.onPressed, isNotNull);
+    expect(rootPublish.onPressed, isNull);
     expect(
-      rootPublish.style?.backgroundColor?.resolve(<WidgetState>{}),
-      GenesisColors.brand,
+      rootPublish.style?.backgroundColor?.resolve(<WidgetState>{
+        WidgetState.disabled,
+      }),
+      const Color(0xFFBFD8CD),
     );
-
-    await tester.tap(find.widgetWithText(FilledButton, 'Publish'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('No changes to publish.'), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
-    await tester.pump(const Duration(seconds: 2));
 
     await tester.tap(find.text('Basics'));
     await tester.pumpAndSettle();
 
     expect(find.text('Edit Worldo'), findsNothing);
-    expect(find.text('🌐 Basics'), findsOneWidget);
+    expect(find.textContaining('Basics'), findsWidgets);
     await tester.enterText(find.byType(TextField).first, 'Edited Origin');
     await tester.pump();
-    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'Save'))
+        .onPressed!();
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Worldo Name: Edited Origin'), findsOneWidget);
+    expect(find.textContaining('Edited Origin'), findsOneWidget);
     rootPublish = tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Publish'),
     );
-    expect(rootPublish.onPressed, isNotNull);
+    expect(rootPublish.onPressed, isNull);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Publish'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(find.text('Update notes are required to publish.'), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
-    await tester.pump(const Duration(seconds: 2));
 
     await tester.drag(find.byType(ListView), const Offset(0, -360));
     await tester.pump();
     expect(find.byType(TextField), findsOneWidget);
     await tester.enterText(
-      find.byType(TextField),
+      find.byType(TextField).last,
       'Clarified the archive rules.',
     );
     await tester.pump();
@@ -7342,10 +7550,19 @@ void main() {
     tester.testTextInput.hide();
     await tester.pump();
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Publish').last);
+    tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'Publish').last)
+        .onPressed!();
+    await tester.pump();
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
         if (transport.requestsFor('/api/v1/origin/update').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/info').isNotEmpty) break;
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
     });
@@ -7405,12 +7622,156 @@ void main() {
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
+    expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
+    expect(find.widgetWithText(FilledButton, 'Publishing...'), findsOneWidget);
+    final publishButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Publishing...').last,
+    );
+    expect(publishButton.onPressed, isNull);
     expect(
-      find.text('Worldo published successfully: o_edit_1'),
+      find.text(
+        'Worldo Origin o_edit_1 has been published successfully. Go to it?',
+      ),
+      findsNothing,
+    );
+    await tester.tap(
+      find.byIcon(Icons.arrow_back_ios_new),
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Publish changes before leaving?'), findsNothing);
+    expect(find.text('Open edit'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/info').length >= 2) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pumpAndSettle();
+    expect(transport.requestsFor('/api/v1/origin/info'), hasLength(2));
+    expect(
+      find.text(
+        'Worldo Edited Origin has been published successfully. Go to it?',
+      ),
       findsOneWidget,
     );
-    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('edit flow completes after origin info reports published', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingCreateOriginTransport(
+      originInfoStatuses: {
+        'o_edit_1': [10],
+      },
+      originInfoNames: {'o_edit_1': 'Edited Origin'},
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          navigatorKey: genesisNavigatorKey,
+          home: const EditOriginPage(originId: 'o_edit_1'),
+        ),
+      ),
+    );
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/foredit').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
     await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Basics'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Edited Origin');
+    await tester.pump();
+    tester
+        .widget<FilledButton>(find.widgetWithText(FilledButton, 'Save'))
+        .onPressed!();
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Edited Origin'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -360));
+    await tester.pump();
+    await tester.enterText(
+      find.byType(TextField).last,
+      'Clarified the archive rules.',
+    );
+    await tester.pump();
+    await tester.tap(find.text('📝Update notes (required to publish)'));
+    await tester.pump();
+    tester.testTextInput.hide();
+    await tester.pump();
+    final completePublishButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Publish').last,
+    );
+    expect(completePublishButton.onPressed, isNotNull);
+    completePublishButton.onPressed!();
+    await tester.pump();
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/update').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/info').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pumpAndSettle();
+
+    expect(transport.requestsFor('/api/v1/origin/update'), hasLength(1));
+    expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
+    expect(
+      find.text(
+        'Worldo Edited Origin has been published successfully. Go to it?',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('edit page resumes matching publish pending after app rebuild', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingCreateOriginTransport(
+      originInfoStatuses: {
+        'o_edit_1': [20],
+      },
+    );
+    await OriginPendingSubmissionStore.savePublishing('o_edit_1');
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: EditOriginPage(originId: 'o_edit_1')),
+      ),
+    );
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/foredit').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pump();
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/info').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pump();
+
+    expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
+    expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
+    expect(find.widgetWithText(FilledButton, 'Publishing...'), findsOneWidget);
+    OriginPendingSubmissionCoordinator.instance.resetForTesting();
   });
 
   testWidgets(

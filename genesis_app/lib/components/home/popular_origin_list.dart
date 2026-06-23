@@ -562,9 +562,9 @@ class _ProgressSummary extends StatelessWidget {
       );
     }
 
-    final worldId = summary?.worldId.trim() ?? item.wid.trim();
-    final worldDeleted = summary?.deleted ?? false;
-    final tickNo = summary?.tickNo ?? item.tickCount;
+    final worldId = summary.worldId.trim();
+    final worldDeleted = summary.deleted;
+    final tickNo = summary.tickNo;
     final timeText = formatGenesisTimestamp(
       summary.tickTime == 0 ? summary.createdAt : summary.tickTime,
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/genesis_report_actions.dart';
 import '../../components/page_header.dart';
 import '../../components/me/user_profile_content.dart';
 import '../../network/genesis_api.dart';
@@ -250,6 +251,25 @@ class _UserInfoPageState extends State<UserInfoPage> {
     return Scaffold(
       appBar: GenesisBackAppBar(
         pageName: _profileCollapsed ? _profileTitle : '',
+        actions: [
+          GenesisMoreActionMenuButton(
+            items: [
+              GenesisActionMenuItem(
+                label: 'Report',
+                onSelected: () {
+                  final uid = _profileUid.trim().isEmpty
+                      ? widget.uid.trim()
+                      : _profileUid.trim();
+                  showGenesisReportDialog(
+                    context: context,
+                    targetType: 'user',
+                    targetId: uid,
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
       ),
       body: SafeArea(
         bottom: false,

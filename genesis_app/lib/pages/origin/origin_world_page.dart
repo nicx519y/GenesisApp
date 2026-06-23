@@ -8,6 +8,7 @@ import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_modal_routes.dart';
+import '../../components/common/genesis_report_actions.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
@@ -978,17 +979,41 @@ class _OriginHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Center(
-          child: Text(
-            originDisplayName(origin.name, fallback: origin.oid),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 18,
-              height: 1.25,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF4B6192),
+        Row(
+          children: [
+            const SizedBox(width: 38),
+            Expanded(
+              child: Text(
+                originDisplayName(origin.name, fallback: origin.oid),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 18,
+                  height: 1.25,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF4B6192),
+                ),
+              ),
             ),
-          ),
+            SizedBox(
+              width: 38,
+              child: GenesisMoreActionMenuButton(
+                items: [
+                  GenesisActionMenuItem(
+                    label: 'Report',
+                    onSelected: () {
+                      showGenesisReportDialog(
+                        context: context,
+                        targetType: 'origin',
+                        targetId: origin.oid,
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         // Header inner spacing: title -> OID/originator row.
         const SizedBox(height: 4),

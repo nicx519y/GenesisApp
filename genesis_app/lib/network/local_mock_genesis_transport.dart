@@ -159,10 +159,6 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _ok(chars);
     }
 
-    if (method == 'POST' && apiPath == 'session/set-world') {
-      return _ok({'ok': true});
-    }
-
     if (method == 'POST' && apiPath == 'session/set-player-scene') {
       return _ok({'ok': true});
     }
@@ -588,6 +584,32 @@ class LocalMockGenesisTransport implements HttpTransport {
     if (method == 'POST' && path == 'discuss/delete') {
       _state.deleteV1Discuss('${body['discuss_id'] ?? ''}');
       return _v1Ok(<String, dynamic>{});
+    }
+
+    if (method == 'POST' && path == 'report/create') {
+      final targetType = '${body['target_type'] ?? ''}'.trim();
+      final targetId = '${body['target_id'] ?? ''}'.trim();
+      final content = '${body['content'] ?? ''}'.trim();
+      const supportedTypes = {
+        'origin',
+        'world',
+        'tick',
+        'message',
+        'discuss',
+        'user',
+      };
+      if (!supportedTypes.contains(targetType)) {
+        return _v1Error(20801, 'ErrorReportTargetTypeInvalid');
+      }
+      if (targetId.isEmpty || content.isEmpty) {
+        return _v1Error(4004, 'ErrorParamInvalid');
+      }
+      if (content.length > 1000) {
+        return _v1Error(20802, 'ErrorReportContentTooLong');
+      }
+      return _v1Ok({
+        'report_id': 'rpt_mock_${DateTime.now().microsecondsSinceEpoch}',
+      });
     }
 
     if (method == 'GET' && path == 'search') {
