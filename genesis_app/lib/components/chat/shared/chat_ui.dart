@@ -40,6 +40,9 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
   composerBackdropBlurSigma: 20,
 );
 
+const double _locationChatOuterPadding = 10;
+const double _locationChatAvatarOneThird = 40 / 3;
+
 ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
   headerTitleTextStyle: ChatUiStyleConfig.standard.headerTitleTextStyle
       .copyWith(color: Colors.white),
@@ -50,8 +53,14 @@ ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
   headerBackdropBlurSigma: 20,
   composerBackdropBlurSigma: 20,
   messageListPadding: ChatUiStyleConfig.standard.messageListPadding.copyWith(
-    left: 10,
-    right: 10,
+    left: _locationChatOuterPadding,
+    right: _locationChatOuterPadding,
+  ),
+  avatarSideSpacerWidth: _locationChatAvatarOneThird,
+  systemMessageMargin: EdgeInsets.only(
+    left: _locationChatAvatarOneThird,
+    right: _locationChatAvatarOneThird,
+    bottom: 18,
   ),
 );
 
@@ -684,7 +693,7 @@ class ChatMessageRow extends StatelessWidget {
     if (message.isSystem) {
       return ChatSystemMessage(
         text: message.isTick ? _tickAdvanceText(message) : message.text,
-        fullWidth: message.isTick,
+        fullWidth: message.isTick || message.isNarrator,
         singleLine: message.isTick,
         textAlign: message.isTick || message.isNarrator
             ? TextAlign.left
@@ -824,8 +833,11 @@ double _normalBubbleMaxWidth(BuildContext context, ChatUiStyleConfig style) {
 }
 
 double _normalBubbleMaxWidthForWidth(double width, ChatUiStyleConfig style) {
-  final sideReservation = style.avatarSize + style.avatarBubbleGap;
-  final rowAvailableWidth = width - sideReservation * 2;
+  final rowAvailableWidth =
+      width -
+      style.avatarSize -
+      style.avatarBubbleGap -
+      style.avatarSideSpacerWidth;
   return rowAvailableWidth > 0 ? rowAvailableWidth : width;
 }
 
@@ -836,7 +848,7 @@ class _ChatAvatarSideSpacer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(width: style.avatarSize + style.avatarBubbleGap);
+    return SizedBox(width: style.avatarSideSpacerWidth);
   }
 }
 
@@ -1130,7 +1142,7 @@ List<InlineSpan> _inlineMarkdownSpans(String text, TextStyle baseStyle) {
           TextSpan(
             text: text.substring(index + 1, end),
             style: baseStyle.copyWith(
-              color: const Color(0xFF777777),
+              color: const Color(0xFF888888),
               fontStyle: FontStyle.italic,
             ),
           ),

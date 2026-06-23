@@ -119,6 +119,8 @@ class ChatUiStyleConfig {
     required this.badgeBubbleGap,
     // 头像和气泡之间的间距。
     required this.avatarBubbleGap,
+    // 气泡远端和列表边缘之间保留的占位宽度。
+    required this.avatarSideSpacerWidth,
     // 发送者名字和气泡之间的垂直间距。
     required this.senderNameBottomGap,
     // 状态文字和气泡之间的垂直间距。
@@ -266,6 +268,7 @@ class ChatUiStyleConfig {
     otherBubbleMaxWidthFactor: 0.72, // 对方消息气泡最大宽度比例。
     badgeBubbleGap: 8, // loading/失败徽标和气泡之间的间距。
     avatarBubbleGap: 10, // 头像和气泡之间的间距。
+    avatarSideSpacerWidth: 50, // 气泡远端和列表边缘之间保留的占位宽度。
     senderNameBottomGap: 4, // 对方名字和气泡之间的垂直间距。
     statusTextTopGap: 4, // 状态文字和气泡之间的垂直间距。
     statusTextStyle: TextStyle(color: Colors.white70, fontSize: 11), // 状态文字样式。
@@ -437,6 +440,8 @@ class ChatUiStyleConfig {
   final double badgeBubbleGap;
   // 头像和气泡之间的间距。
   final double avatarBubbleGap;
+  // 气泡远端和列表边缘之间保留的占位宽度。
+  final double avatarSideSpacerWidth;
   // 发送者名字和气泡之间的垂直间距。
   final double senderNameBottomGap;
   // 状态文字和气泡之间的垂直间距。
@@ -519,6 +524,8 @@ class ChatUiStyleConfig {
     double? headerStatusIconSize,
     double? headerSubtitleTopGap,
     EdgeInsets? messageListPadding,
+    double? avatarSideSpacerWidth,
+    EdgeInsets? systemMessageMargin,
     bool? showComposerSendButton,
   }) {
     return ChatUiStyleConfig(
@@ -592,6 +599,8 @@ class ChatUiStyleConfig {
       otherBubbleMaxWidthFactor: otherBubbleMaxWidthFactor,
       badgeBubbleGap: badgeBubbleGap,
       avatarBubbleGap: avatarBubbleGap,
+      avatarSideSpacerWidth:
+          avatarSideSpacerWidth ?? this.avatarSideSpacerWidth,
       senderNameBottomGap: senderNameBottomGap,
       statusTextTopGap: statusTextTopGap,
       statusTextStyle: statusTextStyle,
@@ -619,7 +628,7 @@ class ChatUiStyleConfig {
       failedBadgeIconSize: failedBadgeIconSize,
       dateDividerBottomPadding: dateDividerBottomPadding,
       dateDividerTextStyle: dateDividerTextStyle,
-      systemMessageMargin: systemMessageMargin,
+      systemMessageMargin: systemMessageMargin ?? this.systemMessageMargin,
       systemMessagePadding: systemMessagePadding,
       systemMessageBackgroundColor: systemMessageBackgroundColor,
       systemMessageBorderRadius: systemMessageBorderRadius,

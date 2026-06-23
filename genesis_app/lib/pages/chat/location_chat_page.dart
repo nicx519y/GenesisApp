@@ -123,6 +123,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   static const Duration _keyboardAnimationDuration = Duration(
     milliseconds: 120,
   );
+  static const double _minUsableKeyboardInset = 120;
   static double _cachedKeyboardInset = 0;
 
   final _scrollController = ScrollController();
@@ -148,15 +149,18 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _ownsService = false;
   bool _joinedLocation = false;
   bool _sending = false;
+  bool _awaitingAiResponse = false;
   bool _hasDraftText = false;
   bool _waitingForKeyboardTarget = false;
   bool _keyboardTargetLocked = false;
+  bool _keyboardNeedsStableCorrection = false;
   bool _loadingOlderMessages = false;
   bool _hasMoreOlderMessages = true;
   bool _initialContentReadyNotified = false;
   Future<void>? _initialLatestMessagesRefresh;
   int _unseenIncomingCount = 0;
   int _clientMsgCounter = 0;
+  String _awaitingAiResponseRoundId = '';
   double _composerHeight = 0;
   double _keyboardInset = 0;
   double _lastPanelHeight = 0;
@@ -256,6 +260,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     }
     if (!oldWidget.active && widget.active) {
       _activateConnection();
+      _forceScrollToBottom();
     } else if (oldWidget.active && !widget.active) {
       unawaited(_deactivateConnection());
     }
@@ -344,6 +349,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   Future<void> _deactivateConnection() async {
     _sending = false;
+    _awaitingAiResponse = false;
+    _awaitingAiResponseRoundId = '';
     final wasJoinedLocation = _joinedLocation;
     _joinedLocation = false;
     await _stateSubscription?.cancel();
@@ -557,15 +564,22 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         ? (Stopwatch()..start())
         : null;
     final changedMessages = _reconcileMessages(nextSource);
+    final nextAwaitingAiResponse =
+        _awaitingAiResponse && !_hasCompletedAwaitedAiResponse(nextSource);
     final shouldRebuild =
         changedMessages ||
-        _hasVisibleChatroomStateChange(_chatroomState, state);
+        _hasVisibleChatroomStateChange(_chatroomState, state) ||
+        nextAwaitingAiResponse != _awaitingAiResponse;
     if (shouldRebuild) {
       setState(() {
         _chatroomState = state;
+        _awaitingAiResponse = nextAwaitingAiResponse;
+        if (!nextAwaitingAiResponse) _awaitingAiResponseRoundId = '';
       });
     } else {
       _chatroomState = state;
+      _awaitingAiResponse = nextAwaitingAiResponse;
+      if (!nextAwaitingAiResponse) _awaitingAiResponseRoundId = '';
     }
     _logPanelMetric(
       'state received source ${previousSource.length}->${nextSource.length} '
@@ -877,11 +891,26 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     // by WorldChatroomState instead of appending synthetic rows.
   }
 
+  bool _hasCompletedAwaitedAiResponse(List<WorldChatroomMessage> source) {
+    final awaitedRoundId = _awaitingAiResponseRoundId.trim();
+    if (!_awaitingAiResponse) return false;
+    if (awaitedRoundId.isEmpty) return false;
+    for (final message in source.reversed) {
+      if (!_currentLocationIds().contains(message.locationId)) continue;
+      if (message.conversationRoundId != awaitedRoundId) continue;
+      if (_isMineMessage(message)) continue;
+      if (_messageSenderType(message) == 'user') continue;
+      return !message.streaming;
+    }
+    return false;
+  }
+
   Future<void> _send() async {
     final service = _service;
     if (service == null ||
         _chatroomState.joinedLocationId != widget.locationId ||
         _chatroomState.inputBlocked ||
+        _awaitingAiResponse ||
         _sending) {
       return;
     }
@@ -902,6 +931,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
     setState(() {
       _sending = true;
+      _awaitingAiResponse = true;
+      _awaitingAiResponseRoundId = '';
       _messages.add(localMessage);
       _hasDraftText = false;
       _textController.clear();
@@ -915,6 +946,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         localMessage.messageId = ack.messageId;
         localMessage.roundId = ack.conversationRoundId;
         localMessage.status = 'sent';
+        _awaitingAiResponseRoundId = ack.conversationRoundId.trim();
         _sending = false;
       });
     } catch (e) {
@@ -922,6 +954,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       setState(() {
         localMessage.status = 'failed';
         localMessage.error = e.toString();
+        _awaitingAiResponse = false;
+        _awaitingAiResponseRoundId = '';
         _sending = false;
       });
     }
@@ -1223,6 +1257,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final ownsService = _ownsService;
     _service = null;
     _sending = false;
+    _awaitingAiResponse = false;
+    _awaitingAiResponseRoundId = '';
 
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
@@ -1428,6 +1464,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                         joined &&
                         _hasDraftText &&
                         !_sending &&
+                        !_awaitingAiResponse &&
                         !inputBlocked,
                     sending: false,
                     onSend: _send,
@@ -1553,12 +1590,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _markKeyboardProbeFocus();
       _rebuildComposerForKeyboardState();
       _keyboardTargetLocked = false;
-      if (_cachedKeyboardInset > 0) {
+      if (_cachedKeyboardInset >= _minUsableKeyboardInset) {
         _waitingForKeyboardTarget = false;
         _keyboardTargetLocked = true;
+        _keyboardNeedsStableCorrection = false;
         _setKeyboardInset(_cachedKeyboardInset);
       } else {
         _waitingForKeyboardTarget = true;
+        _keyboardNeedsStableCorrection = true;
         _setKeyboardInset(_estimatedKeyboardInset());
         _startKeyboardTargetProbe();
       }
@@ -1572,6 +1611,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _keyboardTargetProbeTimer?.cancel();
     _waitingForKeyboardTarget = false;
     _keyboardTargetLocked = false;
+    _keyboardNeedsStableCorrection = false;
     _setKeyboardInset(0);
   }
 
@@ -1587,6 +1627,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _latestRawKeyboardInset = rawInset;
       final currentTarget = _clampKeyboardInset(rawInset);
       _markKeyboardProbeFirstInset(rawInset, currentTarget);
+      if (currentTarget < _minUsableKeyboardInset) {
+        _scheduleStableKeyboardInsetCacheUpdate();
+        return;
+      }
       if (_keyboardTargetLocked && !_waitingForKeyboardTarget) {
         _scheduleStableKeyboardInsetCacheUpdate();
         return;
@@ -1617,9 +1661,15 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           : _latestRawKeyboardInset;
       if (rawStableInset <= 0) return;
       final targetInset = _clampKeyboardInset(rawStableInset);
+      if (targetInset < _minUsableKeyboardInset) return;
       _cachedKeyboardInset = targetInset;
       _markKeyboardProbeStableInset(rawStableInset, targetInset);
-      if (_composerFocusNode.hasFocus && !_keyboardTargetLocked) {
+      if (_composerFocusNode.hasFocus &&
+          (_keyboardNeedsStableCorrection ||
+              !_keyboardTargetLocked ||
+              _hasMeaningfulKeyboardInsetCorrection(targetInset))) {
+        _keyboardNeedsStableCorrection = false;
+        _keyboardTargetLocked = true;
         _setKeyboardInset(targetInset);
       }
     });
@@ -1638,7 +1688,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         final rawInset = _rawKeyboardInset();
         if (rawInset <= 0) return;
         final currentTarget = _clampKeyboardInset(rawInset);
-        if (currentTarget <= 0) return;
+        if (currentTarget < _minUsableKeyboardInset) return;
         _markKeyboardProbeFirstInset(rawInset, currentTarget);
         _waitingForKeyboardTarget = false;
         _keyboardTargetLocked = true;
@@ -1649,8 +1699,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           if (!mounted || !_composerFocusNode.hasFocus) return;
           final stableInset = _rawKeyboardInset();
           if (stableInset <= 0) return;
-          _cachedKeyboardInset = _clampKeyboardInset(stableInset);
+          final stableTarget = _clampKeyboardInset(stableInset);
+          if (stableTarget < _minUsableKeyboardInset) return;
+          _cachedKeyboardInset = stableTarget;
           _markKeyboardProbeStableInset(stableInset, _cachedKeyboardInset);
+          _keyboardNeedsStableCorrection = false;
           _setKeyboardInset(_cachedKeyboardInset);
         });
         timer.cancel();
@@ -1763,6 +1816,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       'maxBuild=${_keyboardProbeMaxBuildMs}ms '
       'maxRaster=${_keyboardProbeMaxRasterMs}ms '
       'raw=${_rawKeyboardInset().toStringAsFixed(1)} '
+      'cached=${_cachedKeyboardInset.toStringAsFixed(1)} '
       'current=${_keyboardInset.toStringAsFixed(1)}',
     );
     _keyboardProbeStopwatch = null;
@@ -1813,6 +1867,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         ? _lastPanelHeight
         : MediaQuery.sizeOf(context).height;
     return _clampKeyboardInset(panelHeight * 0.38);
+  }
+
+  bool _hasMeaningfulKeyboardInsetCorrection(double targetInset) {
+    if (_keyboardInset <= 0 || targetInset < _minUsableKeyboardInset) {
+      return false;
+    }
+    return (targetInset - _keyboardInset).abs() > 8;
   }
 
   void _setKeyboardInset(double inset) {

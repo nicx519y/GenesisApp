@@ -281,7 +281,7 @@ void main() {
       ),
     );
     expect(_textHasItalicFragment(bubbleText, 'quietly'), isTrue);
-    expect(_textFragmentColor(bubbleText, 'quietly'), const Color(0xFF777777));
+    expect(_textFragmentColor(bubbleText, 'quietly'), const Color(0xFF888888));
   });
 
   testWidgets('chat rows reserve matching avatar space on both sides', (
@@ -434,7 +434,127 @@ void main() {
       ),
     );
     expect(_textHasItalicFragment(systemText, 'cold'), isTrue);
-    expect(_textFragmentColor(systemText, 'cold'), const Color(0xFF777777));
+    expect(_textFragmentColor(systemText, 'cold'), const Color(0xFF888888));
+  });
+
+  testWidgets('location chat keeps avatars aligned and bars one-third in', (
+    WidgetTester tester,
+  ) async {
+    final style = kLocationChatStyle;
+    final expectedOuterPadding = 10.0;
+    final expectedInnerPadding = ChatUiStyleConfig.standard.avatarSize / 3;
+    final expectedBubbleEdge = expectedOuterPadding + expectedInnerPadding;
+
+    expect(style.messageListPadding.left, expectedOuterPadding);
+    expect(style.messageListPadding.right, expectedOuterPadding);
+    expect(style.avatarSideSpacerWidth, closeTo(expectedInnerPadding, 0.01));
+    expect(style.systemMessageMargin.left, closeTo(expectedInnerPadding, 0.01));
+    expect(
+      style.systemMessageMargin.right,
+      closeTo(expectedInnerPadding, 0.01),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            child: Padding(
+              padding: style.messageListPadding,
+              child: Column(
+                children: [
+                  ChatMessageRow(
+                    message: ChatMessageVm(
+                      localId: 'me',
+                      senderId: 'me',
+                      senderName: 'Me',
+                      text: List.filled(24, 'wide').join(' '),
+                      isMe: true,
+                      status: 'sent',
+                    ),
+                    showDateDivider: false,
+                    style: style,
+                  ),
+                  ChatMessageRow(
+                    message: ChatMessageVm(
+                      localId: 'other',
+                      senderId: 'peer',
+                      senderName: 'Peer',
+                      text: List.filled(24, 'wide').join(' '),
+                      isMe: false,
+                      status: 'sent',
+                    ),
+                    showDateDivider: false,
+                    style: style,
+                  ),
+                  ChatMessageRow(
+                    message: ChatMessageVm(
+                      localId: 'narrator',
+                      senderId: 'nar',
+                      senderName: '旁白',
+                      text: 'A full width narrator bar.',
+                      isMe: false,
+                      status: 'sent',
+                      senderType: 'narrator',
+                    ),
+                    showDateDivider: false,
+                    style: style,
+                  ),
+                  ChatMessageRow(
+                    message: ChatMessageVm(
+                      localId: 'tick',
+                      senderId: 'tick',
+                      senderName: 'Time',
+                      text: 'Day 45, 19:34',
+                      isMe: false,
+                      status: 'sent',
+                      senderType: 'tick',
+                      tickNo: 7,
+                    ),
+                    showDateDivider: false,
+                    style: style,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final avatars = find.byType(ChatAvatar);
+    final bubbles = find.byType(ChatMessageBubble);
+    final meAvatar = tester.getRect(avatars.at(0));
+    final otherAvatar = tester.getRect(avatars.at(1));
+    final meBubble = tester.getRect(bubbles.at(0));
+    final otherBubble = tester.getRect(bubbles.at(1));
+    final narratorBar = tester.getRect(
+      find.byKey(const ValueKey('chat-system-message-bubble')),
+    );
+    final tickBar = tester.getRect(
+      find.byKey(const ValueKey('chat-tick-message-bubble')),
+    );
+    final narratorText = tester.getRect(
+      find.text('A full width narrator bar.'),
+    );
+    final tickText = tester.getRect(find.text('Tick 7 · Day 45, 19:34'));
+
+    expect(meAvatar.right, closeTo(400 - expectedOuterPadding, 1));
+    expect(otherAvatar.left, closeTo(expectedOuterPadding, 1));
+    expect(meBubble.left, closeTo(expectedBubbleEdge, 1));
+    expect(otherBubble.right, closeTo(400 - expectedBubbleEdge, 1));
+    expect(narratorBar.left, closeTo(expectedOuterPadding, 1));
+    expect(narratorBar.right, closeTo(400 - expectedOuterPadding, 1));
+    expect(tickBar.left, closeTo(expectedOuterPadding, 1));
+    expect(tickBar.right, closeTo(400 - expectedOuterPadding, 1));
+    expect(
+      narratorText.left,
+      closeTo(expectedBubbleEdge + style.systemMessagePadding.left, 1),
+    );
+    expect(
+      tickText.left,
+      closeTo(expectedBubbleEdge + style.systemMessagePadding.left, 1),
+    );
   });
 
   testWidgets('underscore markdown remains plain text', (
@@ -723,6 +843,45 @@ void main() {
     await tester.pump();
 
     expect(sendCount, 1);
+  });
+
+  testWidgets('chat composer disables send action without showing spinner', (
+    WidgetTester tester,
+  ) async {
+    final controller = TextEditingController(text: 'hello');
+    var sendCount = 0;
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatComposer(
+            controller: controller,
+            inputEnabled: true,
+            sendEnabled: false,
+            sending: false,
+            onSend: () async {
+              sendCount += 1;
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byIcon(Icons.send));
+    await tester.pump();
+
+    expect(sendCount, 0);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(
+      find.byWidgetPredicate((widget) {
+        return widget is DecoratedBox &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration as BoxDecoration).color ==
+                ChatUiStyleConfig.standard.composerSendButtonDisabledColor;
+      }),
+      findsOneWidget,
+    );
   });
 
   testWidgets('chat composer send button shows spinner while sending', (
