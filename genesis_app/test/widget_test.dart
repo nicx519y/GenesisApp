@@ -10347,6 +10347,71 @@ void main() {
     },
   );
 
+  testWidgets(
+    'location chat keeps route size while composer follows keyboard',
+    (WidgetTester tester) async {
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        tester.view.resetViewInsets();
+      });
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+
+      final services = await _testServices(chatroom: _FakeChatroomClient());
+      await tester.pumpWidget(GenesisApp(services: services));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
+        RouteNames.locationChat,
+        arguments: {
+          'world_id': 'world-1',
+          'world_name': 'World One',
+          'location_id': 'castle',
+          'location_name': 'Castle',
+        },
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final route = find.byType(LocationChatPage);
+      final routeSizeBeforeKeyboard = tester.getSize(route);
+      final composerTopBeforeKeyboard = tester
+          .getTopLeft(find.byType(ChatComposer))
+          .dy;
+
+      await tester.tap(find.byType(TextField));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 120));
+
+      expect(tester.getSize(route), routeSizeBeforeKeyboard);
+      expect(
+        tester.getTopLeft(find.byType(ChatComposer)).dy,
+        lessThan(composerTopBeforeKeyboard - 250),
+      );
+      expect(
+        tester.getBottomLeft(find.byType(TextField)).dy,
+        lessThanOrEqualTo(routeSizeBeforeKeyboard.height - 300),
+      );
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 10);
+      await tester.pump();
+      final textFieldBottomNearKeyboardDismiss = tester
+          .getBottomLeft(find.byType(TextField))
+          .dy;
+
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pump();
+
+      expect(
+        tester.getBottomLeft(find.byType(TextField)).dy,
+        closeTo(textFieldBottomNearKeyboardDismiss, 1),
+      );
+    },
+  );
+
   testWidgets('location chat merges pending send with matching user message', (
     WidgetTester tester,
   ) async {
