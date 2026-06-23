@@ -1676,6 +1676,10 @@ List<Map<String, dynamic>> _originTicksFromV1(Map<String, dynamic> raw) {
           'status': asInt(tick['status']),
           'created_at': tick['created_at'],
           'tick_result': <String, dynamic>{
+            'current_time': asString(
+              result['current_time'],
+              fallback: asString(tick['current_time']),
+            ),
             'narrator': asString(
               result['narrator'],
               fallback: asString(

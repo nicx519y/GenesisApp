@@ -91,6 +91,8 @@ class LocationChatPanel extends StatefulWidget {
     this.locationName,
     this.backgroundImageUrl,
     this.backgroundPreviewImageUrl,
+    this.openingPreviewMessages = const <WorldChatroomMessage>[],
+    this.openingPreviewEntities = const <WorldChatroomEntity>[],
     this.service,
     this.connection,
     this.active = true,
@@ -111,6 +113,8 @@ class LocationChatPanel extends StatefulWidget {
   final String? locationName;
   final String? backgroundImageUrl;
   final String? backgroundPreviewImageUrl;
+  final List<WorldChatroomMessage> openingPreviewMessages;
+  final List<WorldChatroomEntity> openingPreviewEntities;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
   final bool active;
@@ -254,7 +258,15 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     }
     if (oldWidget.service != widget.service ||
         oldWidget.worldId != widget.worldId ||
-        oldWidget.locationId != widget.locationId) {
+        oldWidget.locationId != widget.locationId ||
+        !listEquals(
+          oldWidget.openingPreviewMessages,
+          widget.openingPreviewMessages,
+        ) ||
+        !listEquals(
+          oldWidget.openingPreviewEntities,
+          widget.openingPreviewEntities,
+        )) {
       unawaited(
         _closeChatroom().then((_) {
           if (!mounted) return;
@@ -297,8 +309,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final provided = widget.service;
     _logPanelMetric(
       'prepareConnection providedService=${provided != null} '
-      'active=${widget.active}',
+      'active=${widget.active} '
+      'openingPreviewCount=${widget.openingPreviewMessages.length}',
     );
+    if (!widget.active && widget.openingPreviewMessages.isNotEmpty) {
+      _showOpeningPreviewMessages();
+      return;
+    }
     if (provided != null) {
       _service = provided;
       _ownsService = false;
@@ -313,6 +330,26 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
     if (!widget.active) return;
     _activateConnection();
+  }
+
+  void _showOpeningPreviewMessages() {
+    final nextEntitiesById = <String, WorldChatroomEntity>{
+      for (final entity in widget.openingPreviewEntities)
+        if (entity.id.trim().isNotEmpty) entity.id.trim(): entity,
+    };
+    _chatroomState = _chatroomState.copyWith(
+      entitiesById: nextEntitiesById,
+      entitiesByLocation: <String, List<WorldChatroomEntity>>{
+        widget.locationId: widget.openingPreviewEntities,
+      },
+    );
+    final changedMessages = _reconcileMessages(widget.openingPreviewMessages);
+    _logPanelMetric(
+      'opening preview shown count=${widget.openingPreviewMessages.length} '
+      'changed=$changedMessages',
+    );
+    if (changedMessages && mounted) setState(() {});
+    _notifyInitialContentReady();
   }
 
   void _activateConnection() {
@@ -1522,27 +1559,31 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                 showDateDividers: false,
                 style: style,
               );
-              final composer =
-                  widget.composerReplacement ??
-                  ChatComposer(
-                    controller: _textController,
-                    focusNode: _composerFocusNode,
-                    inputEnabled: widget.active,
-                    sendEnabled:
-                        widget.active &&
-                        joined &&
-                        _hasDraftText &&
-                        !_sending &&
-                        !_awaitingAiResponse &&
-                        !inputBlocked,
-                    sending: false,
-                    onSend: _send,
-                    sendLabel: 'Send',
-                    style: style,
-                    bottomSafeAreaInset: _keyboardInset > 0 ? 0 : null,
-                    onHeightChanged: _handleComposerHeightChanged,
-                    onInputTap: _handleComposerInputTap,
-                  );
+              final replacementComposer = widget.composerReplacement;
+              final composer = replacementComposer == null
+                  ? ChatComposer(
+                      controller: _textController,
+                      focusNode: _composerFocusNode,
+                      inputEnabled: widget.active,
+                      sendEnabled:
+                          widget.active &&
+                          joined &&
+                          _hasDraftText &&
+                          !_sending &&
+                          !_awaitingAiResponse &&
+                          !inputBlocked,
+                      sending: false,
+                      onSend: _send,
+                      sendLabel: 'Send',
+                      style: style,
+                      bottomSafeAreaInset: _keyboardInset > 0 ? 0 : null,
+                      onHeightChanged: _handleComposerHeightChanged,
+                      onInputTap: _handleComposerInputTap,
+                    )
+                  : _LocationChatMeasuredComposer(
+                      onHeightChanged: _handleComposerHeightChanged,
+                      child: replacementComposer,
+                    );
               final keyboardLayerChild = _LocationChatKeyboardLayerChild(
                 messageList: messageList,
                 composer: composer,
@@ -2022,6 +2063,60 @@ class _LocationChatKeyboardLayerChild extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
+class _LocationChatMeasuredComposer extends StatefulWidget {
+  const _LocationChatMeasuredComposer({
+    required this.child,
+    required this.onHeightChanged,
+  });
+
+  final Widget child;
+  final ValueChanged<double> onHeightChanged;
+
+  @override
+  State<_LocationChatMeasuredComposer> createState() =>
+      _LocationChatMeasuredComposerState();
+}
+
+class _LocationChatMeasuredComposerState
+    extends State<_LocationChatMeasuredComposer> {
+  final _key = GlobalKey();
+  double _lastHeight = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+  }
+
+  @override
+  void didUpdateWidget(covariant _LocationChatMeasuredComposer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+  }
+
+  void _measure() {
+    if (!mounted) return;
+    final context = _key.currentContext;
+    final renderObject = context?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return;
+    final height = renderObject.size.height;
+    if ((_lastHeight - height).abs() <= 0.5) return;
+    _lastHeight = height;
+    widget.onHeightChanged(height);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NotificationListener<SizeChangedLayoutNotification>(
+      onNotification: (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+        return false;
+      },
+      child: SizeChangedLayoutNotifier(key: _key, child: widget.child),
+    );
+  }
 }
 
 class _LocationChatKeyboardShift extends StatelessWidget {

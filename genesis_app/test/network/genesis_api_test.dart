@@ -475,6 +475,7 @@ void main() {
                 'tick_no': 1,
                 'created_at': 1716000000,
                 'tick_result': {
+                  'current_time': 'Day 1, 08:30',
                   'narrator': 'Narrator from origin tick result.',
                   'paragraphs': <Object?>[],
                 },
@@ -503,6 +504,10 @@ void main() {
     expect(
       (origin.ticks.single['tick_result'] as Map)['narrator'],
       'Narrator from origin tick result.',
+    );
+    expect(
+      (origin.ticks.single['tick_result'] as Map)['current_time'],
+      'Day 1, 08:30',
     );
     expect(origin.locations.single.locationParagraph, 'Gate launch paragraph.');
   });
