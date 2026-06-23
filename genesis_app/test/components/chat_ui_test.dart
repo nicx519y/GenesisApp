@@ -6,6 +6,46 @@ import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 
 void main() {
+  testWidgets('chat message list can render an oldest-edge notice', (
+    WidgetTester tester,
+  ) async {
+    const notice = 'Oldest edge notice';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageList(
+            controller: ScrollController(),
+            topTitle: '',
+            oldestEdgeNotice: notice,
+            showDateDividers: false,
+            messages: [
+              ChatMessageVm(
+                localId: 'tick-1',
+                senderId: 'tick',
+                senderName: 'Tick',
+                senderType: 'tick',
+                text: '',
+                isMe: false,
+                status: 'sent',
+                tickNo: 1,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text(notice), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text(notice)).dy,
+      lessThan(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('chat-tick-message-bubble')))
+            .dy,
+      ),
+    );
+  });
+
   testWidgets('chat message list shows first divider and long gaps', (
     WidgetTester tester,
   ) async {
@@ -190,6 +230,67 @@ void main() {
       name.style?.color,
       ChatUiStyleConfig.standard.senderNameTextStyle.color,
     );
+  });
+
+  testWidgets('player controlled chat avatar uses highlighted border', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'peer',
+              senderName: 'Peer Name',
+              text: 'hello',
+              isMe: false,
+              isPlayerControlledRole: true,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byWidgetPredicate((widget) {
+        if (widget is! DecoratedBox) return false;
+        final decoration = widget.decoration;
+        if (decoration is! BoxDecoration) return false;
+        final border = decoration.border;
+        if (border is! Border) return false;
+        return border.top.color == const Color(0xFF338960);
+      }),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('player controlled chat sender name uses highlighted color', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'peer',
+              senderName: 'Peer Name',
+              text: 'hello',
+              isMe: false,
+              isPlayerControlledRole: true,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    final name = tester.widget<Text>(find.text('Peer Name'));
+    expect(name.style?.color, GenesisColors.brand);
   });
 
   testWidgets('self chat message places avatar on the right', (

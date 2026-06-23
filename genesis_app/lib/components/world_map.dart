@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../icons/my_flutter_app_icons.dart';
 import '../ui/tokens/genesis_avatar_radii.dart';
+import '../ui/tokens/genesis_colors.dart';
 import '../utils/genesis_image_resource.dart';
 import 'world_map_interaction_notification.dart';
 import 'world_location_list.dart';
@@ -19,6 +20,13 @@ const String kWorldMapFallbackBackgroundAsset =
     'assets/images/mock_maps/map_background.png';
 const double _worldMapAvatarImageLogicalSize = 42;
 const double _worldMapPreviewImageLogicalWidth = 120;
+
+@visibleForTesting
+Color worldMapAvatarBorderColorForTesting({
+  required bool isPlayerControlledRole,
+}) {
+  return isPlayerControlledRole ? GenesisColors.brand : const Color(0xFFDDDDDD);
+}
 
 typedef WorldPointTapCallback = FutureOr<void> Function(WorldPoint point);
 
@@ -1788,16 +1796,23 @@ class _PositionedMapAvatar extends StatelessWidget {
         key: ValueKey<String>('map-avatar-${_mapAvatarStableKey(user)}'),
         url: avatarUrl,
         showStar: user.showStar,
+        isPlayerControlledRole: user.isPlayerControlledRole,
       ),
     );
   }
 }
 
 class _MapAvatarImage extends StatelessWidget {
-  const _MapAvatarImage({super.key, required this.url, required this.showStar});
+  const _MapAvatarImage({
+    super.key,
+    required this.url,
+    required this.showStar,
+    required this.isPlayerControlledRole,
+  });
 
   final String url;
   final bool showStar;
+  final bool isPlayerControlledRole;
 
   static const double _size = _worldMapAvatarImageLogicalSize;
 
@@ -1820,7 +1835,11 @@ class _MapAvatarImage extends StatelessWidget {
                 if (!wasSynchronouslyLoaded && frame == null) {
                   return const SizedBox.expand();
                 }
-                return _LoadedMapAvatar(showStar: showStar, child: child);
+                return _LoadedMapAvatar(
+                  showStar: showStar,
+                  isPlayerControlledRole: isPlayerControlledRole,
+                  child: child,
+                );
               },
               errorBuilder: (context, error, stackTrace) =>
                   const SizedBox.expand(),
@@ -1836,6 +1855,7 @@ class _MapAvatarImage extends StatelessWidget {
               placeholderFadeInDuration: Duration.zero,
               imageBuilder: (context, imageProvider) => _LoadedMapAvatar(
                 showStar: showStar,
+                isPlayerControlledRole: isPlayerControlledRole,
                 child: Image(
                   image: imageProvider,
                   width: _size,
@@ -1852,10 +1872,15 @@ class _MapAvatarImage extends StatelessWidget {
 }
 
 class _LoadedMapAvatar extends StatelessWidget {
-  const _LoadedMapAvatar({required this.child, required this.showStar});
+  const _LoadedMapAvatar({
+    required this.child,
+    required this.showStar,
+    required this.isPlayerControlledRole,
+  });
 
   final Widget child;
   final bool showStar;
+  final bool isPlayerControlledRole;
 
   static const double _size = _worldMapAvatarImageLogicalSize;
   static const double _borderRadius = GenesisAvatarRadii.character;
@@ -1889,7 +1914,12 @@ class _LoadedMapAvatar extends StatelessWidget {
             ),
             foregroundDecoration: BoxDecoration(
               borderRadius: BorderRadius.circular(_borderRadius),
-              border: Border.all(color: const Color(0xFFDDDDDD), width: 1),
+              border: Border.all(
+                color: worldMapAvatarBorderColorForTesting(
+                  isPlayerControlledRole: isPlayerControlledRole,
+                ),
+                width: 1,
+              ),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(_borderRadius),

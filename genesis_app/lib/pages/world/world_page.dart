@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/common/copyable_id_label.dart';
+import '../../components/ai_content_disclaimer.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_action_box.dart';
@@ -3650,6 +3651,10 @@ class _WorldEventsSection extends StatelessWidget {
     return Column(
       children: [
         if (loadingMore) const _WorldEventsLoadingMoreIndicator(),
+        const AiContentDisclaimer(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 18),
+          textAlign: TextAlign.left,
+        ),
         for (int index = 0; index < ticks.length; index++)
           WorldTickEventItem(
             tick: ticks[index],
@@ -4255,7 +4260,12 @@ Map<String, List<UserAvatar>> _avatarsByLocationFromCharacterPositions(
     if (_isCurrentUserCharacter(c, currentUid)) continue;
     final name = (c['name'] ?? '').toString();
     final avatar = _resolveAssetUrl((c['avatar'] ?? '').toString());
-    final isAi = '${c['type'] ?? ''}'.trim().toLowerCase() == 'ai';
+    final showStar = worldMapCharacterShouldShowStarForTesting(c);
+    final isPlayerControlledRole = _mapString(c, const [
+      'player_uid',
+      'user_id',
+      'uid',
+    ]).isNotEmpty;
     final id = _mapString(c, const [
       'character_id',
       'char_id',
@@ -4269,11 +4279,22 @@ Map<String, List<UserAvatar>> _avatarsByLocationFromCharacterPositions(
         id: id,
         name: name,
         avatarUrl: avatar,
-        showStar: isAi,
+        showStar: showStar,
+        isPlayerControlledRole: isPlayerControlledRole,
       ),
     );
   }
   return map;
+}
+
+@visibleForTesting
+bool worldMapCharacterShouldShowStarForTesting(Map<String, dynamic> character) {
+  final type = character['type'];
+  final isAiRole = type is num
+      ? type == 1
+      : {'1', 'ai'}.contains('$type'.trim().toLowerCase());
+  final playerUid = _mapString(character, const ['player_uid']);
+  return isAiRole && playerUid.isEmpty;
 }
 
 String _initials(String name) {

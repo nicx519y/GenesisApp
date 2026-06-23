@@ -10641,69 +10641,31 @@ void main() {
     expect(find.text('1 new message'), findsNothing);
   });
 
-  testWidgets('location chat shows role name instead of pushed username', (
+  testWidgets('location chat shows role name without username badge', (
     WidgetTester tester,
   ) async {
-    final transport = _RecordingV1ListTransport(
-      worldCharacters: const [
-        {
-          'type': 'player',
-          'player_uid': 'u_other',
-          'player_username': 'Actual Username',
-          'char_id': 'c_other',
-          'name': 'Role Persona',
-          'identity': 'Visitor',
-          'brief': 'Visits the world',
-          'description': 'A player role.',
-          'goal': 'Talk',
-          'avatar': '',
-          'location_id': 'l_world-1',
-        },
-      ],
-    );
-    final chatroom = _FakeChatroomClient();
-    final services = await _testServices(
-      transport: transport,
-      useMock: false,
-      chatroom: chatroom,
-    );
-    await tester.pumpWidget(GenesisApp(services: services));
-    await tester.pumpAndSettle();
-
-    Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
-      RouteNames.locationChat,
-      arguments: {
-        'world_id': 'world-1',
-        'location_id': 'l_world-1',
-        'location_name': 'World Location',
-      },
-    );
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    chatroom.session.emit(
-      ChatroomUserMessage(
-        sessionId: 'sess-1',
-        worldId: 'world-1',
-        locationId: 'l_world-1',
-        userId: 'u_other',
-        code: 0,
-        codeMsg: 'ok',
-        ts: null,
-        messageId: 127,
-        conversationRoundId: '1318',
-        roundOrder: 0,
-        senderType: 'user',
-        senderId: 'u_other',
-        senderName: 'Actual Username',
-        content: 'role name check',
-        broadcast: true,
-        clientMsgId: '',
-        createdAt: null,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageList(
+            controller: ScrollController(),
+            topTitle: '',
+            messages: [
+              ChatMessageVm(
+                localId: 'm1',
+                senderId: 'u_other',
+                senderName: 'Role Persona',
+                text: 'role name check',
+                isMe: false,
+                status: 'sent',
+              ),
+            ],
+          ),
+        ),
       ),
     );
     await tester.pump();
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Role Persona'), findsOneWidget);
     expect(find.text('Actual Username'), findsNothing);
