@@ -21,7 +21,13 @@ import '../../utils/genesis_image_resource.dart';
 
 const double _locationChatAvatarLogicalSize = 40;
 
-bool get _locationKeyboardProbeEnabled => kDebugMode || kProfileMode;
+const bool _locationKeyboardProbeFlag = bool.fromEnvironment(
+  'LOCATION_KEYBOARD_PROBE',
+  defaultValue: false,
+);
+
+bool get _locationKeyboardProbeEnabled =>
+    _locationKeyboardProbeFlag && (kDebugMode || kProfileMode);
 
 class LocationChatPage extends StatelessWidget {
   const LocationChatPage({
@@ -154,6 +160,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _waitingForKeyboardTarget = false;
   bool _keyboardTargetLocked = false;
   bool _keyboardNeedsStableCorrection = false;
+  bool _keyboardSawUsableInset = false;
   bool _loadingOlderMessages = false;
   bool _hasMoreOlderMessages = true;
   bool _initialContentReadyNotified = false;
@@ -1470,12 +1477,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                     onSend: _send,
                     sendLabel: 'Send',
                     style: style,
-                    bottomSafeAreaInset:
-                        (_composerFocusNode.hasFocus || _keyboardInset > 0)
-                        ? 0
-                        : null,
+                    bottomSafeAreaInset: _keyboardInset > 0 ? 0 : null,
                     onHeightChanged: _handleComposerHeightChanged,
-                    onInputTap: _startKeyboardProbeFromTap,
+                    onInputTap: _handleComposerInputTap,
                   );
               final keyboardLayerChild = _LocationChatKeyboardLayerChild(
                 messageList: messageList,
@@ -1590,6 +1594,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _markKeyboardProbeFocus();
       _rebuildComposerForKeyboardState();
       _keyboardTargetLocked = false;
+      _keyboardSawUsableInset = false;
       if (_cachedKeyboardInset >= _minUsableKeyboardInset) {
         _waitingForKeyboardTarget = false;
         _keyboardTargetLocked = true;
@@ -1612,7 +1617,21 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _waitingForKeyboardTarget = false;
     _keyboardTargetLocked = false;
     _keyboardNeedsStableCorrection = false;
+    _keyboardSawUsableInset = false;
     _setKeyboardInset(0);
+  }
+
+  void _handleComposerInputTap() {
+    _startKeyboardProbeFromTap();
+    if (!_composerFocusNode.hasFocus || _keyboardInset > 0) return;
+    if (_cachedKeyboardInset >= _minUsableKeyboardInset) {
+      _waitingForKeyboardTarget = false;
+      _keyboardTargetLocked = true;
+      _keyboardNeedsStableCorrection = false;
+      _keyboardSawUsableInset = false;
+      _setKeyboardInset(_cachedKeyboardInset);
+    }
+    SystemChannels.textInput.invokeMethod<void>('TextInput.show');
   }
 
   void _handleDraftTextChanged() {
@@ -1631,6 +1650,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _scheduleStableKeyboardInsetCacheUpdate();
         return;
       }
+      _keyboardSawUsableInset = true;
       if (_keyboardTargetLocked && !_waitingForKeyboardTarget) {
         _scheduleStableKeyboardInsetCacheUpdate();
         return;
@@ -1647,7 +1667,19 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _scheduleStableKeyboardInsetCacheUpdate();
       return;
     }
-    if (!_composerFocusNode.hasFocus) return;
+    if (_keyboardInset <= 0 || !_keyboardSawUsableInset) return;
+    _handleKeyboardHiddenByMetrics();
+  }
+
+  void _handleKeyboardHiddenByMetrics() {
+    _keyboardMetricsTimer?.cancel();
+    _keyboardTargetProbeTimer?.cancel();
+    _waitingForKeyboardTarget = false;
+    _keyboardTargetLocked = false;
+    _keyboardNeedsStableCorrection = false;
+    _keyboardSawUsableInset = false;
+    _setKeyboardInset(0);
+    _rebuildComposerForKeyboardState();
   }
 
   void _scheduleStableKeyboardInsetCacheUpdate() {
