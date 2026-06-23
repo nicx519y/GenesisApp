@@ -579,6 +579,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       RegExp(r'([([{])\s+'),
       (match) => match.group(1) ?? '',
     );
+    text = text.replaceAll(RegExp(r'\\r\\n|\\n|\\r'), ' ');
     return text.trim();
   }
 
