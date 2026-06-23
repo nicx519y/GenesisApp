@@ -34,6 +34,8 @@ class LocationChatPage extends StatelessWidget {
     this.backgroundPreviewImageUrl,
     this.service,
     this.connection,
+    this.stateCache,
+    this.manuallyAvoidKeyboard = true,
   });
 
   final String worldId;
@@ -46,6 +48,8 @@ class LocationChatPage extends StatelessWidget {
   final String? backgroundPreviewImageUrl;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
+  final LocationChatPanelStateCache? stateCache;
+  final bool manuallyAvoidKeyboard;
 
   @override
   Widget build(BuildContext context) {
@@ -63,10 +67,29 @@ class LocationChatPage extends StatelessWidget {
         backgroundPreviewImageUrl: backgroundPreviewImageUrl,
         service: service,
         connection: connection,
+        stateCache: stateCache,
+        manuallyAvoidKeyboard: manuallyAvoidKeyboard,
         active: true,
         onBack: () => Navigator.of(context).maybePop(),
       ),
     );
+  }
+}
+
+class LocationChatPanelStateCache {
+  final ScrollController scrollController = ScrollController();
+  final TextEditingController textController = TextEditingController();
+  final List<ChatMessageVm> messages = <ChatMessageVm>[];
+
+  bool hasMoreOlderMessages = true;
+  bool initialContentReadyNotified = false;
+  int unseenIncomingCount = 0;
+  int clientMsgCounter = 0;
+  double composerHeight = 0;
+
+  void dispose() {
+    scrollController.dispose();
+    textController.dispose();
   }
 }
 
@@ -83,6 +106,8 @@ class LocationChatPanel extends StatefulWidget {
     this.backgroundPreviewImageUrl,
     this.service,
     this.connection,
+    this.stateCache,
+    this.manuallyAvoidKeyboard = true,
     this.active = true,
     this.leaveOnInactive = true,
     this.onBack,
@@ -103,6 +128,8 @@ class LocationChatPanel extends StatefulWidget {
   final String? backgroundPreviewImageUrl;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
+  final LocationChatPanelStateCache? stateCache;
+  final bool manuallyAvoidKeyboard;
   final bool active;
   final bool leaveOnInactive;
   final VoidCallback? onBack;
@@ -119,10 +146,10 @@ class LocationChatPanel extends StatefulWidget {
 class _LocationChatPanelState extends State<LocationChatPanel> {
   static const double _keyboardDismissSettleInset = 16;
 
-  final _scrollController = ScrollController();
-  final _textController = TextEditingController();
+  late final ScrollController _scrollController;
+  late final TextEditingController _textController;
+  late final List<ChatMessageVm> _messages;
   final Stopwatch _panelStopwatch = Stopwatch()..start();
-  final _messages = <ChatMessageVm>[];
 
   WorldChatroomService? _service;
   StreamSubscription<WorldChatroomState>? _stateSubscription;
@@ -152,6 +179,17 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   @override
   void initState() {
     super.initState();
+    final stateCache = widget.stateCache;
+    _scrollController = stateCache?.scrollController ?? ScrollController();
+    _textController = stateCache?.textController ?? TextEditingController();
+    _messages = stateCache?.messages ?? <ChatMessageVm>[];
+    _hasMoreOlderMessages = stateCache?.hasMoreOlderMessages ?? true;
+    _initialContentReadyNotified =
+        stateCache?.initialContentReadyNotified ?? false;
+    _unseenIncomingCount = stateCache?.unseenIncomingCount ?? 0;
+    _clientMsgCounter = stateCache?.clientMsgCounter ?? 0;
+    _composerHeight = stateCache?.composerHeight ?? 0;
+    _hasDraftText = _textController.text.trim().isNotEmpty;
     _backgroundImageUrl = widget.backgroundImageUrl?.trim() ?? '';
     _backgroundPreviewImageUrl = widget.backgroundPreviewImageUrl?.trim() ?? '';
     _logPanelMetric(
@@ -163,6 +201,16 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     _prepareConnection();
   }
 
+  void _syncStateCache() {
+    final stateCache = widget.stateCache;
+    if (stateCache == null) return;
+    stateCache.hasMoreOlderMessages = _hasMoreOlderMessages;
+    stateCache.initialContentReadyNotified = _initialContentReadyNotified;
+    stateCache.unseenIncomingCount = _unseenIncomingCount;
+    stateCache.clientMsgCounter = _clientMsgCounter;
+    stateCache.composerHeight = _composerHeight;
+  }
+
   @override
   void dispose() {
     final service = _service;
@@ -171,9 +219,13 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     }
     unawaited(_closeChatroom());
     _scrollController.removeListener(_handleMessageListScroll);
-    _scrollController.dispose();
+    if (widget.stateCache == null) {
+      _scrollController.dispose();
+    }
     _textController.removeListener(_handleDraftTextChanged);
-    _textController.dispose();
+    if (widget.stateCache == null) {
+      _textController.dispose();
+    }
     super.dispose();
   }
 
@@ -200,6 +252,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           _loadingOlderMessages = false;
           _initialContentReadyNotified = false;
           _initialLatestMessagesRefresh = null;
+          _syncStateCache();
           _prepareConnection();
         }),
       );
@@ -523,6 +576,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           setState(() {
             _unseenIncomingCount += newIncomingCount;
           });
+          _syncStateCache();
         }
       }
     }
@@ -531,6 +585,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   void _notifyInitialContentReady() {
     if (_initialContentReadyNotified || !mounted) return;
     _initialContentReadyNotified = true;
+    _syncStateCache();
     _logPanelMetric(
       'initialContentReady scheduled vmCount=${_messages.length}',
     );
@@ -814,6 +869,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
 
   String _nextClientMsgId() {
     _clientMsgCounter += 1;
+    _syncStateCache();
     return '${DateTime.now().microsecondsSinceEpoch}-$_clientMsgCounter';
   }
 
@@ -846,6 +902,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     final beforeMessageId = _earliestLoadedMessageId();
     if (beforeMessageId <= 0) {
       _hasMoreOlderMessages = false;
+      _syncStateCache();
       return;
     }
     _loadingOlderMessages = true;
@@ -856,6 +913,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         limit: 20,
       );
       _hasMoreOlderMessages = page.hasMore;
+      _syncStateCache();
     } catch (_) {
       // Up-scroll history loading is opportunistic; connection failures are
       // surfaced by the chatroom service failure stream when appropriate.
@@ -1167,6 +1225,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   void _clearUnseenIncomingCount() {
     if (_unseenIncomingCount == 0 || !mounted) return;
     setState(() => _unseenIncomingCount = 0);
+    _syncStateCache();
   }
 
   void _openUnseenIncomingMessages() {
@@ -1318,8 +1377,12 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     final headerHeight = _locationChatHeaderHeight();
     final rawKeyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final bottomSafeAreaInset = MediaQuery.viewPaddingOf(context).bottom;
+    final composerBottomSafeAreaInset =
+        !widget.manuallyAvoidKeyboard && rawKeyboardInset > 0
+        ? 0.0
+        : bottomSafeAreaInset;
     final composerHeight = _locationChatComposerHeight(
-      bottomSafeAreaInset: bottomSafeAreaInset,
+      bottomSafeAreaInset: composerBottomSafeAreaInset,
     );
 
     return GenesisBottomSystemBarStyleScope(
@@ -1330,16 +1393,20 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           color: style.conversationBackgroundColor,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final keyboardInset = _keyboardInsetForLayout(
-                rawInset: rawKeyboardInset,
-                panelHeight: constraints.maxHeight,
-                headerHeight: headerHeight,
-                composerHeight: composerHeight,
-              );
-              final composerBottomOffset = _composerBottomOffset(
-                keyboardInset: keyboardInset,
-                bottomSafeAreaInset: bottomSafeAreaInset,
-              );
+              final keyboardInset = widget.manuallyAvoidKeyboard
+                  ? _keyboardInsetForLayout(
+                      rawInset: rawKeyboardInset,
+                      panelHeight: constraints.maxHeight,
+                      headerHeight: headerHeight,
+                      composerHeight: composerHeight,
+                    )
+                  : 0.0;
+              final composerBottomOffset = widget.manuallyAvoidKeyboard
+                  ? _composerBottomOffset(
+                      keyboardInset: keyboardInset,
+                      bottomSafeAreaInset: bottomSafeAreaInset,
+                    )
+                  : 0.0;
               final composerReplacement = widget.composerReplacement;
               final composer = composerReplacement == null
                   ? ChatComposer(
@@ -1355,12 +1422,12 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                       onSend: _send,
                       sendLabel: 'Send',
                       style: style,
-                      bottomSafeAreaInset: bottomSafeAreaInset,
+                      bottomSafeAreaInset: composerBottomSafeAreaInset,
                       onHeightChanged: _handleComposerHeightChanged,
                     )
                   : ChatComposerFrame(
                       style: style,
-                      bottomSafeAreaInset: bottomSafeAreaInset,
+                      bottomSafeAreaInset: composerBottomSafeAreaInset,
                       onHeightChanged: _handleComposerHeightChanged,
                       child: composerReplacement,
                     );
@@ -1446,6 +1513,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     final hasText = _textController.text.trim().isNotEmpty;
     if (_hasDraftText == hasText) return;
     setState(() => _hasDraftText = hasText);
+    _syncStateCache();
   }
 
   double _keyboardInsetForLayout({
@@ -1479,6 +1547,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   void _handleComposerHeightChanged(double height) {
     if ((_composerHeight - height).abs() > 0.5) {
       setState(() => _composerHeight = height);
+      _syncStateCache();
     }
     _keepBottomAfterLayoutIfNeeded();
   }

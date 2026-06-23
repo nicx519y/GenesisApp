@@ -71,6 +71,23 @@ class _RouteArgs {
     return rawValue.toString().trim().toLowerCase() != 'false';
   }
 
+  List<String> stringList(List<String> keys) {
+    final rawValue = _first(keys);
+    if (rawValue is Iterable) {
+      return rawValue
+          .map((value) => value.toString().trim())
+          .where((value) => value.isNotEmpty)
+          .toList(growable: false);
+    }
+    final text = rawValue?.toString().trim() ?? '';
+    if (text.isEmpty) return const <String>[];
+    return text
+        .split(',')
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+  }
+
   T? typed<T>(List<String> keys) {
     final rawValue = _first(keys);
     return rawValue is T ? rawValue : null;
@@ -244,6 +261,7 @@ class _LocationChatRouteArgs {
     required this.backgroundImageUrl,
     required this.backgroundPreviewImageUrl,
     required this.isLeafLocation,
+    required this.localMessageLocationIds,
     required this.chatroomConnection,
     required this.worldChatroomService,
   });
@@ -280,6 +298,12 @@ class _LocationChatRouteArgs {
         'is_leaf_location',
         'isLeafLocation',
       ], fallback: true),
+      localMessageLocationIds: args.stringList(const [
+        'local_message_location_ids',
+        'localMessageLocationIds',
+        'location_aliases',
+        'locationAliases',
+      ]),
       chatroomConnection: args.typed<ChatroomConnectionController>(const [
         'chatroom_connection',
         'chatroomConnection',
@@ -298,6 +322,7 @@ class _LocationChatRouteArgs {
   final String backgroundImageUrl;
   final String backgroundPreviewImageUrl;
   final bool isLeafLocation;
+  final List<String> localMessageLocationIds;
   final ChatroomConnectionController? chatroomConnection;
   final WorldChatroomService? worldChatroomService;
 }
@@ -467,6 +492,7 @@ sealed class AppRouter {
             backgroundImageUrl: args.backgroundImageUrl,
             backgroundPreviewImageUrl: args.backgroundPreviewImageUrl,
             isLeafLocation: args.isLeafLocation,
+            localMessageLocationIds: args.localMessageLocationIds,
             service: args.worldChatroomService,
             connection: args.chatroomConnection,
           ),

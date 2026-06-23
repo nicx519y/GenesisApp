@@ -98,8 +98,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   StreamSubscription<List<WorldChatroomMessage>>? _worldChatroomLatestSub;
   Map<String, _LocationChatPanelDescriptor> _locationChatDescriptors =
       <String, _LocationChatPanelDescriptor>{};
-  final Set<String> _cachedLocationChatIds = <String>{};
-  final Set<String> _readyLocationChatIds = <String>{};
+  final _locationChatPageCache = _WorldLocationChatPageCache();
   final Map<String, WorldMapMessageBubble> _mapMessageBubbles =
       <String, WorldMapMessageBubble>{};
   final Map<String, Queue<WorldChatroomMessage>>
@@ -186,6 +185,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _tabController.dispose();
     _sectionController.dispose();
     _sectionsEventsCache.clear();
+    _locationChatPageCache.dispose();
     _sectionsWorldNotifier.dispose();
     super.dispose();
   }
@@ -944,8 +944,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (mounted) {
       setState(() {
         _activeChatLocationId = '';
-        _cachedLocationChatIds.clear();
-        _readyLocationChatIds.clear();
+        _locationChatPageCache.clear();
         _isInSecondaryMap = false;
       });
     }
@@ -1310,13 +1309,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     }
   }
 
-  // ignore: unused_element
   Future<void> _showCachedLocationChat(
     _LocationChatPanelDescriptor descriptor,
   ) async {
+    final chatroom = _worldChatroom;
     final locationId = descriptor.locationId;
-    if (locationId.isEmpty) return;
-    final wasCached = _cachedLocationChatIds.contains(locationId);
+    if (locationId.isEmpty || chatroom == null || !mounted) return;
+    final wasCached = _locationChatPageCache.hasPanel(locationId);
     final stopwatch = _locationChatMetricsEnabled
         ? (Stopwatch()..start())
         : null;
@@ -1333,24 +1332,29 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     }
     setState(() {
       _locationChatDescriptors[locationId] = descriptor;
-      if (wasCached) {
-        _cachedLocationChatIds.add(locationId);
-      } else {
-        _readyLocationChatIds.remove(locationId);
-      }
+      _locationChatPageCache.activate(descriptor);
       _activeChatLocationId = locationId;
     });
     WorldDetailsStatusBarOverride.setStyle(kChatDarkHeaderSystemUiOverlayStyle);
     unawaited(_hydrateActiveLocationChatMessages(descriptor));
-    await WidgetsBinding.instance.endOfFrame;
-    if (!wasCached && mounted && _activeChatLocationId == locationId) {
-      _logLocationChatMetric(
-        'build panel after first frame location=$locationId',
-      );
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => _WorldLocationChatCacheRoutePage(
+          worldId: widget.wid,
+          chatroom: chatroom,
+          cache: _locationChatPageCache,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (_activeChatLocationId == locationId) {
+      unawaited(_leaveCachedLocationChat(locationId));
       setState(() {
-        _cachedLocationChatIds.add(locationId);
+        _activeChatLocationId = '';
+        _locationChatPageCache.deactivate();
       });
-      await WidgetsBinding.instance.endOfFrame;
+      _handleMapModeTabChanged();
     }
     _logLocationChatMetric(
       'open location=$locationId cached=$wasCached '
@@ -1404,6 +1408,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     unawaited(_leaveCachedLocationChat(locationId));
     setState(() {
       _activeChatLocationId = '';
+      _locationChatPageCache.deactivate();
     });
     _handleMapModeTabChanged();
   }
@@ -1428,14 +1433,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   void _syncLocationChatDescriptors(WorldDetail world) {
     final descriptors = _locationChatDescriptorsForWorld(world);
     _locationChatDescriptors = descriptors;
-    _cachedLocationChatIds.removeWhere(
-      (locationId) => !descriptors.containsKey(locationId),
-    );
-    _readyLocationChatIds.removeWhere(
-      (locationId) => !descriptors.containsKey(locationId),
-    );
+    _locationChatPageCache.syncDescriptors(descriptors);
     if (!_locationChatDescriptors.containsKey(_activeChatLocationId)) {
       _activeChatLocationId = '';
+      _locationChatPageCache.deactivate();
       _handleMapModeTabChanged();
     }
     _scheduleLocationChatPrecache(descriptors.keys.toList(growable: false));
@@ -1475,7 +1476,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   void _scheduleLocationChatPrecache(List<String> locationIds) {
     _logLocationChatMetric(
       'panel precache skipped count=${locationIds.length} '
-      'cached=${_cachedLocationChatIds.length}',
+      'cached=${_locationChatPageCache.cachedPanelCount}',
     );
   }
 
@@ -1484,96 +1485,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   void _logLocationChatMetric(String message) {
     if (!_locationChatMetricsEnabled) return;
     debugPrint('[World][LocationChatCache] $message');
-  }
-
-  Widget? _buildLocationChatOverlay() {
-    final chatroom = _worldChatroom;
-    final activeLocationId = _activeChatLocationId;
-    final activeDescriptor = _locationChatDescriptors[activeLocationId];
-    final showSkeleton =
-        activeLocationId.isNotEmpty &&
-        activeDescriptor != null &&
-        !_readyLocationChatIds.contains(activeLocationId);
-    if (chatroom == null && !showSkeleton) return null;
-    final cachedIds = _cachedLocationChatIds
-        .where(_locationChatDescriptors.containsKey)
-        .toList(growable: false);
-    if (cachedIds.isEmpty && !showSkeleton) return null;
-
-    return Positioned.fill(
-      child: IgnorePointer(
-        ignoring: activeLocationId.isEmpty,
-        child: Stack(
-          children: [
-            if (chatroom != null)
-              for (final locationId in cachedIds)
-                _buildCachedLocationChatPanel(
-                  _locationChatDescriptors[locationId]!,
-                  chatroom,
-                ),
-            if (showSkeleton)
-              Positioned.fill(
-                child: _LocationChatPanelSkeleton(
-                  title: activeDescriptor.locationName,
-                  onBack: _closeCachedLocationChat,
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCachedLocationChatPanel(
-    _LocationChatPanelDescriptor descriptor,
-    WorldChatroomService chatroom,
-  ) {
-    final active = descriptor.locationId == _activeChatLocationId;
-    final visible =
-        active && _readyLocationChatIds.contains(descriptor.locationId);
-    return IgnorePointer(
-      ignoring: !active,
-      child: ExcludeSemantics(
-        excluding: !active,
-        child: Offstage(
-          offstage: !active,
-          child: Opacity(
-            opacity: visible ? 1 : 0,
-            child: TickerMode(
-              enabled: active,
-              child: SizedBox.expand(
-                child: LocationChatPanel(
-                  key: ValueKey('world-location-chat-${descriptor.locationId}'),
-                  worldId: widget.wid,
-                  locationId: descriptor.locationId,
-                  locationName: descriptor.locationName,
-                  backgroundImageUrl: descriptor.backgroundImageUrl,
-                  backgroundPreviewImageUrl:
-                      descriptor.backgroundPreviewImageUrl,
-                  isLeafLocation: descriptor.isLeafLocation,
-                  localMessageLocationIds: descriptor.localMessageLocationIds,
-                  service: chatroom,
-                  active: active,
-                  leaveOnInactive: false,
-                  systemUiOverlayStyle: kChatDarkHeaderSystemUiOverlayStyle,
-                  style: kLocationChatStyle,
-                  onBack: _closeCachedLocationChat,
-                  onInitialContentReady: () =>
-                      _markLocationChatPanelReady(descriptor.locationId),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _markLocationChatPanelReady(String locationId) {
-    if (!mounted || !_locationChatDescriptors.containsKey(locationId)) return;
-    if (!_readyLocationChatIds.add(locationId)) return;
-    _logLocationChatMetric('panel ready location=$locationId');
-    setState(() {});
   }
 
   void _showMapTab() {
@@ -1674,7 +1585,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         panelTopGap: 50,
         panelCollapsedHeightOffset: 120,
         scrollPhysics: const NeverScrollableScrollPhysics(),
-        topOverlay: _buildLocationChatOverlay(),
         persistentTopOverlay: _buildPersistentMapOverlay(
           thirdLevelLocationCount,
           topPadding + 8,
@@ -2128,6 +2038,195 @@ class _LocationChatPanelDescriptor {
       isLeafLocation: isLeafLocation ?? this.isLeafLocation,
       localMessageLocationIds:
           localMessageLocationIds ?? this.localMessageLocationIds,
+    );
+  }
+}
+
+class _WorldLocationChatPageCache {
+  final Map<String, _LocationChatPanelDescriptor> _descriptors =
+      <String, _LocationChatPanelDescriptor>{};
+  final Set<String> _cachedLocationIds = <String>{};
+  final Set<String> _readyLocationIds = <String>{};
+  final Map<String, LocationChatPanelStateCache> _panelStates =
+      <String, LocationChatPanelStateCache>{};
+
+  String activeLocationId = '';
+
+  int get cachedPanelCount => _cachedLocationIds.length;
+
+  Iterable<String> get cachedLocationIds =>
+      _cachedLocationIds.where(_descriptors.containsKey);
+
+  _LocationChatPanelDescriptor? get activeDescriptor =>
+      _descriptors[activeLocationId];
+
+  bool hasPanel(String locationId) => _cachedLocationIds.contains(locationId);
+
+  bool isReady(String locationId) =>
+      _readyLocationIds.contains(locationId) ||
+      (_panelStates[locationId]?.initialContentReadyNotified ?? false);
+
+  void syncDescriptors(Map<String, _LocationChatPanelDescriptor> descriptors) {
+    _descriptors
+      ..clear()
+      ..addAll(descriptors);
+    _cachedLocationIds.removeWhere((locationId) {
+      final keep = descriptors.containsKey(locationId);
+      if (!keep) _disposePanelState(locationId);
+      return !keep;
+    });
+    _readyLocationIds.removeWhere((locationId) {
+      return !descriptors.containsKey(locationId);
+    });
+    if (!_descriptors.containsKey(activeLocationId)) {
+      activeLocationId = '';
+    }
+  }
+
+  void activate(_LocationChatPanelDescriptor descriptor) {
+    _descriptors[descriptor.locationId] = descriptor;
+    _cachedLocationIds.add(descriptor.locationId);
+    activeLocationId = descriptor.locationId;
+    _panelStates.putIfAbsent(
+      descriptor.locationId,
+      LocationChatPanelStateCache.new,
+    );
+  }
+
+  void deactivate() {
+    activeLocationId = '';
+  }
+
+  LocationChatPanelStateCache stateFor(String locationId) {
+    return _panelStates.putIfAbsent(
+      locationId,
+      LocationChatPanelStateCache.new,
+    );
+  }
+
+  _LocationChatPanelDescriptor? descriptorFor(String locationId) {
+    return _descriptors[locationId];
+  }
+
+  void markReady(String locationId) {
+    _readyLocationIds.add(locationId);
+    final stateCache = _panelStates[locationId];
+    if (stateCache != null) {
+      stateCache.initialContentReadyNotified = true;
+    }
+  }
+
+  void clear() {
+    for (final stateCache in _panelStates.values) {
+      stateCache.dispose();
+    }
+    _panelStates.clear();
+    _descriptors.clear();
+    _cachedLocationIds.clear();
+    _readyLocationIds.clear();
+    activeLocationId = '';
+  }
+
+  void dispose() {
+    clear();
+  }
+
+  void _disposePanelState(String locationId) {
+    _panelStates.remove(locationId)?.dispose();
+  }
+}
+
+class _WorldLocationChatCacheRoutePage extends StatefulWidget {
+  const _WorldLocationChatCacheRoutePage({
+    required this.worldId,
+    required this.chatroom,
+    required this.cache,
+  });
+
+  final String worldId;
+  final WorldChatroomService chatroom;
+  final _WorldLocationChatPageCache cache;
+
+  @override
+  State<_WorldLocationChatCacheRoutePage> createState() =>
+      _WorldLocationChatCacheRoutePageState();
+}
+
+class _WorldLocationChatCacheRoutePageState
+    extends State<_WorldLocationChatCacheRoutePage> {
+  @override
+  Widget build(BuildContext context) {
+    final activeLocationId = widget.cache.activeLocationId;
+    final activeDescriptor = widget.cache.activeDescriptor;
+    final cachedIds = widget.cache.cachedLocationIds.toList(growable: false);
+    final showSkeleton =
+        activeLocationId.isNotEmpty &&
+        activeDescriptor != null &&
+        !widget.cache.isReady(activeLocationId);
+
+    return Scaffold(
+      backgroundColor: ChatUiStyleConfig.standard.conversationBackgroundColor,
+      resizeToAvoidBottomInset: false,
+      body: Stack(
+        children: [
+          for (final descriptor
+              in cachedIds
+                  .map(widget.cache.descriptorFor)
+                  .whereType<_LocationChatPanelDescriptor>())
+            _buildCachedPanel(descriptor),
+          if (showSkeleton)
+            Positioned.fill(
+              child: _LocationChatPanelSkeleton(
+                title: activeDescriptor.locationName,
+                onBack: () => Navigator.of(context).maybePop(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCachedPanel(_LocationChatPanelDescriptor descriptor) {
+    final active = descriptor.locationId == widget.cache.activeLocationId;
+    final visible = active && widget.cache.isReady(descriptor.locationId);
+    return IgnorePointer(
+      ignoring: !active,
+      child: ExcludeSemantics(
+        excluding: !active,
+        child: Offstage(
+          offstage: !active,
+          child: Opacity(
+            opacity: visible ? 1 : 0,
+            child: TickerMode(
+              enabled: active,
+              child: SizedBox.expand(
+                child: LocationChatPanel(
+                  key: ValueKey('world-location-chat-${descriptor.locationId}'),
+                  worldId: widget.worldId,
+                  locationId: descriptor.locationId,
+                  locationName: descriptor.locationName,
+                  backgroundImageUrl: descriptor.backgroundImageUrl,
+                  backgroundPreviewImageUrl:
+                      descriptor.backgroundPreviewImageUrl,
+                  isLeafLocation: descriptor.isLeafLocation,
+                  localMessageLocationIds: descriptor.localMessageLocationIds,
+                  service: widget.chatroom,
+                  stateCache: widget.cache.stateFor(descriptor.locationId),
+                  active: active,
+                  leaveOnInactive: false,
+                  systemUiOverlayStyle: kChatDarkHeaderSystemUiOverlayStyle,
+                  style: kLocationChatStyle,
+                  onBack: () => Navigator.of(context).maybePop(),
+                  onInitialContentReady: () {
+                    widget.cache.markReady(descriptor.locationId);
+                    if (mounted) setState(() {});
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
