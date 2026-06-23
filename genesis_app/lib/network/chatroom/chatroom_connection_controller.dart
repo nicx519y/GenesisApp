@@ -162,7 +162,7 @@ class ChatroomConnectionController {
             ? e
             : ChatroomFailureEvent(
                 code: 'leave_failed',
-                message: 'Failed to leave chatroom',
+                message: 'Something went wrong',
                 sourceType: 'leave',
                 requestType: 'leave',
                 cause: e,
