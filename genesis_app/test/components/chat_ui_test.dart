@@ -51,6 +51,45 @@ void main() {
     expect(find.byType(ChatDateDivider), findsNWidgets(2));
   });
 
+  testWidgets('chat message list can hide date dividers', (
+    WidgetTester tester,
+  ) async {
+    final start = DateTime(2026, 5, 29, 10);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageList(
+            controller: ScrollController(),
+            topTitle: '',
+            showDateDividers: false,
+            messages: [
+              ChatMessageVm(
+                localId: 'm1',
+                senderId: 'peer',
+                senderName: 'Peer',
+                text: 'first',
+                isMe: false,
+                status: 'sent',
+                createdAt: start,
+              ),
+              ChatMessageVm(
+                localId: 'm2',
+                senderId: 'peer',
+                senderName: 'Peer',
+                text: 'second',
+                isMe: false,
+                status: 'sent',
+                createdAt: start.add(const Duration(hours: 1)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(ChatDateDivider), findsNothing);
+  });
+
   test('chat date divider rule includes first message only plus long gaps', () {
     final start = DateTime(2026, 5, 29, 10);
 

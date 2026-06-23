@@ -1350,6 +1350,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                       controller: _scrollController,
                       messages: _messages,
                       topTitle: '',
+                      showDateDividers: false,
                     ),
                   ),
                   if (_unseenIncomingCount > 0)

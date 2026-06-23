@@ -562,12 +562,14 @@ class ChatMessageList extends StatelessWidget {
     required this.controller,
     required this.messages,
     required this.topTitle,
+    this.showDateDividers = true,
     this.style,
   });
 
   final ScrollController controller;
   final List<ChatMessageVm> messages;
   final String topTitle;
+  final bool showDateDividers;
   final ChatUiStyleConfig? style;
 
   @override
@@ -590,10 +592,9 @@ class ChatMessageList extends StatelessWidget {
           key: ValueKey(current.localId),
           message: current,
           style: style,
-          showDateDivider: shouldShowChatDateDivider(
-            previous?.createdAt,
-            current.createdAt,
-          ),
+          showDateDivider:
+              showDateDividers &&
+              shouldShowChatDateDivider(previous?.createdAt, current.createdAt),
         );
       },
     );
