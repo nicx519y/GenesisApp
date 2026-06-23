@@ -121,7 +121,30 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
   @override
   void initState() {
     super.initState();
+    widget.updateNotesController?.addListener(_handleUpdateNotesChanged);
     _reloadDraft();
+  }
+
+  @override
+  void didUpdateWidget(covariant OriginDraftFlowPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.updateNotesController != widget.updateNotesController) {
+      oldWidget.updateNotesController?.removeListener(
+        _handleUpdateNotesChanged,
+      );
+      widget.updateNotesController?.addListener(_handleUpdateNotesChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.updateNotesController?.removeListener(_handleUpdateNotesChanged);
+    super.dispose();
+  }
+
+  void _handleUpdateNotesChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _reloadDraft() async {
