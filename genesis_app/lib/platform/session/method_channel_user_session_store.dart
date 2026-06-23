@@ -27,21 +27,27 @@ class NativeUserSessionStore implements UserSessionStore {
 
   @override
   Future<String?> readUid() async {
-    if (!_supportsNativeSessionStore) return _fallback.readUid();
+    final cached = await _fallback.readUid();
+    if (cached != null) return cached;
+    if (!_supportsNativeSessionStore) return null;
     final uid = await GenesisMethodChannels.device.invokeMethod<String>(
       GenesisMethodChannels.getUid,
     );
     final value = (uid ?? '').trim();
+    if (value.isNotEmpty) await _fallback.saveUid(value);
     return value.isEmpty ? null : value;
   }
 
   @override
   Future<String?> readAuthToken() async {
-    if (!_supportsNativeSessionStore) return _fallback.readAuthToken();
+    final cached = await _fallback.readAuthToken();
+    if (cached != null) return cached;
+    if (!_supportsNativeSessionStore) return null;
     final token = await GenesisMethodChannels.device.invokeMethod<String>(
       GenesisMethodChannels.getAuthToken,
     );
     final value = (token ?? '').trim();
+    if (value.isNotEmpty) await _fallback.saveAuthToken(value);
     return value.isEmpty ? null : value;
   }
 

@@ -16,6 +16,7 @@ import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/secend_tabs.dart';
+import '../../ui/tokens/genesis_colors.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, this.initialTabIndex, this.activationListenable});
@@ -61,9 +62,10 @@ class _HomePageState extends State<HomePage> {
   Future<bool> _hasLocalLoginSession() async {
     final services = AppServicesScope.read(context);
     final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (uid.isEmpty || uid.startsWith('guest_')) return false;
     final authToken =
         (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
+    return authToken.isNotEmpty;
   }
 
   @override
@@ -364,9 +366,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   Future<bool> _hasLocalLoginSession() async {
     final services = AppServicesScope.read(context);
     final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (uid.isEmpty || uid.startsWith('guest_')) return false;
     final authToken =
         (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
+    return authToken.isNotEmpty;
   }
 
   Future<void> _loadNextPage() async {
@@ -424,14 +427,8 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
           : const AlwaysScrollableScrollPhysics(),
       children: [
         SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.45,
-          child: Center(
-            child: Text(
-              _isSignedOut
-                  ? '待处理： launch #worldo to generate my own word'
-                  : 'No data',
-            ),
-          ),
+          height: MediaQuery.sizeOf(context).height * 0.62,
+          child: const _MyWorldsEmptyState(),
         ),
       ],
     );
@@ -490,6 +487,64 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                 );
               },
             ),
+    );
+  }
+}
+
+class _MyWorldsEmptyState extends StatelessWidget {
+  const _MyWorldsEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Align(
+      alignment: const Alignment(0, -0.2),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/my_worlds_empty_worldo_launch.jpg',
+              width: MediaQuery.sizeOf(context).width.clamp(0, 360) * 0.82,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(height: 22),
+            Text.rich(
+              TextSpan(
+                children: const [
+                  TextSpan(text: 'Launch a '),
+                  TextSpan(
+                    text: '#Worldo',
+                    style: TextStyle(color: Color(0xFF4B6192)),
+                  ),
+                  TextSpan(text: ' to generate your own World'),
+                ],
+              ),
+              textAlign: TextAlign.center,
+              style: textTheme.titleMedium?.copyWith(
+                color: GenesisColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                height: 1.25,
+                letterSpacing: 0,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Worldo is the blueprint. Launch to create a live World you can enter and grow.',
+              textAlign: TextAlign.center,
+              style: textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFF666666),
+                fontSize: 14,
+                height: 1.25,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

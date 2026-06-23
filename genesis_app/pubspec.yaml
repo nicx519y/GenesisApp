@@ -79,6 +79,7 @@ flutter:
     - assets/images/genesis_home_logo.png
     - assets/images/genesis_launch_logo.png
     - assets/images/worldo_logo.png
+    - assets/images/my_worlds_empty_worldo_launch.jpg
     - assets/images/genesis_app_icon_source_1024.png
     - assets/images/default_list_image.png
     - assets/images/mock_avatars/
