@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
+import '../../icons/custom_icon_assets.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
@@ -18,6 +20,8 @@ import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 
 const double _locationChatAvatarLogicalSize = 40;
+
+bool get _locationKeyboardProbeEnabled => kDebugMode || kProfileMode;
 
 class LocationChatPage extends StatelessWidget {
   const LocationChatPage({
@@ -124,6 +128,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
   final _composerFocusNode = FocusNode();
+  final _keyboardInsetListenable = ValueNotifier<double>(0);
   final Stopwatch _panelStopwatch = Stopwatch()..start();
   final _messages = <ChatMessageVm>[];
 
@@ -159,6 +164,20 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   double _lastComposerHeight = 0;
   Timer? _keyboardMetricsTimer;
   Timer? _keyboardTargetProbeTimer;
+  double? _pendingKeyboardInset;
+  double _latestRawKeyboardInset = 0;
+  bool _keyboardInsetUpdateScheduled = false;
+  bool _composerKeyboardStateRebuildScheduled = false;
+  bool _keepBottomAfterLayoutScheduled = false;
+  Stopwatch? _keyboardProbeStopwatch;
+  Timer? _keyboardProbeSummaryTimer;
+  bool _keyboardProbeFocusLogged = false;
+  bool _keyboardProbeFirstInsetLogged = false;
+  bool _keyboardProbeStableInsetLogged = false;
+  int _keyboardProbeSlowFrameCount = 0;
+  int _keyboardProbeMaxBuildMs = 0;
+  int _keyboardProbeMaxRasterMs = 0;
+  FlutterExceptionHandler? _previousFlutterErrorHandler;
 
   @override
   void initState() {
@@ -170,6 +189,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       'aliases=${widget.localMessageLocationIds.join(',')}',
     );
     WidgetsBinding.instance.addObserver(this);
+    if (_locationKeyboardProbeEnabled) {
+      SchedulerBinding.instance.addTimingsCallback(_handleKeyboardProbeTimings);
+      _installKeyboardProbeErrorHook();
+    }
     _composerFocusNode.addListener(_handleComposerFocusChanged);
     _textController.addListener(_handleDraftTextChanged);
     _scrollController.addListener(_handleMessageListScroll);
@@ -181,6 +204,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     WidgetsBinding.instance.removeObserver(this);
     _keyboardMetricsTimer?.cancel();
     _keyboardTargetProbeTimer?.cancel();
+    _keyboardProbeSummaryTimer?.cancel();
+    if (_locationKeyboardProbeEnabled) {
+      SchedulerBinding.instance.removeTimingsCallback(
+        _handleKeyboardProbeTimings,
+      );
+      FlutterError.onError = _previousFlutterErrorHandler;
+    }
     final service = _service;
     if (_ownsService && service != null) {
       unawaited(service.disconnect().catchError((Object _) {}));
@@ -188,6 +218,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     unawaited(_closeChatroom());
     _scrollController.removeListener(_handleMessageListScroll);
     _scrollController.dispose();
+    _keyboardInsetListenable.dispose();
     _composerFocusNode.removeListener(_handleComposerFocusChanged);
     _composerFocusNode.dispose();
     _textController.removeListener(_handleDraftTextChanged);
@@ -240,7 +271,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void didChangeMetrics() {
     _handleKeyboardMetricsChanged();
-    _keepBottomAfterLayoutIfNeeded();
   }
 
   @override
@@ -527,14 +557,22 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         ? (Stopwatch()..start())
         : null;
     final changedMessages = _reconcileMessages(nextSource);
-    setState(() {
+    final shouldRebuild =
+        changedMessages ||
+        _hasVisibleChatroomStateChange(_chatroomState, state);
+    if (shouldRebuild) {
+      setState(() {
+        _chatroomState = state;
+      });
+    } else {
       _chatroomState = state;
-    });
+    }
     _logPanelMetric(
       'state received source ${previousSource.length}->${nextSource.length} '
       'vm $beforeVmCount->${_messages.length} changed=$changedMessages '
       'joined=${state.joinedLocationId == widget.locationId} '
       'joining=${state.joining} connected=${state.connected} '
+      'rebuild=$shouldRebuild '
       'reconcile=${reconcileStopwatch?.elapsedMilliseconds}ms',
     );
     if (nextSource.isNotEmpty) _notifyInitialContentReady();
@@ -556,6 +594,53 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         }
       }
     }
+  }
+
+  bool _hasVisibleChatroomStateChange(
+    WorldChatroomState previous,
+    WorldChatroomState next,
+  ) {
+    if (previous.joinedLocationId != next.joinedLocationId ||
+        previous.joining != next.joining ||
+        previous.connected != next.connected ||
+        previous.reconnecting != next.reconnecting ||
+        previous.inputBlocked != next.inputBlocked) {
+      return true;
+    }
+    return !_sameCurrentLocationEntities(previous, next);
+  }
+
+  bool _sameCurrentLocationEntities(
+    WorldChatroomState previous,
+    WorldChatroomState next,
+  ) {
+    for (final locationId in _currentLocationIds()) {
+      final previousEntities =
+          previous.entitiesByLocation[locationId] ??
+          const <WorldChatroomEntity>[];
+      final nextEntities =
+          next.entitiesByLocation[locationId] ?? const <WorldChatroomEntity>[];
+      if (identical(previousEntities, nextEntities)) continue;
+      if (previousEntities.length != nextEntities.length) return false;
+      for (var i = 0; i < previousEntities.length; i += 1) {
+        if (!_sameVisibleEntity(previousEntities[i], nextEntities[i])) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  bool _sameVisibleEntity(
+    WorldChatroomEntity previous,
+    WorldChatroomEntity next,
+  ) {
+    return previous.id == next.id &&
+        previous.name == next.name &&
+        previous.avatarUrl == next.avatarUrl &&
+        previous.type == next.type &&
+        previous.locationId == next.locationId &&
+        previous.isAi == next.isAi;
   }
 
   void _notifyInitialContentReady() {
@@ -1185,12 +1270,28 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     });
   }
 
+  void _forceScrollToBottom() {
+    void jumpIfReady() {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(0);
+    }
+
+    jumpIfReady();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      jumpIfReady();
+      WidgetsBinding.instance.addPostFrameCallback((_) => jumpIfReady());
+    });
+  }
+
   void _keepBottomAfterLayoutIfNeeded() {
     if (!_isAtBottom()) return;
+    if (_keepBottomAfterLayoutScheduled) return;
+    _keepBottomAfterLayoutScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _keepBottomAfterLayoutScheduled = false;
       if (!mounted || !_scrollController.hasClients) return;
       if (!_isAtBottom()) return;
-      _scrollToBottom(jump: true);
+      _scrollController.jumpTo(0);
     });
   }
 
@@ -1201,7 +1302,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   void _openUnseenIncomingMessages() {
     _clearUnseenIncomingCount();
-    _scrollToBottom(jump: true);
+    _forceScrollToBottom();
   }
 
   List<WorldChatroomEntity> _realUsersForCurrentLocation(
@@ -1309,7 +1410,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           child: LayoutBuilder(
             builder: (context, constraints) {
               _lastPanelHeight = constraints.maxHeight;
-              final keyboardInset = _keyboardInset;
+              final messageList = ChatMessageList(
+                controller: _scrollController,
+                messages: _messages,
+                topTitle: '',
+                showDateDividers: false,
+                style: style,
+              );
               final composer =
                   widget.composerReplacement ??
                   ChatComposer(
@@ -1326,9 +1433,17 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                     onSend: _send,
                     sendLabel: 'Send',
                     style: style,
-                    bottomSafeAreaInset: keyboardInset > 0 ? 0 : null,
+                    bottomSafeAreaInset:
+                        (_composerFocusNode.hasFocus || _keyboardInset > 0)
+                        ? 0
+                        : null,
                     onHeightChanged: _handleComposerHeightChanged,
+                    onInputTap: _startKeyboardProbeFromTap,
                   );
+              final keyboardLayerChild = _LocationChatKeyboardLayerChild(
+                messageList: messageList,
+                composer: composer,
+              );
               return Stack(
                 children: [
                   Positioned.fill(
@@ -1339,31 +1454,57 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                       ),
                     ),
                   ),
-                  AnimatedPositioned(
-                    duration: _keyboardAnimationDuration,
-                    curve: Curves.easeOutCubic,
-                    left: 0,
-                    right: 0,
-                    top: headerHeight,
-                    bottom: composerHeight + keyboardInset,
-                    child: ChatMessageList(
-                      controller: _scrollController,
-                      messages: _messages,
-                      topTitle: '',
-                      showDateDividers: false,
+                  Positioned.fill(
+                    child: ValueListenableBuilder<double>(
+                      valueListenable: _keyboardInsetListenable,
+                      child: keyboardLayerChild,
+                      builder: (context, keyboardInset, child) {
+                        final layerChild =
+                            child! as _LocationChatKeyboardLayerChild;
+                        return Stack(
+                          children: [
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              top: headerHeight,
+                              bottom: composerHeight,
+                              child: _LocationChatKeyboardShift(
+                                offset: keyboardInset,
+                                duration: _keyboardAnimationDuration,
+                                child: layerChild.messageList,
+                              ),
+                            ),
+                            if (_unseenIncomingCount > 0)
+                              Positioned(
+                                left: 0,
+                                right: 0,
+                                bottom: composerHeight + 12,
+                                child: _LocationChatKeyboardShift(
+                                  offset: keyboardInset,
+                                  duration: _keyboardAnimationDuration,
+                                  child: Center(
+                                    child: _LocationChatNewMessageNotice(
+                                      count: _unseenIncomingCount,
+                                      onTap: _openUnseenIncomingMessages,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: _LocationChatKeyboardShift(
+                                offset: keyboardInset,
+                                duration: _keyboardAnimationDuration,
+                                child: layerChild.composer,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
-                  if (_unseenIncomingCount > 0)
-                    AnimatedPositioned(
-                      duration: _keyboardAnimationDuration,
-                      curve: Curves.easeOutCubic,
-                      right: 16,
-                      bottom: composerHeight + keyboardInset + 12,
-                      child: _LocationChatNewMessageNotice(
-                        count: _unseenIncomingCount,
-                        onTap: _openUnseenIncomingMessages,
-                      ),
-                    ),
                   Positioned(
                     left: 0,
                     right: 0,
@@ -1371,8 +1512,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                     child: ChatHeader(
                       title: '$title (${realUsers.length})',
                       subtitle: subtitle,
-                      connected: realUsers.isNotEmpty,
-                      connecting: connecting && realUsers.isEmpty,
+                      connected: joined,
+                      connecting: connecting,
+                      subtitleIconAsset: locationChatCharacterIconAsset,
                       onBack:
                           widget.onBack ??
                           () => Navigator.of(context).maybePop(),
@@ -1380,14 +1522,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                           widget.showConnectionStatus && aiRoleNames.isNotEmpty,
                       style: style,
                     ),
-                  ),
-                  AnimatedPositioned(
-                    duration: _keyboardAnimationDuration,
-                    curve: Curves.easeOutCubic,
-                    left: 0,
-                    right: 0,
-                    bottom: keyboardInset,
-                    child: composer,
                   ),
                 ],
               );
@@ -1416,6 +1550,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   void _handleComposerFocusChanged() {
     if (_composerFocusNode.hasFocus) {
+      _markKeyboardProbeFocus();
+      _rebuildComposerForKeyboardState();
       _keyboardTargetLocked = false;
       if (_cachedKeyboardInset > 0) {
         _waitingForKeyboardTarget = false;
@@ -1428,6 +1564,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       }
       return;
     }
+    _logKeyboardProbeEvent(
+      'blur raw=${_rawKeyboardInset().toStringAsFixed(1)}',
+    );
+    _rebuildComposerForKeyboardState();
     _keyboardMetricsTimer?.cancel();
     _keyboardTargetProbeTimer?.cancel();
     _waitingForKeyboardTarget = false;
@@ -1444,9 +1584,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   void _handleKeyboardMetricsChanged() {
     final rawInset = _rawKeyboardInset();
     if (rawInset > 0) {
-      _keyboardTargetProbeTimer?.cancel();
-      _keyboardMetricsTimer?.cancel();
+      _latestRawKeyboardInset = rawInset;
       final currentTarget = _clampKeyboardInset(rawInset);
+      _markKeyboardProbeFirstInset(rawInset, currentTarget);
+      if (_keyboardTargetLocked && !_waitingForKeyboardTarget) {
+        _scheduleStableKeyboardInsetCacheUpdate();
+        return;
+      }
+      _keyboardTargetProbeTimer?.cancel();
       if (_waitingForKeyboardTarget || !_keyboardTargetLocked) {
         _waitingForKeyboardTarget = false;
         _keyboardTargetLocked = true;
@@ -1455,18 +1600,29 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           _setKeyboardInset(currentTarget);
         }
       }
-      _keyboardMetricsTimer = Timer(const Duration(milliseconds: 90), () {
-        if (!mounted) return;
-        final stableInset = _rawKeyboardInset();
-        if (stableInset <= 0) return;
-        _cachedKeyboardInset = _clampKeyboardInset(stableInset);
-        if (_composerFocusNode.hasFocus) {
-          _setKeyboardInset(_cachedKeyboardInset);
-        }
-      });
+      _scheduleStableKeyboardInsetCacheUpdate();
       return;
     }
     if (!_composerFocusNode.hasFocus) return;
+  }
+
+  void _scheduleStableKeyboardInsetCacheUpdate() {
+    if (_keyboardMetricsTimer != null) return;
+    _keyboardMetricsTimer = Timer(const Duration(milliseconds: 260), () {
+      _keyboardMetricsTimer = null;
+      if (!mounted) return;
+      final stableInset = _rawKeyboardInset();
+      final rawStableInset = stableInset > 0
+          ? stableInset
+          : _latestRawKeyboardInset;
+      if (rawStableInset <= 0) return;
+      final targetInset = _clampKeyboardInset(rawStableInset);
+      _cachedKeyboardInset = targetInset;
+      _markKeyboardProbeStableInset(rawStableInset, targetInset);
+      if (_composerFocusNode.hasFocus && !_keyboardTargetLocked) {
+        _setKeyboardInset(targetInset);
+      }
+    });
   }
 
   void _startKeyboardTargetProbe() {
@@ -1483,6 +1639,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         if (rawInset <= 0) return;
         final currentTarget = _clampKeyboardInset(rawInset);
         if (currentTarget <= 0) return;
+        _markKeyboardProbeFirstInset(rawInset, currentTarget);
         _waitingForKeyboardTarget = false;
         _keyboardTargetLocked = true;
         _cachedKeyboardInset = currentTarget;
@@ -1493,11 +1650,144 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           final stableInset = _rawKeyboardInset();
           if (stableInset <= 0) return;
           _cachedKeyboardInset = _clampKeyboardInset(stableInset);
+          _markKeyboardProbeStableInset(stableInset, _cachedKeyboardInset);
           _setKeyboardInset(_cachedKeyboardInset);
         });
         timer.cancel();
       },
     );
+  }
+
+  void _startKeyboardProbeFromTap() {
+    if (!_locationKeyboardProbeEnabled) return;
+    _keyboardProbeStopwatch = Stopwatch()..start();
+    _keyboardProbeSummaryTimer?.cancel();
+    _keyboardProbeFocusLogged = false;
+    _keyboardProbeFirstInsetLogged = false;
+    _keyboardProbeStableInsetLogged = false;
+    _keyboardProbeSlowFrameCount = 0;
+    _keyboardProbeMaxBuildMs = 0;
+    _keyboardProbeMaxRasterMs = 0;
+    _logKeyboardProbeEvent(
+      'tap raw=${_rawKeyboardInset().toStringAsFixed(1)} '
+      'cached=${_cachedKeyboardInset.toStringAsFixed(1)} '
+      'current=${_keyboardInset.toStringAsFixed(1)}',
+    );
+    _keyboardProbeSummaryTimer = Timer(
+      const Duration(milliseconds: 900),
+      _logKeyboardProbeSummary,
+    );
+  }
+
+  void _ensureKeyboardProbeStarted(String reason) {
+    if (!_locationKeyboardProbeEnabled || _keyboardProbeStopwatch != null) {
+      return;
+    }
+    _keyboardProbeStopwatch = Stopwatch()..start();
+    _keyboardProbeSummaryTimer?.cancel();
+    _keyboardProbeFocusLogged = false;
+    _keyboardProbeFirstInsetLogged = false;
+    _keyboardProbeStableInsetLogged = false;
+    _keyboardProbeSlowFrameCount = 0;
+    _keyboardProbeMaxBuildMs = 0;
+    _keyboardProbeMaxRasterMs = 0;
+    _logKeyboardProbeEvent('start reason=$reason');
+    _keyboardProbeSummaryTimer = Timer(
+      const Duration(milliseconds: 900),
+      _logKeyboardProbeSummary,
+    );
+  }
+
+  void _markKeyboardProbeFocus() {
+    if (!_locationKeyboardProbeEnabled || _keyboardProbeFocusLogged) return;
+    _ensureKeyboardProbeStarted('focus');
+    _keyboardProbeFocusLogged = true;
+    _logKeyboardProbeEvent(
+      'focus raw=${_rawKeyboardInset().toStringAsFixed(1)} '
+      'cached=${_cachedKeyboardInset.toStringAsFixed(1)}',
+    );
+  }
+
+  void _markKeyboardProbeFirstInset(double rawInset, double targetInset) {
+    if (!_locationKeyboardProbeEnabled || _keyboardProbeFirstInsetLogged) {
+      return;
+    }
+    _ensureKeyboardProbeStarted('firstInset');
+    _keyboardProbeFirstInsetLogged = true;
+    _logKeyboardProbeEvent(
+      'firstInset raw=${rawInset.toStringAsFixed(1)} '
+      'target=${targetInset.toStringAsFixed(1)}',
+    );
+  }
+
+  void _markKeyboardProbeStableInset(double rawInset, double targetInset) {
+    if (!_locationKeyboardProbeEnabled || _keyboardProbeStableInsetLogged) {
+      return;
+    }
+    _ensureKeyboardProbeStarted('stableInset');
+    _keyboardProbeStableInsetLogged = true;
+    _logKeyboardProbeEvent(
+      'stableInset raw=${rawInset.toStringAsFixed(1)} '
+      'target=${targetInset.toStringAsFixed(1)}',
+    );
+  }
+
+  void _handleKeyboardProbeTimings(List<FrameTiming> timings) {
+    if (!_locationKeyboardProbeEnabled) return;
+    final stopwatch = _keyboardProbeStopwatch;
+    if (stopwatch == null || stopwatch.elapsedMilliseconds > 900) return;
+    for (final timing in timings) {
+      final buildMs = timing.buildDuration.inMilliseconds;
+      final rasterMs = timing.rasterDuration.inMilliseconds;
+      if (buildMs > _keyboardProbeMaxBuildMs) {
+        _keyboardProbeMaxBuildMs = buildMs;
+      }
+      if (rasterMs > _keyboardProbeMaxRasterMs) {
+        _keyboardProbeMaxRasterMs = rasterMs;
+      }
+      if (buildMs > 16 || rasterMs > 16) {
+        _keyboardProbeSlowFrameCount += 1;
+      }
+    }
+  }
+
+  void _logKeyboardProbeSummary() {
+    if (!_locationKeyboardProbeEnabled) return;
+    final elapsed = _keyboardProbeStopwatch?.elapsedMilliseconds;
+    _logKeyboardProbeEvent(
+      'summary elapsed=${elapsed ?? 0}ms '
+      'focus=$_keyboardProbeFocusLogged '
+      'firstInset=$_keyboardProbeFirstInsetLogged '
+      'stableInset=$_keyboardProbeStableInsetLogged '
+      'slowFrames=$_keyboardProbeSlowFrameCount '
+      'maxBuild=${_keyboardProbeMaxBuildMs}ms '
+      'maxRaster=${_keyboardProbeMaxRasterMs}ms '
+      'raw=${_rawKeyboardInset().toStringAsFixed(1)} '
+      'current=${_keyboardInset.toStringAsFixed(1)}',
+    );
+    _keyboardProbeStopwatch = null;
+  }
+
+  void _logKeyboardProbeEvent(String message) {
+    if (!_locationKeyboardProbeEnabled) return;
+    final elapsed = _keyboardProbeStopwatch?.elapsedMilliseconds ?? 0;
+    debugPrint(
+      '[LocationKeyboardProbe][${widget.locationId}] +${elapsed}ms $message',
+    );
+  }
+
+  void _installKeyboardProbeErrorHook() {
+    _previousFlutterErrorHandler = FlutterError.onError;
+    FlutterError.onError = (FlutterErrorDetails details) {
+      final exceptionText = details.exceptionAsString();
+      if (exceptionText.contains('setState() or markNeedsBuild()')) {
+        debugPrint(
+          '[LocationKeyboardProbeStack][${widget.locationId}] '
+          '$exceptionText\n${details.stack}',
+        );
+      }
+      _previousFlutterErrorHandler?.call(details);
+    };
   }
 
   double _rawKeyboardInset() {
@@ -1528,7 +1818,32 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   void _setKeyboardInset(double inset) {
     final nextInset = _clampKeyboardInset(inset);
     if ((_keyboardInset - nextInset).abs() <= 0.5) return;
-    setState(() => _keyboardInset = nextInset);
+    _pendingKeyboardInset = nextInset;
+    if (_keyboardInsetUpdateScheduled) return;
+    _keyboardInsetUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _keyboardInsetUpdateScheduled = false;
+      final pendingInset = _pendingKeyboardInset;
+      _pendingKeyboardInset = null;
+      if (!mounted || pendingInset == null) return;
+      _applyKeyboardInset(pendingInset);
+    });
+  }
+
+  void _rebuildComposerForKeyboardState() {
+    if (!mounted) return;
+    if (_composerKeyboardStateRebuildScheduled) return;
+    _composerKeyboardStateRebuildScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _composerKeyboardStateRebuildScheduled = false;
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _applyKeyboardInset(double nextInset) {
+    if ((_keyboardInset - nextInset).abs() <= 0.5) return;
+    _keyboardInset = nextInset;
+    _keyboardInsetListenable.value = nextInset;
     _keepBottomAfterLayoutIfNeeded();
   }
 
@@ -1537,6 +1852,44 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       setState(() => _composerHeight = height);
     }
     _keepBottomAfterLayoutIfNeeded();
+  }
+}
+
+class _LocationChatKeyboardLayerChild extends StatelessWidget {
+  const _LocationChatKeyboardLayerChild({
+    required this.messageList,
+    required this.composer,
+  });
+
+  final Widget messageList;
+  final Widget composer;
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
+class _LocationChatKeyboardShift extends StatelessWidget {
+  const _LocationChatKeyboardShift({
+    required this.offset,
+    required this.duration,
+    required this.child,
+  });
+
+  final double offset;
+  final Duration duration;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: -offset),
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      child: child,
+      builder: (context, value, child) {
+        return Transform.translate(offset: Offset(0, value), child: child);
+      },
+    );
   }
 }
 
@@ -1839,7 +2192,7 @@ class _LocationChatNewMessageNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.black.withValues(alpha: 0.72),
+      color: const Color(0xCC1E1E24),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         key: const ValueKey('location-chat-new-message-notice'),
@@ -1848,7 +2201,7 @@ class _LocationChatNewMessageNotice extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Text(
-            '$count 条新消息',
+            '$count new message',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 13,

@@ -3,8 +3,10 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../components/common/genesis_timestamp_text.dart';
+import '../../../icons/custom_icon_assets.dart';
 import '../../../icons/my_flutter_app_icons.dart';
 import '../../../ui/components/genesis_avatar.dart';
 import '../../../ui/components/genesis_safe_area.dart';
@@ -38,19 +40,20 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
   composerBackdropBlurSigma: 20,
 );
 
-final ChatUiStyleConfig kLocationChatStyle = ChatUiStyleConfig.standard
-    .copyWith(
-      headerTitleTextStyle: ChatUiStyleConfig.standard.headerTitleTextStyle
-          .copyWith(color: Colors.white),
-      headerSubtitleTextStyle: ChatUiStyleConfig
-          .standard
-          .headerSubtitleTextStyle
-          .copyWith(color: Colors.white),
-      headerTitleIconColor: Colors.white,
-      headerStatusIconColor: Colors.white,
-      headerBackdropBlurSigma: 20,
-      composerBackdropBlurSigma: 20,
-    );
+ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
+  headerTitleTextStyle: ChatUiStyleConfig.standard.headerTitleTextStyle
+      .copyWith(color: Colors.white),
+  headerSubtitleTextStyle: ChatUiStyleConfig.standard.headerSubtitleTextStyle
+      .copyWith(color: Colors.white),
+  headerTitleIconColor: Colors.white,
+  headerStatusIconColor: Colors.white,
+  headerBackdropBlurSigma: 20,
+  composerBackdropBlurSigma: 20,
+  messageListPadding: ChatUiStyleConfig.standard.messageListPadding.copyWith(
+    left: 10,
+    right: 10,
+  ),
+);
 
 class ChatMessageVm {
   ChatMessageVm({
@@ -114,6 +117,7 @@ class ChatHeader extends StatelessWidget {
     this.showTitleIcon = true,
     this.showSubtitle = true,
     this.showMoreButton = true,
+    this.subtitleIconAsset,
     this.style,
   });
 
@@ -125,6 +129,7 @@ class ChatHeader extends StatelessWidget {
   final bool showTitleIcon;
   final bool showSubtitle;
   final bool showMoreButton;
+  final String? subtitleIconAsset;
   final ChatUiStyleConfig? style;
 
   @override
@@ -175,7 +180,7 @@ class ChatHeader extends StatelessWidget {
                           children: [
                             if (showTitleIcon) ...[
                               Icon(
-                                Icons.location_on,
+                                Icons.place_outlined,
                                 size: style.headerTitleIconSize,
                                 color: style.headerTitleIconColor,
                               ),
@@ -199,15 +204,22 @@ class ChatHeader extends StatelessWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                connected
-                                    ? Icons.groups_2
-                                    : connecting
-                                    ? Icons.sync
-                                    : Icons.cloud_off,
-                                size: style.headerStatusIconSize,
-                                color: style.headerStatusIconColor,
-                              ),
+                              if (subtitleIconAsset != null)
+                                _ChatHeaderSubtitleAssetIcon(
+                                  asset: subtitleIconAsset!,
+                                  style: style,
+                                )
+                              else if (connected)
+                                _ChatHeaderSubtitleAssetIcon(
+                                  asset: characterStatIconAsset,
+                                  style: style,
+                                )
+                              else
+                                Icon(
+                                  connecting ? Icons.sync : Icons.cloud_off,
+                                  size: style.headerStatusIconSize,
+                                  color: style.headerStatusIconColor,
+                                ),
                               SizedBox(width: style.headerStatusIconGap),
                               Flexible(
                                 child: Text(
@@ -253,6 +265,33 @@ class ChatHeader extends StatelessWidget {
   }
 }
 
+class _ChatHeaderSubtitleAssetIcon extends StatelessWidget {
+  const _ChatHeaderSubtitleAssetIcon({
+    required this.asset,
+    required this.style,
+  });
+
+  final String asset;
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(
+      offset: Offset(
+        0,
+        customCharacterIconVerticalOffset(style.headerStatusIconSize),
+      ),
+      child: SvgPicture.asset(
+        asset,
+        width: customCharacterIconRenderSize(style.headerStatusIconSize),
+        height: customCharacterIconRenderSize(style.headerStatusIconSize),
+        fit: BoxFit.contain,
+        excludeFromSemantics: true,
+      ),
+    );
+  }
+}
+
 class ChatComposer extends StatelessWidget {
   const ChatComposer({
     super.key,
@@ -266,6 +305,7 @@ class ChatComposer extends StatelessWidget {
     this.style,
     this.bottomSafeAreaInset,
     this.focusNode,
+    this.onInputTap,
   });
 
   final TextEditingController controller;
@@ -278,6 +318,7 @@ class ChatComposer extends StatelessWidget {
   final ChatUiStyleConfig? style;
   final double? bottomSafeAreaInset;
   final FocusNode? focusNode;
+  final VoidCallback? onInputTap;
 
   @override
   Widget build(BuildContext context) {
@@ -324,7 +365,7 @@ class ChatComposer extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: style.inputBackgroundColor,
                         borderRadius: BorderRadius.circular(
-                          style.inputBorderRadius,
+                          style.systemMessageBorderRadius,
                         ),
                       ),
                       child: TextField(
@@ -341,6 +382,7 @@ class ChatComposer extends StatelessWidget {
                             : TextInputAction.newline,
                         onTapOutside: (_) =>
                             FocusManager.instance.primaryFocus?.unfocus(),
+                        onTap: onInputTap,
                         onSubmitted: submitFromKeyboard
                             ? (_) {
                                 if (sendEnabled) unawaited(onSend());
@@ -500,9 +542,7 @@ class _ComposerSendButton extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(
-            style.composerSendButtonBorderRadius,
-          ),
+          borderRadius: BorderRadius.circular(style.systemMessageBorderRadius),
         ),
         child: TextButton(
           style: TextButton.styleFrom(
@@ -519,7 +559,7 @@ class _ComposerSendButton extends StatelessWidget {
             foregroundColor: style.composerSendButtonIconColor,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(
-                style.composerSendButtonBorderRadius,
+                style.systemMessageBorderRadius,
               ),
             ),
           ),
@@ -819,7 +859,7 @@ class ChatMessageBubble extends StatelessWidget {
       padding: style.bubblePadding,
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(style.bubbleBorderRadius),
+        borderRadius: BorderRadius.circular(style.systemMessageBorderRadius),
       ),
       child: _InlineMarkdownText(
         text: text.isEmpty ? '...' : text,
@@ -1082,15 +1122,17 @@ List<InlineSpan> _inlineMarkdownSpans(String text, TextStyle baseStyle) {
       index += 2;
       continue;
     }
-    if ((marker == '*' || marker == '_') &&
-        !_isRepeatedMarker(text, index, marker)) {
+    if (marker == '*' && !_isRepeatedMarker(text, index, marker)) {
       final end = _findInlineItalicEnd(text, index + 1, marker);
       if (end != -1 && end > index + 1) {
         flushPlain();
         spans.add(
           TextSpan(
             text: text.substring(index + 1, end),
-            style: baseStyle.copyWith(fontStyle: FontStyle.italic),
+            style: baseStyle.copyWith(
+              color: const Color(0xFF777777),
+              fontStyle: FontStyle.italic,
+            ),
           ),
         );
         index = end + 1;

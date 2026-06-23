@@ -10126,7 +10126,7 @@ void main() {
     final chatroom = _FakeChatroomClient();
     final services = await _testServices(chatroom: chatroom);
     await tester.pumpWidget(GenesisApp(services: services));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
       RouteNames.locationChat,
@@ -10137,7 +10137,7 @@ void main() {
         'location_name': 'Castle',
       },
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     for (var i = 1; i <= 60; i += 1) {
       chatroom.session.emit(
@@ -10162,7 +10162,7 @@ void main() {
         ),
       );
     }
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     final scrollable = find.descendant(
       of: find.byType(ListView),
@@ -10197,10 +10197,10 @@ void main() {
         createdAt: null,
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(position.pixels, offsetBeforeNewMessage);
-    expect(find.text('1 条新消息'), findsOneWidget);
+    expect(find.text('1 new message'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('location-chat-new-message-notice')),
       findsOneWidget,
@@ -10212,7 +10212,7 @@ void main() {
     await tester.pump();
 
     expect(position.pixels, 0);
-    expect(find.text('1 条新消息'), findsNothing);
+    expect(find.text('1 new message'), findsNothing);
   });
 
   testWidgets('location chat shows role name instead of pushed username', (

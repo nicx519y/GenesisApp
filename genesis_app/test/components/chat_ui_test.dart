@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 
 void main() {
@@ -101,6 +103,66 @@ void main() {
     expect(
       shouldShowChatDateDivider(start, start.add(const Duration(minutes: 31))),
       isTrue,
+    );
+  });
+
+  testWidgets(
+    'chat header uses location title icon and character subtitle icon',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatHeader(
+              title: 'Market',
+              subtitle: 'Alice, Bob',
+              connected: true,
+              connecting: false,
+              onBack: () {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byIcon(Icons.place_outlined), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is SvgPicture &&
+              widget.bytesLoader.toString().contains(characterStatIconAsset),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('location chat header uses white character subtitle icon', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatHeader(
+            title: 'Market',
+            subtitle: 'Alice, Bob',
+            connected: true,
+            connecting: false,
+            onBack: () {},
+            style: kLocationChatStyle,
+            subtitleIconAsset: locationChatCharacterIconAsset,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader.toString().contains(
+              locationChatCharacterIconAsset,
+            ),
+      ),
+      findsOneWidget,
     );
   });
 
@@ -219,6 +281,7 @@ void main() {
       ),
     );
     expect(_textHasItalicFragment(bubbleText, 'quietly'), isTrue);
+    expect(_textFragmentColor(bubbleText, 'quietly'), const Color(0xFF777777));
   });
 
   testWidgets('chat rows reserve matching avatar space on both sides', (
@@ -341,7 +404,40 @@ void main() {
     expect(text.overflow, isNull);
   });
 
-  testWidgets('narrator system message parses markdown italic text', (
+  testWidgets('narrator system message parses star markdown italic text', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'narrator',
+              senderName: 'Narrator',
+              text: 'The room grows *cold*.',
+              isMe: false,
+              status: 'sent',
+              senderType: 'narrator',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('The room grows cold.'), findsOneWidget);
+    final systemText = tester.widget<Text>(
+      find.descendant(
+        of: find.byType(ChatSystemMessage),
+        matching: find.byType(Text),
+      ),
+    );
+    expect(_textHasItalicFragment(systemText, 'cold'), isTrue);
+    expect(_textFragmentColor(systemText, 'cold'), const Color(0xFF777777));
+  });
+
+  testWidgets('underscore markdown remains plain text', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -363,14 +459,7 @@ void main() {
       ),
     );
 
-    expect(find.text('The room grows cold.'), findsOneWidget);
-    final systemText = tester.widget<Text>(
-      find.descendant(
-        of: find.byType(ChatSystemMessage),
-        matching: find.byType(Text),
-      ),
-    );
-    expect(_textHasItalicFragment(systemText, 'cold'), isTrue);
+    expect(find.text('The room grows _cold_.'), findsOneWidget);
   });
 
   testWidgets('narrator system message text is left aligned', (
@@ -715,4 +804,18 @@ bool _textHasItalicFragment(Text text, String value) {
     return true;
   });
   return found;
+}
+
+Color? _textFragmentColor(Text text, String value) {
+  final span = text.textSpan;
+  if (span == null) return null;
+  Color? color;
+  span.visitChildren((child) {
+    if (child is TextSpan && child.text == value) {
+      color = child.style?.color;
+      return false;
+    }
+    return true;
+  });
+  return color;
 }
