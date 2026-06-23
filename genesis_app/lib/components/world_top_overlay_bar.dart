@@ -62,7 +62,7 @@ class WorldTopOverlayBar extends StatelessWidget {
             height: _worldTopOverlayHeight,
             decoration: BoxDecoration(
               color: _worldTopOverlayBackground,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: TabBar(
               controller: controller,

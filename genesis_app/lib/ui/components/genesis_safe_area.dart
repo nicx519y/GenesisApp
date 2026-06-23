@@ -24,6 +24,16 @@ class GenesisBottomSystemBarStyle {
           transparentForGesture ?? this.transparentForGesture,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is GenesisBottomSystemBarStyle &&
+        other.color == color &&
+        other.transparentForGesture == transparentForGesture;
+  }
+
+  @override
+  int get hashCode => Object.hash(color, transparentForGesture);
 }
 
 class GenesisBottomSystemBarController {
@@ -36,6 +46,7 @@ class GenesisBottomSystemBarController {
 
   static final List<_GenesisBottomSystemBarStyleEntry> _styleStack =
       <_GenesisBottomSystemBarStyleEntry>[];
+  static bool _notifyScheduled = false;
 
   static Object push(GenesisBottomSystemBarStyle style) {
     final token = Object();
@@ -57,9 +68,17 @@ class GenesisBottomSystemBarController {
   }
 
   static void _notify() {
-    listenable.value = _styleStack.isEmpty
-        ? const GenesisBottomSystemBarStyle()
-        : _styleStack.last.style;
+    if (_notifyScheduled) return;
+    _notifyScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _notifyScheduled = false;
+      final nextStyle = _styleStack.isEmpty
+          ? const GenesisBottomSystemBarStyle()
+          : _styleStack.last.style;
+      if (listenable.value != nextStyle) {
+        listenable.value = nextStyle;
+      }
+    });
   }
 }
 
