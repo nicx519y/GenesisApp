@@ -38,7 +38,6 @@ void main() {
 
     await tester.tap(find.text('Write a post').first);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 2000));
     await tester.pump();
     await tester.pumpAndSettle();
 
@@ -71,7 +70,6 @@ void main() {
 
     await tester.tap(find.text('Write a post').first);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 2000));
     await tester.pump();
     await tester.pumpAndSettle();
 
@@ -119,7 +117,6 @@ void main() {
 
     await tester.tap(find.text('Write a post').first);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 2000));
     await tester.pump();
     await tester.pumpAndSettle();
 
@@ -164,7 +161,6 @@ void main() {
 
     await tester.tap(find.text('Write a post').first);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 2000));
     await tester.pump();
     await tester.pumpAndSettle();
 
@@ -207,7 +203,6 @@ void main() {
 
     await tester.tap(find.text('Write a post').first);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 2000));
     await tester.pump();
     await tester.pumpAndSettle();
 
@@ -265,7 +260,6 @@ void main() {
 
     await tester.tap(find.text('Write a post').first);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 2000));
     await tester.pump();
     await tester.pumpAndSettle();
     final sheetSizeBeforeImages = tester.getSize(
@@ -349,7 +343,6 @@ void main() {
 
     await tester.tap(find.text('Write a post').first);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 2000));
     await tester.pump();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('discuss-image-picker-button')));
@@ -406,7 +399,6 @@ void main() {
 
     await tester.tap(find.text('Write a post').first);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 2000));
     await tester.pump();
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('discuss-image-picker-button')));
@@ -465,7 +457,6 @@ void main() {
 
     await tester.tap(find.text('Write a post').first);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 2000));
     await tester.pump();
     await tester.pumpAndSettle();
 
@@ -517,7 +508,6 @@ void main() {
 
     await tester.tap(find.text('Write a post').first);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 2000));
     await tester.pump();
     await tester.pumpAndSettle();
 
@@ -540,7 +530,7 @@ void main() {
     );
   });
 
-  testWidgets('resyncs composer position when keyboard settles after picker', (
+  testWidgets('updates composer position from viewInsets after picker', (
     WidgetTester tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -567,7 +557,6 @@ void main() {
 
     await tester.tap(find.text('Write a post').first);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 2000));
     await tester.pump();
     await tester.pumpAndSettle();
     final sheetSizeBeforePicker = tester.getSize(
@@ -577,7 +566,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('discuss-image-picker-button')));
     await tester.pump(const Duration(milliseconds: 20));
     tester.view.viewInsets = const FakeViewPadding(bottom: 320);
-    await tester.pump(const Duration(milliseconds: 360));
+    tester.binding.handleMetricsChanged();
+    await tester.pump();
 
     final keyboardTop = tester.view.physicalSize.height - 320;
     final sheetRectAfterKeyboardSettles = tester.getRect(
@@ -626,7 +616,6 @@ void main() {
 
       await tester.tap(find.text('Write a post').first);
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 2000));
       await tester.pump();
       await tester.pumpAndSettle();
 
@@ -637,7 +626,7 @@ void main() {
 
       tester.view.viewInsets = FakeViewPadding.zero;
       tester.binding.handleMetricsChanged();
-      await tester.pump(const Duration(milliseconds: 360));
+      await tester.pump();
 
       expect(
         find.byKey(const ValueKey('discuss-composer-sheet')),

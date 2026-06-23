@@ -160,6 +160,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         originId: origin.oid,
         locationId: locationId,
         locationName: point.name,
+        backgroundImageUrl: point.iconUrl.trim().isNotEmpty
+            ? point.iconUrl
+            : point.mapImageUrl,
+        backgroundPreviewImageUrl: '',
         isLeafLocation: point.isLeafLocation,
       );
     });
@@ -194,6 +198,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         worldId: descriptor.originId,
         locationId: descriptor.locationId,
         locationName: descriptor.locationName,
+        backgroundImageUrl: descriptor.backgroundImageUrl,
+        backgroundPreviewImageUrl: descriptor.backgroundPreviewImageUrl,
         isLeafLocation: descriptor.isLeafLocation,
         active: false,
         leaveOnInactive: false,
@@ -538,12 +544,16 @@ class _OriginLocationChatDescriptor {
     required this.originId,
     required this.locationId,
     required this.locationName,
+    required this.backgroundImageUrl,
+    required this.backgroundPreviewImageUrl,
     required this.isLeafLocation,
   });
 
   final String originId;
   final String locationId;
   final String locationName;
+  final String backgroundImageUrl;
+  final String backgroundPreviewImageUrl;
   final bool isLeafLocation;
 }
 
@@ -553,26 +563,14 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
     required this.onLaunch,
   });
 
-  static const Color _backgroundColor = Color(0xFFF9F9F9);
-
   final bool launching;
   final VoidCallback onLaunch;
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = GenesisSafeAreaInsets.bottom(context);
-    return GenesisBottomSystemBarStyleScope(
-      style: const GenesisBottomSystemBarStyle(color: _backgroundColor),
-      child: DecoratedBox(
-        decoration: const BoxDecoration(color: _backgroundColor),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomInset),
-          child: GenesisPrimaryButton(
-            label: launching ? 'Launching...' : 'Launch to send',
-            onPressed: launching ? null : onLaunch,
-          ),
-        ),
-      ),
+    return GenesisPrimaryButton(
+      label: launching ? 'Launching...' : 'Launch to send',
+      onPressed: launching ? null : onLaunch,
     );
   }
 }
@@ -2186,6 +2184,7 @@ List<WorldPoint> _pointsFromLocations(
       sceneId: locationId,
       pointId: locationId,
       iconUrl: _resolveAssetUrl(l.icon),
+      mapImageUrl: _resolveAssetUrl(l.mapUrl),
       description: l.description,
       locationDescription: l.description,
       depth: depths == null || i >= depths.length ? 0 : depths[i],

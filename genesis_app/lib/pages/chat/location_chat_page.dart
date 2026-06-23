@@ -1340,24 +1340,30 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                 keyboardInset: keyboardInset,
                 bottomSafeAreaInset: bottomSafeAreaInset,
               );
-              final composer =
-                  widget.composerReplacement ??
-                  ChatComposer(
-                    controller: _textController,
-                    inputEnabled: widget.active,
-                    sendEnabled:
-                        widget.active &&
-                        joined &&
-                        _hasDraftText &&
-                        !_sending &&
-                        !inputBlocked,
-                    sending: false,
-                    onSend: _send,
-                    sendLabel: 'Send',
-                    style: style,
-                    bottomSafeAreaInset: bottomSafeAreaInset,
-                    onHeightChanged: _handleComposerHeightChanged,
-                  );
+              final composerReplacement = widget.composerReplacement;
+              final composer = composerReplacement == null
+                  ? ChatComposer(
+                      controller: _textController,
+                      inputEnabled: widget.active,
+                      sendEnabled:
+                          widget.active &&
+                          joined &&
+                          _hasDraftText &&
+                          !_sending &&
+                          !inputBlocked,
+                      sending: false,
+                      onSend: _send,
+                      sendLabel: 'Send',
+                      style: style,
+                      bottomSafeAreaInset: bottomSafeAreaInset,
+                      onHeightChanged: _handleComposerHeightChanged,
+                    )
+                  : ChatComposerFrame(
+                      style: style,
+                      bottomSafeAreaInset: bottomSafeAreaInset,
+                      onHeightChanged: _handleComposerHeightChanged,
+                      child: composerReplacement,
+                    );
               return Stack(
                 children: [
                   Positioned.fill(

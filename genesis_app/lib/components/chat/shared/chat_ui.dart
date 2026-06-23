@@ -260,6 +260,51 @@ class ChatHeader extends StatelessWidget {
   }
 }
 
+class ChatComposerFrame extends StatelessWidget {
+  const ChatComposerFrame({
+    super.key,
+    required this.child,
+    this.onHeightChanged,
+    this.style,
+    this.bottomSafeAreaInset,
+  });
+
+  final Widget child;
+  final ValueChanged<double>? onHeightChanged;
+  final ChatUiStyleConfig? style;
+  final double? bottomSafeAreaInset;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = this.style ?? ChatUiStyleConfig.standard;
+    final bottomInset =
+        bottomSafeAreaInset ?? GenesisSafeAreaInsets.bottom(context);
+    return _ChatComposerHeightObserver(
+      onHeightChanged: onHeightChanged,
+      child: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: style.composerBackdropBlurSigma,
+            sigmaY: style.composerBackdropBlurSigma,
+          ),
+          child: Container(
+            padding: style.composerPadding.copyWith(
+              bottom: style.composerPadding.bottom + bottomInset,
+            ),
+            decoration: BoxDecoration(
+              color: style.composerBackgroundGradient == null
+                  ? style.composerBackgroundColor
+                  : null,
+              gradient: style.composerBackgroundGradient,
+            ),
+            child: TextFieldTapRegion(child: child),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ChatComposer extends StatelessWidget {
   const ChatComposer({
     super.key,
@@ -290,110 +335,87 @@ class ChatComposer extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
     final submitFromKeyboard = !style.showComposerSendButton;
-    final bottomInset =
-        bottomSafeAreaInset ?? GenesisSafeAreaInsets.bottom(context);
-    return _ChatComposerHeightObserver(
+    return ChatComposerFrame(
+      style: style,
+      bottomSafeAreaInset: bottomSafeAreaInset,
       onHeightChanged: onHeightChanged,
-      child: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: style.composerBackdropBlurSigma,
-            sigmaY: style.composerBackdropBlurSigma,
-          ),
-          child: Container(
-            padding: style.composerPadding.copyWith(
-              bottom: style.composerPadding.bottom + bottomInset,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (style.showComposerVoiceButton) ...[
+            _ComposerIconButton(
+              icon: MyFlutterApp.voice,
+              onPressed: inputEnabled ? () {} : null,
+              style: style,
             ),
-            decoration: BoxDecoration(
-              color: style.composerBackgroundGradient == null
-                  ? style.composerBackgroundColor
-                  : null,
-              gradient: style.composerBackgroundGradient,
-            ),
-            child: TextFieldTapRegion(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (style.showComposerVoiceButton) ...[
-                    _ComposerIconButton(
-                      icon: MyFlutterApp.voice,
-                      onPressed: inputEnabled ? () {} : null,
-                      style: style,
-                    ),
-                    SizedBox(width: style.composerLeadingGap),
-                  ],
-                  Expanded(
-                    child: Container(
-                      constraints: BoxConstraints(
-                        minHeight: style.inputMinHeight,
-                        maxHeight: style.inputMaxHeight,
-                      ),
-                      decoration: BoxDecoration(
-                        color: style.inputBackgroundColor,
-                        borderRadius: BorderRadius.circular(
-                          style.inputBorderRadius,
-                        ),
-                      ),
-                      child: TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        enabled: inputEnabled,
-                        minLines: style.inputMinLines,
-                        maxLines: style.inputMaxLines,
-                        keyboardType: submitFromKeyboard
-                            ? TextInputType.text
-                            : TextInputType.multiline,
-                        textInputAction: submitFromKeyboard
-                            ? TextInputAction.send
-                            : TextInputAction.newline,
-                        onTapOutside: (_) =>
-                            FocusManager.instance.primaryFocus?.unfocus(),
-                        onSubmitted: submitFromKeyboard
-                            ? (_) {
-                                if (sendEnabled) unawaited(onSend());
-                              }
-                            : null,
-                        style: style.inputTextStyle,
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: style.inputHorizontalPadding,
-                            vertical: style.inputVerticalPadding,
-                          ),
-                        ),
-                      ),
-                    ),
+            SizedBox(width: style.composerLeadingGap),
+          ],
+          Expanded(
+            child: Container(
+              constraints: BoxConstraints(
+                minHeight: style.inputMinHeight,
+                maxHeight: style.inputMaxHeight,
+              ),
+              decoration: BoxDecoration(
+                color: style.inputBackgroundColor,
+                borderRadius: BorderRadius.circular(style.inputBorderRadius),
+              ),
+              child: TextField(
+                controller: controller,
+                focusNode: focusNode,
+                enabled: inputEnabled,
+                minLines: style.inputMinLines,
+                maxLines: style.inputMaxLines,
+                keyboardType: submitFromKeyboard
+                    ? TextInputType.text
+                    : TextInputType.multiline,
+                textInputAction: submitFromKeyboard
+                    ? TextInputAction.send
+                    : TextInputAction.newline,
+                onTapOutside: (_) =>
+                    FocusManager.instance.primaryFocus?.unfocus(),
+                onSubmitted: submitFromKeyboard
+                    ? (_) {
+                        if (sendEnabled) unawaited(onSend());
+                      }
+                    : null,
+                style: style.inputTextStyle,
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: style.inputHorizontalPadding,
+                    vertical: style.inputVerticalPadding,
                   ),
-                  if (style.showComposerStickerButton) ...[
-                    SizedBox(width: style.composerActionGap),
-                    _ComposerIconButton(
-                      icon: MyFlutterApp.sticker,
-                      onPressed: inputEnabled ? () {} : null,
-                      style: style,
-                    ),
-                  ],
-                  if (style.showComposerAddButton) ...[
-                    SizedBox(width: style.composerActionGap),
-                    _ComposerIconButton(
-                      icon: MyFlutterApp.add2,
-                      onPressed: inputEnabled ? () {} : null,
-                      style: style,
-                    ),
-                  ],
-                  if (style.showComposerSendButton) ...[
-                    SizedBox(width: style.composerActionGap),
-                    _ComposerSendButton(
-                      sending: sending,
-                      onPressed: sendEnabled ? onSend : null,
-                      label: sendLabel,
-                      style: style,
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
           ),
-        ),
+          if (style.showComposerStickerButton) ...[
+            SizedBox(width: style.composerActionGap),
+            _ComposerIconButton(
+              icon: MyFlutterApp.sticker,
+              onPressed: inputEnabled ? () {} : null,
+              style: style,
+            ),
+          ],
+          if (style.showComposerAddButton) ...[
+            SizedBox(width: style.composerActionGap),
+            _ComposerIconButton(
+              icon: MyFlutterApp.add2,
+              onPressed: inputEnabled ? () {} : null,
+              style: style,
+            ),
+          ],
+          if (style.showComposerSendButton) ...[
+            SizedBox(width: style.composerActionGap),
+            _ComposerSendButton(
+              sending: sending,
+              onPressed: sendEnabled ? onSend : null,
+              label: sendLabel,
+              style: style,
+            ),
+          ],
+        ],
       ),
     );
   }
