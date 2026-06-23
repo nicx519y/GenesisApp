@@ -310,15 +310,10 @@ class _ModifiedSectionBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: 16,
       height: 16,
-      decoration: const BoxDecoration(
-        color: Color(0xFFE53935),
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: const Icon(Icons.priority_high, color: Colors.white, size: 12),
+      child: SvgPicture.asset(refreshModifiedIconAsset, fit: BoxFit.contain),
     );
   }
 }
