@@ -290,8 +290,19 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final previousDevicePixelRatio = _devicePixelRatio;
     _devicePixelRatio =
         MediaQuery.maybeOf(context)?.devicePixelRatio ?? _devicePixelRatio;
+    if ((previousDevicePixelRatio - _devicePixelRatio).abs() > 0.01 &&
+        !widget.active &&
+        widget.openingPreviewMessages.isNotEmpty) {
+      final changedMessages = _syncOpeningPreviewMessages();
+      _logPanelMetric(
+        'opening preview dpr sync '
+        '$previousDevicePixelRatio->$_devicePixelRatio '
+        'changed=$changedMessages',
+      );
+    }
   }
 
   @override
@@ -333,6 +344,16 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   }
 
   void _showOpeningPreviewMessages() {
+    final changedMessages = _syncOpeningPreviewMessages();
+    _logPanelMetric(
+      'opening preview shown count=${widget.openingPreviewMessages.length} '
+      'changed=$changedMessages',
+    );
+    if (changedMessages && mounted) setState(() {});
+    _notifyInitialContentReady();
+  }
+
+  bool _syncOpeningPreviewMessages() {
     final nextEntitiesById = <String, WorldChatroomEntity>{
       for (final entity in widget.openingPreviewEntities)
         if (entity.id.trim().isNotEmpty) entity.id.trim(): entity,
@@ -343,13 +364,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         widget.locationId: widget.openingPreviewEntities,
       },
     );
-    final changedMessages = _reconcileMessages(widget.openingPreviewMessages);
-    _logPanelMetric(
-      'opening preview shown count=${widget.openingPreviewMessages.length} '
-      'changed=$changedMessages',
-    );
-    if (changedMessages && mounted) setState(() {});
-    _notifyInitialContentReady();
+    return _reconcileMessages(widget.openingPreviewMessages);
   }
 
   void _activateConnection() {
