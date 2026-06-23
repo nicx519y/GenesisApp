@@ -180,7 +180,7 @@ class ApiClient {
     final ok = response.statusCode >= 200 && response.statusCode < 300;
     if (ok) return response.data;
     throw ApiException(
-      message: 'HTTP error',
+      message: 'Something went wrong',
       statusCode: response.statusCode,
       responseBody: response.body,
       responseHeaders: response.headers,

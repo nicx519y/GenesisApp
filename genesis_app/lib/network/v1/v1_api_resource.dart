@@ -70,7 +70,7 @@ Object? handleV1ResponseErrNo(Object? json) {
           : map.containsKey('err_str')
           ? map['err_str']
           : map['errStr'],
-      fallback: 'API error',
+      fallback: 'Something went wrong',
     ),
     code: errNo,
   );

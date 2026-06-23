@@ -437,7 +437,7 @@ class WorldChatroomService {
           ? e
           : ChatroomFailureEvent(
               code: 'connect_failed',
-              message: 'Failed to connect chatroom',
+              message: 'Failed to connect to chatroom',
               sourceType: 'connect',
               requestType: 'connect',
               cause: e,
