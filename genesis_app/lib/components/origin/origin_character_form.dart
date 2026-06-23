@@ -119,6 +119,7 @@ class OriginCharacterFormFields extends StatelessWidget {
     this.bioMaxLines,
     this.identityBelowAvatarRow = true,
     this.showFieldNotes = false,
+    this.showPlaceholders = true,
     this.textFieldScrollPadding,
   });
 
@@ -149,6 +150,7 @@ class OriginCharacterFormFields extends StatelessWidget {
   final int? bioMaxLines;
   final bool identityBelowAvatarRow;
   final bool showFieldNotes;
+  final bool showPlaceholders;
   final EdgeInsets? textFieldScrollPadding;
 
   @override
@@ -182,7 +184,7 @@ class OriginCharacterFormFields extends StatelessWidget {
                   CreateTextFieldBlock(
                     label: 'Name *',
                     controller: form.name,
-                    hintText: 'Enter name...',
+                    hintText: _placeholder('Enter name...'),
                     maxLength: 30,
                     labelSize: labelSize,
                     labelFontWeight: labelFontWeight,
@@ -196,7 +198,9 @@ class OriginCharacterFormFields extends StatelessWidget {
                     CreateTextFieldBlock(
                       label: 'Identity *',
                       controller: form.identity,
-                      hintText: 'eg. A hometown kid back for one real shot',
+                      hintText: _placeholder(
+                        'eg. A hometown kid back for one real shot',
+                      ),
                       maxLength: 100,
                       note: showFieldNotes
                           ? "The character's role in the worldo."
@@ -214,7 +218,9 @@ class OriginCharacterFormFields extends StatelessWidget {
                     CreateTextFieldBlock(
                       label: 'Personality *',
                       controller: form.personality,
-                      hintText: 'eg. Underdog with goodwill but little capital',
+                      hintText: _placeholder(
+                        'eg. Underdog with goodwill but little capital',
+                      ),
                       maxLength: 100,
                       note: showFieldNotes
                           ? "The character's manner of speaking and behaving, which drives their dialogue."
@@ -237,7 +243,7 @@ class OriginCharacterFormFields extends StatelessWidget {
           CreateTextFieldBlock(
             label: 'Identity *',
             controller: form.identity,
-            hintText: 'eg. A hometown kid back for one real shot',
+            hintText: _placeholder('eg. A hometown kid back for one real shot'),
             maxLength: 100,
             note: showFieldNotes ? "The character's role in the worldo." : null,
             labelSize: labelSize,
@@ -252,7 +258,9 @@ class OriginCharacterFormFields extends StatelessWidget {
             CreateTextFieldBlock(
               label: 'Personality *',
               controller: form.personality,
-              hintText: 'eg. Underdog with goodwill but little capital',
+              hintText: _placeholder(
+                'eg. Underdog with goodwill but little capital',
+              ),
               maxLength: 100,
               note: showFieldNotes
                   ? "The character's manner of speaking and behaving, which drives their dialogue."
@@ -271,7 +279,9 @@ class OriginCharacterFormFields extends StatelessWidget {
           CreateTextFieldBlock(
             label: 'Goal (Optional)',
             controller: form.goal,
-            hintText: 'eg. Be the richest owner on Main Street by Labor Day',
+            hintText: _placeholder(
+              'eg. Be the richest owner on Main Street by Labor Day',
+            ),
             maxLength: 100,
             note: showFieldNotes
                 ? "The character's goal or behavioral direction, which drives how they act."
@@ -288,8 +298,9 @@ class OriginCharacterFormFields extends StatelessWidget {
         CreateTextFieldBlock(
           label: 'Background - Hidden (Optional)',
           controller: form.bio,
-          hintText:
-              'eg. Left town years ago; returned to a boarded-up Main Street for one chance.',
+          hintText: _placeholder(
+            'eg. Left town years ago; returned to a boarded-up Main Street for one chance.',
+          ),
           maxLength: 500,
           note: showFieldNotes
               ? "The character's background and relationships."
@@ -304,5 +315,9 @@ class OriginCharacterFormFields extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  String _placeholder(String value) {
+    return showPlaceholders ? value : '';
   }
 }

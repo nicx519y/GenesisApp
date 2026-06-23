@@ -620,6 +620,7 @@ class _CustomRoleForm extends StatelessWidget {
               avatarRemoveLinkFontWeight: FontWeight.w600,
               avatarEmptyIconLabelGap: 6,
               identityBelowAvatarRow: true,
+              showPlaceholders: false,
               textFieldScrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
               topSpacing: 0,
               bioMaxLines: 3,
