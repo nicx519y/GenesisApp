@@ -9,16 +9,22 @@ DEFAULT_INSTALL_TIMEOUT_SECONDS="120"
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/start_packet_capture.sh [-d <device-id>] [--proxy-port <port>] [--package <package-name>] [--quick]
+  scripts/start_packet_capture.sh [-d <device-id>] [--proxy-port <port>] [--package <package-name>] [--quick] [--global-proxy]
+  scripts/start_packet_capture.sh --clear-global-proxy
 
 What it does:
-  1. Keeps the phone global proxy disabled so Wi-Fi/VPN still works.
+  1. Keeps the phone global proxy disabled by default so Wi-Fi/VPN still works.
   2. Restores adb reverse: phone 127.0.0.1:<port> -> Mac 127.0.0.1:<port>.
   3. Builds and installs the debug app with GENESIS_DEBUG_PROXY=127.0.0.1:<port>.
   4. Launches the app.
 
 Options:
-  --quick   Only restore adb reverse and clear phone global proxy. Do not rebuild/reinstall.
+  --quick   Restore adb reverse and relaunch the app. Do not rebuild/reinstall.
+  --global-proxy
+            Set Android global proxy to 127.0.0.1:<port>. This keeps capture active
+            after killing/relaunching the app while USB adb reverse is alive.
+  --clear-global-proxy
+            Clear Android global proxy and exit.
 
 Environment overrides:
   GENESIS_DEVICE_ID
@@ -33,6 +39,8 @@ proxy_port="${GENESIS_PROXY_PORT:-$DEFAULT_PROXY_PORT}"
 package_name="${GENESIS_PACKAGE_NAME:-$DEFAULT_PACKAGE_NAME}"
 install_timeout_seconds="${GENESIS_INSTALL_TIMEOUT_SECONDS:-$DEFAULT_INSTALL_TIMEOUT_SECONDS}"
 quick=0
+global_proxy=0
+clear_global_proxy=0
 
 while (($#)); do
   case "$1" in
@@ -68,6 +76,14 @@ while (($#)); do
       quick=1
       shift
       ;;
+    --global-proxy)
+      global_proxy=1
+      shift
+      ;;
+    --clear-global-proxy)
+      clear_global_proxy=1
+      shift
+      ;;
     *)
       echo "Unknown argument: $1" >&2
       usage >&2
@@ -86,23 +102,42 @@ echo "Proxy:  127.0.0.1:${proxy_port}"
 
 adb -s "$device_id" get-state >/dev/null
 
-echo "Clearing phone global proxy..."
-adb -s "$device_id" shell settings put global http_proxy :0
-adb -s "$device_id" shell settings delete global global_http_proxy_host >/dev/null 2>&1 || true
-adb -s "$device_id" shell settings delete global global_http_proxy_port >/dev/null 2>&1 || true
+clear_phone_global_proxy() {
+  adb -s "$device_id" shell settings put global http_proxy :0
+  adb -s "$device_id" shell settings delete global global_http_proxy_host >/dev/null 2>&1 || true
+  adb -s "$device_id" shell settings delete global global_http_proxy_port >/dev/null 2>&1 || true
+}
+
+if ((clear_global_proxy)); then
+  echo "Clearing phone global proxy..."
+  clear_phone_global_proxy
+  echo "Phone global proxy cleared."
+  exit 0
+fi
+
+if ((global_proxy)); then
+  echo "Setting phone global proxy to 127.0.0.1:${proxy_port}..."
+  adb -s "$device_id" shell settings put global http_proxy "127.0.0.1:${proxy_port}"
+else
+  echo "Clearing phone global proxy..."
+  clear_phone_global_proxy
+fi
 
 echo "Restoring adb reverse..."
 adb -s "$device_id" reverse "tcp:${proxy_port}" "tcp:${proxy_port}"
 adb -s "$device_id" reverse --list | grep "tcp:${proxy_port} tcp:${proxy_port}"
 
 if ((quick)); then
+  echo "Relaunching ${package_name}..."
+  adb -s "$device_id" shell am force-stop "$package_name" >/dev/null 2>&1 || true
+  adb -s "$device_id" shell monkey -p "$package_name" -c android.intent.category.LAUNCHER 1 >/dev/null
   echo "Quick mode complete. Trigger an app request and check Proxyman."
   exit 0
 fi
 
 echo "Building debug APK with ${proxy_define}..."
 cd "$app_dir"
-flutter build apk --debug "--dart-define=${proxy_define}"
+flutter build apk --debug --dart-define "$proxy_define"
 
 echo "Installing debug APK..."
 adb -s "$device_id" install -r "$apk_path" &
