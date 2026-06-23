@@ -68,24 +68,27 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
 }) {
   return WorldDetailsStatusBarOverride.runWithStyle(
     kGenesisDefaultSystemUiOverlayStyle,
-    () => showGenesisModalBottomSheet<OriginRoleLaunchSelection>(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: false,
-      useSafeArea: false,
-      backgroundColor: Colors.transparent,
-      barrierColor: kGenesisSubtleModalBarrierColor,
-      systemBarColor: Colors.white,
-      constraints: BoxConstraints.tightFor(
-        height: MediaQuery.sizeOf(context).height,
+    () => GenesisSystemUiChrome.runWithModalChrome(
+      Colors.white,
+      () => Navigator.of(context, rootNavigator: true).push(
+        PageRouteBuilder<OriginRoleLaunchSelection>(
+          opaque: false,
+          barrierDismissible: false,
+          barrierColor: kGenesisSubtleModalBarrierColor,
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+          pageBuilder: (context, animation, secondaryAnimation) {
+            return Material(
+              type: MaterialType.transparency,
+              child: OriginRoleLaunchSheet(
+                characters: characters,
+                onFillFromProfile: onFillFromProfile,
+                resolveAvatarUrl: resolveAvatarUrl,
+              ),
+            );
+          },
+        ),
       ),
-      builder: (context) {
-        return OriginRoleLaunchSheet(
-          characters: characters,
-          onFillFromProfile: onFillFromProfile,
-          resolveAvatarUrl: resolveAvatarUrl,
-        );
-      },
     ),
   );
 }
@@ -113,10 +116,12 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
   int _tabIndex = 0;
   String _selectedPresetId = '';
   bool _fillingProfile = false;
+  bool _inputFocused = false;
 
   @override
   void initState() {
     super.initState();
+    FocusManager.instance.addListener(_handlePrimaryFocusChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       SystemChrome.setSystemUIOverlayStyle(kGenesisDefaultSystemUiOverlayStyle);
@@ -135,6 +140,7 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
 
   @override
   void dispose() {
+    FocusManager.instance.removeListener(_handlePrimaryFocusChanged);
     _customForm
       ..removeListener(_handleTextChanged)
       ..dispose();
@@ -143,6 +149,16 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
 
   void _handleTextChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _handlePrimaryFocusChanged() {
+    if (!mounted) return;
+    final focusContext = FocusManager.instance.primaryFocus?.context;
+    final focusedInside =
+        focusContext?.findAncestorWidgetOfExactType<OriginRoleLaunchSheet>() !=
+        null;
+    if (_inputFocused == focusedInside) return;
+    setState(() => _inputFocused = focusedInside);
   }
 
   bool get _customReady {
@@ -226,6 +242,7 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
     final media = MediaQuery.of(context);
     final maxHeight = media.size.height - media.padding.top - 18;
     final targetHeight = math.min(media.size.height * 0.78, maxHeight);
+    final pinSheetToTop = _inputFocused;
 
     return SizedBox.expand(
       child: Stack(
@@ -237,78 +254,76 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
               onTap: _dismiss,
             ),
           ),
-          AnimatedPadding(
-            duration: const Duration(milliseconds: 180),
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 120),
             curve: Curves.easeOutCubic,
-            padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {},
-                child: GenesisBottomSheetPanel(
-                  key: const ValueKey('origin-role-sheet'),
-                  title: 'Setup Your Role',
-                  height: targetHeight,
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
-                  titleBottomSpacing: 8,
-                  titleTextStyle: const TextStyle(
-                    fontSize: 16,
-                    height: 1.1,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF111111),
+            alignment: pinSheetToTop
+                ? Alignment.topCenter
+                : Alignment.bottomCenter,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {},
+              child: GenesisBottomSheetPanel(
+                key: const ValueKey('origin-role-sheet'),
+                title: 'Setup Your Role',
+                height: targetHeight,
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+                titleBottomSpacing: 8,
+                titleTextStyle: const TextStyle(
+                  fontSize: 16,
+                  height: 1.1,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF111111),
+                ),
+                trailing: IconButton(
+                  key: const ValueKey('origin-role-sheet-close'),
+                  onPressed: _dismiss,
+                  icon: const Icon(
+                    Icons.close,
+                    size: 22,
+                    color: Color(0xFF666666),
                   ),
-                  trailing: IconButton(
-                    key: const ValueKey('origin-role-sheet-close'),
-                    onPressed: _dismiss,
-                    icon: const Icon(
-                      Icons.close,
-                      size: 22,
-                      color: Color(0xFF666666),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 42,
+                    height: 42,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _RoleSegmentedControl(
+                      index: _tabIndex,
+                      onChanged: _selectTab,
                     ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(
-                      width: 42,
-                      height: 42,
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: _tabIndex == 0
+                          ? _PresetRoleGrid(
+                              key: const ValueKey('origin-role-preset-tab'),
+                              characters: widget.characters,
+                              selectedId: _selectedPresetId,
+                              resolveAvatarUrl: widget.resolveAvatarUrl,
+                              onSelected: (id) {
+                                setState(() => _selectedPresetId = id);
+                              },
+                            )
+                          : _CustomRoleForm(
+                              key: const ValueKey('origin-role-custom-tab'),
+                              form: _customForm,
+                              fillingProfile: _fillingProfile,
+                              canFillProfile: widget.onFillFromProfile != null,
+                              onChanged: _handleTextChanged,
+                              onFillFromProfile: _fillFromProfile,
+                            ),
                     ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _RoleSegmentedControl(
-                        index: _tabIndex,
-                        onChanged: _selectTab,
-                      ),
-                      const SizedBox(height: 12),
-                      Expanded(
-                        child: _tabIndex == 0
-                            ? _PresetRoleGrid(
-                                key: const ValueKey('origin-role-preset-tab'),
-                                characters: widget.characters,
-                                selectedId: _selectedPresetId,
-                                resolveAvatarUrl: widget.resolveAvatarUrl,
-                                onSelected: (id) {
-                                  setState(() => _selectedPresetId = id);
-                                },
-                              )
-                            : _CustomRoleForm(
-                                key: const ValueKey('origin-role-custom-tab'),
-                                form: _customForm,
-                                fillingProfile: _fillingProfile,
-                                canFillProfile:
-                                    widget.onFillFromProfile != null,
-                                onChanged: _handleTextChanged,
-                                onFillFromProfile: _fillFromProfile,
-                              ),
-                      ),
-                      const SizedBox(height: 14),
-                      _SheetActions(
-                        canLaunch: _canLaunch,
-                        onCancel: _dismiss,
-                        onLaunch: _submit,
-                      ),
-                    ],
-                  ),
+                    const SizedBox(height: 14),
+                    _SheetActions(
+                      canLaunch: _canLaunch,
+                      onCancel: _dismiss,
+                      onLaunch: _submit,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -580,8 +595,10 @@ class _CustomRoleForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: EdgeInsets.only(bottom: keyboardInset + 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -603,6 +620,7 @@ class _CustomRoleForm extends StatelessWidget {
               avatarRemoveLinkFontWeight: FontWeight.w600,
               avatarEmptyIconLabelGap: 6,
               identityBelowAvatarRow: true,
+              textFieldScrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
               topSpacing: 0,
               bioMaxLines: 3,
             ),

@@ -19,6 +19,7 @@ import '../../platform/auth/auth_session.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
+import '../../ui/components/genesis_safe_area.dart';
 import 'settings_page.dart';
 
 class MePage extends StatefulWidget {
@@ -642,8 +643,8 @@ class _MePageState extends State<MePage> {
         }
         final data = content.data!;
 
-        return SafeArea(
-          bottom: false,
+        return GenesisTopSafeArea(
+          backgroundColor: Colors.white,
           child: Column(
             children: [
               SizedBox(

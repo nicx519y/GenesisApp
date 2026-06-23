@@ -11,6 +11,7 @@ import '../../network/direct_message_conversation_store.dart';
 import '../../network/models/unread_summary.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_unread_badge.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -365,7 +366,7 @@ class _ConversationList extends StatelessWidget {
         left: 18,
         right: 18,
         top: 0,
-        bottom: 18 + MediaQuery.paddingOf(context).bottom,
+        bottom: 18 + GenesisSafeAreaInsets.bottom(context),
       ),
       itemCount: conversationIds.length,
       separatorBuilder: (_, _) => const SizedBox(height: 0),

@@ -14,6 +14,7 @@ import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/secend_tabs.dart';
 
 class HomePage extends StatefulWidget {
@@ -140,8 +141,8 @@ class _HomeHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      bottom: false,
+    return GenesisTopSafeArea(
+      backgroundColor: Colors.white,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: SizedBox(

@@ -55,8 +55,8 @@ class GenesisActionBox<T> extends StatelessWidget {
     this.detachCancel = false,
   });
 
-  static const double _rowHeight = 56;
-  static const double _titleHeight = 70;
+  static const double _rowHeight = 51;
+  static const double _titleHeight = 82;
   static const double _maxWidth = 800;
   static const BorderRadius _borderRadius = BorderRadius.all(
     Radius.circular(18),

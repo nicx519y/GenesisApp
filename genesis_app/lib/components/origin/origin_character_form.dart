@@ -118,6 +118,7 @@ class OriginCharacterFormFields extends StatelessWidget {
     this.avatarRemoveLinkFontWeight = FontWeight.w600,
     this.bioMaxLines,
     this.identityBelowAvatarRow = true,
+    this.textFieldScrollPadding,
   });
 
   final OriginCharacterForm form;
@@ -146,6 +147,7 @@ class OriginCharacterFormFields extends StatelessWidget {
   final FontWeight avatarRemoveLinkFontWeight;
   final int? bioMaxLines;
   final bool identityBelowAvatarRow;
+  final EdgeInsets? textFieldScrollPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -184,6 +186,7 @@ class OriginCharacterFormFields extends StatelessWidget {
                     labelFontWeight: labelFontWeight,
                     labelInputGap: labelInputGap,
                     maxLines: 1,
+                    scrollPadding: textFieldScrollPadding,
                     onChanged: (_) => onChanged(),
                   ),
                   if (!identityBelowAvatarRow) ...[
@@ -197,6 +200,7 @@ class OriginCharacterFormFields extends StatelessWidget {
                       labelFontWeight: labelFontWeight,
                       labelInputGap: labelInputGap,
                       maxLines: 3,
+                      scrollPadding: textFieldScrollPadding,
                       onChanged: (_) => onChanged(),
                     ),
                   ],
@@ -211,6 +215,7 @@ class OriginCharacterFormFields extends StatelessWidget {
                       labelFontWeight: labelFontWeight,
                       labelInputGap: labelInputGap,
                       maxLines: 3,
+                      scrollPadding: textFieldScrollPadding,
                       onChanged: (_) => onChanged(),
                     ),
                   ],
@@ -230,6 +235,7 @@ class OriginCharacterFormFields extends StatelessWidget {
             labelFontWeight: labelFontWeight,
             labelInputGap: labelInputGap,
             maxLines: 3,
+            scrollPadding: textFieldScrollPadding,
             onChanged: (_) => onChanged(),
           ),
           if (showPersonality) ...[
@@ -243,6 +249,7 @@ class OriginCharacterFormFields extends StatelessWidget {
               labelFontWeight: labelFontWeight,
               labelInputGap: labelInputGap,
               maxLines: 3,
+              scrollPadding: textFieldScrollPadding,
               onChanged: (_) => onChanged(),
             ),
           ],
@@ -258,6 +265,7 @@ class OriginCharacterFormFields extends StatelessWidget {
             labelSize: labelSize,
             labelFontWeight: labelFontWeight,
             labelInputGap: labelInputGap,
+            scrollPadding: textFieldScrollPadding,
             onChanged: (_) => onChanged(),
           ),
           SizedBox(height: sectionGap),
@@ -272,6 +280,7 @@ class OriginCharacterFormFields extends StatelessWidget {
           labelSize: labelSize,
           labelFontWeight: labelFontWeight,
           labelInputGap: labelInputGap,
+          scrollPadding: textFieldScrollPadding,
           onChanged: (_) => onChanged(),
         ),
       ],

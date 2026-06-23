@@ -27,10 +27,12 @@ class GenesisApp extends StatelessWidget {
         navigatorObservers: [genesisRouteObserver],
         onGenerateRoute: AppRouter.onGenerateRoute,
         builder: (context, child) {
-          return ForceUpgradeGate(
-            child: DeveloperDebugFloatingButton(
-              navigatorKey: genesisNavigatorKey,
-              child: child ?? const SizedBox.shrink(),
+          return GenesisBottomSystemBarBoundary(
+            child: ForceUpgradeGate(
+              child: DeveloperDebugFloatingButton(
+                navigatorKey: genesisNavigatorKey,
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           );
         },

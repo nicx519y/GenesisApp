@@ -30,6 +30,7 @@ import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/entity_deleted.dart';
@@ -346,7 +347,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   @override
   Widget build(BuildContext context) {
-    final topPadding = MediaQuery.paddingOf(context).top;
+    final topPadding = GenesisSafeAreaInsets.top(context);
     return FutureBuilder<OriginDetail>(
       future: _future,
       builder: (context, snapshot) {
@@ -551,19 +552,24 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
     required this.onLaunch,
   });
 
+  static const Color _backgroundColor = Color(0xFFF9F9F9);
+
   final bool launching;
   final VoidCallback onLaunch;
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
-    return DecoratedBox(
-      decoration: const BoxDecoration(color: Color(0xFFF9F9F9)),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomInset),
-        child: GenesisPrimaryButton(
-          label: launching ? 'Launching...' : 'Launch to send',
-          onPressed: launching ? null : onLaunch,
+    final bottomInset = GenesisSafeAreaInsets.bottom(context);
+    return GenesisBottomSystemBarStyleScope(
+      style: const GenesisBottomSystemBarStyle(color: _backgroundColor),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(color: _backgroundColor),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomInset),
+          child: GenesisPrimaryButton(
+            label: launching ? 'Launching...' : 'Launch to send',
+            onPressed: launching ? null : onLaunch,
+          ),
         ),
       ),
     );
@@ -991,22 +997,18 @@ class _OriginHeader extends StatelessWidget {
           leftValue: origin.oid,
           leftDisplayValue: origin.deleted ? deletedEntityDisplayText : null,
           leftCopyEnabled: !origin.deleted,
-          leftStyle: _originHeaderMetaTextStyle,
-          leftIconColor: _originHeaderMetaColor,
           rightText: 'Originator: ${formatUidForDisplay(originator)}',
           rightOnTap: ownerUid.isEmpty || origin.ownerDeleted
               ? null
               : () => Navigator.of(
                   context,
                 ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
-          rightStyle: _originHeaderMetaTextStyle,
-          rightIconColor: _originHeaderMetaColor,
         ),
         // Header inner spacing: OID/originator row -> latest version.
         const SizedBox(height: 0),
         Text(
           'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
-          style: _originHeaderMetaTextStyle,
+          style: CopyableIdLabel.textStyle,
         ),
         if (canEditOrigin) ...[
           // Header inner spacing: latest version -> edit button.
@@ -1292,11 +1294,8 @@ class _CopyWorldProgressCard extends StatelessWidget {
   static const double _bodyFontSize = 13;
   static const double _bodyLineHeight = 1.45;
   static const double _bodyHeight = _bodyFontSize * _bodyLineHeight * 5 + 6;
-  static const _bodyStyle = TextStyle(
-    fontSize: _bodyFontSize,
-    height: _bodyLineHeight,
-    fontWeight: FontWeight.w400,
-    color: Color(0xFF111111),
+  static final _bodyStyle = _bodyTextStyle.copyWith(
+    color: const Color(0xFF111111),
   );
   static const _bodyStrutStyle = StrutStyle(
     fontSize: _bodyFontSize,
@@ -1407,7 +1406,7 @@ class _CopyWorldProgressMeta extends StatelessWidget {
                       'WID: ${deletedAwareIdLabel(item.worldId, deleted: item.deleted)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: _copyWorldProgressMetaStyle,
+                      style: _copyWorldProgressWidStyle,
                     ),
                   ),
                   // Copy progress meta spacing: WID -> tick badge.
@@ -1889,14 +1888,6 @@ const _bodyTextStyle = TextStyle(
   color: Color(0xFF111111),
 );
 
-const _originHeaderMetaColor = Color(0xFF666666);
-const _originHeaderMetaTextStyle = TextStyle(
-  fontSize: 12,
-  height: 1.1,
-  fontWeight: FontWeight.w400,
-  color: _originHeaderMetaColor,
-);
-
 const _characterBodyTextStyle = TextStyle(
   fontSize: 13,
   height: 1.35,
@@ -1937,6 +1928,13 @@ const _copyWorldProgressMetaStyle = TextStyle(
   height: 1.2,
   fontWeight: FontWeight.w400,
   color: Color(0xFF8C8C8C),
+);
+
+const _copyWorldProgressWidStyle = TextStyle(
+  fontSize: 12,
+  height: 1.2,
+  fontWeight: FontWeight.w400,
+  color: Color(0xFF666666),
 );
 
 List<String> _splitTags(String tags) {

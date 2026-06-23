@@ -10,6 +10,7 @@ import '../../components/me/genesis_follow_user_list_tile.dart';
 import '../../components/page_header.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
@@ -373,7 +374,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
         left: 20,
         right: 20,
         top: 14,
-        bottom: 18 + MediaQuery.paddingOf(context).bottom,
+        bottom: 18 + GenesisSafeAreaInsets.bottom(context),
       ),
       itemCount: _items.length + (_loadingMore ? 1 : 0),
       separatorBuilder: (_, index) {

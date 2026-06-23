@@ -114,6 +114,10 @@ void main() {
     );
     expect(find.text('A city powered by celebrity markets.'), findsNothing);
     expect(find.text('WID: w_summary_alpha'), findsOneWidget);
+    final progressWid = tester.widget<Text>(find.text('WID: w_summary_alpha'));
+    final progressTime = tester.widget<Text>(find.text('2-18 21:20'));
+    expect(progressWid.style?.color, const Color(0xFF666666));
+    expect(progressTime.style?.color, const Color(0xFF888888));
     expect(find.text('Originator: Origin Owner'), findsOneWidget);
     expect(find.text('v3'), findsNothing);
     expect(find.text('12'), findsOneWidget);
@@ -221,7 +225,7 @@ void main() {
       isTrue,
     );
     expect(
-      thumbnails.any((image) => image.width == null && image.height == 160.5),
+      thumbnails.any((image) => image.width == 107 && image.height == 160.5),
       isTrue,
     );
     final titleLeft = tester.getTopLeft(find.text('#Alpha Empire').first).dx;
@@ -272,8 +276,10 @@ void main() {
     expect(tappedOid, 'o_alpha');
     tappedOid = '';
 
+    final cover = find.byKey(const ValueKey('popular-origin-cover-o_alpha'));
+    final coverRect = tester.getRect(cover);
     await tester.tap(
-      find.byKey(const ValueKey('popular-origin-cover-o_alpha')),
+      find.byKey(const ValueKey('popular-origin-cover-image-o_alpha')),
     );
     await tester.pumpAndSettle();
     expect(find.byType(GenesisImageViewerOverlay), findsOneWidget);
@@ -282,6 +288,12 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tappedOid, '');
+
+    await tester.tapAt(Offset(coverRect.right - 8, coverRect.center.dy));
+    await tester.pumpAndSettle();
+    expect(find.byType(GenesisImageViewerOverlay), findsNothing);
+    expect(tappedOid, 'o_alpha');
+    tappedOid = '';
 
     final discussHeader = find.text('Discuss (128)');
     await tester.ensureVisible(discussHeader);
@@ -329,6 +341,68 @@ void main() {
 
     await tester.tap(find.text('Copy World Progress'));
     expect(tappedOid, 'o_alpha');
+  });
+
+  testWidgets('shows natural empty copy world progress when no world summary', (
+    WidgetTester tester,
+  ) async {
+    const item = OriginListItem(
+      oid: 'o_empty',
+      wid: 'w_empty',
+      status: 1,
+      versionNum: 1,
+      tickCount: 7,
+      name: 'Empty Copy World',
+      cover: '',
+      displaySubtitle: 'A world waiting for its first copy.',
+      worldView: 'A quiet setup.',
+      createdUid: 'u_1',
+      createdUserName: 'Shawn',
+      createdAt: '2026-05-01T00:00:00Z',
+      updatedAt: '2026-05-02T00:00:00Z',
+      tags: <String>[],
+      copyCnt: 0,
+      connectCnt: 0,
+      discussCnt: 0,
+      characterCnt: 0,
+      locationCnt: 0,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 390,
+            child: PopularOriginList(
+              items: const <OriginListItem>[item],
+              onItemTap: (_) {},
+              discussLoader: (_) async => const <OriginDiscussPreviewItem>[],
+              summaryLoader: (_) async => const <WorldSummaryLatestItem>[],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('No launched world'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('popular-origin-progress-empty')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('popular-origin-progress-body')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('popular-origin-gap-progress-meta')),
+      findsNothing,
+    );
+    expect(find.text('WID: w_empty'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('popular-origin-tick-chip-7')),
+      findsNothing,
+    );
   });
 
   test('OriginListItem parses world id aliases for popular progress meta', () {

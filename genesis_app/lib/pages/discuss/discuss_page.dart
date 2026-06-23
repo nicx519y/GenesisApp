@@ -12,6 +12,7 @@ import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -141,7 +142,7 @@ class _DiscussPageState extends State<DiscussPage> {
           if (data == null) return const SizedBox.shrink();
 
           final bottomPadding =
-              _postInputReservedHeight + MediaQuery.paddingOf(context).bottom;
+              _postInputReservedHeight + GenesisSafeAreaInsets.bottom(context);
           return Stack(
             children: [
               Positioned.fill(

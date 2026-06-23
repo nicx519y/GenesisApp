@@ -19,6 +19,7 @@ typedef PopularWorldSummaryLoader =
     Future<List<WorldSummaryLatestItem>> Function(String originId);
 
 const double _popularOriginHeroImageHeight = 160.5;
+const double _popularOriginHeroImageWidth = 107;
 const double _popularOriginSectionGap = 16;
 const double _popularOriginSectionTitleFontSize = 13;
 const double _popularOriginSectionBodyFontSize = 13;
@@ -186,7 +187,6 @@ class PopularOriginListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = item.title;
-    final metaTime = formatGenesisTimestamp(item.updatedAt);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -232,11 +232,7 @@ class PopularOriginListItem extends StatelessWidget {
                 key: ValueKey('popular-origin-gap-progress-title-body'),
                 height: 8,
               ),
-              _ProgressSummary(
-                item: item,
-                fallbackTimeText: metaTime,
-                future: summaryFuture,
-              ),
+              _ProgressSummary(item: item, future: summaryFuture),
             ],
           ),
         ),
@@ -295,7 +291,7 @@ class _WorldViewSection extends StatelessWidget {
           key: ValueKey('popular-origin-gap-world-view-image'),
           height: 8,
         ),
-        _OriginHeroImage(item: item),
+        _OriginHeroImage(item: item, onOpenOrigin: onOpenOrigin),
       ],
     );
   }
@@ -377,25 +373,32 @@ class _OriginStatsRow extends StatelessWidget {
 }
 
 class _OriginHeroImage extends StatelessWidget {
-  const _OriginHeroImage({required this.item});
+  const _OriginHeroImage({required this.item, this.onOpenOrigin});
 
   final OriginListItem item;
+  final VoidCallback? onOpenOrigin;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       key: ValueKey('popular-origin-cover-${item.oid}'),
       behavior: HitTestBehavior.opaque,
-      onTap: () => _showCover(context, item.cover),
+      onTap: onOpenOrigin,
       child: SizedBox(
         width: double.infinity,
         height: _popularOriginHeroImageHeight,
         child: Align(
           alignment: Alignment.centerLeft,
-          child: _OriginImage(
-            imageUrl: item.cover,
-            height: _popularOriginHeroImageHeight,
-            borderRadius: GenesisImageRadii.contentValue,
+          child: GestureDetector(
+            key: ValueKey('popular-origin-cover-image-${item.oid}'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _showCover(context, item.cover),
+            child: _OriginImage(
+              imageUrl: item.cover,
+              width: _popularOriginHeroImageWidth,
+              height: _popularOriginHeroImageHeight,
+              borderRadius: GenesisImageRadii.contentValue,
+            ),
           ),
         ),
       ),
@@ -528,14 +531,9 @@ class _ProgressHeader extends StatelessWidget {
 }
 
 class _ProgressSummary extends StatelessWidget {
-  const _ProgressSummary({
-    required this.item,
-    required this.fallbackTimeText,
-    this.future,
-  });
+  const _ProgressSummary({required this.item, this.future});
 
   final OriginListItem item;
-  final String fallbackTimeText;
   final Future<WorldSummaryLatestItem?>? future;
 
   static const _emptyText = 'No launched world';
@@ -556,14 +554,20 @@ class _ProgressSummary extends StatelessWidget {
 
   Widget _buildContent(WorldSummaryLatestItem? summary) {
     final body = summary?.summary.trim() ?? '';
+    if (summary == null || body.isEmpty) {
+      return const Text(
+        _emptyText,
+        key: ValueKey('popular-origin-progress-empty'),
+        style: _emptyBodyStyle,
+      );
+    }
+
     final worldId = summary?.worldId.trim() ?? item.wid.trim();
     final worldDeleted = summary?.deleted ?? false;
     final tickNo = summary?.tickNo ?? item.tickCount;
-    final timeText = summary == null
-        ? fallbackTimeText
-        : formatGenesisTimestamp(
-            summary.tickTime == 0 ? summary.createdAt : summary.tickTime,
-          );
+    final timeText = formatGenesisTimestamp(
+      summary.tickTime == 0 ? summary.createdAt : summary.tickTime,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -571,8 +575,8 @@ class _ProgressSummary extends StatelessWidget {
           key: const ValueKey('popular-origin-progress-body'),
           height: _popularOriginProgressBodyHeight,
           child: Text(
-            body.isEmpty ? _emptyText : body,
-            style: body.isEmpty ? _emptyBodyStyle : _bodyStyle,
+            body,
+            style: _bodyStyle,
             maxLines: 5,
             overflow: TextOverflow.ellipsis,
             strutStyle: const StrutStyle(
@@ -699,7 +703,7 @@ class _MetaRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
-                  style: _metaStyle,
+                  style: _progressTimeMetaStyle,
                 ),
               ),
             ],
@@ -809,13 +813,20 @@ const _bodyStyle = TextStyle(
 
 const _emptyBodyStyle = TextStyle(
   color: Color(0xFF999999),
-  fontSize: 12,
+  fontSize: 13,
   height: 1.3,
   fontWeight: FontWeight.w600,
 );
 
 const _metaStyle = TextStyle(
   color: Color(0xFF666666),
+  fontSize: 12,
+  height: 1.2,
+  fontWeight: FontWeight.w400,
+);
+
+const _progressTimeMetaStyle = TextStyle(
+  color: Color(0xFF888888),
   fontSize: 12,
   height: 1.2,
   fontWeight: FontWeight.w400,

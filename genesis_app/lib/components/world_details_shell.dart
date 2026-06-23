@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../ui/components/genesis_safe_area.dart';
 import 'world_map_interaction_notification.dart';
 
 class WorldDetailsStatusBarOverride {
@@ -45,6 +46,10 @@ class WorldDetailsPageScaffold extends StatefulWidget {
     this.panelTopOverlap = 0,
     this.scrollPhysics,
     this.bottomBar,
+    this.fixedCollapsedPanelHeight,
+    this.fixedCollapsedPanelHeightIncludesBottomSafeArea = false,
+    this.contentBottomPaddingOverride,
+    this.includeBottomSafeAreaInContentPadding = true,
     this.topOverlay,
     this.persistentTopOverlay,
   });
@@ -65,6 +70,10 @@ class WorldDetailsPageScaffold extends StatefulWidget {
   final double panelTopOverlap;
   final ScrollPhysics? scrollPhysics;
   final Widget? bottomBar;
+  final double? fixedCollapsedPanelHeight;
+  final bool fixedCollapsedPanelHeightIncludesBottomSafeArea;
+  final double? contentBottomPaddingOverride;
+  final bool includeBottomSafeAreaInContentPadding;
   final Widget? topOverlay;
   final Widget? persistentTopOverlay;
 
@@ -83,8 +92,6 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
     statusBarColor: _transparentStatusBarColor,
     statusBarIconBrightness: Brightness.light,
     statusBarBrightness: Brightness.dark,
-    systemNavigationBarColor: Color(0xFFFFFFFF),
-    systemNavigationBarIconBrightness: Brightness.dark,
   );
 
   @override
@@ -129,29 +136,45 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
     final bottomBar = widget.bottomBar;
     final topOverlay = widget.topOverlay;
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: LayoutBuilder(
         builder: (context, constraints) {
           final viewportHeight = constraints.maxHeight;
           final bottomSafeArea = _bottomSafeAreaOf(context);
-          final mapBottomOffset = bottomBar == null ? bottomSafeArea : 0.0;
+          final fixedCollapsedPanelHeight = widget.fixedCollapsedPanelHeight;
+          final mapBottomOffset =
+              bottomBar == null &&
+                  !widget.fixedCollapsedPanelHeightIncludesBottomSafeArea
+              ? bottomSafeArea
+              : 0.0;
           final maxMapHeight =
               (viewportHeight - widget.panelTopGap - mapBottomOffset)
                   .clamp(0.0, viewportHeight)
                   .toDouble();
           final mapHeight =
-              (viewportHeight *
-                          (1 - WorldDetailsPanel.defaultExposedChildSize) +
-                      widget.panelCollapsedHeightOffset -
-                      mapBottomOffset)
+              (fixedCollapsedPanelHeight == null
+                      ? viewportHeight *
+                                (1 -
+                                    WorldDetailsPanel.defaultExposedChildSize) +
+                            widget.panelCollapsedHeightOffset -
+                            mapBottomOffset
+                      : viewportHeight -
+                            fixedCollapsedPanelHeight -
+                            mapBottomOffset)
                   .clamp(0.0, maxMapHeight)
                   .toDouble();
           final panelTopOverlap = widget.panelTopOverlap
               .clamp(0.0, mapHeight)
               .toDouble();
           final bottomPadding = bottomBar == null
-              ? WorldDetailsPageScaffold.contentBottomPadding
+              ? widget.contentBottomPaddingOverride ??
+                    WorldDetailsPageScaffold.contentBottomPadding
               : WorldDetailsPageScaffold.contentBottomPaddingWithBottomBar;
-          final statusBarHeight = MediaQuery.paddingOf(context).top;
+          final contentBottomSafeArea =
+              widget.includeBottomSafeAreaInContentPadding
+              ? bottomSafeArea
+              : 0.0;
+          final statusBarHeight = GenesisSafeAreaInsets.top(context);
 
           return AnimatedBuilder(
             animation: Listenable.merge([
@@ -192,61 +215,66 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
                               }
                               return false;
                             },
-                            child: CustomScrollView(
-                              controller: _scrollController,
-                              physics: _mapInteractionActive
-                                  ? const NeverScrollableScrollPhysics()
-                                  : widget.scrollPhysics,
-                              slivers: [
-                                SliverToBoxAdapter(
-                                  child: SizedBox(
-                                    height: mapHeight,
-                                    child: widget.map,
+                            child: MediaQuery.removePadding(
+                              context: context,
+                              removeBottom: true,
+                              child: CustomScrollView(
+                                controller: _scrollController,
+                                physics: _mapInteractionActive
+                                    ? const NeverScrollableScrollPhysics()
+                                    : widget.scrollPhysics,
+                                slivers: [
+                                  SliverToBoxAdapter(
+                                    child: SizedBox(
+                                      height: mapHeight,
+                                      child: widget.map,
+                                    ),
                                   ),
-                                ),
-                                SliverToBoxAdapter(
-                                  child: SizedBox(
-                                    height: WorldDetailsPageScaffold
-                                        .inlineContentTopPadding,
-                                    child: OverflowBox(
-                                      minHeight:
-                                          WorldDetailsPageScaffold
-                                              .inlineContentTopPadding +
-                                          panelTopOverlap,
-                                      maxHeight:
-                                          WorldDetailsPageScaffold
-                                              .inlineContentTopPadding +
-                                          panelTopOverlap,
-                                      alignment: Alignment.bottomCenter,
-                                      child: DecoratedBox(
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.vertical(
-                                            top: Radius.circular(
-                                              widget.panelTopRadius,
+                                  SliverToBoxAdapter(
+                                    child: SizedBox(
+                                      height: WorldDetailsPageScaffold
+                                          .inlineContentTopPadding,
+                                      child: OverflowBox(
+                                        minHeight:
+                                            WorldDetailsPageScaffold
+                                                .inlineContentTopPadding +
+                                            panelTopOverlap,
+                                        maxHeight:
+                                            WorldDetailsPageScaffold
+                                                .inlineContentTopPadding +
+                                            panelTopOverlap,
+                                        alignment: Alignment.bottomCenter,
+                                        child: DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.vertical(
+                                              top: Radius.circular(
+                                                widget.panelTopRadius,
+                                              ),
                                             ),
                                           ),
+                                          child: const SizedBox.expand(),
                                         ),
-                                        child: const SizedBox.expand(),
                                       ),
                                     ),
                                   ),
-                                ),
-                                SliverPadding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: WorldDetailsPageScaffold
-                                        .contentHorizontalPadding,
+                                  SliverPadding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: WorldDetailsPageScaffold
+                                          .contentHorizontalPadding,
+                                    ),
+                                    sliver: SliverMainAxisGroup(
+                                      slivers: widget.slivers,
+                                    ),
                                   ),
-                                  sliver: SliverMainAxisGroup(
-                                    slivers: widget.slivers,
+                                  SliverToBoxAdapter(
+                                    child: SizedBox(
+                                      height:
+                                          bottomPadding + contentBottomSafeArea,
+                                    ),
                                   ),
-                                ),
-                                SliverToBoxAdapter(
-                                  child: SizedBox(
-                                    height: bottomPadding + bottomSafeArea,
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                           Positioned(
@@ -335,11 +363,7 @@ double _bottomSafeAreaOf(BuildContext context) {
   final mediaQuery = MediaQuery.of(context);
   final paddingBottom = mediaQuery.padding.bottom;
   final viewPaddingBottom = mediaQuery.viewPadding.bottom;
-  final systemGestureBottom = mediaQuery.systemGestureInsets.bottom;
-  final maxPadding = paddingBottom > viewPaddingBottom
-      ? paddingBottom
-      : viewPaddingBottom;
-  return maxPadding > systemGestureBottom ? maxPadding : systemGestureBottom;
+  return paddingBottom > viewPaddingBottom ? paddingBottom : viewPaddingBottom;
 }
 
 class WorldDetailsPanelScrollControllerScope extends InheritedWidget {
