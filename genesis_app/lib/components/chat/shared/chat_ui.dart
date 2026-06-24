@@ -90,6 +90,7 @@ class ChatMessageVm {
     this.avatarUrl = '',
     this.isPlayerControlledRole = false,
     required this.text,
+    this.currentTime = '',
     required this.isMe,
     required this.status,
     this.senderType = 'user',
@@ -118,6 +119,7 @@ class ChatMessageVm {
   String avatarUrl;
   bool isPlayerControlledRole;
   String text;
+  String currentTime;
   final bool isMe;
   String status;
   final String senderType;
@@ -868,6 +870,7 @@ class ChatMessageRow extends StatelessWidget {
 
   Widget _buildOther(BuildContext context, ChatUiStyleConfig style) {
     final maxBubbleWidth = _normalBubbleMaxWidth(context, style);
+    final currentTime = message.currentTime.trim();
     return Padding(
       padding: EdgeInsets.only(bottom: style.rowBottomPadding),
       child: Row(
@@ -898,15 +901,34 @@ class ChatMessageRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (style.showSenderNameAboveOtherBubble) ...[
-                  Text(
-                    message.senderName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: message.isPlayerControlledRole
-                        ? style.senderNameTextStyle.copyWith(
-                            color: GenesisColors.brand,
-                          )
-                        : style.senderNameTextStyle,
+                  SizedBox(
+                    width: maxBubbleWidth,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            message.senderName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: message.isPlayerControlledRole
+                                ? style.senderNameTextStyle.copyWith(
+                                    color: GenesisColors.brand,
+                                  )
+                                : style.senderNameTextStyle,
+                          ),
+                        ),
+                        if (currentTime.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            currentTime,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.right,
+                            style: style.senderNameTextStyle,
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                   SizedBox(height: style.senderNameBottomGap),
                 ],

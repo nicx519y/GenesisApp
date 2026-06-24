@@ -497,6 +497,7 @@ class _WorldMapState extends State<WorldMap> {
   }
 
   WorldPoint? _chatTargetForNode(WorldMapLocationNode node) {
+    if (node.isRoot) return null;
     final explicitTarget = node.chatTargetPoint;
     if (explicitTarget != null) return explicitTarget;
     if (node.children.isEmpty) return node.point;
@@ -513,6 +514,7 @@ class _WorldMapState extends State<WorldMap> {
   }
 
   WorldMapLocationNode _displayNodeForDrill(WorldMapLocationNode node) {
+    if (node.isRoot) return node;
     var current = node;
     while (current.children.length == 1 &&
         current.children.single.children.isNotEmpty) {
@@ -1063,8 +1065,6 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   Matrix4? _manualGestureStartMatrix;
   Offset? _manualGestureStartFocal;
   double? _manualGestureStartDistance;
-  Matrix4? _manualPanStartMatrix;
-  Offset? _manualPanStartPosition;
 
   @override
   void dispose() {
@@ -1119,16 +1119,12 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
     _activePointerPositions.remove(event.pointer);
     if (_activePointers.length < 2) _clearManualScaleGesture();
     if (_activePointers.isEmpty) {
-      _clearManualPanGesture();
       _dispatchMapInteraction(false);
-    } else {
-      _resetManualPanGestureIfNeeded();
     }
   }
 
   void _startManualGestureIfNeeded() {
     if (_activePointerPositions.length < 2) {
-      _resetManualPanGestureIfNeeded();
       return;
     }
     if (_manualGestureStartMatrix != null) return;
@@ -1137,7 +1133,6 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
     _manualGestureStartMatrix = Matrix4.copy(_transformationController.value);
     _manualGestureStartFocal = _focalPoint(points);
     _manualGestureStartDistance = (points[0] - points[1]).distance;
-    _clearManualPanGesture();
   }
 
   void _updateManualScaleGesture() {
@@ -1169,17 +1164,10 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _updateManualPanGesture(PointerMoveEvent event) {
-    _manualPanStartMatrix ??= Matrix4.copy(_transformationController.value);
-    _manualPanStartPosition ??= event.localPosition - event.delta;
-
-    final startMatrix = _manualPanStartMatrix;
-    final startPosition = _manualPanStartPosition;
-    if (startMatrix == null || startPosition == null) return;
-
-    final values = startMatrix.storage;
-    final scale = startMatrix.getMaxScaleOnAxis();
-    final translation =
-        Offset(values[12], values[13]) + event.localPosition - startPosition;
+    final matrix = _transformationController.value;
+    final values = matrix.storage;
+    final scale = matrix.getMaxScaleOnAxis();
+    final translation = Offset(values[12], values[13]) + event.delta;
     _setTransform(scale, translation);
     _dispatchMapInteraction(true);
   }
@@ -1214,21 +1202,6 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
     _manualGestureStartMatrix = null;
     _manualGestureStartFocal = null;
     _manualGestureStartDistance = null;
-  }
-
-  void _clearManualPanGesture() {
-    _manualPanStartMatrix = null;
-    _manualPanStartPosition = null;
-  }
-
-  void _resetManualPanGestureIfNeeded() {
-    _clearManualPanGesture();
-    if (_activePointerPositions.length == 1 &&
-        _overlayPointers.contains(_activePointerPositions.keys.single) &&
-        _isZoomed) {
-      _manualPanStartMatrix = Matrix4.copy(_transformationController.value);
-      _manualPanStartPosition = _activePointerPositions.values.single;
-    }
   }
 
   void _handlePossibleDoubleTap(PointerDownEvent event) {
