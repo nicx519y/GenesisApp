@@ -500,7 +500,16 @@ class _WorldMapState extends State<WorldMap> {
     final explicitTarget = node.chatTargetPoint;
     if (explicitTarget != null) return explicitTarget;
     if (node.children.isEmpty) return node.point;
-    return null;
+    final singleLeaf = _singleLeafDescendant(node);
+    return singleLeaf?.point;
+  }
+
+  WorldMapLocationNode? _singleLeafDescendant(WorldMapLocationNode node) {
+    var current = node;
+    while (current.children.length == 1) {
+      current = current.children.single;
+    }
+    return current.children.isEmpty ? current : null;
   }
 
   WorldMapLocationNode _displayNodeForDrill(WorldMapLocationNode node) {
