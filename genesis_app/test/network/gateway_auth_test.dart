@@ -1,0 +1,568 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/network/api_exception.dart';
+import 'package:genesis_flutter_android/network/gateway_auth.dart';
+import 'package:genesis_flutter_android/network/http_transport.dart';
+import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
+
+class _FakeKeyStore implements GatewayDeviceKeyStore {
+  String? lastCanonical;
+  int resetCount = 0;
+  int failSignCount = 0;
+
+  @override
+  Future<String> publicKeyBase64Url() async => 'AQID';
+
+  @override
+  Future<String> signCanonical(String canonical) async {
+    if (failSignCount > 0) {
+      failSignCount -= 1;
+      throw ApiException(message: 'Gateway signature is unavailable');
+    }
+    lastCanonical = canonical;
+    return 'fake-signature';
+  }
+
+  @override
+  Future<void> reset() async {
+    resetCount += 1;
+  }
+}
+
+class _MemoryGatewayRegistrationStore implements GatewayRegistrationStore {
+  String? keyId;
+
+  @override
+  Future<void> clearKeyId() async {
+    keyId = null;
+  }
+
+  @override
+  Future<String?> readKeyId() async => keyId;
+
+  @override
+  Future<void> saveKeyId(String keyId) async {
+    this.keyId = keyId;
+  }
+}
+
+class _TestDeviceIdService implements DeviceIdService {
+  const _TestDeviceIdService();
+
+  @override
+  Future<String> getDeviceId() async => 'test-device-id';
+}
+
+class _FakeTransport implements HttpTransport {
+  _FakeTransport({required this.handler});
+
+  final FutureOr<TransportResponse> Function(TransportRequest request) handler;
+  final List<TransportRequest> requests = <TransportRequest>[];
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    requests.add(request);
+    return handler(request);
+  }
+}
+
+void main() {
+  test('canonical query sorts keys and repeated values', () {
+    final uri = Uri.parse('https://gateway.test/api/v1/ping?z=2&a=1&a=0');
+
+    expect(gatewayCanonicalQuery(uri), 'a=0&a=1&z=2');
+  });
+
+  test(
+    'signed request matcher includes business API and chatroom API paths',
+    () {
+      expect(
+        isGatewaySignedRequest(Uri.parse('https://x.test/api/v1/ping')),
+        true,
+      );
+      expect(
+        isGatewaySignedRequest(
+          Uri.parse('https://x.test/aitown-chat/api/messages'),
+        ),
+        true,
+      );
+      expect(
+        isGatewaySignedRequest(
+          Uri.parse('https://x.test/aitown-chat/internal/tick/progress'),
+        ),
+        true,
+      );
+      expect(
+        isGatewaySignedRequest(Uri.parse('https://x.test/apix/v1/time')),
+        false,
+      );
+    },
+  );
+
+  test('signer adds Gateway headers and strips verified headers', () async {
+    final keyStore = _FakeKeyStore();
+    final request = TransportRequest(
+      method: 'post',
+      uri: Uri.parse('https://gateway.test/api/v1/ping?z=2&a=1'),
+      headers: const {
+        'content-type': 'application/json',
+        'X-Verified-App-ID': 'spoofed',
+      },
+      bodyBytes: utf8.encode('{"a":1}'),
+      timeoutMs: 15000,
+    );
+
+    final signed = await const GatewayRequestSigner().sign(
+      request,
+      GatewaySigningContext(
+        appId: 'hashed-app-id',
+        platform: 'android',
+        deviceId: 'android-id',
+        appVersion: '1.0.0',
+        keyId: 'key-1',
+        serverTimeOffsetMs: 0,
+        keyStore: keyStore,
+      ),
+    );
+
+    expect(signed.headers['X-App-ID'], 'hashed-app-id');
+    expect(signed.headers['X-Device-ID'], 'android-id');
+    expect(signed.headers['X-App-Version'], '1.0.0');
+    expect(signed.headers['X-Key-ID'], 'key-1');
+    expect(signed.headers['X-Signature-Alg'], gatewaySignatureAlgorithm);
+    expect(signed.headers['X-Signature'], 'fake-signature');
+    expect(signed.headers.containsKey('X-Verified-App-ID'), isFalse);
+    expect(
+      signed.headers['X-Body-SHA256'],
+      gatewayBodySha256(utf8.encode('{"a":1}')),
+    );
+    expect(keyStore.lastCanonical, contains('\n\nhashed-app-id\n'));
+  });
+
+  test('handshake signer adds Gateway headers for websocket connect', () async {
+    final keyStore = _FakeKeyStore();
+    final authTransport = _FakeTransport(handler: _gatewayAuthResponse);
+    final coordinator = GatewayAuthCoordinator(
+      gatewayBaseUrl: 'https://gateway.test/apix/',
+      appHeaderProvider: _testAppHeaders,
+      deviceIdService: const _TestDeviceIdService(),
+      keyStore: keyStore,
+      registrationStore: _MemoryGatewayRegistrationStore(),
+      transport: authTransport,
+    );
+
+    final headers =
+        await gatewayHandshakeHeaderSigner(coordinator: coordinator)(
+          Uri.parse('wss://gateway.test/aitown-chat/ws?world_id=world-1'),
+          const {'app-id': 'hashed-app-id', 'Authorization': 'Bearer token-1'},
+        );
+
+    expect(headers['Authorization'], 'Bearer token-1');
+    expect(headers['X-App-ID'], 'hashed-app-id');
+    expect(headers['X-Platform'], 'android');
+    expect(headers['X-Device-ID'], 'test-device-id');
+    expect(headers['X-App-Version'], '1.0.0');
+    expect(headers['X-Key-ID'], 'key-registered');
+    expect(headers['X-Signature-Alg'], gatewaySignatureAlgorithm);
+    expect(headers['X-Signature'], 'fake-signature');
+    expect(headers['X-Body-SHA256'], gatewayBodySha256(null));
+    expect(headers.containsKey('X-Timestamp'), isTrue);
+    expect(headers.containsKey('X-Nonce'), isTrue);
+    expect(
+      keyStore.lastCanonical,
+      contains('/aitown-chat/ws\nworld_id=world-1'),
+    );
+  });
+
+  test('interceptor syncs server time and retries once on 20502', () async {
+    final keyStore = _FakeKeyStore();
+    final authTransport = _FakeTransport(handler: _gatewayAuthResponse);
+    final store = _MemoryGatewayRegistrationStore();
+    final coordinator = GatewayAuthCoordinator(
+      gatewayBaseUrl: 'https://gateway.test/apix/',
+      appHeaderProvider: _testAppHeaders,
+      deviceIdService: const _TestDeviceIdService(),
+      keyStore: keyStore,
+      registrationStore: store,
+      transport: authTransport,
+    );
+    final interceptor = GatewayRequestInterceptor(coordinator: coordinator);
+    var businessAttempts = 0;
+
+    final response = await interceptor.call(
+      TransportRequest(
+        method: 'GET',
+        uri: Uri.parse('https://gateway.test/api/v1/gateway/protected'),
+        headers: const {},
+        bodyBytes: null,
+        timeoutMs: 15000,
+      ),
+      (request) async {
+        businessAttempts += 1;
+        if (businessAttempts == 1) {
+          return _json({
+            'err_no': 20502,
+            'err_msg': 'bad timestamp',
+            'data': {},
+          });
+        }
+        return _json({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {'ok': true},
+        });
+      },
+    );
+
+    expect(gatewayErrNo(response.body), 0);
+    expect(businessAttempts, 2);
+    expect(
+      authTransport.requests
+          .where((request) => request.uri.path == '/apix/v1/time')
+          .length,
+      2,
+    );
+  });
+
+  test('interceptor re-registers and retries once on 20504', () async {
+    final keyStore = _FakeKeyStore();
+    final authTransport = _FakeTransport(handler: _gatewayAuthResponse);
+    final store = _MemoryGatewayRegistrationStore()..keyId = 'stale-key';
+    final coordinator = GatewayAuthCoordinator(
+      gatewayBaseUrl: 'https://gateway.test/apix/',
+      appHeaderProvider: _testAppHeaders,
+      deviceIdService: const _TestDeviceIdService(),
+      keyStore: keyStore,
+      registrationStore: store,
+      transport: authTransport,
+    );
+    final interceptor = GatewayRequestInterceptor(coordinator: coordinator);
+    var businessAttempts = 0;
+
+    await interceptor.call(
+      TransportRequest(
+        method: 'GET',
+        uri: Uri.parse('https://gateway.test/api/v1/gateway/protected'),
+        headers: const {},
+        bodyBytes: null,
+        timeoutMs: 15000,
+      ),
+      (request) async {
+        businessAttempts += 1;
+        if (businessAttempts == 1) {
+          return _json({
+            'err_no': 20504,
+            'err_msg': 'device missing',
+            'data': {},
+          });
+        }
+        return _json({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {'ok': true},
+        });
+      },
+    );
+
+    expect(businessAttempts, 2);
+    expect(keyStore.resetCount, 1);
+    expect(store.keyId, 'key-registered');
+    expect(
+      authTransport.requests
+          .where(
+            (request) => request.uri.path == '/apix/v1/app/device/register',
+          )
+          .length,
+      1,
+    );
+  });
+
+  test(
+    'interceptor re-runs registration flow once on signature errors',
+    () async {
+      final keyStore = _FakeKeyStore();
+      final authTransport = _FakeTransport(handler: _gatewayAuthResponse);
+      final store = _MemoryGatewayRegistrationStore()..keyId = 'stale-key';
+      final coordinator = GatewayAuthCoordinator(
+        gatewayBaseUrl: 'https://gateway.test/apix/',
+        appHeaderProvider: _testAppHeaders,
+        deviceIdService: const _TestDeviceIdService(),
+        keyStore: keyStore,
+        registrationStore: store,
+        transport: authTransport,
+      );
+      final interceptor = GatewayRequestInterceptor(coordinator: coordinator);
+      var businessAttempts = 0;
+
+      await interceptor.call(
+        TransportRequest(
+          method: 'GET',
+          uri: Uri.parse('https://gateway.test/api/v1/gateway/protected'),
+          headers: const {},
+          bodyBytes: null,
+          timeoutMs: 15000,
+        ),
+        (request) async {
+          businessAttempts += 1;
+          if (businessAttempts == 1) {
+            return _json({
+              'err_no': 20505,
+              'err_msg': 'bad signature',
+              'data': {},
+            });
+          }
+          return _json({
+            'err_no': 0,
+            'err_msg': 'succ',
+            'data': {'ok': true},
+          });
+        },
+      );
+
+      expect(businessAttempts, 2);
+      expect(keyStore.resetCount, 1);
+      expect(store.keyId, 'key-registered');
+      expect(
+        authTransport.requests
+            .where(
+              (request) => request.uri.path == '/apix/v1/app/device/register',
+            )
+            .length,
+        1,
+      );
+    },
+  );
+
+  test('prepare registers key and syncs time once for app startup', () async {
+    final authTransport = _FakeTransport(handler: _gatewayAuthResponse);
+    final store = _MemoryGatewayRegistrationStore();
+    final coordinator = GatewayAuthCoordinator(
+      gatewayBaseUrl: 'https://gateway.test/apix/',
+      appHeaderProvider: _testAppHeaders,
+      deviceIdService: const _TestDeviceIdService(),
+      keyStore: _FakeKeyStore(),
+      registrationStore: store,
+      transport: authTransport,
+    );
+
+    await coordinator.prepare();
+    await coordinator.prepare();
+
+    expect(store.keyId, 'key-registered');
+    expect(
+      authTransport.requests.map((request) => request.uri.path),
+      containsAllInOrder([
+        '/apix/v1/app/device/challenge',
+        '/apix/v1/app/device/register',
+        '/apix/v1/time',
+      ]),
+    );
+    expect(
+      authTransport.requests
+          .where(
+            (request) => request.uri.path == '/apix/v1/app/device/register',
+          )
+          .length,
+      1,
+    );
+    expect(
+      authTransport.requests
+          .where((request) => request.uri.path == '/apix/v1/time')
+          .length,
+      1,
+    );
+  });
+
+  test(
+    'local signature failure resets key and re-registers before retry',
+    () async {
+      final keyStore = _FakeKeyStore()..failSignCount = 1;
+      final authTransport = _FakeTransport(handler: _gatewayAuthResponse);
+      final store = _MemoryGatewayRegistrationStore()..keyId = 'stale-key';
+      final coordinator = GatewayAuthCoordinator(
+        gatewayBaseUrl: 'https://gateway.test/apix/',
+        appHeaderProvider: _testAppHeaders,
+        deviceIdService: const _TestDeviceIdService(),
+        keyStore: keyStore,
+        registrationStore: store,
+        transport: authTransport,
+      );
+      final interceptor = GatewayRequestInterceptor(coordinator: coordinator);
+      var businessAttempts = 0;
+
+      await interceptor.call(
+        TransportRequest(
+          method: 'GET',
+          uri: Uri.parse('https://gateway.test/api/v1/gateway/protected'),
+          headers: const {},
+          bodyBytes: null,
+          timeoutMs: 15000,
+        ),
+        (request) async {
+          businessAttempts += 1;
+          return _json({
+            'err_no': 0,
+            'err_msg': 'succ',
+            'data': {'ok': true},
+          });
+        },
+      );
+
+      expect(businessAttempts, 1);
+      expect(keyStore.resetCount, 1);
+      expect(store.keyId, 'key-registered');
+      expect(
+        authTransport.requests
+            .where(
+              (request) => request.uri.path == '/apix/v1/app/device/register',
+            )
+            .length,
+        1,
+      );
+    },
+  );
+
+  test(
+    'server time offset is kept in memory and resynced by new coordinator',
+    () async {
+      final store = _MemoryGatewayRegistrationStore()..keyId = 'key-registered';
+      final firstTransport = _FakeTransport(handler: _gatewayAuthResponse);
+      final firstCoordinator = GatewayAuthCoordinator(
+        gatewayBaseUrl: 'https://gateway.test/apix/',
+        appHeaderProvider: _testAppHeaders,
+        deviceIdService: const _TestDeviceIdService(),
+        keyStore: _FakeKeyStore(),
+        registrationStore: store,
+        transport: firstTransport,
+      );
+
+      await firstCoordinator.signingContext();
+      await firstCoordinator.signingContext();
+
+      expect(
+        firstTransport.requests
+            .where((request) => request.uri.path == '/apix/v1/time')
+            .length,
+        1,
+      );
+
+      final secondTransport = _FakeTransport(handler: _gatewayAuthResponse);
+      final secondCoordinator = GatewayAuthCoordinator(
+        gatewayBaseUrl: 'https://gateway.test/apix/',
+        appHeaderProvider: _testAppHeaders,
+        deviceIdService: const _TestDeviceIdService(),
+        keyStore: _FakeKeyStore(),
+        registrationStore: store,
+        transport: secondTransport,
+      );
+
+      await secondCoordinator.signingContext();
+
+      expect(
+        secondTransport.requests
+            .where((request) => request.uri.path == '/apix/v1/time')
+            .length,
+        1,
+      );
+      expect(
+        secondTransport.requests
+            .where(
+              (request) => request.uri.path == '/apix/v1/app/device/register',
+            )
+            .length,
+        0,
+      );
+    },
+  );
+
+  test('verifyLocalSignature posts signed diagnostic request', () async {
+    final keyStore = _FakeKeyStore();
+    final authTransport = _FakeTransport(handler: _gatewayAuthResponse);
+    final coordinator = GatewayAuthCoordinator(
+      gatewayBaseUrl: 'https://gateway.test/apix/',
+      appHeaderProvider: _testAppHeaders,
+      deviceIdService: const _TestDeviceIdService(),
+      keyStore: keyStore,
+      registrationStore: _MemoryGatewayRegistrationStore(),
+      transport: authTransport,
+    );
+
+    final response = await coordinator.verifyLocalSignature();
+    final verifyRequest = authTransport.requests.last;
+
+    expect(response.statusCode, 200);
+    expect(response.prettyBody(), contains('"valid": true'));
+    expect(
+      verifyRequest.uri.toString(),
+      'https://gateway.test/apix/v1/app/device/signature/verify',
+    );
+    expect(verifyRequest.method, 'POST');
+    expect(utf8.decode(verifyRequest.bodyBytes!), '{}');
+    expect(verifyRequest.headers['X-App-ID'], 'hashed-app-id');
+    expect(verifyRequest.headers['X-Platform'], 'android');
+    expect(verifyRequest.headers['X-Device-ID'], 'test-device-id');
+    expect(verifyRequest.headers['X-App-Version'], '1.0.0');
+    expect(verifyRequest.headers['X-Key-ID'], 'key-registered');
+    expect(verifyRequest.headers['X-Signature'], 'fake-signature');
+    expect(
+      verifyRequest.headers['X-Body-SHA256'],
+      gatewayBodySha256(utf8.encode('{}')),
+    );
+    expect(
+      keyStore.lastCanonical,
+      contains('/apix/v1/app/device/signature/verify'),
+    );
+  });
+}
+
+Future<Map<String, String>> _testAppHeaders() async {
+  return const {
+    'app-id': 'hashed-app-id',
+    'app-platform': 'android',
+    'app-version': '1.0.0',
+  };
+}
+
+TransportResponse _gatewayAuthResponse(TransportRequest request) {
+  switch (request.uri.path) {
+    case '/apix/v1/time':
+      return _json({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {'server_time_ms': DateTime.now().millisecondsSinceEpoch},
+      });
+    case '/apix/v1/app/device/challenge':
+      return _json({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'register_id': 'reg-1',
+          'challenge': 'challenge',
+          'expires_in': 300,
+        },
+      });
+    case '/apix/v1/app/device/register':
+      return _json({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {'key_id': 'key-registered'},
+      });
+    case '/apix/v1/app/device/signature/verify':
+      return _json({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {'valid': true},
+      });
+  }
+  return _json({'err_no': 404, 'err_msg': 'unexpected', 'data': {}});
+}
+
+TransportResponse _json(Map<String, Object?> body) {
+  return TransportResponse(
+    statusCode: 200,
+    headers: const {'content-type': 'application/json'},
+    body: jsonEncode(body),
+  );
+}

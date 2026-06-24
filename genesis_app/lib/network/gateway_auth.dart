@@ -1,0 +1,643 @@
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:crypto/crypto.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../platform/channels/genesis_method_channels.dart';
+import '../platform/device/device_id_service.dart';
+import 'api_client.dart';
+import 'api_exception.dart';
+import 'app_request_headers.dart';
+import 'http_transport.dart';
+import 'io_http_transport.dart';
+import 'json_utils.dart';
+import 'v1/v1_api_resource.dart';
+
+const String gatewaySignatureAlgorithm = 'ECDSA-P256-SHA256';
+
+class GatewayRequestInterceptor {
+  GatewayRequestInterceptor({
+    required GatewayAuthCoordinator coordinator,
+    GatewayRequestSigner? signer,
+  }) : _coordinator = coordinator,
+       _signer = signer ?? const GatewayRequestSigner();
+
+  final GatewayAuthCoordinator _coordinator;
+  final GatewayRequestSigner _signer;
+
+  Future<TransportResponse> call(
+    TransportRequest request,
+    ApiRequestSender send,
+  ) async {
+    if (!isGatewaySignedRequest(request.uri)) {
+      return send(_stripVerifiedHeaders(request));
+    }
+
+    var timeRetried = false;
+    var nonceRetried = false;
+    var registrationRetried = false;
+    var forceRegister = false;
+
+    while (true) {
+      final context = await _coordinator.signingContext(
+        forceRegister: forceRegister,
+      );
+      TransportRequest signed;
+      try {
+        signed = await _signer.sign(request, context);
+      } on ApiException catch (error) {
+        if (!registrationRetried && isGatewayLocalSignatureError(error)) {
+          registrationRetried = true;
+          forceRegister = true;
+          await _coordinator.clearRegistration();
+          continue;
+        }
+        rethrow;
+      }
+      final response = await send(signed);
+      final errNo = gatewayErrNo(response.body);
+      if (errNo == 20502 && !timeRetried) {
+        timeRetried = true;
+        forceRegister = false;
+        await _coordinator.syncServerTime();
+        continue;
+      }
+      if (errNo == 20503 && !nonceRetried) {
+        nonceRetried = true;
+        forceRegister = false;
+        continue;
+      }
+      if (isGatewayVerificationError(errNo) && !registrationRetried) {
+        registrationRetried = true;
+        forceRegister = true;
+        await _coordinator.clearRegistration();
+        continue;
+      }
+      return response;
+    }
+  }
+
+  TransportRequest _stripVerifiedHeaders(TransportRequest request) {
+    final headers = Map<String, String>.from(request.headers)
+      ..removeWhere((key, _) => key.toLowerCase().startsWith('x-verified-'));
+    return TransportRequest(
+      method: request.method,
+      uri: request.uri,
+      headers: headers,
+      bodyBytes: request.bodyBytes,
+      timeoutMs: request.timeoutMs,
+    );
+  }
+}
+
+bool isGatewaySignedRequest(Uri uri) {
+  return uri.path.startsWith('/api/') || uri.path.startsWith('/aitown-chat/');
+}
+
+bool isGatewayLocalSignatureError(ApiException error) {
+  return error.message == 'Gateway signature is unavailable' ||
+      error.message == 'Gateway public key is unavailable';
+}
+
+bool isGatewayVerificationError(int? errNo) {
+  return errNo == 20504 ||
+      errNo == 20505 ||
+      errNo == 20506 ||
+      errNo == 20507 ||
+      errNo == 20508 ||
+      errNo == 20509;
+}
+
+int? gatewayErrNo(String body) {
+  try {
+    final decoded = jsonDecode(body);
+    if (decoded is! Map) return null;
+    final raw = decoded.containsKey('err_no')
+        ? decoded['err_no']
+        : decoded['errNo'];
+    if (raw == null) return null;
+    return asInt(raw);
+  } catch (_) {
+    return null;
+  }
+}
+
+class GatewayRequestSigner {
+  const GatewayRequestSigner();
+
+  Future<TransportRequest> sign(
+    TransportRequest request,
+    GatewaySigningContext context,
+  ) async {
+    final bodyHash = gatewayBodySha256(request.bodyBytes);
+    final timestamp =
+        '${DateTime.now().millisecondsSinceEpoch + context.serverTimeOffsetMs}';
+    final nonce = gatewayNonce();
+    final canonical = gatewayCanonicalString(
+      method: request.method,
+      uri: request.uri,
+      bodySha256Hex: bodyHash,
+      appId: context.appId,
+      platform: context.platform,
+      deviceId: context.deviceId,
+      appVersion: context.appVersion,
+      keyId: context.keyId,
+      timestampMs: timestamp,
+      nonce: nonce,
+    );
+    final signature = await context.keyStore.signCanonical(canonical);
+    final headers = Map<String, String>.from(request.headers)
+      ..removeWhere((key, _) => key.toLowerCase().startsWith('x-verified-'))
+      ..removeWhere(
+        (key, _) => legacyAppPublicHeaderNames.contains(key.toLowerCase()),
+      )
+      ..addAll({
+        'X-App-ID': context.appId,
+        'X-Platform': context.platform,
+        'X-Device-ID': context.deviceId,
+        'X-App-Version': context.appVersion,
+        'X-Key-ID': context.keyId,
+        'X-Timestamp': timestamp,
+        'X-Nonce': nonce,
+        'X-Body-SHA256': bodyHash,
+        'X-Signature-Alg': gatewaySignatureAlgorithm,
+        'X-Signature': signature,
+      });
+    return TransportRequest(
+      method: request.method,
+      uri: request.uri,
+      headers: headers,
+      bodyBytes: request.bodyBytes,
+      timeoutMs: request.timeoutMs,
+    );
+  }
+}
+
+typedef GatewayHandshakeHeaderSigner =
+    Future<Map<String, String>> Function(Uri uri, Map<String, String> headers);
+typedef GatewayIdentityProvider = Future<AppRequestIdentity> Function();
+
+GatewayHandshakeHeaderSigner gatewayHandshakeHeaderSigner({
+  required GatewayAuthCoordinator coordinator,
+  GatewayRequestSigner signer = const GatewayRequestSigner(),
+}) {
+  return (uri, headers) async {
+    var registrationRetried = false;
+    var forceRegister = false;
+    while (true) {
+      final context = await coordinator.signingContext(
+        forceRegister: forceRegister,
+      );
+      final request = TransportRequest(
+        method: 'GET',
+        uri: uri,
+        headers: headers,
+        bodyBytes: null,
+        timeoutMs: 0,
+      );
+      try {
+        final signed = await signer.sign(request, context);
+        return signed.headers;
+      } on ApiException catch (error) {
+        if (!registrationRetried && isGatewayLocalSignatureError(error)) {
+          registrationRetried = true;
+          forceRegister = true;
+          await coordinator.clearRegistration();
+          continue;
+        }
+        rethrow;
+      }
+    }
+  };
+}
+
+String gatewayBodySha256(List<int>? bodyBytes) {
+  return sha256.convert(bodyBytes ?? const <int>[]).toString();
+}
+
+String gatewayCanonicalString({
+  required String method,
+  required Uri uri,
+  required String bodySha256Hex,
+  required String appId,
+  required String platform,
+  required String deviceId,
+  required String appVersion,
+  required String keyId,
+  required String timestampMs,
+  required String nonce,
+}) {
+  return [
+    method.toUpperCase(),
+    uri.path,
+    gatewayCanonicalQuery(uri),
+    bodySha256Hex,
+    '',
+    appId,
+    platform,
+    deviceId,
+    appVersion,
+    keyId,
+    timestampMs,
+    nonce,
+  ].join('\n');
+}
+
+String gatewayCanonicalQuery(Uri uri) {
+  final pairs = <MapEntry<String, String>>[];
+  for (final entry in uri.queryParametersAll.entries) {
+    final values = [...entry.value]..sort();
+    for (final value in values) {
+      pairs.add(MapEntry(entry.key, value));
+    }
+  }
+  pairs.sort((a, b) {
+    final keyCompare = a.key.compareTo(b.key);
+    if (keyCompare != 0) return keyCompare;
+    return a.value.compareTo(b.value);
+  });
+  return pairs
+      .map((entry) {
+        return '${Uri.encodeQueryComponent(entry.key)}='
+            '${Uri.encodeQueryComponent(entry.value)}';
+      })
+      .join('&');
+}
+
+String gatewayNonce() {
+  final random = Random.secure();
+  final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+  return base64Url.encode(bytes).replaceAll('=', '');
+}
+
+class GatewayAuthCoordinator {
+  GatewayAuthCoordinator({
+    required String gatewayBaseUrl,
+    required RequestHeaderProvider appHeaderProvider,
+    GatewayIdentityProvider? identityProvider,
+    required DeviceIdService deviceIdService,
+    required GatewayDeviceKeyStore keyStore,
+    GatewayRegistrationStore? registrationStore,
+    HttpTransport? transport,
+  }) : _appHeaderProvider = appHeaderProvider,
+       _identityProvider = identityProvider,
+       _deviceIdService = deviceIdService,
+       _keyStore = keyStore,
+       _registrationStore =
+           registrationStore ?? SharedPreferencesGatewayRegistrationStore(),
+       _gatewayBaseUri = Uri.parse(gatewayBaseUrl),
+       _transport = transport ?? IoHttpTransport(),
+       _client = ApiClient(
+         baseUrl: gatewayBaseUrl,
+         defaultHeaders: const {
+           'content-type': 'application/json',
+           'accept': 'application/json',
+         },
+         responseProcessor: ApiClient.defaultResponseProcessor,
+         transport: transport,
+       );
+
+  final RequestHeaderProvider _appHeaderProvider;
+  final GatewayIdentityProvider? _identityProvider;
+  final DeviceIdService _deviceIdService;
+  final GatewayDeviceKeyStore _keyStore;
+  final GatewayRegistrationStore _registrationStore;
+  final Uri _gatewayBaseUri;
+  final HttpTransport _transport;
+  final ApiClient _client;
+  int? _serverTimeOffsetMs;
+  Future<void>? _prepareFuture;
+
+  Future<void> prepare({bool forceRegister = false}) async {
+    if (forceRegister) {
+      await _runPrepare(forceRegister: true);
+      return;
+    }
+    final pending = _prepareFuture;
+    if (pending != null) {
+      await pending;
+      return;
+    }
+    final future = _runPrepare();
+    _prepareFuture = future;
+    try {
+      await future;
+    } catch (_) {
+      if (identical(_prepareFuture, future)) {
+        _prepareFuture = null;
+      }
+      rethrow;
+    }
+  }
+
+  Future<GatewaySigningContext> signingContext({
+    bool forceRegister = false,
+  }) async {
+    await prepare(forceRegister: forceRegister);
+    final identity = await _identity();
+    final keyId = await _registrationStore.readKeyId();
+    var offset = _serverTimeOffsetMs;
+    offset ??= await syncServerTime();
+    if (keyId == null || keyId.trim().isEmpty) {
+      throw ApiException(message: 'Gateway registration is unavailable');
+    }
+    return GatewaySigningContext(
+      appId: identity.appId,
+      platform: identity.platform,
+      deviceId: identity.deviceId,
+      appVersion: identity.appVersion,
+      keyId: keyId,
+      serverTimeOffsetMs: offset,
+      keyStore: _keyStore,
+    );
+  }
+
+  Future<void> _runPrepare({bool forceRegister = false}) async {
+    final identity = await _identity();
+    if (forceRegister) {
+      await _registrationStore.clearKeyId();
+      await _keyStore.reset();
+    }
+    var keyId = await _registrationStore.readKeyId();
+    if (keyId == null || keyId.trim().isEmpty) {
+      keyId = await _register(identity);
+      await _registrationStore.saveKeyId(keyId);
+    }
+    if (_serverTimeOffsetMs == null) {
+      await syncServerTime();
+    }
+  }
+
+  Future<int> syncServerTime() async {
+    final json = await _client.get<Object?>('v1/time');
+    final data = _unwrapGatewayData(json);
+    final serverTimeMs = asInt(asJsonMap(data)['server_time_ms']);
+    if (serverTimeMs <= 0) {
+      throw ApiException(
+        message: 'Gateway time response missing server_time_ms',
+      );
+    }
+    final offset = serverTimeMs - DateTime.now().millisecondsSinceEpoch;
+    _serverTimeOffsetMs = offset;
+    return offset;
+  }
+
+  Future<void> clearRegistration() async {
+    await _registrationStore.clearKeyId();
+  }
+
+  Future<GatewaySignatureVerifyResponse> verifyLocalSignature({
+    Object body = const <String, Object?>{},
+  }) async {
+    final bodyBytes = utf8.encode(jsonEncode(body));
+    final context = await signingContext();
+    final request = TransportRequest(
+      method: 'POST',
+      uri: _resolveGatewayUri('v1/app/device/signature/verify'),
+      headers: const {
+        'content-type': 'application/json',
+        'accept': 'application/json',
+      },
+      bodyBytes: bodyBytes,
+      timeoutMs: 15000,
+    );
+    final signed = await const GatewayRequestSigner().sign(request, context);
+    final response = await _transport.send(signed);
+    return GatewaySignatureVerifyResponse(
+      statusCode: response.statusCode,
+      headers: response.headers,
+      body: response.body,
+      data: _tryDecodeGatewayJson(response.body),
+    );
+  }
+
+  Future<String> _register(GatewayIdentity identity) async {
+    final challengeJson = await _client.post<Object?>(
+      'v1/app/device/challenge',
+      body: {
+        'app_id': identity.appId,
+        'platform': identity.platform,
+        'device_id': identity.deviceId,
+        'app_version': identity.appVersion,
+      },
+    );
+    final challengeData = asJsonMap(_unwrapGatewayData(challengeJson));
+    final registerId = asString(challengeData['register_id']);
+    if (registerId.trim().isEmpty) {
+      throw ApiException(
+        message: 'Gateway challenge response missing register_id',
+      );
+    }
+
+    final publicKey = await _keyStore.publicKeyBase64Url();
+    final registerJson = await _client.post<Object?>(
+      'v1/app/device/register',
+      body: {
+        'register_id': registerId,
+        'app_id': identity.appId,
+        'platform': identity.platform,
+        'device_id': identity.deviceId,
+        'app_version': identity.appVersion,
+        'public_key': publicKey,
+        'public_key_hash': gatewayPublicKeyHash(publicKey),
+        'attestation': const {'provider': 'dev', 'payload': ''},
+      },
+    );
+    final registerData = asJsonMap(_unwrapGatewayData(registerJson));
+    final keyId = asString(registerData['key_id']);
+    if (keyId.trim().isEmpty) {
+      throw ApiException(message: 'Gateway register response missing key_id');
+    }
+    return keyId;
+  }
+
+  Future<GatewayIdentity> _identity() async {
+    final provided = await _identityProvider?.call();
+    final headers = provided == null
+        ? await _appHeaderProvider()
+        : const <String, String>{};
+    final appId = (provided?.appId ?? headers['app-id'] ?? '').trim();
+    final platform =
+        (provided?.platform ??
+                headers['app-platform'] ??
+                AppRequestHeaderProvider.resolveCurrentPlatform() ??
+                '')
+            .trim();
+    final appVersion = (provided?.appVersion ?? headers['app-version'] ?? '')
+        .trim();
+    final deviceId = (await _deviceIdService.getDeviceId()).trim();
+    if (appId.isEmpty ||
+        platform.isEmpty ||
+        appVersion.isEmpty ||
+        deviceId.isEmpty) {
+      throw ApiException(message: 'Gateway identity headers are incomplete');
+    }
+    return GatewayIdentity(
+      appId: appId,
+      platform: platform,
+      deviceId: deviceId,
+      appVersion: appVersion,
+    );
+  }
+
+  Uri _resolveGatewayUri(String path) => _gatewayBaseUri.resolve(path);
+}
+
+Object? _unwrapGatewayData(Object? json) {
+  return handleV1ResponseErrNo(json);
+}
+
+Object? _tryDecodeGatewayJson(String input) {
+  final trimmed = input.trim();
+  if (trimmed.isEmpty) return null;
+  if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) return input;
+  try {
+    return jsonDecode(trimmed);
+  } catch (_) {
+    return input;
+  }
+}
+
+class GatewaySignatureVerifyResponse {
+  const GatewaySignatureVerifyResponse({
+    required this.statusCode,
+    required this.headers,
+    required this.body,
+    required this.data,
+  });
+
+  final int statusCode;
+  final Map<String, String> headers;
+  final String body;
+  final Object? data;
+
+  String prettyBody() {
+    final decoded = data;
+    if (decoded == null) return body;
+    try {
+      return const JsonEncoder.withIndent('  ').convert(decoded);
+    } catch (_) {
+      return body;
+    }
+  }
+}
+
+String gatewayPublicKeyHash(String publicKeyBase64Url) {
+  final normalized = base64Url.normalize(publicKeyBase64Url);
+  final bytes = base64Url.decode(normalized);
+  return base64Url.encode(sha256.convert(bytes).bytes).replaceAll('=', '');
+}
+
+class GatewayIdentity {
+  const GatewayIdentity({
+    required this.appId,
+    required this.platform,
+    required this.deviceId,
+    required this.appVersion,
+  });
+
+  final String appId;
+  final String platform;
+  final String deviceId;
+  final String appVersion;
+}
+
+class GatewaySigningContext extends GatewayIdentity {
+  const GatewaySigningContext({
+    required super.appId,
+    required super.platform,
+    required super.deviceId,
+    required super.appVersion,
+    required this.keyId,
+    required this.serverTimeOffsetMs,
+    required this.keyStore,
+  });
+
+  final String keyId;
+  final int serverTimeOffsetMs;
+  final GatewayDeviceKeyStore keyStore;
+}
+
+abstract interface class GatewayDeviceKeyStore {
+  Future<String> publicKeyBase64Url();
+  Future<String> signCanonical(String canonical);
+  Future<void> reset();
+}
+
+Future<void> clearGatewayAuthLocalState({
+  GatewayDeviceKeyStore keyStore = const NativeGatewayDeviceKeyStore(),
+  GatewayRegistrationStore registrationStore =
+      const SharedPreferencesGatewayRegistrationStore(),
+}) async {
+  await registrationStore.clearKeyId();
+  await keyStore.reset();
+}
+
+class NativeGatewayDeviceKeyStore implements GatewayDeviceKeyStore {
+  const NativeGatewayDeviceKeyStore();
+
+  @override
+  Future<String> publicKeyBase64Url() async {
+    final value = await GenesisMethodChannels.device.invokeMethod<String>(
+      GenesisMethodChannels.gatewayPublicKey,
+    );
+    final normalized = (value ?? '').trim();
+    if (normalized.isEmpty) {
+      throw ApiException(message: 'Gateway public key is unavailable');
+    }
+    return normalized;
+  }
+
+  @override
+  Future<String> signCanonical(String canonical) async {
+    final value = await GenesisMethodChannels.device.invokeMethod<String>(
+      GenesisMethodChannels.signGatewayCanonical,
+      {'canonical': canonical},
+    );
+    final normalized = (value ?? '').trim();
+    if (normalized.isEmpty) {
+      throw ApiException(message: 'Gateway signature is unavailable');
+    }
+    return normalized;
+  }
+
+  @override
+  Future<void> reset() async {
+    await GenesisMethodChannels.device.invokeMethod<void>(
+      GenesisMethodChannels.resetGatewayKey,
+    );
+  }
+}
+
+abstract interface class GatewayRegistrationStore {
+  Future<String?> readKeyId();
+  Future<void> saveKeyId(String keyId);
+  Future<void> clearKeyId();
+}
+
+class SharedPreferencesGatewayRegistrationStore
+    implements GatewayRegistrationStore {
+  const SharedPreferencesGatewayRegistrationStore();
+
+  static const _keyIdKey = 'gateway_key_id_v1';
+
+  @override
+  Future<String?> readKeyId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_keyIdKey)?.trim();
+    return value == null || value.isEmpty ? null : value;
+  }
+
+  @override
+  Future<void> saveKeyId(String keyId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyIdKey, keyId.trim());
+  }
+
+  @override
+  Future<void> clearKeyId() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyIdKey);
+  }
+}

@@ -3,12 +3,13 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
-import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
+import 'package:genesis_flutter_android/network/gateway_auth.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/v1/upload_api.dart';
+import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
 import 'package:genesis_flutter_android/platform/auth/identity_auth_service.dart';
@@ -27,6 +28,44 @@ class _FakeTransport implements HttpTransport {
     requests.add(request);
     lastRequest = request;
     return handler(request);
+  }
+}
+
+class _TestPlatformConfig implements PlatformConfig {
+  const _TestPlatformConfig({this.apiBaseUrl = 'http://localhost:8080/api/'});
+
+  @override
+  final String apiBaseUrl;
+
+  @override
+  String get assetBaseUrl => GenesisApi.defaultAssetBaseUrl;
+}
+
+class _FakeGatewayKeyStore implements GatewayDeviceKeyStore {
+  @override
+  Future<String> publicKeyBase64Url() async => 'AQID';
+
+  @override
+  Future<void> reset() async {}
+
+  @override
+  Future<String> signCanonical(String canonical) async => 'fake-signature';
+}
+
+class _MemoryGatewayRegistrationStore implements GatewayRegistrationStore {
+  String? keyId;
+
+  @override
+  Future<void> clearKeyId() async {
+    keyId = null;
+  }
+
+  @override
+  Future<String?> readKeyId() async => keyId;
+
+  @override
+  Future<void> saveKeyId(String keyId) async {
+    this.keyId = keyId;
   }
 }
 
@@ -728,7 +767,7 @@ void main() {
     expect(body.containsKey('tick_duration_days'), isFalse);
     expect(body['tick_duration_time'], '30 days');
     expect(body['cover'], 'cover.png');
-    expect(body['map_url'], 'map.png');
+    expect(body.containsKey('map_url'), isFalse);
 
     final characters = body['characters'] as List;
     expect(characters, hasLength(1));
@@ -858,7 +897,7 @@ void main() {
     expect(body.containsKey('tick_duration_days'), isFalse);
     expect(body['tick_duration_time'], '7 days');
     expect(body['cover'], 'updated-cover.png');
-    expect(body['map_url'], 'updated-map.png');
+    expect(body.containsKey('map_url'), isFalse);
     expect(body['update_notes'], 'Adjusted archive.');
     expect(body['deleted_char_ids'], ['char_removed']);
     expect(body['deleted_location_ids'], ['loc_removed']);
@@ -1258,7 +1297,7 @@ void main() {
     expect(decoded['player_id'], 'player1');
   });
 
-  test('health uses GET /health', () async {
+  test('health uses unsigned Gateway heartbeat', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
@@ -1279,7 +1318,7 @@ void main() {
     expect(ok, true);
     expect(
       healthTransport.lastRequest!.uri.toString(),
-      'http://localhost:8080/health',
+      'http://localhost:8080/v1/heartbeat',
     );
   });
 
@@ -1308,31 +1347,35 @@ void main() {
     expect(apiTransport.lastRequest!.uri.queryParameters['limit'], '10');
   });
 
-  test('default client uses configurable API base URL', () async {
-    final apiTransport = _FakeTransport(
-      handler: (_) => const TransportResponse(
-        statusCode: 200,
-        headers: {'content-type': 'application/json'},
-        body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
-      ),
-    );
+  test(
+    'default v1 client keeps business requests on configurable API base URL',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
+        ),
+      );
 
-    final api = GenesisApi(
-      transport: apiTransport,
-      useMock: false,
-      platformConfig: const _TestPlatformConfig(
-        apiBaseUrl: 'https://example.test/api/',
-      ),
-    );
-    await api.getOrigins();
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        platformConfig: const _TestPlatformConfig(
+          apiBaseUrl: 'https://example.test/api/',
+        ),
+        gatewayApiBaseUrl: 'https://gateway.example.test/apix/',
+      );
+      await api.getOrigins();
 
-    expect(
-      apiTransport.lastRequest!.uri.toString(),
-      'https://example.test/api/v1/origin/list?scene=foryou&pn=1&rn=20',
-    );
-  });
+      expect(
+        apiTransport.lastRequest!.uri.toString(),
+        'https://example.test/api/v1/origin/list?scene=foryou&pn=1&rn=20',
+      );
+    },
+  );
 
-  test('default client targets dev API base URL', () async {
+  test('default v1 client targets dev API base URL', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
@@ -1350,7 +1393,125 @@ void main() {
     );
   });
 
-  test('default client injects device and authorization headers', () async {
+  test(
+    'default v1 business requests are signed when Gateway auth is enabled',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":0,"err_msg":"succ","data":{"list":[],"total":0}}',
+        ),
+      );
+      final authTransport = _FakeTransport(handler: _gatewayAuthResponse);
+      final interceptor = GatewayRequestInterceptor(
+        coordinator: GatewayAuthCoordinator(
+          gatewayBaseUrl: 'https://gateway.example.test/apix/',
+          appHeaderProvider: () async => const {
+            'app-id': 'hashed-app-id',
+            'app-platform': 'ios',
+            'app-version': '1.2.3',
+          },
+          deviceIdService: const _TestDeviceIdService(),
+          keyStore: _FakeGatewayKeyStore(),
+          registrationStore: _MemoryGatewayRegistrationStore(),
+          transport: authTransport,
+        ),
+      );
+
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        gatewayRequestInterceptor: interceptor,
+      );
+      await api.getOrigins();
+
+      final request = apiTransport.lastRequest!;
+      expect(request.uri.path, '/api/v1/origin/list');
+      expect(request.headers['X-App-ID'], 'hashed-app-id');
+      expect(request.headers['X-Platform'], 'ios');
+      expect(request.headers['X-Device-ID'], 'test-device-id');
+      expect(request.headers['X-App-Version'], '1.2.3');
+      expect(request.headers['X-Key-ID'], 'key-registered');
+      expect(request.headers['X-Signature-Alg'], gatewaySignatureAlgorithm);
+      expect(request.headers['X-Signature'], 'fake-signature');
+      expect(request.headers['X-Body-SHA256'], gatewayBodySha256(null));
+      expect(request.headers.containsKey('X-Timestamp'), isTrue);
+      expect(request.headers.containsKey('X-Nonce'), isTrue);
+      expect(
+        authTransport.requests.map((request) => request.uri.path),
+        containsAllInOrder([
+          '/apix/v1/app/device/challenge',
+          '/apix/v1/app/device/register',
+          '/apix/v1/time',
+        ]),
+      );
+    },
+  );
+
+  test(
+    'chatroom API HTTP requests are signed when Gateway auth is enabled',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (request) {
+          if (request.uri.path == '/aitown-chat/api/messages') {
+            return const TransportResponse(
+              statusCode: 200,
+              headers: {'content-type': 'application/json'},
+              body:
+                  '{"err_no":0,"err_msg":"succ","data":{"messages":[],"has_more":false,"newest_message_id":0}}',
+            );
+          }
+          return const TransportResponse(
+            statusCode: 404,
+            headers: {'content-type': 'application/json'},
+            body: '{"err_no":404,"err_msg":"not_found","data":{}}',
+          );
+        },
+      );
+      final authTransport = _FakeTransport(handler: _gatewayAuthResponse);
+      final interceptor = GatewayRequestInterceptor(
+        coordinator: GatewayAuthCoordinator(
+          gatewayBaseUrl: 'https://gateway.example.test/apix/',
+          appHeaderProvider: () async => const {
+            'app-id': 'hashed-app-id',
+            'app-platform': 'android',
+            'app-version': '1.2.3',
+          },
+          deviceIdService: const _TestDeviceIdService(),
+          keyStore: _FakeGatewayKeyStore(),
+          registrationStore: _MemoryGatewayRegistrationStore(),
+          transport: authTransport,
+        ),
+      );
+
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        chatroomHttpBaseUrl: 'https://chat.example.test/',
+        gatewayRequestInterceptor: interceptor,
+      );
+      await api.chatroomHttp.getMessages(
+        worldId: 'world-1',
+        locationId: 'loc-1',
+      );
+
+      final request = apiTransport.lastRequest!;
+      expect(request.uri.path, '/aitown-chat/api/messages');
+      expect(request.headers['X-App-ID'], 'hashed-app-id');
+      expect(request.headers['X-Platform'], 'android');
+      expect(request.headers['X-Device-ID'], 'test-device-id');
+      expect(request.headers['X-App-Version'], '1.2.3');
+      expect(request.headers['X-Key-ID'], 'key-registered');
+      expect(request.headers['X-Signature-Alg'], gatewaySignatureAlgorithm);
+      expect(request.headers['X-Signature'], 'fake-signature');
+      expect(request.headers['X-Body-SHA256'], gatewayBodySha256(null));
+      expect(request.headers.containsKey('X-Timestamp'), isTrue);
+      expect(request.headers.containsKey('X-Nonce'), isTrue);
+    },
+  );
+
+  test('default client injects user agent and authorization headers', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
@@ -1368,17 +1529,26 @@ void main() {
       deviceIdService: const _TestDeviceIdService(),
       sessionStore: sessionStore,
       appHeaderProvider: () async => const {
-        'app-id': 'test-app-id',
+        'user-agent': 'Android 15',
+        'app-id': 'legacy-app-id',
         'app-version': '0.1.0',
         'app-platform': 'android',
+        'device-id': 'legacy-device-id',
       },
     );
     await api.getOrigins();
 
-    expect(apiTransport.lastRequest!.headers['app-id'], 'test-app-id');
-    expect(apiTransport.lastRequest!.headers['app-version'], '0.1.0');
-    expect(apiTransport.lastRequest!.headers['app-platform'], 'android');
-    expect(apiTransport.lastRequest!.headers['device-id'], 'test-device-id');
+    expect(apiTransport.lastRequest!.headers['user-agent'], 'Android 15');
+    expect(apiTransport.lastRequest!.headers.containsKey('app-id'), isFalse);
+    expect(
+      apiTransport.lastRequest!.headers.containsKey('app-version'),
+      isFalse,
+    );
+    expect(
+      apiTransport.lastRequest!.headers.containsKey('app-platform'),
+      isFalse,
+    );
+    expect(apiTransport.lastRequest!.headers.containsKey('device-id'), isFalse);
     expect(
       apiTransport.lastRequest!.headers.containsKey('x-platform'),
       isFalse,
@@ -2394,14 +2564,34 @@ void main() {
   });
 }
 
-class _TestPlatformConfig implements PlatformConfig {
-  const _TestPlatformConfig({this.apiBaseUrl = GenesisApi.defaultApiBaseUrl});
-
-  @override
-  final String apiBaseUrl;
-
-  @override
-  String get assetBaseUrl => GenesisApi.defaultAssetBaseUrl;
+TransportResponse _gatewayAuthResponse(TransportRequest request) {
+  switch (request.uri.path) {
+    case '/apix/v1/time':
+      return const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":0,"err_msg":"succ","data":{"server_time_ms":1}}',
+      );
+    case '/apix/v1/app/device/challenge':
+      return const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"register_id":"reg-1","challenge":"challenge","expires_in":300}}',
+      );
+    case '/apix/v1/app/device/register':
+      return const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"key_id":"key-registered"}}',
+      );
+  }
+  return const TransportResponse(
+    statusCode: 404,
+    headers: {'content-type': 'application/json'},
+    body: '{"err_no":404,"err_msg":"unexpected","data":{}}',
+  );
 }
 
 class _TestDeviceIdService implements DeviceIdService {

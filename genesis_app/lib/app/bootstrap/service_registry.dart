@@ -11,6 +11,7 @@ import '../../network/chatroom/chatroom_message_storage.dart';
 import '../../network/chatroom/chatroom_socket_transport.dart';
 import '../../network/direct_message_conversation_store.dart';
 import '../../network/direct_message_message_store.dart';
+import '../../network/gateway_auth.dart';
 import '../../routers/app_router.dart';
 import '../../network/io_http_transport.dart';
 import '../../platform/platform_services.dart';
@@ -33,6 +34,7 @@ class AppServices {
     required this.directMessageMessages,
     required this.appVersionCheck,
     required this.externalUrlOpener,
+    this.gatewayAuth,
     ValueNotifier<int>? sessionRevision,
   }) : sessionRevision = sessionRevision ?? ValueNotifier<int>(0);
 
@@ -49,6 +51,7 @@ class AppServices {
   final DirectMessageMessageStore directMessageMessages;
   final AppVersionCheckService appVersionCheck;
   final ExternalUrlOpener externalUrlOpener;
+  final GatewayAuthCoordinator? gatewayAuth;
   final ValueNotifier<int> sessionRevision;
 
   void notifySessionChanged() {
@@ -118,15 +121,37 @@ class ServiceRegistry {
                 !const bool.fromEnvironment('dart.vm.product'),
           );
     final appRequestHeaders = AppRequestHeaderProvider();
+    GatewayRequestInterceptor? gatewayRequestInterceptor;
+    GatewayHandshakeHeaderSigner? gatewayWsHandshakeHeaderSigner;
+    GatewayAuthCoordinator? gatewayAuthCoordinator;
+    if (useMock != true) {
+      gatewayAuthCoordinator = GatewayAuthCoordinator(
+        gatewayBaseUrl: config.gatewayApiBaseUrl,
+        appHeaderProvider: appRequestHeaders.headers,
+        identityProvider: appRequestHeaders.gatewayIdentity,
+        deviceIdService: deviceId,
+        keyStore: const NativeGatewayDeviceKeyStore(),
+        transport: httpTransport,
+      );
+      unawaited(_prepareGatewayAuth(gatewayAuthCoordinator));
+      gatewayRequestInterceptor = GatewayRequestInterceptor(
+        coordinator: gatewayAuthCoordinator,
+      );
+      gatewayWsHandshakeHeaderSigner = gatewayHandshakeHeaderSigner(
+        coordinator: gatewayAuthCoordinator,
+      );
+    }
     final api = GenesisApi(
       useMock: useMock,
       transport: httpTransport,
       platformConfig: platformConfig,
+      gatewayApiBaseUrl: config.gatewayApiBaseUrl,
       chatroomHttpBaseUrl: config.chatroomHttpBaseUrl,
       deviceIdService: deviceId,
       sessionStore: sessionStore,
       identityAuthService: identityAuth,
       appHeaderProvider: appRequestHeaders.headers,
+      gatewayRequestInterceptor: gatewayRequestInterceptor,
       onSessionExpired: handleSessionExpired,
     );
     final chatroom = ChatroomClient(
@@ -137,6 +162,7 @@ class ServiceRegistry {
       heartbeatInterval: config.chatroomHeartbeatInterval,
       ackTimeout: config.chatroomAckTimeout,
       requestHeaderProvider: appRequestHeaders.headers,
+      handshakeHeaderSigner: gatewayWsHandshakeHeaderSigner,
     );
     final backendAuth = GenesisBackendAuthCoordinator(
       api: api,
@@ -175,6 +201,7 @@ class ServiceRegistry {
       directMessageMessages: directMessageMessages,
       appVersionCheck: appVersionCheck,
       externalUrlOpener: const NativeExternalUrlOpener(),
+      gatewayAuth: gatewayAuthCoordinator,
       sessionRevision: sessionRevision,
     );
   }
@@ -191,5 +218,15 @@ class ServiceRegistry {
       sessionRevisionOverride: current.sessionRevision,
       chatroomMessagesOverride: current.chatroomMessages,
     );
+  }
+
+  static Future<void> _prepareGatewayAuth(
+    GatewayAuthCoordinator coordinator,
+  ) async {
+    try {
+      await coordinator.prepare();
+    } catch (error) {
+      debugPrint('[GatewayAuth] prepare failed: $error');
+    }
   }
 }
