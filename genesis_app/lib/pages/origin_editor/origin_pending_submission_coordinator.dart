@@ -55,8 +55,7 @@ class OriginPendingSubmissionCoordinator {
       clearPending: OriginPendingSubmissionStore.clearCreating,
       clearDraft: CreateOriginDraftStore.clear,
       timeoutMessage: 'Worldo creation timed out.',
-      successTitle: (originName) =>
-          'Worldo $originName has been created successfully. ',
+      successTitle: (originName) => 'Worldo $originName created!',
       notifyOutcome: _notifyCreateOutcome,
     );
     _publishPoller = _OriginPendingSubmissionPoller(
@@ -66,8 +65,7 @@ class OriginPendingSubmissionCoordinator {
       savePending: OriginPendingSubmissionStore.savePublishing,
       clearPending: OriginPendingSubmissionStore.clearPublishing,
       timeoutMessage: 'Worldo publishing timed out',
-      successTitle: (originName) =>
-          'Worldo $originName has been published successfully.',
+      successTitle: (originName) => 'Worldo $originName published!',
       notifyOutcome: _notifyPublishOutcome,
     );
   }
@@ -349,7 +347,7 @@ class _OriginPendingSubmissionPoller {
     return showGenesisActionBox<bool>(
       context: context,
       title: successTitle(originName),
-      actions: const [GenesisActionBoxAction<bool>(label: 'Go', value: true)],
+      actions: const [GenesisActionBoxAction<bool>(label: 'View', value: true)],
     );
   }
 
