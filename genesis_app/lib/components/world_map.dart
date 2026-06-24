@@ -1956,7 +1956,7 @@ class _LoadedMapAvatar extends StatelessWidget {
               child: const Icon(
                 MyFlutterApp.redstarCharIcon,
                 size: _starSize,
-                color: Color(0xFFFF2344),
+                color: Color(0xFFFF2442),
               ),
             ),
         ],

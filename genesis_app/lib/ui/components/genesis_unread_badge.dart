@@ -13,7 +13,7 @@ class GenesisUnreadBadge extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFFF2344),
+        color: const Color(0xFFFF2442),
         borderRadius: BorderRadius.circular(999),
       ),
       alignment: Alignment.center,

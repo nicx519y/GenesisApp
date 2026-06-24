@@ -22,7 +22,7 @@ const Color createFormMuted = Color(0xFF6F6F6F);
 const Color createFormNote = Color(0xFF888888);
 const Color createFormBorder = Color(0xFFE1E1E6);
 const Color createFormDash = Color(0xFFB8CDBF);
-const Color createFormDanger = Color(0xFFE14949);
+const Color createFormDanger = Color(0xFFFF2442);
 const String createFormDeleteIconAsset =
     'assets/custom-icons/svg/delete-icon.svg';
 const String createFormInfoIconAsset = 'assets/custom-icons/svg/info.svg';

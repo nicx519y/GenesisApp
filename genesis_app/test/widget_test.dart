@@ -5395,13 +5395,7 @@ void main() {
       ),
     );
 
-    final logo = find.byWidgetPredicate(
-      (widget) =>
-          widget is Image &&
-          widget.image is AssetImage &&
-          (widget.image as AssetImage).assetName ==
-              'assets/images/genesis_home_logo.png',
-    );
+    final logo = find.byKey(const Key('signed_out_worldo_logo'));
     expect(logo, findsOneWidget);
     expect(find.text('LIVE YOUR WORLD'), findsOneWidget);
   });

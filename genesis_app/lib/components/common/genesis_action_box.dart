@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'genesis_modal_routes.dart';
 
 const Color _genesisActionBoxText = Color(0xFF111111);
-const Color _genesisActionBoxDestructive = Color(0xFFFF2344);
+const Color _genesisActionBoxDestructive = Color(0xFFFF2442);
 const Color _genesisActionBoxDivider = Color(0xFFE8E8EA);
 
 class GenesisActionBoxAction<T> {
