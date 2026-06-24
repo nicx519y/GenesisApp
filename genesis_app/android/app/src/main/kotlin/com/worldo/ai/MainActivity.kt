@@ -8,6 +8,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
 import android.webkit.MimeTypeMap
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,6 +25,12 @@ import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
+import java.security.KeyPairGenerator
+import java.security.KeyStore
+import java.security.PrivateKey
+import java.security.PublicKey
+import java.security.Signature
+import java.security.spec.ECGenParameterSpec
 import java.util.Locale
 import java.util.UUID
 
@@ -35,6 +44,7 @@ class MainActivity : FlutterActivity() {
     private val userInfoKey = "user_info"
     private val generatedDeviceIdKey = "generated_device_id"
     private val prefsName = "genesis"
+    private val gatewayKeyAlias = "genesis_gateway_device_key_v1"
     private var pendingDiscussImagePickerResult: MethodChannel.Result? = null
     private var pendingDiscussImagePickerLimit = 0
     private var pendingGoogleSignInResult: MethodChannel.Result? = null
@@ -101,9 +111,49 @@ class MainActivity : FlutterActivity() {
                 "getAppVersion" -> {
                     result.success(buildAppVersion())
                 }
+                "getSystemUserAgent" -> {
+                    result.success("Android ${Build.VERSION.RELEASE}")
+                }
                 "openExternalUrl" -> {
                     val url = call.argument<String>("url") ?: ""
                     result.success(openExternalUrl(url))
+                }
+                "gatewayPublicKey" -> {
+                    Thread {
+                        try {
+                            val publicKey = ensureGatewayPublicKey()
+                            runOnUiThread { result.success(base64Url(publicKey.encoded)) }
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                result.error("gateway_public_key_failed", error.message, null)
+                            }
+                        }
+                    }.start()
+                }
+                "signGatewayCanonical" -> {
+                    val canonical = call.argument<String>("canonical") ?: ""
+                    Thread {
+                        try {
+                            val signature = signGatewayCanonical(canonical)
+                            runOnUiThread { result.success(base64Url(signature)) }
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                result.error("gateway_signature_failed", error.message, null)
+                            }
+                        }
+                    }.start()
+                }
+                "resetGatewayKey" -> {
+                    Thread {
+                        try {
+                            resetGatewayKey()
+                            runOnUiThread { result.success(null) }
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                result.error("gateway_key_reset_failed", error.message, null)
+                            }
+                        }
+                    }.start()
                 }
                 "signInGoogleLegacy" -> {
                     val serverClientId = call.argument<String>("serverClientId") ?: ""
@@ -200,6 +250,54 @@ class MainActivity : FlutterActivity() {
             "versionName" to (info.versionName ?: ""),
             "versionCode" to versionCode,
             "packageName" to packageName,
+        )
+    }
+
+    private fun ensureGatewayPublicKey(): PublicKey {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore")
+        keyStore.load(null)
+        val existing = keyStore.getCertificate(gatewayKeyAlias)?.publicKey
+        if (existing != null) return existing
+
+        val generator = KeyPairGenerator.getInstance(
+            KeyProperties.KEY_ALGORITHM_EC,
+            "AndroidKeyStore",
+        )
+        val spec = KeyGenParameterSpec.Builder(
+            gatewayKeyAlias,
+            KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY,
+        )
+            .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
+            .setDigests(KeyProperties.DIGEST_SHA256)
+            .build()
+        generator.initialize(spec)
+        return generator.generateKeyPair().public
+    }
+
+    private fun gatewayPrivateKey(): PrivateKey {
+        ensureGatewayPublicKey()
+        val keyStore = KeyStore.getInstance("AndroidKeyStore")
+        keyStore.load(null)
+        return keyStore.getKey(gatewayKeyAlias, null) as PrivateKey
+    }
+
+    private fun signGatewayCanonical(canonical: String): ByteArray {
+        val signer = Signature.getInstance("SHA256withECDSA")
+        signer.initSign(gatewayPrivateKey())
+        signer.update(canonical.toByteArray(Charsets.UTF_8))
+        return signer.sign()
+    }
+
+    private fun resetGatewayKey() {
+        val keyStore = KeyStore.getInstance("AndroidKeyStore")
+        keyStore.load(null)
+        keyStore.deleteEntry(gatewayKeyAlias)
+    }
+
+    private fun base64Url(bytes: ByteArray): String {
+        return Base64.encodeToString(
+            bytes,
+            Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP,
         )
     }
 

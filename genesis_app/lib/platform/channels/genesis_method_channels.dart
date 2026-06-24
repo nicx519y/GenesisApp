@@ -19,5 +19,9 @@ class GenesisMethodChannels {
   static const getSignInDiagnostics = 'getSignInDiagnostics';
   static const getAppName = 'getAppName';
   static const getAppVersion = 'getAppVersion';
+  static const getSystemUserAgent = 'getSystemUserAgent';
   static const openExternalUrl = 'openExternalUrl';
+  static const gatewayPublicKey = 'gatewayPublicKey';
+  static const signGatewayCanonical = 'signGatewayCanonical';
+  static const resetGatewayKey = 'resetGatewayKey';
 }

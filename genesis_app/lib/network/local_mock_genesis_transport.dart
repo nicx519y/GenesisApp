@@ -29,11 +29,57 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _ok({'status': 'ok'});
     }
 
+    final isGatewayApiPath = path.startsWith('/apix/');
     final apiPath = path.startsWith('/api/')
         ? path.substring('/api/'.length)
+        : isGatewayApiPath
+        ? path.substring('/apix/'.length)
         : path.startsWith('/')
         ? path.substring(1)
         : path;
+
+    if (apiPath == 'v1/heartbeat') {
+      return _ok({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {'status': 'ok'},
+      });
+    }
+
+    if (apiPath == 'v1/time') {
+      return _ok({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {'server_time_ms': DateTime.now().millisecondsSinceEpoch},
+      });
+    }
+
+    if (method == 'POST' && apiPath == 'v1/app/device/challenge') {
+      return _ok({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'register_id': 'mock-register',
+          'challenge': 'mock-challenge',
+          'expires_in': 300,
+        },
+      });
+    }
+
+    if (method == 'POST' && apiPath == 'v1/app/device/register') {
+      return _ok({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {'key_id': 'mock-key'},
+      });
+    }
+
+    if (isGatewayApiPath) {
+      return _v1Error(
+        404,
+        'mock gateway route not found: $method /apix/$apiPath',
+      );
+    }
 
     if (apiPath.startsWith('aitown-chat/')) {
       return _handleChatroomHttp(method, apiPath, query, body);

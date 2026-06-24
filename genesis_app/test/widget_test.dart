@@ -8125,6 +8125,15 @@ void main() {
     await tester.enterText(
       find.descendant(
         of: find.byKey(
+          const ValueKey<String>('developer-gateway-api-base-url-field'),
+        ),
+        matching: find.byType(TextField),
+      ),
+      'gateway.example.com',
+    );
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(
           const ValueKey<String>('developer-chatroom-ws-base-url-field'),
         ),
         matching: find.byType(TextField),
@@ -8146,6 +8155,7 @@ void main() {
     );
     final saved = await AppEndpointOverrideStore.load();
     expect(saved.apiBaseUrl, 'https://api.example.com/api/');
+    expect(saved.gatewayApiBaseUrl, 'https://gateway.example.com/apix/');
     expect(saved.chatroomHttpBaseUrl, 'https://api.example.com/');
     expect(saved.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
     expect(
@@ -8168,6 +8178,10 @@ void main() {
     expect(identical(updatedServices, originalServices), isFalse);
     expect(updatedServices.config.apiBaseUrl, 'https://api.example.com/api/');
     expect(
+      updatedServices.config.gatewayApiBaseUrl,
+      'https://gateway.example.com/apix/',
+    );
+    expect(
       updatedServices.config.chatroomHttpBaseUrl,
       'https://api.example.com/',
     );
@@ -8189,6 +8203,7 @@ void main() {
 
     final config = await AppEndpointOverrideStore.loadConfig();
     expect(config.apiBaseUrl, 'https://api.example.com/api/');
+    expect(config.gatewayApiBaseUrl, 'https://gateway.example.com/apix/');
     expect(config.chatroomHttpBaseUrl, 'https://api.example.com/');
     expect(config.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
 
@@ -8206,6 +8221,10 @@ void main() {
     contentContext = tester.element(find.byType(DeveloperPageContent));
     final clearedServices = AppServicesScope.read(contentContext);
     expect(clearedServices.config.apiBaseUrl, GenesisApi.defaultApiBaseUrl);
+    expect(
+      clearedServices.config.gatewayApiBaseUrl,
+      GenesisApi.defaultGatewayApiBaseUrl,
+    );
     expect(
       clearedServices.config.chatroomHttpBaseUrl,
       GenesisApi.defaultChatroomHttpBaseUrl,

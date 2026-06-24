@@ -143,7 +143,7 @@ class OriginV1Api extends V1ApiResource {
   ///
   /// 提交参数:
   /// ```json
-  /// {"origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{"mode":"qualitative","label":"Goal Progress","label_note":"衡量角色对玩家的信任程度","unit":"%","range":[0,100],"default":0},"started_at":"string","tick_duration_time":"1 day","cover":"string","map_url":"string","characters":[],"locations":[]}
+  /// {"origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{"mode":"qualitative","label":"Goal Progress","label_note":"衡量角色对玩家的信任程度","unit":"%","range":[0,100],"default":0},"started_at":"string","tick_duration_time":"1 day","cover":"string","characters":[],"locations":[]}
   /// ```
   ///
   /// Response:
@@ -161,7 +161,6 @@ class OriginV1Api extends V1ApiResource {
     String? startedAt,
     String? tickDurationTime,
     required String cover,
-    String? mapUrl,
     required List<Map<String, dynamic>> characters,
     List<Map<String, dynamic>>? locations,
   }) {
@@ -178,7 +177,6 @@ class OriginV1Api extends V1ApiResource {
         'started_at': startedAt,
         'tick_duration_time': tickDurationTime,
         'cover': cover,
-        'map_url': mapUrl,
         'characters': characters,
         'locations': locations,
       }),
@@ -189,7 +187,7 @@ class OriginV1Api extends V1ApiResource {
   ///
   /// 提交参数:
   /// ```json
-  /// {"origin_id":"string","origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{"mode":"qualitative","label":"Goal Progress","label_note":"衡量角色对玩家的信任程度","unit":"%","range":[0,100],"default":0},"started_at":"string","tick_duration_time":"1 day","cover":"string","map_url":"string","characters":[],"locations":[],"update_notes":"string","deleted_char_ids":[],"deleted_location_ids":[]}
+  /// {"origin_id":"string","origin_name":"string","origin_version":"string","brief":"string","setting":"string","events":["string"],"tags":["string"],"metric":{"mode":"qualitative","label":"Goal Progress","label_note":"衡量角色对玩家的信任程度","unit":"%","range":[0,100],"default":0},"started_at":"string","tick_duration_time":"1 day","cover":"string","characters":[],"locations":[],"update_notes":"string","deleted_char_ids":[],"deleted_location_ids":[]}
   /// ```
   ///
   /// Response:
@@ -208,7 +206,6 @@ class OriginV1Api extends V1ApiResource {
     String? startedAt,
     String? tickDurationTime,
     required String cover,
-    String? mapUrl,
     required List<Map<String, dynamic>> characters,
     List<Map<String, dynamic>>? locations,
     List<String>? deletedCharIds,
@@ -229,7 +226,6 @@ class OriginV1Api extends V1ApiResource {
         'started_at': startedAt,
         'tick_duration_time': tickDurationTime,
         'cover': cover,
-        'map_url': mapUrl,
         'characters': characters,
         'locations': locations,
         'update_notes': updateNotes,

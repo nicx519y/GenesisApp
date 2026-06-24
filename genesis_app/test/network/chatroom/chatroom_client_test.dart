@@ -7,6 +7,7 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_connection_controller.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_socket_transport.dart';
+import 'package:genesis_flutter_android/network/gateway_auth.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
@@ -26,16 +27,61 @@ void main() {
       'ws://localhost:8082/aitown-chat/ws?world_id=world-1',
     );
     expect(transport.lastHeaders, {
-      'app-id': 'test-app-id',
-      'app-version': '0.1.0',
-      'app-platform': 'android',
-      'device-id': 'test-device-id',
+      'user-agent': 'Android 15',
       'Authorization': 'Bearer token-1',
     });
     expect(socket.sentTypes, isNot(contains('join')));
     expect(session.joined, isNull);
     await session.disconnect();
   });
+
+  test(
+    'connect includes signed Gateway headers when handshake signer is set',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final transport = _FakeChatroomTransport(socket);
+      final client = await _client(
+        transport,
+        handshakeHeaderSigner: (uri, headers) async {
+          expect(
+            uri.toString(),
+            'ws://localhost:8082/aitown-chat/ws?world_id=world-1',
+          );
+          expect(headers['Authorization'], 'Bearer token-1');
+          return {
+            ...headers,
+            'X-App-ID': 'hashed-app-id',
+            'X-Platform': 'android',
+            'X-Device-ID': 'test-device-id',
+            'X-App-Version': '0.1.0',
+            'X-Key-ID': 'key-registered',
+            'X-Timestamp': '1000',
+            'X-Nonce': 'nonce-1',
+            'X-Body-SHA256': 'empty-body-hash',
+            'X-Signature-Alg': 'ECDSA-P256-SHA256',
+            'X-Signature': 'signature-1',
+          };
+        },
+      );
+
+      final session = await client.connect(
+        worldId: 'world-1',
+        locationId: 'loc-1',
+      );
+
+      expect(transport.lastHeaders?['X-App-ID'], 'hashed-app-id');
+      expect(transport.lastHeaders?['X-Platform'], 'android');
+      expect(transport.lastHeaders?['X-Device-ID'], 'test-device-id');
+      expect(transport.lastHeaders?['X-App-Version'], '0.1.0');
+      expect(transport.lastHeaders?['X-Key-ID'], 'key-registered');
+      expect(transport.lastHeaders?['X-Timestamp'], '1000');
+      expect(transport.lastHeaders?['X-Nonce'], 'nonce-1');
+      expect(transport.lastHeaders?['X-Body-SHA256'], 'empty-body-hash');
+      expect(transport.lastHeaders?['X-Signature-Alg'], 'ECDSA-P256-SHA256');
+      expect(transport.lastHeaders?['X-Signature'], 'signature-1');
+      await session.disconnect();
+    },
+  );
 
   test('join sends join frame and completes with matching ack', () async {
     final socket = _FakeChatroomSocket();
@@ -895,6 +941,7 @@ Future<ChatroomClient> _client(
   Duration heartbeatInterval = const Duration(seconds: 2),
   Duration ackTimeout = const Duration(milliseconds: 100),
   bool autoHeartbeat = true,
+  GatewayHandshakeHeaderSigner? handshakeHeaderSigner,
 }) async {
   final store = MemoryUserSessionStore();
   await store.saveUid('u_1');
@@ -907,10 +954,13 @@ Future<ChatroomClient> _client(
     heartbeatInterval: heartbeatInterval,
     ackTimeout: ackTimeout,
     autoHeartbeat: autoHeartbeat,
+    handshakeHeaderSigner: handshakeHeaderSigner,
     requestHeaderProvider: () async => const {
-      'app-id': 'test-app-id',
+      'user-agent': 'Android 15',
+      'app-id': 'legacy-app-id',
       'app-version': '0.1.0',
       'app-platform': 'android',
+      'device-id': 'legacy-device-id',
     },
   );
 }

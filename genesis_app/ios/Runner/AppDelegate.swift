@@ -13,6 +13,7 @@ import UniformTypeIdentifiers
   private let userInfoKey = "user_info"
   private let deviceIdKey = "genesis_device_id"
   private let deviceIdKeychainService = "com.worldo.ai.device-id"
+  private let gatewayKeyTag = "com.worldo.ai.gateway-device-key.v1".data(using: .utf8)!
   private let prefs = UserDefaults.standard
   private var pendingDiscussImagePickerResult: FlutterResult?
 
@@ -77,6 +78,8 @@ import UniformTypeIdentifiers
         result(displayName ?? bundleName ?? "")
       case "getAppVersion":
         result(self.appVersionInfo())
+      case "getSystemUserAgent":
+        result("\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)")
       case "openExternalUrl":
         let args = call.arguments as? [String: Any]
         let value = (args?["url"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -87,6 +90,23 @@ import UniformTypeIdentifiers
         UIApplication.shared.open(url, options: [:]) { success in
           result(success)
         }
+      case "gatewayPublicKey":
+        do {
+          result(try self.gatewayPublicKeyBase64Url())
+        } catch {
+          result(FlutterError(code: "gateway_public_key_failed", message: error.localizedDescription, details: nil))
+        }
+      case "signGatewayCanonical":
+        let args = call.arguments as? [String: Any]
+        let canonical = args?["canonical"] as? String ?? ""
+        do {
+          result(try self.signGatewayCanonical(canonical))
+        } catch {
+          result(FlutterError(code: "gateway_signature_failed", message: error.localizedDescription, details: nil))
+        }
+      case "resetGatewayKey":
+        self.resetGatewayKey()
+        result(nil)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -365,6 +385,100 @@ import UniformTypeIdentifiers
       kSecAttrService as String: deviceIdKeychainService,
       kSecAttrAccount as String: deviceIdKey,
     ]
+  }
+
+  private func gatewayPublicKeyBase64Url() throws -> String {
+    let privateKey = try ensureGatewayPrivateKey()
+    guard let publicKey = SecKeyCopyPublicKey(privateKey) else {
+      throw NSError(domain: "GatewayKey", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing public key"])
+    }
+    var error: Unmanaged<CFError>?
+    guard let publicData = SecKeyCopyExternalRepresentation(publicKey, &error) as Data? else {
+      throw error?.takeRetainedValue() as Error? ??
+        NSError(domain: "GatewayKey", code: 2, userInfo: [NSLocalizedDescriptionKey: "Public key export failed"])
+    }
+    return base64Url(spkiDerForP256PublicKey(publicData))
+  }
+
+  private func signGatewayCanonical(_ canonical: String) throws -> String {
+    let privateKey = try ensureGatewayPrivateKey()
+    let data = Data(canonical.utf8)
+    var error: Unmanaged<CFError>?
+    guard let signature = SecKeyCreateSignature(
+      privateKey,
+      .ecdsaSignatureMessageX962SHA256,
+      data as CFData,
+      &error
+    ) as Data? else {
+      throw error?.takeRetainedValue() as Error? ??
+        NSError(domain: "GatewayKey", code: 3, userInfo: [NSLocalizedDescriptionKey: "Signature failed"])
+    }
+    return base64Url(signature)
+  }
+
+  private func ensureGatewayPrivateKey() throws -> SecKey {
+    if let existing = readGatewayPrivateKey() {
+      return existing
+    }
+
+    let attributes: [String: Any] = [
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+      kSecAttrKeySizeInBits as String: 256,
+      kSecPrivateKeyAttrs as String: [
+        kSecAttrIsPermanent as String: true,
+        kSecAttrApplicationTag as String: gatewayKeyTag,
+        kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+      ]
+    ]
+    var error: Unmanaged<CFError>?
+    guard let key = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
+      throw error?.takeRetainedValue() as Error? ??
+        NSError(domain: "GatewayKey", code: 4, userInfo: [NSLocalizedDescriptionKey: "Key generation failed"])
+    }
+    return key
+  }
+
+  private func readGatewayPrivateKey() -> SecKey? {
+    var query = gatewayPrivateKeyQuery()
+    query[kSecReturnRef as String] = true
+    query[kSecMatchLimit as String] = kSecMatchLimitOne
+
+    var item: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    guard status == errSecSuccess else {
+      return nil
+    }
+    return (item as! SecKey)
+  }
+
+  private func resetGatewayKey() {
+    SecItemDelete(gatewayPrivateKeyQuery() as CFDictionary)
+  }
+
+  private func gatewayPrivateKeyQuery() -> [String: Any] {
+    return [
+      kSecClass as String: kSecClassKey,
+      kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+      kSecAttrApplicationTag as String: gatewayKeyTag
+    ]
+  }
+
+  private func spkiDerForP256PublicKey(_ x963PublicKey: Data) -> Data {
+    let prefix: [UInt8] = [
+      0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2A, 0x86,
+      0x48, 0xCE, 0x3D, 0x02, 0x01, 0x06, 0x08, 0x2A,
+      0x86, 0x48, 0xCE, 0x3D, 0x03, 0x01, 0x07, 0x03,
+      0x42, 0x00
+    ]
+    return Data(prefix) + x963PublicKey
+  }
+
+  private func base64Url(_ data: Data) -> String {
+    return data
+      .base64EncodedString()
+      .replacingOccurrences(of: "+", with: "-")
+      .replacingOccurrences(of: "/", with: "_")
+      .replacingOccurrences(of: "=", with: "")
   }
 
   private func signInDiagnostics() -> [String: Any] {
