@@ -225,15 +225,6 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Place your world on the map. Add a location image and name, then link characters who start there.',
-                        style: TextStyle(
-                          color: createFormMuted,
-                          fontSize: 12,
-                          height: 1.35,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
                       Align(
                         alignment: Alignment.centerRight,
                         child: Text(

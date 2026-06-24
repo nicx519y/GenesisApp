@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/auth/login_guard.dart';
+import '../../components/chat/shared/chat_ui.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/chat/shared/chat_ui.dart';
@@ -589,7 +590,6 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = kLocationChatStyle;
     final bottomInset = GenesisSafeAreaInsets.bottom(context);
-
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(
@@ -606,20 +606,18 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
                 : null,
             gradient: style.composerBackgroundGradient,
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: GenesisPrimaryButton(
-                  label: launching ? 'Launching...' : 'Launch to send',
-                  onPressed: launching ? null : onLaunch,
-                  height: style.inputMinHeight,
-                  borderRadius: BorderRadius.circular(
-                    style.systemMessageBorderRadius,
-                  ),
+          child: Center(
+            child: SizedBox(
+              width: MediaQuery.sizeOf(context).width * 0.7,
+              child: GenesisPrimaryButton(
+                label: launching ? 'Launching...' : 'Launch to send',
+                onPressed: launching ? null : onLaunch,
+                height: style.inputMinHeight,
+                borderRadius: BorderRadius.circular(
+                  style.systemMessageBorderRadius,
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1049,6 +1047,7 @@ class _OriginHeader extends StatelessWidget {
             SizedBox(
               width: 38,
               child: GenesisMoreActionMenuButton(
+                buttonSize: 18 * 1.25,
                 items: [
                   GenesisActionMenuItem(
                     label: 'Report',
@@ -1124,7 +1123,7 @@ class _WorldViewSection extends StatelessWidget {
         const _SectionTitle(
           icon: MyFlutterApp.eye,
           iconColor: Color(0xFFFF2344),
-          title: 'World View',
+          title: 'Worldo Brief',
         ),
         // World view inner spacing: section title -> body text.
         const SizedBox(height: 8),

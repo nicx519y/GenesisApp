@@ -119,15 +119,6 @@ class _OriginStoryEventsEditorPageState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Optional story beats or scenes. Each event is free text; keep them short and clear for the world runtime.',
-                        style: TextStyle(
-                          color: createFormMuted,
-                          fontSize: 12,
-                          height: 1.35,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
                       Align(
                         alignment: Alignment.centerRight,
                         child: Text(
@@ -319,15 +310,10 @@ class _ModifiedSectionBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: 16,
       height: 16,
-      decoration: const BoxDecoration(
-        color: Color(0xFFE53935),
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: const Icon(Icons.priority_high, color: Colors.white, size: 12),
+      child: SvgPicture.asset(refreshModifiedIconAsset, fit: BoxFit.contain),
     );
   }
 }
@@ -350,7 +336,11 @@ class _CharacterCard extends StatelessWidget {
     return CreateFormCard(
       title: 'Character $index',
       onDelete: onDelete,
-      child: OriginCharacterFormFields(form: form, onChanged: onChanged),
+      child: OriginCharacterFormFields(
+        form: form,
+        onChanged: onChanged,
+        showFieldNotes: true,
+      ),
     );
   }
 }
@@ -401,7 +391,7 @@ class _LocationCard extends StatelessWidget {
                 child: CreateTextFieldBlock(
                   label: 'Location Name *',
                   controller: form.name,
-                  hintText: 'Enter location name...',
+                  hintText: 'eg. Main Street',
                   maxLength: 25,
                   maxLines: 1,
                   labelInputGap: 8,
@@ -414,8 +404,9 @@ class _LocationCard extends StatelessWidget {
           CreateTextFieldBlock(
             label: 'Description (Optional)',
             controller: form.description,
-            hintText: 'Show in Worldo location list',
+            hintText: 'eg. The half-empty main drag where every deal goes down',
             maxLength: 100,
+            note: "A short description shown in the worldo's location list.",
             minLines: 3,
             labelInputGap: 8,
             onChanged: (_) => onChanged(),
@@ -550,6 +541,10 @@ class _InitialCharactersField extends StatelessWidget {
               },
             ),
           ),
+        ),
+        const SizedBox(height: 8),
+        const CreateFormNote(
+          note: 'The characters who start here when the worldo begins.',
         ),
       ],
     );
@@ -907,8 +902,10 @@ class _StoryEventCard extends StatelessWidget {
           CreateTextFieldBlock(
             label: '',
             controller: controller,
-            hintText: 'Event (any language)',
+            hintText:
+                'eg. A national chain scouts a vacant lot, threatening to undercut every local on price.',
             maxLength: 100,
+            note: 'A key story beat the AI uses to steer the storyline.',
             minLines: 5,
             labelSize: 0,
             onChanged: (_) => onChanged(),

@@ -57,6 +57,7 @@ class UserAvatar {
     this.name,
     this.avatarUrl = '',
     this.showStar = false,
+    this.isPlayerControlledRole = false,
   });
 
   final String initials;
@@ -64,6 +65,7 @@ class UserAvatar {
   final String? name;
   final String avatarUrl;
   final bool showStar;
+  final bool isPlayerControlledRole;
 }
 
 enum WorldPointType { castle, shop, portal, tavern, camp }

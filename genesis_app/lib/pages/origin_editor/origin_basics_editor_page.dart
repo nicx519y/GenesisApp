@@ -91,7 +91,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
       return;
     }
     if (worldView.isEmpty) {
-      _showError('World View is required.');
+      _showError('Worldo Brief is required.');
       return;
     }
     if (coverImage.isEmpty) {
@@ -355,19 +355,10 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Define the core settings of your new world.',
-                        style: TextStyle(
-                          color: createFormMuted,
-                          fontSize: 12,
-                          height: 1.35,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
                       CreateTextFieldBlock(
                         label: 'Worldo Name *',
                         controller: _originNameController,
-                        hintText: 'Enter world name...',
+                        hintText: 'eg. Main Street',
                         maxLength: 30,
                         maxLines: 1,
                         labelInputGap: _fieldLabelInputGap,
@@ -383,11 +374,13 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                       ),
                       const SizedBox(height: _fieldGroupGap),
                       CreateTextFieldBlock(
-                        label: 'World View - Public*',
+                        label: 'Worldo Brief *',
                         controller: _worldViewController,
                         hintText:
-                            'Describe what users see at first glance: the grand cities, immediate crises, and well-known legends...',
+                            'eg. Half the shops on Main Street are boarded up. By Labor Day, the richest storefront owns the town.',
                         maxLength: 300,
+                        note:
+                            'The public hook players see first — the setting, the core conflict, and what makes it intriguing.',
                         minLines: 4,
                         labelInputGap: _fieldLabelInputGap,
                         onChanged: (_) => _onFormChanged(),
@@ -408,22 +401,19 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         children: [
                           CreateUploadBox(
                             controller: _coverImageController,
-                            label: 'Upload World Image',
+                            label: 'Upload',
                             width: 170,
                             height: 230,
                             iconSize: 42,
                             cropSize: const Size(800, 1200),
+                            emptyLabelFontSize: 14,
                             onChanged: _onFormChanged,
                           ),
                           const SizedBox(width: 14),
                           const Expanded(
-                            child: Text(
-                              'Used for cards and detail pages.\nRecommend ~768×1024 px.\nSupported formats: JPG, PNG, WEBP.',
-                              style: TextStyle(
-                                color: createFormMuted,
-                                fontSize: 12,
-                                height: 1.28,
-                              ),
+                            child: CreateFormNote(
+                              note:
+                                  'Used for cards and detail pages. Recommend ~768×1024 px. Supported formats: JPG, PNG, WEBP.',
                             ),
                           ),
                         ],
@@ -432,18 +422,20 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                       const _AdvancedSettingsDivider(),
                       const SizedBox(height: 26),
                       CreateTextFieldBlock(
-                        label: 'World Logic - Hidden (Optional)',
+                        label: 'Worldo Settings - Hidden (Optional)',
                         controller: _worldLogicController,
                         hintText:
-                            'Define the logic for AI to drive the story: hidden conspiracies, physical laws, undisclosed boss weaknesses, and numerical boundaries...',
-                        maxLength: 2000,
+                            'eg. The banker secretly controls who gets loans; whoever overextends can be squeezed out.',
+                        maxLength: 1000,
+                        note:
+                            'The hidden rules and backstory that drive the story — agendas, mechanics, and secret limits.',
                         minLines: 5,
                         labelInputGap: _fieldLabelInputGap,
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
                       const Text(
-                        'World Time (Optional)',
+                        'Worldo Time (Optional)',
                         style: TextStyle(
                           color: createFormText,
                           fontSize: 14,
@@ -451,13 +443,21 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                           height: 1.2,
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      const CreateFormNote(
+                        note:
+                            'This worldo starts at {Start Time}; each time the user taps *progress*, the timeline moves forward by {Time per Progress}.',
+                        markdown: true,
+                      ),
                       const SizedBox(height: 14),
-                      const _SimulationFieldLabel('World Start Time'),
+                      const _SimulationFieldLabel('Start Time'),
                       const SizedBox(height: _fieldLabelInputGap),
                       CreateTextFieldBlock(
                         label: '',
                         controller: _worldStartTimeController,
-                        hintText: 'Day 1 / 2026-01-01 / Dark Year One',
+                        hintText: 'eg. Day 1, 09:00 / 2026-01-01',
+                        maxLength: 30,
+                        showCounter: false,
                         maxLines: 1,
                         onChanged: (_) => _onFormChanged(),
                       ),
@@ -472,13 +472,23 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                       CreateTextFieldBlock(
                         label: '',
                         controller: _timeProgressCustomController,
-                        hintText: 'Custom, e.g. 3 days',
+                        hintText: 'eg. 8 hours / 3 days',
+                        maxLength: 10,
+                        showCounter: false,
                         maxLines: 1,
+                        prefix: const Text(
+                          'Custom',
+                          style: TextStyle(
+                            color: createFormText,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
                         onChanged: _handleTimeProgressCustomChanged,
                       ),
                       const SizedBox(height: _fieldGroupGap),
                       const Text(
-                        'Progress Metric (Optional)',
+                        'Worldo Metric (Optional)',
                         style: TextStyle(
                           color: createFormText,
                           fontSize: 14,
@@ -486,13 +496,20 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                           height: 1.2,
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      const CreateFormNote(
+                        note:
+                            "This worldo updates each character's {Metric Label} every progress, shown in {Unit}. Each character starts at {Starting}, and the value can move within {Delta Min}–{Delta Max}.",
+                      ),
                       const SizedBox(height: 14),
-                      const _SimulationFieldLabel('Label'),
+                      const _SimulationFieldLabel('Metric Label'),
                       const SizedBox(height: _fieldLabelInputGap),
                       CreateTextFieldBlock(
                         label: '',
                         controller: _progressMetricController,
-                        hintText: 'Goal Progress / Wealth / Affection',
+                        hintText: 'eg. Wealth / Goal Progress',
+                        maxLength: 20,
+                        showCounter: false,
                         maxLines: 1,
                         onChanged: (_) => _onFormChanged(),
                       ),
@@ -503,6 +520,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         label: '',
                         controller: _labelNoteController,
                         hintText: 'Describe what this metric measures',
+                        maxLength: 50,
+                        showCounter: false,
                         maxLines: 1,
                         onChanged: (_) => _onFormChanged(),
                       ),
@@ -512,7 +531,9 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                       CreateTextFieldBlock(
                         label: '',
                         controller: _unitController,
-                        hintText: '%, percent, pts, coins, reputation',
+                        hintText: 'eg. coins / %',
+                        maxLength: 10,
+                        showCounter: false,
                         maxLines: 1,
                         onChanged: (_) => _onFormChanged(),
                       ),

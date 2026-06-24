@@ -9,6 +9,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
+import '../../components/ai_content_disclaimer.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../icons/custom_icon_assets.dart';
@@ -17,6 +18,7 @@ import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../network/models/world.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
@@ -600,7 +602,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final reconcileStopwatch = _panelMetricsEnabled
         ? (Stopwatch()..start())
         : null;
-    final changedMessages = _reconcileMessages(nextSource);
+    final changedMessages = _reconcileMessages(
+      nextSource,
+      identityState: state,
+    );
     final nextAwaitingAiResponse =
         _awaitingAiResponse && !_hasCompletedAwaitedAiResponse(nextSource);
     final shouldRebuild =
@@ -724,7 +729,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     );
   }
 
-  bool _reconcileMessages(List<WorldChatroomMessage> source) {
+  bool _reconcileMessages(
+    List<WorldChatroomMessage> source, {
+    WorldChatroomState? identityState,
+  }) {
+    final resolvedIdentityState = identityState ?? _chatroomState;
     final visibleSource = visibleLocationChatMessagesForTesting(source);
     final previous = _messages.where((message) => !message.isSystem).toList();
     final existingByKey = {
@@ -746,7 +755,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       final localId = _messageLocalId(message);
       final status = message.streaming ? 'streaming' : 'sent';
       final isMe = _isMineMessage(message);
-      final senderName = _messageSenderDisplayName(message);
+      final senderName = _messageSenderDisplayName(
+        message,
+        identityState: resolvedIdentityState,
+      );
+      final isPlayerControlledRole = _messageSenderIsPlayerControlledRole(
+        message,
+        identityState: resolvedIdentityState,
+      );
       final clientMsgId = message.clientMsgId.trim();
       final existing =
           (clientMsgId.isEmpty ? null : existingByClientMsgId[clientMsgId]) ??
@@ -775,6 +791,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             existing.roundId != message.conversationRoundId ||
             existing.tickNo != message.tickNo ||
             existing.senderName != senderName ||
+            existing.isPlayerControlledRole != isPlayerControlledRole ||
             existing.avatarUrl != avatarUrl ||
             existing.text != message.content ||
             existing.status != status ||
@@ -785,6 +802,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         existing.roundId = message.conversationRoundId;
         existing.tickNo = message.tickNo;
         existing.senderName = senderName;
+        existing.isPlayerControlledRole = isPlayerControlledRole;
         existing.avatarUrl = avatarUrl;
         existing.text = message.content;
         existing.status = status;
@@ -800,6 +818,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           tickNo: message.tickNo,
           senderId: message.senderId,
           senderName: senderName,
+          isPlayerControlledRole: isPlayerControlledRole,
           avatarUrl: avatarUrl,
           text: message.content,
           isMe: isMe,
@@ -968,6 +987,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       senderId: _mySenderId,
       senderName: _localSelfDisplayName(),
       avatarUrl: _resizedLocationChatAvatarUrl(_localSelfAvatarUrl()),
+      isPlayerControlledRole: _identityCandidatesArePlayerControlledRole([
+        _myUserId,
+        _mySenderId,
+      ]),
       text: text,
       isMe: true,
       status: 'sending',
@@ -1110,13 +1133,30 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     ].join(':');
   }
 
-  String _messageSenderDisplayName(WorldChatroomMessage message) {
+  String _messageSenderDisplayName(
+    WorldChatroomMessage message, {
+    WorldChatroomState? identityState,
+  }) {
+    final state = identityState ?? _chatroomState;
     return firstNonEmpty([
-      _roleNameForIdentityCandidates([message.userId, message.senderId]),
-      _entityNameForIdentity(message.userId),
-      _entityNameForIdentity(message.senderId),
+      _roleNameForIdentityCandidates([
+        message.userId,
+        message.senderId,
+      ], identityState: state),
+      _entityNameForIdentity(message.userId, identityState: state),
+      _entityNameForIdentity(message.senderId, identityState: state),
       message.senderName,
     ]);
+  }
+
+  bool _messageSenderIsPlayerControlledRole(
+    WorldChatroomMessage message, {
+    WorldChatroomState? identityState,
+  }) {
+    return _identityCandidatesArePlayerControlledRole([
+      message.userId,
+      message.senderId,
+    ], identityState: identityState);
   }
 
   String _messageAvatarUrl(
@@ -1167,14 +1207,35 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     ]);
   }
 
-  String _entityNameForIdentity(String value) {
+  String _entityNameForIdentity(
+    String value, {
+    WorldChatroomState? identityState,
+  }) {
     final key = _chatroomIdentityKey(value);
     if (key.isEmpty) return '';
-    for (final entry in _chatroomState.entitiesById.entries) {
+    final state = identityState ?? _chatroomState;
+    for (final entry in state.entitiesById.entries) {
       if (_chatroomIdentityKey(entry.key) != key) continue;
       return entry.value.name;
     }
     return '';
+  }
+
+  bool _identityCandidatesArePlayerControlledRole(
+    List<String?> identities, {
+    WorldChatroomState? identityState,
+  }) {
+    final keys = identities
+        .map(_chatroomIdentityKey)
+        .where((key) => key.isNotEmpty)
+        .toSet();
+    if (keys.isEmpty) return false;
+    final state = identityState ?? _chatroomState;
+    for (final entry in state.entitiesById.entries) {
+      if (!keys.contains(_chatroomIdentityKey(entry.key))) continue;
+      if (entry.value.type == WorldChatroomEntityType.player) return true;
+    }
+    return _worldHasPlayerControlledRoleForIdentity(keys, state.world);
   }
 
   String _entityAvatarForIdentity(String value) {
@@ -1187,13 +1248,50 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     return '';
   }
 
-  String _roleNameForIdentityCandidates(List<String?> identities) {
+  bool _worldHasPlayerControlledRoleForIdentity(
+    Set<String> identityKeys,
+    WorldDetail? world,
+  ) {
+    if (world == null) return false;
+    for (final character in world.characterPositions) {
+      if (_characterCandidateIsPlayerControlled(character, identityKeys)) {
+        return true;
+      }
+    }
+    for (final character in world.characters) {
+      if (_characterCandidateIsPlayerControlled(character, identityKeys)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _characterCandidateIsPlayerControlled(
+    Map<String, dynamic> candidate,
+    Set<String> identityKeys,
+  ) {
+    final rawCharacter = candidate['character'];
+    final character = rawCharacter is Map
+        ? _stringKeyMap(rawCharacter)
+        : candidate;
+    if (!_characterMatchesIdentity(character, identityKeys)) return false;
+    return _firstMapString(character, const [
+      'player_uid',
+      'user_id',
+      'uid',
+    ]).isNotEmpty;
+  }
+
+  String _roleNameForIdentityCandidates(
+    List<String?> identities, {
+    WorldChatroomState? identityState,
+  }) {
     final keys = identities
         .map(_chatroomIdentityKey)
         .where((key) => key.isNotEmpty)
         .toSet();
     if (keys.isEmpty) return '';
-    final world = _chatroomState.world;
+    final world = (identityState ?? _chatroomState).world;
     if (world == null) return '';
     for (final character in world.characterPositions) {
       final candidate = _roleNameFromCharacterCandidate(character, keys);

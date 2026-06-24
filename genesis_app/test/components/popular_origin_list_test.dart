@@ -104,7 +104,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('#Alpha Empire'), findsWidgets);
-    expect(find.text('World View'), findsOneWidget);
+    expect(find.text('Worldo Brief'), findsOneWidget);
     expect(find.text('Copy World Progress'), findsOneWidget);
     expect(find.text('OID: o_alpha'), findsOneWidget);
     expect(requestedSummaryOid, 'o_alpha');
@@ -144,7 +144,7 @@ void main() {
     final worldViewIcon = tester.widget<Icon>(find.byIcon(MyFlutterApp.eye));
     expect(worldViewIcon.color, const Color(0xFFFF2344));
     expect(worldViewIcon.size, 14);
-    final worldViewTitle = tester.widget<Text>(find.text('World View'));
+    final worldViewTitle = tester.widget<Text>(find.text('Worldo Brief'));
     final progressTitle = tester.widget<Text>(find.text('Copy World Progress'));
     final discussTitle = tester.widget<Text>(find.text('Discuss (128)'));
     final worldViewBody = tester.widget<Text>(
@@ -170,7 +170,7 @@ void main() {
       _horizontalGap(
         tester,
         find.byIcon(MyFlutterApp.eye),
-        find.text('World View'),
+        find.text('Worldo Brief'),
       ),
       8,
     );

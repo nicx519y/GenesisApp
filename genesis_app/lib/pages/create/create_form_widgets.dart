@@ -19,11 +19,17 @@ const Color createFormFieldFill = Color(0xFFF4F4F6);
 const Color createFormHint = Color(0xFFA8A8AD);
 const Color createFormText = Color(0xFF111111);
 const Color createFormMuted = Color(0xFF6F6F6F);
+const Color createFormNote = Color(0xFF888888);
 const Color createFormBorder = Color(0xFFE1E1E6);
 const Color createFormDash = Color(0xFFB8CDBF);
 const Color createFormDanger = Color(0xFFE14949);
 const String createFormDeleteIconAsset =
     'assets/custom-icons/svg/delete-icon.svg';
+const String createFormInfoIconAsset = 'assets/custom-icons/svg/info.svg';
+const TextStyle createFormSupportTextStyle = TextStyle(
+  fontSize: 12,
+  height: 1.25,
+);
 const Duration _createUploadProgressTick = Duration(milliseconds: 270);
 const int _createUploadProgressBytesPerSecond = 50 * 1024;
 const double _createUploadProgressCap = 0.92;
@@ -38,6 +44,8 @@ class CreateTextFieldBlock extends StatefulWidget {
     required this.hintText,
     required this.onChanged,
     this.maxLength,
+    this.showCounter = true,
+    this.note,
     this.minLines = 1,
     this.maxLines,
     this.prefix,
@@ -55,6 +63,8 @@ class CreateTextFieldBlock extends StatefulWidget {
   final String hintText;
   final ValueChanged<String> onChanged;
   final int? maxLength;
+  final bool showCounter;
+  final String? note;
   final int minLines;
   final int? maxLines;
   final Widget? prefix;
@@ -228,26 +238,183 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock>
             ],
           ),
         ),
-        if (widget.maxLength != null) ...[
+        if (_hasSupportLine) ...[
           const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '${widget.controller.text.length} / ${widget.maxLength}',
-              style: const TextStyle(
-                color: createFormMuted,
-                fontSize: 12,
-                height: 1.2,
-              ),
-            ),
+          _CreateFieldSupportLine(
+            note: widget.note,
+            counter: widget.maxLength == null || !widget.showCounter
+                ? null
+                : '${widget.controller.text.length} / ${widget.maxLength}',
           ),
         ],
       ],
     );
   }
 
+  bool get _hasNote => widget.note?.trim().isNotEmpty == true;
+
+  bool get _hasSupportLine =>
+      _hasNote || (widget.maxLength != null && widget.showCounter);
+
   bool get _isSingleLine =>
       (widget.maxLines ?? widget.minLines) == 1 && widget.minLines == 1;
+}
+
+class _CreateFieldSupportLine extends StatelessWidget {
+  const _CreateFieldSupportLine({required this.note, required this.counter});
+
+  final String? note;
+  final String? counter;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedNote = note?.trim() ?? '';
+    final hasNote = normalizedNote.isNotEmpty;
+    if (!hasNote) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: _CreateFieldCounter(counter: counter ?? ''),
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: CreateFormNote(note: normalizedNote)),
+        if (counter != null) ...[
+          const SizedBox(width: 12),
+          _CreateFieldCounter(counter: counter!),
+        ],
+      ],
+    );
+  }
+}
+
+class CreateFormNote extends StatelessWidget {
+  const CreateFormNote({super.key, required this.note, this.markdown = false});
+
+  final String note;
+  final bool markdown;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 0),
+          child: SvgPicture.asset(
+            createFormInfoIconAsset,
+            width: 16,
+            height: 16,
+            colorFilter: const ColorFilter.mode(
+              createFormNote,
+              BlendMode.srcIn,
+            ),
+          ),
+        ),
+        const SizedBox(width: 5),
+        Expanded(
+          child: _CreateFormNoteText(note: note, markdown: markdown),
+        ),
+      ],
+    );
+  }
+}
+
+class _CreateFormNoteText extends StatelessWidget {
+  const _CreateFormNoteText({required this.note, required this.markdown});
+
+  final String note;
+  final bool markdown;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = createFormSupportTextStyle.copyWith(
+      color: createFormNote,
+    );
+    if (!markdown) {
+      return Text(note, softWrap: true, style: baseStyle);
+    }
+
+    return RichText(
+      text: TextSpan(style: baseStyle, children: _markdownSpans(note)),
+    );
+  }
+
+  List<TextSpan> _markdownSpans(String value) {
+    final spans = <TextSpan>[];
+    var index = 0;
+    while (index < value.length) {
+      final boldStart = value.indexOf('**', index);
+      final italicStart = value.indexOf('*', index);
+      final nextStart = _nextMarkdownStart(boldStart, italicStart);
+      if (nextStart < 0) {
+        spans.add(TextSpan(text: value.substring(index)));
+        break;
+      }
+      if (nextStart > index) {
+        spans.add(TextSpan(text: value.substring(index, nextStart)));
+      }
+
+      if (boldStart == nextStart) {
+        final end = value.indexOf('**', nextStart + 2);
+        if (end < 0) {
+          spans.add(TextSpan(text: value.substring(nextStart)));
+          break;
+        }
+        spans.add(
+          TextSpan(
+            text: value.substring(nextStart + 2, end),
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        );
+        index = end + 2;
+      } else {
+        final end = value.indexOf('*', nextStart + 1);
+        if (end < 0) {
+          spans.add(TextSpan(text: value.substring(nextStart)));
+          break;
+        }
+        spans.add(
+          TextSpan(
+            text: value.substring(nextStart + 1, end),
+            style: const TextStyle(fontStyle: FontStyle.italic),
+          ),
+        );
+        index = end + 1;
+      }
+    }
+    return spans;
+  }
+
+  int _nextMarkdownStart(int boldStart, int italicStart) {
+    final normalizedItalicStart = italicStart == boldStart
+        ? _valueNotFound
+        : italicStart;
+    if (boldStart < 0) return normalizedItalicStart;
+    if (normalizedItalicStart < 0) return boldStart;
+    return boldStart < normalizedItalicStart
+        ? boldStart
+        : normalizedItalicStart;
+  }
+}
+
+const int _valueNotFound = -1;
+
+class _CreateFieldCounter extends StatelessWidget {
+  const _CreateFieldCounter({required this.counter});
+
+  final String counter;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      counter,
+      textAlign: TextAlign.right,
+      style: createFormSupportTextStyle.copyWith(color: createFormMuted),
+    );
+  }
 }
 
 class CreateKeyboardDismissArea extends StatelessWidget {
@@ -368,6 +535,7 @@ class CreateUploadBox extends StatefulWidget {
     this.previewAlignment = Alignment.center,
     this.showRemoveLinkWhenFilled = true,
     this.emptyLabelFontWeight = FontWeight.w600,
+    this.emptyLabelFontSize = 12,
     this.removeLinkFontWeight = FontWeight.w600,
     this.emptyIconLabelGap = 12,
   });
@@ -383,6 +551,7 @@ class CreateUploadBox extends StatefulWidget {
   final Alignment previewAlignment;
   final bool showRemoveLinkWhenFilled;
   final FontWeight emptyLabelFontWeight;
+  final double emptyLabelFontSize;
   final FontWeight removeLinkFontWeight;
   final double emptyIconLabelGap;
 
@@ -464,6 +633,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
                     widget.label,
                     widget.iconSize,
                     widget.emptyLabelFontWeight,
+                    widget.emptyLabelFontSize,
                     widget.emptyIconLabelGap,
                   )
                 : _Preview(
@@ -644,12 +814,14 @@ class _EmptyUpload extends StatelessWidget {
     this.label,
     this.iconSize,
     this.labelFontWeight,
+    this.labelFontSize,
     this.iconLabelGap,
   );
 
   final String label;
   final double iconSize;
   final FontWeight labelFontWeight;
+  final double labelFontSize;
   final double iconLabelGap;
 
   @override
@@ -668,7 +840,7 @@ class _EmptyUpload extends StatelessWidget {
           textAlign: TextAlign.center,
           style: TextStyle(
             color: createFormMuted,
-            fontSize: 12,
+            fontSize: labelFontSize,
             fontWeight: labelFontWeight,
             height: 1.15,
           ),

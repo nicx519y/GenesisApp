@@ -492,11 +492,11 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     final basics = draft.basics;
     return [
       'Worldo Name: ${_originNameSummaryValue(basics.originName)}',
-      'World View: ${_summaryValue(basics.worldView)}',
+      'Worldo Brief: ${_summaryValue(basics.worldView)}',
       'Cover Image: ${basics.coverImageUrl.trim().isEmpty ? 'Not uploaded' : 'Uploaded'}',
-      'World Logic: ${_summaryValue(basics.worldLogic)}',
-      'World Time: ${_summaryValue(_worldTimeSummary(basics))}',
-      'Progress Metric: ${_summaryValue(_progressMetricSummary(basics))}',
+      'Worldo Settings: ${_summaryValue(basics.worldLogic)}',
+      'Worldo Time: ${_summaryValue(_worldTimeSummary(basics))}',
+      'Worldo Metric: ${_summaryValue(_progressMetricSummary(basics))}',
     ].join('\n');
   }
 

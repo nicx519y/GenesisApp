@@ -196,15 +196,6 @@ class _OriginCharactersEditorPageState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Define the souls that inhabit your world. Each character requires an identity and personality to interact authentically.',
-                        style: TextStyle(
-                          color: createFormMuted,
-                          fontSize: 12,
-                          height: 1.35,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
                       Align(
                         alignment: Alignment.centerRight,
                         child: Text(

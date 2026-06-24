@@ -10,6 +10,7 @@ import 'package:genesis_flutter_android/components/world_map_interaction_notific
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
+import 'package:genesis_flutter_android/pages/world/world_page.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 
 void main() {
@@ -74,6 +75,7 @@ void main() {
   ) async {
     await _pumpWorldMap(
       tester,
+      mapImageUrl: kMockV1SteamMapImage,
       users: const [
         UserAvatar(
           'AA',
@@ -110,6 +112,42 @@ void main() {
     expect(third.dy, first.dy);
     expect(second.dx, greaterThan(first.dx));
     expect(third.dx, greaterThan(second.dx));
+  });
+
+  test('player controlled map avatar uses highlighted border', () {
+    expect(
+      worldMapAvatarBorderColorForTesting(isPlayerControlledRole: true),
+      const Color(0xFF338960),
+    );
+    expect(
+      worldMapAvatarBorderColorForTesting(isPlayerControlledRole: false),
+      const Color(0xFFDDDDDD),
+    );
+  });
+
+  test('world map star only shows for unclaimed ai roles', () {
+    expect(
+      worldMapCharacterShouldShowStarForTesting({'type': 1, 'player_uid': ''}),
+      isTrue,
+    );
+    expect(
+      worldMapCharacterShouldShowStarForTesting({
+        'type': 'ai',
+        'player_uid': null,
+      }),
+      isTrue,
+    );
+    expect(
+      worldMapCharacterShouldShowStarForTesting({
+        'type': 1,
+        'player_uid': 'u_1',
+      }),
+      isFalse,
+    );
+    expect(
+      worldMapCharacterShouldShowStarForTesting({'type': 2, 'player_uid': ''}),
+      isFalse,
+    );
   });
 
   testWidgets(

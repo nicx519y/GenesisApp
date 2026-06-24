@@ -273,7 +273,10 @@ class _WorldViewSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _SectionHeader(icon: MyFlutterApp.eye, title: 'World View'),
+              const _SectionHeader(
+                icon: MyFlutterApp.eye,
+                title: 'Worldo Brief',
+              ),
               const SizedBox(
                 key: ValueKey('popular-origin-gap-world-view-title-body'),
                 height: 8,

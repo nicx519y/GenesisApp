@@ -6,10 +6,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../components/common/genesis_timestamp_text.dart';
+import '../../../components/ai_content_disclaimer.dart';
 import '../../../icons/custom_icon_assets.dart';
 import '../../../icons/my_flutter_app_icons.dart';
 import '../../../ui/components/genesis_avatar.dart';
 import '../../../ui/components/genesis_safe_area.dart';
+import '../../../ui/tokens/genesis_colors.dart';
 import 'chat_ui_style_config.dart';
 
 export 'chat_ui_style_config.dart';
@@ -74,6 +76,7 @@ class ChatMessageVm {
     required this.senderId,
     required this.senderName,
     this.avatarUrl = '',
+    this.isPlayerControlledRole = false,
     required this.text,
     required this.isMe,
     required this.status,
@@ -101,6 +104,7 @@ class ChatMessageVm {
   final String senderId;
   String senderName;
   String avatarUrl;
+  bool isPlayerControlledRole;
   String text;
   final bool isMe;
   String status;
@@ -667,6 +671,41 @@ class ChatMessageList extends StatelessWidget {
   }
 }
 
+class _ChatOldestEdgeContent extends StatelessWidget {
+  const _ChatOldestEdgeContent({
+    required this.topTitle,
+    required this.notice,
+    required this.style,
+  });
+
+  final String topTitle;
+  final String? notice;
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedNotice = notice?.trim() ?? '';
+    if (normalizedNotice.isEmpty) {
+      return _ChatTopTitle(name: topTitle, style: style);
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ChatTopTitle(name: topTitle, style: style),
+        AiContentDisclaimer(
+          text: normalizedNotice,
+          padding: EdgeInsets.fromLTRB(
+            20,
+            topTitle.trim().isEmpty ? 0 : 4,
+            20,
+            16,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ChatTopTitle extends StatelessWidget {
   const _ChatTopTitle({required this.name, required this.style});
 
@@ -799,6 +838,9 @@ class ChatMessageRow extends StatelessWidget {
             imageUrl: message.avatarUrl,
             colors: style.selfAvatarColors,
             seed: message.senderName,
+            borderColor: message.isPlayerControlledRole
+                ? GenesisColors.brand
+                : null,
             style: style,
           ),
         ],
@@ -824,6 +866,9 @@ class ChatMessageRow extends StatelessWidget {
                   imageUrl: message.avatarUrl,
                   colors: style.otherAvatarColors,
                   seed: message.senderName,
+                  borderColor: message.isPlayerControlledRole
+                      ? GenesisColors.brand
+                      : null,
                   style: style,
                 ),
               ),
@@ -839,7 +884,11 @@ class ChatMessageRow extends StatelessWidget {
                     message.senderName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: style.senderNameTextStyle,
+                    style: message.isPlayerControlledRole
+                        ? style.senderNameTextStyle.copyWith(
+                            color: GenesisColors.brand,
+                          )
+                        : style.senderNameTextStyle,
                   ),
                   SizedBox(height: style.senderNameBottomGap),
                 ],
@@ -936,6 +985,7 @@ class ChatAvatar extends StatelessWidget {
     required this.colors,
     this.imageUrl = '',
     this.seed,
+    this.borderColor,
     this.style,
   });
 
@@ -943,6 +993,7 @@ class ChatAvatar extends StatelessWidget {
   final List<Color> colors;
   final String imageUrl;
   final String? seed;
+  final Color? borderColor;
   final ChatUiStyleConfig? style;
 
   @override
@@ -970,7 +1021,7 @@ class ChatAvatar extends StatelessWidget {
               size: style.avatarSize,
               borderRadius: style.avatarBorderRadius,
               textStyle: style.avatarTextStyle,
-              showFallbackWhileLoading: imageUrl.isEmpty,
+              showFallbackWhileLoading: false,
               showFallbackWhenUnavailable: imageUrl.isEmpty,
             ),
           ),
@@ -978,7 +1029,10 @@ class ChatAvatar extends StatelessWidget {
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white, width: 1),
+                  border: Border.all(
+                    color: borderColor ?? Colors.white,
+                    width: 1,
+                  ),
                   borderRadius: BorderRadius.circular(style.avatarBorderRadius),
                 ),
               ),
