@@ -1769,11 +1769,7 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
             .map((e) => _normalizeWorldLocation(asJsonMap(e)))
             .toList(growable: false)
       : const <Map<String, dynamic>>[];
-  final locationTree = buildLocationTree(
-    locations,
-    idOf: (location) => asString(location['location_id']),
-    parentIdOf: (location) => asString(location['location_pid']),
-  );
+  final locationTree = buildWorldLocationTree(locations, worldMapUrl: mapUrl);
   final charactersRaw = raw['characters'];
   final characters = charactersRaw is List
       ? asJsonList(charactersRaw)
@@ -1821,6 +1817,7 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
     characterCount: asInt(stats['character_cnt']),
     playerCount: asInt(stats['player_cnt']),
     currentTime: asString(world['current_time']),
+    mapImageUrl: mapUrl,
     latestTickAt: _apiDateTime(lastTick['created_at'] ?? world['created_at']),
     latestNarrator: asString(lastTickResult['narrator']),
     isProgressing: asInt(world['status']) == 20,

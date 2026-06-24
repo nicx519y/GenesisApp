@@ -72,9 +72,6 @@ class ProcessedLocationTree<T> {
     final node = nodeById(nodeId);
     if (node == null) return null;
     if (node.children.isEmpty) return node;
-    if (node.children.length == 1 && node.children.single.children.isEmpty) {
-      return node.children.single;
-    }
     return null;
   }
 
@@ -152,6 +149,39 @@ LocationTreeNode<T> collapseSingleChildMapRoot<T>(LocationTreeNode<T> root) {
     current = current.children.single;
   }
   return current;
+}
+
+List<LocationTreeNode<T>> withSyntheticRoot<T>(
+  List<LocationTreeNode<T>> roots, {
+  required String id,
+  required T value,
+}) {
+  return <LocationTreeNode<T>>[
+    LocationTreeNode<T>(
+      id: id,
+      parentId: '',
+      value: value,
+      depth: 0,
+      children: roots
+          .map((node) => _redepthLocationTreeNode(node, 1))
+          .toList(growable: false),
+    ),
+  ];
+}
+
+LocationTreeNode<T> _redepthLocationTreeNode<T>(
+  LocationTreeNode<T> node,
+  int depth,
+) {
+  return LocationTreeNode<T>(
+    id: node.id,
+    parentId: node.parentId,
+    value: node.value,
+    depth: depth,
+    children: node.children
+        .map((child) => _redepthLocationTreeNode(child, depth + 1))
+        .toList(growable: false),
+  );
 }
 
 List<LocationTreeNode<T>> initialVisibleMapNodes<T>(

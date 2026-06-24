@@ -62,6 +62,7 @@ class WorldDetail {
     required this.characterCount,
     required this.playerCount,
     required this.currentTime,
+    this.mapImageUrl = '',
     required this.latestTickAt,
     required this.latestNarrator,
     required this.isProgressing,
@@ -94,6 +95,7 @@ class WorldDetail {
   final int characterCount;
   final int playerCount;
   final String currentTime;
+  final String mapImageUrl;
   final DateTime? latestTickAt;
   final String latestNarrator;
   final bool isProgressing;
@@ -124,6 +126,7 @@ class WorldDetail {
     int? characterCount,
     int? playerCount,
     String? currentTime,
+    String? mapImageUrl,
     DateTime? latestTickAt,
     String? latestNarrator,
     bool? isProgressing,
@@ -145,10 +148,9 @@ class WorldDetail {
     List<LocationTreeNode<Map<String, dynamic>>>? nextLocationTree =
         locationTree;
     if (nextLocationTree == null && locations != null) {
-      nextLocationTree = buildLocationTree(
+      nextLocationTree = buildWorldLocationTree(
         nextLocations,
-        idOf: (location) => asString(location['location_id']),
-        parentIdOf: (location) => asString(location['location_pid']),
+        worldMapUrl: mapImageUrl ?? this.mapImageUrl,
       );
     }
     final resolvedLocationTree = nextLocationTree ?? this.locationTree;
@@ -170,6 +172,7 @@ class WorldDetail {
       characterCount: characterCount ?? this.characterCount,
       playerCount: playerCount ?? this.playerCount,
       currentTime: currentTime ?? this.currentTime,
+      mapImageUrl: mapImageUrl ?? this.mapImageUrl,
       latestTickAt: latestTickAt ?? this.latestTickAt,
       latestNarrator: latestNarrator ?? this.latestNarrator,
       isProgressing: isProgressing ?? this.isProgressing,
@@ -198,10 +201,13 @@ class WorldDetail {
             json['locations'],
           ).map((e) => asJsonMap(e)).toList(growable: false)
         : const <Map<String, dynamic>>[];
-    final worldLocationTree = buildLocationTree(
+    final worldMapUrl = asString(
+      json['map_url'],
+      fallback: asString(json['map_image']),
+    );
+    final worldLocationTree = buildWorldLocationTree(
       rawWorldLocations,
-      idOf: (location) => asString(location['location_id']),
-      parentIdOf: (location) => asString(location['location_pid']),
+      worldMapUrl: worldMapUrl,
     );
     return WorldDetail(
       id: asInt(json['id']),
@@ -219,6 +225,7 @@ class WorldDetail {
       characterCount: asInt(json['character_count']),
       playerCount: asInt(json['player_count']),
       currentTime: asString(json['current_time']),
+      mapImageUrl: worldMapUrl,
       latestTickAt: asDateTime(json['latest_tick_at']),
       latestNarrator: asString(json['latest_narrator']),
       isProgressing: asBool(json['is_progressing']),
@@ -273,6 +280,30 @@ class WorldDetail {
           : const [],
     );
   }
+}
+
+const String worldSyntheticRootLocationId = '__world_root__';
+
+List<LocationTreeNode<Map<String, dynamic>>> buildWorldLocationTree(
+  List<Map<String, dynamic>> locations, {
+  required String worldMapUrl,
+}) {
+  final tree = buildLocationTree(
+    locations,
+    idOf: (location) => asString(location['location_id']),
+    parentIdOf: (location) => asString(location['location_pid']),
+  );
+  return withSyntheticRoot<Map<String, dynamic>>(
+    tree,
+    id: worldSyntheticRootLocationId,
+    value: <String, dynamic>{
+      'location_id': worldSyntheticRootLocationId,
+      'location_pid': '',
+      'location_name': '',
+      'map_url': worldMapUrl,
+      'synthetic_root': true,
+    },
+  );
 }
 
 @immutable

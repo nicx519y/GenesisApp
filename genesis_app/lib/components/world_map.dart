@@ -316,10 +316,13 @@ class _WorldMapState extends State<WorldMap> {
           );
           return;
         }
+        final displayNode = _displayNodeForDrill(node);
         await _runLocationTapLocked(_locationTapKey(point), () async {
           widget.onDrillIntoLocation?.call();
           final origin = _mapTransitionOrigin(point);
-          final path = _nodePath(node.id);
+          final path = displayNode.id == node.id
+              ? _nodePath(displayNode.id)
+              : <String>[displayNode.id];
           setState(() {
             _mapTransition = _MapTransitionSpec(
               origin: origin,
@@ -328,10 +331,10 @@ class _WorldMapState extends State<WorldMap> {
             _locationTrail
               ..clear()
               ..addAll(
-                (path.isEmpty ? <String>[node.id] : path).map(
+                (path.isEmpty ? <String>[displayNode.id] : path).map(
                   (id) => _WorldMapLocationTrailEntry(
                     id: id,
-                    origin: id == node.id ? origin : Alignment.center,
+                    origin: id == displayNode.id ? origin : Alignment.center,
                   ),
                 ),
               );
@@ -466,10 +469,16 @@ class _WorldMapState extends State<WorldMap> {
     final explicitTarget = node.chatTargetPoint;
     if (explicitTarget != null) return explicitTarget;
     if (node.children.isEmpty) return node.point;
-    if (node.children.length == 1 && node.children.single.children.isEmpty) {
-      return node.children.single.chatTargetPoint ?? node.children.single.point;
-    }
     return null;
+  }
+
+  WorldMapLocationNode _displayNodeForDrill(WorldMapLocationNode node) {
+    var current = node;
+    while (current.children.length == 1 &&
+        current.children.single.children.isNotEmpty) {
+      current = current.children.single;
+    }
+    return current;
   }
 
   WorldMapLocationNode? _findNode(String nodeId) {

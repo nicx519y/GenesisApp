@@ -141,28 +141,19 @@ class _WorldLocationListState extends State<WorldLocationList> {
   }
 
   List<Widget> _buildNodeRows(List<WorldMapLocationNode> nodes) {
-    final rows = <Widget>[];
-    for (final node in nodes) {
-      rows.add(_NodeHeader(point: node.point, level: 0));
-      rows.addAll(_buildSecondLevelRows(node.children));
-    }
-    return rows;
+    return _buildNodeRowsAtLevel(nodes, 0);
   }
 
-  List<Widget> _buildSecondLevelRows(List<WorldMapLocationNode> nodes) {
+  List<Widget> _buildNodeRowsAtLevel(
+    List<WorldMapLocationNode> nodes,
+    int level,
+  ) {
     final rows = <Widget>[];
     for (final node in nodes) {
-      if (node.children.length == 1 && node.children.single.children.isEmpty) {
-        rows.add(
-          _LocationCard(
-            point: node.point,
-            targetPoint:
-                node.children.single.chatTargetPoint ??
-                node.children.single.point,
-            indent: 15,
-            onTap: widget.onPointTap,
-          ),
-        );
+      final hideSyntheticRootHeader =
+          node.isRoot && node.point.name.trim().isEmpty;
+      if (hideSyntheticRootHeader) {
+        rows.addAll(_buildNodeRowsAtLevel(node.children, level));
         continue;
       }
 
@@ -171,24 +162,15 @@ class _WorldLocationListState extends State<WorldLocationList> {
           _LocationCard(
             point: node.point,
             targetPoint: node.chatTargetPoint ?? node.point,
-            indent: 15,
+            indent: level * 15.0,
             onTap: widget.onPointTap,
           ),
         );
         continue;
       }
 
-      rows.add(_NodeHeader(point: node.point, level: 1));
-      for (final child in node.children) {
-        rows.add(
-          _LocationCard(
-            point: child.point,
-            targetPoint: child.chatTargetPoint ?? child.point,
-            indent: 30,
-            onTap: widget.onPointTap,
-          ),
-        );
-      }
+      rows.add(_NodeHeader(point: node.point, level: level));
+      rows.addAll(_buildNodeRowsAtLevel(node.children, level + 1));
     }
     return rows;
   }

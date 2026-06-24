@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/common/copyable_id_label.dart';
-import '../../components/ai_content_disclaimer.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_action_box.dart';
@@ -1066,6 +1065,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       world.processedLocationTree.collapsedMapRoots,
     ).trim();
     if (rootLocationMapUrl.isNotEmpty) return rootLocationMapUrl;
+    final worldMapUrl = world.mapImageUrl.trim();
+    if (worldMapUrl.isNotEmpty) return worldMapUrl;
     return world.origin.worldMap.trim();
   }
 
@@ -1666,7 +1667,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         ? _pointsFromWorldLocations(world.locations, avatarsByLocation)
         : points;
     final thirdLevelLocationCount = allLocationNodes
-        .where((node) => node.depth == 2)
+        .where((node) => node.children.isEmpty)
         .length;
     final title = world.name.trim().isEmpty ? world.worldId : world.name.trim();
     final collapsedPanelHeight = _worldCollapsedPanelHeightFor(context, title);
