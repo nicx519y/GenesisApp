@@ -1126,7 +1126,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   String _rootMapImageUrlForWorld(WorldDetail world) {
     final rootLocationMapUrl = _rootWorldMapImageUrl(
-      world.processedLocationTree.collapsedMapRoots,
+      world.processedLocationTree.mapRoots,
     ).trim();
     if (rootLocationMapUrl.isNotEmpty) return rootLocationMapUrl;
     final worldMapUrl = world.mapImageUrl.trim();
@@ -1689,9 +1689,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       currentUid: _currentUid,
     );
     final processedLocationTree = world.processedLocationTree;
-    final rootLocationNodes = processedLocationTree.collapsedMapRoots;
+    final rootLocationNodes = processedLocationTree.mapRoots;
     final rootMapImageUrl = _rootMapImageUrlForWorld(world);
-    final renderLocationNodes = processedLocationTree.collapsedMapRenderRoots;
+    final renderLocationNodes = processedLocationTree.renderRoots;
     final allLocationNodes = processedLocationTree.flattened;
     final locationNodes = _worldMapLocationNodes(
       rootLocationNodes,

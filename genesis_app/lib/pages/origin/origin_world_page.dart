@@ -472,10 +472,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         }
 
         final processedLocationTree = origin.processedLocationTree;
-        final rootLocationNodes = processedLocationTree.collapsedMapRoots;
+        final rootLocationNodes = processedLocationTree.mapRoots;
         final mapImageUrl = _originRootMapImageUrl(rootLocationNodes);
-        final renderLocationNodes =
-            processedLocationTree.collapsedMapRenderRoots;
+        final renderLocationNodes = processedLocationTree.renderRoots;
         final allLocationNodes = processedLocationTree.flattened;
         final avatarsByLocation = _originAvatarsByLocation(
           origin.characters,
@@ -485,11 +484,13 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           rootLocationNodes,
           avatarsByLocation,
           processedLocationTree,
+          markAsMapRoot: false,
         );
         final listLocationNodes = _originMapLocationNodes(
           processedLocationTree.mapRoots,
           avatarsByLocation,
           processedLocationTree,
+          markAsMapRoot: false,
         );
         final points = renderLocationNodes.isNotEmpty
             ? _pointsFromLocations(

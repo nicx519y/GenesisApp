@@ -497,6 +497,7 @@ class _WorldMapState extends State<WorldMap> {
   }
 
   WorldPoint? _chatTargetForNode(WorldMapLocationNode node) {
+    if (node.isRoot) return null;
     final explicitTarget = node.chatTargetPoint;
     if (explicitTarget != null) return explicitTarget;
     if (node.children.isEmpty) return node.point;
@@ -513,6 +514,7 @@ class _WorldMapState extends State<WorldMap> {
   }
 
   WorldMapLocationNode _displayNodeForDrill(WorldMapLocationNode node) {
+    if (node.isRoot) return node;
     var current = node;
     while (current.children.length == 1 &&
         current.children.single.children.isNotEmpty) {
