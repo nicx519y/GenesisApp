@@ -16,6 +16,9 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/display_name_formatter.dart';
 
+const String _privateChatBackgroundAsset =
+    'assets/images/mock_maps/location_default.webp';
+
 class ChatPage extends StatefulWidget {
   const ChatPage({
     super.key,
@@ -544,6 +547,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           resizeToAvoidBottomInset: true,
           body: Stack(
             children: [
+              Positioned.fill(
+                child: Image.asset(
+                  _privateChatBackgroundAsset,
+                  fit: BoxFit.cover,
+                  excludeFromSemantics: true,
+                ),
+              ),
               Stack(
                 children: [
                   Positioned.fill(child: _buildMessages()),
