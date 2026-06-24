@@ -15,7 +15,6 @@ import '../../components/common/genesis_report_actions.dart';
 import '../../components/ai_content_disclaimer.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
-import '../../components/ai_content_disclaimer.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
@@ -1127,7 +1126,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   String _rootMapImageUrlForWorld(WorldDetail world) {
     final rootLocationMapUrl = _rootWorldMapImageUrl(
-      world.processedLocationTree.mapRoots,
+      world.processedLocationTree.collapsedMapRoots,
     ).trim();
     if (rootLocationMapUrl.isNotEmpty) return rootLocationMapUrl;
     final worldMapUrl = world.mapImageUrl.trim();
@@ -1690,9 +1689,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       currentUid: _currentUid,
     );
     final processedLocationTree = world.processedLocationTree;
-    final rootLocationNodes = processedLocationTree.mapRoots;
+    final rootLocationNodes = processedLocationTree.collapsedMapRoots;
     final rootMapImageUrl = _rootMapImageUrlForWorld(world);
-    final renderLocationNodes = processedLocationTree.renderRoots;
+    final renderLocationNodes = processedLocationTree.collapsedMapRenderRoots;
     final allLocationNodes = processedLocationTree.flattened;
     final locationNodes = _worldMapLocationNodes(
       rootLocationNodes,
