@@ -209,9 +209,8 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
 
   @override
   Widget build(BuildContext context) {
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return Scaffold(
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       backgroundColor: Colors.white,
       appBar: const GenesisBackAppBar(pageName: 'Locations'),
       body: CreateKeyboardDismissArea(
@@ -221,7 +220,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(22, 8, 22, 28 + keyboardInset),
+                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

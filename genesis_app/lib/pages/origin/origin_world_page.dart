@@ -11,7 +11,6 @@ import '../../components/auth/login_guard.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
-import '../../components/chat/shared/chat_ui.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
@@ -24,6 +23,7 @@ import '../../components/world_map_stage.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_top_overlay_bar.dart';
 import '../../components/world_tick_event_item.dart';
+import '../../components/world_tick1_wait_dialog.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
@@ -45,6 +45,7 @@ import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_page.dart';
+import 'origin_launch_coordinator.dart';
 import 'origin_launch_flow.dart';
 
 class OriginWorldPage extends StatefulWidget {
@@ -61,17 +62,25 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late final OriginDiscussListController _discussController;
+  final OriginLaunchCoordinator _launchCoordinator =
+      OriginLaunchCoordinator.instance;
   Future<OriginDetail>? _future;
   bool _launching = false;
+  bool _didResumePendingLaunch = false;
   _OriginLocationChatDescriptor? _activeChatLocation;
   var _currentUid = '';
   var _currentUidRequested = false;
+  late final VoidCallback _removeLaunchOutcomeListener;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _discussController = OriginDiscussListController();
+    _launchCoordinator.state.addListener(_syncLaunchState);
+    _removeLaunchOutcomeListener = _launchCoordinator.addOutcomeListener(
+      _handleLaunchOutcome,
+    );
   }
 
   @override
@@ -82,6 +91,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       _currentUidRequested = true;
       unawaited(_loadCurrentUid());
     }
+    if (!_didResumePendingLaunch) {
+      _didResumePendingLaunch = true;
+      _resumePendingLaunch();
+    }
   }
 
   @override
@@ -90,6 +103,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     if (oldWidget.oid != widget.oid) {
       _future = _loadOriginDetail();
       _activeChatLocation = null;
+      _didResumePendingLaunch = false;
+      _syncLaunchState();
+      _resumePendingLaunch();
     }
   }
 
@@ -104,6 +120,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   @override
   void dispose() {
     GenesisSystemUiChrome.applyDefault();
+    _launchCoordinator.state.removeListener(_syncLaunchState);
+    _removeLaunchOutcomeListener();
     _discussController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -139,6 +157,36 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         return loadOriginDiscussPage(context, oid, pn: pn, rn: rn);
       },
     );
+  }
+
+  void _resumePendingLaunch() {
+    final api = AppServicesScope.read(context).api;
+    unawaited(
+      _launchCoordinator.ensurePolling(
+        originId: widget.oid,
+        loadWorld: api.getWorld,
+        context: context,
+      ),
+    );
+    _syncLaunchState();
+  }
+
+  void _syncLaunchState() {
+    if (!mounted) return;
+    final launching = _launchCoordinator.isLaunchingOrigin(widget.oid);
+    if (_launching != launching) {
+      setState(() => _launching = launching);
+    }
+  }
+
+  void _handleLaunchOutcome(OriginLaunchOutcome outcome) {
+    if (!mounted || outcome.originId != widget.oid) return;
+    _syncLaunchState();
+  }
+
+  void _handleLaunchWaitBack() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) navigator.pop();
   }
 
   void _showMapTab() {
@@ -262,34 +310,17 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   ) async {
     if (_launching) return;
     setState(() => _launching = true);
-    final world = await launchOriginAndWaitForFirstTick(
+    final started = await startOriginLaunch(
       context: context,
       origin: origin,
       roleSelection: roleSelection,
     );
     if (!mounted) return;
-    if (world == null) {
+    if (!started) {
       setState(() => _launching = false);
       return;
     }
-    final wid = world.worldId.trim();
-    try {
-      final navigator = Navigator.of(context);
-      navigator.pushNamedAndRemoveUntil(
-        RouteNames.home,
-        (_) => false,
-        arguments: {'home_tab': 'my_world'},
-      );
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!navigator.mounted) return;
-        navigator.pushNamed(
-          RouteNames.world,
-          arguments: {'wid': wid, 'initial_world_detail': world},
-        );
-      });
-    } finally {
-      if (mounted) setState(() => _launching = false);
-    }
+    _syncLaunchState();
   }
 
   Future<OriginCustomRoleDraft?> _customRoleFromProfile() async {
@@ -371,6 +402,21 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   @override
   Widget build(BuildContext context) {
     final topPadding = GenesisSafeAreaInsets.top(context);
+    final content = _buildPageContent(context, topPadding);
+    return Stack(
+      children: [
+        content,
+        if (_launching)
+          Positioned.fill(
+            child: _OriginPendingLaunchWaitOverlay(
+              onBackPressed: _handleLaunchWaitBack,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPageContent(BuildContext context, double topPadding) {
     return FutureBuilder<OriginDetail>(
       future: _future,
       builder: (context, snapshot) {
@@ -575,6 +621,67 @@ class _OriginLocationChatDescriptor {
   final bool isLeafLocation;
   final List<WorldChatroomMessage> openingPreviewMessages;
   final List<WorldChatroomEntity> openingPreviewEntities;
+}
+
+class _OriginPendingLaunchWaitOverlay extends StatefulWidget {
+  const _OriginPendingLaunchWaitOverlay({required this.onBackPressed});
+
+  final VoidCallback onBackPressed;
+
+  @override
+  State<_OriginPendingLaunchWaitOverlay> createState() =>
+      _OriginPendingLaunchWaitOverlayState();
+}
+
+class _OriginPendingLaunchWaitOverlayState
+    extends State<_OriginPendingLaunchWaitOverlay> {
+  Timer? _dotsTimer;
+  int _dotCount = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _dotsTimer = Timer.periodic(kWorldTick1WaitDotsInterval, (_) {
+      if (!mounted) return;
+      setState(() => _dotCount = _dotCount == 6 ? 1 : _dotCount + 1);
+    });
+  }
+
+  @override
+  void dispose() {
+    _dotsTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        widget.onBackPressed();
+      },
+      child: ColoredBox(
+        color: const Color(0x8A000000),
+        child: Center(
+          child: AlertDialog(
+            key: const ValueKey('world-tick1-wait-dialog'),
+            title: const Text(
+              'Generating first tick',
+              style: TextStyle(fontSize: 16, height: 1.2),
+            ),
+            content: SizedBox(
+              width: 260,
+              child: Text(
+                'LLM is generating your first tick. This may take a moment${List.filled(_dotCount, '.').join()}',
+                style: const TextStyle(fontSize: 14, height: 1.35),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _OriginLocationChatLaunchBar extends StatelessWidget {

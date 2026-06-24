@@ -3,39 +3,42 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
-import '../../components/world_tick1_wait_dialog.dart';
 import '../../network/models/origin.dart';
-import '../../network/models/world.dart';
+import 'origin_launch_coordinator.dart';
 
-Future<WorldDetail?> launchOriginAndWaitForFirstTick({
+Future<bool> startOriginLaunch({
   required BuildContext context,
   required OriginDetail origin,
   required OriginRoleLaunchSelection roleSelection,
+  OriginLaunchCoordinator? coordinator,
 }) async {
   try {
-    final result = await AppServicesScope.of(context).api.v1.origin.launch(
+    final api = AppServicesScope.of(context).api;
+    final launchCoordinator = coordinator ?? OriginLaunchCoordinator.instance;
+    final result = await api.v1.origin.launch(
       oid: origin.oid,
       presetCharacterId: roleSelection.presetCharacterId,
       customRole: roleSelection.customRole?.toPayload(),
     );
-    if (!context.mounted) return null;
+    if (!context.mounted) return false;
 
     final wid = '${result['world_id'] ?? result['wid'] ?? ''}'.trim();
     if (wid.isEmpty) {
       showGenesisToast(context, 'Launch failed');
-      return null;
+      return false;
     }
 
-    final world = await showWorldTick1WaitDialog(
+    await launchCoordinator.start(
+      originId: origin.oid,
+      worldId: wid,
+      loadWorld: api.getWorld,
       context: context,
-      loadWorld: () => AppServicesScope.read(context).api.getWorld(wid),
     );
-    if (world == null) return null;
-    return world.worldId.trim().isEmpty ? world.copyWith(worldId: wid) : world;
+    return true;
   } catch (_) {
     if (context.mounted) {
       showGenesisToast(context, 'Launch failed');
     }
-    return null;
+    return false;
   }
 }

@@ -351,7 +351,6 @@ class _OriginPendingSubmissionPoller {
     final context = _fallbackContext;
     cancel();
     await clearPending();
-    await clearDraft?.call();
     state.value = null;
     notifyOutcome(
       OriginPendingSubmissionOutcome(

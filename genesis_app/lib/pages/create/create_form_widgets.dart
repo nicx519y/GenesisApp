@@ -80,86 +80,24 @@ class CreateTextFieldBlock extends StatefulWidget {
   State<CreateTextFieldBlock> createState() => _CreateTextFieldBlockState();
 }
 
-class _CreateTextFieldBlockState extends State<CreateTextFieldBlock>
-    with WidgetsBindingObserver {
-  final GlobalKey _fieldKey = GlobalKey();
+class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
   late final FocusNode _focusNode;
 
   @override
   void initState() {
     super.initState();
     _focusNode = FocusNode();
-    _focusNode.addListener(_handleFocusChanged);
-    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _focusNode
-      ..removeListener(_handleFocusChanged)
-      ..dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
   @override
-  void didChangeMetrics() {
-    if (!_focusNode.hasFocus) return;
-    _scheduleEnsureFieldVisible();
-  }
-
-  void _handleFocusChanged() {
-    if (!_focusNode.hasFocus) return;
-    _scheduleEnsureFieldVisible();
-  }
-
-  void _scheduleEnsureFieldVisible() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_focusNode.hasFocus) return;
-      _ensureFieldBottomVisible();
-    });
-  }
-
-  void _ensureFieldBottomVisible() {
-    final fieldContext = _fieldKey.currentContext;
-    if (fieldContext == null) return;
-    final renderObject = fieldContext.findRenderObject();
-    if (renderObject is! RenderBox || !renderObject.hasSize) return;
-
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-    if (keyboardInset <= 0) return;
-
-    final scrollable = Scrollable.maybeOf(fieldContext);
-    if (scrollable == null) return;
-    final position = scrollable.position;
-    if (!position.hasPixels) return;
-
-    final fieldOffset = renderObject.localToGlobal(Offset.zero);
-    final fieldBottom = fieldOffset.dy + renderObject.size.height;
-    final keyboardTop = MediaQuery.sizeOf(context).height - keyboardInset;
-    final desiredGap = widget.scrollPadding?.bottom ?? 24;
-    final overflow = fieldBottom + desiredGap - keyboardTop;
-    if (overflow <= 0) return;
-
-    final target = (position.pixels + overflow).clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
-    if ((target - position.pixels).abs() < 0.5) return;
-    unawaited(
-      position.animateTo(
-        target,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
-      ),
-    );
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return Column(
-      key: _fieldKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.label.isNotEmpty) ...[
@@ -199,12 +137,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock>
                     focusNode: _focusNode,
                     scrollPadding:
                         widget.scrollPadding ??
-                        EdgeInsets.only(
-                          left: 4,
-                          top: 4,
-                          right: 4,
-                          bottom: keyboardInset > 0 ? 4 : 20,
-                        ),
+                        const EdgeInsets.fromLTRB(4, 4, 4, 20),
                     onChanged: widget.onChanged,
                     onTapOutside: (_) =>
                         FocusManager.instance.primaryFocus?.unfocus(),

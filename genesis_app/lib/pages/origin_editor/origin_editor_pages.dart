@@ -342,7 +342,6 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
 
   @override
   Widget build(BuildContext context) {
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -361,7 +360,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
         unawaited(_handleLeaveRequest());
       },
       child: Scaffold(
-        resizeToAvoidBottomInset: false,
+        resizeToAvoidBottomInset: true,
         appBar: GenesisBackAppBar(
           pageName: widget.title,
           onBack: () => unawaited(_handleLeaveRequest()),
@@ -381,9 +380,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                         const SizedBox(height: 14),
                         Expanded(
                           child: ListView(
-                            padding: EdgeInsets.only(
-                              bottom: 10 + keyboardInset,
-                            ),
+                            padding: const EdgeInsets.only(bottom: 10),
                             children: [
                               if (widget.showCurrentVersion) ...[
                                 Text(
