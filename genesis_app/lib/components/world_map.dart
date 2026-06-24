@@ -150,8 +150,11 @@ class _WorldMapState extends State<WorldMap> {
             MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
         const designWidth = 375.0;
         const designHeight = 670.0;
-        final viewport = _MapViewport.screenWidth(
+        final viewport = _MapViewport.cover(
           viewportWidth: constraints.maxWidth,
+          viewportHeight: constraints.hasBoundedHeight
+              ? constraints.maxHeight
+              : constraints.maxWidth / (designWidth / designHeight),
           designWidth: designWidth,
           designHeight: designHeight,
         );
@@ -184,65 +187,87 @@ class _WorldMapState extends State<WorldMap> {
         return Stack(
           children: [
             Positioned.fill(
-              child: _WorldMapTransitionSurface(
-                mapKey: mapKey,
-                transition: _mapTransition,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: viewport.left,
-                      top: viewport.top,
-                      width: viewport.width,
-                      height: viewport.height,
-                      child: _ZoomableMapContent(
-                        background: _MapBackgroundDeck(
-                          currentUrl: backgroundUrl,
-                          previewUrl: backgroundPreviewUrl,
-                          preloadUrls: preloadMapImageUrls,
-                          preloadAvatarUrls: preloadAvatarUrls,
-                          fallbackOnEmptyUrl: widget.fallbackOnEmptyMapUrl,
-                        ),
-                        overlayBuilder:
-                            (context, transform, onOverlayPointerDown) => Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                IgnorePointer(
-                                  ignoring: widget.showPointsList,
-                                  child: Opacity(
-                                    opacity: widget.showPointsList ? 0.6 : 1,
-                                    child: Stack(
-                                      children: [
-                                        for (final p in visiblePoints)
-                                          _WorldPointPositioned(
-                                            point: p,
-                                            width: viewport.width,
-                                            height: viewport.height,
-                                            transform: transform,
-                                            messageBubble:
-                                                _locationTrail.isEmpty
-                                                ? null
-                                                : widget.messageBubbles[p
-                                                      .sceneId],
-                                            onPointerDown: onOverlayPointerDown,
-                                            onTap: _pointTapHandler(p),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                IgnorePointer(
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 220),
-                                    color: widget.dimmed
-                                        ? Colors.black.withValues(alpha: 0.08)
-                                        : Colors.transparent,
-                                  ),
-                                ),
-                              ],
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: viewport.width > constraints.maxWidth + 0.5
+                    ? const ClampingScrollPhysics()
+                    : const NeverScrollableScrollPhysics(),
+                child: SizedBox(
+                  key: const ValueKey<String>('world-map-scaled-content'),
+                  width: viewport.width,
+                  height: viewport.height,
+                  child: _WorldMapTransitionSurface(
+                    mapKey: mapKey,
+                    transition: _mapTransition,
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          left: viewport.left,
+                          top: viewport.top,
+                          width: viewport.width,
+                          height: viewport.height,
+                          child: _ZoomableMapContent(
+                            background: _MapBackgroundDeck(
+                              currentUrl: backgroundUrl,
+                              previewUrl: backgroundPreviewUrl,
+                              preloadUrls: preloadMapImageUrls,
+                              preloadAvatarUrls: preloadAvatarUrls,
+                              fallbackOnEmptyUrl: widget.fallbackOnEmptyMapUrl,
                             ),
-                      ),
+                            overlayBuilder:
+                                (
+                                  context,
+                                  transform,
+                                  onOverlayPointerDown,
+                                ) => Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    IgnorePointer(
+                                      ignoring: widget.showPointsList,
+                                      child: Opacity(
+                                        opacity: widget.showPointsList
+                                            ? 0.6
+                                            : 1,
+                                        child: Stack(
+                                          children: [
+                                            for (final p in visiblePoints)
+                                              _WorldPointPositioned(
+                                                point: p,
+                                                width: viewport.width,
+                                                height: viewport.height,
+                                                transform: transform,
+                                                messageBubble:
+                                                    _locationTrail.isEmpty
+                                                    ? null
+                                                    : widget.messageBubbles[p
+                                                          .sceneId],
+                                                onPointerDown:
+                                                    onOverlayPointerDown,
+                                                onTap: _pointTapHandler(p),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    IgnorePointer(
+                                      child: AnimatedContainer(
+                                        duration: const Duration(
+                                          milliseconds: 220,
+                                        ),
+                                        color: widget.dimmed
+                                            ? Colors.black.withValues(
+                                                alpha: 0.08,
+                                              )
+                                            : Colors.transparent,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -619,14 +644,17 @@ class _MapViewport {
   final double width;
   final double height;
 
-  factory _MapViewport.screenWidth({
+  factory _MapViewport.cover({
     required double viewportWidth,
+    required double viewportHeight,
     required double designWidth,
     required double designHeight,
   }) {
-    final designAspect = designWidth / designHeight;
-    final width = viewportWidth;
-    final height = viewportWidth / designAspect;
+    final widthScale = viewportWidth / designWidth;
+    final heightScale = viewportHeight / designHeight;
+    final scale = math.max(widthScale, heightScale);
+    final width = designWidth * scale;
+    final height = designHeight * scale;
 
     return _MapViewport(left: 0, top: 0, width: width, height: height);
   }

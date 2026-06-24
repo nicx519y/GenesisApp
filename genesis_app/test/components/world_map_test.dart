@@ -348,28 +348,31 @@ void main() {
     expect(_assetImageFinder(kWorldMapFallbackBackgroundAsset), findsOneWidget);
   });
 
-  testWidgets('world map cover scales to fill tall screens', (tester) async {
-    const viewportSize = Size(375, 812);
-    await _pumpWorldMap(
-      tester,
-      size: viewportSize,
-      mapImageUrl: kMockV1SteamMapImage,
-      users: const [],
-    );
+  testWidgets(
+    'world map scales to fill tall screens with horizontal overflow',
+    (tester) async {
+      const viewportSize = Size(375, 812);
+      await _pumpWorldMap(
+        tester,
+        size: viewportSize,
+        mapImageUrl: kMockV1SteamMapImage,
+        users: const [],
+      );
+      await tester.pump();
 
-    final image = _assetImageFinder(kMockV1SteamMapImage);
-    final imageSize = tester.getSize(image);
-    final imageTopLeft = tester.getTopLeft(image);
+      final scaledContent = find.byKey(
+        const ValueKey<String>('world-map-scaled-content'),
+      );
+      final contentSize = tester.getSize(scaledContent);
+      final contentTopLeft = tester.getTopLeft(scaledContent);
 
-    expect(imageSize.height, viewportSize.height);
-    expect(imageSize.width, closeTo(viewportSize.height * 375 / 670, 0.01));
-    expect(imageSize.width, greaterThan(viewportSize.width));
-    expect(
-      imageTopLeft.dx,
-      closeTo((viewportSize.width - imageSize.width) / 2, 0.01),
-    );
-    expect(imageTopLeft.dy, 0);
-  });
+      expect(contentSize.height, viewportSize.height);
+      expect(contentSize.width, closeTo(viewportSize.height * 375 / 670, 0.01));
+      expect(contentSize.width, greaterThan(viewportSize.width));
+      expect(contentTopLeft.dx, 0);
+      expect(contentTopLeft.dy, 0);
+    },
+  );
 
   testWidgets('world map lays out four avatars in a two by two grid', (
     tester,
