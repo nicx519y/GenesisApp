@@ -246,12 +246,12 @@ class OriginLaunchCoordinator {
       final worldName = world.name.trim().isEmpty
           ? fallbackWorldId
           : world.name.trim();
-      final title = 'World #$worldName launched!';
+      final title = 'Worldo #$worldName launched!';
       final shouldGo = await showGenesisActionBox<bool>(
         context: context,
         title: title,
         titleWidget: _successActionBoxTitle(
-          leadingText: 'World ',
+          leadingText: 'Worldo ',
           highlightedText: '#$worldName',
           trailingText: ' launched!',
         ),
