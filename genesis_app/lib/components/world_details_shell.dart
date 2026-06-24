@@ -52,6 +52,7 @@ class WorldDetailsPageScaffold extends StatefulWidget {
     this.includeBottomSafeAreaInContentPadding = true,
     this.topOverlay,
     this.persistentTopOverlay,
+    this.onPanelTopPullUp,
   });
 
   static const double defaultPanelTopGap = 30;
@@ -76,6 +77,7 @@ class WorldDetailsPageScaffold extends StatefulWidget {
   final bool includeBottomSafeAreaInContentPadding;
   final Widget? topOverlay;
   final Widget? persistentTopOverlay;
+  final VoidCallback? onPanelTopPullUp;
 
   @override
   State<WorldDetailsPageScaffold> createState() =>
@@ -244,16 +246,20 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
                                                 .inlineContentTopPadding +
                                             panelTopOverlap,
                                         alignment: Alignment.bottomCenter,
-                                        child: DecoratedBox(
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.vertical(
-                                              top: Radius.circular(
-                                                widget.panelTopRadius,
-                                              ),
+                                        child: _WorldDetailsPanelTopPullGesture(
+                                          onPullUp: widget.onPanelTopPullUp,
+                                          child: DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.vertical(
+                                                    top: Radius.circular(
+                                                      widget.panelTopRadius,
+                                                    ),
+                                                  ),
                                             ),
+                                            child: const SizedBox.expand(),
                                           ),
-                                          child: const SizedBox.expand(),
                                         ),
                                       ),
                                     ),
@@ -483,6 +489,55 @@ class WorldDetailsShell extends StatelessWidget {
     if (collapsedHeightOffset <= 0 || height <= 0) return size;
     final adjustedHeight = size * height - collapsedHeightOffset;
     return (adjustedHeight / height).clamp(0.0, 1.0).toDouble();
+  }
+}
+
+class _WorldDetailsPanelTopPullGesture extends StatefulWidget {
+  const _WorldDetailsPanelTopPullGesture({
+    required this.child,
+    required this.onPullUp,
+  });
+
+  final Widget child;
+  final VoidCallback? onPullUp;
+
+  @override
+  State<_WorldDetailsPanelTopPullGesture> createState() =>
+      _WorldDetailsPanelTopPullGestureState();
+}
+
+class _WorldDetailsPanelTopPullGestureState
+    extends State<_WorldDetailsPanelTopPullGesture> {
+  static const double _triggerDistance = 36;
+  static const double _triggerVelocity = 520;
+
+  var _dragDy = 0.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final onPullUp = widget.onPullUp;
+    if (onPullUp == null) return widget.child;
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onVerticalDragStart: (_) {
+        _dragDy = 0;
+      },
+      onVerticalDragUpdate: (details) {
+        _dragDy += details.delta.dy;
+      },
+      onVerticalDragEnd: (details) {
+        final upwardVelocity = -(details.primaryVelocity ?? 0);
+        if (_dragDy <= -_triggerDistance ||
+            upwardVelocity >= _triggerVelocity) {
+          onPullUp();
+        }
+        _dragDy = 0;
+      },
+      onVerticalDragCancel: () {
+        _dragDy = 0;
+      },
+      child: widget.child,
+    );
   }
 }
 

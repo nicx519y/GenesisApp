@@ -112,6 +112,43 @@ void main() {
     expect(mapRect.height, closeTo(expectedMapHeight, 0.01));
   });
 
+  testWidgets('world details page scaffold detects panel top pull up', (
+    tester,
+  ) async {
+    const viewportSize = Size(400, 800);
+    var pullCount = 0;
+
+    tester.view.physicalSize = viewportSize;
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: WorldDetailsPageScaffold(
+          map: const ColoredBox(key: ValueKey('pull-map'), color: Colors.green),
+          onPanelTopPullUp: () {
+            pullCount += 1;
+          },
+          slivers: const [
+            SliverToBoxAdapter(
+              child: SizedBox(height: 180, child: Text('Body')),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final mapRect = tester.getRect(find.byKey(const ValueKey('pull-map')));
+    await tester.dragFrom(
+      Offset(200, mapRect.bottom + 7),
+      const Offset(0, -60),
+    );
+    await tester.pump();
+
+    expect(pullCount, 1);
+  });
+
   testWidgets('world details page scaffold can keep collapsed panel fixed', (
     tester,
   ) async {

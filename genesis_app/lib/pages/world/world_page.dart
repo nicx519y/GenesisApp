@@ -114,6 +114,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       <String, List<String>>{};
   final Map<String, WorldMapMessageBubble> _activeMapMessageBubblesByLocation =
       <String, WorldMapMessageBubble>{};
+  final Map<String, String> _mapMessageBubbleRoundByLocation =
+      <String, String>{};
   final Set<String> _shownMapMessageBubbleKeys = <String>{};
   String _mapMessageBubblePrimeKey = '';
   Future<void>? _mapMessageBubblePrimeFuture;
@@ -126,6 +128,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _worldActionRunning = false;
   bool _worldTickInProgress = false;
   bool _openEventsAfterTickDone = false;
+  bool _worldSectionSheetOpen = false;
   bool _tick1WaitDialogStarted = false;
   Timer? _worldInfoPollTimer;
   Future<void>? _worldInfoPollFuture;
@@ -304,18 +307,30 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     for (final message in messages) {
       final candidate = _mapBubbleCandidate(message);
       if (candidate == null) continue;
-      final key = _mapMessageKey(candidate);
-      if (key.isEmpty || !_shownMapMessageBubbleKeys.add(key)) continue;
       final queueLocationId = _mapBubbleQueueLocationId(candidate.locationId);
       byLocation
           .putIfAbsent(queueLocationId, () => <WorldChatroomMessage>[])
           .add(candidate);
     }
     if (byLocation.isEmpty) return false;
+    var queuedAny = false;
     for (final entry in byLocation.entries) {
       final locationId = entry.key;
-      final locationMessages = _interleaveMapBubbleMessagesBySender(
+      final latestRoundMessages = _latestMapBubbleConversationMessages(
         entry.value,
+      );
+      if (latestRoundMessages.isEmpty) continue;
+      final roundId = latestRoundMessages.first.conversationRoundId.trim();
+      _resetMapBubbleLocationQueueForNewRound(locationId, roundId);
+      final dedupedMessages = <WorldChatroomMessage>[];
+      for (final message in latestRoundMessages) {
+        final key = _mapMessageKey(message);
+        if (key.isEmpty || !_shownMapMessageBubbleKeys.add(key)) continue;
+        dedupedMessages.add(message);
+      }
+      if (dedupedMessages.isEmpty) continue;
+      final locationMessages = _interleaveMapBubbleMessagesBySender(
+        dedupedMessages,
       );
       _registerMapMessageBubbleLocation(locationId);
       final queueMap = priority
@@ -327,11 +342,52 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       );
       queue.addAll(locationMessages);
       _trimMapMessageBubbleQueues(locationId);
+      queuedAny = true;
     }
-    if (startCarousel) {
+    if (queuedAny && startCarousel) {
       _ensureMapMessageBubbleCarousel();
     }
-    return true;
+    return queuedAny;
+  }
+
+  List<WorldChatroomMessage> _latestMapBubbleConversationMessages(
+    List<WorldChatroomMessage> messages,
+  ) {
+    final currentTickNo = _world?.tickCount ?? 0;
+    if (currentTickNo <= 0 || messages.isEmpty) {
+      return const <WorldChatroomMessage>[];
+    }
+    final currentTickMessages = messages
+        .where((message) => message.tickNo == currentTickNo)
+        .toList(growable: false);
+    if (currentTickMessages.isEmpty) return const <WorldChatroomMessage>[];
+
+    var latestRound = -1;
+    for (final message in currentTickMessages) {
+      final round = message.conversationRoundNumber;
+      if (round > latestRound) latestRound = round;
+    }
+    if (latestRound <= 0) return const <WorldChatroomMessage>[];
+
+    return currentTickMessages
+        .where((message) => message.conversationRoundNumber == latestRound)
+        .toList(growable: false)
+      ..sort(_compareMapBubbleMessages);
+  }
+
+  void _resetMapBubbleLocationQueueForNewRound(
+    String locationId,
+    String roundId,
+  ) {
+    if (roundId.isEmpty) return;
+    final previousRoundId = _mapMessageBubbleRoundByLocation[locationId];
+    if (previousRoundId == roundId) return;
+    _mapMessageBubbleRoundByLocation[locationId] = roundId;
+    _mapMessageBubbleQueuesByLocation.remove(locationId);
+    _priorityMapMessageBubbleQueuesByLocation.remove(locationId);
+    if (_activeMapMessageBubblesByLocation.containsKey(locationId)) {
+      _removeActiveMapMessageBubble();
+    }
   }
 
   void _registerMapMessageBubbleLocation(String locationId) {
@@ -667,6 +723,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _mapMessageBubbleLocationCursor = 0;
       _mapMessageBubbleKeysByLocation.clear();
       _activeMapMessageBubblesByLocation.clear();
+      _mapMessageBubbleRoundByLocation.clear();
       _shownMapMessageBubbleKeys.clear();
       _mapMessageBubblePrimeKey = '';
       _mapMessageBubblePrimeFuture = null;
@@ -1723,11 +1780,16 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             fixedCollapsedPanelHeight: collapsedPanelHeight,
             fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
             contentBottomPaddingOverride: 0,
+            onPanelTopPullUp: () =>
+                _openWorldSectionSheet(_sectionController.index.clamp(0, 2)),
             slivers: [
               _WorldFeedContent(
                 world: world,
                 worldActionRunning: _worldActionRunning || _worldTickInProgress,
                 onWorldAction: _runWorldAction,
+                onPullUp: () => _openWorldSectionSheet(
+                  _sectionController.index.clamp(0, 2),
+                ),
               ),
             ],
           ),
@@ -1830,10 +1892,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     int? eventsTargetTickNumber,
   }) {
     final world = _world;
-    if (world == null) return;
+    if (world == null || _worldSectionSheetOpen) return;
     _sectionController.animateTo(index);
     _sectionsWorldNotifier.value = world;
     final services = AppServicesScope.read(context);
+    _worldSectionSheetOpen = true;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1850,7 +1913,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         scrollEventsToLatest: scrollEventsToLatest,
         eventsTargetTickNumber: eventsTargetTickNumber,
       ),
-    );
+    ).whenComplete(() {
+      _worldSectionSheetOpen = false;
+    });
     unawaited(_fetchWorld());
   }
 }
@@ -2995,28 +3060,80 @@ class _WorldFeedContent extends StatelessWidget {
     required this.world,
     required this.worldActionRunning,
     required this.onWorldAction,
+    required this.onPullUp,
   });
 
   final WorldDetail world;
   final bool worldActionRunning;
   final Future<void> Function(_WorldHeaderActionKind action) onWorldAction;
+  final VoidCallback onPullUp;
 
   @override
   Widget build(BuildContext context) {
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
-          child: Column(
-            children: [
-              _WorldInfoHeader(
-                world: world,
-                worldActionRunning: worldActionRunning,
-                onWorldAction: onWorldAction,
-              ),
-            ],
+          child: _WorldSectionSheetPullGesture(
+            onPullUp: onPullUp,
+            child: Column(
+              children: [
+                _WorldInfoHeader(
+                  world: world,
+                  worldActionRunning: worldActionRunning,
+                  onWorldAction: onWorldAction,
+                ),
+              ],
+            ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _WorldSectionSheetPullGesture extends StatefulWidget {
+  const _WorldSectionSheetPullGesture({
+    required this.child,
+    required this.onPullUp,
+  });
+
+  final Widget child;
+  final VoidCallback onPullUp;
+
+  @override
+  State<_WorldSectionSheetPullGesture> createState() =>
+      _WorldSectionSheetPullGestureState();
+}
+
+class _WorldSectionSheetPullGestureState
+    extends State<_WorldSectionSheetPullGesture> {
+  static const double _triggerDistance = 56;
+  static const double _triggerVelocity = 520;
+
+  var _dragDy = 0.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onVerticalDragStart: (_) {
+        _dragDy = 0;
+      },
+      onVerticalDragUpdate: (details) {
+        _dragDy += details.delta.dy;
+      },
+      onVerticalDragEnd: (details) {
+        final upwardVelocity = -(details.primaryVelocity ?? 0);
+        if (_dragDy <= -_triggerDistance ||
+            upwardVelocity >= _triggerVelocity) {
+          widget.onPullUp();
+        }
+        _dragDy = 0;
+      },
+      onVerticalDragCancel: () {
+        _dragDy = 0;
+      },
+      child: widget.child,
     );
   }
 }
