@@ -624,6 +624,7 @@ class ChatMessageList extends StatelessWidget {
     required this.topTitle,
     this.onMessageLongPressStart,
     this.keyboardDismissBehavior,
+    this.oldestEdgeNotice,
     this.reverse = true,
     this.showDateDividers = true,
     this.style,
@@ -634,6 +635,7 @@ class ChatMessageList extends StatelessWidget {
   final String topTitle;
   final ChatMessageLongPressStart? onMessageLongPressStart;
   final ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior;
+  final String? oldestEdgeNotice;
   final bool reverse;
   final bool showDateDividers;
   final ChatUiStyleConfig? style;
@@ -651,7 +653,11 @@ class ChatMessageList extends StatelessWidget {
       itemBuilder: (context, index) {
         final titleIndex = reverse ? messages.length : 0;
         if (index == titleIndex) {
-          return _ChatTopTitle(name: topTitle, style: style);
+          return _ChatOldestEdgeContent(
+            topTitle: topTitle,
+            notice: oldestEdgeNotice,
+            style: style,
+          );
         }
 
         final messageIndex = reverse ? messages.length - 1 - index : index - 1;

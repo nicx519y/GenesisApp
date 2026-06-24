@@ -1789,6 +1789,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       controller: _scrollController,
       messages: _messages,
       topTitle: '',
+      oldestEdgeNotice: kAiContentDisclaimerText,
       onMessageLongPressStart: _showMessageActionMenu,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       reverse: false,
