@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/copyable_id_label.dart';
 import '../../components/origin/stat_item.dart';
+import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/json_utils.dart';
@@ -413,43 +414,48 @@ class _SearchPageState extends State<SearchPage>
         bottom: false,
         child: Column(
           children: [
-            const SizedBox(height: kSearchBarTopPadding),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: SearchBarPlaceholder(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      onChanged: _onQueryChanged,
-                      onClear: () {
-                        _controller.clear();
-                        _onQueryChanged('');
-                        setState(() {});
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => Navigator.of(context).pop(),
-                    child: const SizedBox(
-                      height: 28,
-                      child: Center(
-                        child: Text(
-                          'Cancel',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF222222),
-                            fontWeight: FontWeight.w400,
+              child: SizedBox(
+                height: kGenesisTopBarHeight,
+                child: Transform.translate(
+                  offset: const Offset(0, 5),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: SearchBarPlaceholder(
+                          controller: _controller,
+                          focusNode: _focusNode,
+                          onChanged: _onQueryChanged,
+                          onClear: () {
+                            _controller.clear();
+                            _onQueryChanged('');
+                            setState(() {});
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => Navigator.of(context).pop(),
+                        child: const SizedBox(
+                          height: 28,
+                          child: Center(
+                            child: Text(
+                              'Cancel',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF222222),
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
             const SizedBox(height: 4),

@@ -220,16 +220,14 @@ void main() {
               status: 'sent',
             ),
             showDateDivider: false,
+            style: kPrivateChatStyle,
           ),
         ),
       ),
     );
 
     final name = tester.widget<Text>(find.text('Peer Name'));
-    expect(
-      name.style?.color,
-      ChatUiStyleConfig.standard.senderNameTextStyle.color,
-    );
+    expect(name.style?.color, const Color(0xFF111111));
   });
 
   testWidgets('player controlled chat avatar uses highlighted border', (

@@ -55,7 +55,7 @@ class OriginPendingSubmissionCoordinator {
       clearPending: OriginPendingSubmissionStore.clearCreating,
       clearDraft: CreateOriginDraftStore.clear,
       timeoutMessage: 'Worldo creation timed out.',
-      successTitle: (originName) => 'Worldo $originName created!',
+      successTitle: (originName) => 'Worldo #$originName created!',
       notifyOutcome: _notifyCreateOutcome,
     );
     _publishPoller = _OriginPendingSubmissionPoller(
@@ -65,7 +65,7 @@ class OriginPendingSubmissionCoordinator {
       savePending: OriginPendingSubmissionStore.savePublishing,
       clearPending: OriginPendingSubmissionStore.clearPublishing,
       timeoutMessage: 'Worldo publishing timed out',
-      successTitle: (originName) => 'Worldo $originName published!',
+      successTitle: (originName) => 'Worldo #$originName published!',
       notifyOutcome: _notifyPublishOutcome,
     );
   }
@@ -344,9 +344,17 @@ class _OriginPendingSubmissionPoller {
   Future<bool?> _showSuccessDialog(String originName) {
     final context = _globalDialogContext;
     if (context == null) return Future<bool?>.value();
+    final title = successTitle(originName);
     return showGenesisActionBox<bool>(
       context: context,
-      title: successTitle(originName),
+      title: title,
+      titleWidget: _successActionBoxTitle(
+        leadingText: 'Worldo ',
+        highlightedText: '#$originName',
+        trailingText: kind == OriginPendingSubmissionKind.create
+            ? ' created!'
+            : ' published!',
+      ),
       actions: const [GenesisActionBoxAction<bool>(label: 'View', value: true)],
     );
   }
@@ -399,4 +407,33 @@ class _OriginPendingSubmissionPoller {
     final name = asString(info['origin_name']).trim();
     return name.isEmpty ? fallback : name;
   }
+}
+
+Widget _successActionBoxTitle({
+  required String leadingText,
+  required String highlightedText,
+  required String trailingText,
+}) {
+  const baseStyle = TextStyle(
+    color: Color(0xFF111111),
+    fontSize: 15,
+    height: 1.16,
+    fontWeight: FontWeight.w600,
+  );
+  return RichText(
+    maxLines: 2,
+    overflow: TextOverflow.ellipsis,
+    textAlign: TextAlign.center,
+    text: TextSpan(
+      style: baseStyle,
+      children: [
+        TextSpan(text: leadingText),
+        TextSpan(
+          text: highlightedText,
+          style: baseStyle.copyWith(color: const Color(0xFF4B6192)),
+        ),
+        TextSpan(text: trailingText),
+      ],
+    ),
+  );
 }

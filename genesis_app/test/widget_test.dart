@@ -92,6 +92,21 @@ Finder _richTextWithPlainText(String text) {
   );
 }
 
+void _expectRichTextSpanColor(
+  WidgetTester tester, {
+  required String plainText,
+  required String spanText,
+  required Color color,
+}) {
+  final richText = tester.widget<RichText>(_richTextWithPlainText(plainText));
+  final rootSpan = richText.text;
+  expect(rootSpan, isA<TextSpan>());
+  final span = (rootSpan as TextSpan).children
+      ?.whereType<TextSpan>()
+      .firstWhere((child) => child.text == spanText);
+  expect(span?.style?.color, color);
+}
+
 SystemUiOverlayStyle _pageStatusBarStyle(WidgetTester tester) {
   return tester
       .widgetList<AnnotatedRegion<SystemUiOverlayStyle>>(
@@ -7276,7 +7291,10 @@ void main() {
       find.widgetWithText(FilledButton, 'Creating...'),
     );
     expect(createButton.onPressed, isNull);
-    expect(find.text('Worldo Origin o_created_1 created!'), findsNothing);
+    expect(
+      _richTextWithPlainText('Worldo #Origin o_created_1 created!'),
+      findsNothing,
+    );
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
     await tester.pumpAndSettle();
     expect(find.text('Open create'), findsOneWidget);
@@ -7292,7 +7310,16 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(2));
-    expect(find.text('Worldo Crystal City created!'), findsOneWidget);
+    expect(
+      _richTextWithPlainText('Worldo #Crystal City created!'),
+      findsOneWidget,
+    );
+    _expectRichTextSpanColor(
+      tester,
+      plainText: 'Worldo #Crystal City created!',
+      spanText: '#Crystal City',
+      color: const Color(0xFF4B6192),
+    );
     expect(find.text('View'), findsOneWidget);
   });
 
@@ -7357,7 +7384,10 @@ void main() {
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
-    expect(find.text('Worldo Crystal City created!'), findsOneWidget);
+    expect(
+      _richTextWithPlainText('Worldo #Crystal City created!'),
+      findsOneWidget,
+    );
     expect(find.text('View'), findsOneWidget);
   });
 
@@ -7593,7 +7623,10 @@ void main() {
       find.widgetWithText(FilledButton, 'Publishing...').last,
     );
     expect(publishButton.onPressed, isNull);
-    expect(find.text('Worldo Origin o_edit_1 published!'), findsNothing);
+    expect(
+      _richTextWithPlainText('Worldo #Origin o_edit_1 published!'),
+      findsNothing,
+    );
     await tester.tap(
       find.byIcon(Icons.arrow_back_ios_new),
       warnIfMissed: false,
@@ -7611,7 +7644,16 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(2));
-    expect(find.text('Worldo Edited Origin published!'), findsOneWidget);
+    expect(
+      _richTextWithPlainText('Worldo #Edited Origin published!'),
+      findsOneWidget,
+    );
+    _expectRichTextSpanColor(
+      tester,
+      plainText: 'Worldo #Edited Origin published!',
+      spanText: '#Edited Origin',
+      color: const Color(0xFF4B6192),
+    );
     expect(find.text('View'), findsOneWidget);
   });
 
@@ -7685,7 +7727,10 @@ void main() {
 
     expect(transport.requestsFor('/api/v1/origin/update'), hasLength(1));
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
-    expect(find.text('Worldo Edited Origin published!'), findsOneWidget);
+    expect(
+      _richTextWithPlainText('Worldo #Edited Origin published!'),
+      findsOneWidget,
+    );
     expect(find.text('View'), findsOneWidget);
   });
 
