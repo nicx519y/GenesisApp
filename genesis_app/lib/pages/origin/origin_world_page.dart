@@ -666,15 +666,24 @@ class _OriginPendingLaunchWaitOverlayState
         child: Center(
           child: AlertDialog(
             key: const ValueKey('world-tick1-wait-dialog'),
-            title: const Text(
-              'Generating first tick',
-              style: TextStyle(fontSize: 16, height: 1.2),
+            backgroundColor: const Color(0xFFFFFFFF),
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(8)),
+            ),
+            title: Text(
+              'AI is generating${List.filled(_dotCount, '.').join()}',
+              style: const TextStyle(
+                fontSize: 16,
+                height: 1.2,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             content: SizedBox(
               width: 260,
-              child: Text(
-                'LLM is generating your first tick. This may take a moment${List.filled(_dotCount, '.').join()}',
-                style: const TextStyle(fontSize: 14, height: 1.35),
+              child: const Text(
+                'Generate  a live and customized world for you.\n'
+                'Please wait for a moment.',
+                style: TextStyle(fontSize: 14, height: 1.35),
               ),
             ),
           ),

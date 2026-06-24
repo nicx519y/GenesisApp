@@ -4177,8 +4177,24 @@ void main() {
       find.byKey(const ValueKey('world-tick1-wait-dialog')),
       findsOneWidget,
     );
-    final waitTitle = tester.widget<Text>(find.text('Generating first tick'));
+    final waitDialog = tester.widget<AlertDialog>(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+    );
+    expect(waitDialog.backgroundColor, const Color(0xFFFFFFFF));
+    expect(
+      waitDialog.shape,
+      const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+    );
+    final waitTitleFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is Text && (widget.data ?? '').startsWith('AI is generating'),
+    );
+    expect(waitTitleFinder, findsOneWidget);
+    final waitTitle = tester.widget<Text>(waitTitleFinder);
     expect(waitTitle.style?.fontSize, 16);
+    expect(waitTitle.style?.fontWeight, FontWeight.w600);
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('world-tick1-wait-dialog')),
@@ -4186,21 +4202,25 @@ void main() {
       ),
       findsNothing,
     );
-    final waitBodyFinder = find.byWidgetPredicate(
-      (widget) =>
-          widget is Text &&
-          (widget.data ?? '').startsWith(
-            'LLM is generating your first tick. This may take a moment',
-          ),
+    expect(
+      find.text(
+        'Generate  a live and customized world for you.\n'
+        'Please wait for a moment.',
+      ),
+      findsOneWidget,
     );
-    expect(waitBodyFinder, findsOneWidget);
-    final waitBody = tester.widget<Text>(waitBodyFinder);
+    final waitBody = tester.widget<Text>(
+      find.text(
+        'Generate  a live and customized world for you.\n'
+        'Please wait for a moment.',
+      ),
+    );
     expect(waitBody.style?.fontSize, 14);
-    expect(waitBody.data, endsWith('.'));
-    final initialWaitBodyText = waitBody.data;
+    expect(waitTitle.data, endsWith('.'));
+    final initialWaitTitleText = waitTitle.data;
     await tester.pump(const Duration(milliseconds: 400));
-    final animatedWaitBody = tester.widget<Text>(waitBodyFinder);
-    expect(animatedWaitBody.data, isNot(initialWaitBodyText));
+    final animatedWaitTitle = tester.widget<Text>(waitTitleFinder);
+    expect(animatedWaitTitle.data, isNot(initialWaitTitleText));
     var worldRequests = transport.requestsFor('/api/v1/world/detail');
     expect(worldRequests, hasLength(1));
     expect(
@@ -7262,12 +7282,7 @@ void main() {
       find.widgetWithText(FilledButton, 'Creating...'),
     );
     expect(createButton.onPressed, isNull);
-    expect(
-      find.text(
-        'Worldo Origin o_created_1 has been created successfully. Go to it?',
-      ),
-      findsNothing,
-    );
+    expect(find.text('Worldo Origin o_created_1 created!'), findsNothing);
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
     await tester.pumpAndSettle();
     expect(find.text('Open create'), findsOneWidget);
@@ -7283,10 +7298,8 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(2));
-    expect(
-      find.text('Worldo Crystal City has been created successfully. Go to it?'),
-      findsOneWidget,
-    );
+    expect(find.text('Worldo Crystal City created!'), findsOneWidget);
+    expect(find.text('View'), findsOneWidget);
   });
 
   testWidgets('create clears draft after origin info reports complete', (
@@ -7350,10 +7363,8 @@ void main() {
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
-    expect(
-      find.text('Worldo Crystal City has been created successfully. Go to it?'),
-      findsOneWidget,
-    );
+    expect(find.text('Worldo Crystal City created!'), findsOneWidget);
+    expect(find.text('View'), findsOneWidget);
   });
 
   testWidgets('create page resumes pending origin after app rebuild', (
@@ -7588,12 +7599,7 @@ void main() {
       find.widgetWithText(FilledButton, 'Publishing...').last,
     );
     expect(publishButton.onPressed, isNull);
-    expect(
-      find.text(
-        'Worldo Origin o_edit_1 has been published successfully. Go to it?',
-      ),
-      findsNothing,
-    );
+    expect(find.text('Worldo Origin o_edit_1 published!'), findsNothing);
     await tester.tap(
       find.byIcon(Icons.arrow_back_ios_new),
       warnIfMissed: false,
@@ -7611,12 +7617,8 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(2));
-    expect(
-      find.text(
-        'Worldo Edited Origin has been published successfully. Go to it?',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Worldo Edited Origin published!'), findsOneWidget);
+    expect(find.text('View'), findsOneWidget);
   });
 
   testWidgets('edit flow completes after origin info reports published', (
@@ -7689,12 +7691,8 @@ void main() {
 
     expect(transport.requestsFor('/api/v1/origin/update'), hasLength(1));
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
-    expect(
-      find.text(
-        'Worldo Edited Origin has been published successfully. Go to it?',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Worldo Edited Origin published!'), findsOneWidget);
+    expect(find.text('View'), findsOneWidget);
   });
 
   testWidgets('edit page resumes matching publish pending after app rebuild', (

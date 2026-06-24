@@ -243,10 +243,15 @@ class OriginLaunchCoordinator {
     if (context == null) return;
     _completionDialogShowing = true;
     try {
+      final worldName = world.name.trim().isEmpty
+          ? fallbackWorldId
+          : world.name.trim();
       final shouldGo = await showGenesisActionBox<bool>(
         context: context,
-        title: 'World launched successfully. Go to it?',
-        actions: const [GenesisActionBoxAction<bool>(label: 'Go', value: true)],
+        title: 'World $worldName launched!',
+        actions: const [
+          GenesisActionBoxAction<bool>(label: 'Enter', value: true),
+        ],
       );
       if (shouldGo == true) {
         _navigateToWorld(world, fallbackWorldId: fallbackWorldId);
