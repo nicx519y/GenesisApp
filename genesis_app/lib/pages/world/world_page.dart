@@ -15,6 +15,7 @@ import '../../components/common/genesis_report_actions.dart';
 import '../../components/ai_content_disclaimer.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
+import '../../components/ai_content_disclaimer.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
@@ -354,23 +355,29 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   List<WorldChatroomMessage> _latestMapBubbleConversationMessages(
     List<WorldChatroomMessage> messages,
   ) {
-    final currentTickNo = _world?.tickCount ?? 0;
-    if (currentTickNo <= 0 || messages.isEmpty) {
+    if (messages.isEmpty) {
       return const <WorldChatroomMessage>[];
     }
-    final currentTickMessages = messages
-        .where((message) => message.tickNo == currentTickNo)
+
+    var latestTickNo = -1;
+    for (final message in messages) {
+      if (message.tickNo > latestTickNo) latestTickNo = message.tickNo;
+    }
+    if (latestTickNo < 0) return const <WorldChatroomMessage>[];
+
+    final latestTickMessages = messages
+        .where((message) => message.tickNo == latestTickNo)
         .toList(growable: false);
-    if (currentTickMessages.isEmpty) return const <WorldChatroomMessage>[];
+    if (latestTickMessages.isEmpty) return const <WorldChatroomMessage>[];
 
     var latestRound = -1;
-    for (final message in currentTickMessages) {
+    for (final message in latestTickMessages) {
       final round = message.conversationRoundNumber;
       if (round > latestRound) latestRound = round;
     }
-    if (latestRound <= 0) return const <WorldChatroomMessage>[];
+    if (latestRound < 0) return const <WorldChatroomMessage>[];
 
-    return currentTickMessages
+    return latestTickMessages
         .where((message) => message.conversationRoundNumber == latestRound)
         .toList(growable: false)
       ..sort(_compareMapBubbleMessages);
