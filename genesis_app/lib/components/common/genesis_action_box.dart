@@ -23,8 +23,13 @@ Future<T?> showGenesisActionBox<T>({
   required String title,
   required List<GenesisActionBoxAction<T>> actions,
   Widget? content,
+  Widget? titleContent,
+  double titleContentSpacing = 8,
   String cancelLabel = 'Cancel',
   bool detachCancel = false,
+  double titleHeight = GenesisActionBox.defaultTitleHeight,
+  double actionRowHeight = GenesisActionBox.defaultRowHeight,
+  double cancelRowHeight = GenesisActionBox.defaultRowHeight,
 }) {
   return showGenesisDialog<T>(
     context: context,
@@ -33,9 +38,14 @@ Future<T?> showGenesisActionBox<T>({
       return GenesisActionBox<T>(
         title: title,
         content: content,
+        titleContent: titleContent,
+        titleContentSpacing: titleContentSpacing,
         actions: actions,
         cancelLabel: cancelLabel,
         detachCancel: detachCancel,
+        titleHeight: titleHeight,
+        actionRowHeight: actionRowHeight,
+        cancelRowHeight: cancelRowHeight,
         onActionSelected: (value) => Navigator.of(dialogContext).pop(value),
         onCancel: () => Navigator.of(dialogContext).pop(),
       );
@@ -51,12 +61,17 @@ class GenesisActionBox<T> extends StatelessWidget {
     required this.onActionSelected,
     required this.onCancel,
     this.content,
+    this.titleContent,
+    this.titleContentSpacing = 8,
     this.cancelLabel = 'Cancel',
     this.detachCancel = false,
+    this.titleHeight = defaultTitleHeight,
+    this.actionRowHeight = defaultRowHeight,
+    this.cancelRowHeight = defaultRowHeight,
   });
 
-  static const double _rowHeight = 51;
-  static const double _titleHeight = 82;
+  static const double defaultRowHeight = 51;
+  static const double defaultTitleHeight = 82;
   static const double _maxWidth = 800;
   static const BorderRadius _borderRadius = BorderRadius.all(
     Radius.circular(18),
@@ -64,11 +79,16 @@ class GenesisActionBox<T> extends StatelessWidget {
 
   final String title;
   final Widget? content;
+  final Widget? titleContent;
+  final double titleContentSpacing;
   final List<GenesisActionBoxAction<T>> actions;
   final ValueChanged<T> onActionSelected;
   final VoidCallback onCancel;
   final String cancelLabel;
   final bool detachCancel;
+  final double titleHeight;
+  final double actionRowHeight;
+  final double cancelRowHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -99,20 +119,30 @@ class GenesisActionBox<T> extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _TitleRow(title: title),
+            _TitleRow(
+              title: title,
+              height: titleHeight,
+              content: titleContent,
+              contentSpacing: titleContentSpacing,
+            ),
             if (content case final content?) content,
             if (actions.isNotEmpty) ...[
               const _Divider(),
               for (final action in actions) ...[
                 _ActionRow<T>(
                   action: action,
+                  height: actionRowHeight,
                   isPreferred: true,
                   onSelected: onActionSelected,
                 ),
                 const _Divider(),
               ],
             ],
-            _CancelRow(label: cancelLabel, onCancel: onCancel),
+            _CancelRow(
+              label: cancelLabel,
+              height: cancelRowHeight,
+              onCancel: onCancel,
+            ),
           ],
         ),
       ),
@@ -131,13 +161,19 @@ class GenesisActionBox<T> extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _TitleRow(title: title),
+                _TitleRow(
+                  title: title,
+                  height: titleHeight,
+                  content: titleContent,
+                  contentSpacing: titleContentSpacing,
+                ),
                 if (content case final content?) content,
                 if (actions.isNotEmpty) ...[
                   const _Divider(),
                   for (var index = 0; index < actions.length; index++) ...[
                     _ActionRow<T>(
                       action: actions[index],
+                      height: actionRowHeight,
                       isPreferred: index == 0,
                       onSelected: onActionSelected,
                     ),
@@ -153,7 +189,11 @@ class GenesisActionBox<T> extends StatelessWidget {
           borderRadius: _borderRadius,
           child: Material(
             color: Colors.white,
-            child: _CancelRow(label: cancelLabel, onCancel: onCancel),
+            child: _CancelRow(
+              label: cancelLabel,
+              height: cancelRowHeight,
+              onCancel: onCancel,
+            ),
           ),
         ),
       ],
@@ -162,28 +202,48 @@ class GenesisActionBox<T> extends StatelessWidget {
 }
 
 class _TitleRow extends StatelessWidget {
-  const _TitleRow({required this.title});
+  const _TitleRow({
+    required this.title,
+    required this.height,
+    required this.content,
+    required this.contentSpacing,
+  });
 
   final String title;
+  final double height;
+  final Widget? content;
+  final double contentSpacing;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: GenesisActionBox._titleHeight,
-      child: Center(
+      key: const ValueKey('genesis-action-box-title-row'),
+      height: height,
+      width: double.infinity,
+      child: Align(
+        alignment: Alignment.center,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: _genesisActionBoxText,
-              fontSize: 15,
-              height: 1.16,
-              fontWeight: FontWeight.w600,
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _genesisActionBoxText,
+                  fontSize: 15,
+                  height: 1.16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (content case final content?) ...[
+                SizedBox(height: contentSpacing),
+                content,
+              ],
+            ],
           ),
         ),
       ),
@@ -194,11 +254,13 @@ class _TitleRow extends StatelessWidget {
 class _ActionRow<T> extends StatelessWidget {
   const _ActionRow({
     required this.action,
+    required this.height,
     required this.isPreferred,
     required this.onSelected,
   });
 
   final GenesisActionBoxAction<T> action;
+  final double height;
   final bool isPreferred;
   final ValueChanged<T> onSelected;
 
@@ -210,9 +272,11 @@ class _ActionRow<T> extends StatelessWidget {
     return InkWell(
       onTap: () => onSelected(action.value),
       child: SizedBox(
-        height: GenesisActionBox._rowHeight,
+        key: const ValueKey('genesis-action-box-action-row'),
+        height: height,
         width: double.infinity,
-        child: Center(
+        child: Align(
+          alignment: Alignment.center,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18),
             child: Text(
@@ -234,9 +298,14 @@ class _ActionRow<T> extends StatelessWidget {
 }
 
 class _CancelRow extends StatelessWidget {
-  const _CancelRow({required this.label, required this.onCancel});
+  const _CancelRow({
+    required this.label,
+    required this.height,
+    required this.onCancel,
+  });
 
   final String label;
+  final double height;
   final VoidCallback onCancel;
 
   @override
@@ -244,9 +313,11 @@ class _CancelRow extends StatelessWidget {
     return InkWell(
       onTap: onCancel,
       child: SizedBox(
-        height: GenesisActionBox._rowHeight,
+        key: const ValueKey('genesis-action-box-cancel-row'),
+        height: height,
         width: double.infinity,
-        child: Center(
+        child: Align(
+          alignment: Alignment.center,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18),
             child: Text(

@@ -1156,15 +1156,10 @@ class _OriginHeader extends StatelessWidget {
               child: GenesisMoreActionMenuButton(
                 buttonSize: 18 * 1.25,
                 items: [
-                  GenesisActionMenuItem(
-                    label: 'Report',
-                    onSelected: () {
-                      showGenesisReportDialog(
-                        context: context,
-                        targetType: 'origin',
-                        targetId: origin.oid,
-                      );
-                    },
+                  genesisReportMenuItem(
+                    context: context,
+                    targetType: 'origin',
+                    targetId: origin.oid,
                   ),
                 ],
               ),

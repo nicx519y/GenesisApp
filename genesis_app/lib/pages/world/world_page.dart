@@ -3798,15 +3798,10 @@ class _WorldInfoHeader extends StatelessWidget {
               child: GenesisMoreActionMenuButton(
                 buttonSize: 18 * 1.25,
                 items: [
-                  GenesisActionMenuItem(
-                    label: 'Report',
-                    onSelected: () {
-                      showGenesisReportDialog(
-                        context: context,
-                        targetType: 'world',
-                        targetId: wid,
-                      );
-                    },
+                  genesisReportMenuItem(
+                    context: context,
+                    targetType: 'world',
+                    targetId: wid,
                   ),
                 ],
               ),
@@ -4360,24 +4355,38 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
             if (tickIndex == null) return const SizedBox.shrink();
             final tick = visibleTicks[tickIndex];
             final identity = _eventTickIdentity(tick);
+            final tickNumber = worldTickEventNumber(
+              tick,
+              fallback: tickIndex + 1,
+            );
             return _WorldTickEventCardPage(
               key: ValueKey<String>('world-event-tick-$identity'),
               resetRevision: _tickCardResetRevisions[identity] ?? 0,
               hasTopEdgePage: index > 0,
               hasBottomEdgePage: index < _pageCount - 1,
               onTurnPage: _turnPage,
-              child: WorldTickEventItem(
-                key: ValueKey<String>('world-event-tick-item-$identity'),
-                tick: tick,
-                tickNumber: worldTickEventNumber(tick, fallback: tickIndex + 1),
-                fallbackBody: fallbackBody,
-                locationsById: locationsById,
-                dateLabel: _tickParagraphTimestamp(tick),
-                stackedContent: true,
-                contentLabelStyle: _worldEventContentLabelStyle,
-                contentTextStyle: _worldEventContentTextStyle,
-                contentTimestampStyle: _worldEventContentTimestampStyle,
-                isLast: true,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (tickNumber == 1)
+                    const AiContentDisclaimer(
+                      padding: EdgeInsets.fromLTRB(10, 0, 10, 18),
+                      textAlign: TextAlign.left,
+                    ),
+                  WorldTickEventItem(
+                    key: ValueKey<String>('world-event-tick-item-$identity'),
+                    tick: tick,
+                    tickNumber: tickNumber,
+                    fallbackBody: fallbackBody,
+                    locationsById: locationsById,
+                    dateLabel: _tickParagraphTimestamp(tick),
+                    stackedContent: true,
+                    contentLabelStyle: _worldEventContentLabelStyle,
+                    contentTextStyle: _worldEventContentTextStyle,
+                    contentTimestampStyle: _worldEventContentTimestampStyle,
+                    isLast: true,
+                  ),
+                ],
               ),
             );
           },
