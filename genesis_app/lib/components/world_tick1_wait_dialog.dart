@@ -47,6 +47,7 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
   Timer? _dotsTimer;
   bool _loading = true;
   bool _hasError = false;
+  bool _allowRoutePop = false;
   int _dotCount = 1;
 
   @override
@@ -79,7 +80,11 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
       if (!mounted) return;
       if (worldHasTick1(world)) {
         widget.onWorldReady(world);
-        Navigator.of(context).pop();
+        setState(() => _allowRoutePop = true);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          Navigator.of(context).pop();
+        });
         return;
       }
       setState(() => _loading = false);
@@ -95,35 +100,33 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      key: const ValueKey('world-tick1-wait-dialog'),
-      title: const Text(
-        'Generating first tick',
-        style: TextStyle(fontSize: 16, height: 1.2),
-      ),
-      content: SizedBox(
-        width: 260,
-        child: Text(
-          _hasError
-              ? 'Generation status could not be loaded.'
-              : 'LLM is generating your first tick. This may take a moment${List.filled(_dotCount, '.').join()}',
-          style: const TextStyle(fontSize: 14, height: 1.35),
+    return PopScope(
+      canPop: _allowRoutePop,
+      child: AlertDialog(
+        key: const ValueKey('world-tick1-wait-dialog'),
+        title: const Text(
+          'Generating first tick',
+          style: TextStyle(fontSize: 16, height: 1.2),
         ),
+        content: SizedBox(
+          width: 260,
+          child: Text(
+            _hasError
+                ? 'Generation status could not be loaded.'
+                : 'LLM is generating your first tick. This may take a moment${List.filled(_dotCount, '.').join()}',
+            style: const TextStyle(fontSize: 14, height: 1.35),
+          ),
+        ),
+        actions: _hasError
+            ? [
+                FilledButton(
+                  key: const ValueKey('world-tick1-wait-retry'),
+                  onPressed: _loading ? null : () => unawaited(_poll()),
+                  child: const Text('Retry'),
+                ),
+              ]
+            : null,
       ),
-      actions: _hasError
-          ? [
-              TextButton(
-                key: const ValueKey('world-tick1-wait-cancel'),
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                key: const ValueKey('world-tick1-wait-retry'),
-                onPressed: _loading ? null : () => unawaited(_poll()),
-                child: const Text('Retry'),
-              ),
-            ]
-          : null,
     );
   }
 }
