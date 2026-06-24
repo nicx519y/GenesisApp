@@ -780,6 +780,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         isMe: isMe,
         fallback: existing?.avatarUrl ?? '',
       );
+      final currentTime = _messageCurrentTime(message);
       final createdAt = message.createdAt ?? DateTime.now();
       if (existing != null) {
         if (usedLocalIds.contains(existing.localId)) {
@@ -794,6 +795,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             existing.isPlayerControlledRole != isPlayerControlledRole ||
             existing.avatarUrl != avatarUrl ||
             existing.text != message.content ||
+            existing.currentTime != currentTime ||
             existing.status != status ||
             existing.localId != localId) {
           changed = true;
@@ -805,6 +807,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         existing.isPlayerControlledRole = isPlayerControlledRole;
         existing.avatarUrl = avatarUrl;
         existing.text = message.content;
+        existing.currentTime = currentTime;
         existing.status = status;
         existing.error = null;
         next.add(existing);
@@ -821,6 +824,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           isPlayerControlledRole: isPlayerControlledRole,
           avatarUrl: avatarUrl,
           text: message.content,
+          currentTime: currentTime,
           isMe: isMe,
           status: status,
           senderType: _messageSenderType(message),
@@ -889,6 +893,16 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     if (senderType == 'tick') return 'tick';
     if (senderType == 'ai') return 'character';
     return senderType.isEmpty ? 'user' : senderType;
+  }
+
+  String _messageCurrentTime(WorldChatroomMessage message) {
+    final senderType = _messageSenderType(message);
+    if (senderType == 'user' ||
+        senderType == 'tick' ||
+        senderType == 'system') {
+      return '';
+    }
+    return message.currentTime.trim();
   }
 
   void _syncSenderIdentity(WorldChatroomService service) {
