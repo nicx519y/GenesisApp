@@ -2313,6 +2313,7 @@ List<WorldChatroomMessage> originLocationOpeningPreviewMessagesForTesting(
                 senderType: isNarrator ? 'narrator' : 'character',
                 senderId: senderId,
                 senderName: senderName,
+                currentTime: currentTime,
                 content: content,
                 createdAt:
                     createdAt ?? DateTime.fromMillisecondsSinceEpoch(index),
