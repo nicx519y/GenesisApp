@@ -619,6 +619,8 @@ class ChatMessageList extends StatelessWidget {
     required this.messages,
     required this.topTitle,
     this.onMessageLongPressStart,
+    this.keyboardDismissBehavior,
+    this.reverse = true,
     this.showDateDividers = true,
     this.style,
   });
@@ -627,6 +629,8 @@ class ChatMessageList extends StatelessWidget {
   final List<ChatMessageVm> messages;
   final String topTitle;
   final ChatMessageLongPressStart? onMessageLongPressStart;
+  final ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior;
+  final bool reverse;
   final bool showDateDividers;
   final ChatUiStyleConfig? style;
 
@@ -635,15 +639,18 @@ class ChatMessageList extends StatelessWidget {
     final style = this.style ?? ChatUiStyleConfig.standard;
     return ListView.builder(
       controller: controller,
-      reverse: true,
+      reverse: reverse,
+      keyboardDismissBehavior:
+          keyboardDismissBehavior ?? ScrollViewKeyboardDismissBehavior.manual,
       padding: style.messageListPadding,
       itemCount: messages.length + 1,
       itemBuilder: (context, index) {
-        if (index == messages.length) {
+        final titleIndex = reverse ? messages.length : 0;
+        if (index == titleIndex) {
           return _ChatTopTitle(name: topTitle, style: style);
         }
 
-        final messageIndex = messages.length - 1 - index;
+        final messageIndex = reverse ? messages.length - 1 - index : index - 1;
         final current = messages[messageIndex];
         final previous = messageIndex == 0 ? null : messages[messageIndex - 1];
         return ChatMessageRow(
@@ -956,18 +963,17 @@ class ChatAvatar extends StatelessWidget {
               ),
             ),
           ),
-          if (imageUrl.isNotEmpty)
-            Positioned.fill(
-              child: GenesisAvatar(
-                name: seed == null || seed.isEmpty ? label : seed,
-                url: imageUrl,
-                size: style.avatarSize,
-                borderRadius: style.avatarBorderRadius,
-                textStyle: style.avatarTextStyle,
-                showFallbackWhileLoading: false,
-                showFallbackWhenUnavailable: false,
-              ),
+          Positioned.fill(
+            child: GenesisAvatar(
+              name: seed == null || seed.isEmpty ? label : seed,
+              url: imageUrl,
+              size: style.avatarSize,
+              borderRadius: style.avatarBorderRadius,
+              textStyle: style.avatarTextStyle,
+              showFallbackWhileLoading: imageUrl.isEmpty,
+              showFallbackWhenUnavailable: imageUrl.isEmpty,
             ),
+          ),
           Positioned.fill(
             child: IgnorePointer(
               child: DecoratedBox(

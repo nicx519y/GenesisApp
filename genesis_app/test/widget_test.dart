@@ -32,6 +32,8 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/network/direct_message_conversation_store.dart';
 import 'package:genesis_flutter_android/network/direct_message_message_store.dart';
+import 'package:genesis_flutter_android/network/models/origin.dart';
+import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/create/create_basics_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_characters_page.dart';
 import 'package:genesis_flutter_android/pages/create/create_locations_page.dart';
@@ -381,7 +383,6 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.originDiscussCount = 9,
     this.discussTotalAll = 25,
     this.originDetailCompleter,
-    this.worldTickCompleter,
     this.worldDetailCompleter,
     this.userInfoCompleter,
     this.originListCompleter,
@@ -399,6 +400,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldSummaryLatestItems,
     this.worldDetailTicksByRequest,
     this.worldDetailTickCountsByRequest,
+    this.worldTickListCompleter,
     this.hotTagsCompleter,
   });
 
@@ -408,7 +410,6 @@ class _RecordingV1ListTransport implements HttpTransport {
   final int originDiscussCount;
   final int discussTotalAll;
   final Completer<TransportResponse>? originDetailCompleter;
-  final Completer<TransportResponse>? worldTickCompleter;
   final Completer<TransportResponse>? worldDetailCompleter;
   final Completer<TransportResponse>? userInfoCompleter;
   final Completer<TransportResponse>? originListCompleter;
@@ -426,6 +427,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final List<Map<String, Object?>>? worldSummaryLatestItems;
   final List<List<Map<String, Object?>>>? worldDetailTicksByRequest;
   final List<int>? worldDetailTickCountsByRequest;
+  final Completer<TransportResponse>? worldTickListCompleter;
   final Completer<TransportResponse>? hotTagsCompleter;
   int _worldDetailRequestIndex = 0;
 
@@ -474,7 +476,21 @@ class _RecordingV1ListTransport implements HttpTransport {
       _worldDetailRequestIndex += 1;
       return _jsonResponse({'err_no': 0, 'err_str': 'success', 'data': detail});
     }
+    if (request.uri.path.endsWith('/world/info')) {
+      final wid =
+          request.uri.queryParameters['world_id'] ??
+          request.uri.queryParameters['wid'] ??
+          '';
+      final detail = _worldDetail(wid);
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {'info': detail['info'], 'stats': detail['stats']},
+      });
+    }
     if (request.uri.path.endsWith('/world/tick/list')) {
+      final pendingResponse = worldTickListCompleter;
+      if (pendingResponse != null) return pendingResponse.future;
       final wid = request.uri.queryParameters['world_id'] ?? 'w_test_1';
       final pn = int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1;
       final rn = int.tryParse(request.uri.queryParameters['rn'] ?? '') ?? 20;
@@ -528,9 +544,6 @@ class _RecordingV1ListTransport implements HttpTransport {
       });
     }
     if (request.method == 'POST' && request.uri.path.endsWith('/world/tick')) {
-      if (worldTickCompleter != null) {
-        return worldTickCompleter!.future;
-      }
       final body = decodedBody(request);
       return _jsonResponse({
         'err_no': 0,
@@ -3545,7 +3558,9 @@ void main() {
   testWidgets(
     'Home My World tab requests v1 world list with mine scene on enter',
     (WidgetTester tester) async {
-      final transport = _RecordingV1ListTransport();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'approved',
+      );
       await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(
@@ -5181,67 +5196,17 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets(
-    'World progress button calls v1 tick and disables while pending',
-    (WidgetTester tester) async {
-      final tickCompleter = Completer<TransportResponse>();
-      final transport = _RecordingV1ListTransport(
-        worldTickCompleter: tickCompleter,
-      );
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: await _testServices(transport: transport, useMock: false),
-          child: MaterialApp(
-            onGenerateRoute: AppRouter.onGenerateRoute,
-            home: const HomePage(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
+  test('GenesisApi.progressWorld posts v1 world tick once', () async {
+    final transport = _RecordingV1ListTransport();
+    final services = await _testServices(transport: transport, useMock: false);
 
-      await tester.tap(find.text('World 1'));
-      await tester.pumpAndSettle();
+    final message = await services.api.progressWorld('w_test_1');
 
-      final buttonFinder = find.widgetWithText(FilledButton, 'Progress');
-      await tester.ensureVisible(buttonFinder);
-      await tester.pumpAndSettle();
-      await tester.tap(buttonFinder);
-      await tester.pump();
-
-      var tickRequests = transport.requestsFor('/api/v1/world/tick');
-      expect(tickRequests, hasLength(1));
-      expect(
-        transport.decodedBody(tickRequests.single)['world_id'],
-        'w_test_1',
-      );
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      expect(
-        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-        isNull,
-      );
-
-      await tester.tap(find.byType(FilledButton));
-      await tester.pump();
-      tickRequests = transport.requestsFor('/api/v1/world/tick');
-      expect(tickRequests, hasLength(1));
-
-      tickCompleter.complete(
-        transport._jsonResponse({
-          'err_no': 0,
-          'err_str': 'success',
-          'data': {
-            'world_id': 'w_test_1',
-            'tick_cnt': 4,
-            'last_tick': <String, Object?>{},
-          },
-        }),
-      );
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(seconds: 3));
-
-      expect(find.widgetWithText(FilledButton, 'Progress'), findsOneWidget);
-    },
-  );
+    final tickRequests = transport.requestsFor('/api/v1/world/tick');
+    expect(tickRequests, hasLength(1));
+    expect(transport.decodedBody(tickRequests.single)['world_id'], 'w_test_1');
+    expect(message, 'Tick 4');
+  });
 
   testWidgets('Home world list loads next page near bottom', (
     WidgetTester tester,
@@ -8324,7 +8289,8 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
       await tester.tap(find.text('Delete account'));
       await tester.pumpAndSettle();
@@ -9669,14 +9635,96 @@ void main() {
         transport: transport,
         useMock: false,
       );
+      final initialWorld = WorldDetail(
+        id: 0,
+        worldId: 'w_test_1',
+        originId: 0,
+        ownerUid: 'u_test',
+        name: 'World detail w_test_1',
+        tickCount: 25,
+        connectCount: 4,
+        characterCount: 1,
+        playerCount: 1,
+        currentTime: '',
+        latestTickAt: null,
+        latestNarrator: '',
+        isProgressing: false,
+        relationStatus: 'approved',
+        metric: const <String, dynamic>{},
+        inviteToken: '',
+        createdAt: null,
+        updatedAt: null,
+        origin: const OriginSummary(
+          id: 0,
+          oid: 'o_for_w_test_1',
+          name: 'Origin',
+          description: '',
+          mapImage: '',
+          worldMap: '',
+          worldView: '',
+          copyCount: 0,
+          interactCount: 0,
+          tags: <String>[],
+          createdAt: null,
+          updatedAt: null,
+          characters: <OriginCharacter>[],
+          locations: <OriginLocation>[],
+        ),
+        characters: const <Map<String, dynamic>>[],
+        ticks: const <Map<String, dynamic>>[],
+        locations: const <Map<String, dynamic>>[
+          {'location_id': 'l_w_test_1', 'location_name': 'World Location'},
+        ],
+        characterPositions: const <Map<String, dynamic>>[],
+        userPositions: const <Map<String, dynamic>>[],
+      );
 
       await tester.pumpWidget(
-        AppServicesScope(
-          services: services,
-          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: WorldPage(wid: 'w_test_1', initialWorldDetail: initialWorld),
+          ),
         ),
       );
       await tester.pumpAndSettle();
+
+      final eventsTab = find
+          .byKey(const ValueKey<String>('world-section-floating-tab-Events'))
+          .hitTestable();
+      expect(eventsTab, findsOneWidget);
+      await tester.tap(eventsTab);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(
+        find.byKey(const PageStorageKey<String>('world-events-section')),
+        findsOneWidget,
+      );
+      for (
+        var attempt = 0;
+        attempt < 10 &&
+            transport.requestsFor('/api/v1/world/tick/list').isEmpty;
+        attempt += 1
+      ) {
+        await tester.runAsync(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        });
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      for (
+        var attempt = 0;
+        attempt < 10 &&
+            find
+                .text('Paged event first page.', skipOffstage: false)
+                .evaluate()
+                .isEmpty;
+        attempt += 1
+      ) {
+        await tester.runAsync(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        });
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
       final initialRequests = transport.requestsFor('/api/v1/world/tick/list');
       expect(initialRequests, hasLength(1));
@@ -9688,32 +9736,358 @@ void main() {
       expect(initialRequests.single.uri.queryParameters['rn'], '20');
       expect(
         find.text('Paged event first page.', skipOffstage: false),
-        findsWidgets,
+        findsOneWidget,
       );
       expect(
         find.text('Tick 25 · tick-time-1', skipOffstage: false),
-        findsWidgets,
+        findsOneWidget,
+      );
+      expect(find.text('Paged event 20.', skipOffstage: false), findsNothing);
+
+      final pager = find.byKey(
+        const ValueKey<String>('world-events-tick-pager'),
+      );
+      expect(pager, findsOneWidget);
+
+      final topEdgeArrow = find.byKey(
+        const ValueKey<String>('world-event-top-edge-arrow'),
+      );
+      final bottomEdgeArrow = find.byKey(
+        const ValueKey<String>('world-event-bottom-edge-arrow'),
+      );
+      expect(topEdgeArrow, findsNothing);
+      expect(bottomEdgeArrow, findsNothing);
+      final topArrowGesture = await tester.startGesture(
+        tester.getCenter(
+          find.text('Paged event first page.', skipOffstage: false),
+        ),
+      );
+      await topArrowGesture.moveBy(const Offset(0, 40));
+      await tester.pump();
+      expect(topEdgeArrow, findsOneWidget);
+      final topArrowSize = tester.getSize(topEdgeArrow);
+      await topArrowGesture.moveBy(const Offset(0, 12));
+      await tester.pump();
+      expect(
+        tester.getSize(topEdgeArrow).width,
+        greaterThan(topArrowSize.width),
+      );
+      await topArrowGesture.up();
+      await tester.pump();
+      expect(topEdgeArrow, findsNothing);
+
+      final latestBottomWallGesture = await tester.startGesture(
+        tester.getCenter(
+          find.text('Paged event first page.', skipOffstage: false),
+        ),
+      );
+      await latestBottomWallGesture.moveBy(const Offset(0, -80));
+      await tester.pump();
+      expect(bottomEdgeArrow, findsNothing);
+      await latestBottomWallGesture.up();
+      await tester.pump(const Duration(milliseconds: 320));
+      expect(
+        find.text('Paged event first page.', skipOffstage: false),
+        findsOneWidget,
       );
 
-      await tester.dragUntilVisible(
-        find.text('Paged event 20.', skipOffstage: false).first,
-        find.byType(CustomScrollView).last,
-        const Offset(0, -300),
+      Finder tickBodyForTickNo(int tickNo) {
+        final requestIndex = 26 - tickNo;
+        return find.text(
+          requestIndex == 1
+              ? 'Paged event first page.'
+              : 'Paged event $requestIndex.',
+          skipOffstage: false,
+        );
+      }
+
+      Finder tickHeader(int tickNo) {
+        final requestIndex = 26 - tickNo;
+        return find.text(
+          'Tick $tickNo · tick-time-$requestIndex',
+          skipOffstage: false,
+        );
+      }
+
+      Future<void> dragToOlderTick(int currentTickNo, int nextTickNo) async {
+        for (var attempt = 0; attempt < 3; attempt += 1) {
+          final currentBody = tickBodyForTickNo(currentTickNo);
+          expect(currentBody, findsOneWidget);
+          await tester.drag(
+            currentBody,
+            const Offset(0, 520),
+            warnIfMissed: false,
+          );
+          await tester.pump(const Duration(milliseconds: 320));
+          if (tickBodyForTickNo(nextTickNo).evaluate().isNotEmpty) return;
+        }
+        expect(tickBodyForTickNo(nextTickNo), findsOneWidget);
+      }
+
+      Future<void> dragToNewerTick(int currentTickNo, int nextTickNo) async {
+        for (var attempt = 0; attempt < 3; attempt += 1) {
+          final currentBody = tickBodyForTickNo(currentTickNo);
+          expect(currentBody, findsOneWidget);
+          await tester.drag(
+            currentBody,
+            const Offset(0, -520),
+            warnIfMissed: false,
+          );
+          await tester.pump(const Duration(milliseconds: 320));
+          if (tickBodyForTickNo(nextTickNo).evaluate().isNotEmpty) return;
+        }
+        expect(tickBodyForTickNo(nextTickNo), findsOneWidget);
+      }
+
+      await dragToOlderTick(25, 24);
+      final bottomArrowGesture = await tester.startGesture(
+        tester.getCenter(tickBodyForTickNo(24)),
       );
-      await tester.pumpAndSettle();
+      await bottomArrowGesture.moveBy(const Offset(0, -40));
+      await tester.pump();
+      expect(bottomEdgeArrow, findsOneWidget);
+      final bottomArrowSize = tester.getSize(bottomEdgeArrow);
+      await bottomArrowGesture.moveBy(const Offset(0, -12));
+      await tester.pump();
+      expect(
+        tester.getSize(bottomEdgeArrow).width,
+        greaterThan(bottomArrowSize.width),
+      );
+      await bottomArrowGesture.up();
+      await tester.pump();
+      expect(bottomEdgeArrow, findsNothing);
+      await tester.pump(const Duration(milliseconds: 320));
+
+      for (var tickNo = 24; tickNo >= 10; tickNo -= 1) {
+        await dragToOlderTick(tickNo, tickNo - 1);
+      }
+      for (
+        var attempt = 0;
+        attempt < 10 &&
+            transport.requestsFor('/api/v1/world/tick/list').length < 2;
+        attempt += 1
+      ) {
+        await tester.runAsync(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        });
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
       final tickRequests = transport.requestsFor('/api/v1/world/tick/list');
       expect(tickRequests.length, greaterThanOrEqualTo(2));
       expect(tickRequests[1].uri.queryParameters['world_id'], 'w_test_1');
       expect(tickRequests[1].uri.queryParameters['pn'], '2');
       expect(tickRequests[1].uri.queryParameters['rn'], '20');
-      expect(find.text('Paged event 25.', skipOffstage: false), findsWidgets);
+      expect(
+        find.text('Paged event first page.', skipOffstage: false),
+        findsNothing,
+      );
+      for (
+        var attempt = 0;
+        attempt < 10 && tickHeader(9).evaluate().isEmpty;
+        attempt += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(tickHeader(9), findsOneWidget);
+
+      for (var tickNo = 9; tickNo >= 2; tickNo -= 1) {
+        await dragToOlderTick(tickNo, tickNo - 1);
+      }
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('Paged event 25.', skipOffstage: false), findsOneWidget);
       expect(
         find.text('Tick 1 · tick-time-25', skipOffstage: false),
-        findsWidgets,
+        findsOneWidget,
       );
+
+      await dragToNewerTick(1, 2);
+      expect(find.text('Paged event 24.', skipOffstage: false), findsOneWidget);
+      expect(
+        find.text('Tick 2 · tick-time-24', skipOffstage: false),
+        findsOneWidget,
+      );
+
+      final requestCountBeforeReopen = transport
+          .requestsFor('/api/v1/world/tick/list')
+          .length;
+      await tester.tap(find.text('×').last);
+      await tester.pumpAndSettle();
+      await tester.tap(eventsTab);
+      await tester.pump();
+      for (
+        var attempt = 0;
+        attempt < 10 &&
+            transport.requestsFor('/api/v1/world/tick/list').length <=
+                requestCountBeforeReopen;
+        attempt += 1
+      ) {
+        await tester.runAsync(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        });
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      final reopenTickRequests = transport.requestsFor(
+        '/api/v1/world/tick/list',
+      );
+      expect(reopenTickRequests.length, requestCountBeforeReopen + 1);
+      expect(
+        reopenTickRequests.last.uri.queryParameters['world_id'],
+        'w_test_1',
+      );
+      expect(reopenTickRequests.last.uri.queryParameters['pn'], '1');
+      expect(reopenTickRequests.last.uri.queryParameters['rn'], '20');
+      await tester.pump(const Duration(seconds: 2));
     },
   );
+
+  testWidgets('world progress opens pending completed tick then fills it', (
+    WidgetTester tester,
+  ) async {
+    final tickListCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'owner',
+      worldDetailTickCountsByRequest: const [26],
+      worldTickListCompleter: tickListCompleter,
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+    final initialWorld = WorldDetail(
+      id: 0,
+      worldId: 'w_test_1',
+      originId: 0,
+      ownerUid: 'u_test',
+      name: 'World detail w_test_1',
+      tickCount: 25,
+      connectCount: 4,
+      characterCount: 1,
+      playerCount: 1,
+      currentTime: '',
+      latestTickAt: null,
+      latestNarrator: '',
+      isProgressing: false,
+      relationStatus: 'owner',
+      metric: const <String, dynamic>{},
+      inviteToken: '',
+      createdAt: null,
+      updatedAt: null,
+      origin: const OriginSummary(
+        id: 0,
+        oid: 'o_for_w_test_1',
+        name: 'Origin',
+        description: '',
+        mapImage: '',
+        worldMap: '',
+        worldView: '',
+        copyCount: 0,
+        interactCount: 0,
+        tags: <String>[],
+        createdAt: null,
+        updatedAt: null,
+        characters: <OriginCharacter>[],
+        locations: <OriginLocation>[],
+      ),
+      characters: const <Map<String, dynamic>>[],
+      ticks: const <Map<String, dynamic>>[],
+      locations: const <Map<String, dynamic>>[
+        {'location_id': 'l_w_test_1', 'location_name': 'World Location'},
+      ],
+      characterPositions: const <Map<String, dynamic>>[],
+      userPositions: const <Map<String, dynamic>>[],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: WorldPage(wid: 'w_test_1', initialWorldDetail: initialWorld),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final progressButton = find.widgetWithText(FilledButton, 'Progress');
+    await tester.ensureVisible(progressButton);
+    await tester.tap(progressButton);
+    await tester.pump();
+    for (
+      var attempt = 0;
+      attempt < 10 && transport.requestsFor('/api/v1/world/tick/list').isEmpty;
+      attempt += 1
+    ) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      });
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    final initialTickRequests = transport.requestsFor(
+      '/api/v1/world/tick/list',
+    );
+    expect(initialTickRequests, hasLength(1));
+    expect(initialTickRequests.single.uri.queryParameters['pn'], '1');
+    expect(initialTickRequests.single.uri.queryParameters['rn'], '20');
+    expect(find.text('Tick 26'), findsWidgets);
+    final pendingTombstone = find.byKey(
+      const ValueKey<String>('world-event-pending-tombstone'),
+    );
+    expect(pendingTombstone, findsOneWidget);
+    expect(
+      find.descendant(
+        of: pendingTombstone,
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsNothing,
+    );
+    expect(find.text('Completed tick event.'), findsNothing);
+
+    tickListCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'list': [
+            for (var index = 0; index < 20; index += 1)
+              {
+                'tick_id': 'tick_w_test_1_${26 - index}',
+                'tick_no': 26 - index,
+                'status': 10,
+                'created_at': 1777680026 - index,
+                'tick_result': {
+                  'narrator': index == 0
+                      ? 'Completed tick event.'
+                      : 'Completed older tick event $index.',
+                  'paragraphs': [
+                    {
+                      'location_id': 'l_w_test_1',
+                      'timestamp': 'tick-time-${26 - index}',
+                      'text': index == 0
+                          ? 'Completed tick paragraph.'
+                          : 'Completed older tick paragraph $index.',
+                      'character_deltas': const <Object?>[],
+                    },
+                  ],
+                  'location_groups': const <Object?>[],
+                },
+              },
+          ],
+          'total': 26,
+          'pn': 1,
+          'rn': 20,
+        },
+      }),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Completed tick event.'), findsOneWidget);
+    expect(find.text('Completed tick paragraph.'), findsOneWidget);
+    expect(
+      find.text('Tick 26 · tick-time-26', skipOffstage: false),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 2));
+  });
 
   testWidgets('world page does not poll world detail after entry', (
     WidgetTester tester,
@@ -9755,7 +10129,7 @@ void main() {
     );
   });
 
-  testWidgets('world location chat does not prebuild hidden panels on entry', (
+  testWidgets('world location chat prebuilds hidden leaf panels on entry', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport(worldRelationStatus: 'joined');
@@ -9775,14 +10149,31 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump();
     await tester.pump();
+    for (
+      var attempt = 0;
+      attempt < 10 &&
+          find
+              .byType(LocationChatPanel, skipOffstage: false)
+              .evaluate()
+              .isEmpty;
+      attempt += 1
+    ) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      });
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     expect(chatroom.connectCount, 1);
-    expect(chatroom.session.joinCount, 0);
     expect(chatroom.session.joinLocationId, isNull);
+    expect(find.byType(LocationChatPanel, skipOffstage: false), findsOneWidget);
     expect(find.text('World Location (1)', skipOffstage: false), findsNothing);
-    expect(find.text('Child Location (1)', skipOffstage: false), findsNothing);
+    expect(
+      find.text('Child Location (0)', skipOffstage: false),
+      findsOneWidget,
+    );
     expect(_visibleText('World Location (1)'), findsNothing);
-    expect(_visibleText('Child Location (1)'), findsNothing);
+    expect(_visibleText('Child Location (0)'), findsNothing);
   });
 
   testWidgets(
@@ -10374,11 +10765,20 @@ void main() {
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
 
       final route = find.byType(LocationChatPage);
       final routeSizeBeforeKeyboard = tester.getSize(route);
+      final headerRectBeforeKeyboard = tester.getRect(find.byType(ChatHeader));
+      final messageList = find.byKey(
+        const ValueKey<String>('location-chat-message-list'),
+      );
+      final messageListRectBeforeKeyboard = tester.getRect(messageList);
       final composerTopBeforeKeyboard = tester
           .getTopLeft(find.byType(ChatComposer))
+          .dy;
+      final textFieldBottomBeforeKeyboard = tester
+          .getBottomLeft(find.byType(TextField))
           .dy;
 
       await tester.tap(find.byType(TextField));
@@ -10387,6 +10787,16 @@ void main() {
       await tester.pump(const Duration(milliseconds: 120));
 
       expect(tester.getSize(route), routeSizeBeforeKeyboard);
+      expect(tester.getRect(find.byType(ChatHeader)), headerRectBeforeKeyboard);
+      final messageListRectWithKeyboard = tester.getRect(messageList);
+      expect(
+        messageListRectWithKeyboard.top,
+        messageListRectBeforeKeyboard.top,
+      );
+      expect(
+        messageListRectWithKeyboard.height,
+        lessThan(messageListRectBeforeKeyboard.height),
+      );
       expect(
         tester.getTopLeft(find.byType(ChatComposer)).dy,
         lessThan(composerTopBeforeKeyboard - 250),
@@ -10405,12 +10815,145 @@ void main() {
       tester.view.viewInsets = FakeViewPadding.zero;
       await tester.pump();
 
+      expect(tester.getRect(find.byType(ChatHeader)), headerRectBeforeKeyboard);
       expect(
         tester.getBottomLeft(find.byType(TextField)).dy,
-        closeTo(textFieldBottomNearKeyboardDismiss, 1),
+        closeTo(textFieldBottomBeforeKeyboard, 1),
+      );
+      expect(
+        tester.getBottomLeft(find.byType(TextField)).dy,
+        greaterThan(textFieldBottomNearKeyboardDismiss),
       );
     },
   );
+
+  testWidgets('location chat jumps to bottom when composer gains focus', (
+    WidgetTester tester,
+  ) async {
+    addTearDown(tester.view.resetViewInsets);
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(chatroom: chatroom);
+    await tester.pumpWidget(GenesisApp(services: services));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
+      RouteNames.locationChat,
+      arguments: {
+        'world_id': 'world-1',
+        'world_name': 'World One',
+        'location_id': 'castle',
+        'location_name': 'Castle',
+      },
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    for (var i = 1; i <= 60; i += 1) {
+      chatroom.session.emit(
+        ChatroomUserMessage(
+          sessionId: 'sess-1',
+          worldId: 'world-1',
+          locationId: 'castle',
+          userId: 'u_peer',
+          code: 0,
+          codeMsg: 'ok',
+          ts: null,
+          messageId: i,
+          conversationRoundId: '$i',
+          roundOrder: 0,
+          senderType: 'user',
+          senderId: 'u_peer',
+          senderName: 'Peer',
+          content: 'focus history message $i',
+          broadcast: true,
+          clientMsgId: '',
+          createdAt: null,
+        ),
+      );
+    }
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final scrollable = find
+        .descendant(
+          of: find.byKey(const ValueKey<String>('location-chat-message-list')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final position = tester.state<ScrollableState>(scrollable).position;
+    expect(position.maxScrollExtent, greaterThan(240));
+
+    position.jumpTo(position.maxScrollExtent - 240);
+    await tester.pump();
+    expect(position.pixels, lessThan(position.maxScrollExtent));
+
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+
+    expect(position.pixels, closeTo(position.maxScrollExtent, 1));
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pump();
+    await tester.pump();
+
+    expect(position.pixels, closeTo(position.maxScrollExtent, 1));
+
+    chatroom.session.emit(
+      ChatroomUserMessage(
+        sessionId: 'sess-1',
+        worldId: 'world-1',
+        locationId: 'castle',
+        userId: 'u_peer',
+        code: 0,
+        codeMsg: 'ok',
+        ts: null,
+        messageId: 61,
+        conversationRoundId: '61',
+        roundOrder: 0,
+        senderType: 'user',
+        senderId: 'u_peer',
+        senderName: 'Peer',
+        content: 'focused new message',
+        broadcast: true,
+        clientMsgId: '',
+        createdAt: null,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(position.pixels, closeTo(position.maxScrollExtent, 1));
+    expect(find.text('1 new message'), findsNothing);
+
+    await tester.drag(scrollable, const Offset(0, 300));
+    await tester.pump();
+    final offsetAfterUserDrag = position.pixels;
+    expect(offsetAfterUserDrag, lessThan(position.maxScrollExtent));
+
+    chatroom.session.emit(
+      ChatroomUserMessage(
+        sessionId: 'sess-1',
+        worldId: 'world-1',
+        locationId: 'castle',
+        userId: 'u_peer',
+        code: 0,
+        codeMsg: 'ok',
+        ts: null,
+        messageId: 62,
+        conversationRoundId: '62',
+        roundOrder: 0,
+        senderType: 'user',
+        senderId: 'u_peer',
+        senderName: 'Peer',
+        content: 'focused but user is reading',
+        broadcast: true,
+        clientMsgId: '',
+        createdAt: null,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(position.pixels, lessThan(position.maxScrollExtent));
+    expect(find.text('1 new message'), findsOneWidget);
+  });
 
   testWidgets('location chat merges pending send with matching user message', (
     WidgetTester tester,
@@ -10546,6 +11089,53 @@ void main() {
     expect(visible.map((message) => message.messageId), [1, 3, 4, 5]);
   });
 
+  testWidgets('location chat first render starts at message list bottom', (
+    WidgetTester tester,
+  ) async {
+    final reportedOffsets = <double>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'world-1',
+          locationId: 'castle',
+          locationName: 'Castle',
+          active: false,
+          onScrollOffsetChanged: reportedOffsets.add,
+          openingPreviewMessages: [
+            for (var i = 1; i <= 60; i += 1)
+              WorldChatroomMessage(
+                messageId: i,
+                conversationRoundId: '$i',
+                roundOrder: 0,
+                tickNo: 0,
+                locationId: 'castle',
+                senderType: 'user',
+                senderId: 'u_peer',
+                senderName: 'Peer',
+                content: 'initial history message $i',
+                createdAt: null,
+              ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final scrollable = find
+        .descendant(
+          of: find.byKey(const ValueKey<String>('location-chat-message-list')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final position = tester.state<ScrollableState>(scrollable).position;
+    expect(position.maxScrollExtent, greaterThan(240));
+    expect(position.pixels, closeTo(position.maxScrollExtent, 1));
+    expect(reportedOffsets, isNotEmpty);
+    expect(reportedOffsets.last, closeTo(position.maxScrollExtent, 1));
+    expect(reportedOffsets, everyElement(greaterThan(0)));
+  });
+
   testWidgets('location chat shows new message notice when not at bottom', (
     WidgetTester tester,
   ) async {
@@ -10590,15 +11180,17 @@ void main() {
     }
     await tester.pump(const Duration(milliseconds: 300));
 
-    final scrollable = find.descendant(
-      of: find.byType(ListView),
-      matching: find.byType(Scrollable),
-    );
+    final scrollable = find
+        .descendant(
+          of: find.byKey(const ValueKey<String>('location-chat-message-list')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
     final position = tester.state<ScrollableState>(scrollable).position;
-    expect(position.pixels, 0);
     expect(position.maxScrollExtent, greaterThan(240));
+    expect(position.pixels, closeTo(position.maxScrollExtent, 1));
 
-    position.jumpTo(240);
+    position.jumpTo(position.maxScrollExtent - 240);
     await tester.pump();
     final offsetBeforeNewMessage = position.pixels;
 
@@ -10637,8 +11229,93 @@ void main() {
     );
     await tester.pump();
 
-    expect(position.pixels, 0);
+    expect(position.pixels, closeTo(position.maxScrollExtent, 1));
     expect(find.text('1 new message'), findsNothing);
+  });
+
+  testWidgets('location chat stays pinned to bottom when new message arrives', (
+    WidgetTester tester,
+  ) async {
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(chatroom: chatroom);
+    await tester.pumpWidget(GenesisApp(services: services));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
+      RouteNames.locationChat,
+      arguments: {
+        'world_id': 'world-1',
+        'world_name': 'World One',
+        'location_id': 'castle',
+        'location_name': 'Castle',
+      },
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    for (var i = 1; i <= 60; i += 1) {
+      chatroom.session.emit(
+        ChatroomUserMessage(
+          sessionId: 'sess-1',
+          worldId: 'world-1',
+          locationId: 'castle',
+          userId: 'u_peer',
+          code: 0,
+          codeMsg: 'ok',
+          ts: null,
+          messageId: i,
+          conversationRoundId: '$i',
+          roundOrder: 0,
+          senderType: 'user',
+          senderId: 'u_peer',
+          senderName: 'Peer',
+          content: 'history message $i',
+          broadcast: true,
+          clientMsgId: '',
+          createdAt: null,
+        ),
+      );
+    }
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final scrollable = find
+        .descendant(
+          of: find.byKey(const ValueKey<String>('location-chat-message-list')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final position = tester.state<ScrollableState>(scrollable).position;
+    expect(position.maxScrollExtent, greaterThan(240));
+    expect(position.pixels, closeTo(position.maxScrollExtent, 1));
+
+    chatroom.session.emit(
+      ChatroomUserMessage(
+        sessionId: 'sess-1',
+        worldId: 'world-1',
+        locationId: 'castle',
+        userId: 'u_peer',
+        code: 0,
+        codeMsg: 'ok',
+        ts: null,
+        messageId: 61,
+        conversationRoundId: '61',
+        roundOrder: 0,
+        senderType: 'user',
+        senderId: 'u_peer',
+        senderName: 'Peer',
+        content: 'new at bottom',
+        broadcast: true,
+        clientMsgId: '',
+        createdAt: null,
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(position.pixels, closeTo(position.maxScrollExtent, 1));
+    expect(find.text('1 new message'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('location-chat-new-message-notice')),
+      findsNothing,
+    );
   });
 
   testWidgets('location chat shows role name instead of pushed username', (
@@ -10716,7 +11393,8 @@ void main() {
     final chatroom = _FakeChatroomClient();
     final services = await _testServices(chatroom: chatroom);
     await tester.pumpWidget(GenesisApp(services: services));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
       RouteNames.locationChat,
@@ -10729,7 +11407,7 @@ void main() {
       },
     );
     await tester.pump();
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(chatroom.worldId, 'world-1');
     expect(chatroom.session.joinLocationId, isNull);
@@ -10738,65 +11416,6 @@ void main() {
       matching: find.byType(TextButton),
     );
     expect(tester.widget<TextButton>(sendButton).onPressed, isNull);
-  });
-
-  testWidgets('location chat disables send during tick progress', (
-    WidgetTester tester,
-  ) async {
-    final chatroom = _FakeChatroomClient();
-    final services = await _testServices(chatroom: chatroom);
-    await tester.pumpWidget(GenesisApp(services: services));
-    await tester.pumpAndSettle();
-
-    Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
-      RouteNames.locationChat,
-      arguments: {
-        'world_id': 'world-1',
-        'world_name': 'World One',
-        'location_id': 'castle',
-        'location_name': 'Castle',
-      },
-    );
-    await tester.pump();
-    await tester.pumpAndSettle();
-
-    final sendButton = find.descendant(
-      of: find.byKey(const ValueKey('chat-composer-send-button')),
-      matching: find.byType(TextButton),
-    );
-    expect(tester.widget<TextButton>(sendButton).onPressed, isNotNull);
-
-    chatroom.session.emit(
-      ChatroomWorldNotification(
-        worldId: 'world-1',
-        locationId: 'castle',
-        eventType: 'tick_start',
-        title: '',
-        summary: '',
-        detailUrl: '',
-        ts: null,
-        broadcast: false,
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    expect(tester.widget<TextButton>(sendButton).onPressed, isNull);
-
-    chatroom.session.emit(
-      ChatroomWorldNotification(
-        worldId: 'world-1',
-        locationId: 'castle',
-        eventType: 'tick_done',
-        title: '',
-        summary: '',
-        detailUrl: '',
-        ts: null,
-        broadcast: false,
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-    expect(tester.widget<TextButton>(sendButton).onPressed, isNotNull);
   });
 
   testWidgets('location chat input stays editable before connection', (

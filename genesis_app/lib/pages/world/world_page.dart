@@ -84,6 +84,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   static const Duration _mapMessageBubbleHiddenInterval = Duration(
     milliseconds: 500,
   );
+  static const Duration _worldInfoPollInterval = Duration(seconds: 5);
   static const int _mapMessageBubbleQueueLimit = 60;
   static const int _mapMessageBubbleHistoryLimit = 20;
   static const int _mapMessageBubbleCacheLimit = 60;
@@ -123,7 +124,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   int _mapModeTargetIndex = 0;
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
+  bool _worldTickInProgress = false;
+  bool _openEventsAfterTickDone = false;
   bool _tick1WaitDialogStarted = false;
+  Timer? _worldInfoPollTimer;
+  Future<void>? _worldInfoPollFuture;
   var _currentUid = '';
   var _currentUidRequested = false;
   late final ValueNotifier<WorldDetail?> _sectionsWorldNotifier =
@@ -144,6 +149,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _syncLocationChatDescriptors(initialWorld);
       _syncWorldChatroomForRelationStatus(initialWorld.relationStatus);
       _maybeShowTick1WaitDialog();
+      if (initialWorld.isProgressing) {
+        _startWorldTickPolling();
+      }
     } else {
       unawaited(
         _fetchWorld(isInitial: true).then((_) {
@@ -176,6 +184,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
     unawaited(_worldChatroomLatestSub?.cancel());
+    _stopWorldInfoPolling();
     _clearMapMessageBubbleState(updateUi: false);
     final chatroom = _worldChatroom;
     _worldChatroom = null;
@@ -263,6 +272,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (!mounted) return;
     final world = state.world;
     var shouldSyncRelationStatus = false;
+    final tickDoneFromPush = _worldTickInProgress && !state.inputBlocked;
     setState(() {
       if (world != null && !identical(_world, world)) {
         _world = world;
@@ -272,6 +282,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     });
     if (shouldSyncRelationStatus) {
       _syncWorldChatroomForRelationStatus(world!.relationStatus);
+    }
+    if (tickDoneFromPush) {
+      unawaited(_handleWorldTickDone());
     }
     _maybePrimeMapMessageBubbles();
   }
@@ -1031,6 +1044,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     WorldDetail world, {
     bool clearInitialLoadError = false,
   }) {
+    final shouldStartPolling = world.isProgressing;
     setState(() {
       _world = world;
       _sectionsWorldNotifier.value = world;
@@ -1038,6 +1052,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _syncLocationChatDescriptors(world);
     });
     _syncWorldChatroomForRelationStatus(world.relationStatus);
+    if (shouldStartPolling) {
+      _startWorldTickPolling();
+    } else if (_worldTickInProgress) {
+      _markWorldTickIdle();
+    }
     _maybePrimeMapMessageBubbles();
   }
 
@@ -1087,6 +1106,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       return;
     }
     setState(() => _worldActionRunning = true);
+    if (action == _WorldHeaderActionKind.progress) {
+      _openEventsAfterTickDone = true;
+      _setWorldTickInProgress(true);
+    }
     try {
       final api = AppServicesScope.of(context).api;
       final message = switch (action) {
@@ -1098,20 +1121,110 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       if (message.trim().isNotEmpty) {
         showGenesisToast(context, message);
       }
-      await _fetchWorld();
-      if (!mounted) return;
       if (action == _WorldHeaderActionKind.progress) {
-        _openWorldSectionSheet(
-          _worldSectionEventsIndex,
-          scrollEventsToLatest: true,
-        );
+        _startWorldTickPolling(openEventsAfterDone: true);
+      } else {
+        await _fetchWorld();
       }
+      if (!mounted) return;
     } catch (_) {
       if (!mounted) return;
+      if (action == _WorldHeaderActionKind.progress) {
+        _openEventsAfterTickDone = false;
+        _stopWorldInfoPolling();
+        _markWorldTickIdle();
+      }
       showGenesisToast(context, '${_worldHeaderActionLabel(action)} failed');
     } finally {
-      if (mounted) setState(() => _worldActionRunning = false);
+      if (mounted && action != _WorldHeaderActionKind.progress) {
+        setState(() => _worldActionRunning = false);
+      }
     }
+  }
+
+  void _startWorldTickPolling({bool openEventsAfterDone = false}) {
+    if (openEventsAfterDone) _openEventsAfterTickDone = true;
+    _setWorldTickInProgress(true);
+    if (_worldInfoPollTimer != null) return;
+    _worldInfoPollTimer = Timer.periodic(
+      _worldInfoPollInterval,
+      (_) => _pollWorldInfoUntilTickDone(),
+    );
+    unawaited(_pollWorldInfoUntilTickDone());
+  }
+
+  void _setWorldTickInProgress(bool inProgress) {
+    final changed = _worldTickInProgress != inProgress;
+    if (changed) {
+      if (mounted) {
+        setState(() => _worldTickInProgress = inProgress);
+      } else {
+        _worldTickInProgress = inProgress;
+      }
+    }
+    final chatroom = _worldChatroom;
+    if (chatroom != null) {
+      try {
+        chatroom.setInputBlocked(inProgress);
+      } catch (_) {
+        // Socket state is best-effort; page state still gates the visible button.
+      }
+    }
+  }
+
+  Future<void> _pollWorldInfoUntilTickDone() {
+    final existing = _worldInfoPollFuture;
+    if (existing != null) return existing;
+    final future = _pollWorldInfoOnce();
+    _worldInfoPollFuture = future;
+    return future.whenComplete(() {
+      if (identical(_worldInfoPollFuture, future)) {
+        _worldInfoPollFuture = null;
+      }
+    });
+  }
+
+  Future<void> _pollWorldInfoOnce() async {
+    try {
+      final world = await AppServicesScope.read(
+        context,
+      ).api.getWorldInfo(widget.wid);
+      if (!mounted || world.isProgressing) return;
+      await _handleWorldTickDone();
+    } catch (error) {
+      debugPrint(
+        '[WorldPage] world/info poll failed wid="${widget.wid}": $error',
+      );
+    }
+  }
+
+  Future<void> _handleWorldTickDone() async {
+    _stopWorldInfoPolling();
+    _markWorldTickIdle();
+    await _fetchWorld();
+    if (!mounted) return;
+    if (_openEventsAfterTickDone) {
+      _openEventsAfterTickDone = false;
+      _openWorldSectionSheet(
+        _worldSectionEventsIndex,
+        scrollEventsToLatest: true,
+        eventsTargetTickNumber: _world?.tickCount,
+      );
+    }
+  }
+
+  void _markWorldTickIdle() {
+    _setWorldTickInProgress(false);
+    if (!mounted) {
+      _worldActionRunning = false;
+      return;
+    }
+    setState(() => _worldActionRunning = false);
+  }
+
+  void _stopWorldInfoPolling() {
+    _worldInfoPollTimer?.cancel();
+    _worldInfoPollTimer = null;
   }
 
   Future<bool> _confirmWorldRequest() async {
@@ -1243,13 +1356,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   Future<void> _openChatForPoint(WorldPoint point) async {
-    final chatroom = _worldChatroom;
-    if (chatroom == null) {
-      if (_world?.relationStatus.trim().toLowerCase() == 'approved') {
+    final relationStatus = _world?.relationStatus.trim().toLowerCase() ?? '';
+    if (!_shouldConnectWorldChatroom(relationStatus)) {
+      if (relationStatus == 'approved') {
         await _runWorldAction(_WorldHeaderActionKind.launch);
-        return;
-      }
-      if (mounted) {
+      } else if (mounted) {
         showGenesisToast(context, 'Request approval to launch');
       }
       return;
@@ -1338,25 +1449,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     });
     WorldDetailsStatusBarOverride.setStyle(kChatDarkHeaderSystemUiOverlayStyle);
     unawaited(_hydrateActiveLocationChatMessages(descriptor));
-
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => _WorldLocationChatCacheRoutePage(
-          worldId: widget.wid,
-          chatroom: chatroom,
-          cache: _locationChatPageCache,
-        ),
-      ),
-    );
-    if (!mounted) return;
-    if (_activeChatLocationId == locationId) {
-      unawaited(_leaveCachedLocationChat(locationId));
-      setState(() {
-        _activeChatLocationId = '';
-        _locationChatPageCache.deactivate();
-      });
-      _handleMapModeTabChanged();
-    }
     _logLocationChatMetric(
       'open location=$locationId cached=$wasCached '
       'previous=${previousActiveId.isEmpty ? 'none' : previousActiveId} '
@@ -1406,6 +1498,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   void _closeCachedLocationChat() {
     final locationId = _activeChatLocationId;
     if (locationId.isEmpty) return;
+    FocusManager.instance.primaryFocus?.unfocus();
     unawaited(_leaveCachedLocationChat(locationId));
     setState(() {
       _activeChatLocationId = '';
@@ -1476,7 +1569,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   void _scheduleLocationChatPrecache(List<String> locationIds) {
     _logLocationChatMetric(
-      'panel precache skipped count=${locationIds.length} '
+      'panel precache scheduled count=${locationIds.length} '
       'cached=${_locationChatPageCache.cachedPanelCount}',
     );
   }
@@ -1582,54 +1675,71 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         if (didPop) return;
         _handleWorldPopBlocked();
       },
-      child: WorldDetailsPageScaffold(
-        panelTopGap: 50,
-        panelCollapsedHeightOffset: 120,
-        scrollPhysics: const NeverScrollableScrollPhysics(),
-        persistentTopOverlay: _buildPersistentMapOverlay(
-          thirdLevelLocationCount,
-          topPadding + 8,
-          worldTime: world.currentTime,
-          tickIndex: world.tickCount,
-        ),
-        map: WorldMapStage(
-          controller: _tabController,
-          pointsCount: thirdLevelLocationCount,
-          top: topPadding + 8,
-          showTopOverlay: false,
-          mapBuilder: (context, pointMode) => WorldMap(
-            points: points,
-            listPoints: listPoints,
-            locationNodes: locationNodes,
-            listLocationNodes: listLocationNodes,
-            mapImageUrl: rootMapImageUrl,
-            dimmed: pointMode,
-            showPointsList: pointMode,
-            pointsListOuterScrollHandoff: false,
-            overlayTop:
-                topPadding +
-                8 +
-                (pointMode
-                    ? _worldMapTabsHeight + 8
-                    : _worldMapContentTopOffset),
-            drillExitTop:
-                topPadding + 8 + _worldMapTabsHeight + _worldTimePillTopGap,
-            drillExitMaxWidth: _worldSecondaryMapControlWidth,
-            onDrillIntoLocation: _showMapTab,
-            onSecondaryMapChanged: _handleSecondaryMapChanged,
-            onVisibleLocationIdsChanged: _handleVisibleMapLocationIdsChanged,
-            onPointTap: _openChatForPoint,
-            messageBubbles: _mapMessageBubbles,
+      child: Stack(
+        children: [
+          WorldDetailsPageScaffold(
+            panelTopGap: 50,
+            panelCollapsedHeightOffset: 120,
+            scrollPhysics: const NeverScrollableScrollPhysics(),
+            persistentTopOverlay: _buildPersistentMapOverlay(
+              thirdLevelLocationCount,
+              topPadding + 8,
+              worldTime: world.currentTime,
+              tickIndex: world.tickCount,
+            ),
+            map: WorldMapStage(
+              controller: _tabController,
+              pointsCount: thirdLevelLocationCount,
+              top: topPadding + 8,
+              showTopOverlay: false,
+              mapBuilder: (context, pointMode) => WorldMap(
+                points: points,
+                listPoints: listPoints,
+                locationNodes: locationNodes,
+                listLocationNodes: listLocationNodes,
+                mapImageUrl: rootMapImageUrl,
+                dimmed: pointMode,
+                showPointsList: pointMode,
+                pointsListOuterScrollHandoff: false,
+                overlayTop:
+                    topPadding +
+                    8 +
+                    (pointMode
+                        ? _worldMapTabsHeight + 8
+                        : _worldMapContentTopOffset),
+                drillExitTop:
+                    topPadding + 8 + _worldMapTabsHeight + _worldTimePillTopGap,
+                drillExitMaxWidth: _worldSecondaryMapControlWidth,
+                onDrillIntoLocation: _showMapTab,
+                onSecondaryMapChanged: _handleSecondaryMapChanged,
+                onVisibleLocationIdsChanged:
+                    _handleVisibleMapLocationIdsChanged,
+                onPointTap: _openChatForPoint,
+                messageBubbles: _mapMessageBubbles,
+              ),
+            ),
+            fixedCollapsedPanelHeight: collapsedPanelHeight,
+            fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
+            contentBottomPaddingOverride: 0,
+            slivers: [
+              _WorldFeedContent(
+                world: world,
+                worldActionRunning: _worldActionRunning || _worldTickInProgress,
+                onWorldAction: _runWorldAction,
+              ),
+            ],
           ),
-        ),
-        fixedCollapsedPanelHeight: collapsedPanelHeight,
-        fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
-        contentBottomPaddingOverride: 0,
-        slivers: [
-          _WorldFeedContent(
-            world: world,
-            worldActionRunning: _worldActionRunning,
-            onWorldAction: _runWorldAction,
+          Positioned.fill(
+            child: _WorldLocationChatRouterHost(
+              worldId: widget.wid,
+              chatroom: _worldChatroom,
+              cache: _locationChatPageCache,
+              onBack: _closeCachedLocationChat,
+              onPanelReady: (locationId) {
+                _locationChatPageCache.markReady(locationId);
+                if (mounted) setState(() {});
+              },
+            ),
           ),
         ],
       ),
@@ -1712,11 +1822,16 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     );
   }
 
-  void _openWorldSectionSheet(int index, {bool scrollEventsToLatest = false}) {
+  void _openWorldSectionSheet(
+    int index, {
+    bool scrollEventsToLatest = false,
+    int? eventsTargetTickNumber,
+  }) {
     final world = _world;
     if (world == null) return;
     _sectionController.animateTo(index);
     _sectionsWorldNotifier.value = world;
+    final services = AppServicesScope.read(context);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1725,11 +1840,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.18),
       builder: (context) => _WorldSectionsBottomSheet(
+        services: services,
         initialWorld: world,
         worldListenable: _sectionsWorldNotifier,
         eventsCache: _sectionsEventsCache,
         initialIndex: index,
         scrollEventsToLatest: scrollEventsToLatest,
+        eventsTargetTickNumber: eventsTargetTickNumber,
       ),
     );
     unawaited(_fetchWorld());
@@ -1917,6 +2034,7 @@ class _WorldSectionFloatingTabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      key: ValueKey<String>('world-section-floating-tab-${item.label}'),
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Column(
@@ -2048,8 +2166,8 @@ class _WorldLocationChatPageCache {
       <String, _LocationChatPanelDescriptor>{};
   final Set<String> _cachedLocationIds = <String>{};
   final Set<String> _readyLocationIds = <String>{};
-  final Map<String, LocationChatPanelStateCache> _panelStates =
-      <String, LocationChatPanelStateCache>{};
+  final Map<String, double> _scrollOffsetsByLocation = <String, double>{};
+  final Map<String, String> _draftTextByLocation = <String, String>{};
 
   String activeLocationId = '';
 
@@ -2063,20 +2181,27 @@ class _WorldLocationChatPageCache {
 
   bool hasPanel(String locationId) => _cachedLocationIds.contains(locationId);
 
-  bool isReady(String locationId) =>
-      _readyLocationIds.contains(locationId) ||
-      (_panelStates[locationId]?.initialContentReadyNotified ?? false);
+  bool isReady(String locationId) => _readyLocationIds.contains(locationId);
 
   void syncDescriptors(Map<String, _LocationChatPanelDescriptor> descriptors) {
     _descriptors
       ..clear()
       ..addAll(descriptors);
+    _cachedLocationIds.addAll(
+      descriptors.values
+          .where((descriptor) => descriptor.isLeafLocation)
+          .map((descriptor) => descriptor.locationId),
+    );
     _cachedLocationIds.removeWhere((locationId) {
-      final keep = descriptors.containsKey(locationId);
-      if (!keep) _disposePanelState(locationId);
-      return !keep;
+      return !descriptors.containsKey(locationId);
     });
     _readyLocationIds.removeWhere((locationId) {
+      return !descriptors.containsKey(locationId);
+    });
+    _scrollOffsetsByLocation.removeWhere((locationId, _) {
+      return !descriptors.containsKey(locationId);
+    });
+    _draftTextByLocation.removeWhere((locationId, _) {
       return !descriptors.containsKey(locationId);
     });
     if (!_descriptors.containsKey(activeLocationId)) {
@@ -2088,21 +2213,10 @@ class _WorldLocationChatPageCache {
     _descriptors[descriptor.locationId] = descriptor;
     _cachedLocationIds.add(descriptor.locationId);
     activeLocationId = descriptor.locationId;
-    _panelStates.putIfAbsent(
-      descriptor.locationId,
-      LocationChatPanelStateCache.new,
-    );
   }
 
   void deactivate() {
     activeLocationId = '';
-  }
-
-  LocationChatPanelStateCache stateFor(String locationId) {
-    return _panelStates.putIfAbsent(
-      locationId,
-      LocationChatPanelStateCache.new,
-    );
   }
 
   _LocationChatPanelDescriptor? descriptorFor(String locationId) {
@@ -2111,85 +2225,100 @@ class _WorldLocationChatPageCache {
 
   void markReady(String locationId) {
     _readyLocationIds.add(locationId);
-    final stateCache = _panelStates[locationId];
-    if (stateCache != null) {
-      stateCache.initialContentReadyNotified = true;
+  }
+
+  double? scrollOffsetFor(String locationId) {
+    return _scrollOffsetsByLocation[locationId];
+  }
+
+  String draftTextFor(String locationId) {
+    return _draftTextByLocation[locationId] ?? '';
+  }
+
+  void updateScrollOffset(String locationId, double offset) {
+    if (locationId.isEmpty) return;
+    _scrollOffsetsByLocation[locationId] = offset;
+  }
+
+  void updateDraftText(String locationId, String text) {
+    if (locationId.isEmpty) return;
+    if (text.isEmpty) {
+      _draftTextByLocation.remove(locationId);
+      return;
     }
+    _draftTextByLocation[locationId] = text;
   }
 
   void clear() {
-    for (final stateCache in _panelStates.values) {
-      stateCache.dispose();
-    }
-    _panelStates.clear();
     _descriptors.clear();
     _cachedLocationIds.clear();
     _readyLocationIds.clear();
+    _scrollOffsetsByLocation.clear();
+    _draftTextByLocation.clear();
     activeLocationId = '';
   }
 
   void dispose() {
     clear();
   }
-
-  void _disposePanelState(String locationId) {
-    _panelStates.remove(locationId)?.dispose();
-  }
 }
 
-class _WorldLocationChatCacheRoutePage extends StatefulWidget {
-  const _WorldLocationChatCacheRoutePage({
+class _WorldLocationChatRouterHost extends StatelessWidget {
+  const _WorldLocationChatRouterHost({
     required this.worldId,
     required this.chatroom,
     required this.cache,
+    required this.onBack,
+    required this.onPanelReady,
   });
 
   final String worldId;
-  final WorldChatroomService chatroom;
+  final WorldChatroomService? chatroom;
   final _WorldLocationChatPageCache cache;
+  final VoidCallback onBack;
+  final ValueChanged<String> onPanelReady;
 
-  @override
-  State<_WorldLocationChatCacheRoutePage> createState() =>
-      _WorldLocationChatCacheRoutePageState();
-}
-
-class _WorldLocationChatCacheRoutePageState
-    extends State<_WorldLocationChatCacheRoutePage> {
   @override
   Widget build(BuildContext context) {
-    final activeLocationId = widget.cache.activeLocationId;
-    final activeDescriptor = widget.cache.activeDescriptor;
-    final cachedIds = widget.cache.cachedLocationIds.toList(growable: false);
+    final activeLocationId = cache.activeLocationId;
+    final activeDescriptor = cache.activeDescriptor;
+    final cachedIds = cache.cachedLocationIds.toList(growable: false);
     final showSkeleton =
         activeLocationId.isNotEmpty &&
         activeDescriptor != null &&
-        !widget.cache.isReady(activeLocationId);
+        !cache.isReady(activeLocationId);
+    final active = activeLocationId.isNotEmpty;
 
-    return Scaffold(
-      backgroundColor: ChatUiStyleConfig.standard.conversationBackgroundColor,
-      resizeToAvoidBottomInset: false,
-      body: Stack(
-        children: [
-          for (final descriptor
-              in cachedIds
-                  .map(widget.cache.descriptorFor)
-                  .whereType<_LocationChatPanelDescriptor>())
-            _buildCachedPanel(descriptor),
-          if (showSkeleton)
-            Positioned.fill(
-              child: _LocationChatPanelSkeleton(
-                title: activeDescriptor.locationName,
-                onBack: () => Navigator.of(context).maybePop(),
-              ),
-            ),
-        ],
+    return IgnorePointer(
+      ignoring: !active,
+      child: ExcludeSemantics(
+        excluding: !active,
+        child: _WorldLocationChatHostTransition(
+          active: active,
+          child: Stack(
+            children: [
+              for (final descriptor
+                  in cachedIds
+                      .map(cache.descriptorFor)
+                      .whereType<_LocationChatPanelDescriptor>())
+                _buildCachedPage(descriptor),
+              if (showSkeleton)
+                Positioned.fill(
+                  child: _LocationChatPanelSkeleton(
+                    title: activeDescriptor.locationName,
+                    onBack: onBack,
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildCachedPanel(_LocationChatPanelDescriptor descriptor) {
-    final active = descriptor.locationId == widget.cache.activeLocationId;
-    final visible = active && widget.cache.isReady(descriptor.locationId);
+  Widget _buildCachedPage(_LocationChatPanelDescriptor descriptor) {
+    final active = descriptor.locationId == cache.activeLocationId;
+    final visible = active && cache.isReady(descriptor.locationId);
     return IgnorePointer(
       ignoring: !active,
       child: ExcludeSemantics(
@@ -2201,26 +2330,27 @@ class _WorldLocationChatCacheRoutePageState
             child: TickerMode(
               enabled: active,
               child: SizedBox.expand(
-                child: LocationChatPanel(
-                  key: ValueKey('world-location-chat-${descriptor.locationId}'),
-                  worldId: widget.worldId,
-                  locationId: descriptor.locationId,
-                  locationName: descriptor.locationName,
-                  backgroundImageUrl: descriptor.backgroundImageUrl,
-                  backgroundPreviewImageUrl:
-                      descriptor.backgroundPreviewImageUrl,
-                  isLeafLocation: descriptor.isLeafLocation,
-                  localMessageLocationIds: descriptor.localMessageLocationIds,
-                  service: widget.chatroom,
-                  stateCache: widget.cache.stateFor(descriptor.locationId),
+                child: _WorldLocationChatNestedRouterPage(
+                  key: ValueKey(
+                    'world-location-chat-router-${descriptor.locationId}',
+                  ),
+                  worldId: worldId,
+                  chatroom: chatroom,
+                  descriptor: descriptor,
                   active: active,
-                  leaveOnInactive: false,
-                  systemUiOverlayStyle: kChatDarkHeaderSystemUiOverlayStyle,
-                  style: kLocationChatStyle,
-                  onBack: () => Navigator.of(context).maybePop(),
-                  onInitialContentReady: () {
-                    widget.cache.markReady(descriptor.locationId);
-                    if (mounted) setState(() {});
+                  onBack: onBack,
+                  onInitialContentReady: () =>
+                      onPanelReady(descriptor.locationId),
+                  initialDraftText: cache.draftTextFor(descriptor.locationId),
+                  initialScrollOffset: cache.scrollOffsetFor(
+                    descriptor.locationId,
+                  ),
+                  onDraftTextChanged: (text) {
+                    cache.updateDraftText(descriptor.locationId, text);
+                  },
+                  onScrollOffsetChanged: (offset) {
+                    if (!active) return;
+                    cache.updateScrollOffset(descriptor.locationId, offset);
                   },
                 ),
               ),
@@ -2228,6 +2358,175 @@ class _WorldLocationChatCacheRoutePageState
           ),
         ),
       ),
+    );
+  }
+}
+
+class _WorldLocationChatHostTransition extends StatefulWidget {
+  const _WorldLocationChatHostTransition({
+    required this.active,
+    required this.child,
+  });
+
+  final bool active;
+  final Widget child;
+
+  @override
+  State<_WorldLocationChatHostTransition> createState() =>
+      _WorldLocationChatHostTransitionState();
+}
+
+class _WorldLocationChatHostTransitionState
+    extends State<_WorldLocationChatHostTransition>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final PageRoute<void> _route;
+
+  @override
+  void initState() {
+    super.initState();
+    _route = _WorldLocationChatHostPageRoute();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+      reverseDuration: const Duration(milliseconds: 300),
+      value: widget.active ? 1 : 0,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final builder = _pageTransitionsBuilderFor(context);
+    _controller.duration = builder.transitionDuration;
+    _controller.reverseDuration = builder.reverseTransitionDuration;
+  }
+
+  @override
+  void didUpdateWidget(_WorldLocationChatHostTransition oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active == widget.active) return;
+    if (widget.active) {
+      _controller.forward();
+    } else {
+      _controller.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme.of(context).pageTransitionsTheme.buildTransitions<void>(
+      _route,
+      context,
+      _controller,
+      const AlwaysStoppedAnimation<double>(0),
+      widget.child,
+    );
+  }
+}
+
+class _WorldLocationChatHostPageRoute extends PageRoute<void> {
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  String? get barrierLabel => null;
+
+  @override
+  bool get maintainState => true;
+
+  @override
+  bool get opaque => true;
+
+  @override
+  bool get popGestureInProgress => false;
+
+  @override
+  Duration get transitionDuration => const Duration(milliseconds: 300);
+
+  @override
+  Duration get reverseTransitionDuration => transitionDuration;
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
+    return const SizedBox.shrink();
+  }
+}
+
+PageTransitionsBuilder _pageTransitionsBuilderFor(BuildContext context) {
+  final theme = Theme.of(context);
+  return theme.pageTransitionsTheme.builders[theme.platform] ??
+      const ZoomPageTransitionsBuilder();
+}
+
+class _WorldLocationChatNestedRouterPage extends StatelessWidget {
+  const _WorldLocationChatNestedRouterPage({
+    super.key,
+    required this.worldId,
+    required this.chatroom,
+    required this.descriptor,
+    required this.active,
+    required this.onBack,
+    required this.onInitialContentReady,
+    required this.initialDraftText,
+    required this.initialScrollOffset,
+    required this.onDraftTextChanged,
+    required this.onScrollOffsetChanged,
+  });
+
+  final String worldId;
+  final WorldChatroomService? chatroom;
+  final _LocationChatPanelDescriptor descriptor;
+  final bool active;
+  final VoidCallback onBack;
+  final VoidCallback onInitialContentReady;
+  final String initialDraftText;
+  final double? initialScrollOffset;
+  final ValueChanged<String> onDraftTextChanged;
+  final ValueChanged<double> onScrollOffsetChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final routeName = 'world_location_chat/$worldId/${descriptor.locationId}';
+    return Navigator(
+      pages: [
+        MaterialPage<void>(
+          key: ValueKey(routeName),
+          name: routeName,
+          child: LocationChatPanel(
+            key: ValueKey('world-location-chat-${descriptor.locationId}'),
+            worldId: worldId,
+            locationId: descriptor.locationId,
+            locationName: descriptor.locationName,
+            backgroundImageUrl: descriptor.backgroundImageUrl,
+            backgroundPreviewImageUrl: descriptor.backgroundPreviewImageUrl,
+            isLeafLocation: descriptor.isLeafLocation,
+            localMessageLocationIds: descriptor.localMessageLocationIds,
+            service: chatroom,
+            active: active,
+            leaveOnInactive: false,
+            systemUiOverlayStyle: kChatDarkHeaderSystemUiOverlayStyle,
+            style: kLocationChatStyle,
+            onBack: onBack,
+            onInitialContentReady: onInitialContentReady,
+            initialDraftText: initialDraftText,
+            initialScrollOffset: initialScrollOffset,
+            onDraftTextChanged: onDraftTextChanged,
+            onScrollOffsetChanged: onScrollOffsetChanged,
+          ),
+        ),
+      ],
+      onDidRemovePage: (_) {},
     );
   }
 }
@@ -2722,18 +3021,22 @@ class _WorldFeedContent extends StatelessWidget {
 
 class _WorldSectionsBottomSheet extends StatefulWidget {
   const _WorldSectionsBottomSheet({
+    required this.services,
     required this.initialWorld,
     required this.worldListenable,
     required this.eventsCache,
     required this.initialIndex,
     this.scrollEventsToLatest = false,
+    this.eventsTargetTickNumber,
   });
 
+  final AppServices services;
   final WorldDetail initialWorld;
   final ValueListenable<WorldDetail?> worldListenable;
   final _WorldSectionsEventsCache eventsCache;
   final int initialIndex;
   final bool scrollEventsToLatest;
+  final int? eventsTargetTickNumber;
 
   @override
   State<_WorldSectionsBottomSheet> createState() =>
@@ -2767,14 +3070,12 @@ class _WorldSectionsEventsCache {
 class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
     with SingleTickerProviderStateMixin {
   static const int _eventsPageSize = 20;
-  static const double _eventsLoadMoreExtent = 160;
   static const double _sheetHeightFactor = 0.85;
 
   late final TabController _controller;
-  late final ScrollController _eventsScrollController = ScrollController();
   var _currentUid = '';
   var _currentUidRequested = false;
-  var _scrollEventsToLatestAfterLoad = false;
+  var _eventsLatestRevision = 0;
 
   WorldDetail get _currentWorld =>
       widget.worldListenable.value ?? widget.initialWorld;
@@ -2791,7 +3092,7 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
     );
     _controller.addListener(_handleTabChanged);
     widget.worldListenable.addListener(_handleWorldDetailChanged);
-    _scrollEventsToLatestAfterLoad = widget.scrollEventsToLatest;
+    if (widget.scrollEventsToLatest) _eventsLatestRevision += 1;
   }
 
   @override
@@ -2801,7 +3102,7 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
       _currentUidRequested = true;
       unawaited(_loadCurrentUid());
     }
-    _ensureEventsForCurrentWorld();
+    _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
   }
 
   @override
@@ -2821,14 +3122,11 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
     widget.worldListenable.removeListener(_handleWorldDetailChanged);
     _controller.removeListener(_handleTabChanged);
     _controller.dispose();
-    _eventsScrollController.dispose();
     super.dispose();
   }
 
   Future<void> _loadCurrentUid() async {
-    final uid =
-        (await AppServicesScope.of(context).sessionStore.readUid())?.trim() ??
-        '';
+    final uid = (await widget.services.sessionStore.readUid())?.trim() ?? '';
     if (!mounted || uid == _currentUid) return;
     setState(() => _currentUid = uid);
   }
@@ -2852,13 +3150,8 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
       unawaited(_loadEventsPage(1));
       return;
     }
-    if (_eventsCache.ticks.isEmpty ||
-        forceFirstPageRefresh ||
-        _scrollEventsToLatestAfterLoad) {
+    if (_eventsCache.ticks.isEmpty || forceFirstPageRefresh) {
       unawaited(_loadEventsPage(1));
-    }
-    if (_scrollEventsToLatestAfterLoad && _eventsCache.ticks.isNotEmpty) {
-      _scheduleScrollEventsToLatest();
     }
   }
 
@@ -2897,7 +3190,7 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
 
     final worldId = _currentWorld.worldId;
     try {
-      final response = await AppServicesScope.of(context).api.getWorldTicks(
+      final response = await widget.services.api.getWorldTicks(
         wid: worldId,
         limit: _eventsPageSize,
         offset: (page - 1) * _eventsPageSize,
@@ -2913,10 +3206,6 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
         _eventsCache.page = math.max(_eventsCache.page, page);
         _eventsCache.error = null;
       });
-      if (page == 1 && _scrollEventsToLatestAfterLoad) {
-        _scrollEventsToLatestAfterLoad = false;
-        _scheduleScrollEventsToLatest();
-      }
     } catch (e) {
       if (!mounted || worldId != _currentWorld.worldId) return;
       _mutateEventsCache(() => _eventsCache.error = e);
@@ -2933,41 +3222,20 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
     }
   }
 
-  bool _handleEventsScrollNotification(ScrollNotification notification) {
-    if (notification.metrics.extentBefore <= _eventsLoadMoreExtent) {
-      _loadNextEventsPage();
-    }
-    return false;
-  }
-
-  void _scheduleScrollEventsToLatest() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_eventsScrollController.hasClients) return;
-      final maxScrollExtent = _eventsScrollController.position.maxScrollExtent;
-      if (maxScrollExtent <= 0) return;
-      unawaited(
-        _eventsScrollController.animateTo(
-          maxScrollExtent,
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOutCubic,
-        ),
-      );
-    });
-  }
-
   Widget _buildEventsSectionPage() {
-    return NotificationListener<ScrollNotification>(
-      onNotification: _handleEventsScrollNotification,
-      child: _WorldSectionListView(
-        storageKey: 'world-events-section',
-        controller: _eventsScrollController,
-        child: _WorldEventsSection(
-          world: _currentWorld,
-          ticks: _eventsCache.ticks,
-          initialLoading: _eventsCache.initialLoading,
-          loadingMore: _eventsCache.loadingMore,
-          error: _eventsCache.error,
-        ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+      child: _WorldEventsSection(
+        key: const PageStorageKey<String>('world-events-section'),
+        world: _currentWorld,
+        ticks: _eventsCache.ticks,
+        initialLoading: _eventsCache.initialLoading,
+        loadingMore: _eventsCache.loadingMore,
+        hasMore: _eventsHasMore,
+        error: _eventsCache.error,
+        latestRevision: _eventsLatestRevision,
+        targetTickNumber: widget.eventsTargetTickNumber,
+        onLoadMore: _loadNextEventsPage,
       ),
     );
   }
@@ -3073,21 +3341,15 @@ class _WorldSectionsBottomSheetState extends State<_WorldSectionsBottomSheet>
 }
 
 class _WorldSectionListView extends StatelessWidget {
-  const _WorldSectionListView({
-    required this.storageKey,
-    this.controller,
-    required this.child,
-  });
+  const _WorldSectionListView({required this.storageKey, required this.child});
 
   final String storageKey;
-  final ScrollController? controller;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       key: PageStorageKey<String>(storageKey),
-      controller: controller,
       primary: false,
       padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
       children: [child],
@@ -3714,56 +3976,661 @@ int _eventTickNumber(Map<String, dynamic> tick) {
   return int.tryParse(suffix ?? '') ?? 0;
 }
 
-class _WorldEventsSection extends StatelessWidget {
+class _WorldEventsSection extends StatefulWidget {
   const _WorldEventsSection({
+    super.key,
     required this.world,
     required this.ticks,
     required this.initialLoading,
     required this.loadingMore,
+    required this.hasMore,
     required this.error,
+    required this.latestRevision,
+    required this.targetTickNumber,
+    required this.onLoadMore,
   });
 
   final WorldDetail world;
   final List<Map<String, dynamic>> ticks;
   final bool initialLoading;
   final bool loadingMore;
+  final bool hasMore;
   final Object? error;
+  final int latestRevision;
+  final int? targetTickNumber;
+  final VoidCallback onLoadMore;
+
+  @override
+  State<_WorldEventsSection> createState() => _WorldEventsSectionState();
+}
+
+class _WorldEventsSectionState extends State<_WorldEventsSection> {
+  static const int _loadMorePageThreshold = 3;
+  static const Duration _pageTurnDuration = Duration(milliseconds: 260);
+
+  late final PageController _pageController = PageController();
+  final _tickCardResetRevisions = <String, int>{};
+  var _currentPage = 0;
+  var _currentTickIdentity = '';
+  var _animatingPage = false;
+  var _showLatestWhenTicksArrive = true;
+
+  int? get _requestedTickNumber {
+    final target = widget.targetTickNumber;
+    return target == null || target <= 0 ? null : target;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (_setCurrentPageToRequestedTargetOrLatestIfAvailable()) {
+      _jumpToCurrentPage();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _WorldEventsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final worldChanged = oldWidget.world.worldId != widget.world.worldId;
+    if (worldChanged) {
+      _currentPage = 0;
+      _currentTickIdentity = '';
+      _showLatestWhenTicksArrive = true;
+      if (_setCurrentPageToRequestedTargetOrLatestIfAvailable()) {
+        _jumpToCurrentPage();
+      }
+      return;
+    }
+
+    if (oldWidget.latestRevision != widget.latestRevision ||
+        oldWidget.targetTickNumber != widget.targetTickNumber) {
+      _showLatestWhenTicksArrive = true;
+      if (_setCurrentPageToRequestedTargetOrLatestIfAvailable()) {
+        _jumpToCurrentPage();
+      }
+      return;
+    }
+
+    if (_currentTickIdentity.isEmpty) {
+      if (_setCurrentPageToRequestedTargetOrLatestIfAvailable()) {
+        _jumpToCurrentPage();
+        _maybeLoadMoreForPage(_currentPage);
+      }
+      return;
+    }
+
+    final nextIndex = _findPageByIdentity(_currentTickIdentity);
+    if (nextIndex < 0) {
+      if (_isPendingTargetIdentity(_currentTickIdentity) &&
+          _setCurrentPageToRequestedTargetOrLatestIfAvailable()) {
+        _jumpToCurrentPage();
+        _maybeLoadMoreForPage(_currentPage);
+        return;
+      }
+      _currentPage = _currentPage.clamp(0, _maxRenderedPage).toInt();
+      _currentTickIdentity = _pageIdentityAt(_currentPage);
+      _bumpTickCardResetRevisionAt(_currentPage);
+      _jumpToCurrentPage();
+      return;
+    }
+    if (nextIndex != _currentPage) {
+      _currentPage = nextIndex;
+      _bumpTickCardResetRevisionAt(_currentPage);
+      _jumpToCurrentPage();
+      _maybeLoadMoreForPage(_currentPage);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  List<Map<String, dynamic>> get _visibleTicks {
+    return widget.ticks;
+  }
+
+  int get _maxRenderedPage => math.max(0, _pageCount - 1);
+
+  int get _pageCount {
+    final pendingTargetPage = _pendingTargetPage;
+    if (pendingTargetPage == null) return _visibleTicks.length;
+    return _visibleTicks.length + 1;
+  }
+
+  int? get _pendingTargetPage {
+    final target = _requestedTickNumber;
+    if (target == null || _pageIndexForTickNumber(target) != null) {
+      return null;
+    }
+    return _insertionPageForTickNumber(target);
+  }
+
+  bool _setCurrentPageToRequestedTargetOrLatestIfAvailable() {
+    final visibleTicks = _visibleTicks;
+    final requestedTickNumber = _requestedTickNumber;
+    if (requestedTickNumber != null) {
+      final targetPage =
+          _pageIndexForTickNumber(requestedTickNumber) ??
+          _insertionPageForTickNumber(requestedTickNumber);
+      _currentPage = targetPage.clamp(0, _maxRenderedPage).toInt();
+      _currentTickIdentity = _pageIdentityAt(_currentPage);
+      _showLatestWhenTicksArrive = false;
+      _bumpTickCardResetRevisionAt(_currentPage);
+      return _pageCount > 0;
+    }
+    if (visibleTicks.isEmpty) return false;
+    final target = _showLatestWhenTicksArrive ? _maxRenderedPage : _currentPage;
+    _currentPage = target.clamp(0, _maxRenderedPage).toInt();
+    _currentTickIdentity = _pageIdentityAt(_currentPage);
+    _showLatestWhenTicksArrive = false;
+    _bumpTickCardResetRevisionAt(_currentPage);
+    return true;
+  }
+
+  void _jumpToCurrentPage() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!_pageController.hasClients) {
+        _jumpToCurrentPage();
+        return;
+      }
+      final target = _currentPage.clamp(0, _maxRenderedPage).toInt();
+      _pageController.jumpToPage(target);
+    });
+  }
+
+  void _handlePageChanged(int page) {
+    _currentPage = page.clamp(0, _maxRenderedPage).toInt();
+    _currentTickIdentity = _pageIdentityAt(_currentPage);
+    _maybeLoadMoreForPage(_currentPage);
+  }
+
+  void _maybeLoadMoreForPage(int page) {
+    if (!widget.hasMore || widget.loadingMore || widget.initialLoading) return;
+    if (page <= _loadMorePageThreshold) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            !widget.hasMore ||
+            widget.loadingMore ||
+            widget.initialLoading) {
+          return;
+        }
+        widget.onLoadMore();
+      });
+    }
+  }
+
+  void _bumpTickCardResetRevisionAt(int page) {
+    final identity = _pageIdentityAt(page);
+    if (identity.isEmpty) return;
+    _tickCardResetRevisions[identity] =
+        (_tickCardResetRevisions[identity] ?? 0) + 1;
+  }
+
+  void _turnPage(int delta) {
+    if (_animatingPage || !_pageController.hasClients) return;
+    final target = (_currentPage + delta).clamp(0, _maxRenderedPage).toInt();
+    if (target == _currentPage) {
+      _maybeLoadMoreForPage(_currentPage);
+      return;
+    }
+    _animatingPage = true;
+    setState(() => _bumpTickCardResetRevisionAt(target));
+    unawaited(
+      _pageController
+          .animateToPage(
+            target,
+            duration: _pageTurnDuration,
+            curve: Curves.easeOutCubic,
+          )
+          .whenComplete(() {
+            if (!mounted) return;
+            _animatingPage = false;
+          }),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (ticks.isEmpty && initialLoading) {
+    final hasRequestedTickPage = _requestedTickNumber != null;
+    if (widget.ticks.isEmpty &&
+        widget.initialLoading &&
+        !hasRequestedTickPage) {
       return const _WorldEventLoadingSkeleton();
     }
-    if (ticks.isEmpty) {
+    if (widget.ticks.isEmpty && !hasRequestedTickPage) {
       return _EmptySection(
-        text: error == null ? 'No events yet.' : 'Load events failed.',
+        text: widget.error == null ? 'No events yet.' : 'Load events failed.',
       );
     }
 
     final locationsById = <String, Map<String, dynamic>>{
-      for (final location in world.locations)
+      for (final location in widget.world.locations)
         _mapString(location, const ['location_id', 'id']): location,
     }..remove('');
-    final fallbackBody = _eventBody(world);
+    final fallbackBody = _eventBody(widget.world);
+    final visibleTicks = _visibleTicks;
+    final pendingTargetPage = _pendingTargetPage;
 
-    return Column(
+    return Stack(
       children: [
-        if (loadingMore) const _WorldEventsLoadingMoreIndicator(),
-        for (int index = 0; index < ticks.length; index++)
-          WorldTickEventItem(
-            tick: ticks[index],
-            tickNumber: worldTickEventNumber(ticks[index], fallback: index + 1),
-            fallbackBody: fallbackBody,
-            locationsById: locationsById,
-            dateLabel: _tickParagraphTimestamp(ticks[index]),
-            stackedContent: true,
-            contentLabelStyle: _worldEventContentLabelStyle,
-            contentTextStyle: _worldEventContentTextStyle,
-            contentTimestampStyle: _worldEventContentTimestampStyle,
-            isLast: index == ticks.length - 1 && !loadingMore,
+        PageView.builder(
+          key: const ValueKey<String>('world-events-tick-pager'),
+          controller: _pageController,
+          scrollDirection: Axis.vertical,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _pageCount,
+          onPageChanged: _handlePageChanged,
+          itemBuilder: (context, index) {
+            if (index == pendingTargetPage) {
+              final tickNumber = _requestedTickNumber ?? widget.world.tickCount;
+              return _WorldTickEventCardPage(
+                key: ValueKey<String>('world-event-tick-pending-$tickNumber'),
+                resetRevision:
+                    _tickCardResetRevisions['pending_tick:$tickNumber'] ?? 0,
+                hasTopEdgePage: index > 0,
+                hasBottomEdgePage: index < _pageCount - 1,
+                onTurnPage: _turnPage,
+                child: _WorldTickPendingEventPage(tickNumber: tickNumber),
+              );
+            }
+            final tickIndex = _tickIndexForPage(index);
+            if (tickIndex == null) return const SizedBox.shrink();
+            final tick = visibleTicks[tickIndex];
+            final identity = _eventTickIdentity(tick);
+            return _WorldTickEventCardPage(
+              key: ValueKey<String>('world-event-tick-$identity'),
+              resetRevision: _tickCardResetRevisions[identity] ?? 0,
+              hasTopEdgePage: index > 0,
+              hasBottomEdgePage: index < _pageCount - 1,
+              onTurnPage: _turnPage,
+              child: WorldTickEventItem(
+                key: ValueKey<String>('world-event-tick-item-$identity'),
+                tick: tick,
+                tickNumber: worldTickEventNumber(tick, fallback: tickIndex + 1),
+                fallbackBody: fallbackBody,
+                locationsById: locationsById,
+                dateLabel: _tickParagraphTimestamp(tick),
+                stackedContent: true,
+                contentLabelStyle: _worldEventContentLabelStyle,
+                contentTextStyle: _worldEventContentTextStyle,
+                contentTimestampStyle: _worldEventContentTimestampStyle,
+                isLast: true,
+              ),
+            );
+          },
+        ),
+        if (widget.loadingMore)
+          const IgnorePointer(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: _WorldEventsLoadingMoreIndicator(),
+            ),
           ),
       ],
     );
+  }
+
+  int? _tickIndexForPage(int page) {
+    final pendingTargetPage = _pendingTargetPage;
+    final tickIndex = pendingTargetPage != null && page > pendingTargetPage
+        ? page - 1
+        : page;
+    if (tickIndex < 0 || tickIndex >= _visibleTicks.length) return null;
+    return tickIndex;
+  }
+
+  String _pageIdentityAt(int page) {
+    final pendingTargetPage = _pendingTargetPage;
+    if (pendingTargetPage != null && page == pendingTargetPage) {
+      return 'pending_tick:${_requestedTickNumber ?? 0}';
+    }
+    final tickIndex = _tickIndexForPage(page);
+    if (tickIndex == null) return '';
+    return _eventTickIdentity(_visibleTicks[tickIndex]);
+  }
+
+  int _findPageByIdentity(String identity) {
+    for (var page = 0; page < _pageCount; page += 1) {
+      if (_pageIdentityAt(page) == identity) return page;
+    }
+    return -1;
+  }
+
+  bool _isPendingTargetIdentity(String identity) {
+    final target = _requestedTickNumber;
+    return target != null && identity == 'pending_tick:$target';
+  }
+
+  int? _pageIndexForTickNumber(int targetTickNumber) {
+    final tickIndex = _visibleTicks.indexWhere(
+      (tick) => worldTickEventNumber(tick) == targetTickNumber,
+    );
+    if (tickIndex < 0) return null;
+    return tickIndex;
+  }
+
+  int _insertionPageForTickNumber(int targetTickNumber) {
+    final visibleTicks = _visibleTicks;
+    for (var index = 0; index < visibleTicks.length; index += 1) {
+      final tickNumber = worldTickEventNumber(visibleTicks[index]);
+      if (tickNumber >= targetTickNumber) return index;
+    }
+    return visibleTicks.length;
+  }
+}
+
+class _WorldTickPendingEventPage extends StatelessWidget {
+  const _WorldTickPendingEventPage({required this.tickNumber});
+
+  final int tickNumber;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          constraints: const BoxConstraints(minHeight: 30),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F5F8),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            'Tick $tickNumber',
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.2,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF111111),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          key: const ValueKey<String>('world-event-pending-tombstone'),
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 168),
+          padding: const EdgeInsets.fromLTRB(12, 14, 12, 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4F5F8),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _WorldTickPendingSkeletonLine(widthFactor: 0.28, height: 10),
+              SizedBox(height: 12),
+              _WorldTickPendingSkeletonLine(widthFactor: 0.92),
+              SizedBox(height: 8),
+              _WorldTickPendingSkeletonLine(widthFactor: 0.76),
+              SizedBox(height: 18),
+              _WorldTickPendingSkeletonLine(widthFactor: 0.34, height: 10),
+              SizedBox(height: 12),
+              _WorldTickPendingSkeletonLine(widthFactor: 0.86),
+              SizedBox(height: 8),
+              _WorldTickPendingSkeletonLine(widthFactor: 0.58),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WorldTickPendingSkeletonLine extends StatelessWidget {
+  const _WorldTickPendingSkeletonLine({
+    required this.widthFactor,
+    this.height = 12,
+  });
+
+  final double widthFactor;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      alignment: Alignment.centerLeft,
+      widthFactor: widthFactor,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFE1E4EA),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: SizedBox(height: height),
+      ),
+    );
+  }
+}
+
+class _WorldTickEventCardPage extends StatefulWidget {
+  const _WorldTickEventCardPage({
+    super.key,
+    required this.child,
+    required this.resetRevision,
+    required this.hasTopEdgePage,
+    required this.hasBottomEdgePage,
+    required this.onTurnPage,
+  });
+
+  final Widget child;
+  final int resetRevision;
+  final bool hasTopEdgePage;
+  final bool hasBottomEdgePage;
+  final ValueChanged<int> onTurnPage;
+
+  @override
+  State<_WorldTickEventCardPage> createState() =>
+      _WorldTickEventCardPageState();
+}
+
+class _WorldTickEventCardPageState extends State<_WorldTickEventCardPage> {
+  static const double _turnDragThreshold = 56;
+  static const double _edgeArrowMinSize = 18;
+  static const double _edgeArrowMaxSize = 24;
+
+  final ScrollController _scrollController = ScrollController(
+    keepScrollOffset: false,
+  );
+  var _dragDeltaY = 0.0;
+  var _dragStartedAtTop = true;
+  var _dragStartedAtBottom = true;
+  var _topPullDistance = 0.0;
+  var _bottomPullDistance = 0.0;
+
+  @override
+  void didUpdateWidget(covariant _WorldTickEventCardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.resetRevision != widget.resetRevision) {
+      _jumpScrollToTop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _jumpScrollToTop() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(0);
+    });
+  }
+
+  bool get _atTop {
+    if (!_scrollController.hasClients) return true;
+    return _scrollController.position.extentBefore <= 0;
+  }
+
+  bool get _atBottom {
+    if (!_scrollController.hasClients) return true;
+    return _scrollController.position.extentAfter <= 0;
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    _dragDeltaY = 0;
+    _dragStartedAtTop = _atTop;
+    _dragStartedAtBottom = _atBottom;
+    _setEdgePullDistance(top: 0, bottom: 0);
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    _dragDeltaY += event.delta.dy;
+    _setEdgePullDistance(
+      top: _dragStartedAtTop && widget.hasTopEdgePage
+          ? math.max(0, _dragDeltaY)
+          : 0,
+      bottom: _dragStartedAtBottom && widget.hasBottomEdgePage
+          ? math.max(0, -_dragDeltaY)
+          : 0,
+    );
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    final dragDeltaY = _dragDeltaY;
+    _dragDeltaY = 0;
+    _setEdgePullDistance(top: 0, bottom: 0);
+    if (dragDeltaY <= -_turnDragThreshold && _dragStartedAtBottom) {
+      widget.onTurnPage(1);
+    } else if (dragDeltaY >= _turnDragThreshold && _dragStartedAtTop) {
+      widget.onTurnPage(-1);
+    }
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    _dragDeltaY = 0;
+    _setEdgePullDistance(top: 0, bottom: 0);
+  }
+
+  void _setEdgePullDistance({required double top, required double bottom}) {
+    final nextTop = top.clamp(0, _turnDragThreshold).toDouble();
+    final nextBottom = bottom.clamp(0, _turnDragThreshold).toDouble();
+    if (nextTop == _topPullDistance && nextBottom == _bottomPullDistance) {
+      return;
+    }
+    setState(() {
+      _topPullDistance = nextTop;
+      _bottomPullDistance = nextBottom;
+    });
+  }
+
+  Widget _buildEdgeArrow({
+    required bool top,
+    required double pullDistance,
+    required IconData icon,
+    required Key key,
+  }) {
+    if (pullDistance <= 0) {
+      return const SizedBox.shrink();
+    }
+    final progress = (pullDistance / _turnDragThreshold).clamp(0.0, 1.0);
+    final iconSize =
+        _edgeArrowMinSize +
+        ((_edgeArrowMaxSize - _edgeArrowMinSize) * progress);
+    final offset = 6 + (8 * progress);
+    return Positioned(
+      top: top ? offset : null,
+      bottom: top ? null : offset,
+      left: 0,
+      right: 0,
+      child: IgnorePointer(
+        child: Opacity(
+          opacity: 0.3 + (0.7 * progress),
+          child: Align(
+            alignment: top ? Alignment.topCenter : Alignment.bottomCenter,
+            child: Icon(
+              icon,
+              key: key,
+              size: iconSize,
+              color: const Color(0xFF111111),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: _handlePointerDown,
+      onPointerMove: _handlePointerMove,
+      onPointerUp: _handlePointerUp,
+      onPointerCancel: _handlePointerCancel,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              physics: _WorldTickCardScrollPhysics(
+                allowLeadingOverscroll: widget.hasTopEdgePage,
+                allowTrailingOverscroll: widget.hasBottomEdgePage,
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              child: widget.child,
+            ),
+          ),
+          _buildEdgeArrow(
+            top: true,
+            pullDistance: _topPullDistance,
+            icon: Icons.keyboard_arrow_down_rounded,
+            key: const ValueKey<String>('world-event-top-edge-arrow'),
+          ),
+          _buildEdgeArrow(
+            top: false,
+            pullDistance: _bottomPullDistance,
+            icon: Icons.keyboard_arrow_up_rounded,
+            key: const ValueKey<String>('world-event-bottom-edge-arrow'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorldTickCardScrollPhysics extends BouncingScrollPhysics {
+  const _WorldTickCardScrollPhysics({
+    required this.allowLeadingOverscroll,
+    required this.allowTrailingOverscroll,
+    super.parent,
+  });
+
+  final bool allowLeadingOverscroll;
+  final bool allowTrailingOverscroll;
+
+  @override
+  _WorldTickCardScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return _WorldTickCardScrollPhysics(
+      allowLeadingOverscroll: allowLeadingOverscroll,
+      allowTrailingOverscroll: allowTrailingOverscroll,
+      parent: buildParent(ancestor),
+    );
+  }
+
+  @override
+  double frictionFactor(double overscrollFraction) {
+    return super.frictionFactor(overscrollFraction) * 0.5;
+  }
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) {
+    if (!allowLeadingOverscroll &&
+        value < position.pixels &&
+        position.pixels <= position.minScrollExtent) {
+      return value - position.pixels;
+    }
+    if (!allowTrailingOverscroll &&
+        position.maxScrollExtent <= position.pixels &&
+        position.pixels < value) {
+      return value - position.pixels;
+    }
+    return super.applyBoundaryConditions(position, value);
   }
 }
 

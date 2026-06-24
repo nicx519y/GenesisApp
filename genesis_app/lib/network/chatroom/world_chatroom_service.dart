@@ -95,6 +95,12 @@ class WorldChatroomService {
 
   ChatroomConnectionIdentity? get identity => _identity;
 
+  void setInputBlocked(bool blocked) {
+    _throwIfDisposed();
+    if (_state.inputBlocked == blocked) return;
+    _setState(_state.copyWith(inputBlocked: blocked));
+  }
+
   void applyWorldSnapshot(WorldDetail world) {
     _throwIfDisposed();
     final entities = _entitiesFromWorld(world);

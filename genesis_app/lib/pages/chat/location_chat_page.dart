@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
@@ -22,14 +22,7 @@ import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 
 const double _locationChatAvatarLogicalSize = 40;
-
-const bool _locationKeyboardProbeFlag = bool.fromEnvironment(
-  'LOCATION_KEYBOARD_PROBE',
-  defaultValue: false,
-);
-
-bool get _locationKeyboardProbeEnabled =>
-    _locationKeyboardProbeFlag && (kDebugMode || kProfileMode);
+const double _locationChatComposerBottomExtension = 60;
 
 class LocationChatPage extends StatelessWidget {
   const LocationChatPage({
@@ -59,23 +52,19 @@ class LocationChatPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ChatUiStyleConfig.standard.conversationBackgroundColor,
-      resizeToAvoidBottomInset: false,
-      body: LocationChatPanel(
-        worldId: worldId,
-        locationId: locationId,
-        isLeafLocation: isLeafLocation,
-        localMessageLocationIds: localMessageLocationIds,
-        worldName: worldName,
-        locationName: locationName,
-        backgroundImageUrl: backgroundImageUrl,
-        backgroundPreviewImageUrl: backgroundPreviewImageUrl,
-        service: service,
-        connection: connection,
-        active: true,
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
+    return LocationChatPanel(
+      worldId: worldId,
+      locationId: locationId,
+      isLeafLocation: isLeafLocation,
+      localMessageLocationIds: localMessageLocationIds,
+      worldName: worldName,
+      locationName: locationName,
+      backgroundImageUrl: backgroundImageUrl,
+      backgroundPreviewImageUrl: backgroundPreviewImageUrl,
+      service: service,
+      connection: connection,
+      active: true,
+      onBack: () => Navigator.of(context).maybePop(),
     );
   }
 }
@@ -103,6 +92,10 @@ class LocationChatPanel extends StatefulWidget {
     this.showConnectionStatus = true,
     this.systemUiOverlayStyle = kChatDarkHeaderSystemUiOverlayStyle,
     this.style,
+    this.initialDraftText = '',
+    this.initialScrollOffset,
+    this.onDraftTextChanged,
+    this.onScrollOffsetChanged,
   });
 
   final String worldId;
@@ -125,6 +118,10 @@ class LocationChatPanel extends StatefulWidget {
   final bool showConnectionStatus;
   final SystemUiOverlayStyle systemUiOverlayStyle;
   final ChatUiStyleConfig? style;
+  final String initialDraftText;
+  final double? initialScrollOffset;
+  final ValueChanged<String>? onDraftTextChanged;
+  final ValueChanged<double>? onScrollOffsetChanged;
 
   @override
   State<LocationChatPanel> createState() => _LocationChatPanelState();
@@ -132,18 +129,12 @@ class LocationChatPanel extends StatefulWidget {
 
 class _LocationChatPanelState extends State<LocationChatPanel>
     with WidgetsBindingObserver {
-  static const Duration _keyboardAnimationDuration = Duration(
-    milliseconds: 120,
-  );
-  static const double _minUsableKeyboardInset = 120;
-  static double _cachedKeyboardInset = 0;
-
   final _scrollController = ScrollController();
   final _textController = TextEditingController();
   final _composerFocusNode = FocusNode();
-  final _keyboardInsetListenable = ValueNotifier<double>(0);
   final Stopwatch _panelStopwatch = Stopwatch()..start();
   final _messages = <ChatMessageVm>[];
+  double _composerHeight = 0;
 
   WorldChatroomService? _service;
   StreamSubscription<WorldChatroomState>? _stateSubscription;
@@ -156,17 +147,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   String _mySenderName = '';
   String _myAvatarUrl = '';
   double _devicePixelRatio = 1;
-  late String _backgroundImageUrl;
-  late String _backgroundPreviewImageUrl;
   bool _ownsService = false;
   bool _joinedLocation = false;
   bool _sending = false;
   bool _awaitingAiResponse = false;
   bool _hasDraftText = false;
-  bool _waitingForKeyboardTarget = false;
-  bool _keyboardTargetLocked = false;
-  bool _keyboardNeedsStableCorrection = false;
-  bool _keyboardSawUsableInset = false;
   bool _loadingOlderMessages = false;
   bool _hasMoreOlderMessages = true;
   bool _initialContentReadyNotified = false;
@@ -174,68 +159,53 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   int _unseenIncomingCount = 0;
   int _clientMsgCounter = 0;
   String _awaitingAiResponseRoundId = '';
-  double _composerHeight = 0;
-  double _keyboardInset = 0;
-  double _lastPanelHeight = 0;
-  double _lastHeaderHeight = 0;
-  double _lastComposerHeight = 0;
-  Timer? _keyboardMetricsTimer;
-  Timer? _keyboardTargetProbeTimer;
-  double? _pendingKeyboardInset;
-  double _latestRawKeyboardInset = 0;
-  bool _keyboardInsetUpdateScheduled = false;
-  bool _composerKeyboardStateRebuildScheduled = false;
   bool _keepBottomAfterLayoutScheduled = false;
-  Stopwatch? _keyboardProbeStopwatch;
-  Timer? _keyboardProbeSummaryTimer;
-  bool _keyboardProbeFocusLogged = false;
-  bool _keyboardProbeFirstInsetLogged = false;
-  bool _keyboardProbeStableInsetLogged = false;
-  int _keyboardProbeSlowFrameCount = 0;
-  int _keyboardProbeMaxBuildMs = 0;
-  int _keyboardProbeMaxRasterMs = 0;
-  FlutterExceptionHandler? _previousFlutterErrorHandler;
+  bool _initialBottomScrollPending = false;
+  bool _initialBottomScrollScheduled = false;
+  bool _initialBottomScrollShouldComplete = false;
+  bool _initialBottomScrollDidJump = false;
+  bool _composerFocusBottomPinActive = false;
+  bool _composerFocusBottomScheduled = false;
 
   @override
   void initState() {
     super.initState();
-    _backgroundImageUrl = widget.backgroundImageUrl?.trim() ?? '';
-    _backgroundPreviewImageUrl = widget.backgroundPreviewImageUrl?.trim() ?? '';
+    final initialDraftText = widget.initialDraftText;
+    if (initialDraftText.isNotEmpty) {
+      _textController.text = initialDraftText;
+      _textController.selection = TextSelection.collapsed(
+        offset: initialDraftText.length,
+      );
+      _hasDraftText = initialDraftText.trim().isNotEmpty;
+    }
     _logPanelMetric(
       'init active=${widget.active} leaf=${widget.isLeafLocation} '
       'aliases=${widget.localMessageLocationIds.join(',')}',
     );
     WidgetsBinding.instance.addObserver(this);
-    if (_locationKeyboardProbeEnabled) {
-      SchedulerBinding.instance.addTimingsCallback(_handleKeyboardProbeTimings);
-      _installKeyboardProbeErrorHook();
-    }
     _composerFocusNode.addListener(_handleComposerFocusChanged);
     _textController.addListener(_handleDraftTextChanged);
     _scrollController.addListener(_handleMessageListScroll);
     _prepareConnection();
+    if (!_restoreInitialScrollOffset()) {
+      _startInitialBottomScroll();
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _keyboardMetricsTimer?.cancel();
-    _keyboardTargetProbeTimer?.cancel();
-    _keyboardProbeSummaryTimer?.cancel();
-    if (_locationKeyboardProbeEnabled) {
-      SchedulerBinding.instance.removeTimingsCallback(
-        _handleKeyboardProbeTimings,
-      );
-      FlutterError.onError = _previousFlutterErrorHandler;
-    }
     final service = _service;
     if (_ownsService && service != null) {
       unawaited(service.disconnect().catchError((Object _) {}));
     }
     unawaited(_closeChatroom());
+    widget.onDraftTextChanged?.call(_textController.text);
+    if (!_initialBottomScrollPending && _scrollController.hasClients) {
+      widget.onScrollOffsetChanged?.call(_scrollController.position.pixels);
+    }
     _scrollController.removeListener(_handleMessageListScroll);
     _scrollController.dispose();
-    _keyboardInsetListenable.dispose();
     _composerFocusNode.removeListener(_handleComposerFocusChanged);
     _composerFocusNode.dispose();
     _textController.removeListener(_handleDraftTextChanged);
@@ -246,16 +216,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void didUpdateWidget(LocationChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final nextBackgroundImageUrl = widget.backgroundImageUrl?.trim() ?? '';
-    final nextBackgroundPreviewImageUrl =
-        widget.backgroundPreviewImageUrl?.trim() ?? '';
-    if (nextBackgroundImageUrl.isNotEmpty &&
-        nextBackgroundImageUrl != _backgroundImageUrl) {
-      _backgroundImageUrl = nextBackgroundImageUrl;
-    }
-    if (nextBackgroundPreviewImageUrl != _backgroundPreviewImageUrl) {
-      _backgroundPreviewImageUrl = nextBackgroundPreviewImageUrl;
-    }
     if (oldWidget.service != widget.service ||
         oldWidget.worldId != widget.worldId ||
         oldWidget.locationId != widget.locationId ||
@@ -275,13 +235,18 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           _initialContentReadyNotified = false;
           _initialLatestMessagesRefresh = null;
           _prepareConnection();
+          if (!_restoreInitialScrollOffset()) {
+            _startInitialBottomScroll();
+          }
         }),
       );
       return;
     }
     if (!oldWidget.active && widget.active) {
       _activateConnection();
-      _forceScrollToBottom();
+      if (!_restoreInitialScrollOffset()) {
+        _startInitialBottomScroll();
+      }
     } else if (oldWidget.active && !widget.active) {
       unawaited(_deactivateConnection());
     }
@@ -307,7 +272,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   @override
   void didChangeMetrics() {
-    _handleKeyboardMetricsChanged();
+    if (_composerFocusBottomPinActive) {
+      _scheduleComposerFocusBottomPin();
+      return;
+    }
+    _keepBottomAfterLayoutIfNeeded();
   }
 
   @override
@@ -339,7 +308,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       return;
     }
 
-    if (!widget.active) return;
+    if (!widget.active) {
+      _notifyInitialContentReady();
+      return;
+    }
     _activateConnection();
   }
 
@@ -582,6 +554,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _notifyInitialContentReady();
       return;
     }
+    if (!widget.active) {
+      _notifyInitialContentReady();
+      return;
+    }
     final existingRefresh = _initialLatestMessagesRefresh;
     if (existingRefresh != null) return;
     _logPanelMetric('initial history refresh start beforeReady');
@@ -651,22 +627,29 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       'reconcile=${reconcileStopwatch?.elapsedMilliseconds}ms',
     );
     if (nextSource.isNotEmpty) _notifyInitialContentReady();
-    if (changedMessages &&
+    if (changedMessages && _initialBottomScrollPending) {
+      _scheduleInitialBottomScroll(complete: nextSource.isNotEmpty);
+      return;
+    }
+    if (changedMessages && _composerFocusBottomPinActive) {
+      _clearUnseenIncomingCount();
+      _scheduleComposerFocusBottomPin();
+      return;
+    }
+    if (changedMessages && wasAtBottom) {
+      _clearUnseenIncomingCount();
+      _keepBottomAfterLayoutIfNeeded();
+    } else if (changedMessages &&
         previousLatestLocalId.isNotEmpty &&
         _latestMessageLocalId() != previousLatestLocalId) {
-      if (wasAtBottom) {
-        _clearUnseenIncomingCount();
-        _scrollToBottom(jump: true);
-      } else {
-        final newIncomingCount = _newIncomingTailMessageCount(
-          previousSource,
-          nextSource,
-        );
-        if (newIncomingCount > 0) {
-          setState(() {
-            _unseenIncomingCount += newIncomingCount;
-          });
-        }
+      final newIncomingCount = _newIncomingTailMessageCount(
+        previousSource,
+        nextSource,
+      );
+      if (newIncomingCount > 0) {
+        setState(() {
+          _unseenIncomingCount += newIncomingCount;
+        });
       }
     }
   }
@@ -1035,6 +1018,19 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   void _handleMessageListScroll() {
     if (!_scrollController.hasClients) return;
+    var publishedOffset = false;
+    if (_initialBottomScrollPending &&
+        _initialBottomScrollDidJump &&
+        _messages.isNotEmpty &&
+        !_isAtBottom()) {
+      _initialBottomScrollPending = false;
+      _initialBottomScrollShouldComplete = false;
+      widget.onScrollOffsetChanged?.call(_scrollController.position.pixels);
+      publishedOffset = true;
+    }
+    if (!_initialBottomScrollPending && !publishedOffset) {
+      widget.onScrollOffsetChanged?.call(_scrollController.position.pixels);
+    }
     if (_unseenIncomingCount > 0 && _isAtBottom()) {
       _clearUnseenIncomingCount();
     }
@@ -1045,7 +1041,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       return;
     }
     final position = _scrollController.position;
-    if (position.maxScrollExtent - position.pixels > 180) return;
+    if (position.pixels - position.minScrollExtent > 180) return;
     unawaited(_loadOlderMessages());
   }
 
@@ -1349,18 +1345,82 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   bool _isAtBottom() {
     if (!_scrollController.hasClients) return true;
-    return _scrollController.position.pixels <= 24;
+    final position = _scrollController.position;
+    return position.maxScrollExtent - position.pixels <= 24;
+  }
+
+  double _bottomScrollOffset() {
+    if (!_scrollController.hasClients) return 0;
+    return _scrollController.position.maxScrollExtent;
+  }
+
+  bool _restoreInitialScrollOffset() {
+    final initialOffset = widget.initialScrollOffset;
+    if (initialOffset == null) return false;
+    _initialBottomScrollPending = false;
+    _initialBottomScrollShouldComplete = false;
+    _initialBottomScrollDidJump = false;
+
+    void restoreIfReady() {
+      if (!mounted || !_scrollController.hasClients) return;
+      final position = _scrollController.position;
+      final target = initialOffset
+          .clamp(position.minScrollExtent, position.maxScrollExtent)
+          .toDouble();
+      _scrollController.jumpTo(target);
+    }
+
+    restoreIfReady();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      restoreIfReady();
+      WidgetsBinding.instance.addPostFrameCallback((_) => restoreIfReady());
+    });
+    return true;
+  }
+
+  void _startInitialBottomScroll() {
+    _initialBottomScrollPending = true;
+    _initialBottomScrollShouldComplete = false;
+    _initialBottomScrollDidJump = false;
+    _scheduleInitialBottomScroll(complete: _messages.isNotEmpty);
+  }
+
+  void _scheduleInitialBottomScroll({required bool complete}) {
+    if (!_initialBottomScrollPending) return;
+    _initialBottomScrollShouldComplete =
+        _initialBottomScrollShouldComplete || complete;
+    if (_initialBottomScrollScheduled) return;
+    _initialBottomScrollScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initialBottomScrollScheduled = false;
+      if (!mounted || !_initialBottomScrollPending) return;
+      if (!_scrollController.hasClients) return;
+      _scrollController.jumpTo(_bottomScrollOffset());
+      _initialBottomScrollDidJump = true;
+      final shouldComplete = _initialBottomScrollShouldComplete;
+      _initialBottomScrollShouldComplete = false;
+      if (!shouldComplete || _messages.isEmpty) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_initialBottomScrollPending) return;
+        if (!_scrollController.hasClients) return;
+        _scrollController.jumpTo(_bottomScrollOffset());
+        _initialBottomScrollPending = false;
+        _initialBottomScrollDidJump = false;
+        widget.onScrollOffsetChanged?.call(_scrollController.position.pixels);
+      });
+    });
   }
 
   void _scrollToBottom({bool jump = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
+      final bottom = _bottomScrollOffset();
       if (jump) {
-        _scrollController.jumpTo(0);
+        _scrollController.jumpTo(bottom);
         return;
       }
       _scrollController.animateTo(
-        0,
+        bottom,
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
       );
@@ -1370,7 +1430,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   void _forceScrollToBottom() {
     void jumpIfReady() {
       if (!mounted || !_scrollController.hasClients) return;
-      _scrollController.jumpTo(0);
+      _scrollController.jumpTo(_bottomScrollOffset());
     }
 
     jumpIfReady();
@@ -1381,12 +1441,50 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   }
 
   void _scrollToBottomForComposerInput() {
-    if (!_scrollController.hasClients || _isAtBottom()) return;
-    _scrollController.animateTo(
-      0,
-      duration: _keyboardAnimationDuration,
-      curve: Curves.easeOutCubic,
-    );
+    _activateComposerFocusBottomPin();
+  }
+
+  void _activateComposerFocusBottomPin() {
+    _composerFocusBottomPinActive = true;
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(_bottomScrollOffset());
+    }
+    _scheduleComposerFocusBottomPin();
+  }
+
+  void _deactivateComposerFocusBottomPin() {
+    _composerFocusBottomPinActive = false;
+  }
+
+  void _scheduleComposerFocusBottomPin() {
+    if (!_composerFocusBottomPinActive) return;
+    if (_composerFocusBottomScheduled) return;
+    _composerFocusBottomScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _composerFocusBottomScheduled = false;
+      if (!mounted ||
+          !_composerFocusNode.hasFocus ||
+          !_composerFocusBottomPinActive) {
+        return;
+      }
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_bottomScrollOffset());
+      }
+    });
+  }
+
+  bool _handleMessageListScrollNotification(ScrollNotification notification) {
+    if (!_composerFocusBottomPinActive) return false;
+    if (notification is! ScrollUpdateNotification ||
+        notification.dragDetails == null) {
+      return false;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_composerFocusBottomPinActive) return;
+      if (!_scrollController.hasClients || _isAtBottom()) return;
+      _deactivateComposerFocusBottomPin();
+    });
+    return false;
   }
 
   void _keepBottomAfterLayoutIfNeeded() {
@@ -1396,8 +1494,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _keepBottomAfterLayoutScheduled = false;
       if (!mounted || !_scrollController.hasClients) return;
-      if (!_isAtBottom()) return;
-      _scrollController.jumpTo(0);
+      _scrollController.jumpTo(_bottomScrollOffset());
     });
   }
 
@@ -1552,532 +1649,259 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       ),
       headerStatusIconSize: 12,
     );
-    final headerHeight = _locationChatHeaderHeight();
-    final composerHeight = _locationChatComposerHeight();
-    _lastHeaderHeight = headerHeight;
-    _lastComposerHeight = composerHeight;
+    final replacementComposer = widget.composerReplacement;
+    final composer = replacementComposer == null
+        ? ChatComposer(
+            controller: _textController,
+            focusNode: _composerFocusNode,
+            inputEnabled: widget.active,
+            sendEnabled:
+                widget.active &&
+                joined &&
+                _hasDraftText &&
+                !_sending &&
+                !_awaitingAiResponse &&
+                !inputBlocked,
+            sending: false,
+            onSend: _send,
+            sendLabel: 'Send',
+            style: style,
+            onHeightChanged: _handleComposerHeightChanged,
+            onInputTap: _handleComposerInputTap,
+          )
+        : _LocationChatMeasuredComposer(
+            onHeightChanged: _handleComposerHeightChanged,
+            child: replacementComposer,
+          );
+    final header = ChatHeader(
+      title: '$title (${realUsers.length})',
+      subtitle: subtitle,
+      connected: joined,
+      connecting: connecting,
+      subtitleIconAsset: locationChatCharacterIconAsset,
+      onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
+      showSubtitle: widget.showConnectionStatus && aiRoleNames.isNotEmpty,
+      style: style,
+    );
+    final listStyle = style.copyWith(
+      messageListPadding: _locationChatMessageListPadding(style),
+    );
+    final messageList = ChatMessageList(
+      key: const ValueKey<String>('location-chat-message-list'),
+      controller: _scrollController,
+      messages: _messages,
+      topTitle: '',
+      onMessageLongPressStart: _showMessageActionMenu,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      reverse: false,
+      showDateDividers: false,
+      style: listStyle,
+    );
 
     return GenesisBottomSystemBarStyleScope(
       style: GenesisBottomSystemBarStyle(color: style.composerBackgroundColor),
       child: AnnotatedRegion<SystemUiOverlayStyle>(
         value: widget.systemUiOverlayStyle,
-        child: ColoredBox(
-          color: style.conversationBackgroundColor,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              _lastPanelHeight = constraints.maxHeight;
-              final messageList = ChatMessageList(
-                controller: _scrollController,
-                messages: _messages,
-                topTitle: '',
-                onMessageLongPressStart: _showMessageActionMenu,
-                showDateDividers: false,
-                style: style,
-              );
-              final replacementComposer = widget.composerReplacement;
-              final composer = replacementComposer == null
-                  ? ChatComposer(
-                      controller: _textController,
-                      focusNode: _composerFocusNode,
-                      inputEnabled: widget.active,
-                      sendEnabled:
-                          widget.active &&
-                          joined &&
-                          _hasDraftText &&
-                          !_sending &&
-                          !_awaitingAiResponse &&
-                          !inputBlocked,
-                      sending: false,
-                      onSend: _send,
-                      sendLabel: 'Send',
-                      style: style,
-                      bottomSafeAreaInset: _keyboardInset > 0 ? 0 : null,
-                      onHeightChanged: _handleComposerHeightChanged,
-                      onInputTap: _handleComposerInputTap,
-                    )
-                  : _LocationChatMeasuredComposer(
-                      onHeightChanged: _handleComposerHeightChanged,
-                      child: replacementComposer,
-                    );
-              final keyboardLayerChild = _LocationChatKeyboardLayerChild(
-                messageList: messageList,
-                composer: composer,
-              );
-              return Stack(
-                children: [
-                  Positioned.fill(
-                    child: RepaintBoundary(
-                      child: _LocationChatBackgroundImage(
-                        imageUrl: _backgroundImageUrl,
-                        previewImageUrl: _backgroundPreviewImageUrl,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: _LocationChatBackground(
+                imageUrl: widget.backgroundImageUrl,
+                previewImageUrl: widget.backgroundPreviewImageUrl,
+                color: style.conversationBackgroundColor,
+              ),
+            ),
+            Positioned.fill(
+              child: Scaffold(
+                backgroundColor: Colors.transparent,
+                resizeToAvoidBottomInset: true,
+                body: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Stack(
+                      children: [
+                        Positioned.fill(
+                          child: NotificationListener<ScrollNotification>(
+                            onNotification:
+                                _handleMessageListScrollNotification,
+                            child: messageList,
+                          ),
+                        ),
+                        if (_unseenIncomingCount > 0)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: _locationChatComposerHeight(style) + 12,
+                            child: Center(
+                              child: _LocationChatNewMessageNotice(
+                                count: _unseenIncomingCount,
+                                onTap: _openUnseenIncomingMessages,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    Positioned(left: 0, right: 0, top: 0, child: header),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: RepaintBoundary(
+                        child: _LocationChatComposerExtension(
+                          style: style,
+                          child: composer,
+                        ),
                       ),
                     ),
-                  ),
-                  Positioned.fill(
-                    child: ValueListenableBuilder<double>(
-                      valueListenable: _keyboardInsetListenable,
-                      child: keyboardLayerChild,
-                      builder: (context, keyboardInset, child) {
-                        final layerChild =
-                            child! as _LocationChatKeyboardLayerChild;
-                        return Stack(
-                          children: [
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              top: headerHeight,
-                              bottom: composerHeight,
-                              child: _LocationChatKeyboardShift(
-                                offset: keyboardInset,
-                                duration: _keyboardAnimationDuration,
-                                child: layerChild.messageList,
-                              ),
-                            ),
-                            if (_unseenIncomingCount > 0)
-                              Positioned(
-                                left: 0,
-                                right: 0,
-                                bottom: composerHeight + 12,
-                                child: _LocationChatKeyboardShift(
-                                  offset: keyboardInset,
-                                  duration: _keyboardAnimationDuration,
-                                  child: Center(
-                                    child: _LocationChatNewMessageNotice(
-                                      count: _unseenIncomingCount,
-                                      onTap: _openUnseenIncomingMessages,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              child: _LocationChatKeyboardShift(
-                                offset: keyboardInset,
-                                duration: _keyboardAnimationDuration,
-                                child: layerChild.composer,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    child: ChatHeader(
-                      title: '$title (${realUsers.length})',
-                      subtitle: subtitle,
-                      connected: joined,
-                      connecting: connecting,
-                      subtitleIconAsset: locationChatCharacterIconAsset,
-                      onBack:
-                          widget.onBack ??
-                          () => Navigator.of(context).maybePop(),
-                      showSubtitle:
-                          widget.showConnectionStatus && aiRoleNames.isNotEmpty,
-                      style: style,
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  double _locationChatHeaderHeight() {
-    final topInset = MediaQuery.viewPaddingOf(context).top;
-    final baseStyle = widget.style ?? kLocationChatStyle;
-    return topInset + baseStyle.headerHeight;
+  EdgeInsets _locationChatMessageListPadding(ChatUiStyleConfig style) {
+    return style.messageListPadding.copyWith(
+      top: style.messageListPadding.top + _locationChatHeaderHeight(style),
+      bottom:
+          style.messageListPadding.bottom + _locationChatComposerHeight(style),
+    );
   }
 
-  double _locationChatComposerHeight() {
-    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
-    final baseStyle = widget.style ?? kLocationChatStyle;
-    return _composerHeight > 0
-        ? _composerHeight
-        : baseStyle.composerPadding.vertical +
-              baseStyle.inputMinHeight +
-              bottomInset;
+  double _locationChatHeaderHeight(ChatUiStyleConfig style) {
+    return GenesisSafeAreaInsets.top(context) + style.headerHeight;
+  }
+
+  double _locationChatComposerHeight(ChatUiStyleConfig style) {
+    if (_composerHeight > 0) return _composerHeight;
+    final bottomInset = GenesisSafeAreaInsets.bottom(context);
+    return style.composerPadding.vertical + style.inputMinHeight + bottomInset;
   }
 
   void _handleComposerFocusChanged() {
     if (_composerFocusNode.hasFocus) {
-      _markKeyboardProbeFocus();
-      _rebuildComposerForKeyboardState();
-      _keyboardTargetLocked = false;
-      _keyboardSawUsableInset = false;
-      if (_cachedKeyboardInset >= _minUsableKeyboardInset) {
-        _waitingForKeyboardTarget = false;
-        _keyboardTargetLocked = true;
-        _keyboardNeedsStableCorrection = false;
-        _setKeyboardInset(_cachedKeyboardInset);
-      } else {
-        _waitingForKeyboardTarget = true;
-        _keyboardNeedsStableCorrection = true;
-        _setKeyboardInset(_estimatedKeyboardInset());
-        _startKeyboardTargetProbe();
-      }
-      return;
+      _scrollToBottomForComposerInput();
+    } else {
+      _deactivateComposerFocusBottomPin();
     }
-    _logKeyboardProbeEvent(
-      'blur raw=${_rawKeyboardInset().toStringAsFixed(1)}',
-    );
-    _rebuildComposerForKeyboardState();
-    _keyboardMetricsTimer?.cancel();
-    _keyboardTargetProbeTimer?.cancel();
-    _waitingForKeyboardTarget = false;
-    _keyboardTargetLocked = false;
-    _keyboardNeedsStableCorrection = false;
-    _keyboardSawUsableInset = false;
-    _setKeyboardInset(0);
+    if (mounted) setState(() {});
   }
 
   void _handleComposerInputTap() {
     _scrollToBottomForComposerInput();
-    _startKeyboardProbeFromTap();
-    if (!_composerFocusNode.hasFocus || _keyboardInset > 0) return;
-    if (_cachedKeyboardInset >= _minUsableKeyboardInset) {
-      _waitingForKeyboardTarget = false;
-      _keyboardTargetLocked = true;
-      _keyboardNeedsStableCorrection = false;
-      _keyboardSawUsableInset = false;
-      _setKeyboardInset(_cachedKeyboardInset);
-    }
-    SystemChannels.textInput.invokeMethod<void>('TextInput.show');
   }
 
   void _handleDraftTextChanged() {
     final hasText = _textController.text.trim().isNotEmpty;
+    widget.onDraftTextChanged?.call(_textController.text);
     if (_hasDraftText == hasText) return;
     setState(() => _hasDraftText = hasText);
-  }
-
-  void _handleKeyboardMetricsChanged() {
-    final rawInset = _rawKeyboardInset();
-    if (rawInset > 0) {
-      _latestRawKeyboardInset = rawInset;
-      final currentTarget = _clampKeyboardInset(rawInset);
-      _markKeyboardProbeFirstInset(rawInset, currentTarget);
-      if (currentTarget < _minUsableKeyboardInset) {
-        _scheduleStableKeyboardInsetCacheUpdate();
-        return;
-      }
-      _keyboardSawUsableInset = true;
-      if (_keyboardTargetLocked && !_waitingForKeyboardTarget) {
-        _scheduleStableKeyboardInsetCacheUpdate();
-        return;
-      }
-      _keyboardTargetProbeTimer?.cancel();
-      if (_waitingForKeyboardTarget || !_keyboardTargetLocked) {
-        _waitingForKeyboardTarget = false;
-        _keyboardTargetLocked = true;
-        _cachedKeyboardInset = currentTarget;
-        if (_composerFocusNode.hasFocus) {
-          _setKeyboardInset(currentTarget);
-        }
-      }
-      _scheduleStableKeyboardInsetCacheUpdate();
-      return;
-    }
-    if (_keyboardInset <= 0 || !_keyboardSawUsableInset) return;
-    _handleKeyboardHiddenByMetrics();
-  }
-
-  void _handleKeyboardHiddenByMetrics() {
-    _keyboardMetricsTimer?.cancel();
-    _keyboardTargetProbeTimer?.cancel();
-    _waitingForKeyboardTarget = false;
-    _keyboardTargetLocked = false;
-    _keyboardNeedsStableCorrection = false;
-    _keyboardSawUsableInset = false;
-    _setKeyboardInset(0);
-    _rebuildComposerForKeyboardState();
-  }
-
-  void _scheduleStableKeyboardInsetCacheUpdate() {
-    if (_keyboardMetricsTimer != null) return;
-    _keyboardMetricsTimer = Timer(const Duration(milliseconds: 260), () {
-      _keyboardMetricsTimer = null;
-      if (!mounted) return;
-      final stableInset = _rawKeyboardInset();
-      final rawStableInset = stableInset > 0
-          ? stableInset
-          : _latestRawKeyboardInset;
-      if (rawStableInset <= 0) return;
-      final targetInset = _clampKeyboardInset(rawStableInset);
-      if (targetInset < _minUsableKeyboardInset) return;
-      _cachedKeyboardInset = targetInset;
-      _markKeyboardProbeStableInset(rawStableInset, targetInset);
-      if (_composerFocusNode.hasFocus &&
-          (_keyboardNeedsStableCorrection ||
-              !_keyboardTargetLocked ||
-              _hasMeaningfulKeyboardInsetCorrection(targetInset))) {
-        _keyboardNeedsStableCorrection = false;
-        _keyboardTargetLocked = true;
-        _setKeyboardInset(targetInset);
-      }
-    });
-  }
-
-  void _startKeyboardTargetProbe() {
-    _keyboardTargetProbeTimer?.cancel();
-    var ticks = 0;
-    _keyboardTargetProbeTimer = Timer.periodic(
-      const Duration(milliseconds: 24),
-      (timer) {
-        if (!mounted || !_composerFocusNode.hasFocus || ticks++ >= 14) {
-          timer.cancel();
-          return;
-        }
-        final rawInset = _rawKeyboardInset();
-        if (rawInset <= 0) return;
-        final currentTarget = _clampKeyboardInset(rawInset);
-        if (currentTarget < _minUsableKeyboardInset) return;
-        _markKeyboardProbeFirstInset(rawInset, currentTarget);
-        _waitingForKeyboardTarget = false;
-        _keyboardTargetLocked = true;
-        _cachedKeyboardInset = currentTarget;
-        _setKeyboardInset(currentTarget);
-        _keyboardMetricsTimer?.cancel();
-        _keyboardMetricsTimer = Timer(const Duration(milliseconds: 90), () {
-          if (!mounted || !_composerFocusNode.hasFocus) return;
-          final stableInset = _rawKeyboardInset();
-          if (stableInset <= 0) return;
-          final stableTarget = _clampKeyboardInset(stableInset);
-          if (stableTarget < _minUsableKeyboardInset) return;
-          _cachedKeyboardInset = stableTarget;
-          _markKeyboardProbeStableInset(stableInset, _cachedKeyboardInset);
-          _keyboardNeedsStableCorrection = false;
-          _setKeyboardInset(_cachedKeyboardInset);
-        });
-        timer.cancel();
-      },
-    );
-  }
-
-  void _startKeyboardProbeFromTap() {
-    if (!_locationKeyboardProbeEnabled) return;
-    _keyboardProbeStopwatch = Stopwatch()..start();
-    _keyboardProbeSummaryTimer?.cancel();
-    _keyboardProbeFocusLogged = false;
-    _keyboardProbeFirstInsetLogged = false;
-    _keyboardProbeStableInsetLogged = false;
-    _keyboardProbeSlowFrameCount = 0;
-    _keyboardProbeMaxBuildMs = 0;
-    _keyboardProbeMaxRasterMs = 0;
-    _logKeyboardProbeEvent(
-      'tap raw=${_rawKeyboardInset().toStringAsFixed(1)} '
-      'cached=${_cachedKeyboardInset.toStringAsFixed(1)} '
-      'current=${_keyboardInset.toStringAsFixed(1)}',
-    );
-    _keyboardProbeSummaryTimer = Timer(
-      const Duration(milliseconds: 900),
-      _logKeyboardProbeSummary,
-    );
-  }
-
-  void _ensureKeyboardProbeStarted(String reason) {
-    if (!_locationKeyboardProbeEnabled || _keyboardProbeStopwatch != null) {
-      return;
-    }
-    _keyboardProbeStopwatch = Stopwatch()..start();
-    _keyboardProbeSummaryTimer?.cancel();
-    _keyboardProbeFocusLogged = false;
-    _keyboardProbeFirstInsetLogged = false;
-    _keyboardProbeStableInsetLogged = false;
-    _keyboardProbeSlowFrameCount = 0;
-    _keyboardProbeMaxBuildMs = 0;
-    _keyboardProbeMaxRasterMs = 0;
-    _logKeyboardProbeEvent('start reason=$reason');
-    _keyboardProbeSummaryTimer = Timer(
-      const Duration(milliseconds: 900),
-      _logKeyboardProbeSummary,
-    );
-  }
-
-  void _markKeyboardProbeFocus() {
-    if (!_locationKeyboardProbeEnabled || _keyboardProbeFocusLogged) return;
-    _ensureKeyboardProbeStarted('focus');
-    _keyboardProbeFocusLogged = true;
-    _logKeyboardProbeEvent(
-      'focus raw=${_rawKeyboardInset().toStringAsFixed(1)} '
-      'cached=${_cachedKeyboardInset.toStringAsFixed(1)}',
-    );
-  }
-
-  void _markKeyboardProbeFirstInset(double rawInset, double targetInset) {
-    if (!_locationKeyboardProbeEnabled || _keyboardProbeFirstInsetLogged) {
-      return;
-    }
-    _ensureKeyboardProbeStarted('firstInset');
-    _keyboardProbeFirstInsetLogged = true;
-    _logKeyboardProbeEvent(
-      'firstInset raw=${rawInset.toStringAsFixed(1)} '
-      'target=${targetInset.toStringAsFixed(1)}',
-    );
-  }
-
-  void _markKeyboardProbeStableInset(double rawInset, double targetInset) {
-    if (!_locationKeyboardProbeEnabled || _keyboardProbeStableInsetLogged) {
-      return;
-    }
-    _ensureKeyboardProbeStarted('stableInset');
-    _keyboardProbeStableInsetLogged = true;
-    _logKeyboardProbeEvent(
-      'stableInset raw=${rawInset.toStringAsFixed(1)} '
-      'target=${targetInset.toStringAsFixed(1)}',
-    );
-  }
-
-  void _handleKeyboardProbeTimings(List<FrameTiming> timings) {
-    if (!_locationKeyboardProbeEnabled) return;
-    final stopwatch = _keyboardProbeStopwatch;
-    if (stopwatch == null || stopwatch.elapsedMilliseconds > 900) return;
-    for (final timing in timings) {
-      final buildMs = timing.buildDuration.inMilliseconds;
-      final rasterMs = timing.rasterDuration.inMilliseconds;
-      if (buildMs > _keyboardProbeMaxBuildMs) {
-        _keyboardProbeMaxBuildMs = buildMs;
-      }
-      if (rasterMs > _keyboardProbeMaxRasterMs) {
-        _keyboardProbeMaxRasterMs = rasterMs;
-      }
-      if (buildMs > 16 || rasterMs > 16) {
-        _keyboardProbeSlowFrameCount += 1;
-      }
-    }
-  }
-
-  void _logKeyboardProbeSummary() {
-    if (!_locationKeyboardProbeEnabled) return;
-    final elapsed = _keyboardProbeStopwatch?.elapsedMilliseconds;
-    _logKeyboardProbeEvent(
-      'summary elapsed=${elapsed ?? 0}ms '
-      'focus=$_keyboardProbeFocusLogged '
-      'firstInset=$_keyboardProbeFirstInsetLogged '
-      'stableInset=$_keyboardProbeStableInsetLogged '
-      'slowFrames=$_keyboardProbeSlowFrameCount '
-      'maxBuild=${_keyboardProbeMaxBuildMs}ms '
-      'maxRaster=${_keyboardProbeMaxRasterMs}ms '
-      'raw=${_rawKeyboardInset().toStringAsFixed(1)} '
-      'cached=${_cachedKeyboardInset.toStringAsFixed(1)} '
-      'current=${_keyboardInset.toStringAsFixed(1)}',
-    );
-    _keyboardProbeStopwatch = null;
-  }
-
-  void _logKeyboardProbeEvent(String message) {
-    if (!_locationKeyboardProbeEnabled) return;
-    final elapsed = _keyboardProbeStopwatch?.elapsedMilliseconds ?? 0;
-    debugPrint(
-      '[LocationKeyboardProbe][${widget.locationId}] +${elapsed}ms $message',
-    );
-  }
-
-  void _installKeyboardProbeErrorHook() {
-    _previousFlutterErrorHandler = FlutterError.onError;
-    FlutterError.onError = (FlutterErrorDetails details) {
-      final exceptionText = details.exceptionAsString();
-      if (exceptionText.contains('setState() or markNeedsBuild()')) {
-        debugPrint(
-          '[LocationKeyboardProbeStack][${widget.locationId}] '
-          '$exceptionText\n${details.stack}',
-        );
-      }
-      _previousFlutterErrorHandler?.call(details);
-    };
-  }
-
-  double _rawKeyboardInset() {
-    final view = View.maybeOf(context);
-    if (view == null || view.devicePixelRatio == 0) return 0;
-    return view.viewInsets.bottom / view.devicePixelRatio;
-  }
-
-  double _clampKeyboardInset(double rawInset) {
-    if (rawInset <= 0 || !_lastPanelHeight.isFinite) return 0;
-    const minVisibleMessageListHeight = 96.0;
-    final maxInset =
-        _lastPanelHeight -
-        _lastHeaderHeight -
-        _lastComposerHeight -
-        minVisibleMessageListHeight;
-    if (maxInset <= 0) return 0;
-    return rawInset.clamp(0.0, maxInset).toDouble();
-  }
-
-  double _estimatedKeyboardInset() {
-    final panelHeight = _lastPanelHeight.isFinite && _lastPanelHeight > 0
-        ? _lastPanelHeight
-        : MediaQuery.sizeOf(context).height;
-    return _clampKeyboardInset(panelHeight * 0.38);
-  }
-
-  bool _hasMeaningfulKeyboardInsetCorrection(double targetInset) {
-    if (_keyboardInset <= 0 || targetInset < _minUsableKeyboardInset) {
-      return false;
-    }
-    return (targetInset - _keyboardInset).abs() > 8;
-  }
-
-  void _setKeyboardInset(double inset) {
-    final nextInset = _clampKeyboardInset(inset);
-    if ((_keyboardInset - nextInset).abs() <= 0.5) return;
-    _pendingKeyboardInset = nextInset;
-    if (_keyboardInsetUpdateScheduled) return;
-    _keyboardInsetUpdateScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _keyboardInsetUpdateScheduled = false;
-      final pendingInset = _pendingKeyboardInset;
-      _pendingKeyboardInset = null;
-      if (!mounted || pendingInset == null) return;
-      _applyKeyboardInset(pendingInset);
-    });
-  }
-
-  void _rebuildComposerForKeyboardState() {
-    if (!mounted) return;
-    if (_composerKeyboardStateRebuildScheduled) return;
-    _composerKeyboardStateRebuildScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _composerKeyboardStateRebuildScheduled = false;
-      if (mounted) setState(() {});
-    });
-  }
-
-  void _applyKeyboardInset(double nextInset) {
-    if ((_keyboardInset - nextInset).abs() <= 0.5) return;
-    _keyboardInset = nextInset;
-    _keyboardInsetListenable.value = nextInset;
-    _keepBottomAfterLayoutIfNeeded();
   }
 
   void _handleComposerHeightChanged(double height) {
     if ((_composerHeight - height).abs() > 0.5) {
       setState(() => _composerHeight = height);
     }
+    if (_initialBottomScrollPending) {
+      _scheduleInitialBottomScroll(complete: _messages.isNotEmpty);
+      return;
+    }
+    if (_composerFocusBottomPinActive) {
+      _scheduleComposerFocusBottomPin();
+      return;
+    }
     _keepBottomAfterLayoutIfNeeded();
   }
 }
 
-class _LocationChatKeyboardLayerChild extends StatelessWidget {
-  const _LocationChatKeyboardLayerChild({
-    required this.messageList,
-    required this.composer,
+class _LocationChatBackground extends StatelessWidget {
+  const _LocationChatBackground({
+    required this.imageUrl,
+    required this.previewImageUrl,
+    required this.color,
   });
 
-  final Widget messageList;
-  final Widget composer;
+  final String? imageUrl;
+  final String? previewImageUrl;
+  final Color color;
 
   @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: ColoredBox(
+        color: color,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final url = selectGenesisImageUrl(
+              imageUrl,
+              fallback: previewImageUrl,
+              logicalWidth: constraints.maxWidth,
+              logicalHeight: constraints.maxHeight,
+              devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+            );
+            if (url.isEmpty) return const SizedBox.expand();
+            return Image(
+              image: _locationChatBackgroundProvider(url),
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (context, error, stackTrace) {
+                return const SizedBox.expand();
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+ImageProvider _locationChatBackgroundProvider(String url) {
+  final resolved = url.trim();
+  return resolved.startsWith('assets/')
+      ? AssetImage(resolved)
+      : CachedNetworkImageProvider(resolved);
+}
+
+class _LocationChatComposerExtension extends StatelessWidget {
+  const _LocationChatComposerExtension({
+    required this.style,
+    required this.child,
+  });
+
+  final ChatUiStyleConfig style;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: -_locationChatComposerBottomExtension,
+          height: _locationChatComposerBottomExtension,
+          child: DecoratedBox(
+            decoration: BoxDecoration(color: _bottomExtensionColor(style)),
+          ),
+        ),
+        child,
+      ],
+    );
+  }
+
+  Color _bottomExtensionColor(ChatUiStyleConfig style) {
+    final gradient = style.composerBackgroundGradient;
+    if (gradient is LinearGradient && gradient.colors.isNotEmpty) {
+      return gradient.colors.last;
+    }
+    return style.composerBackgroundColor;
+  }
 }
 
 class _LocationChatMeasuredComposer extends StatefulWidget {
@@ -2132,203 +1956,6 @@ class _LocationChatMeasuredComposerState
       child: SizeChangedLayoutNotifier(key: _key, child: widget.child),
     );
   }
-}
-
-class _LocationChatKeyboardShift extends StatelessWidget {
-  const _LocationChatKeyboardShift({
-    required this.offset,
-    required this.duration,
-    required this.child,
-  });
-
-  final double offset;
-  final Duration duration;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(end: -offset),
-      duration: duration,
-      curve: Curves.easeOutCubic,
-      child: child,
-      builder: (context, value, child) {
-        return Transform.translate(offset: Offset(0, value), child: child);
-      },
-    );
-  }
-}
-
-class _LocationChatBackgroundImage extends StatefulWidget {
-  const _LocationChatBackgroundImage({
-    required this.imageUrl,
-    required this.previewImageUrl,
-  });
-
-  final String imageUrl;
-  final String previewImageUrl;
-
-  @override
-  State<_LocationChatBackgroundImage> createState() =>
-      _LocationChatBackgroundImageState();
-}
-
-class _LocationChatBackgroundImageState
-    extends State<_LocationChatBackgroundImage> {
-  bool _showFullImage = false;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.imageUrl.trim().isEmpty) {
-      _scheduleFullImage();
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant _LocationChatBackgroundImage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.imageUrl != widget.imageUrl ||
-        oldWidget.previewImageUrl != widget.previewImageUrl) {
-      _showFullImage = false;
-      if (widget.imageUrl.trim().isEmpty) {
-        _scheduleFullImage();
-      }
-    }
-  }
-
-  void _scheduleFullImage() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _showFullImage) return;
-      setState(() {
-        _showFullImage = true;
-      });
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final logicalWidth = constraints.hasBoundedWidth
-            ? constraints.maxWidth
-            : MediaQuery.sizeOf(context).width;
-        final resolvedPreviewUrl = widget.previewImageUrl.trim().isNotEmpty
-            ? widget.previewImageUrl
-            : widget.imageUrl;
-        final previewProvider = _locationChatBackgroundProvider(
-          resolvedPreviewUrl,
-          logicalWidth: 120,
-          devicePixelRatio: 1,
-          resizeNetworkImage: true,
-        );
-        final fullProvider = _locationChatBackgroundProvider(
-          widget.imageUrl,
-          logicalWidth: logicalWidth,
-          devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
-          resizeNetworkImage: true,
-        );
-        if (previewProvider == null && fullProvider == null) {
-          return const SizedBox.shrink();
-        }
-
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            if (previewProvider != null)
-              _LocationChatBackgroundLayer(
-                provider: previewProvider,
-                onReady: _scheduleFullImage,
-                onError: _scheduleFullImage,
-              )
-            else ...[
-              const ColoredBox(color: Color(0xFFEDEFF2)),
-              _LocationChatFullImageBootstrap(onReady: _scheduleFullImage),
-            ],
-            if (_showFullImage && fullProvider != null)
-              _LocationChatBackgroundLayer(provider: fullProvider),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _LocationChatBackgroundLayer extends StatelessWidget {
-  const _LocationChatBackgroundLayer({
-    required this.provider,
-    this.onReady,
-    this.onError,
-  });
-
-  final ImageProvider provider;
-  final VoidCallback? onReady;
-  final VoidCallback? onError;
-
-  @override
-  Widget build(BuildContext context) {
-    return Image(
-      image: provider,
-      fit: BoxFit.cover,
-      gaplessPlayback: true,
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (wasSynchronouslyLoaded || frame != null) {
-          onReady?.call();
-        }
-        return child;
-      },
-      errorBuilder: (context, error, stackTrace) {
-        onError?.call();
-        return const SizedBox.shrink();
-      },
-      loadingBuilder: (context, child, loadingProgress) {
-        return loadingProgress == null ? child : const SizedBox.shrink();
-      },
-    );
-  }
-}
-
-class _LocationChatFullImageBootstrap extends StatefulWidget {
-  const _LocationChatFullImageBootstrap({required this.onReady});
-
-  final VoidCallback onReady;
-
-  @override
-  State<_LocationChatFullImageBootstrap> createState() =>
-      _LocationChatFullImageBootstrapState();
-}
-
-class _LocationChatFullImageBootstrapState
-    extends State<_LocationChatFullImageBootstrap> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      widget.onReady();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
-}
-
-ImageProvider? _locationChatBackgroundProvider(
-  String rawUrl, {
-  required double logicalWidth,
-  required double devicePixelRatio,
-  bool resizeNetworkImage = true,
-}) {
-  final url = rawUrl.trim();
-  if (url.isEmpty) return null;
-  if (url.startsWith('assets/')) return AssetImage(url);
-  if (!resizeNetworkImage) return NetworkImage(url);
-  final resizedUrl = resizeGenesisImageUrl(
-    url,
-    logicalWidth: logicalWidth,
-    devicePixelRatio: devicePixelRatio,
-  );
-  return NetworkImage(resizedUrl.isNotEmpty ? resizedUrl : url);
 }
 
 String _mapString(Map<String, dynamic>? map, String key) {

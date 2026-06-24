@@ -16,6 +16,48 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test('setInputBlocked publishes shared composer block state', () async {
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+    );
+    final states = <WorldChatroomState>[];
+    final sub = service.states.listen(states.add);
+
+    service.setInputBlocked(true);
+    service.setInputBlocked(true);
+    service.setInputBlocked(false);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(states.map((state) => state.inputBlocked).toList(), [true, false]);
+    expect(service.state.inputBlocked, isFalse);
+
+    await sub.cancel();
+    await service.dispose();
+  });
+
+  test('tick notifications update shared composer block state', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+    );
+
+    await service.connect(worldId: 'world-1', identity: _identity());
+
+    socket.serverFrame('world_change', {
+      'world_id': 'world-1',
+      'payload': {'event_type': 'tick_start'},
+    });
+    await _waitFor(() => service.state.inputBlocked);
+
+    socket.serverFrame('world_change', {
+      'world_id': 'world-1',
+      'payload': {'event_type': 'tick_done'},
+    });
+    await _waitFor(() => !service.state.inputBlocked);
+
+    await service.dispose();
+  });
+
   test('connect hydrates world detail and user locations', () async {
     final socket = _FakeChatroomSocket();
     final http = _WorldChatroomHttpTransport();

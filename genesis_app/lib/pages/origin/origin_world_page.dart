@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
+import '../../components/chat/shared/chat_ui.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
@@ -585,9 +587,42 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GenesisPrimaryButton(
-      label: launching ? 'Launching...' : 'Launch to send',
-      onPressed: launching ? null : onLaunch,
+    final style = kLocationChatStyle;
+    final bottomInset = GenesisSafeAreaInsets.bottom(context);
+
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(
+          sigmaX: style.composerBackdropBlurSigma,
+          sigmaY: style.composerBackdropBlurSigma,
+        ),
+        child: Container(
+          padding: style.composerPadding.copyWith(
+            bottom: style.composerPadding.bottom + bottomInset,
+          ),
+          decoration: BoxDecoration(
+            color: style.composerBackgroundGradient == null
+                ? style.composerBackgroundColor
+                : null,
+            gradient: style.composerBackgroundGradient,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: GenesisPrimaryButton(
+                  label: launching ? 'Launching...' : 'Launch to send',
+                  onPressed: launching ? null : onLaunch,
+                  height: style.inputMinHeight,
+                  borderRadius: BorderRadius.circular(
+                    style.systemMessageBorderRadius,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
