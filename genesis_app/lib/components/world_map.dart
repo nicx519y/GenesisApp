@@ -187,85 +187,91 @@ class _WorldMapState extends State<WorldMap> {
         return Stack(
           children: [
             Positioned.fill(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: viewport.width > constraints.maxWidth + 0.5
-                    ? const ClampingScrollPhysics()
-                    : const NeverScrollableScrollPhysics(),
-                child: SizedBox(
-                  key: const ValueKey<String>('world-map-scaled-content'),
-                  width: viewport.width,
-                  height: viewport.height,
-                  child: _WorldMapTransitionSurface(
-                    mapKey: mapKey,
-                    transition: _mapTransition,
-                    child: Stack(
-                      children: [
-                        Positioned(
-                          left: viewport.left,
-                          top: viewport.top,
-                          width: viewport.width,
-                          height: viewport.height,
-                          child: _ZoomableMapContent(
-                            background: _MapBackgroundDeck(
-                              currentUrl: backgroundUrl,
-                              previewUrl: backgroundPreviewUrl,
-                              preloadUrls: preloadMapImageUrls,
-                              preloadAvatarUrls: preloadAvatarUrls,
-                              fallbackOnEmptyUrl: widget.fallbackOnEmptyMapUrl,
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(overscroll: false),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: viewport.width > constraints.maxWidth + 0.5
+                      ? const ClampingScrollPhysics()
+                      : const NeverScrollableScrollPhysics(),
+                  child: SizedBox(
+                    key: const ValueKey<String>('world-map-scaled-content'),
+                    width: viewport.width,
+                    height: viewport.height,
+                    child: _WorldMapTransitionSurface(
+                      mapKey: mapKey,
+                      transition: _mapTransition,
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            left: viewport.left,
+                            top: viewport.top,
+                            width: viewport.width,
+                            height: viewport.height,
+                            child: _ZoomableMapContent(
+                              background: _MapBackgroundDeck(
+                                currentUrl: backgroundUrl,
+                                previewUrl: backgroundPreviewUrl,
+                                preloadUrls: preloadMapImageUrls,
+                                preloadAvatarUrls: preloadAvatarUrls,
+                                fallbackOnEmptyUrl:
+                                    widget.fallbackOnEmptyMapUrl,
+                              ),
+                              overlayBuilder:
+                                  (
+                                    context,
+                                    transform,
+                                    onOverlayPointerDown,
+                                  ) => Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      IgnorePointer(
+                                        ignoring: widget.showPointsList,
+                                        child: Opacity(
+                                          opacity: widget.showPointsList
+                                              ? 0.6
+                                              : 1,
+                                          child: Stack(
+                                            children: [
+                                              for (final p in visiblePoints)
+                                                _WorldPointPositioned(
+                                                  point: p,
+                                                  width: viewport.width,
+                                                  height: viewport.height,
+                                                  transform: transform,
+                                                  messageBubble:
+                                                      _locationTrail.isEmpty
+                                                      ? null
+                                                      : widget.messageBubbles[p
+                                                            .sceneId],
+                                                  onPointerDown:
+                                                      onOverlayPointerDown,
+                                                  onTap: _pointTapHandler(p),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      IgnorePointer(
+                                        child: AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 220,
+                                          ),
+                                          color: widget.dimmed
+                                              ? Colors.black.withValues(
+                                                  alpha: 0.08,
+                                                )
+                                              : Colors.transparent,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                             ),
-                            overlayBuilder:
-                                (
-                                  context,
-                                  transform,
-                                  onOverlayPointerDown,
-                                ) => Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    IgnorePointer(
-                                      ignoring: widget.showPointsList,
-                                      child: Opacity(
-                                        opacity: widget.showPointsList
-                                            ? 0.6
-                                            : 1,
-                                        child: Stack(
-                                          children: [
-                                            for (final p in visiblePoints)
-                                              _WorldPointPositioned(
-                                                point: p,
-                                                width: viewport.width,
-                                                height: viewport.height,
-                                                transform: transform,
-                                                messageBubble:
-                                                    _locationTrail.isEmpty
-                                                    ? null
-                                                    : widget.messageBubbles[p
-                                                          .sceneId],
-                                                onPointerDown:
-                                                    onOverlayPointerDown,
-                                                onTap: _pointTapHandler(p),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    IgnorePointer(
-                                      child: AnimatedContainer(
-                                        duration: const Duration(
-                                          milliseconds: 220,
-                                        ),
-                                        color: widget.dimmed
-                                            ? Colors.black.withValues(
-                                                alpha: 0.08,
-                                              )
-                                            : Colors.transparent,
-                                      ),
-                                    ),
-                                  ],
-                                ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1086,7 +1092,6 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   void _handlePointerMove(PointerMoveEvent event) {
     if (!_activePointers.contains(event.pointer)) return;
     _activePointerPositions[event.pointer] = event.localPosition;
-    if (_overlayPointers.isEmpty) return;
 
     if (_activePointerPositions.length >= 2) {
       _startManualGestureIfNeeded();
@@ -1113,7 +1118,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _startManualGestureIfNeeded() {
-    if (_overlayPointers.isEmpty || _activePointerPositions.length < 2) {
+    if (_activePointerPositions.length < 2) {
       _resetManualPanGestureIfNeeded();
       return;
     }
@@ -1246,14 +1251,13 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
     }
 
     final scale = _ZoomableMapContent.doubleTapScale;
-    _transformationController.value = Matrix4.identity()
-      ..translateByDouble(
+    _setTransform(
+      scale,
+      Offset(
         focalPoint.dx - focalPoint.dx * scale,
         focalPoint.dy - focalPoint.dy * scale,
-        0,
-        1,
-      )
-      ..scaleByDouble(scale, scale, 1, 1);
+      ),
+    );
   }
 
   @override
