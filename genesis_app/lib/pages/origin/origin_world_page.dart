@@ -11,7 +11,6 @@ import '../../components/auth/login_guard.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
-import '../../components/chat/shared/chat_ui.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
@@ -1049,15 +1048,10 @@ class _OriginHeader extends StatelessWidget {
               child: GenesisMoreActionMenuButton(
                 buttonSize: 18 * 1.25,
                 items: [
-                  GenesisActionMenuItem(
-                    label: 'Report',
-                    onSelected: () {
-                      showGenesisReportDialog(
-                        context: context,
-                        targetType: 'origin',
-                        targetId: origin.oid,
-                      );
-                    },
+                  genesisReportMenuItem(
+                    context: context,
+                    targetType: 'origin',
+                    targetId: origin.oid,
                   ),
                 ],
               ),

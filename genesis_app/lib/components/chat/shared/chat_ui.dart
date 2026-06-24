@@ -44,8 +44,15 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
 
 const double _locationChatOuterPadding = 10;
 const double _locationChatAvatarOneThird = 40 / 3;
+const Color _locationChatChromeStrong = Color(0xF2111111);
+const Color _locationChatChromeSoft = Color(0x80111111);
 
 ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
+  headerBackgroundGradient: LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [_locationChatChromeStrong, _locationChatChromeSoft],
+  ),
   headerTitleTextStyle: ChatUiStyleConfig.standard.headerTitleTextStyle
       .copyWith(color: Colors.white),
   headerSubtitleTextStyle: ChatUiStyleConfig.standard.headerSubtitleTextStyle
@@ -53,6 +60,11 @@ ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
   headerTitleIconColor: Colors.white,
   headerStatusIconColor: Colors.white,
   headerBackdropBlurSigma: 20,
+  composerBackgroundGradient: LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [_locationChatChromeSoft, _locationChatChromeStrong],
+  ),
   composerBackdropBlurSigma: 20,
   messageListPadding: ChatUiStyleConfig.standard.messageListPadding.copyWith(
     left: _locationChatOuterPadding,

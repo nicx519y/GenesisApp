@@ -3680,15 +3680,10 @@ class _WorldInfoHeader extends StatelessWidget {
               child: GenesisMoreActionMenuButton(
                 buttonSize: 18 * 1.25,
                 items: [
-                  GenesisActionMenuItem(
-                    label: 'Report',
-                    onSelected: () {
-                      showGenesisReportDialog(
-                        context: context,
-                        targetType: 'world',
-                        targetId: wid,
-                      );
-                    },
+                  genesisReportMenuItem(
+                    context: context,
+                    targetType: 'world',
+                    targetId: wid,
                   ),
                 ],
               ),

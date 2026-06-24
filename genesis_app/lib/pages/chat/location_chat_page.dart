@@ -1614,11 +1614,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final items = <GenesisActionMenuItem>[
       GenesisActionMenuItem(
         label: 'Copy',
+        iconData: Icons.copy_outlined,
         onSelected: () => _copyMessageText(message),
       ),
       if (!message.isMe)
         GenesisActionMenuItem(
           label: 'Report',
+          iconAsset: genesisReportIconAsset,
           onSelected: () {
             showGenesisReportDialog(
               context: context,
@@ -1632,6 +1634,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       context: menuContext,
       globalPosition: details.globalPosition,
       items: items,
+      appearance: GenesisActionMenuAppearance.message,
     );
   }
 
@@ -1813,7 +1816,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             Positioned.fill(
               child: Scaffold(
                 backgroundColor: Colors.transparent,
-                resizeToAvoidBottomInset: true,
+                resizeToAvoidBottomInset: _composerFocusNode.hasFocus,
                 body: Stack(
                   clipBehavior: Clip.none,
                   children: [

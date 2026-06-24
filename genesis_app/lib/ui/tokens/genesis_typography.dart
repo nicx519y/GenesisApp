@@ -29,7 +29,7 @@ abstract final class GenesisTypography {
     height: 1.4,
   );
 
-  static const TextStyle tabLabel = TextStyle(fontSize: 10, height: 1.4);
+  static const TextStyle tabLabel = TextStyle(fontSize: 11, height: 1.4);
 
   static TextTheme get textTheme => const TextTheme(
     titleMedium: pageTitle,
