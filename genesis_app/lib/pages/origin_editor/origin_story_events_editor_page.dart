@@ -103,9 +103,8 @@ class _OriginStoryEventsEditorPageState
 
   @override
   Widget build(BuildContext context) {
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     return Scaffold(
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       backgroundColor: Colors.white,
       appBar: const GenesisBackAppBar(pageName: 'Story Events'),
       body: CreateKeyboardDismissArea(
@@ -115,7 +114,7 @@ class _OriginStoryEventsEditorPageState
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(22, 8, 22, 28 + keyboardInset),
+                  padding: const EdgeInsets.fromLTRB(22, 8, 22, 28),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

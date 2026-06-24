@@ -254,18 +254,12 @@ class _UserInfoPageState extends State<UserInfoPage> {
         actions: [
           GenesisMoreActionMenuButton(
             items: [
-              GenesisActionMenuItem(
-                label: 'Report',
-                onSelected: () {
-                  final uid = _profileUid.trim().isEmpty
-                      ? widget.uid.trim()
-                      : _profileUid.trim();
-                  showGenesisReportDialog(
-                    context: context,
-                    targetType: 'user',
-                    targetId: uid,
-                  );
-                },
+              genesisReportMenuItem(
+                context: context,
+                targetType: 'user',
+                targetId: _profileUid.trim().isEmpty
+                    ? widget.uid.trim()
+                    : _profileUid.trim(),
               ),
             ],
           ),

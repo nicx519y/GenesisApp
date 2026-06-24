@@ -66,6 +66,8 @@ import 'package:genesis_flutter_android/pages/messages/message_category_list_pag
 import 'package:genesis_flutter_android/pages/messages/messages_page.dart';
 import 'package:genesis_flutter_android/pages/discuss/post_detail_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
+import 'package:genesis_flutter_android/pages/origin/origin_launch_coordinator.dart';
+import 'package:genesis_flutter_android/pages/origin/origin_launch_pending_store.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
@@ -1817,10 +1819,13 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
+    OriginLaunchCoordinator.instance.resetForTesting();
   });
 
-  tearDown(() {
+  tearDown(() async {
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
+    OriginLaunchCoordinator.instance.resetForTesting();
+    await OriginLaunchPendingStore.clear();
   });
 
   testWidgets('force upgrade gate renders child when upgrade is not required', (
@@ -4130,29 +4135,12 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('Origin launch navigates to world and waits for first tick', (
+  testWidgets('Origin launch records pending world and waits in background', (
     WidgetTester tester,
   ) async {
-    final generatedTick = <String, Object?>{
-      'tick_no': 1,
-      'created_at': '2026-05-02T00:00:00Z',
-      'tick_result': {
-        'narrator': 'Generated launch tick.',
-        'paragraphs': const <Object?>[
-          {
-            'location_id': 'l_w_launched_from_origin',
-            'text': 'The generated world wakes up.',
-            'character_deltas': <Object?>[],
-          },
-        ],
-      },
-    };
     final transport = _RecordingV1ListTransport(
-      worldDetailTicksByRequest: [
-        const <Map<String, Object?>>[],
-        [generatedTick],
-      ],
-      worldDetailTickCountsByRequest: const [0, 1],
+      worldDetailTicksByRequest: const [<Map<String, Object?>>[]],
+      worldDetailTickCountsByRequest: const [0],
     );
     await tester.pumpWidget(
       AppServicesScope(
@@ -4181,6 +4169,10 @@ void main() {
     await tester.pump();
 
     expect(find.text('World detail w_launched_from_origin'), findsNothing);
+    final pendingLaunch = await OriginLaunchPendingStore.load();
+    expect(pendingLaunch?.originId, 'o_test_1');
+    expect(pendingLaunch?.worldId, 'w_launched_from_origin');
+    expect(OriginLaunchCoordinator.instance.state.value?.originId, 'o_test_1');
     expect(
       find.byKey(const ValueKey('world-tick1-wait-dialog')),
       findsOneWidget,
@@ -4217,10 +4209,13 @@ void main() {
     );
 
     await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
-    expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
-    expect(find.text('World detail w_launched_from_origin'), findsWidgets);
+    expect(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+      findsOneWidget,
+    );
+    expect(await OriginLaunchPendingStore.load(), isNotNull);
     worldRequests = transport.requestsFor('/api/v1/world/detail');
     expect(worldRequests, hasLength(2));
   });
@@ -8224,7 +8219,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
-  testWidgets('developer page sheet moves above keyboard inset', (
+  testWidgets('developer page sheet leaves keyboard avoidance to route', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -8240,12 +8235,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final padding = tester.widget<AnimatedPadding>(
+    expect(
       find.byKey(
         const ValueKey<String>('developer-page-sheet-keyboard-padding'),
       ),
+      findsNothing,
     );
-    expect(padding.padding, const EdgeInsets.only(bottom: 300));
+    expect(find.byType(AnimatedPadding), findsNothing);
   });
 
   testWidgets(

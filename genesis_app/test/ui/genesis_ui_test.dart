@@ -482,6 +482,74 @@ void main() {
     expect(result, 'approve');
   });
 
+  testWidgets('GenesisActionBox lets fixed areas use custom heights', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 600);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return FilledButton(
+                onPressed: () {
+                  showGenesisActionBox<bool>(
+                    context: context,
+                    title: 'Compact title',
+                    titleHeight: 48,
+                    actionRowHeight: 44,
+                    cancelRowHeight: 46,
+                    actions: const [
+                      GenesisActionBoxAction<bool>(
+                        label: 'Confirm',
+                        value: true,
+                      ),
+                    ],
+                  );
+                },
+                child: const Text('Open custom action box'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open custom action box'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
+      ),
+      const Size(700, 140),
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('genesis-action-box-title-row')),
+      ),
+      const Size(700, 48),
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('genesis-action-box-action-row')),
+      ),
+      const Size(700, 44),
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('genesis-action-box-cancel-row')),
+      ),
+      const Size(700, 46),
+    );
+    expect(tester.getSize(find.text('Compact title')).height, lessThan(48));
+    expect(tester.getSize(find.text('Confirm')).height, lessThan(44));
+  });
+
   testWidgets('GenesisPrimaryButton supports action-specific styling', (
     tester,
   ) async {

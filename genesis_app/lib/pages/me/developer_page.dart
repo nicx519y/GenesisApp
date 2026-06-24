@@ -30,9 +30,7 @@ class DeveloperPage extends StatelessWidget {
       appBar: GenesisBackAppBar(pageName: 'Developer page'),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
-          ),
+          padding: const EdgeInsets.only(bottom: 20),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           child: const DeveloperPageContent(),
         ),
@@ -47,62 +45,55 @@ class DeveloperPageSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomPadding = GenesisSafeAreaInsets.bottom(context);
-    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
-    return AnimatedPadding(
-      key: const ValueKey<String>('developer-page-sheet-keyboard-padding'),
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      padding: EdgeInsets.only(bottom: keyboardInset),
-      child: SafeArea(
-        top: false,
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-          ),
-          child: Padding(
-            padding: EdgeInsets.zero,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 10),
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD8D8D8),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: Padding(
+          padding: EdgeInsets.zero,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 10),
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD8D8D8),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(height: 14),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: const Text(
-                    'Developer page',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.black,
-                      fontWeight: FontWeight.w600,
-                    ),
+              ),
+              const SizedBox(height: 14),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'Developer page',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.black,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const Flexible(
-                  child: SingleChildScrollView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    child: DeveloperPageContent(),
-                  ),
+              ),
+              const Flexible(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  child: DeveloperPageContent(),
                 ),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => Navigator.of(context).maybePop(),
-                  child: SizedBox(height: 24 + bottomPadding),
-                ),
-              ],
-            ),
+              ),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => Navigator.of(context).maybePop(),
+                child: SizedBox(height: 24 + bottomPadding),
+              ),
+            ],
           ),
         ),
       ),
@@ -492,7 +483,7 @@ class _DeveloperEndpointField extends StatelessWidget {
                     left: 20,
                     right: 20,
                     top: 20,
-                    bottom: MediaQuery.viewInsetsOf(context).bottom + 120,
+                    bottom: 120,
                   ),
                   autocorrect: false,
                   enableSuggestions: false,

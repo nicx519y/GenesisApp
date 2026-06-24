@@ -31,12 +31,14 @@ Future<WorldDetail?> showWorldTick1WaitDialog({
 class WorldTick1WaitDialog extends StatefulWidget {
   const WorldTick1WaitDialog({
     super.key,
-    required this.loadWorld,
-    required this.onWorldReady,
+    this.loadWorld,
+    this.onWorldReady,
+    this.onBackPressed,
   });
 
-  final Future<WorldDetail> Function() loadWorld;
-  final ValueChanged<WorldDetail> onWorldReady;
+  final Future<WorldDetail> Function()? loadWorld;
+  final ValueChanged<WorldDetail>? onWorldReady;
+  final VoidCallback? onBackPressed;
 
   @override
   State<WorldTick1WaitDialog> createState() => _WorldTick1WaitDialogState();
@@ -57,7 +59,9 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
       if (!mounted || _hasError) return;
       setState(() => _dotCount = _dotCount == 6 ? 1 : _dotCount + 1);
     });
-    unawaited(_poll());
+    if (widget.loadWorld != null && widget.onWorldReady != null) {
+      unawaited(_poll());
+    }
   }
 
   @override
@@ -69,6 +73,9 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
 
   Future<void> _poll() async {
     _pollTimer?.cancel();
+    final loadWorld = widget.loadWorld;
+    final onWorldReady = widget.onWorldReady;
+    if (loadWorld == null || onWorldReady == null) return;
     if (mounted) {
       setState(() {
         _loading = true;
@@ -76,15 +83,11 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
       });
     }
     try {
-      final world = await widget.loadWorld();
+      final world = await loadWorld();
       if (!mounted) return;
       if (worldHasTick1(world)) {
-        widget.onWorldReady(world);
-        setState(() => _allowRoutePop = true);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          Navigator.of(context).pop();
-        });
+        onWorldReady(world);
+        _popRoute();
         return;
       }
       setState(() => _loading = false);
@@ -98,10 +101,33 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
     }
   }
 
+  void _handleBackRequest() {
+    final onBackPressed = widget.onBackPressed;
+    if (onBackPressed != null) {
+      onBackPressed();
+      return;
+    }
+    _popRoute();
+  }
+
+  void _popRoute() {
+    if (!_allowRoutePop && mounted) {
+      setState(() => _allowRoutePop = true);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: _allowRoutePop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBackRequest();
+      },
       child: AlertDialog(
         key: const ValueKey('world-tick1-wait-dialog'),
         title: const Text(
