@@ -3270,6 +3270,61 @@ void main() {
     expect(find.text('World route W_REVIEW'), findsOneWidget);
   });
 
+  testWidgets('deleted world apply review hides stale world name', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingMessageCategoryTransport(
+      notification: const {
+        'notification_id': 'ntf_apply_review_deleted_001',
+        'notice_block': 'world_apply',
+        'notice_type': 'world_apply_review',
+        'sender': {'uid': 'U_REVIEWER', 'name': 'Reviewer'},
+        'biz_type': 2,
+        'biz_id': 'W_DELETED',
+        'obj_id': 'apl_review_deleted_001',
+        'world_name': '重回 20005',
+        'world_deleted': true,
+        'status': 20,
+        'content': 'request to 重回 20005',
+        'is_read': true,
+        'created_at': '2026-05-20T10:00:00Z',
+      },
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const MessageCategoryListPage(
+            title: 'Notifications',
+            block: 'world_apply',
+            emptyText: 'No notifications yet.',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Join request'), findsOneWidget);
+    expect(
+      _richTextWithPlainText('Request to deleted (deleted)'),
+      findsOneWidget,
+    );
+    expect(find.text('Approved'), findsOneWidget);
+    expect(
+      _richTextWithPlainText('Request to 重回 20005 (deleted)'),
+      findsNothing,
+    );
+
+    await tester.tap(_richTextWithPlainText('Request to deleted (deleted)'));
+    await tester.pumpAndSettle();
+
+    expect(_richTextWithPlainText('deleted deleted'), findsOneWidget);
+    expect(_richTextWithPlainText('重回 20005 deleted'), findsNothing);
+  });
+
   testWidgets('comment notifications render interaction categories', (
     WidgetTester tester,
   ) async {
