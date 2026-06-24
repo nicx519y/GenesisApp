@@ -7,6 +7,7 @@ import 'api_client.dart';
 import 'api_exception.dart';
 import 'app_request_headers.dart';
 import 'chatroom/chatroom_http_api.dart';
+import 'gateway_auth.dart';
 import 'json_utils.dart';
 import 'local_mock_genesis_transport.dart';
 import 'models/location_tree.dart';
@@ -31,6 +32,7 @@ import '../utils/genesis_image_resource.dart';
 class GenesisApi {
   static const String defaultBaseHost = 'https://dev.hushie.ai';
   static const String defaultApiBaseUrl = '$defaultBaseHost/api/';
+  static const String defaultGatewayApiBaseUrl = '$defaultBaseHost/apix/';
   static const String defaultAssetBaseUrl = 'https://af.hushie.ai/html/';
   static const String defaultChatroomWsBaseUrl =
       'wss://dev.hushie.ai/aitown-chat/ws';
@@ -38,16 +40,19 @@ class GenesisApi {
 
   GenesisApi({
     ApiClient? apiClient,
+    ApiClient? gatewayApiClient,
     ApiClient? healthClient,
     ApiClient? chatroomHttpClient,
     HttpTransport? transport,
     bool? useMock,
     PlatformConfig? platformConfig,
+    String? gatewayApiBaseUrl,
     String? chatroomHttpBaseUrl,
     DeviceIdService? deviceIdService,
     UserSessionStore? sessionStore,
     IdentityAuthService? identityAuthService,
     RequestHeaderProvider? appHeaderProvider,
+    GatewayRequestInterceptor? gatewayRequestInterceptor,
     Future<void> Function(String message)? onSessionExpired,
   }) {
     final resolvedPlatformConfig =
@@ -73,18 +78,26 @@ class GenesisApi {
             'accept': 'application/json',
           },
           requestHeaderProvider: _runtimeRequestHeaders,
+          requestInterceptor: gatewayRequestInterceptor?.call,
           transport: resolvedTransport,
           responseProcessor: _processGenesisResponse,
         );
-    _healthClient =
-        healthClient ??
+    final gatewayClient =
+        gatewayApiClient ??
         ApiClient(
-          baseUrl: _normalizeBaseUrl(defaultBaseHost),
-          defaultHeaders: const {'accept': 'application/json'},
+          baseUrl: _normalizeBaseUrl(
+            gatewayApiBaseUrl ?? defaultGatewayApiBaseUrl,
+          ),
+          defaultHeaders: {
+            'content-type': 'application/json',
+            'accept': 'application/json',
+          },
           requestHeaderProvider: _runtimeRequestHeaders,
+          requestInterceptor: gatewayRequestInterceptor?.call,
           transport: resolvedTransport,
           responseProcessor: _processGenesisResponse,
         );
+    _healthClient = healthClient ?? gatewayClient;
     _chatroomHttpClient =
         chatroomHttpClient ??
         ApiClient(
@@ -96,6 +109,7 @@ class GenesisApi {
             'accept': 'application/json',
           },
           requestHeaderProvider: _runtimeRequestHeaders,
+          requestInterceptor: gatewayRequestInterceptor?.call,
           transport: resolvedTransport,
           responseProcessor: _processGenesisResponse,
         );
@@ -118,8 +132,6 @@ class GenesisApi {
 
   Future<Map<String, String>> _runtimeRequestHeaders() async {
     final headers = <String, String>{...await _safeAppHeaders()};
-    final deviceId = await _readHeaderValue(_deviceIdService.getDeviceId);
-    if (deviceId != null) headers['device-id'] = deviceId;
 
     final authToken = await _readHeaderValue(_sessionStore.readAuthToken);
     if (authToken != null) {
@@ -132,7 +144,7 @@ class GenesisApi {
 
   Future<Map<String, String>> _safeAppHeaders() async {
     try {
-      return await _appHeaderProvider();
+      return stripLegacyAppPublicHeaders(await _appHeaderProvider());
     } catch (_) {
       return const <String, String>{};
     }
@@ -876,8 +888,12 @@ class GenesisApi {
   }
 
   Future<bool> health() async {
-    final json = await _healthClient.get<Object?>('health');
+    final json = await _healthClient.get<Object?>('v1/heartbeat');
     final map = asJsonMap(json);
+    if (map.containsKey('err_no') || map.containsKey('errNo')) {
+      return asInt(map.containsKey('err_no') ? map['err_no'] : map['errNo']) ==
+          0;
+    }
     return asString(map['status']) == 'ok';
   }
 
@@ -896,10 +912,6 @@ class GenesisApi {
       startedAt: _createOriginOptionalString(payload['started_at']),
       tickDurationTime: _createOriginTickDurationTime(payload),
       cover: asString(payload['cover']),
-      mapUrl: asString(
-        payload['map_url'],
-        fallback: asString(payload['cover']),
-      ),
       characters: _createOriginCharacters(payload),
       locations: _createOriginLocations(payload),
     );
@@ -935,10 +947,6 @@ class GenesisApi {
       startedAt: _createOriginOptionalString(payload['started_at']),
       tickDurationTime: _createOriginTickDurationTime(payload),
       cover: asString(payload['cover']),
-      mapUrl: asString(
-        payload['map_url'],
-        fallback: asString(payload['cover']),
-      ),
       characters: _createOriginCharacters(payload),
       locations: _createOriginLocations(payload),
       deletedCharIds:

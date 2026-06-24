@@ -43,6 +43,7 @@ flutter run
 - `GENESIS_API_ENV=mock|local|debug|real|prod|production|auto`：控制是否使用 `LocalMockGenesisTransport`。
 - `GENESIS_CHATROOM_WS_URL=...`：覆盖 WebSocket 地址，默认 `wss://dev.hushie.ai/aitown-chat/ws`。
 - `GENESIS_CHATROOM_HTTP_URL=...`：覆盖 chatroom HTTP base，默认 `https://dev.hushie.ai/`。
+- `GENESIS_GATEWAY_API_URL=...`：覆盖 Gateway base，默认 `https://dev.hushie.ai/apix/`。Developer page 只配置 host，保存时归一化到 `https://host/apix/`。
 - `GENESIS_DEBUG_PROXY=host:port`：HTTP 和 WebSocket 代理调试。
 - `GENESIS_DEBUG_WS_LOG=true`：打印 WebSocket frame。
 - `GENESIS_ALLOW_IOS_PLATFORM_HEADER=true`：允许 iOS 发送 `x-platform: ios`；默认仍发送 `android`。
@@ -54,6 +55,7 @@ flutter run
 HTTP 接口以 Apifox 文档为准：
 
 - 主文档：`docs/apifox-http-api-contract.md`
+- Gateway 验签、注册、诊断流程：`docs/gateway-auth.md`
 - API facade：`lib/network/genesis_api.dart`
 - V1 resource：`lib/network/v1/*.dart`
 - 通用 client：`lib/network/api_client.dart`
@@ -61,6 +63,12 @@ HTTP 接口以 Apifox 文档为准：
 - 主要测试：`test/network/genesis_api_test.dart`、`test/network/local_mock_genesis_transport_test.dart`
 
 `docs/apifox-http-api-contract.md` 当前覆盖用户、origin、world、chatroom、search、discuss、direct_message、notify、upload。所有 Apifox 200 响应按 `{err_no, err_msg, data}` envelope 处理。改 HTTP 字段时要同步文档、V1 resource、`GenesisApi` 映射、本地 mock 和 focused tests。
+
+Gateway 接入规则：
+
+- 业务 HTTP 仍走 `/api/...`，但 `/api/...`、`/aitown-chat/...` 和 WSS 建联都要按 `docs/gateway-auth.md` 注入 Gateway `X-*` 签名 header。
+- Gateway 自身接口走 `/apix/...`；`time/challenge/register/heartbeat/signature/verify` 等诊断和注册接口不要误迁移到 `/api/...`。
+- 公共 header 不再发送 `app-platform`、`device-id`、`app-id`、`app-version`；公共 `user-agent` 为系统名 + 系统版本。签名内部的 `X-App-Version` 来自原生包版本，改 `pubspec.yaml` 后必须重新 build/install。
 
 Chatroom WebSocket/HTTP 另有独立契约：
 
@@ -76,7 +84,7 @@ Chatroom WebSocket/HTTP 另有独立契约：
 
 WebSocket 当前协议规则：
 
-- 建联：`GET {GENESIS_CHATROOM_WS_URL}?world_id={world_id}`，`Authorization: Bearer ...` 由 session store 注入。
+- 建联：`GET {GENESIS_CHATROOM_WS_URL}?world_id={world_id}`，`Authorization: Bearer ...` 由 session store 注入，并通过 Gateway handshake signer 增加 `X-*` 签名 header。
 - JSON 字段命名使用 `snake_case`。
 - 客户端上行 `join/send_message/heartbeat/leave`，上行业务字段在顶层，不包旧版 `payload`。
 - `join` 必须带 `world_id`、`location_id`、`user_id`、`sender_id`、`sender_name`。
@@ -100,7 +108,7 @@ WebSocket 当前协议规则：
 - `EditOriginPage`：编辑已有 Origin。先拉详情并转换成 `MemoryOriginDraftRepository`，复用 origin editor 页和 create flow 外壳，保存走 update 接口。
 - `SearchPage`：全局搜索，结果按 origin/world/user 分流，历史记录在 `SearchHistoryStore`。
 - `MePage/UserInfoPage/FollowsPage`：当前用户、他人资料、关注/粉丝。Me 优先使用本地 session/cache，避免入口被网络阻塞。
-- `SettingsPage/DeveloperPage`：设置和开发维护入口。开发页包含 direct message cache 清理等调试功能。
+- `SettingsPage/DeveloperPage`：设置和开发维护入口。开发页包含 direct message cache 清理、Gateway host 覆盖、清空 Gateway auth、本地签名诊断等调试功能；Gateway 细节见 `docs/gateway-auth.md`。
 
 ## 图片下发、匹配和上传逻辑
 
@@ -153,6 +161,7 @@ HTTP 映射层的图片规则：
 - 格式：`dart format <touched files>`
 - 静态检查：`flutter analyze` 或文件相关 analyze
 - HTTP/API：`flutter test test/network/genesis_api_test.dart`、`flutter test test/network/local_mock_genesis_transport_test.dart`
+- Gateway：`flutter test test/network/gateway_auth_test.dart`
 - Chatroom：`flutter test test/network/chatroom/chatroom_client_test.dart`、`flutter test test/network/chatroom/world_chatroom_service_test.dart`、`flutter test test/network/chatroom_http_api_test.dart`
 - Discuss：`flutter test test/components/discuss_page_test.dart`、`flutter test test/components/origin_discuss_list_test.dart`
 - 图片/头像：`flutter test test/utils/image_upload_processing_test.dart`、`flutter test test/ui/genesis_avatar_test.dart`、`flutter test test/ui/genesis_list_image_test.dart`

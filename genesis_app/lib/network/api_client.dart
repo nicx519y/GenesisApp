@@ -22,6 +22,13 @@ class ApiResponse {
 
 typedef ApiResponseProcessor = Object? Function(ApiResponse response);
 typedef RequestHeaderProvider = Future<Map<String, String>> Function();
+typedef ApiRequestSender =
+    Future<TransportResponse> Function(TransportRequest request);
+typedef ApiRequestInterceptor =
+    Future<TransportResponse> Function(
+      TransportRequest request,
+      ApiRequestSender send,
+    );
 
 class ApiClient {
   ApiClient({
@@ -29,12 +36,14 @@ class ApiClient {
     Map<String, String>? defaultHeaders,
     ApiResponseProcessor? responseProcessor,
     RequestHeaderProvider? requestHeaderProvider,
+    ApiRequestInterceptor? requestInterceptor,
     HttpTransport? transport,
     int timeoutMs = 15000,
   }) : _baseUri = Uri.parse(baseUrl),
        _defaultHeaders = Map<String, String>.from(defaultHeaders ?? const {}),
        _responseProcessor = responseProcessor ?? defaultResponseProcessor,
        _requestHeaderProvider = requestHeaderProvider,
+       _requestInterceptor = requestInterceptor,
        _transport = transport ?? IoHttpTransport(),
        _timeoutMs = timeoutMs;
 
@@ -42,6 +51,7 @@ class ApiClient {
   final Map<String, String> _defaultHeaders;
   final ApiResponseProcessor _responseProcessor;
   final RequestHeaderProvider? _requestHeaderProvider;
+  final ApiRequestInterceptor? _requestInterceptor;
   final HttpTransport _transport;
   final int _timeoutMs;
 
@@ -50,6 +60,7 @@ class ApiClient {
     Map<String, String>? defaultHeaders,
     ApiResponseProcessor? responseProcessor,
     RequestHeaderProvider? requestHeaderProvider,
+    ApiRequestInterceptor? requestInterceptor,
     HttpTransport? transport,
     int? timeoutMs,
   }) {
@@ -58,6 +69,7 @@ class ApiClient {
       defaultHeaders: defaultHeaders ?? _defaultHeaders,
       responseProcessor: responseProcessor ?? _responseProcessor,
       requestHeaderProvider: requestHeaderProvider ?? _requestHeaderProvider,
+      requestInterceptor: requestInterceptor ?? _requestInterceptor,
       transport: transport ?? _transport,
       timeoutMs: timeoutMs ?? _timeoutMs,
     );
@@ -157,7 +169,12 @@ class ApiClient {
 
     TransportResponse transportResponse;
     try {
-      transportResponse = await _transport.send(request);
+      final interceptor = _requestInterceptor;
+      transportResponse = interceptor == null
+          ? await _send(request)
+          : await interceptor(request, _send);
+    } on ApiException {
+      rethrow;
     } catch (e) {
       throw ApiException(message: 'Request failed', error: e, uri: uri);
     }
@@ -197,6 +214,10 @@ class ApiClient {
         if (entry.key.trim().isNotEmpty && entry.value.trim().isNotEmpty)
           entry.key: entry.value,
     };
+  }
+
+  Future<TransportResponse> _send(TransportRequest request) {
+    return _transport.send(request);
   }
 
   Uri _resolveUri(String path, Map<String, Object?>? query) {

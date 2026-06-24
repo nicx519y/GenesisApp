@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:math';
 
 import '../api_client.dart';
+import '../app_request_headers.dart';
+import '../gateway_auth.dart';
 import '../../platform/device/device_id_service.dart';
 import '../../platform/session/user_session_store.dart';
 import 'chatroom_models.dart';
@@ -18,23 +20,24 @@ class ChatroomClient {
     Duration ackTimeout = const Duration(seconds: 12),
     bool autoHeartbeat = true,
     RequestHeaderProvider? requestHeaderProvider,
+    GatewayHandshakeHeaderSigner? handshakeHeaderSigner,
   }) : _wsBaseUri = Uri.parse(wsBaseUrl),
        _sessionStore = sessionStore,
-       _deviceIdService = deviceIdService,
        _transport = transport ?? IoChatroomSocketTransport(),
        _heartbeatInterval = heartbeatInterval,
        _ackTimeout = ackTimeout,
        _autoHeartbeat = autoHeartbeat,
-       _requestHeaderProvider = requestHeaderProvider;
+       _requestHeaderProvider = requestHeaderProvider,
+       _handshakeHeaderSigner = handshakeHeaderSigner;
 
   final Uri _wsBaseUri;
   final UserSessionStore _sessionStore;
-  final DeviceIdService? _deviceIdService;
   final ChatroomSocketTransport _transport;
   final Duration _heartbeatInterval;
   final Duration _ackTimeout;
   final bool _autoHeartbeat;
   final RequestHeaderProvider? _requestHeaderProvider;
+  final GatewayHandshakeHeaderSigner? _handshakeHeaderSigner;
 
   Future<ChatroomSession> connect({
     required String worldId,
@@ -57,7 +60,6 @@ class ChatroomClient {
     if (authToken == null || authToken.isEmpty) {
       throw const ChatroomProtocolException('authToken is required');
     }
-    final deviceId = (await _deviceIdService?.getDeviceId())?.trim();
     final resolvedSenderId = senderId?.trim().isNotEmpty == true
         ? senderId!.trim()
         : resolvedUserId;
@@ -65,13 +67,16 @@ class ChatroomClient {
         ? senderName!.trim()
         : resolvedSenderId;
     final uri = _resolveUri(worldId: resolvedWorldId);
-    final headers = <String, String>{
+    var headers = <String, String>{
       ...await _resolveRequestHeaders(),
-      if (deviceId != null && deviceId.isNotEmpty) 'device-id': deviceId,
       'Authorization': authToken.toLowerCase().startsWith('bearer ')
           ? authToken
           : 'Bearer $authToken',
     };
+    final signer = _handshakeHeaderSigner;
+    if (signer != null) {
+      headers = await signer(uri, headers);
+    }
     final socket = await _transport.connect(
       uri,
       headers: headers.isEmpty ? null : headers,
@@ -95,11 +100,11 @@ class ChatroomClient {
     if (provider == null) return const <String, String>{};
     try {
       final headers = await provider();
-      return {
+      return stripLegacyAppPublicHeaders({
         for (final entry in headers.entries)
           if (entry.key.trim().isNotEmpty && entry.value.trim().isNotEmpty)
             entry.key: entry.value,
-      };
+      });
     } catch (_) {
       return const <String, String>{};
     }

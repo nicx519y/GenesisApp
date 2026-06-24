@@ -330,10 +330,17 @@ class _OriginPendingSubmissionPoller {
     final navigator = genesisNavigatorKey.currentState;
     if (navigator == null) return;
     navigator.pushNamedAndRemoveUntil(
-      RouteNames.originWorld,
+      RouteNames.home,
       (_) => false,
-      arguments: {'oid': originId, 'originId': 0},
+      arguments: {'home_tab': 'my_world'},
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!navigator.mounted) return;
+      navigator.pushNamed(
+        RouteNames.originWorld,
+        arguments: {'oid': originId, 'originId': 0},
+      );
+    });
   }
 
   Future<bool?> _showSuccessDialog(String originName) {

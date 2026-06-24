@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
+import 'package:genesis_flutter_android/network/gateway_auth.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 
 import '../../app/config/app_endpoint_overrides.dart';
@@ -114,11 +115,15 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
   late final Future<DeviceIdDiagnostics> _deviceIdDiagnosticsFuture;
   late final Future<AppVersionInfo> _appVersionFuture;
   late final TextEditingController _apiBaseUrlController;
+  late final TextEditingController _gatewayApiBaseUrlController;
   late final TextEditingController _chatroomWsBaseUrlController;
   bool _clearingDirectMessageCache = false;
   bool _clearingImageCache = false;
+  bool _clearingGatewayAuth = false;
+  bool _verifyingGatewaySignature = false;
   bool _loadingEndpointOverrides = true;
   bool _savingEndpointOverrides = false;
+  String? _gatewaySignatureVerifyResult;
 
   @override
   void initState() {
@@ -131,6 +136,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           );
     _appVersionFuture = AppMetadataService.appVersion();
     _apiBaseUrlController = TextEditingController();
+    _gatewayApiBaseUrlController = TextEditingController();
     _chatroomWsBaseUrlController = TextEditingController();
     _loadEndpointOverrides();
   }
@@ -138,6 +144,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
   @override
   void dispose() {
     _apiBaseUrlController.dispose();
+    _gatewayApiBaseUrlController.dispose();
     _chatroomWsBaseUrlController.dispose();
     super.dispose();
   }
@@ -147,6 +154,9 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     if (!mounted) return;
     _apiBaseUrlController.text = AppEndpointOverrideStore.displayDomain(
       overrides.apiBaseUrl ?? overrides.chatroomHttpBaseUrl,
+    );
+    _gatewayApiBaseUrlController.text = AppEndpointOverrideStore.displayDomain(
+      overrides.gatewayApiBaseUrl,
     );
     _chatroomWsBaseUrlController.text = AppEndpointOverrideStore.displayDomain(
       overrides.chatroomWsBaseUrl,
@@ -192,6 +202,55 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     }
   }
 
+  Future<void> _clearGatewayAuth() async {
+    if (_clearingGatewayAuth) return;
+    setState(() => _clearingGatewayAuth = true);
+    try {
+      await clearGatewayAuthLocalState();
+      if (!mounted) return;
+      final config = AppServicesScope.read(context).config;
+      AppServicesScope.replaceWithConfig(context, config);
+      showGenesisToast(context, 'Gateway auth cleared');
+    } catch (error) {
+      if (!mounted) return;
+      showGenesisToast(context, 'Clear failed: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _clearingGatewayAuth = false);
+      }
+    }
+  }
+
+  Future<void> _verifyGatewaySignature() async {
+    if (_verifyingGatewaySignature) return;
+    setState(() {
+      _verifyingGatewaySignature = true;
+      _gatewaySignatureVerifyResult = 'Testing...';
+    });
+    try {
+      final coordinator = AppServicesScope.read(context).gatewayAuth;
+      if (coordinator == null) {
+        throw StateError('Gateway auth is unavailable in mock mode.');
+      }
+      final response = await coordinator.verifyLocalSignature();
+      final output = 'HTTP ${response.statusCode}\n${response.prettyBody()}';
+      debugPrint('[GatewayAuth][SignatureVerify]\n$output');
+      if (!mounted) return;
+      setState(() => _gatewaySignatureVerifyResult = output);
+      showGenesisToast(context, 'Gateway signature verify completed');
+    } catch (error) {
+      debugPrint('[GatewayAuth][SignatureVerify] failed: $error');
+      if (!mounted) return;
+      final output = 'Failed: $error';
+      setState(() => _gatewaySignatureVerifyResult = output);
+      showGenesisToast(context, output);
+    } finally {
+      if (mounted) {
+        setState(() => _verifyingGatewaySignature = false);
+      }
+    }
+  }
+
   Future<void> _saveEndpointOverrides() async {
     if (_savingEndpointOverrides || _loadingEndpointOverrides) return;
     setState(() => _savingEndpointOverrides = true);
@@ -200,6 +259,10 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
         apiBaseUrl: AppEndpointOverrideStore.normalizeHttpsApiBaseUrl(
           _apiBaseUrlController.text,
         ),
+        gatewayApiBaseUrl:
+            AppEndpointOverrideStore.normalizeHttpsGatewayApiBaseUrl(
+              _gatewayApiBaseUrlController.text,
+            ),
         chatroomHttpBaseUrl: AppEndpointOverrideStore.normalizeHttpsBaseUrl(
           _apiBaseUrlController.text,
         ),
@@ -214,6 +277,8 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
       _apiBaseUrlController.text = AppEndpointOverrideStore.displayDomain(
         overrides.apiBaseUrl,
       );
+      _gatewayApiBaseUrlController.text =
+          AppEndpointOverrideStore.displayDomain(overrides.gatewayApiBaseUrl);
       _chatroomWsBaseUrlController.text =
           AppEndpointOverrideStore.displayDomain(overrides.chatroomWsBaseUrl);
       showGenesisToast(
@@ -241,6 +306,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
       if (!mounted) return;
       AppServicesScope.replaceWithConfig(context, const AppConfig());
       _apiBaseUrlController.clear();
+      _gatewayApiBaseUrlController.clear();
       _chatroomWsBaseUrlController.clear();
       showGenesisToast(context, 'Endpoint overrides cleared.');
     } catch (error) {
@@ -343,6 +409,16 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           ),
           const SizedBox(height: _itemGap),
           _DeveloperEndpointField(
+            key: const ValueKey<String>('developer-gateway-api-base-url-field'),
+            label: 'Gateway HTTPS',
+            scheme: 'https://',
+            hintText: 'dev.hushie.ai',
+            controller: _gatewayApiBaseUrlController,
+            enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
+            textInputAction: TextInputAction.next,
+          ),
+          const SizedBox(height: _itemGap),
+          _DeveloperEndpointField(
             key: const ValueKey<String>('developer-chatroom-ws-base-url-field'),
             label: 'Chat WSS',
             scheme: 'wss://',
@@ -389,6 +465,31 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             backgroundColor: const Color(0xFFE1E1E3),
             foregroundColor: Colors.black,
           ),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            label: _clearingGatewayAuth ? 'Clearing...' : 'Clear Gateway auth',
+            onPressed: _clearingGatewayAuth ? null : _clearGatewayAuth,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            label: _verifyingGatewaySignature
+                ? 'Testing Gateway signature...'
+                : 'Test Gateway signature',
+            onPressed: _verifyingGatewaySignature
+                ? null
+                : _verifyGatewaySignature,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
+          if (_gatewaySignatureVerifyResult != null) ...[
+            const SizedBox(height: _itemGap),
+            _DeveloperInfoBlock(
+              title: 'Gateway signature response',
+              content: _gatewaySignatureVerifyResult!,
+            ),
+          ],
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
             label: 'Hide debug button',

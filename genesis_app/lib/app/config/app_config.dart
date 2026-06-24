@@ -3,6 +3,7 @@ import '../../network/genesis_api.dart';
 class AppConfig {
   const AppConfig({
     this.apiBaseUrl = GenesisApi.defaultApiBaseUrl,
+    this.gatewayApiBaseUrl = GenesisApi.defaultGatewayApiBaseUrl,
     this.assetBaseUrl = GenesisApi.defaultAssetBaseUrl,
     this.apiEnvironment = const String.fromEnvironment(
       'GENESIS_API_ENV',
@@ -38,6 +39,7 @@ class AppConfig {
   }) : _useMockOverride = useMock;
 
   final String apiBaseUrl;
+  final String gatewayApiBaseUrl;
   final String assetBaseUrl;
   final String apiEnvironment;
   final String chatroomWsBaseUrl;
@@ -58,6 +60,7 @@ class AppConfig {
 
   AppConfig copyWith({
     String? apiBaseUrl,
+    String? gatewayApiBaseUrl,
     String? assetBaseUrl,
     String? apiEnvironment,
     String? chatroomWsBaseUrl,
@@ -72,6 +75,7 @@ class AppConfig {
   }) {
     return AppConfig(
       apiBaseUrl: apiBaseUrl ?? this.apiBaseUrl,
+      gatewayApiBaseUrl: gatewayApiBaseUrl ?? this.gatewayApiBaseUrl,
       assetBaseUrl: assetBaseUrl ?? this.assetBaseUrl,
       apiEnvironment: apiEnvironment ?? this.apiEnvironment,
       chatroomWsBaseUrl: chatroomWsBaseUrl ?? this.chatroomWsBaseUrl,
