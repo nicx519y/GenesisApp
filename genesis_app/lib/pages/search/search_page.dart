@@ -1353,13 +1353,16 @@ String _originSearchSubtitle(
 }) {
   final oid = _firstSearchString(raw, const ['oid', 'origin_id']);
   final displayOid = oid.trim().isEmpty ? _dashOrValue(fallbackId) : oid;
-  final originator = _firstSearchString(raw, const [
-    'owner_name',
-    'created_user_name',
-    'originator',
-    'owner_uid',
-    'created_uid',
-  ]);
+  final originator = _searchOwnerDisplayName(
+    raw,
+    ownerKeys: const [
+      'owner_name',
+      'created_user_name',
+      'originator',
+      'owner_uid',
+      'created_uid',
+    ],
+  );
   final versionNum = _firstSearchInt(raw, const [
     'version_num',
     'origin_version',
@@ -1386,8 +1389,7 @@ String _originSearchSubtitle(
       'latest_origin_version_time',
     ]),
   );
-  return 'OID: $displayOid  Originator: '
-      '${formatUidForDisplay(originator, fallback: '-')}\n'
+  return 'OID: $displayOid  Originator: $originator\n'
       'Latest Version: $version · $updated';
 }
 
@@ -1474,13 +1476,37 @@ String _worldSearchSubtitle(
 }) {
   final wid = _firstSearchString(raw, const ['wid', 'world_id']);
   final displayWid = wid.trim().isEmpty ? _dashOrValue(fallbackId) : wid;
-  final owner = _firstSearchString(raw, const [
-    'owner_name',
-    'created_user_name',
-    'owner_uid',
-    'created_uid',
+  final owner = _searchOwnerDisplayName(
+    raw,
+    ownerKeys: const [
+      'owner_name',
+      'created_user_name',
+      'owner_uid',
+      'created_uid',
+    ],
+  );
+  return 'WID: $displayWid  Owner: $owner';
+}
+
+String _searchOwnerDisplayName(
+  Map<dynamic, dynamic> raw, {
+  required List<String> ownerKeys,
+}) {
+  final ownerUser = raw['owner_user'] is Map
+      ? asJsonMap(raw['owner_user'])
+      : const <String, dynamic>{};
+  if (entityDeleted(ownerUser['deleted'])) return deletedEntityDisplayText;
+
+  final owner = _firstSearchString(raw, ownerKeys);
+  if (owner.isNotEmpty) return formatUidForDisplay(owner, fallback: '-');
+
+  final ownerUserName = _firstSearchString(ownerUser, const [
+    'name',
+    'user_name',
+    'username',
+    'uid',
   ]);
-  return 'WID: $displayWid  Owner: ${formatUidForDisplay(owner, fallback: '-')}';
+  return formatUidForDisplay(ownerUserName, fallback: '-');
 }
 
 String _firstSearchString(Map<dynamic, dynamic> raw, List<String> keys) {
