@@ -339,7 +339,6 @@ class _WorldMapState extends State<WorldMap> {
               Positioned.fill(child: ColoredBox(color: Colors.white)),
             if (widget.showPointsList)
               Positioned.fill(
-                top: widget.overlayTop,
                 child: Column(
                   children: [
                     Expanded(
@@ -351,6 +350,12 @@ class _WorldMapState extends State<WorldMap> {
                         physics: widget.pointsListPhysics,
                         enableOuterScrollHandoff:
                             widget.pointsListOuterScrollHandoff,
+                        padding: EdgeInsets.fromLTRB(
+                          12,
+                          widget.overlayTop + 8,
+                          12,
+                          12,
+                        ),
                         onPointTap: (point) {
                           widget.onPointTap?.call(_withCurrentMapImage(point));
                         },
