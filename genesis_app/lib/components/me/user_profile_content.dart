@@ -523,7 +523,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
             ),
           )
           .toList(growable: false),
-      emptyText: 'No Worldos you created yet.',
+      emptyText: 'No Worldo you created yet.',
       isLoading: isLoading,
       loadingKey: const ValueKey('profile-origin-list-loading'),
       onRefresh: onRefresh,

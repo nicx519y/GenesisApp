@@ -2511,7 +2511,7 @@ void main() {
       final emptyState = find.byKey(
         const ValueKey('direct-messages-empty-state'),
       );
-      final emptyText = find.text('no private messages yet.');
+      final emptyText = find.text('Chat with your friends on Worldo.');
       final emptyCenter = tester.getCenter(emptyState);
       final textCenter = tester.getCenter(emptyText);
       expect(textCenter.dx, closeTo(emptyCenter.dx, 0.1));
@@ -2525,7 +2525,12 @@ void main() {
         home: AppServicesScope(services: services, child: const MessagesPage()),
       ),
     );
-    await tester.pump();
+    await tester.runAsync(() async {
+      for (var i = 0; i < 10; i += 1) {
+        if (transport.count('/api/v1/direct_message/conversations') > 0) break;
+        await Future<void>.delayed(Duration.zero);
+      }
+    });
     await tester.pump();
 
     expect(
@@ -2538,15 +2543,68 @@ void main() {
       1,
     );
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('no private messages yet.'), findsOneWidget);
+    expect(find.text('Chat with your friends on Worldo.'), findsOneWidget);
     expectEmptyTextCentered();
 
     transport.completeConversations();
     await tester.pumpAndSettle();
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.text('no private messages yet.'), findsOneWidget);
+    expect(find.text('Chat with your friends on Worldo.'), findsOneWidget);
     expectEmptyTextCentered();
+  });
+
+  testWidgets('direct messages empty state matches profile empty styling', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: UserProfileContent(
+            data: const UserProfileData(
+              avatarUrl: '',
+              displayName: 'User',
+              uid: 'u_user',
+              followingCount: 0,
+              followerCount: 0,
+              origins: <UserProfileOriginItem>[],
+              worlds: <UserProfileWorldItem>[],
+            ),
+            onRefreshOrigins: () async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final profileEmptyCenterY = tester
+        .getCenter(find.text('No Worldo you created yet.'))
+        .dy;
+
+    final services = await _testServices();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: MessagesPage(onMessagesDataRefresh: () async {}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final emptyState = find.byKey(
+      const ValueKey('direct-messages-empty-state'),
+    );
+    final emptyText = find.text('Chat with your friends on Worldo.');
+    final emptyCenter = tester.getCenter(emptyState);
+    final textCenter = tester.getCenter(emptyText);
+    expect(textCenter.dx, closeTo(emptyCenter.dx, 0.1));
+    expect(textCenter.dy, closeTo(emptyCenter.dy, 0.1));
+    expect(textCenter.dy, closeTo(profileEmptyCenterY, 0.1));
+
+    final text = tester.widget<Text>(emptyText);
+    expect(text.style?.fontSize, 14);
+    expect(text.style?.color, const Color(0xFF8A8A8A));
+    expect(text.style?.fontWeight, FontWeight.w400);
   });
 
   testWidgets(
