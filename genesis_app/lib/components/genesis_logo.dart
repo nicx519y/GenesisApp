@@ -10,7 +10,7 @@ class GenesisLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SvgPicture.asset(
-      'assets/images/worldo-logo.svg',
+      'assets/custom-icons/svg/worldo-logo.svg',
       height: height,
       width: width,
       fit: BoxFit.contain,

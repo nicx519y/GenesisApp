@@ -3,16 +3,20 @@ import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 
 void main() {
+  const localAvatar = 'https://example.test/local-avatar.webp';
+  const fallbackAvatar = 'https://example.test/fallback-avatar.webp';
+  const entityAvatar = 'https://example.test/entity-avatar.webp';
+
   test(
     'self message avatar falls back to local avatar before existing avatar',
     () {
       expect(
         resolveLocationChatMessageAvatarForTesting(
           isMine: true,
-          localSelfAvatar: 'assets/images/mock_avatars/avatar_jules.png',
-          fallback: 'assets/images/mock_avatars/avatar_iris.png',
+          localSelfAvatar: localAvatar,
+          fallback: fallbackAvatar,
         ),
-        'assets/images/mock_avatars/avatar_jules.png',
+        localAvatar,
       );
     },
   );
@@ -21,21 +25,21 @@ void main() {
     expect(
       resolveLocationChatMessageAvatarForTesting(
         isMine: true,
-        fallback: 'assets/images/mock_avatars/avatar_iris.png',
+        fallback: fallbackAvatar,
       ),
-      'assets/images/mock_avatars/avatar_iris.png',
+      fallbackAvatar,
     );
   });
 
   test('source avatar wins over local and existing avatar fallbacks', () {
     expect(
       resolveLocationChatMessageAvatarForTesting(
-        entityUserAvatar: 'assets/images/mock_avatars/avatar_crow.png',
+        entityUserAvatar: entityAvatar,
         isMine: true,
-        localSelfAvatar: 'assets/images/mock_avatars/avatar_jules.png',
-        fallback: 'assets/images/mock_avatars/avatar_iris.png',
+        localSelfAvatar: localAvatar,
+        fallback: fallbackAvatar,
       ),
-      'assets/images/mock_avatars/avatar_crow.png',
+      entityAvatar,
     );
   });
 

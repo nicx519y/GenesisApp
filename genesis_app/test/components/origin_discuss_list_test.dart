@@ -517,7 +517,7 @@ void main() {
                   'reply_cnt': 2,
                   'created_at': '2026-02-09T00:00:00Z',
                   'images': [
-                    'assets/images/mock_maps/steam_kingdom_isometric.png',
+                    'assets/images/map_default/map_background.png',
                     {'url': 'https://cdn.example.com/discuss/second.jpg'},
                   ],
                 },
@@ -538,7 +538,7 @@ void main() {
     expect(find.text('Post with thumbnails'), findsOneWidget);
     final firstImage = find.byKey(
       const ValueKey(
-        'origin-discuss-image-assets/images/mock_maps/steam_kingdom_isometric.png',
+        'origin-discuss-image-assets/images/map_default/map_background.png',
       ),
     );
     final secondImage = find.byKey(
@@ -570,8 +570,8 @@ void main() {
                   'reply_cnt': 2,
                   'created_at': '2026-02-09T00:00:00Z',
                   'images': [
-                    'assets/images/mock_maps/steam_kingdom_isometric.png',
-                    'assets/images/mock_maps/location_rail_gate_map.png',
+                    'assets/images/map_default/map_background.png',
+                    'assets/images/map_default/l1_default.webp',
                   ],
                 },
                 'latest_replies': const <Object?>[],
@@ -598,7 +598,7 @@ void main() {
     await tester.tap(
       find.byKey(
         const ValueKey(
-          'origin-discuss-image-assets/images/mock_maps/steam_kingdom_isometric.png',
+          'origin-discuss-image-assets/images/map_default/map_background.png',
         ),
       ),
     );
@@ -628,8 +628,8 @@ void main() {
                   'reply_cnt': 2,
                   'created_at': '2026-02-09T00:00:00Z',
                   'images': [
-                    'assets/images/mock_maps/steam_kingdom_isometric.png',
-                    'assets/images/mock_maps/location_rail_gate_map.png',
+                    'assets/images/map_default/map_background.png',
+                    'assets/images/map_default/l1_default.webp',
                   ],
                 },
                 'latest_replies': const <Object?>[],
@@ -649,7 +649,7 @@ void main() {
     await tester.tap(
       find.byKey(
         const ValueKey(
-          'origin-discuss-image-assets/images/mock_maps/steam_kingdom_isometric.png',
+          'origin-discuss-image-assets/images/map_default/map_background.png',
         ),
       ),
     );

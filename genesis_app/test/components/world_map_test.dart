@@ -18,7 +18,7 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
   });
 
-  test('mock world data includes dense map points and local avatar assets', () {
+  test('mock world data includes dense map points and local map assets', () {
     expect(kMockV1Locations.length, greaterThanOrEqualTo(9));
 
     final countsByLocation = <String, int>{};
@@ -31,40 +31,22 @@ void main() {
     expect(countsByLocation['loc_gate'], greaterThanOrEqualTo(4));
     expect(countsByLocation['loc_market'], greaterThanOrEqualTo(5));
     expect(
-      File(kMockV1SteamMapImage).existsSync(),
+      File('assets/images/map_default/map_background.png').existsSync(),
       isTrue,
-      reason: kMockV1SteamMapImage,
+      reason: 'assets/images/map_default/map_background.png',
     );
     for (final origin in kMockV1Origins) {
-      expect(origin['cover'], kMockV1SteamMapImage);
+      expect(origin['cover'], isEmpty);
     }
     for (final world in kMockV1Worlds) {
-      expect(world['cover'], kMockV1SteamMapImage);
-    }
-
-    final avatarPaths = kMockV1Characters
-        .map((character) => '${character['avatar']}')
-        .where((path) => path.startsWith('assets/images/mock_avatars/'))
-        .toSet();
-    expect(avatarPaths.length, greaterThanOrEqualTo(8));
-    for (final path in avatarPaths) {
-      expect(File(path).existsSync(), isTrue, reason: path);
-    }
-
-    final locationCoverPaths = kMockV1Locations
-        .map((location) => '${location['image']}')
-        .where((path) => path.startsWith('assets/images/mock_locations/'))
-        .toSet();
-    expect(locationCoverPaths.length, greaterThanOrEqualTo(9));
-    for (final path in locationCoverPaths) {
-      expect(File(path).existsSync(), isTrue, reason: path);
+      expect(world['cover'], isEmpty);
     }
 
     final locationMapPaths = kMockV1Locations
         .map((location) => '${location['map_url']}')
-        .where((path) => path.startsWith('assets/images/mock_maps/'))
+        .where((path) => path.startsWith('assets/images/map_default/'))
         .toSet();
-    expect(locationMapPaths.length, greaterThanOrEqualTo(5));
+    expect(locationMapPaths, isEmpty);
     for (final path in locationMapPaths) {
       expect(File(path).existsSync(), isTrue, reason: path);
     }
@@ -75,23 +57,23 @@ void main() {
   ) async {
     await _pumpWorldMap(
       tester,
-      mapImageUrl: kMockV1SteamMapImage,
+      mapImageUrl: 'assets/images/map_default/map_background.png',
       users: const [
         UserAvatar(
           'AA',
           name: 'Ada',
-          avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+          avatarUrl: 'assets/images/default_list_image.png',
           showStar: true,
         ),
         UserAvatar(
           'BB',
           name: 'Bert',
-          avatarUrl: 'assets/images/mock_avatars/avatar_crow.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
         UserAvatar(
           'CC',
           name: 'Cy',
-          avatarUrl: 'assets/images/mock_avatars/avatar_lena.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
       ],
     );
@@ -155,12 +137,12 @@ void main() {
     (tester) async {
       await _pumpWorldMap(
         tester,
-        mapImageUrl: kMockV1SteamMapImage,
+        mapImageUrl: 'assets/images/map_default/map_background.png',
         users: const [
           UserAvatar(
             'AA',
             name: 'Ada',
-            avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+            avatarUrl: 'assets/images/default_list_image.png',
           ),
         ],
       );
@@ -207,12 +189,12 @@ void main() {
   ) async {
     await _pumpWorldMap(
       tester,
-      mapImageUrl: kMockV1SteamMapImage,
+      mapImageUrl: 'assets/images/map_default/map_background.png',
       users: const [
         UserAvatar(
           'AA',
           name: 'Ada',
-          avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
       ],
     );
@@ -244,12 +226,12 @@ void main() {
   ) async {
     await _pumpWorldMap(
       tester,
-      mapImageUrl: kMockV1SteamMapImage,
+      mapImageUrl: 'assets/images/map_default/map_background.png',
       users: const [
         UserAvatar(
           'AA',
           name: 'Ada',
-          avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
       ],
     );
@@ -303,7 +285,7 @@ void main() {
   testWidgets('world map renders local asset map background', (tester) async {
     await _pumpWorldMap(
       tester,
-      mapImageUrl: kMockV1SteamMapImage,
+      mapImageUrl: 'assets/images/map_default/map_background.png',
       users: const [],
     );
 
@@ -312,7 +294,8 @@ void main() {
         (widget) =>
             widget is Image &&
             widget.image is AssetImage &&
-            (widget.image as AssetImage).assetName == kMockV1SteamMapImage,
+            (widget.image as AssetImage).assetName ==
+                'assets/images/map_default/map_background.png',
       ),
       findsOneWidget,
     );
@@ -340,7 +323,7 @@ void main() {
   ) async {
     await _pumpWorldMap(
       tester,
-      mapImageUrl: 'assets/images/mock_maps/missing_map.png',
+      mapImageUrl: 'assets/images/map_default/missing_map.png',
       users: const [],
     );
     await tester.pump();
@@ -355,7 +338,7 @@ void main() {
       await _pumpWorldMap(
         tester,
         size: viewportSize,
-        mapImageUrl: kMockV1SteamMapImage,
+        mapImageUrl: 'assets/images/map_default/map_background.png',
         users: const [],
       );
       await tester.pump();
@@ -383,22 +366,22 @@ void main() {
         UserAvatar(
           'AA',
           name: 'Ada',
-          avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
         UserAvatar(
           'BB',
           name: 'Bert',
-          avatarUrl: 'assets/images/mock_avatars/avatar_crow.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
         UserAvatar(
           'CC',
           name: 'Cy',
-          avatarUrl: 'assets/images/mock_avatars/avatar_lena.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
         UserAvatar(
           'DD',
           name: 'Dee',
-          avatarUrl: 'assets/images/mock_avatars/avatar_orren.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
       ],
     );
@@ -458,7 +441,7 @@ void main() {
           type: WorldPointType.portal,
           position: _pointPosition,
           users: [],
-          iconUrl: kMockV1SteamMapImage,
+          iconUrl: 'assets/images/map_default/map_background.png',
         ),
         WorldPoint(
           id: 'level-1',
@@ -471,7 +454,7 @@ void main() {
             UserAvatar('CC', name: 'Cara'),
             UserAvatar('DD', name: 'Drew'),
           ],
-          iconUrl: kMockV1SteamMapImage,
+          iconUrl: 'assets/images/map_default/map_background.png',
           description: 'Gate checkpoint summary.',
           locationDescription: 'Gate checkpoint description.',
           depth: 1,
@@ -482,7 +465,7 @@ void main() {
           type: WorldPointType.camp,
           position: _pointPosition,
           users: [],
-          iconUrl: kMockV1SteamMapImage,
+          iconUrl: 'assets/images/map_default/map_background.png',
           depth: 2,
         ),
       ],
@@ -634,24 +617,33 @@ void main() {
   testWidgets('world map preloads next-level location maps', (tester) async {
     await _pumpWorldMap(
       tester,
-      mapImageUrl: kMockV1SteamMapImage,
+      mapImageUrl: 'assets/images/map_default/map_background.png',
       preloadMapImageUrls: const [
-        kMockV1LocationCentralHubMap,
-        kMockV1LocationRailGateMap,
+        'assets/images/map_default/l1_default.webp',
+        'assets/images/map_default/l2_default.webp',
       ],
       users: const [],
     );
 
     expect(
-      _assetImageFinder(kMockV1SteamMapImage, skipOffstage: false),
+      _assetImageFinder(
+        'assets/images/map_default/map_background.png',
+        skipOffstage: false,
+      ),
       findsOneWidget,
     );
     expect(
-      _assetImageFinder(kMockV1LocationCentralHubMap, skipOffstage: false),
+      _assetImageFinder(
+        'assets/images/map_default/l1_default.webp',
+        skipOffstage: false,
+      ),
       findsOneWidget,
     );
     expect(
-      _assetImageFinder(kMockV1LocationRailGateMap, skipOffstage: false),
+      _assetImageFinder(
+        'assets/images/map_default/l2_default.webp',
+        skipOffstage: false,
+      ),
       findsOneWidget,
     );
   });
@@ -771,7 +763,7 @@ void main() {
           children: [
             WorldMapLocationNode(
               id: 'district',
-              mapImageUrl: kMockV1LocationCentralHubMap,
+              mapImageUrl: 'assets/images/map_default/map_background.png',
               point: WorldPoint(
                 id: 'district',
                 sceneId: 'district',
@@ -823,7 +815,10 @@ void main() {
     expect(find.text('Signal Room'), findsOneWidget);
     expect(find.byIcon(Icons.subdirectory_arrow_left), findsOneWidget);
     expect(
-      _assetImageFinder(kMockV1LocationCentralHubMap, skipOffstage: false),
+      _assetImageFinder(
+        'assets/images/map_default/map_background.png',
+        skipOffstage: false,
+      ),
       findsWidgets,
     );
 
@@ -981,12 +976,12 @@ void main() {
       tester,
       users: const [],
       points: const [],
-      mapImageUrl: kMockV1SteamMapImage,
+      mapImageUrl: 'assets/images/map_default/map_background.png',
       locationNodes: const [
         WorldMapLocationNode(
           id: 'root',
           isRoot: true,
-          mapImageUrl: kMockV1LocationCentralHubMap,
+          mapImageUrl: 'assets/images/map_default/map_background.png',
           point: WorldPoint(
             id: 'root',
             sceneId: 'root',
@@ -1015,8 +1010,14 @@ void main() {
 
     expect(find.text('World Root'), findsNothing);
     expect(find.text('Visible District'), findsOneWidget);
-    expect(_assetImageFinder(kMockV1SteamMapImage), findsOneWidget);
-    expect(_assetImageFinder(kMockV1LocationCentralHubMap), findsNothing);
+    expect(
+      _assetImageFinder('assets/images/map_default/map_background.png'),
+      findsOneWidget,
+    );
+    expect(
+      _assetImageFinder('assets/images/map_default/map_background.png'),
+      findsNothing,
+    );
   });
 
   testWidgets('world map opens the only leaf child instead of drilling', (

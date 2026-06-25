@@ -153,7 +153,7 @@ class _AboutBrandHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: SvgPicture.asset(
-        'assets/images/worldo-logo.svg',
+        'assets/custom-icons/svg/worldo-logo.svg',
         key: const Key('about_genesis_launch_logo'),
         width: 236,
         fit: BoxFit.contain,

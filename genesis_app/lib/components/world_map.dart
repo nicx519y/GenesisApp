@@ -17,7 +17,7 @@ export 'world_location_list.dart';
 export 'world_point.dart';
 
 const String kWorldMapFallbackBackgroundAsset =
-    'assets/images/mock_maps/map_background.png';
+    'assets/images/map_default/map_background.png';
 const double _worldMapAvatarImageLogicalSize = 42;
 const double _worldMapPreviewImageLogicalWidth = 120;
 

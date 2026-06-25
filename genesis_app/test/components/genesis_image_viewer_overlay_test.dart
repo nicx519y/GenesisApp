@@ -4,9 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 
-const _firstImage = 'assets/images/mock_maps/steam_kingdom_isometric.png';
-const _secondImage = 'assets/images/mock_maps/location_rail_gate_map.png';
-const _thirdImage = 'assets/images/mock_maps/location_clocktower_map.png';
+const _firstImage = 'assets/images/map_default/map_background.png';
+const _secondImage = 'assets/images/map_default/l1_default.webp';
+const _thirdImage = 'assets/images/map_default/l2_default.webp';
 
 void main() {
   testWidgets('viewer restores default status bar style after closing', (

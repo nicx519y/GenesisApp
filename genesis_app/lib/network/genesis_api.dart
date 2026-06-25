@@ -1244,13 +1244,13 @@ String normalizeRemoteUrl(String url) {
 
 const Map<String, String> _predataDefaultImageAssets = <String, String>{
   'https://cdn-001.worldo.ai/predata/root_default.webp':
-      'assets/images/mock_maps/root_default.webp',
+      'assets/images/map_default/root_default.webp',
   'https://cdn-001.worldo.ai/predata/l1_default.webp':
-      'assets/images/mock_maps/l1_default.webp',
+      'assets/images/map_default/l1_default.webp',
   'https://cdn-001.worldo.ai/predata/l2_default.webp':
-      'assets/images/mock_maps/l2_default.webp',
+      'assets/images/map_default/l2_default.webp',
   'https://cdn-001.worldo.ai/predata/location_default.webp':
-      'assets/images/mock_maps/location_default.webp',
+      'assets/images/map_default/location_default.webp',
 };
 
 String resolveAssetUrl(String raw) {
