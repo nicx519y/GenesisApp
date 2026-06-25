@@ -16,7 +16,7 @@ import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/display_name_formatter.dart';
 
 const String _privateChatBackgroundAsset =
-    'assets/images/mock_maps/location_default.webp';
+    'assets/images/map_default/location_default.webp';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({

@@ -1750,8 +1750,8 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         },
         'started_at': 'Day 1',
         'tick_duration_time': '30 days',
-        'cover': 'assets/images/mock_maps/steam_kingdom_isometric.webp',
-        'map_url': 'assets/images/mock_maps/steam_kingdom_isometric.webp',
+        'cover': 'assets/images/map_default/map_background.webp',
+        'map_url': 'assets/images/map_default/map_background.webp',
         'characters': [
           {
             'char_id': 'char_edit_1',
@@ -4072,7 +4072,7 @@ void main() {
           'identity': 'Guide',
           'brief': 'Keeps the path',
           'description': 'First character.',
-          'avatar': 'assets/images/mock_avatars/avatar_iris.png',
+          'avatar': 'assets/images/default_list_image.png',
           'initial_location_id': 'l_o_test_1',
           'location_id': 'l_o_test_1',
         },
@@ -4082,7 +4082,7 @@ void main() {
           'identity': 'Scout',
           'brief': 'Finds the signal',
           'description': 'Second character.',
-          'avatar': 'assets/images/mock_avatars/avatar_nia.png',
+          'avatar': 'assets/images/default_list_image.png',
           'initial_location_id': 'l_o_test_1',
           'location_id': 'l_o_test_1',
         },
@@ -7663,10 +7663,7 @@ void main() {
     expect(metric.containsKey('starting_value'), isFalse);
     expect(metric.containsKey('start_time'), isFalse);
     expect(metric.containsKey('time_per_progress'), isFalse);
-    expect(
-      body['cover'],
-      'assets/images/mock_maps/steam_kingdom_isometric.webp',
-    );
+    expect(body['cover'], 'assets/images/map_default/map_background.webp');
     final editedCharacters = body['characters'] as List;
     expect(editedCharacters.single['char_id'], 'char_edit_1');
     expect(editedCharacters.single['initial_location_id'], 'location_edit_1');
@@ -8977,7 +8974,7 @@ void main() {
           child: const ChatPage(
             peerUid: 'u_peer_dm',
             peerName: 'Penny Direct',
-            peerAvatar: 'assets/images/mock_avatars/avatar_iris.png',
+            peerAvatar: 'assets/images/default_list_image.png',
           ),
         ),
       ),
@@ -8994,7 +8991,7 @@ void main() {
             widget is Image &&
             widget.image is AssetImage &&
             (widget.image as AssetImage).assetName ==
-                'assets/images/mock_avatars/avatar_iris.png',
+                'assets/images/default_list_image.png',
       ),
       findsWidgets,
     );
@@ -9070,7 +9067,7 @@ void main() {
             useMock: false,
             initialUserInfo: const {
               'uid': 'u_mock',
-              'avatar_url': 'assets/images/mock_avatars/avatar_nia.png',
+              'avatar_url': 'assets/images/default_list_image.png',
             },
             directMessageMessages: store,
           ),
@@ -9087,7 +9084,7 @@ void main() {
             widget is Image &&
             widget.image is AssetImage &&
             (widget.image as AssetImage).assetName ==
-                'assets/images/mock_avatars/avatar_nia.png',
+                'assets/images/default_list_image.png',
       ),
       findsOneWidget,
     );
@@ -10761,7 +10758,7 @@ void main() {
         chatroom: chatroom,
         initialUserInfo: const {
           'uid': 'u_mock',
-          'avatar_url': 'assets/images/mock_avatars/avatar_jules.png',
+          'avatar_url': 'assets/images/default_list_image.png',
         },
       );
       await tester.pumpWidget(GenesisApp(services: services));
@@ -10821,7 +10818,7 @@ void main() {
               widget is Image &&
               widget.image is AssetImage &&
               (widget.image as AssetImage).assetName ==
-                  'assets/images/mock_avatars/avatar_jules.png',
+                  'assets/images/default_list_image.png',
         ),
         findsOneWidget,
       );

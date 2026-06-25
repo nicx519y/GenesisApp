@@ -144,6 +144,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _worldActionRunning = false;
   bool _worldTickInProgress = false;
   bool _openEventsAfterTickDone = false;
+  bool _worldBottomSheetOpen = false;
   int _worldMainTabIndex = 0;
   int? _worldMainSwipePointer;
   Offset? _worldMainSwipeStartPosition;
@@ -160,6 +161,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   var _currentUidRequested = false;
   late final ValueNotifier<WorldDetail?> _sectionsWorldNotifier =
       ValueNotifier<WorldDetail?>(_world);
+  late final ValueNotifier<_WorldBottomSheetSelection>
+  _worldBottomSheetSelection = ValueNotifier<_WorldBottomSheetSelection>(
+    const _WorldBottomSheetSelection(
+      kind: _WorldBottomSheetKind.detail,
+      eventsLatestRevision: 0,
+    ),
+  );
   final _sectionsEventsCache = _WorldSectionsEventsCache();
 
   @override
@@ -224,6 +232,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _sectionsEventsCache.clear();
     _locationChatPageCache.dispose();
     _sectionsWorldNotifier.dispose();
+    _worldBottomSheetSelection.dispose();
     super.dispose();
   }
 
@@ -1387,12 +1396,20 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (!mounted) return;
     if (_openEventsAfterTickDone) {
       _openEventsAfterTickDone = false;
-      _openWorldBottomSheet(
-        _WorldBottomSheetKind.events,
-        scrollEventsToLatest: true,
-        eventsTargetTickNumber: _world?.tickCount,
-      );
+      _showOrSelectEventsAfterTick();
     }
+  }
+
+  void _showOrSelectEventsAfterTick() {
+    if (_worldBottomSheetOpen &&
+        _worldBottomSheetSelection.value.kind == _WorldBottomSheetKind.events) {
+      return;
+    }
+    _openWorldBottomSheet(
+      _WorldBottomSheetKind.events,
+      scrollEventsToLatest: true,
+      eventsTargetTickNumber: _world?.tickCount,
+    );
   }
 
   void _markWorldTickIdle() {
@@ -1783,26 +1800,35 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _eventsTargetTickNumber = eventsTargetTickNumber;
     _sectionsWorldNotifier.value = world;
     final services = AppServicesScope.read(context);
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      enableDrag: false,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.18),
-      builder: (context) => _WorldSingleSectionBottomSheet(
-        kind: kind,
-        services: services,
-        initialWorld: world,
-        worldListenable: _sectionsWorldNotifier,
-        eventsCache: _sectionsEventsCache,
-        currentUid: _currentUid,
-        eventsLatestRevision: _eventsLatestRevision,
-        eventsTargetTickNumber: _eventsTargetTickNumber,
-        locationPoints: locationPoints,
-        locationNodes: locationNodes,
-        onLocationTap: _openChatForPoint,
-      ),
+    _worldBottomSheetSelection.value = _WorldBottomSheetSelection(
+      kind: kind,
+      eventsLatestRevision: _eventsLatestRevision,
+      eventsTargetTickNumber: _eventsTargetTickNumber,
+    );
+    if (_worldBottomSheetOpen) return;
+    _worldBottomSheetOpen = true;
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        enableDrag: false,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.18),
+        builder: (context) => _WorldSingleSectionBottomSheet(
+          selectionListenable: _worldBottomSheetSelection,
+          services: services,
+          initialWorld: world,
+          worldListenable: _sectionsWorldNotifier,
+          eventsCache: _sectionsEventsCache,
+          currentUid: _currentUid,
+          locationPoints: locationPoints,
+          locationNodes: locationNodes,
+          onLocationTap: _openChatForPoint,
+        ),
+      ).whenComplete(() {
+        _worldBottomSheetOpen = false;
+      }),
     );
   }
 
@@ -2213,6 +2239,18 @@ String _worldTimeLabel({required int tickIndex, required String worldTime}) {
 }
 
 enum _WorldBottomSheetKind { detail, locations, events, status, cast }
+
+class _WorldBottomSheetSelection {
+  const _WorldBottomSheetSelection({
+    required this.kind,
+    required this.eventsLatestRevision,
+    this.eventsTargetTickNumber,
+  });
+
+  final _WorldBottomSheetKind kind;
+  final int eventsLatestRevision;
+  final int? eventsTargetTickNumber;
+}
 
 class _WorldBottomTagItem {
   const _WorldBottomTagItem({
@@ -3315,30 +3353,26 @@ class _WorldKeepAlivePageState extends State<_WorldKeepAlivePage>
 
 class _WorldSingleSectionBottomSheet extends StatefulWidget {
   const _WorldSingleSectionBottomSheet({
-    required this.kind,
+    required this.selectionListenable,
     required this.services,
     required this.initialWorld,
     required this.worldListenable,
     required this.eventsCache,
     required this.currentUid,
-    required this.eventsLatestRevision,
     required this.locationPoints,
     required this.locationNodes,
     required this.onLocationTap,
-    this.eventsTargetTickNumber,
   });
 
-  final _WorldBottomSheetKind kind;
+  final ValueListenable<_WorldBottomSheetSelection> selectionListenable;
   final AppServices services;
   final WorldDetail initialWorld;
   final ValueListenable<WorldDetail?> worldListenable;
   final _WorldSectionsEventsCache eventsCache;
   final String currentUid;
-  final int eventsLatestRevision;
   final List<WorldPoint> locationPoints;
   final List<WorldMapLocationNode> locationNodes;
   final ValueChanged<WorldPoint> onLocationTap;
-  final int? eventsTargetTickNumber;
 
   @override
   State<_WorldSingleSectionBottomSheet> createState() =>
@@ -3353,12 +3387,15 @@ class _WorldSingleSectionBottomSheetState
   WorldDetail get _currentWorld =>
       widget.worldListenable.value ?? widget.initialWorld;
 
+  _WorldBottomSheetSelection get _selection => widget.selectionListenable.value;
+
   _WorldSectionsEventsCache get _eventsCache => widget.eventsCache;
 
   @override
   void initState() {
     super.initState();
     widget.worldListenable.addListener(_handleWorldDetailChanged);
+    widget.selectionListenable.addListener(_handleSelectionChanged);
   }
 
   @override
@@ -3376,9 +3413,13 @@ class _WorldSingleSectionBottomSheetState
       oldWidget.worldListenable.removeListener(_handleWorldDetailChanged);
       widget.worldListenable.addListener(_handleWorldDetailChanged);
     }
+    if (oldWidget.selectionListenable != widget.selectionListenable) {
+      oldWidget.selectionListenable.removeListener(_handleSelectionChanged);
+      widget.selectionListenable.addListener(_handleSelectionChanged);
+    }
     if (_isEventsSheet &&
         (oldWidget.eventsCache != widget.eventsCache ||
-            oldWidget.kind != widget.kind)) {
+            oldWidget.selectionListenable.value.kind != _selection.kind)) {
       _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
     }
   }
@@ -3386,14 +3427,22 @@ class _WorldSingleSectionBottomSheetState
   @override
   void dispose() {
     widget.worldListenable.removeListener(_handleWorldDetailChanged);
+    widget.selectionListenable.removeListener(_handleSelectionChanged);
     super.dispose();
   }
 
-  bool get _isEventsSheet => widget.kind == _WorldBottomSheetKind.events;
+  bool get _isEventsSheet => _selection.kind == _WorldBottomSheetKind.events;
 
   void _handleWorldDetailChanged() {
     if (_isEventsSheet) {
       _ensureEventsForCurrentWorld();
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _handleSelectionChanged() {
+    if (_isEventsSheet) {
+      _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
     }
     if (mounted) setState(() {});
   }
@@ -3490,8 +3539,8 @@ class _WorldSingleSectionBottomSheetState
         loadingMore: _eventsCache.loadingMore,
         hasMore: _eventsHasMore,
         error: _eventsCache.error,
-        latestRevision: widget.eventsLatestRevision,
-        targetTickNumber: widget.eventsTargetTickNumber,
+        latestRevision: _selection.eventsLatestRevision,
+        targetTickNumber: _selection.eventsTargetTickNumber,
         contentPadding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
         onLoadMore: _loadNextEventsPage,
       ),
@@ -3539,7 +3588,7 @@ class _WorldSingleSectionBottomSheetState
   }
 
   Widget _buildSheetContent() {
-    return switch (widget.kind) {
+    return switch (_selection.kind) {
       _WorldBottomSheetKind.detail => _buildDetailSectionPage(),
       _WorldBottomSheetKind.locations => _buildLocationsSectionPage(),
       _WorldBottomSheetKind.events => _buildEventsSectionPage(),
@@ -3549,7 +3598,9 @@ class _WorldSingleSectionBottomSheetState
   }
 
   _WorldBottomTagItem get _headerItem {
-    return _worldBottomTagItems.firstWhere((item) => item.kind == widget.kind);
+    return _worldBottomTagItems.firstWhere(
+      (item) => item.kind == _selection.kind,
+    );
   }
 
   @override

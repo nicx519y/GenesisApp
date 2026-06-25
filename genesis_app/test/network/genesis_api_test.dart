@@ -135,21 +135,21 @@ void main() {
   test('resolveAssetUrl maps predata default CDN images to bundled assets', () {
     expect(
       resolveAssetUrl('https://cdn-001.worldo.ai/predata/root_default.webp'),
-      'assets/images/mock_maps/root_default.webp',
+      'assets/images/map_default/root_default.webp',
     );
     expect(
       resolveAssetUrl('https://cdn-001.worldo.ai/predata/l1_default.webp'),
-      'assets/images/mock_maps/l1_default.webp',
+      'assets/images/map_default/l1_default.webp',
     );
     expect(
       resolveAssetUrl('https://cdn-001.worldo.ai/predata/l2_default.webp'),
-      'assets/images/mock_maps/l2_default.webp',
+      'assets/images/map_default/l2_default.webp',
     );
     expect(
       resolveAssetUrl(
         'https://cdn-001.worldo.ai/predata/location_default.webp',
       ),
-      'assets/images/mock_maps/location_default.webp',
+      'assets/images/map_default/location_default.webp',
     );
   });
 
@@ -1751,6 +1751,65 @@ void main() {
         await sessionStore.readUserInfo(),
         containsPair('uid', 'firebase-uid'),
       );
+    },
+  );
+
+  test(
+    'backend login failure clears identity session for provider retry',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (request) {
+          if (request.uri.path.endsWith('/v1/user/oauth/google')) {
+            return const TransportResponse(
+              statusCode: 200,
+              headers: {'content-type': 'application/json'},
+              body: '{"err_no":10013,"err_msg":"user banned","data":{}}',
+            );
+          }
+          return const TransportResponse(
+            statusCode: 404,
+            headers: {'content-type': 'application/json'},
+            body: '{"err_no":404,"err_msg":"not_found","data":{}}',
+          );
+        },
+      );
+      final sessionStore = MemoryUserSessionStore();
+      final identityAuth = _FakeIdentityAuthService();
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+        identityAuthService: identityAuth,
+      );
+      final coordinator = GenesisBackendAuthCoordinator(
+        api: api,
+        identityAuth: identityAuth,
+        sessionStore: sessionStore,
+      );
+
+      await expectLater(
+        coordinator.loginWithIdentity(
+          const AuthSession(
+            provider: IdentityProvider.google,
+            providerIdToken: 'google-token',
+            firebaseIdToken: 'firebase-token',
+            identityUid: 'firebase-uid',
+            email: 'user@example.com',
+            displayName: 'User',
+            photoUrl: '',
+          ),
+        ),
+        throwsA(
+          isA<ApiException>()
+              .having((error) => error.code, 'code', 10013)
+              .having((error) => error.message, 'message', 'user banned'),
+        ),
+      );
+
+      expect(identityAuth.signOutCount, 1);
+      expect(await sessionStore.readUid(), isNull);
+      expect(await sessionStore.readAuthToken(), isNull);
     },
   );
 

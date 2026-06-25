@@ -67,6 +67,7 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
         },
         level: GenesisTelemetryLevel.warning,
       );
+      await _signOutIdentity();
       rethrow;
     }
   }

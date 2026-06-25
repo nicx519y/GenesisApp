@@ -23,14 +23,14 @@ void main() {
 
       expect(find.text('AVATAR\n(Optional)'), findsOneWidget);
 
-      controller.text = 'assets/images/mock_avatars/avatar_iris.png';
+      controller.text = 'assets/images/default_list_image.png';
       await tester.pump();
 
       expect(find.text('AVATAR\n(Optional)'), findsNothing);
       expect(find.byType(Image), findsOneWidget);
       expect(find.text('Remove'), findsOneWidget);
 
-      controller.text = 'assets/images/mock_avatars/avatar_crow.png';
+      controller.text = 'assets/images/default_list_image.png';
       await tester.pump();
 
       expect(find.text('AVATAR\n(Optional)'), findsNothing);
@@ -49,7 +49,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final controller = TextEditingController(
-      text: 'assets/images/mock_avatars/avatar_iris.png',
+      text: 'assets/images/default_list_image.png',
     );
     var changedCount = 0;
     addTearDown(controller.dispose);
