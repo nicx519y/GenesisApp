@@ -10,6 +10,7 @@ import '../../components/common/copyable_id_label.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_action_box.dart';
+import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/ai_content_disclaimer.dart';
@@ -19,13 +20,12 @@ import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
-import '../../components/page_header.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
-import '../../components/world_map_stage.dart';
 import '../../components/world_tick1_wait_dialog.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../icons/custom_icon_assets.dart';
+import '../../icons/my_flutter_app_icons.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_api.dart';
@@ -37,11 +37,9 @@ import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_character_avatar.dart';
-import '../../ui/components/genesis_fixed_underline_indicator.dart';
-import '../../ui/components/genesis_tab_bar.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
-import '../../ui/theme/genesis_ui_theme.dart';
+import '../../ui/tokens/genesis_image_radii.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../chat/location_chat_page.dart';
@@ -57,8 +55,20 @@ const String _worldSectionStatusIconAsset =
     'assets/custom-icons/svg/world_tab_status.svg';
 const String _worldSectionCastIconAsset =
     'assets/custom-icons/svg/world_tab_cast.svg';
+const String _worldDetailIconAsset =
+    'assets/custom-icons/svg/worlddetail-icon.svg';
 const double _worldMapTabsHeight = 38;
+const double _worldMapBackButtonLeft = 9.5;
+const double _worldMapIdentityHorizontalGap = 12;
 const double _worldMainTabsHeight = 53;
+const double _worldBottomTagHeight = 34;
+const double _worldBottomTagToStatsGap = 10;
+const double _worldStatsTopSpacerHeight =
+    (_worldMainTabsHeight + _worldBottomTagHeight) / 2 -
+    WorldDetailsPageScaffold.inlineContentTopPadding +
+    _worldBottomTagToStatsGap;
+const double _worldInfoHeaderHeight = 56;
+const double _worldInfoHeaderContentHeight = 35;
 const double _worldTimePillTopGap = 12;
 const double _worldTimePillHeight = 22;
 const double _worldTimePillMinWidth = 96;
@@ -66,8 +76,8 @@ const double _worldSecondaryMapControlWidth = 160;
 const double _worldTimePillHorizontalPadding = 12;
 const double _worldMapContentTopOffset =
     _worldMapTabsHeight + _worldTimePillTopGap + _worldTimePillHeight + 8;
-const int _worldSectionEventsIndex = 0;
 const double _worldCharacterAvatarLogicalSize = 48;
+const int _worldMainPageCount = 1;
 
 class WorldPage extends StatefulWidget {
   const WorldPage({
@@ -97,9 +107,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   static const double _worldMainSwipeSystemGestureEdgeWidth = 24;
   static const double _worldMainSwipeMinDistance = 48;
   static const double _worldMainSwipeDirectionRatio = 1.25;
-
-  late final TabController _tabController;
-  late final TabController _sectionController;
   late final TabController _mainTabController;
   WorldDetail? _world;
   Object? _initialLoadError;
@@ -133,7 +140,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   Set<String> _visibleMapLocationIds = <String>{};
   String _visibleMapLocationIdsSignature = '';
   bool _isInSecondaryMap = false;
-  int _mapModeTargetIndex = 0;
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
   bool _worldTickInProgress = false;
@@ -159,11 +165,12 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _sectionController = TabController(length: 3, vsync: this);
-    _mainTabController = TabController(length: 5, vsync: this);
-    _tabController.addListener(_handleMapModeTabChanged);
-    _handleMapModeTabChanged();
+    _mainTabController = TabController(
+      length: _worldMainPageCount,
+      vsync: this,
+    );
+    _mainTabController.addListener(_handleWorldMainTabChanged);
+    _syncWorldStatusBarForMainTab();
     final initialWorld = widget.initialWorldDetail;
     if (initialWorld != null) {
       _world = initialWorld;
@@ -200,7 +207,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _tabController.removeListener(_handleMapModeTabChanged);
+    _mainTabController.removeListener(_handleWorldMainTabChanged);
     WorldDetailsStatusBarOverride.clearStyle();
     GenesisSystemUiChrome.applyDefault();
     unawaited(_worldChatroomSub?.cancel());
@@ -213,8 +220,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (chatroom != null) {
       unawaited(_disposeWorldChatroom(chatroom));
     }
-    _tabController.dispose();
-    _sectionController.dispose();
     _mainTabController.dispose();
     _sectionsEventsCache.clear();
     _locationChatPageCache.dispose();
@@ -222,33 +227,26 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  void _handleMapModeTabChanged() {
-    if (_activeChatLocationId.isNotEmpty) {
-      WorldDetailsStatusBarOverride.setStyle(
-        kChatDarkHeaderSystemUiOverlayStyle,
-      );
-      return;
+  void _handleWorldMainTabChanged() {
+    final nextIndex = _mainTabController.index
+        .clamp(0, _worldMainPageCount - 1)
+        .toInt();
+    if (nextIndex >= 2) {
+      _sectionsWorldNotifier.value = _world;
     }
-    if (_tabController.index == 1) {
-      WorldDetailsStatusBarOverride.setStyle(
-        kGenesisDefaultSystemUiOverlayStyle,
-      );
-      return;
-    }
-    WorldDetailsStatusBarOverride.clearStyle();
+    _syncWorldStatusBarForMainTab(nextIndex);
+    if (_worldMainTabIndex == nextIndex) return;
+    setState(() => _worldMainTabIndex = nextIndex);
   }
 
-  void _handleMapModeTabTap(int index) {
-    if (_mapModeTargetIndex != index) {
-      setState(() => _mapModeTargetIndex = index);
-    }
+  void _syncWorldStatusBarForMainTab([int? index]) {
     if (_activeChatLocationId.isNotEmpty) {
       WorldDetailsStatusBarOverride.setStyle(
         kChatDarkHeaderSystemUiOverlayStyle,
       );
       return;
     }
-    if (index == 1) {
+    if ((index ?? _worldMainTabIndex) != 0) {
       WorldDetailsStatusBarOverride.setStyle(
         kGenesisDefaultSystemUiOverlayStyle,
       );
@@ -262,39 +260,20 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     bool scrollEventsToLatest = false,
     int? eventsTargetTickNumber,
   }) {
-    final nextIndex = index
-        .clamp(0, _WorldMainBottomTabs.itemCount - 1)
-        .toInt();
+    final nextIndex = index.clamp(0, _worldMainPageCount - 1).toInt();
+    if (scrollEventsToLatest) {
+      _eventsLatestRevision += 1;
+    }
+    _eventsTargetTickNumber = eventsTargetTickNumber;
+    if (nextIndex >= 2) {
+      _sectionsWorldNotifier.value = _world;
+    }
+    _syncWorldStatusBarForMainTab(nextIndex);
     if (_mainTabController.index != nextIndex) {
       _mainTabController.animateTo(
         nextIndex,
         duration: const Duration(milliseconds: 160),
         curve: Curves.easeOutCubic,
-      );
-    }
-    if (scrollEventsToLatest) {
-      _eventsLatestRevision += 1;
-    }
-    _eventsTargetTickNumber = eventsTargetTickNumber;
-    if (nextIndex < 2) {
-      _handleMapModeTabTap(nextIndex);
-      if (_tabController.index != nextIndex) {
-        _tabController.animateTo(
-          nextIndex,
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOutCubic,
-        );
-      }
-    } else {
-      final sectionIndex = (nextIndex - 2).clamp(0, 2).toInt();
-      _sectionsWorldNotifier.value = _world;
-      _sectionController.animateTo(
-        sectionIndex,
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOutCubic,
-      );
-      WorldDetailsStatusBarOverride.setStyle(
-        kGenesisDefaultSystemUiOverlayStyle,
       );
     }
     if (_worldMainTabIndex == nextIndex) {
@@ -306,6 +285,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   void _handleWorldMainSwipePointerDown(PointerDownEvent event) {
     if (_activeChatLocationId.isNotEmpty || _world == null) return;
+    if (_worldMainTabIndex != 0) return;
     if (_worldMainSwipePointer != null) return;
 
     final screenWidth = MediaQuery.sizeOf(context).width;
@@ -324,7 +304,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   void _handleWorldMainSwipePointerUp(PointerUpEvent event) {
     if (_worldMainSwipePointer != event.pointer) return;
     final startPosition = _worldMainSwipeStartPosition;
-    if (startPosition != null) {
+    if (startPosition != null && _worldMainTabIndex == 0) {
       _maybeSelectWorldMainTabBySwipe(event.position - startPosition);
     }
     _clearWorldMainSwipeTracking();
@@ -354,16 +334,17 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final nextIndex = delta.dx < 0
         ? _worldMainTabIndex + 1
         : _worldMainTabIndex - 1;
-    if (nextIndex < 0 || nextIndex >= _WorldMainBottomTabs.itemCount) return;
+    if (nextIndex < 0 || nextIndex >= _worldMainPageCount) return;
     if (!_canSelectWorldMainTabBySwipe(delta.dx)) return;
     _selectWorldMainTab(nextIndex);
   }
 
   bool _canSelectWorldMainTabBySwipe(double horizontalDelta) {
-    if (_worldMainTabIndex != 0) return true;
-    if (_tabController.index != 0 || _mapModeTargetIndex != 0) return true;
-    if (horizontalDelta < 0) return !_worldMainSwipeStartCanMapScrollRight;
-    return !_worldMainSwipeStartCanMapScrollLeft;
+    if (_worldMainTabIndex != 0) return false;
+    if (horizontalDelta < 0) {
+      return !_worldMainSwipeStartCanMapScrollRight || !_worldMapCanScrollRight;
+    }
+    return !_worldMainSwipeStartCanMapScrollLeft || !_worldMapCanScrollLeft;
   }
 
   void _handleWorldMapHorizontalPanStateChanged(
@@ -1406,8 +1387,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (!mounted) return;
     if (_openEventsAfterTickDone) {
       _openEventsAfterTickDone = false;
-      _selectWorldMainTab(
-        2 + _worldSectionEventsIndex,
+      _openWorldBottomSheet(
+        _WorldBottomSheetKind.events,
         scrollEventsToLatest: true,
         eventsTargetTickNumber: _world?.tickCount,
       );
@@ -1705,7 +1686,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _activeChatLocationId = '';
       _locationChatPageCache.deactivate();
     });
-    _handleMapModeTabChanged();
+    _syncWorldStatusBarForMainTab();
   }
 
   void _handleWorldPopBlocked() {
@@ -1732,7 +1713,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (!_locationChatDescriptors.containsKey(_activeChatLocationId)) {
       _activeChatLocationId = '';
       _locationChatPageCache.deactivate();
-      _handleMapModeTabChanged();
+      _syncWorldStatusBarForMainTab();
     }
     _scheduleLocationChatPrecache(descriptors.keys.toList(growable: false));
   }
@@ -1783,13 +1764,46 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   void _showMapTab() {
-    if (_worldMainTabIndex != 0) {
-      _selectWorldMainTab(0);
-      return;
+    if (_worldMainTabIndex == 0) return;
+    _selectWorldMainTab(0);
+  }
+
+  void _openWorldBottomSheet(
+    _WorldBottomSheetKind kind, {
+    List<WorldPoint> locationPoints = const <WorldPoint>[],
+    List<WorldMapLocationNode> locationNodes = const <WorldMapLocationNode>[],
+    bool scrollEventsToLatest = false,
+    int? eventsTargetTickNumber,
+  }) {
+    final world = _world;
+    if (world == null) return;
+    if (scrollEventsToLatest) {
+      _eventsLatestRevision += 1;
     }
-    if (_tabController.index == 0) return;
-    if (_mapModeTargetIndex != 0) setState(() => _mapModeTargetIndex = 0);
-    _tabController.animateTo(0);
+    _eventsTargetTickNumber = eventsTargetTickNumber;
+    _sectionsWorldNotifier.value = world;
+    final services = AppServicesScope.read(context);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      enableDrag: false,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.18),
+      builder: (context) => _WorldSingleSectionBottomSheet(
+        kind: kind,
+        services: services,
+        initialWorld: world,
+        worldListenable: _sectionsWorldNotifier,
+        eventsCache: _sectionsEventsCache,
+        currentUid: _currentUid,
+        eventsLatestRevision: _eventsLatestRevision,
+        eventsTargetTickNumber: _eventsTargetTickNumber,
+        locationPoints: locationPoints,
+        locationNodes: locationNodes,
+        onLocationTap: _openChatForPoint,
+      ),
+    );
   }
 
   @override
@@ -1863,11 +1877,48 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         : world.locations.isNotEmpty
         ? _pointsFromWorldLocations(world.locations, avatarsByLocation)
         : points;
-    final thirdLevelLocationCount = allLocationNodes
-        .where((node) => node.children.isEmpty)
-        .length;
-    final title = world.name.trim().isEmpty ? world.worldId : world.name.trim();
-    final collapsedPanelHeight = _worldCollapsedPanelHeightFor(context, title);
+    final collapsedPanelHeight = _worldCollapsedPanelHeightFor(context);
+    Widget buildWorldMapPage(int tabIndex, {required bool pointMode}) {
+      return _WorldKeepAlivePage(
+        child: WorldMap(
+          key: PageStorageKey<String>('world-map-tab-$tabIndex'),
+          points: points,
+          listPoints: listPoints,
+          locationNodes: locationNodes,
+          listLocationNodes: listLocationNodes,
+          mapImageUrl: rootMapImageUrl,
+          dimmed: pointMode,
+          showPointsList: pointMode,
+          pointsListOuterScrollHandoff: false,
+          overlayTop:
+              topPadding +
+              8 +
+              (pointMode ? _worldMapTabsHeight + 8 : _worldMapContentTopOffset),
+          drillExitTop:
+              topPadding + 8 + _worldMapTabsHeight + _worldTimePillTopGap,
+          drillExitMaxWidth: _worldSecondaryMapControlWidth,
+          onDrillIntoLocation: _showMapTab,
+          onSecondaryMapChanged: (isInSecondaryMap) {
+            if (_worldMainTabIndex == tabIndex) {
+              _handleSecondaryMapChanged(isInSecondaryMap);
+            }
+          },
+          onVisibleLocationIdsChanged: (locationIds) {
+            if (_worldMainTabIndex == tabIndex) {
+              _handleVisibleMapLocationIdsChanged(locationIds);
+            }
+          },
+          onHorizontalPanStateChanged: tabIndex == 0
+              ? _handleWorldMapHorizontalPanStateChanged
+              : null,
+          onPointTap: _openChatForPoint,
+          messageBubbles: pointMode
+              ? const <String, WorldMapMessageBubble>{}
+              : _mapMessageBubbles,
+        ),
+      );
+    }
+
     return PopScope(
       canPop: _activeChatLocationId.isEmpty,
       onPopInvokedWithResult: (didPop, result) {
@@ -1887,96 +1938,44 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               scrollPhysics: const NeverScrollableScrollPhysics(),
               persistentTopOverlay: _buildPersistentMapOverlay(
                 topPadding,
+                world: world,
                 worldTime: world.currentTime,
                 tickIndex: world.tickCount,
               ),
-              map: WorldMapStage(
-                controller: _tabController,
-                pointsCount: thirdLevelLocationCount,
-                top: topPadding + 8,
-                showTopOverlay: false,
-                mapBuilder: (context, pointMode) => WorldMap(
-                  points: points,
-                  listPoints: listPoints,
-                  locationNodes: locationNodes,
-                  listLocationNodes: listLocationNodes,
-                  mapImageUrl: rootMapImageUrl,
-                  dimmed: pointMode,
-                  showPointsList: pointMode,
-                  pointsListOuterScrollHandoff: false,
-                  overlayTop:
-                      topPadding +
-                      8 +
-                      (pointMode
-                          ? _worldMapTabsHeight + 8
-                          : _worldMapContentTopOffset),
-                  drillExitTop:
-                      topPadding +
-                      8 +
-                      _worldMapTabsHeight +
-                      _worldTimePillTopGap,
-                  drillExitMaxWidth: _worldSecondaryMapControlWidth,
-                  onDrillIntoLocation: _showMapTab,
-                  onSecondaryMapChanged: _handleSecondaryMapChanged,
-                  onVisibleLocationIdsChanged:
-                      _handleVisibleMapLocationIdsChanged,
-                  onHorizontalPanStateChanged:
-                      _handleWorldMapHorizontalPanStateChanged,
-                  onPointTap: _openChatForPoint,
-                  messageBubbles: _mapMessageBubbles,
-                ),
-              ),
+              map: buildWorldMapPage(0, pointMode: false),
               fixedCollapsedPanelHeight: collapsedPanelHeight,
               fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
               contentBottomPaddingOverride: 0,
-              onPanelTopPullUp: () => _selectWorldMainTab(
-                (_worldMainTabIndex >= 2 ? _worldMainTabIndex : 2)
-                    .clamp(2, 4)
-                    .toInt(),
-              ),
+              onPanelTopPullUp: () =>
+                  _openWorldBottomSheet(_WorldBottomSheetKind.events),
               slivers: [
                 const SliverToBoxAdapter(
-                  child: SizedBox(height: _worldMainTabsHeight),
+                  child: SizedBox(height: _worldStatsTopSpacerHeight),
                 ),
                 _WorldFeedContent(
                   world: world,
                   worldActionRunning:
                       _worldActionRunning || _worldTickInProgress,
                   onWorldAction: _runWorldAction,
-                  onPullUp: () => _selectWorldMainTab(
-                    (_worldMainTabIndex >= 2 ? _worldMainTabIndex : 2)
-                        .clamp(2, 4)
-                        .toInt(),
-                  ),
+                  onPullUp: () =>
+                      _openWorldBottomSheet(_WorldBottomSheetKind.events),
                 ),
               ],
             ),
-            if (_worldMainTabIndex == 1)
+            if (_worldMainTabIndex != 0)
               Positioned(
                 left: 0,
                 top: 0,
                 right: 0,
-                child: _WorldTopHeader(
-                  title: 'Locations',
-                  onBack: () => Navigator.of(context).maybePop(),
-                ),
+                height: topPadding,
+                child: const ColoredBox(color: Colors.white),
               ),
-            if (_worldMainTabIndex >= 2)
+            if (_worldMainTabIndex != 0)
               Positioned(
-                left: 0,
-                top: 0,
-                right: 0,
-                bottom: collapsedPanelHeight,
-                child: _WorldSectionsTopPage(
-                  services: AppServicesScope.read(context),
-                  initialWorld: world,
-                  worldListenable: _sectionsWorldNotifier,
-                  eventsCache: _sectionsEventsCache,
-                  controller: _sectionController,
-                  currentUid: _currentUid,
-                  eventsLatestRevision: _eventsLatestRevision,
-                  eventsTargetTickNumber: _eventsTargetTickNumber,
-                  onBack: () => Navigator.of(context).maybePop(),
+                left: 9.5,
+                top: topPadding + 6,
+                child: _WorldMapBackButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ),
             Positioned(
@@ -1984,9 +1983,12 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               right: 0,
               bottom: collapsedPanelHeight - _worldMainTabsHeight,
               height: _worldMainTabsHeight,
-              child: _WorldMainBottomTabs(
-                controller: _mainTabController,
-                onTap: _selectWorldMainTab,
+              child: _WorldBottomTags(
+                onTap: (kind) => _openWorldBottomSheet(
+                  kind,
+                  locationPoints: listPoints,
+                  locationNodes: listLocationNodes,
+                ),
               ),
             ),
             Positioned.fill(
@@ -2013,22 +2015,16 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       panelCollapsedHeightOffset: 120,
       scrollPhysics: const NeverScrollableScrollPhysics(),
       persistentTopOverlay: _buildPersistentMapOverlay(topPadding),
-      map: WorldMapStage(
-        controller: _tabController,
-        pointsCount: 0,
-        top: topPadding + 8,
-        showTopOverlay: false,
-        mapBuilder: (context, pointMode) => WorldMap(
-          points: const <WorldPoint>[],
-          listPoints: const <WorldPoint>[],
-          locationNodes: const <WorldMapLocationNode>[],
-          fallbackOnEmptyMapUrl: false,
-          dimmed: pointMode,
-          showPointsList: pointMode,
-          pointsListOuterScrollHandoff: false,
-          overlayTop: topPadding + 8 + _worldMapContentTopOffset,
-          drillExitTop: topPadding + 8 + _worldMapContentTopOffset + 12,
-        ),
+      map: WorldMap(
+        points: const <WorldPoint>[],
+        listPoints: const <WorldPoint>[],
+        locationNodes: const <WorldMapLocationNode>[],
+        fallbackOnEmptyMapUrl: false,
+        dimmed: false,
+        showPointsList: false,
+        pointsListOuterScrollHandoff: false,
+        overlayTop: topPadding + 8 + _worldMapContentTopOffset,
+        drillExitTop: topPadding + 8 + _worldMapContentTopOffset + 12,
       ),
       slivers: const [_WorldDetailsLoadingContent()],
     );
@@ -2036,42 +2032,65 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   Widget _buildPersistentMapOverlay(
     double top, {
+    WorldDetail? world,
     String worldTime = '',
     int tickIndex = -1,
   }) {
+    final title = world == null
+        ? ''
+        : (world.name.trim().isEmpty ? world.worldId : world.name.trim());
     final worldTimeLabel = _worldTimeLabel(
       tickIndex: tickIndex,
       worldTime: worldTime,
     );
     return Positioned.fill(
-      child: Stack(
-        children: [
-          if (_worldMainTabIndex == 0)
-            Positioned(
-              left: 9.5,
-              top: top + 6,
-              child: _WorldMapBackButton(
-                onPressed: () => Navigator.of(context).maybePop(),
-              ),
-            ),
-          if (worldTimeLabel.isNotEmpty)
-            Positioned(
-              right: 12,
-              top: top + (kGenesisTopBarHeight - _worldTimePillHeight) / 2,
-              child: AnimatedBuilder(
-                animation: _tabController.animation ?? _tabController,
-                builder: (context, _) {
-                  if (_worldMainTabIndex != 0 || _mapModeTargetIndex != 0) {
-                    return const SizedBox.shrink();
-                  }
-                  return _WorldTimePill(
-                    text: worldTimeLabel,
-                    width: _worldSecondaryMapControlWidth,
-                  );
-                },
-              ),
-            ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final sideReservedWidth =
+              _worldMapBackButtonLeft +
+              _worldMapTabsHeight +
+              _worldMapIdentityHorizontalGap;
+          final maxIdentityWidth =
+              (constraints.maxWidth - sideReservedWidth * 2)
+                  .clamp(_worldTimePillMinWidth, constraints.maxWidth)
+                  .toDouble();
+          return Stack(
+            children: [
+              if (_worldMainTabIndex == 0)
+                Positioned(
+                  left: _worldMapBackButtonLeft,
+                  top: top + 6,
+                  child: _WorldMapBackButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                ),
+              if (world != null &&
+                  (title.isNotEmpty || worldTimeLabel.isNotEmpty))
+                Positioned(
+                  left: sideReservedWidth,
+                  right: sideReservedWidth,
+                  top: top + 2,
+                  child: AnimatedBuilder(
+                    animation:
+                        _mainTabController.animation ?? _mainTabController,
+                    builder: (context, _) {
+                      if (_worldMainTabIndex != 0) {
+                        return const SizedBox.shrink();
+                      }
+                      return Align(
+                        alignment: Alignment.topCenter,
+                        child: _WorldMapIdentityPill(
+                          title: title,
+                          timeText: worldTimeLabel,
+                          maxWidth: maxIdentityWidth,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -2101,107 +2120,79 @@ class _WorldMapBackButton extends StatelessWidget {
   }
 }
 
-class _WorldTopBackButton extends StatelessWidget {
-  const _WorldTopBackButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 37,
-      height: kGenesisTopBarHeight,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 20),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: IconButton(
-            constraints: const BoxConstraints.tightFor(width: 17, height: 17),
-            padding: EdgeInsets.zero,
-            icon: const Icon(
-              Icons.arrow_back_ios_new,
-              color: Colors.black,
-              size: 17,
-            ),
-            onPressed: onPressed,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WorldTopHeader extends StatelessWidget {
-  const _WorldTopHeader({required this.title, required this.onBack});
+class _WorldMapIdentityPill extends StatelessWidget {
+  const _WorldMapIdentityPill({
+    required this.title,
+    required this.timeText,
+    required this.maxWidth,
+  });
 
   final String title;
-  final VoidCallback onBack;
+  final String timeText;
+  final double maxWidth;
 
   @override
   Widget build(BuildContext context) {
-    final topPadding = GenesisSafeAreaInsets.top(context);
-    return Material(
-      color: Colors.white,
-      child: SizedBox(
-        height: topPadding + kGenesisTopBarHeight,
-        child: Padding(
-          padding: EdgeInsets.only(top: topPadding),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Center(child: PageTitleText(pageName: title)),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: _WorldTopBackButton(onPressed: onBack),
-              ),
-            ],
-          ),
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minWidth: _worldTimePillMinWidth,
+        maxWidth: maxWidth,
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFFFF).withValues(alpha: 0.86),
+          borderRadius: BorderRadius.circular(12),
         ),
-      ),
-    );
-  }
-}
-
-class _WorldTimePill extends StatelessWidget {
-  const _WorldTimePill({required this.text, this.width});
-
-  final String text;
-  final double? width;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      height: _worldTimePillHeight,
-      constraints: const BoxConstraints(minWidth: _worldTimePillMinWidth),
-      padding: const EdgeInsets.symmetric(
-        horizontal: _worldTimePillHorizontalPadding,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF).withValues(alpha: 0.86),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      alignment: Alignment.center,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          text,
-          maxLines: 1,
-          style: const TextStyle(
-            color: Color(0xFF111111),
-            fontSize: 12,
-            height: 1,
-            leadingDistribution: TextLeadingDistribution.even,
-            fontWeight: FontWeight.w400,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            _worldTimePillHorizontalPadding,
+            title.isEmpty ? 0 : 7,
+            _worldTimePillHorizontalPadding,
+            7,
           ),
-          strutStyle: const StrutStyle(
-            fontSize: 12,
-            height: 1,
-            forceStrutHeight: true,
-          ),
-          textHeightBehavior: const TextHeightBehavior(
-            applyHeightToFirstAscent: false,
-            applyHeightToLastDescent: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (title.isNotEmpty)
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF4B6192),
+                    fontSize: 16,
+                    height: 1.1,
+                    leadingDistribution: TextLeadingDistribution.even,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              if (title.isNotEmpty && timeText.isNotEmpty)
+                const SizedBox(height: 3),
+              if (timeText.isNotEmpty)
+                Text(
+                  timeText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFF111111),
+                    fontSize: 12,
+                    height: 1,
+                    leadingDistribution: TextLeadingDistribution.even,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  strutStyle: const StrutStyle(
+                    fontSize: 12,
+                    height: 1,
+                    forceStrutHeight: true,
+                  ),
+                  textHeightBehavior: const TextHeightBehavior(
+                    applyHeightToFirstAscent: false,
+                    applyHeightToLastDescent: false,
+                  ),
+                ),
+            ],
           ),
         ),
       ),
@@ -2221,137 +2212,141 @@ String _worldTimeLabel({required int tickIndex, required String worldTime}) {
   return parts.join(' · ');
 }
 
-class _WorldSectionFloatingTabItem {
-  const _WorldSectionFloatingTabItem({
+enum _WorldBottomSheetKind { detail, locations, events, status, cast }
+
+class _WorldBottomTagItem {
+  const _WorldBottomTagItem({
     required this.label,
-    required this.asset,
+    required this.kind,
+    this.asset,
+    this.icon,
   });
 
   final String label;
-  final String asset;
+  final _WorldBottomSheetKind kind;
+  final String? asset;
+  final IconData? icon;
 }
 
-const _worldSectionTabItems = <_WorldSectionFloatingTabItem>[
-  _WorldSectionFloatingTabItem(
+const _worldBottomTagItems = <_WorldBottomTagItem>[
+  _WorldBottomTagItem(
+    label: 'Detail',
+    kind: _WorldBottomSheetKind.detail,
+    asset: _worldDetailIconAsset,
+  ),
+  _WorldBottomTagItem(
+    label: 'Locations',
+    kind: _WorldBottomSheetKind.locations,
+    icon: Icons.place_outlined,
+  ),
+  _WorldBottomTagItem(
     label: 'Events',
+    kind: _WorldBottomSheetKind.events,
     asset: _worldSectionEventsIconAsset,
   ),
-  _WorldSectionFloatingTabItem(
+  _WorldBottomTagItem(
     label: 'Status',
+    kind: _WorldBottomSheetKind.status,
     asset: _worldSectionStatusIconAsset,
   ),
-  _WorldSectionFloatingTabItem(
+  _WorldBottomTagItem(
     label: 'Cast',
+    kind: _WorldBottomSheetKind.cast,
     asset: _worldSectionCastIconAsset,
   ),
 ];
 
-class _WorldMainBottomTabs extends StatelessWidget {
-  const _WorldMainBottomTabs({required this.controller, required this.onTap});
+class _WorldBottomTags extends StatelessWidget {
+  const _WorldBottomTags({required this.onTap});
 
-  static const int itemCount = 5;
-
-  final TabController controller;
-  final ValueChanged<int> onTap;
+  final ValueChanged<_WorldBottomSheetKind> onTap;
 
   @override
   Widget build(BuildContext context) {
-    final uiTheme = GenesisUiTheme.of(context);
-    return DecoratedBox(
-      decoration: const BoxDecoration(color: Color(0xFFF6F6F6)),
-      child: TabBar(
-        controller: controller,
-        isScrollable: false,
-        tabAlignment: TabAlignment.fill,
-        dividerColor: Colors.transparent,
-        padding: EdgeInsets.zero,
-        labelPadding: EdgeInsets.zero,
-        splashFactory: NoSplash.splashFactory,
-        overlayColor: WidgetStateProperty.all(Colors.transparent),
-        indicatorSize: TabBarIndicatorSize.tab,
-        indicator: GenesisFixedUnderlineIndicator(
-          color: uiTheme.tabIndicatorColor,
-          width: uiTheme.tabIndicatorWidth,
-          height: uiTheme.tabIndicatorHeight,
-          bottomPadding: genesisTabIndicatorBottomPadding,
-        ),
-        labelColor: const Color(0xFF111111),
-        unselectedLabelColor: const Color(0xFF111111),
-        labelStyle: uiTheme.bodyStrongStyle.copyWith(
+    return Container(
+      height: _worldMainTabsHeight,
+      color: const Color(0xFFFFFFFF),
+      alignment: Alignment.center,
+      child: DefaultTextStyle(
+        style: const TextStyle(
+          color: Color(0xFF111111),
           fontSize: 12,
+          height: 1,
           fontWeight: FontWeight.w600,
+          decoration: TextDecoration.none,
         ),
-        unselectedLabelStyle: uiTheme.bodyStrongStyle.copyWith(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-        onTap: onTap,
-        tabs: [
-          const Tab(
-            height: _worldMainTabsHeight,
-            child: _WorldMainBottomTabContent(
-              label: 'Map',
-              icon: Icons.map_outlined,
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final entry in _worldBottomTagItems.indexed) ...[
+                  _WorldBottomTagContent(
+                    item: entry.$2,
+                    onTap: () => onTap(entry.$2.kind),
+                  ),
+                  if (entry.$1 != _worldBottomTagItems.length - 1)
+                    const SizedBox(width: 8),
+                ],
+              ],
             ),
           ),
-          const Tab(
-            height: _worldMainTabsHeight,
-            child: _WorldMainBottomTabContent(
-              label: 'Locations',
-              icon: Icons.place_outlined,
-            ),
-          ),
-          for (final entry in _worldSectionTabItems.indexed)
-            Tab(
-              height: _worldMainTabsHeight,
-              child: _WorldMainBottomTabContent(
-                label: entry.$2.label,
-                asset: entry.$2.asset,
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _WorldMainBottomTabContent extends StatelessWidget {
-  const _WorldMainBottomTabContent({
-    required this.label,
-    this.icon,
-    this.asset,
-  });
+class _WorldBottomTagContent extends StatelessWidget {
+  const _WorldBottomTagContent({required this.item, required this.onTap});
 
-  final String label;
-  final IconData? icon;
-  final String? asset;
+  final _WorldBottomTagItem item;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final uiTheme = GenesisUiTheme.of(context);
-    final indicatorClearance =
-        uiTheme.tabIndicatorHeight + genesisTabIndicatorBottomPadding;
-    return Padding(
-      padding: EdgeInsets.only(bottom: indicatorClearance),
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Column(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: _worldBottomTagHeight,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFEBEFF2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (asset != null)
+            if (item.asset != null)
               SvgPicture.asset(
-                asset!,
-                width: 18,
-                height: 18,
+                item.asset!,
+                width: 17,
+                height: 17,
                 colorFilter: const ColorFilter.mode(
-                  Color(0xFF111111),
+                  Color(0xFF666666),
                   BlendMode.srcIn,
                 ),
               )
             else
-              Icon(icon, size: 18, color: const Color(0xFF111111)),
-            const SizedBox(height: 4),
-            Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+              Icon(item.icon, size: 17, color: const Color(0xFF666666)),
+            const SizedBox(width: 5),
+            Text(
+              item.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF111111),
+                fontSize: 12,
+                height: 1,
+                fontWeight: FontWeight.w600,
+                decoration: TextDecoration.none,
+              ),
+            ),
           ],
         ),
       ),
@@ -3297,35 +3292,63 @@ class _WorldSectionSheetPullGestureState
   }
 }
 
-class _WorldSectionsTopPage extends StatefulWidget {
-  const _WorldSectionsTopPage({
+class _WorldKeepAlivePage extends StatefulWidget {
+  const _WorldKeepAlivePage({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_WorldKeepAlivePage> createState() => _WorldKeepAlivePageState();
+}
+
+class _WorldKeepAlivePageState extends State<_WorldKeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}
+
+class _WorldSingleSectionBottomSheet extends StatefulWidget {
+  const _WorldSingleSectionBottomSheet({
+    required this.kind,
     required this.services,
     required this.initialWorld,
     required this.worldListenable,
     required this.eventsCache,
-    required this.controller,
     required this.currentUid,
     required this.eventsLatestRevision,
-    required this.onBack,
+    required this.locationPoints,
+    required this.locationNodes,
+    required this.onLocationTap,
     this.eventsTargetTickNumber,
   });
 
+  final _WorldBottomSheetKind kind;
   final AppServices services;
   final WorldDetail initialWorld;
   final ValueListenable<WorldDetail?> worldListenable;
   final _WorldSectionsEventsCache eventsCache;
-  final TabController controller;
   final String currentUid;
   final int eventsLatestRevision;
+  final List<WorldPoint> locationPoints;
+  final List<WorldMapLocationNode> locationNodes;
+  final ValueChanged<WorldPoint> onLocationTap;
   final int? eventsTargetTickNumber;
-  final VoidCallback onBack;
 
   @override
-  State<_WorldSectionsTopPage> createState() => _WorldSectionsTopPageState();
+  State<_WorldSingleSectionBottomSheet> createState() =>
+      _WorldSingleSectionBottomSheetState();
 }
 
-class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
+class _WorldSingleSectionBottomSheetState
+    extends State<_WorldSingleSectionBottomSheet> {
   static const int _eventsPageSize = 20;
+  static const double _sheetHeightFactor = 0.85;
 
   WorldDetail get _currentWorld =>
       widget.worldListenable.value ?? widget.initialWorld;
@@ -3335,28 +3358,27 @@ class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
   @override
   void initState() {
     super.initState();
-    widget.controller.addListener(_handleTabChanged);
     widget.worldListenable.addListener(_handleWorldDetailChanged);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
+    if (_isEventsSheet) {
+      _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
+    }
   }
 
   @override
-  void didUpdateWidget(covariant _WorldSectionsTopPage oldWidget) {
+  void didUpdateWidget(covariant _WorldSingleSectionBottomSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_handleTabChanged);
-      widget.controller.addListener(_handleTabChanged);
-    }
     if (oldWidget.worldListenable != widget.worldListenable) {
       oldWidget.worldListenable.removeListener(_handleWorldDetailChanged);
       widget.worldListenable.addListener(_handleWorldDetailChanged);
     }
-    if (oldWidget.eventsCache != widget.eventsCache) {
+    if (_isEventsSheet &&
+        (oldWidget.eventsCache != widget.eventsCache ||
+            oldWidget.kind != widget.kind)) {
       _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
     }
   }
@@ -3364,19 +3386,15 @@ class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
   @override
   void dispose() {
     widget.worldListenable.removeListener(_handleWorldDetailChanged);
-    widget.controller.removeListener(_handleTabChanged);
     super.dispose();
   }
 
-  void _handleTabChanged() {
-    if (mounted) setState(() {});
-    if (widget.controller.index == 0 && _eventsCache.ticks.isEmpty) {
-      unawaited(_loadEventsPage(1));
-    }
-  }
+  bool get _isEventsSheet => widget.kind == _WorldBottomSheetKind.events;
 
   void _handleWorldDetailChanged() {
-    _ensureEventsForCurrentWorld();
+    if (_isEventsSheet) {
+      _ensureEventsForCurrentWorld();
+    }
     if (mounted) setState(() {});
   }
 
@@ -3403,15 +3421,6 @@ class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
   bool get _eventsHasMore {
     return _eventsCache.total > 0 &&
         _eventsCache.ticks.length < _eventsCache.total;
-  }
-
-  EdgeInsets _sectionContentPadding(BuildContext context) {
-    return EdgeInsets.fromLTRB(
-      24,
-      GenesisSafeAreaInsets.top(context) + kGenesisTopBarHeight,
-      24,
-      0,
-    );
   }
 
   void _loadNextEventsPage() {
@@ -3471,10 +3480,10 @@ class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
   }
 
   Widget _buildEventsSectionPage() {
-    return Padding(
-      padding: _sectionContentPadding(context),
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
       child: _WorldEventsSection(
-        key: const PageStorageKey<String>('world-events-section-top-page'),
+        key: const PageStorageKey<String>('world-events-section-bottom-sheet'),
         world: _currentWorld,
         ticks: _eventsCache.ticks,
         initialLoading: _eventsCache.initialLoading,
@@ -3483,6 +3492,7 @@ class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
         error: _eventsCache.error,
         latestRevision: widget.eventsLatestRevision,
         targetTickNumber: widget.eventsTargetTickNumber,
+        contentPadding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
         onLoadMore: _loadNextEventsPage,
       ),
     );
@@ -3490,8 +3500,7 @@ class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
 
   Widget _buildStatusSectionPage() {
     return _WorldSectionListView(
-      storageKey: 'world-status-section-top-page',
-      padding: _sectionContentPadding(context),
+      storageKey: 'world-status-section-bottom-sheet',
       child: _WorldStatusSection(
         world: _currentWorld,
         currentUid: widget.currentUid,
@@ -3501,8 +3510,7 @@ class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
 
   Widget _buildCastSectionPage() {
     return _WorldSectionListView(
-      storageKey: 'world-cast-section-top-page',
-      padding: _sectionContentPadding(context),
+      storageKey: 'world-cast-section-bottom-sheet',
       child: _WorldCharactersSection(
         world: _currentWorld,
         currentUid: widget.currentUid,
@@ -3510,38 +3518,204 @@ class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
     );
   }
 
+  Widget _buildLocationsSectionPage() {
+    return WorldLocationList(
+      points: widget.locationPoints,
+      locationNodes: widget.locationNodes,
+      enableOuterScrollHandoff: false,
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+      onPointTap: (point) {
+        Navigator.of(context).pop();
+        widget.onLocationTap(point);
+      },
+    );
+  }
+
+  Widget _buildDetailSectionPage() {
+    return _WorldSectionListView(
+      storageKey: 'world-detail-section-bottom-sheet',
+      child: _WorldDetailSection(world: _currentWorld),
+    );
+  }
+
+  Widget _buildSheetContent() {
+    return switch (widget.kind) {
+      _WorldBottomSheetKind.detail => _buildDetailSectionPage(),
+      _WorldBottomSheetKind.locations => _buildLocationsSectionPage(),
+      _WorldBottomSheetKind.events => _buildEventsSectionPage(),
+      _WorldBottomSheetKind.status => _buildStatusSectionPage(),
+      _WorldBottomSheetKind.cast => _buildCastSectionPage(),
+    };
+  }
+
+  _WorldBottomTagItem get _headerItem {
+    return _worldBottomTagItems.firstWhere((item) => item.kind == widget.kind);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      child: Stack(
-        children: [
-          IndexedStack(
-            index: widget.controller.index,
-            children: [
-              _buildEventsSectionPage(),
-              _buildStatusSectionPage(),
-              _buildCastSectionPage(),
-            ],
-          ),
-          Positioned(
-            left: 0,
-            top: 0,
-            right: 0,
-            child: _WorldTopHeader(
-              title: _worldSectionHeaderTitle(widget.controller.index),
-              onBack: widget.onBack,
+    return FractionallySizedBox(
+      heightFactor: _sheetHeightFactor,
+      alignment: Alignment.bottomCenter,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          children: [
+            _WorldSingleSectionSheetHeader(
+              item: _headerItem,
+              onClose: () => Navigator.of(context).pop(),
             ),
-          ),
-        ],
+            Expanded(child: _buildSheetContent()),
+          ],
+        ),
       ),
     );
   }
 }
 
-String _worldSectionHeaderTitle(int index) {
-  final clampedIndex = index.clamp(0, _worldSectionTabItems.length - 1).toInt();
-  return _worldSectionTabItems[clampedIndex].label;
+class _WorldSingleSectionSheetHeader extends StatefulWidget {
+  const _WorldSingleSectionSheetHeader({
+    required this.item,
+    required this.onClose,
+  });
+
+  final _WorldBottomTagItem item;
+  final VoidCallback onClose;
+
+  @override
+  State<_WorldSingleSectionSheetHeader> createState() =>
+      _WorldSingleSectionSheetHeaderState();
+}
+
+class _WorldSingleSectionSheetHeaderState
+    extends State<_WorldSingleSectionSheetHeader> {
+  static const double _dismissDragDistance = 48;
+  static const double _dismissDragVelocity = 650;
+
+  var _dragDy = 0.0;
+
+  void _handleVerticalDragStart(DragStartDetails details) {
+    _dragDy = 0;
+  }
+
+  void _handleVerticalDragUpdate(DragUpdateDetails details) {
+    _dragDy += details.delta.dy;
+  }
+
+  void _handleVerticalDragEnd(DragEndDetails details) {
+    final downwardVelocity = details.primaryVelocity ?? 0;
+    if (_dragDy >= _dismissDragDistance ||
+        downwardVelocity >= _dismissDragVelocity) {
+      widget.onClose();
+    }
+    _dragDy = 0;
+  }
+
+  void _handleVerticalDragCancel() {
+    _dragDy = 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onVerticalDragStart: _handleVerticalDragStart,
+      onVerticalDragUpdate: _handleVerticalDragUpdate,
+      onVerticalDragEnd: _handleVerticalDragEnd,
+      onVerticalDragCancel: _handleVerticalDragCancel,
+      child: SizedBox(
+        height: 48,
+        child: Stack(
+          children: [
+            Positioned(
+              top: 5,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  width: 64,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD2D2D2),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 24,
+              right: 24,
+              top: 15,
+              child: SizedBox(
+                height: 28,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _WorldSheetHeaderIcon(item: widget.item),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        widget.item.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF111111),
+                          fontSize: 16,
+                          height: 1,
+                          fontWeight: FontWeight.w600,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: TextButton(
+                        onPressed: widget.onClose,
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(28, 28),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          backgroundColor: const Color(0xFFF3F3F5),
+                          foregroundColor: const Color(0xFF111111),
+                          shape: const CircleBorder(),
+                        ),
+                        child: const Icon(Icons.close_rounded, size: 17),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WorldSheetHeaderIcon extends StatelessWidget {
+  const _WorldSheetHeaderIcon({required this.item});
+
+  final _WorldBottomTagItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final asset = item.asset;
+    if (asset != null) {
+      return SvgPicture.asset(
+        asset,
+        width: 20,
+        height: 20,
+        colorFilter: const ColorFilter.mode(Color(0xFF111111), BlendMode.srcIn),
+      );
+    }
+    return Icon(item.icon, size: 20, color: const Color(0xFF111111));
+  }
 }
 
 class _WorldSectionsEventsCache {
@@ -3568,162 +3742,141 @@ class _WorldSectionsEventsCache {
   }
 }
 
-class _WorldSectionListView extends StatelessWidget {
-  const _WorldSectionListView({
-    required this.storageKey,
-    required this.child,
-    this.padding = const EdgeInsets.fromLTRB(24, 14, 24, 32),
-  });
+class _WorldDetailSection extends StatelessWidget {
+  const _WorldDetailSection({required this.world});
 
-  final String storageKey;
-  final Widget child;
-  final EdgeInsetsGeometry padding;
+  final WorldDetail world;
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      key: PageStorageKey<String>(storageKey),
-      primary: false,
-      padding: padding,
-      children: [child],
-    );
-  }
-}
-
-class _AutoSizedTabBarView extends StatefulWidget {
-  const _AutoSizedTabBarView({
-    required this.controller,
-    required this.children,
-  });
-
-  final TabController controller;
-  final List<Widget> children;
-
-  @override
-  State<_AutoSizedTabBarView> createState() => _AutoSizedTabBarViewState();
-}
-
-class _AutoSizedTabBarViewState extends State<_AutoSizedTabBarView> {
-  static const double _tabPageGap = 14;
-
-  final Map<int, double> _childHeights = <int, double>{};
-
-  @override
-  void initState() {
-    super.initState();
-    widget.controller.animation?.addListener(_handleTabAnimation);
-  }
-
-  @override
-  void didUpdateWidget(covariant _AutoSizedTabBarView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.animation?.removeListener(_handleTabAnimation);
-      widget.controller.animation?.addListener(_handleTabAnimation);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.controller.animation?.removeListener(_handleTabAnimation);
-    super.dispose();
-  }
-
-  void _handleTabAnimation() {
-    if (mounted) setState(() {});
-  }
-
-  void _updateChildHeight(int index, Size size) {
-    final height = size.height;
-    if ((_childHeights[index] ?? -1) == height) return;
-    setState(() => _childHeights[index] = height);
-  }
-
-  double? get _currentHeight {
-    final animationValue =
-        widget.controller.animation?.value ??
-        widget.controller.index.toDouble();
-    final lowerIndex = animationValue.floor().clamp(
-      0,
-      widget.children.length - 1,
-    );
-    final upperIndex = animationValue.ceil().clamp(
-      0,
-      widget.children.length - 1,
-    );
-    final lowerHeight = _childHeights[lowerIndex];
-    final upperHeight = _childHeights[upperIndex] ?? lowerHeight;
-    final selectedHeight = _childHeights[widget.controller.index];
-    if (lowerHeight == null || upperHeight == null) {
-      return selectedHeight ?? lowerHeight ?? upperHeight;
-    }
-    return lowerHeight + (upperHeight - lowerHeight) * animationValue.frac();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final currentHeight = _currentHeight;
-    final measuringChildren = [
-      for (int index = 0; index < widget.children.length; index++)
-        Offstage(
-          offstage: true,
-          child: _MeasureSize(
-            onChange: (size) => _updateChildHeight(index, size),
-            child: widget.children[index],
-          ),
-        ),
-    ];
-
-    if (currentHeight == null) {
-      return Column(
-        children: [
-          ...measuringChildren,
-          widget.children[widget.controller.index],
-        ],
-      );
-    }
+    final title = world.name.trim().isEmpty ? world.worldId : world.name.trim();
+    final owner = _worldOwnerDisplayName(world);
+    final ownerUid = world.ownerUid.trim();
+    final version = world.origin.versionNum <= 0 ? 1 : world.origin.versionNum;
+    final sourceWorldoOid = world.origin.oid.trim();
+    final sourceWorldoRouteId = sourceWorldoOid.isNotEmpty
+        ? sourceWorldoOid
+        : world.originId > 0
+        ? '${world.originId}'
+        : '';
+    final sourceOid = sourceWorldoOid.isEmpty
+        ? '${world.originId}'
+        : sourceWorldoOid;
+    final canOpenSourceWorldo = sourceWorldoRouteId.isNotEmpty;
+    final brief = world.brief.trim().isEmpty ? '-' : world.brief.trim();
+    final cover = _resolveAssetUrl(world.cover).trim();
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ...measuringChildren,
-        ClipRect(
-          child: SizedBox(
-            height: currentHeight,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final expandedWidth = constraints.maxWidth + _tabPageGap * 2;
-                return OverflowBox(
-                  minWidth: expandedWidth,
-                  maxWidth: expandedWidth,
-                  alignment: Alignment.center,
-                  child: TabBarView(
-                    controller: widget.controller,
-                    children: [
-                      for (
-                        int index = 0;
-                        index < widget.children.length;
-                        index++
-                      )
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: _tabPageGap,
-                          ),
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            child: _UnboundedHeightTabPage(
-                              child: KeyedSubtree(
-                                key: PageStorageKey<String>(
-                                  'world-section-$index',
-                                ),
-                                child: widget.children[index],
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
+        Row(
+          children: [
+            const SizedBox(width: 38),
+            Expanded(
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 18,
+                  height: 1.25,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF4B6192),
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 38,
+              child: GenesisMoreActionMenuButton(
+                buttonSize: 18 * 1.25,
+                items: [
+                  genesisReportMenuItem(
+                    context: context,
+                    targetType: 'world',
+                    targetId: world.worldId,
                   ),
-                );
-              },
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        GenesisPairedMetaRow(
+          leftLabel: 'WID',
+          leftValue: world.worldId,
+          leftDisplayValue: world.deleted ? deletedEntityDisplayText : null,
+          leftCopyEnabled: !world.deleted,
+          leftStyle: _worldHeaderMetaTextStyle,
+          leftIconColor: _worldHeaderMetaColor,
+          rightText: 'Owner: $owner',
+          rightOnTap: ownerUid.isEmpty || world.ownerDeleted
+              ? null
+              : () => Navigator.of(
+                  context,
+                ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
+          rightStyle: _worldHeaderMetaTextStyle,
+          rightIconColor: _worldHeaderMetaColor,
+        ),
+        const SizedBox(height: 0),
+        GenesisInlineMetaLabel(
+          text: 'Source Worldo: $sourceOid · V$version',
+          onTap: !canOpenSourceWorldo
+              ? null
+              : () => Navigator.of(context).pushNamed(
+                  RouteNames.originWorld,
+                  arguments: {
+                    'oid': sourceWorldoRouteId,
+                    'originId': world.originId,
+                  },
+                ),
+          style: CopyableIdLabel.textStyle,
+          trailingIcon: canOpenSourceWorldo ? Icons.chevron_right : null,
+          trailingIconColor: _worldHeaderMetaColor,
+          trailingIconSize: 16,
+        ),
+        const SizedBox(height: 24),
+        const _WorldDetailSectionTitle(
+          icon: MyFlutterApp.eye,
+          iconColor: Color(0xFFFF2442),
+          title: 'World Brief',
+        ),
+        const SizedBox(height: 8),
+        Text(brief, style: _worldDetailBodyTextStyle),
+        const SizedBox(height: 8),
+        _WorldDetailCoverImage(url: cover),
+      ],
+    );
+  }
+}
+
+class _WorldDetailSectionTitle extends StatelessWidget {
+  const _WorldDetailSectionTitle({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: iconColor),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.2,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF111111),
             ),
           ),
         ),
@@ -3732,53 +3885,104 @@ class _AutoSizedTabBarViewState extends State<_AutoSizedTabBarView> {
   }
 }
 
-class _UnboundedHeightTabPage extends StatelessWidget {
-  const _UnboundedHeightTabPage({required this.child});
+class _WorldDetailCoverImage extends StatelessWidget {
+  const _WorldDetailCoverImage({required this.url});
 
-  final Widget child;
+  static const double _maxHeight = 360;
+  static const double _aspectRatio = 2 / 3;
+
+  final String url;
 
   @override
   Widget build(BuildContext context) {
-    return OverflowBox(
-      minHeight: 0,
-      maxHeight: double.infinity,
-      alignment: Alignment.topCenter,
-      child: child,
+    final viewerUrl = url.trim();
+    final fallback = Container(
+      color: const Color(0xFFEFF1F4),
+      alignment: Alignment.center,
+      child: const Icon(Icons.image_outlined, color: Color(0xFF9A9A9A)),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mediaHeight = MediaQuery.sizeOf(context).height;
+        final maxHeight = mediaHeight.isFinite
+            ? _maxHeight.clamp(0.0, mediaHeight * 0.35).toDouble()
+            : _maxHeight;
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : maxHeight * _aspectRatio;
+        final width = maxWidth.clamp(0.0, maxHeight * _aspectRatio).toDouble();
+        final height = width / _aspectRatio;
+
+        final preview = Align(
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: ClipRRect(
+              borderRadius: GenesisImageRadii.content,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final imageUrl = selectGenesisImageUrl(
+                    url,
+                    logicalWidth: constraints.maxWidth.isFinite
+                        ? constraints.maxWidth
+                        : null,
+                    logicalHeight: constraints.maxHeight.isFinite
+                        ? constraints.maxHeight
+                        : null,
+                    devicePixelRatio:
+                        MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+                  );
+                  return imageUrl.isEmpty
+                      ? fallback
+                      : imageUrl.startsWith('assets/')
+                      ? Image.asset(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              fallback,
+                        )
+                      : Image.network(
+                          imageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              fallback,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return fallback;
+                          },
+                        );
+                },
+              ),
+            ),
+          ),
+        );
+        if (viewerUrl.isEmpty) return preview;
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => showGenesisImageViewer(context, imageUrls: [viewerUrl]),
+          child: preview,
+        );
+      },
     );
   }
 }
 
-class _MeasureSize extends StatefulWidget {
-  const _MeasureSize({required this.child, required this.onChange});
+class _WorldSectionListView extends StatelessWidget {
+  const _WorldSectionListView({required this.storageKey, required this.child});
 
+  final String storageKey;
   final Widget child;
-  final ValueChanged<Size> onChange;
-
-  @override
-  State<_MeasureSize> createState() => _MeasureSizeState();
-}
-
-class _MeasureSizeState extends State<_MeasureSize> {
-  Size? _oldSize;
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final renderObject = context.findRenderObject();
-      if (renderObject is! RenderBox || !renderObject.hasSize) return;
-      final size = renderObject.size;
-      if (_oldSize == size) return;
-      _oldSize = size;
-      widget.onChange(size);
-    });
-    return widget.child;
-  }
-}
-
-extension on double {
-  double frac() {
-    return this - floorToDouble();
+    return ListView(
+      key: PageStorageKey<String>(storageKey),
+      primary: false,
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+      children: [child],
+    );
   }
 }
 
@@ -3795,14 +3999,6 @@ class _WorldInfoHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = world.name.trim().isEmpty ? world.worldId : world.name.trim();
-    final wid = world.worldId;
-    final owner = world.ownerDeleted
-        ? deletedEntityDisplayText
-        : world.origin.originator.trim().isNotEmpty
-        ? world.origin.originator.trim()
-        : formatUidForDisplay(world.ownerUid);
-    final ownerUid = world.ownerUid.trim();
     final action = _worldHeaderActionFor(world.relationStatus);
     final actionEnabled =
         !world.deleted && !worldActionRunning && action.isClickable;
@@ -3816,110 +4012,71 @@ class _WorldInfoHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const SizedBox(width: 38),
-            Expanded(
-              child: Text(
-                title,
-                textAlign: TextAlign.center,
-                style: _worldTitleTextStyle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            SizedBox(
-              width: 38,
-              child: GenesisMoreActionMenuButton(
-                buttonSize: 18 * 1.25,
-                items: [
-                  genesisReportMenuItem(
-                    context: context,
-                    targetType: 'world',
-                    targetId: wid,
+        SizedBox(
+          height: _worldInfoHeaderHeight,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              height: _worldInfoHeaderContentHeight,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      spacing: 16,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        for (final data in counters)
+                          StatItem(
+                            icon: _counterIcon(data['icon'] as String? ?? ''),
+                            iconAsset: _counterIconAsset(
+                              data['icon'] as String? ?? '',
+                            ),
+                            preserveIconAssetColor:
+                                _counterIconAssetPreservesColor(
+                                  data['icon'] as String? ?? '',
+                                ),
+                            iconSize: 14,
+                            iconColor: Colors.black,
+                            text: formatStatCount(
+                              data['value'] is num ? data['value'] as num : 0,
+                            ),
+                            gap: 4,
+                            textStyle: const TextStyle(
+                              fontSize: 14,
+                              height: 1,
+                              fontWeight: FontWeight.w400,
+                              color: Colors.black,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 18),
+                  GenesisPrimaryButton(
+                    label: action.label,
+                    onPressed: actionEnabled
+                        ? () => onWorldAction(action.kind)
+                        : null,
+                    height: 35,
+                    width: 140,
+                    backgroundColor: const Color(0xFF2F9663),
+                    disabledBackgroundColor: const Color(
+                      0xFF2F9663,
+                    ).withValues(alpha: 0.62),
+                    foregroundColor: Colors.white,
+                    fontSize: 16,
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    isLoading: worldActionRunning,
+                    loadingSize: 18,
+                    loadingStrokeWidth: 2,
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        GenesisPairedMetaRow(
-          leftLabel: 'WID',
-          leftValue: wid,
-          leftDisplayValue: world.deleted ? deletedEntityDisplayText : null,
-          leftCopyEnabled: !world.deleted,
-          leftStyle: _worldHeaderMetaTextStyle,
-          leftIconColor: _worldHeaderMetaColor,
-          rightText:
-              'Owner: ${owner == deletedEntityDisplayText ? owner : formatUidForDisplay(owner)}',
-          rightOnTap: ownerUid.isEmpty || world.ownerDeleted
-              ? null
-              : () => Navigator.of(
-                  context,
-                ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
-          rightStyle: _worldHeaderMetaTextStyle,
-          rightIconColor: _worldHeaderMetaColor,
-        ),
-        const SizedBox(height: 0),
-        SizedBox(
-          height: 56,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Wrap(
-                  spacing: 16,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    for (final data in counters)
-                      StatItem(
-                        icon: _counterIcon(data['icon'] as String? ?? ''),
-                        iconAsset: _counterIconAsset(
-                          data['icon'] as String? ?? '',
-                        ),
-                        preserveIconAssetColor: _counterIconAssetPreservesColor(
-                          data['icon'] as String? ?? '',
-                        ),
-                        iconSize: 14,
-                        iconColor: Colors.black,
-                        text: formatStatCount(
-                          data['value'] is num ? data['value'] as num : 0,
-                        ),
-                        gap: 4,
-                        textStyle: const TextStyle(
-                          fontSize: 14,
-                          height: 1,
-                          fontWeight: FontWeight.w400,
-                          color: Colors.black,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 18),
-              GenesisPrimaryButton(
-                label: action.label,
-                onPressed: actionEnabled
-                    ? () => onWorldAction(action.kind)
-                    : null,
-                height: 35,
-                width: 140,
-                backgroundColor: const Color(0xFF2F9663),
-                disabledBackgroundColor: const Color(
-                  0xFF2F9663,
-                ).withValues(alpha: 0.62),
-                foregroundColor: Colors.white,
-                fontSize: 16,
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                isLoading: worldActionRunning,
-                loadingSize: 18,
-                loadingStrokeWidth: 2,
-              ),
-            ],
           ),
         ),
       ],
@@ -4002,37 +4159,23 @@ String _worldHeaderActionLabel(_WorldHeaderActionKind action) {
 }
 
 const Color _worldHeaderMetaColor = Color(0xFF666666);
-const TextStyle _worldTitleTextStyle = TextStyle(
-  fontSize: 18,
-  height: 1.25,
-  fontWeight: FontWeight.w600,
-  color: Color(0xFF4B6192),
-);
-const double _worldMetaRowHeight = 16 + 3 * 2;
-double _worldCollapsedPanelHeightFor(BuildContext context, String title) {
-  final availableTitleWidth =
-      MediaQuery.sizeOf(context).width -
-      WorldDetailsPageScaffold.contentHorizontalPadding * 2 -
-      38 * 2;
-  final textPainter =
-      TextPainter(
-        text: TextSpan(text: title, style: _worldTitleTextStyle),
-        maxLines: 2,
-        textDirection: TextDirection.ltr,
-        textScaler: MediaQuery.textScalerOf(context),
-      )..layout(
-        maxWidth: availableTitleWidth.clamp(0.0, double.infinity).toDouble(),
-      );
+double _worldCollapsedPanelHeightFor(BuildContext context) {
   final bottomSafeArea = _worldBottomSafeAreaOf(context);
   final collapsedPanelHeight =
       WorldDetailsPageScaffold.inlineContentTopPadding +
-      _worldMainTabsHeight +
-      textPainter.height +
-      4 +
-      _worldMetaRowHeight +
-      56 +
+      _worldStatsTopSpacerHeight +
+      _worldInfoHeaderHeight +
       bottomSafeArea;
   return collapsedPanelHeight;
+}
+
+String _worldOwnerDisplayName(WorldDetail world) {
+  if (world.ownerDeleted) return deletedEntityDisplayText;
+  final ownerName = world.ownerName.trim();
+  if (ownerName.isNotEmpty) return ownerName;
+  final originator = world.origin.originator.trim();
+  if (originator.isNotEmpty) return originator;
+  return formatUidForDisplay(world.ownerUid);
 }
 
 double _worldBottomSafeAreaOf(BuildContext context) {
@@ -4047,6 +4190,12 @@ const TextStyle _worldHeaderMetaTextStyle = TextStyle(
   height: 1.1,
   fontWeight: FontWeight.w400,
   color: _worldHeaderMetaColor,
+);
+const TextStyle _worldDetailBodyTextStyle = TextStyle(
+  fontSize: 13,
+  height: 1.45,
+  fontWeight: FontWeight.w400,
+  color: Color(0xFF111111),
 );
 
 IconData? _counterIcon(String key) {
@@ -4138,6 +4287,7 @@ class _WorldEventsSection extends StatefulWidget {
     required this.error,
     required this.latestRevision,
     required this.targetTickNumber,
+    required this.contentPadding,
     required this.onLoadMore,
   });
 
@@ -4149,6 +4299,7 @@ class _WorldEventsSection extends StatefulWidget {
   final Object? error;
   final int latestRevision;
   final int? targetTickNumber;
+  final EdgeInsetsGeometry contentPadding;
   final VoidCallback onLoadMore;
 
   @override
@@ -4349,11 +4500,17 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
     if (widget.ticks.isEmpty &&
         widget.initialLoading &&
         !hasRequestedTickPage) {
-      return const _WorldEventLoadingSkeleton();
+      return Padding(
+        padding: widget.contentPadding,
+        child: const _WorldEventLoadingSkeleton(),
+      );
     }
     if (widget.ticks.isEmpty && !hasRequestedTickPage) {
-      return _EmptySection(
-        text: widget.error == null ? 'No events yet.' : 'Load events failed.',
+      return Padding(
+        padding: widget.contentPadding,
+        child: _EmptySection(
+          text: widget.error == null ? 'No events yet.' : 'Load events failed.',
+        ),
       );
     }
 
@@ -4383,6 +4540,7 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
                     _tickCardResetRevisions['pending_tick:$tickNumber'] ?? 0,
                 hasTopEdgePage: index > 0,
                 hasBottomEdgePage: index < _pageCount - 1,
+                padding: widget.contentPadding,
                 onTurnPage: _turnPage,
                 child: _WorldTickPendingEventPage(tickNumber: tickNumber),
               );
@@ -4400,6 +4558,7 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
               resetRevision: _tickCardResetRevisions[identity] ?? 0,
               hasTopEdgePage: index > 0,
               hasBottomEdgePage: index < _pageCount - 1,
+              padding: widget.contentPadding,
               onTurnPage: _turnPage,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -4578,6 +4737,7 @@ class _WorldTickEventCardPage extends StatefulWidget {
     required this.resetRevision,
     required this.hasTopEdgePage,
     required this.hasBottomEdgePage,
+    required this.padding,
     required this.onTurnPage,
   });
 
@@ -4585,6 +4745,7 @@ class _WorldTickEventCardPage extends StatefulWidget {
   final int resetRevision;
   final bool hasTopEdgePage;
   final bool hasBottomEdgePage;
+  final EdgeInsetsGeometry padding;
   final ValueChanged<int> onTurnPage;
 
   @override
@@ -4733,6 +4894,7 @@ class _WorldTickEventCardPageState extends State<_WorldTickEventCardPage> {
           Positioned.fill(
             child: SingleChildScrollView(
               controller: _scrollController,
+              padding: widget.padding,
               physics: _WorldTickCardScrollPhysics(
                 allowLeadingOverscroll: widget.hasTopEdgePage,
                 allowTrailingOverscroll: widget.hasBottomEdgePage,

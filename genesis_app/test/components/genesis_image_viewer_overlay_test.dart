@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 
-const _firstImage = 'assets/images/map_default/map_background.png';
+const _firstImage = 'assets/images/map_default/map_background.webp';
 const _secondImage = 'assets/images/map_default/l1_default.webp';
 const _thirdImage = 'assets/images/map_default/l2_default.webp';
 

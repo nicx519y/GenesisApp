@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -13,6 +16,7 @@ class WorldLocationList extends StatefulWidget {
     this.locationNodes = const <WorldMapLocationNode>[],
     this.physics,
     this.enableOuterScrollHandoff = true,
+    this.padding = const EdgeInsets.fromLTRB(12, 8, 12, 12),
     this.onPointTap,
   });
 
@@ -20,6 +24,7 @@ class WorldLocationList extends StatefulWidget {
   final List<WorldMapLocationNode> locationNodes;
   final ScrollPhysics? physics;
   final bool enableOuterScrollHandoff;
+  final EdgeInsetsGeometry padding;
   final ValueChanged<WorldPoint>? onPointTap;
 
   @override
@@ -32,6 +37,11 @@ class _WorldLocationListState extends State<WorldLocationList> {
   bool _outerPageAtTop = true;
   bool _pointerActive = false;
   bool _needsPhysicsRebuild = false;
+  bool _draggedOuterDuringPointer = false;
+  VelocityTracker? _velocityTracker;
+
+  static const double _ballisticHandoffMinVelocity = 80;
+  static const double _ballisticHandoffDistanceFactor = 0.18;
 
   @override
   void didChangeDependencies() {
@@ -66,37 +76,44 @@ class _WorldLocationListState extends State<WorldLocationList> {
   Widget build(BuildContext context) {
     final outerController = _outerController;
     return Listener(
-      onPointerDown: (_) => _pointerActive = true,
+      onPointerDown: (event) {
+        _pointerActive = true;
+        _draggedOuterDuringPointer = false;
+        _velocityTracker = VelocityTracker.withKind(event.kind)
+          ..addPosition(event.timeStamp, event.localPosition);
+      },
       onPointerUp: (_) {
+        _applyOuterPointerFling();
         _finishPointer();
       },
       onPointerCancel: (_) {
         _finishPointer();
       },
       onPointerMove: (event) {
-        if (outerController == null || !outerController.hasClients) {
+        _velocityTracker?.addPosition(event.timeStamp, event.localPosition);
+        if (outerController == null ||
+            !outerController.hasClients ||
+            !widget.enableOuterScrollHandoff) {
           return;
         }
 
         final dragDelta = event.delta.dy;
         if (!_outerPageAtTop) {
-          _applyOuterDrag(outerController, dragDelta);
+          if (_applyOuterDrag(outerController, dragDelta)) {
+            _draggedOuterDuringPointer = true;
+          }
           return;
         }
 
         if (!_listController.hasClients) return;
         final position = _listController.position;
-        const handoffEdgeExtent = 72.0;
         final atBottom = position.extentAfter <= 0.5;
         final atTop = position.extentBefore <= 0.5;
-        if (dragDelta < 0 &&
-            position.extentAfter < handoffEdgeExtent &&
-            position.extentBefore > 0) {
-          final progress =
-              1 - (position.extentAfter / handoffEdgeExtent).clamp(0.0, 1.0);
-          _applyOuterDrag(outerController, dragDelta * progress);
-        } else if ((dragDelta < 0 && atBottom) || (dragDelta > 0 && atTop)) {
-          _applyOuterDrag(outerController, dragDelta);
+        final draggingPastBottom = dragDelta < 0 && atBottom;
+        final draggingPastTop = dragDelta > 0 && atTop;
+        if (!draggingPastBottom && !draggingPastTop) return;
+        if (_applyOuterDrag(outerController, dragDelta)) {
+          _draggedOuterDuringPointer = true;
         }
       },
       child: NotificationListener<OverscrollNotification>(
@@ -113,16 +130,22 @@ class _WorldLocationListState extends State<WorldLocationList> {
           if (dragDelta != null) {
             return _applyOuterDrag(outerController, dragDelta);
           }
-          return _applyOuterDrag(outerController, -notification.overscroll);
+          return _applyOuterOverscroll(
+            outerController,
+            overscroll: notification.overscroll,
+            velocity: notification.velocity,
+          );
         },
         child: ListView(
           controller: _listController,
           physics:
               widget.physics ??
               (_outerPageAtTop
-                  ? const ClampingScrollPhysics()
+                  ? const AlwaysScrollableScrollPhysics(
+                      parent: ClampingScrollPhysics(),
+                    )
                   : const NeverScrollableScrollPhysics()),
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          padding: widget.padding,
           children: widget.locationNodes.isNotEmpty
               ? _buildNodeRows(widget.locationNodes)
               : _buildFlatPointRows(widget.points),
@@ -151,7 +174,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
     final rows = <Widget>[];
     for (final node in nodes) {
       final hideSyntheticRootHeader =
-          node.isRoot && node.point.name.trim().isEmpty;
+          node.point.name.trim().isEmpty && node.children.isNotEmpty;
       if (hideSyntheticRootHeader) {
         rows.addAll(_buildNodeRowsAtLevel(node.children, level));
         continue;
@@ -201,11 +224,30 @@ class _WorldLocationListState extends State<WorldLocationList> {
 
   void _finishPointer() {
     _pointerActive = false;
+    _draggedOuterDuringPointer = false;
+    _velocityTracker = null;
     _syncOuterPageAtTopState(rebuild: true);
     if (_needsPhysicsRebuild && mounted) {
       _needsPhysicsRebuild = false;
       setState(() {});
     }
+  }
+
+  void _applyOuterPointerFling() {
+    final outerController = _outerController;
+    final velocityTracker = _velocityTracker;
+    if (!_draggedOuterDuringPointer ||
+        outerController == null ||
+        !outerController.hasClients ||
+        velocityTracker == null) {
+      return;
+    }
+    final velocity = velocityTracker.getVelocity().pixelsPerSecond.dy;
+    if (velocity.abs() < _ballisticHandoffMinVelocity) return;
+    _animateOuterScrollDelta(
+      outerController,
+      -velocity * _ballisticHandoffDistanceFactor,
+    );
   }
 
   bool get _isOuterPageAtTop {
@@ -223,6 +265,57 @@ class _WorldLocationListState extends State<WorldLocationList> {
         .toDouble();
     if ((target - before).abs() <= 0.5) return false;
     outerController.jumpTo(target);
+    return true;
+  }
+
+  bool _applyOuterOverscroll(
+    ScrollController outerController, {
+    required double overscroll,
+    required double velocity,
+  }) {
+    var handled = false;
+    if (overscroll.abs() > 0.5) {
+      handled = _applyOuterScrollDelta(outerController, overscroll);
+    }
+    if (velocity.abs() < _ballisticHandoffMinVelocity) return handled;
+    final direction = overscroll.abs() > 0.5 ? overscroll.sign : velocity.sign;
+    final distance =
+        (velocity.abs() * _ballisticHandoffDistanceFactor).clamp(24.0, 420.0) *
+        direction;
+    return _animateOuterScrollDelta(outerController, distance) || handled;
+  }
+
+  bool _applyOuterScrollDelta(
+    ScrollController outerController,
+    double scrollDelta,
+  ) {
+    if (scrollDelta.abs() <= 0.5) return false;
+    final before = outerController.offset;
+    final target = (before + scrollDelta)
+        .clamp(0.0, outerController.position.maxScrollExtent)
+        .toDouble();
+    if ((target - before).abs() <= 0.5) return false;
+    outerController.jumpTo(target);
+    return true;
+  }
+
+  bool _animateOuterScrollDelta(
+    ScrollController outerController,
+    double scrollDelta,
+  ) {
+    if (scrollDelta.abs() <= 0.5) return false;
+    final before = outerController.offset;
+    final target = (before + scrollDelta)
+        .clamp(0.0, outerController.position.maxScrollExtent)
+        .toDouble();
+    if ((target - before).abs() <= 0.5) return false;
+    unawaited(
+      outerController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.decelerate,
+      ),
+    );
     return true;
   }
 }

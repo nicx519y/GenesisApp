@@ -1750,8 +1750,8 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         },
         'started_at': 'Day 1',
         'tick_duration_time': '30 days',
-        'cover': 'assets/images/map_default/map_background.png',
-        'map_url': 'assets/images/map_default/map_background.png',
+        'cover': 'assets/images/map_default/map_background.webp',
+        'map_url': 'assets/images/map_default/map_background.webp',
         'characters': [
           {
             'char_id': 'char_edit_1',
@@ -3974,7 +3974,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport(
-      originMapUrl: 'assets/images/map_default/map_background.png',
+      originMapUrl: kMockV1SteamMapImage,
       originLocations: const [
         {
           'location_id': 'l_o_test_1',
@@ -3985,7 +3985,7 @@ void main() {
           'image': '',
           'x_percent': 30,
           'y_percent': 40,
-          'map_url': 'assets/images/map_default/map_background.png',
+          'map_url': kMockV1LocationCentralHubMap,
           'dialogue': <Object?>[],
         },
         {
@@ -3997,7 +3997,7 @@ void main() {
           'image': '',
           'x_percent': 55,
           'y_percent': 45,
-          'map_url': 'assets/images/map_default/map_background.png',
+          'map_url': kMockV1LocationRailGateMap,
           'dialogue': <Object?>[],
         },
       ],
@@ -4017,18 +4017,14 @@ void main() {
     expect(
       find.descendant(
         of: mapStage,
-        matching: _assetImageFinder(
-          'assets/images/map_default/map_background.png',
-        ),
+        matching: _assetImageFinder(kMockV1LocationCentralHubMap),
       ),
       findsOneWidget,
     );
     expect(
       find.descendant(
         of: mapStage,
-        matching: _assetImageFinder(
-          'assets/images/map_default/map_background.png',
-        ),
+        matching: _assetImageFinder(kMockV1SteamMapImage),
       ),
       findsNothing,
     );
@@ -4038,7 +4034,7 @@ void main() {
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport(
-      originMapUrl: 'assets/images/map_default/map_background.png',
+      originMapUrl: kMockV1SteamMapImage,
     );
     await tester.pumpWidget(
       AppServicesScope(
@@ -4051,9 +4047,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final worldviewImage = _assetImageFinder(
-      'assets/images/map_default/map_background.png',
-    );
+    final worldviewImage = _assetImageFinder(kMockV1SteamMapImage);
     await _dragOriginPanelUntilVisible(tester, worldviewImage);
     await tester.tap(worldviewImage);
     await tester.pumpAndSettle();
@@ -5124,14 +5118,14 @@ void main() {
   ) async {
     final transport = _RecordingV1ListTransport(
       worldRelationStatus: 'none',
-      worldMapUrl: 'assets/images/map_default/map_background.png',
+      worldMapUrl: kMockV1SteamMapImage,
       worldLocations: const [
         {
           'location_id': 'l_w_test_1',
           'location_name': 'World Root',
           'location_summary': 'The root location.',
           'image': '',
-          'map_url': 'assets/images/map_default/map_background.png',
+          'map_url': kMockV1LocationCentralHubMap,
           'x_percent': 35,
           'y_percent': 45,
         },
@@ -5141,7 +5135,7 @@ void main() {
           'location_name': 'Child Location',
           'location_summary': 'A child world location.',
           'image': '',
-          'map_url': 'assets/images/map_default/map_background.png',
+          'map_url': kMockV1LocationRailGateMap,
           'x_percent': 55,
           'y_percent': 45,
         },
@@ -5161,14 +5155,8 @@ void main() {
     await tester.tap(find.text('World 1'));
     await tester.pumpAndSettle();
 
-    expect(
-      _assetImageFinder('assets/images/map_default/map_background.png'),
-      findsOneWidget,
-    );
-    expect(
-      _assetImageFinder('assets/images/map_default/map_background.png'),
-      findsNothing,
-    );
+    expect(_assetImageFinder(kMockV1LocationCentralHubMap), findsOneWidget);
+    expect(_assetImageFinder(kMockV1SteamMapImage), findsNothing);
   });
 
   testWidgets('World Request button confirms before v1 apply', (
@@ -7675,7 +7663,7 @@ void main() {
     expect(metric.containsKey('starting_value'), isFalse);
     expect(metric.containsKey('start_time'), isFalse);
     expect(metric.containsKey('time_per_progress'), isFalse);
-    expect(body['cover'], 'assets/images/map_default/map_background.png');
+    expect(body['cover'], 'assets/images/map_default/map_background.webp');
     final editedCharacters = body['characters'] as List;
     expect(editedCharacters.single['char_id'], 'char_edit_1');
     expect(editedCharacters.single['initial_location_id'], 'location_edit_1');

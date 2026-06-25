@@ -32,7 +32,7 @@ class SignedOutMeView extends StatelessWidget {
                         children: [
                           SizedBox(height: constraints.maxHeight * 0.15),
                           SvgPicture.asset(
-                            'assets/custom-icons/svg/worldo-logo.svg',
+                            'assets/svg/worldo-logo.svg',
                             key: const Key('signed_out_worldo_logo'),
                             width: 200,
                             fit: BoxFit.contain,

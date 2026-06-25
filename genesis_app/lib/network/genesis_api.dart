@@ -1821,7 +1821,10 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
     worldId: wid,
     originId: originId,
     ownerUid: asString(world['owner_uid']),
+    ownerName: asString(world['owner_name']),
     name: asString(world['world_name']),
+    brief: asString(world['brief'], fallback: asString(world['setting'])),
+    cover: cover,
     deleted: entityDeleted(
       raw['world_deleted'],
       fallback: entityDeleted(
