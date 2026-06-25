@@ -16,6 +16,7 @@ class WorldTickEventItem extends StatelessWidget {
     this.contentTextStyle,
     this.contentLabelStyle,
     this.contentTimestampStyle,
+    this.metricUnit = '',
   });
 
   final Map<String, dynamic> tick;
@@ -29,6 +30,7 @@ class WorldTickEventItem extends StatelessWidget {
   final TextStyle? contentTextStyle;
   final TextStyle? contentLabelStyle;
   final TextStyle? contentTimestampStyle;
+  final String metricUnit;
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +65,7 @@ class WorldTickEventItem extends StatelessWidget {
               labelStyle: contentLabelStyle,
               bodyStyle: contentTextStyle,
               timestampStyle: contentTimestampStyle,
+              metricUnit: metricUnit,
             ),
             const SizedBox(height: 6),
           ],
@@ -178,6 +181,7 @@ class _TickParagraphRow extends StatelessWidget {
     this.labelStyle,
     this.bodyStyle,
     this.timestampStyle,
+    this.metricUnit = '',
   });
 
   final Map<String, dynamic> paragraph;
@@ -186,6 +190,7 @@ class _TickParagraphRow extends StatelessWidget {
   final TextStyle? labelStyle;
   final TextStyle? bodyStyle;
   final TextStyle? timestampStyle;
+  final String metricUnit;
 
   @override
   Widget build(BuildContext context) {
@@ -202,7 +207,10 @@ class _TickParagraphRow extends StatelessWidget {
       'timesamp',
       'time',
     ]);
-    final characterDetails = _characterDetails(paragraph);
+    final characterDetails = _characterDetails(
+      paragraph,
+      metricUnit: metricUnit,
+    );
 
     final label = _LocationLabel(
       text: name.isEmpty ? 'Location' : name,
@@ -287,6 +295,8 @@ const _timestampStyle = TextStyle(
 );
 
 const _characterDetailNameColor = Color(0xFF4B6192);
+const _positiveDeltaColor = Color(0xFF338960);
+const _negativeDeltaColor = Color(0xFFFF2442);
 
 class _CharacterDetailsText extends StatelessWidget {
   const _CharacterDetailsText({required this.details, required this.style});
@@ -312,6 +322,12 @@ class _CharacterDetailsText extends StatelessWidget {
                 text: details[index].name.isEmpty
                     ? details[index].delta
                     : ' ${details[index].delta}',
+                style: details[index].deltaColor == null
+                    ? null
+                    : style.copyWith(
+                        color: details[index].deltaColor,
+                        fontWeight: FontWeight.w600,
+                      ),
               ),
           ],
         ],
@@ -378,28 +394,66 @@ String _locationName(
 }
 
 class _CharacterDetailLine {
-  const _CharacterDetailLine({required this.name, required this.delta});
+  const _CharacterDetailLine({
+    required this.name,
+    required this.delta,
+    this.deltaColor,
+  });
 
   final String name;
   final String delta;
+  final Color? deltaColor;
 
   bool get isNotEmpty => name.isNotEmpty || delta.isNotEmpty;
 }
 
-List<_CharacterDetailLine> _characterDetails(Map<String, dynamic> paragraph) {
+List<_CharacterDetailLine> _characterDetails(
+  Map<String, dynamic> paragraph, {
+  String metricUnit = '',
+}) {
   final raw = paragraph['character_deltas'];
   if (raw is! List) return const <_CharacterDetailLine>[];
+  final unit = metricUnit.trim();
   return raw
       .whereType<Map>()
       .map((item) {
         final detail = item.cast<String, dynamic>();
+        final rawDelta = detail['delta'];
+        final delta = _characterDeltaText(rawDelta, unit);
         return _CharacterDetailLine(
           name: _mapString(detail, const ['name']),
-          delta: _mapString(detail, const ['delta']),
+          delta: delta,
+          deltaColor: _characterDeltaColor(rawDelta),
         );
       })
       .where((line) => line.isNotEmpty)
       .toList(growable: false);
+}
+
+String _characterDeltaText(Object? rawDelta, String unit) {
+  final delta = _mapString({'delta': rawDelta}, const ['delta']);
+  if (delta.isEmpty) return '';
+  final number = _pureIntegerDelta(rawDelta);
+  final prefix = number != null && number > 0 ? '+' : '';
+  return '$prefix$delta$unit';
+}
+
+Color? _characterDeltaColor(Object? rawDelta) {
+  final number = _pureIntegerDelta(rawDelta);
+  if (number == null) return null;
+  if (number > 0) return _positiveDeltaColor;
+  if (number < 0) return _negativeDeltaColor;
+  return null;
+}
+
+int? _pureIntegerDelta(Object? value) {
+  if (value is int) return value;
+  if (value is num) {
+    return value % 1 == 0 ? value.toInt() : null;
+  }
+  final text = '$value'.trim();
+  if (!RegExp(r'^[+-]?\d+$').hasMatch(text)) return null;
+  return int.tryParse(text);
 }
 
 int _mapInt(Map<String, dynamic> map, List<String> keys, {int fallback = 0}) {

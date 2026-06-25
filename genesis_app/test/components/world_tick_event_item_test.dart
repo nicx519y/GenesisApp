@@ -97,4 +97,86 @@ void main() {
       greaterThan(tester.getBottomLeft(find.text('Harbor Gate')).dy),
     );
   });
+
+  testWidgets('WorldTickEventItem styles pure numeric character deltas', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorldTickEventItem(
+            tick: {
+              'tick_result': {
+                'narrator': 'A signal reaches the harbor.',
+                'paragraphs': [
+                  {
+                    'location_id': 'loc_harbor',
+                    'text': 'The harbor lights answer in sequence.',
+                    'character_deltas': [
+                      {'name': 'Iris Vale', 'delta': 18},
+                      {'name': 'Marshal Crow', 'delta': -4},
+                    ],
+                  },
+                ],
+              },
+            },
+            tickNumber: 1,
+            fallbackBody: '',
+            metricUnit: 'pressure',
+          ),
+        ),
+      ),
+    );
+
+    final richText = tester.widget<RichText>(
+      find
+          .descendant(
+            of: find.byType(WorldTickEventItem),
+            matching: find.byType(RichText),
+          )
+          .last,
+    );
+    final textSpan = richText.text as TextSpan;
+    final deltaSpans = _flattenTextSpans(textSpan);
+
+    expect(richText.text.toPlainText(), contains('Iris Vale +18pressure'));
+    expect(richText.text.toPlainText(), contains('Marshal Crow -4pressure'));
+    expect(
+      deltaSpans
+          .singleWhere((span) => span.text == ' +18pressure')
+          .style
+          ?.color,
+      const Color(0xFF338960),
+    );
+    expect(
+      deltaSpans
+          .singleWhere((span) => span.text == ' +18pressure')
+          .style
+          ?.fontWeight,
+      FontWeight.w600,
+    );
+    expect(
+      deltaSpans.singleWhere((span) => span.text == ' -4pressure').style?.color,
+      const Color(0xFFFF2442),
+    );
+    expect(
+      deltaSpans
+          .singleWhere((span) => span.text == ' -4pressure')
+          .style
+          ?.fontWeight,
+      FontWeight.w600,
+    );
+  });
+}
+
+List<TextSpan> _flattenTextSpans(InlineSpan span) {
+  final spans = <TextSpan>[];
+  if (span is! TextSpan) return spans;
+  spans.add(span);
+  final children = span.children;
+  if (children == null) return spans;
+  for (final child in children) {
+    spans.addAll(_flattenTextSpans(child));
+  }
+  return spans;
 }

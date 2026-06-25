@@ -46,6 +46,18 @@ void main() {
       source.indexOf('Widget _buildEventsSectionPage()'),
       source.indexOf('Widget _buildStatusSectionPage()'),
     );
+    final locationsSectionBuilder = source.substring(
+      source.indexOf('Widget _buildLocationsSectionPage()'),
+      source.indexOf('Widget _buildDetailSectionPage()'),
+    );
+    final singleSectionSheet = source.substring(
+      source.indexOf('class _WorldSingleSectionBottomSheet'),
+      source.indexOf('class _WorldSingleSectionSheetHeader'),
+    );
+    final sectionListView = source.substring(
+      source.indexOf('class _WorldSectionListView'),
+      source.indexOf('class _WorldInfoHeader'),
+    );
 
     expect(tags, contains("label: 'Locations'"));
     expect(tags, contains("label: 'Detail'"));
@@ -59,6 +71,12 @@ void main() {
     expect(bottomTags, contains('overscroll: false'));
     expect(eventsSectionBuilder, contains('ScrollConfiguration'));
     expect(eventsSectionBuilder, contains('overscroll: false'));
+    expect(locationsSectionBuilder, contains('ScrollConfiguration'));
+    expect(locationsSectionBuilder, contains('overscroll: false'));
+    expect(singleSectionSheet, contains('Expanded('));
+    expect(singleSectionSheet, contains('child: ScrollConfiguration('));
+    expect(singleSectionSheet, contains('overscroll: false'));
+    expect(sectionListView, contains('physics: const ClampingScrollPhysics()'));
     expect(bottomTags, isNot(contains('TabBar(')));
     expect(source, contains('_openWorldBottomSheet('));
     expect(source, contains('enableDrag: false'));
