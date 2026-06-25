@@ -34,9 +34,9 @@ final ChatUiStyleConfig kChatWhiteHeaderStyle = ChatUiStyleConfig.standard
     .copyWith(headerBackgroundColor: Colors.white);
 
 final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
-  headerBackgroundColor: const Color(0xF2EDEDED),
+  headerBackgroundColor: Colors.white,
   clearHeaderBackgroundGradient: true,
-  headerBackdropBlurSigma: 20,
+  headerBackdropBlurSigma: 0,
   composerBackgroundColor: const Color(0xF2F6F6F6),
   clearComposerBackgroundGradient: true,
   composerBackdropBlurSigma: 20,

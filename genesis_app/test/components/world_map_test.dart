@@ -340,7 +340,7 @@ void main() {
   ) async {
     await _pumpWorldMap(
       tester,
-      mapImageUrl: 'assets/images/mock_maps/missing_map.png',
+      mapImageUrl: 'assets/images/mock_maps/missing_map.webp',
       users: const [],
     );
     await tester.pump();

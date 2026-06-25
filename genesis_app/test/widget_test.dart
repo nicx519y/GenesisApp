@@ -1750,8 +1750,8 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         },
         'started_at': 'Day 1',
         'tick_duration_time': '30 days',
-        'cover': 'assets/images/mock_maps/steam_kingdom_isometric.png',
-        'map_url': 'assets/images/mock_maps/steam_kingdom_isometric.png',
+        'cover': 'assets/images/mock_maps/steam_kingdom_isometric.webp',
+        'map_url': 'assets/images/mock_maps/steam_kingdom_isometric.webp',
         'characters': [
           {
             'char_id': 'char_edit_1',
@@ -5619,54 +5619,67 @@ void main() {
     expect(cachedUser?['follower_cnt'], 17);
   });
 
-  testWidgets('switching back to signed-in Me refreshes user info only', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    await tester.pumpWidget(
-      GenesisApp(
-        services: await _testServices(
-          transport: transport,
-          useMock: false,
-          initialUid: 'u_cached',
-          initialAuthToken: 'backend-token',
-          initialUserInfo: {
-            'uid': 'u_cached',
-            'name': 'Cached User',
-            'avatar': '',
-            'following_cnt': 7,
-            'follower_cnt': 11,
-          },
+  testWidgets(
+    'switching back to signed-in Me refreshes selected profile list',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport();
+      await tester.pumpWidget(
+        GenesisApp(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: 'u_cached',
+            initialAuthToken: 'backend-token',
+            initialUserInfo: {
+              'uid': 'u_cached',
+              'name': 'Cached User',
+              'avatar': '',
+              'following_cnt': 7,
+              'follower_cnt': 11,
+            },
+          ),
         ),
-      ),
-    );
+      );
 
-    await tester.tap(find.text('Me'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Me'));
+      await tester.pumpAndSettle();
 
-    final userInfoCount = transport.requestsFor('/api/v1/user/info').length;
-    final originListCount = transport.requestsFor('/api/v1/origin/list').length;
-    final worldListCount = transport.requestsFor('/api/v1/world/list').length;
-    expect(userInfoCount, 1);
+      final userInfoCount = transport.requestsFor('/api/v1/user/info').length;
+      final originListCount = transport
+          .requestsFor('/api/v1/origin/list')
+          .length;
+      final worldListCount = transport.requestsFor('/api/v1/world/list').length;
+      expect(userInfoCount, 1);
 
-    await tester.tap(find.text('Home'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Me'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
 
-    expect(
-      transport.requestsFor('/api/v1/user/info'),
-      hasLength(userInfoCount + 1),
-    );
-    expect(
-      transport.requestsFor('/api/v1/origin/list'),
-      hasLength(originListCount),
-    );
-    expect(
-      transport.requestsFor('/api/v1/world/list'),
-      hasLength(worldListCount),
-    );
-  });
+      expect(
+        transport.requestsFor('/api/v1/origin/list'),
+        hasLength(originListCount),
+      );
+      expect(
+        transport.requestsFor('/api/v1/world/list'),
+        hasLength(worldListCount),
+      );
+
+      await tester.tap(find.text('Me'));
+      await tester.pumpAndSettle();
+
+      expect(
+        transport.requestsFor('/api/v1/user/info'),
+        hasLength(userInfoCount + 1),
+      );
+      expect(
+        transport.requestsFor('/api/v1/origin/list'),
+        hasLength(originListCount + 1),
+      );
+      expect(
+        transport.requestsFor('/api/v1/world/list'),
+        hasLength(worldListCount),
+      );
+    },
+  );
 
   testWidgets('switching back to signed-out Me does not request user info', (
     WidgetTester tester,
@@ -7652,7 +7665,7 @@ void main() {
     expect(metric.containsKey('time_per_progress'), isFalse);
     expect(
       body['cover'],
-      'assets/images/mock_maps/steam_kingdom_isometric.png',
+      'assets/images/mock_maps/steam_kingdom_isometric.webp',
     );
     final editedCharacters = body['characters'] as List;
     expect(editedCharacters.single['char_id'], 'char_edit_1');

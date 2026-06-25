@@ -1108,6 +1108,9 @@ void main() {
     );
     expect(world.worldId, 'w_info_1');
     expect(world.name, 'World Info');
+    expect(world.ownerName, 'Tester');
+    expect(world.brief, 'World brief.');
+    expect(world.cover, 'https://cdn.example.com/world_800.webp');
     expect(world.origin.oid, 'o_info_1');
     expect(world.currentTime, 'Day 7, 19:10');
     expect(world.tickCount, 5);

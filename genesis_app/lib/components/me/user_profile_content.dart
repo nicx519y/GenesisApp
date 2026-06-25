@@ -30,6 +30,7 @@ class UserProfileContent extends StatefulWidget {
     this.onEditDisplayName,
     this.onRefreshOrigins,
     this.onRefreshWorlds,
+    this.onCollectionTabChanged,
     this.onCollapsedChanged,
     this.nameUidGap = 4,
     this.tabLabelFontSize = 16,
@@ -50,6 +51,7 @@ class UserProfileContent extends StatefulWidget {
   final VoidCallback? onEditDisplayName;
   final Future<void> Function()? onRefreshOrigins;
   final Future<void> Function()? onRefreshWorlds;
+  final ValueChanged<int>? onCollectionTabChanged;
   final ValueChanged<bool>? onCollapsedChanged;
   final double nameUidGap;
   final double? tabLabelFontSize;
@@ -67,12 +69,15 @@ class _UserProfileContentState extends State<UserProfileContent>
   int? _followerCountOverride;
   bool _followLoading = false;
   bool _lastCollapsed = false;
+  int _lastReportedTabIndex = 0;
   double _profileHeaderHeight = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _lastReportedTabIndex = _tabController.index;
+    _tabController.addListener(_handleTabControllerChanged);
     _scrollController = ScrollController();
     _scrollController.addListener(_updateCollapsedState);
   }
@@ -89,6 +94,7 @@ class _UserProfileContentState extends State<UserProfileContent>
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabControllerChanged);
     _scrollController.removeListener(_updateCollapsedState);
     _scrollController.dispose();
     _tabController.dispose();
@@ -123,6 +129,7 @@ class _UserProfileContentState extends State<UserProfileContent>
                   horizontalPadding: 8,
                   labelPadding: const EdgeInsets.symmetric(horizontal: 8),
                   labelFontSize: widget.tabLabelFontSize,
+                  onTap: _reportCollectionTab,
                 ),
               ),
             ),
@@ -260,6 +267,17 @@ class _UserProfileContentState extends State<UserProfileContent>
     if (collapsed == _lastCollapsed) return;
     _lastCollapsed = collapsed;
     widget.onCollapsedChanged?.call(collapsed);
+  }
+
+  void _handleTabControllerChanged() {
+    if (_tabController.indexIsChanging) return;
+    _reportCollectionTab(_tabController.index);
+  }
+
+  void _reportCollectionTab(int index) {
+    if (_lastReportedTabIndex == index) return;
+    _lastReportedTabIndex = index;
+    widget.onCollectionTabChanged?.call(index);
   }
 
   Future<void> _toggleFollow(bool isFollowed) async {
