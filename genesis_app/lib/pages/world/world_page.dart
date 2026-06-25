@@ -3519,15 +3519,18 @@ class _WorldSingleSectionBottomSheetState
   }
 
   Widget _buildLocationsSectionPage() {
-    return WorldLocationList(
-      points: widget.locationPoints,
-      locationNodes: widget.locationNodes,
-      enableOuterScrollHandoff: false,
-      padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
-      onPointTap: (point) {
-        Navigator.of(context).pop();
-        widget.onLocationTap(point);
-      },
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+      child: WorldLocationList(
+        points: widget.locationPoints,
+        locationNodes: widget.locationNodes,
+        enableOuterScrollHandoff: false,
+        padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+        onPointTap: (point) {
+          Navigator.of(context).pop();
+          widget.onLocationTap(point);
+        },
+      ),
     );
   }
 
@@ -3568,7 +3571,14 @@ class _WorldSingleSectionBottomSheetState
               item: _headerItem,
               onClose: () => Navigator.of(context).pop(),
             ),
-            Expanded(child: _buildSheetContent()),
+            Expanded(
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(overscroll: false),
+                child: _buildSheetContent(),
+              ),
+            ),
           ],
         ),
       ),
@@ -3980,6 +3990,7 @@ class _WorldSectionListView extends StatelessWidget {
     return ListView(
       key: PageStorageKey<String>(storageKey),
       primary: false,
+      physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
       children: [child],
     );
@@ -4519,6 +4530,7 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
         _mapString(location, const ['location_id', 'id']): location,
     }..remove('');
     final fallbackBody = _eventBody(widget.world);
+    final metricUnit = _mapString(widget.world.metric, const ['unit']);
     final visibleTicks = _visibleTicks;
     final pendingTargetPage = _pendingTargetPage;
 
@@ -4579,6 +4591,7 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
                     contentLabelStyle: _worldEventContentLabelStyle,
                     contentTextStyle: _worldEventContentTextStyle,
                     contentTimestampStyle: _worldEventContentTimestampStyle,
+                    metricUnit: metricUnit,
                     isLast: true,
                   ),
                 ],
