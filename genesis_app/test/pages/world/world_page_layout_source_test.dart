@@ -77,4 +77,28 @@ void main() {
     expect(source, contains('minimumSize: const Size(28, 28)'));
     expect(source, isNot(contains('_WorldSectionsSheetTabs')));
   });
+
+  test('world tick completion reuses active bottom sheet for events', () {
+    final source = worldPageSource.readAsStringSync();
+    final tickDone = source.substring(
+      source.indexOf('Future<void> _handleWorldTickDone()'),
+      source.indexOf('void _showOrSelectEventsAfterTick()'),
+    );
+    final showOrSelectEvents = source.substring(
+      source.indexOf('void _showOrSelectEventsAfterTick()'),
+      source.indexOf('void _markWorldTickIdle()'),
+    );
+    final openBottomSheet = source.substring(
+      source.indexOf('void _openWorldBottomSheet('),
+      source.indexOf('@override\n  Widget build(BuildContext context)'),
+    );
+
+    expect(tickDone, contains('_showOrSelectEventsAfterTick();'));
+    expect(showOrSelectEvents, contains('_worldBottomSheetOpen'));
+    expect(showOrSelectEvents, contains('_WorldBottomSheetKind.events'));
+    expect(showOrSelectEvents, contains('return;'));
+    expect(openBottomSheet, contains('_worldBottomSheetSelection.value'));
+    expect(openBottomSheet, contains('if (_worldBottomSheetOpen) return;'));
+    expect(openBottomSheet, contains('showModalBottomSheet<void>'));
+  });
 }
