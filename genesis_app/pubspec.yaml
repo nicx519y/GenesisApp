@@ -79,7 +79,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/genesis_home_logo.png
-    - assets/images/worldo-logo.svg
+    - assets/svg/worldo-logo.svg
     - assets/images/my_worlds_empty_worldo_launch.jpg
     - assets/images/genesis_app_icon_source_1024.png
     - assets/images/default_list_image.png
