@@ -1750,8 +1750,8 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         },
         'started_at': 'Day 1',
         'tick_duration_time': '30 days',
-        'cover': 'assets/images/mock_maps/steam_kingdom_isometric.png',
-        'map_url': 'assets/images/mock_maps/steam_kingdom_isometric.png',
+        'cover': 'assets/images/mock_maps/steam_kingdom_isometric.webp',
+        'map_url': 'assets/images/mock_maps/steam_kingdom_isometric.webp',
         'characters': [
           {
             'char_id': 'char_edit_1',
@@ -7665,7 +7665,7 @@ void main() {
     expect(metric.containsKey('time_per_progress'), isFalse);
     expect(
       body['cover'],
-      'assets/images/mock_maps/steam_kingdom_isometric.png',
+      'assets/images/mock_maps/steam_kingdom_isometric.webp',
     );
     final editedCharacters = body['characters'] as List;
     expect(editedCharacters.single['char_id'], 'char_edit_1');

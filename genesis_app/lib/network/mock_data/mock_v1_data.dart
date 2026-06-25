@@ -12,35 +12,35 @@ const String kMockV1DustSubtitle =
 const String kMockV1MoonlitSubtitle =
     'Cozy supernatural midnight shop where sleepless guests trade secrets, dreams, and unfinished regrets over impossible pie.';
 const String kMockV1SteamMapImage =
-    'assets/images/mock_maps/steam_kingdom_isometric.png';
+    'assets/images/mock_maps/steam_kingdom_isometric.webp';
 const String kMockV1LocationCentralHubMap =
-    'assets/images/mock_maps/location_central_hub_map.png';
+    'assets/images/mock_maps/location_central_hub_map.webp';
 const String kMockV1LocationRailGateMap =
-    'assets/images/mock_maps/location_rail_gate_map.png';
+    'assets/images/mock_maps/location_rail_gate_map.webp';
 const String kMockV1LocationBrassMarketMap =
-    'assets/images/mock_maps/location_brass_market_map.png';
+    'assets/images/mock_maps/location_brass_market_map.webp';
 const String kMockV1LocationClocktowerMap =
-    'assets/images/mock_maps/location_clocktower_map.png';
+    'assets/images/mock_maps/location_clocktower_map.webp';
 const String kMockV1LocationCanalLockMap =
-    'assets/images/mock_maps/location_canal_lock_map.png';
+    'assets/images/mock_maps/location_canal_lock_map.webp';
 const String kMockV1LocationCentralHub =
-    'assets/images/mock_locations/central_hub.png';
+    'assets/images/mock_locations/central_hub.webp';
 const String kMockV1LocationRailGate =
-    'assets/images/mock_locations/rail_gate.png';
+    'assets/images/mock_locations/rail_gate.webp';
 const String kMockV1LocationBrassMarket =
-    'assets/images/mock_locations/brass_market.png';
+    'assets/images/mock_locations/brass_market.webp';
 const String kMockV1LocationUnderworks =
-    'assets/images/mock_locations/underworks.png';
+    'assets/images/mock_locations/underworks.webp';
 const String kMockV1LocationAirdock =
-    'assets/images/mock_locations/airdock_nine.png';
+    'assets/images/mock_locations/airdock_nine.webp';
 const String kMockV1LocationClocktower =
-    'assets/images/mock_locations/clocktower_balcony.png';
+    'assets/images/mock_locations/clocktower_balcony.webp';
 const String kMockV1LocationBoilerArchive =
-    'assets/images/mock_locations/boiler_archive.png';
+    'assets/images/mock_locations/boiler_archive.webp';
 const String kMockV1LocationCanalLock =
-    'assets/images/mock_locations/canal_lock.png';
+    'assets/images/mock_locations/canal_lock.webp';
 const String kMockV1LocationSignalWorkshop =
-    'assets/images/mock_locations/signal_workshop.png';
+    'assets/images/mock_locations/signal_workshop.webp';
 
 const Map<String, dynamic> kMockV1User = {
   'uid': 'u_mock_001',

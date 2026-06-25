@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
-import '../../components/common/genesis_report_actions.dart';
 import '../../components/common/list_loading_skeleton.dart';
 import '../../components/page_header.dart';
 import '../../components/origin/origin_item_card.dart';
@@ -89,18 +88,7 @@ class _OriginPageState extends State<OriginPage> {
       length: categories.length,
       child: Column(
         children: [
-          PageHeader(
-            pageName: 'Worldo',
-            trailing: GenesisMoreActionMenuButton(
-              items: [
-                genesisReportMenuItem(
-                  context: context,
-                  targetType: 'origin',
-                  targetId: 'worldo',
-                ),
-              ],
-            ),
-          ),
+          PageHeader(pageName: 'Worldo'),
           const SizedBox(height: 4),
           SecendTabs(
             labels: categories.map((item) => item.name).toList(),

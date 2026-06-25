@@ -272,6 +272,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                 isLeafLocation: descriptor.isLeafLocation,
                 active: false,
                 leaveOnInactive: false,
+                showMoreButton: false,
                 onBack: _closeLocationChat,
                 composerReplacement: _OriginLocationChatLaunchBar(
                   launching: _launching,
@@ -552,9 +553,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             : origin.allLocations.isNotEmpty
             ? _pointsFromLocations(origin.allLocations, avatarsByLocation)
             : points;
-        final thirdLevelLocationCount = allLocationNodes
-            .where((node) => node.depth == 2)
-            .length;
+        final leafLocationCount = _originLeafLocationNodeCount(
+          listLocationNodes,
+        );
 
         return PopScope(
           canPop: _activeChatLocation == null,
@@ -567,12 +568,12 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             panelCollapsedHeightOffset: 60,
             topOverlay: _buildLocationChatOverlay(origin),
             persistentTopOverlay: _buildPersistentMapTabs(
-              thirdLevelLocationCount,
+              leafLocationCount,
               topPadding + 8,
             ),
             map: WorldMapStage(
               controller: _tabController,
-              pointsCount: thirdLevelLocationCount,
+              pointsCount: leafLocationCount,
               top: topPadding + 8,
               showTopOverlay: false,
               mapBuilder: (context, pointMode) => WorldMap(
@@ -2486,6 +2487,18 @@ List<WorldMapLocationNode> _originMapLocationNodes(
         );
       })
       .toList(growable: false);
+}
+
+int _originLeafLocationNodeCount(List<WorldMapLocationNode> nodes) {
+  var count = 0;
+  for (final node in nodes) {
+    if (node.children.isEmpty) {
+      count += 1;
+    } else {
+      count += _originLeafLocationNodeCount(node.children);
+    }
+  }
+  return count;
 }
 
 String _originRootMapImageUrl(List<LocationTreeNode<OriginLocation>> nodes) {
