@@ -42,6 +42,7 @@ import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../chat/location_chat_page.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -160,6 +161,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _tick1WaitDialogStarted = false;
   Timer? _worldInfoPollTimer;
   Future<void>? _worldInfoPollFuture;
+  int? _pendingProgressTickCount;
   var _currentUid = '';
   var _currentUidRequested = false;
   late final ValueNotifier<WorldDetail?> _sectionsWorldNotifier =
@@ -1303,14 +1305,35 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (action == _WorldHeaderActionKind.progress) {
       _openEventsAfterTickDone = true;
       _setWorldTickInProgress(true);
+      GenesisTelemetry.collectLog(
+        actionType: 'event',
+        action: 'world_progress_submit_start',
+        object1: widget.wid,
+      );
     }
     try {
       final api = AppServicesScope.of(context).api;
-      final message = switch (action) {
-        _WorldHeaderActionKind.request => await api.requestWorld(widget.wid),
-        _WorldHeaderActionKind.progress => await api.progressWorld(widget.wid),
-        _ => '',
-      };
+      var message = '';
+      if (action == _WorldHeaderActionKind.request) {
+        message = await api.requestWorld(widget.wid);
+        GenesisTelemetry.collectLog(
+          actionType: 'event',
+          action: 'request_submit',
+          object1: widget.wid,
+        );
+      } else if (action == _WorldHeaderActionKind.progress) {
+        final result = await api.progressWorldResult(widget.wid);
+        message = result.message;
+        _pendingProgressTickCount = result.tickCount > 0
+            ? result.tickCount
+            : null;
+        GenesisTelemetry.collectLog(
+          actionType: 'event',
+          action: 'world_progress_submit_success',
+          object1: widget.wid,
+          object2: _pendingProgressTickCount,
+        );
+      }
       if (!mounted) return;
       if (message.trim().isNotEmpty) {
         showGenesisToast(context, message);
@@ -1325,6 +1348,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       if (!mounted) return;
       if (action == _WorldHeaderActionKind.progress) {
         _openEventsAfterTickDone = false;
+        _pendingProgressTickCount = null;
         _stopWorldInfoPolling();
         _markWorldTickIdle();
       }
@@ -1397,6 +1421,14 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _markWorldTickIdle();
     await _fetchWorld();
     if (!mounted) return;
+    final completedTickCount = _world?.tickCount ?? _pendingProgressTickCount;
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'world_progress_async_complete',
+      object1: widget.wid,
+      object2: completedTickCount,
+    );
+    _pendingProgressTickCount = null;
     if (_openEventsAfterTickDone) {
       _openEventsAfterTickDone = false;
       _showOrSelectEventsAfterTick();
@@ -1581,6 +1613,24 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         ? point.sceneId.trim()
         : pointId;
     if (locationId.isEmpty) return;
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'world_map_click',
+      object1: widget.wid,
+      object2: locationId,
+    );
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'world_map',
+      object1: widget.wid,
+      object2: locationId,
+    );
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'world_location_chat',
+      object1: widget.wid,
+      object2: locationId,
+    );
 
     final descriptor = _LocationChatPanelDescriptor(
       locationId: locationId,
@@ -1804,6 +1854,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }) {
     final world = _world;
     if (world == null) return;
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: _worldBottomSheetPageName(kind),
+      object1: widget.wid,
+    );
     if (scrollEventsToLatest) {
       _eventsLatestRevision += 1;
     }
@@ -2265,6 +2320,16 @@ String _worldTimeLabel({required int tickIndex, required String worldTime}) {
 }
 
 enum _WorldBottomSheetKind { detail, locations, events, status, cast }
+
+String _worldBottomSheetPageName(_WorldBottomSheetKind kind) {
+  return switch (kind) {
+    _WorldBottomSheetKind.detail => 'world_detail',
+    _WorldBottomSheetKind.locations => 'world_locations',
+    _WorldBottomSheetKind.events => 'world_events',
+    _WorldBottomSheetKind.status => 'world_status',
+    _WorldBottomSheetKind.cast => 'world_cast',
+  };
+}
 
 class _WorldBottomSheetSelection {
   const _WorldBottomSheetSelection({
@@ -3609,6 +3674,17 @@ class _WorldSingleSectionBottomSheetState
       enableOuterScrollHandoff: false,
       padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
       onPointTap: (point) {
+        final locationId = point.sceneId.trim().isNotEmpty
+            ? point.sceneId.trim()
+            : (point.pointId.trim().isNotEmpty
+                  ? point.pointId.trim()
+                  : point.id.trim());
+        GenesisTelemetry.collectLog(
+          actionType: 'event',
+          action: 'world_locations_click',
+          object1: _currentWorld.worldId,
+          object2: locationId,
+        );
         Navigator.of(context).pop();
         widget.onLocationTap(point);
       },

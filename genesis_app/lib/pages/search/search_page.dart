@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/copyable_id_label.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/page_header.dart';
@@ -527,6 +528,12 @@ class _SearchPageState extends State<SearchPage>
     if (item.deleted) return;
     _dismissKeyboard();
     unawaited(_recordActiveSearchQuery());
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'search_click',
+      object1: _activeQuery,
+      object2: item.entityId,
+    );
     switch (item.tab) {
       case _SearchTab.origin:
         Navigator.of(context).pushNamed(

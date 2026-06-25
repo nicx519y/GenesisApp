@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/ai_content_disclaimer.dart';
@@ -1055,6 +1056,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     try {
       final ack = await service.sendMessage(text, clientMsgId: clientMsgId);
       if (!mounted) return;
+      GenesisTelemetry.collectLog(
+        actionType: 'event',
+        action: 'location_chat_send_message',
+        object1: widget.worldId,
+        object2: widget.locationId,
+        object3: ack.messageId,
+      );
       setState(() {
         localMessage.messageId = ack.messageId;
         localMessage.roundId = ack.conversationRoundId;

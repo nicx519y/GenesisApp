@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../app/bootstrap/app_services_scope.dart';
 import '../app/bootstrap/polling_scheduler.dart';
+import '../app/telemetry/genesis_telemetry.dart';
 import '../components/bottom_tabs.dart';
 import '../components/login_sheet.dart';
 import '../network/models/unread_summary.dart';
@@ -61,6 +62,7 @@ class _AppShellPageState extends State<AppShellPage>
       onTick: _refreshMessagesData,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _recordSelectedTabPageView();
       _startMessagesPolling();
     });
   }
@@ -243,7 +245,28 @@ class _AppShellPageState extends State<AppShellPage>
     _messagesTabActiveNotifier.value = _selectedIndex == 3;
     _meTabActiveNotifier.value = _selectedIndex == 4;
     if (previousIndex != index) {
+      _recordSelectedTabPageView();
       _notifyActiveTabActivated();
+    }
+  }
+
+  void _recordSelectedTabPageView() {
+    switch (_selectedIndex) {
+      case 1:
+        GenesisTelemetry.collectLog(
+          actionType: 'pageview',
+          action: 'worldo_list_tab',
+        );
+        return;
+      case 3:
+        GenesisTelemetry.collectLog(
+          actionType: 'pageview',
+          action: 'messages_home',
+        );
+        return;
+      case 4:
+        GenesisTelemetry.collectLog(actionType: 'pageview', action: 'me');
+        return;
     }
   }
 

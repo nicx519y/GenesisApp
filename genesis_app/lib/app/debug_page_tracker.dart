@@ -29,6 +29,7 @@ class _GenesisRouteObserver extends NavigatorObserver {
           : AppRouter.pageClassNameForRouteName(previousRoute.settings.name),
       navigationType: navigationType,
     );
+    _recordCollectPageView(route.settings);
   }
 
   @override
@@ -48,4 +49,93 @@ class _GenesisRouteObserver extends NavigatorObserver {
     super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
     _sync(newRoute, previousRoute: oldRoute, navigationType: 'replace');
   }
+}
+
+void _recordCollectPageView(RouteSettings settings) {
+  final routeName = settings.name ?? '';
+  final args = settings.arguments;
+  switch (routeName) {
+    case RouteNames.originWorld:
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'worldo_detail',
+        object1: _argString(args, const ['oid', 'origin_id', 'originId']),
+      );
+      return;
+    case RouteNames.world:
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'world_detail',
+        object1: _argString(args, const ['wid', 'world_id', 'worldId']),
+      );
+      return;
+    case RouteNames.locationChat:
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'world_location_chat',
+        object1: _argString(args, const ['wid', 'world_id', 'worldId']),
+        object2: _argString(args, const [
+          'location_id',
+          'locationId',
+          'scene_id',
+          'sceneId',
+          'point_id',
+          'pointId',
+        ]),
+      );
+      return;
+    case RouteNames.chat:
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'messages_private_chat',
+        object1: _argString(args, const ['peer_uid', 'peerUid', 'uid']),
+      );
+      return;
+    case RouteNames.search:
+      GenesisTelemetry.collectLog(actionType: 'pageview', action: 'search');
+      return;
+    case RouteNames.create:
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'create_worldo',
+      );
+      return;
+    case RouteNames.notifications:
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'messages_notifications',
+      );
+      return;
+    case RouteNames.newFollowers:
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'messages_new_followers',
+      );
+      return;
+    case RouteNames.comments:
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'messages_comments',
+      );
+      return;
+    case RouteNames.userInfo:
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'profile',
+        object1: _argString(args, const ['uid', 'userId', 'id']),
+      );
+      return;
+  }
+}
+
+String _argString(Object? args, List<String> keys) {
+  if (args is String) return args.trim();
+  if (args is! Map) return '';
+  for (final key in keys) {
+    final value = args[key];
+    if (value == null) continue;
+    final text = value.toString().trim();
+    if (text.isNotEmpty) return text;
+  }
+  return '';
 }

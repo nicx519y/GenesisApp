@@ -41,9 +41,9 @@ flutter run
 可用 dart-define：
 
 - `GENESIS_API_ENV=mock|local|debug|real|prod|production|auto`：控制是否使用 `LocalMockGenesisTransport`。
-- `GENESIS_CHATROOM_WS_URL=...`：覆盖 WebSocket 地址，默认 `wss://dev.hushie.ai/aitown-chat/ws`。
-- `GENESIS_CHATROOM_HTTP_URL=...`：覆盖 chatroom HTTP base，默认 `https://dev.hushie.ai/`。
-- `GENESIS_GATEWAY_API_URL=...`：覆盖 Gateway base，默认 `https://dev.hushie.ai/apix/`。Developer page 只配置 host，保存时归一化到 `https://host/apix/`。
+- `GENESIS_CHATROOM_WS_URL=...`：覆盖 WebSocket 地址，默认 `wss://api.worldo.ai/aitown-chat/ws`。
+- `GENESIS_CHATROOM_HTTP_URL=...`：覆盖 chatroom HTTP base，默认 `https://api.worldo.ai/`。
+- `GENESIS_GATEWAY_API_URL=...`：覆盖 Gateway base，默认 `https://api.worldo.ai/apix/`。Developer page 只配置 host，保存时归一化到 `https://host/apix/`。
 - `GENESIS_DEBUG_PROXY=host:port`：HTTP 和 WebSocket 代理调试。
 - `GENESIS_DEBUG_WS_LOG=true`：打印 WebSocket frame。
 - `GENESIS_ALLOW_IOS_PLATFORM_HEADER=true`：允许 iOS 发送 `x-platform: ios`；默认仍发送 `android`。

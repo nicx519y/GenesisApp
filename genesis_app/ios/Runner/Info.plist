@@ -37,6 +37,8 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>com.posthog.posthog.AUTO_INIT</key>
+	<false/>
 	<key>GIDClientID</key>
 	<string>876583138986-igmuf8cnqkqfau2k4k30bamjn6482u2j.apps.googleusercontent.com</string>
 	<key>GIDServerClientID</key>

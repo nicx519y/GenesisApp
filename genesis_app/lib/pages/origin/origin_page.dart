@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
 import '../../components/page_header.dart';
 import '../../components/origin/origin_item_card.dart';
@@ -387,10 +388,17 @@ class _OriginFeedState extends State<_OriginFeed>
                   behavior: HitTestBehavior.opaque,
                   onTap: item.deleted
                       ? null
-                      : () => Navigator.of(context).pushNamed(
-                          RouteNames.originWorld,
-                          arguments: {'originId': 0, 'oid': item.oid},
-                        ),
+                      : () {
+                          GenesisTelemetry.collectLog(
+                            actionType: 'event',
+                            action: 'worldo_list_click',
+                            object1: item.oid,
+                          );
+                          Navigator.of(context).pushNamed(
+                            RouteNames.originWorld,
+                            arguments: {'originId': 0, 'oid': item.oid},
+                          );
+                        },
                   child: OriginItemCard(item: item),
                 );
               },

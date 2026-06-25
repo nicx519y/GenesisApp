@@ -19,7 +19,7 @@ class AppleSignInService {
   );
   static const String _webRedirectUri = String.fromEnvironment(
     'APPLE_WEB_REDIRECT_URI',
-    defaultValue: 'https://dev.hushie.ai/callbacks/signinwithapple',
+    defaultValue: 'https://api.worldo.ai/callbacks/signinwithapple',
   );
 
   static bool get isSupportedPlatform =>

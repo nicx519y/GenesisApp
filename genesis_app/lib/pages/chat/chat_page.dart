@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/polling_scheduler.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../network/api_exception.dart';
@@ -344,10 +345,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       );
       final message = data['message'];
       if (message is Map) {
+        final messageMap = asJsonMap(message);
         await _messageStore.replaceLocalMessage(
           peerUid: _peerUid,
           localMessageId: localMessageId,
-          serverMessage: asJsonMap(message),
+          serverMessage: messageMap,
+        );
+        GenesisTelemetry.collectLog(
+          actionType: 'event',
+          action: 'private_chat_send_message',
+          object1: _peerUid,
+          object2: asString(
+            messageMap['message_id'],
+            fallback: asString(messageMap['id']),
+          ),
         );
       }
       final conversation = data['conversation'];

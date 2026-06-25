@@ -1,6 +1,10 @@
 import '../../network/genesis_api.dart';
 
 class AppConfig {
+  static const defaultPostHogProjectToken =
+      'phc_riFTSH7zTTeKCeb38WMYbTHjB2CndxFhaZhN6yUdA7AB';
+  static const defaultPostHogHost = 'https://us.i.posthog.com';
+
   const AppConfig({
     this.apiBaseUrl = GenesisApi.defaultApiBaseUrl,
     this.gatewayApiBaseUrl = GenesisApi.defaultGatewayApiBaseUrl,
@@ -25,6 +29,26 @@ class AppConfig {
       'GENESIS_DEBUG_WS_LOG',
       defaultValue: false,
     ),
+    this.postHogProjectToken = const String.fromEnvironment(
+      'GENESIS_POSTHOG_PROJECT_TOKEN',
+      defaultValue: defaultPostHogProjectToken,
+    ),
+    this.postHogHost = const String.fromEnvironment(
+      'GENESIS_POSTHOG_HOST',
+      defaultValue: defaultPostHogHost,
+    ),
+    this.postHogDebug = const bool.fromEnvironment(
+      'GENESIS_POSTHOG_DEBUG',
+      defaultValue: false,
+    ),
+    this.collectEndpoint = const String.fromEnvironment(
+      'GENESIS_COLLECT_ENDPOINT',
+      defaultValue: 'https://collect.worldo.ai/api/v1/collect',
+    ),
+    this.collectEnabled = const bool.fromEnvironment(
+      'GENESIS_COLLECT_ENABLED',
+      defaultValue: true,
+    ),
     this.appId = const String.fromEnvironment(
       'GENESIS_APP_ID',
       defaultValue: 'aitown',
@@ -46,6 +70,11 @@ class AppConfig {
   final String chatroomHttpBaseUrl;
   final String debugProxy;
   final bool debugWsLog;
+  final String postHogProjectToken;
+  final String postHogHost;
+  final bool postHogDebug;
+  final String collectEndpoint;
+  final bool collectEnabled;
   final String appId;
   final String appChannel;
   final Duration chatroomHeartbeatInterval;
@@ -67,6 +96,11 @@ class AppConfig {
     String? chatroomHttpBaseUrl,
     String? debugProxy,
     bool? debugWsLog,
+    String? postHogProjectToken,
+    String? postHogHost,
+    bool? postHogDebug,
+    String? collectEndpoint,
+    bool? collectEnabled,
     String? appId,
     String? appChannel,
     Duration? chatroomHeartbeatInterval,
@@ -82,6 +116,11 @@ class AppConfig {
       chatroomHttpBaseUrl: chatroomHttpBaseUrl ?? this.chatroomHttpBaseUrl,
       debugProxy: debugProxy ?? this.debugProxy,
       debugWsLog: debugWsLog ?? this.debugWsLog,
+      postHogProjectToken: postHogProjectToken ?? this.postHogProjectToken,
+      postHogHost: postHogHost ?? this.postHogHost,
+      postHogDebug: postHogDebug ?? this.postHogDebug,
+      collectEndpoint: collectEndpoint ?? this.collectEndpoint,
+      collectEnabled: collectEnabled ?? this.collectEnabled,
       appId: appId ?? this.appId,
       appChannel: appChannel ?? this.appChannel,
       chatroomHeartbeatInterval:
