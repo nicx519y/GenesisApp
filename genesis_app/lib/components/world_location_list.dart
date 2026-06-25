@@ -151,7 +151,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
     final rows = <Widget>[];
     for (final node in nodes) {
       final hideSyntheticRootHeader =
-          node.isRoot && node.point.name.trim().isEmpty;
+          node.point.name.trim().isEmpty && node.children.isNotEmpty;
       if (hideSyntheticRootHeader) {
         rows.addAll(_buildNodeRowsAtLevel(node.children, level));
         continue;
