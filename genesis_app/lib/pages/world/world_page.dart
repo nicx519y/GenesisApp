@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -15,6 +14,7 @@ import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/ai_content_disclaimer.dart';
 import '../../components/chat/shared/chat_ui.dart';
+import '../../components/chat/shared/location_chat_overlay_transition.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
@@ -2611,7 +2611,7 @@ class _WorldLocationChatRouterHostState
       ignoring: !active,
       child: ExcludeSemantics(
         excluding: !active,
-        child: _WorldLocationChatHostTransition(
+        child: LocationChatOverlayTransition(
           active: active,
           onDismissed: _handleDismissed,
           child: Stack(
@@ -2693,140 +2693,6 @@ class _WorldLocationChatRouterHostState
       ),
     );
   }
-}
-
-class _WorldLocationChatHostTransition extends StatefulWidget {
-  const _WorldLocationChatHostTransition({
-    required this.active,
-    required this.onDismissed,
-    required this.child,
-  });
-
-  final bool active;
-  final VoidCallback onDismissed;
-  final Widget child;
-
-  @override
-  State<_WorldLocationChatHostTransition> createState() =>
-      _WorldLocationChatHostTransitionState();
-}
-
-class _WorldLocationChatHostTransitionState
-    extends State<_WorldLocationChatHostTransition>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final PageRoute<void> _route;
-
-  @override
-  void initState() {
-    super.initState();
-    _route = _WorldLocationChatHostPageRoute();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-      reverseDuration: const Duration(milliseconds: 300),
-      value: widget.active ? 1 : 0,
-    );
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final builder = _pageTransitionsBuilderFor(context);
-    _controller.duration = builder.transitionDuration;
-    _controller.reverseDuration = builder.reverseTransitionDuration;
-  }
-
-  @override
-  void didUpdateWidget(_WorldLocationChatHostTransition oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.active == widget.active) return;
-    if (widget.active) {
-      _controller.forward();
-    } else {
-      _controller.reverse().then((_) {
-        if (!mounted || widget.active || !_controller.isDismissed) return;
-        widget.onDismissed();
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final platform = Theme.of(context).platform;
-    final transition =
-        platform == TargetPlatform.iOS || platform == TargetPlatform.macOS
-        ? CupertinoPageTransition(
-            primaryRouteAnimation: _controller,
-            secondaryRouteAnimation: const AlwaysStoppedAnimation<double>(0),
-            linearTransition: false,
-            child: widget.child,
-          )
-        : Theme.of(context).pageTransitionsTheme.buildTransitions<void>(
-            _route,
-            context,
-            _controller,
-            const AlwaysStoppedAnimation<double>(0),
-            widget.child,
-          );
-    return AnimatedBuilder(
-      animation: _controller,
-      child: transition,
-      builder: (context, child) {
-        if (!widget.active && _controller.value <= 0) {
-          return const SizedBox.shrink();
-        }
-        return child ?? const SizedBox.shrink();
-      },
-    );
-  }
-}
-
-class _WorldLocationChatHostPageRoute extends PageRoute<void> {
-  @override
-  Color? get barrierColor => null;
-
-  @override
-  String? get barrierLabel => null;
-
-  @override
-  bool get maintainState => true;
-
-  @override
-  bool get opaque => false;
-
-  @override
-  bool get popGestureEnabled => false;
-
-  @override
-  bool get popGestureInProgress => false;
-
-  @override
-  Duration get transitionDuration => const Duration(milliseconds: 300);
-
-  @override
-  Duration get reverseTransitionDuration => transitionDuration;
-
-  @override
-  Widget buildPage(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-  ) {
-    return const SizedBox.shrink();
-  }
-}
-
-PageTransitionsBuilder _pageTransitionsBuilderFor(BuildContext context) {
-  final theme = Theme.of(context);
-  return theme.pageTransitionsTheme.builders[theme.platform] ??
-      const ZoomPageTransitionsBuilder();
 }
 
 class _WorldLocationChatNestedRouterPage extends StatelessWidget {
