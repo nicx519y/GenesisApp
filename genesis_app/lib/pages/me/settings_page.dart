@@ -92,6 +92,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: GenesisBackAppBar(
         pageName: 'Settings',
         onBack: () => Navigator.of(context).maybePop(false),

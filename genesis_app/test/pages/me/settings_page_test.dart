@@ -18,11 +18,16 @@ import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/models/user.dart';
 import 'package:genesis_flutter_android/pages/me/settings_page.dart';
 import 'package:genesis_flutter_android/platform/platform_services.dart';
+import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
   testWidgets('settings feedback opens shared dialog and submits', (
     tester,
   ) async {
+    addTearDown(() {
+      tester.view.viewInsets = FakeViewPadding.zero;
+    });
+
     final transport = _RecordingFeedbackTransport();
     final services = _feedbackTestServices(transport);
 
@@ -45,6 +50,9 @@ void main() {
       tester.getTopLeft(find.text('Feedback')).dy,
       lessThan(tester.getTopLeft(find.text('Delete account')).dy),
     );
+    final logoutButtonTopBeforeKeyboard = tester
+        .getTopLeft(find.widgetWithText(GenesisPrimaryButton, 'Log out'))
+        .dy;
 
     await tester.tap(find.text('Feedback'));
     await tester.pumpAndSettle();
@@ -59,6 +67,19 @@ void main() {
     expect(input.maxLines, 3);
     expect(input.autofocus, isTrue);
     expect(input.focusNode?.hasFocus, isTrue);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .getTopLeft(find.widgetWithText(GenesisPrimaryButton, 'Log out'))
+          .dy,
+      logoutButtonTopBeforeKeyboard,
+    );
+
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
 
     await tester.enterText(inputFinder, '希望增加夜间模式');
     await tester.pump();
