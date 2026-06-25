@@ -7,7 +7,6 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/polling_scheduler.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/common/genesis_center_toast.dart';
-import '../../components/common/genesis_modal_routes.dart';
 import '../../network/api_exception.dart';
 import '../../network/direct_message_message_store.dart';
 import '../../network/genesis_api.dart';
@@ -64,10 +63,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      SystemChrome.setSystemUIOverlayStyle(kChatWhiteSystemUiOverlayStyle);
-    });
+    SystemChrome.setSystemUIOverlayStyle(kChatWhiteSystemUiOverlayStyle);
     WidgetsBinding.instance.addObserver(this);
     _scrollController = _createScrollController();
     _messageStore = AppServicesScope.read(context).directMessageMessages;
@@ -123,7 +119,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    SystemChrome.setSystemUIOverlayStyle(kGenesisDefaultSystemUiOverlayStyle);
     WidgetsBinding.instance.removeObserver(this);
     _poller.stop();
     _flushDraft();
