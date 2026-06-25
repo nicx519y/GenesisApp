@@ -1,3 +1,6 @@
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+import '../../app/telemetry/genesis_telemetry.dart';
 import 'v1_api_resource.dart';
 
 class CommonV1Api extends V1ApiResource {
@@ -19,7 +22,18 @@ class CommonV1Api extends V1ApiResource {
     required String bizType,
     String filename = 'upload.bin',
     String contentType = 'application/octet-stream',
-  }) {
+  }) async {
+    final stopwatch = Stopwatch()..start();
+    GenesisTelemetry.event(
+      'file_upload_start',
+      category: 'upload.file',
+      data: <String, Object?>{
+        'file_count': 1,
+        'bytes': bytes.length,
+        'content_type': contentType,
+        'biz_type': bizType,
+      },
+    );
     final boundary = '----genesis-${DateTime.now().microsecondsSinceEpoch}';
     final body = multipartBody(
       boundary: boundary,
@@ -28,9 +42,40 @@ class CommonV1Api extends V1ApiResource {
       contentType: contentType,
       fields: {'biz_type': bizType},
     );
-    return postMap('common/upload', body, {
-      'content-type': 'multipart/form-data; boundary=$boundary',
-    });
+    try {
+      final result = await postMap('common/upload', body, {
+        'content-type': 'multipart/form-data; boundary=$boundary',
+      });
+      stopwatch.stop();
+      GenesisTelemetry.event(
+        'file_upload_success',
+        category: 'upload.file',
+        data: <String, Object?>{
+          'file_count': 1,
+          'bytes': bytes.length,
+          'content_type': contentType,
+          'biz_type': bizType,
+          'duration_ms': stopwatch.elapsedMilliseconds,
+        },
+      );
+      return result;
+    } catch (error) {
+      stopwatch.stop();
+      GenesisTelemetry.event(
+        'file_upload_failure',
+        category: 'upload.file',
+        data: <String, Object?>{
+          'file_count': 1,
+          'bytes': bytes.length,
+          'content_type': contentType,
+          'biz_type': bizType,
+          'duration_ms': stopwatch.elapsedMilliseconds,
+          'error_type': error.runtimeType.toString(),
+        },
+        level: SentryLevel.warning,
+      );
+      rethrow;
+    }
   }
 
   /// POST /api/v1/common/drafts

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
@@ -25,6 +26,9 @@ import '../../utils/genesis_image_resource.dart';
 
 const double _locationChatAvatarLogicalSize = 40;
 const double _locationChatComposerBottomExtension = 60;
+const double _locationChatEdgeSwipeWidth = 24;
+const double _locationChatEdgeSwipeTriggerDistance = 64;
+const double _locationChatEdgeSwipeTriggerVelocity = 450;
 
 class LocationChatPage extends StatelessWidget {
   const LocationChatPage({
@@ -168,6 +172,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _initialBottomScrollDidJump = false;
   bool _composerFocusBottomPinActive = false;
   bool _composerFocusBottomScheduled = false;
+  double _edgeSwipeBackDragDistance = 0;
+  bool _edgeSwipeBackTriggered = false;
 
   @override
   void initState() {
@@ -1873,10 +1879,82 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                 ),
               ),
             ),
+            if (_supportsEdgeSwipeBack)
+              PositionedDirectional(
+                start: 0,
+                top: 0,
+                bottom: 0,
+                width: _edgeSwipeBackWidth(context),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onHorizontalDragStart: _handleEdgeSwipeBackStart,
+                  onHorizontalDragUpdate: _handleEdgeSwipeBackUpdate,
+                  onHorizontalDragEnd: _handleEdgeSwipeBackEnd,
+                  onHorizontalDragCancel: _resetEdgeSwipeBack,
+                ),
+              ),
           ],
         ),
       ),
     );
+  }
+
+  bool get _supportsEdgeSwipeBack {
+    return widget.active &&
+        widget.onBack != null &&
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
+  double _edgeSwipeBackWidth(BuildContext context) {
+    final direction = Directionality.of(context);
+    final padding = MediaQuery.paddingOf(context);
+    final edgePadding = direction == TextDirection.rtl
+        ? padding.right
+        : padding.left;
+    return math.max(_locationChatEdgeSwipeWidth, edgePadding);
+  }
+
+  void _handleEdgeSwipeBackStart(DragStartDetails details) {
+    _edgeSwipeBackDragDistance = 0;
+    _edgeSwipeBackTriggered = false;
+  }
+
+  void _handleEdgeSwipeBackUpdate(DragUpdateDetails details) {
+    final delta = details.primaryDelta ?? 0;
+    final logicalDelta = Directionality.of(context) == TextDirection.rtl
+        ? -delta
+        : delta;
+    _edgeSwipeBackDragDistance = math.max(
+      0,
+      _edgeSwipeBackDragDistance + logicalDelta,
+    );
+    if (_edgeSwipeBackDragDistance >= _locationChatEdgeSwipeTriggerDistance) {
+      _triggerEdgeSwipeBack();
+    }
+  }
+
+  void _handleEdgeSwipeBackEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    final logicalVelocity = Directionality.of(context) == TextDirection.rtl
+        ? -velocity
+        : velocity;
+    if (logicalVelocity >= _locationChatEdgeSwipeTriggerVelocity) {
+      _triggerEdgeSwipeBack();
+      return;
+    }
+    _resetEdgeSwipeBack();
+  }
+
+  void _triggerEdgeSwipeBack() {
+    if (_edgeSwipeBackTriggered) return;
+    _edgeSwipeBackTriggered = true;
+    _composerFocusNode.unfocus();
+    widget.onBack?.call();
+  }
+
+  void _resetEdgeSwipeBack() {
+    _edgeSwipeBackDragDistance = 0;
+    _edgeSwipeBackTriggered = false;
   }
 
   EdgeInsets _locationChatMessageListPadding(ChatUiStyleConfig style) {

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -2337,7 +2338,7 @@ class _WorldLocationChatPageCache {
   }
 }
 
-class _WorldLocationChatRouterHost extends StatelessWidget {
+class _WorldLocationChatRouterHost extends StatefulWidget {
   const _WorldLocationChatRouterHost({
     required this.worldId,
     required this.chatroom,
@@ -2353,14 +2354,50 @@ class _WorldLocationChatRouterHost extends StatelessWidget {
   final ValueChanged<String> onPanelReady;
 
   @override
+  State<_WorldLocationChatRouterHost> createState() =>
+      _WorldLocationChatRouterHostState();
+}
+
+class _WorldLocationChatRouterHostState
+    extends State<_WorldLocationChatRouterHost> {
+  String _displayLocationId = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _syncDisplayLocationId();
+  }
+
+  @override
+  void didUpdateWidget(_WorldLocationChatRouterHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncDisplayLocationId();
+  }
+
+  void _syncDisplayLocationId() {
+    final activeLocationId = widget.cache.activeLocationId;
+    if (activeLocationId.isNotEmpty) {
+      _displayLocationId = activeLocationId;
+    }
+  }
+
+  void _handleDismissed() {
+    if (_displayLocationId.isEmpty) return;
+    setState(() => _displayLocationId = '');
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final activeLocationId = cache.activeLocationId;
-    final activeDescriptor = cache.activeDescriptor;
-    final cachedIds = cache.cachedLocationIds.toList(growable: false);
+    final activeLocationId = widget.cache.activeLocationId;
+    final activeDescriptor = widget.cache.activeDescriptor;
+    final displayLocationId = activeLocationId.isNotEmpty
+        ? activeLocationId
+        : _displayLocationId;
+    final cachedIds = widget.cache.cachedLocationIds.toList(growable: false);
     final showSkeleton =
         activeLocationId.isNotEmpty &&
         activeDescriptor != null &&
-        !cache.isReady(activeLocationId);
+        !widget.cache.isReady(activeLocationId);
     final active = activeLocationId.isNotEmpty;
 
     return IgnorePointer(
@@ -2369,18 +2406,23 @@ class _WorldLocationChatRouterHost extends StatelessWidget {
         excluding: !active,
         child: _WorldLocationChatHostTransition(
           active: active,
+          onDismissed: _handleDismissed,
           child: Stack(
             children: [
               for (final descriptor
                   in cachedIds
-                      .map(cache.descriptorFor)
+                      .map(widget.cache.descriptorFor)
                       .whereType<_LocationChatPanelDescriptor>())
-                _buildCachedPage(descriptor),
+                _buildCachedPage(
+                  descriptor,
+                  displayLocationId: displayLocationId,
+                  activeLocationId: activeLocationId,
+                ),
               if (showSkeleton)
                 Positioned.fill(
                   child: _LocationChatPanelSkeleton(
                     title: activeDescriptor.locationName,
-                    onBack: onBack,
+                    onBack: widget.onBack,
                   ),
                 ),
             ],
@@ -2390,41 +2432,51 @@ class _WorldLocationChatRouterHost extends StatelessWidget {
     );
   }
 
-  Widget _buildCachedPage(_LocationChatPanelDescriptor descriptor) {
-    final active = descriptor.locationId == cache.activeLocationId;
-    final visible = active && cache.isReady(descriptor.locationId);
+  Widget _buildCachedPage(
+    _LocationChatPanelDescriptor descriptor, {
+    required String displayLocationId,
+    required String activeLocationId,
+  }) {
+    final active = descriptor.locationId == activeLocationId;
+    final visible = descriptor.locationId == displayLocationId;
+    final ready = widget.cache.isReady(descriptor.locationId);
     return IgnorePointer(
       ignoring: !active,
       child: ExcludeSemantics(
         excluding: !active,
         child: Offstage(
-          offstage: !active,
+          offstage: !visible,
           child: Opacity(
-            opacity: visible ? 1 : 0,
+            opacity: visible && ready ? 1 : 0,
             child: TickerMode(
-              enabled: active,
+              enabled: visible,
               child: SizedBox.expand(
                 child: _WorldLocationChatNestedRouterPage(
                   key: ValueKey(
                     'world-location-chat-router-${descriptor.locationId}',
                   ),
-                  worldId: worldId,
-                  chatroom: chatroom,
+                  worldId: widget.worldId,
+                  chatroom: widget.chatroom,
                   descriptor: descriptor,
                   active: active,
-                  onBack: onBack,
+                  onBack: widget.onBack,
                   onInitialContentReady: () =>
-                      onPanelReady(descriptor.locationId),
-                  initialDraftText: cache.draftTextFor(descriptor.locationId),
-                  initialScrollOffset: cache.scrollOffsetFor(
+                      widget.onPanelReady(descriptor.locationId),
+                  initialDraftText: widget.cache.draftTextFor(
+                    descriptor.locationId,
+                  ),
+                  initialScrollOffset: widget.cache.scrollOffsetFor(
                     descriptor.locationId,
                   ),
                   onDraftTextChanged: (text) {
-                    cache.updateDraftText(descriptor.locationId, text);
+                    widget.cache.updateDraftText(descriptor.locationId, text);
                   },
                   onScrollOffsetChanged: (offset) {
                     if (!active) return;
-                    cache.updateScrollOffset(descriptor.locationId, offset);
+                    widget.cache.updateScrollOffset(
+                      descriptor.locationId,
+                      offset,
+                    );
                   },
                 ),
               ),
@@ -2439,10 +2491,12 @@ class _WorldLocationChatRouterHost extends StatelessWidget {
 class _WorldLocationChatHostTransition extends StatefulWidget {
   const _WorldLocationChatHostTransition({
     required this.active,
+    required this.onDismissed,
     required this.child,
   });
 
   final bool active;
+  final VoidCallback onDismissed;
   final Widget child;
 
   @override
@@ -2483,7 +2537,10 @@ class _WorldLocationChatHostTransitionState
     if (widget.active) {
       _controller.forward();
     } else {
-      _controller.reverse();
+      _controller.reverse().then((_) {
+        if (!mounted || widget.active || !_controller.isDismissed) return;
+        widget.onDismissed();
+      });
     }
   }
 
@@ -2495,12 +2552,31 @@ class _WorldLocationChatHostTransitionState
 
   @override
   Widget build(BuildContext context) {
-    return Theme.of(context).pageTransitionsTheme.buildTransitions<void>(
-      _route,
-      context,
-      _controller,
-      const AlwaysStoppedAnimation<double>(0),
-      widget.child,
+    final platform = Theme.of(context).platform;
+    final transition =
+        platform == TargetPlatform.iOS || platform == TargetPlatform.macOS
+        ? CupertinoPageTransition(
+            primaryRouteAnimation: _controller,
+            secondaryRouteAnimation: const AlwaysStoppedAnimation<double>(0),
+            linearTransition: false,
+            child: widget.child,
+          )
+        : Theme.of(context).pageTransitionsTheme.buildTransitions<void>(
+            _route,
+            context,
+            _controller,
+            const AlwaysStoppedAnimation<double>(0),
+            widget.child,
+          );
+    return AnimatedBuilder(
+      animation: _controller,
+      child: transition,
+      builder: (context, child) {
+        if (!widget.active && _controller.value <= 0) {
+          return const SizedBox.shrink();
+        }
+        return child ?? const SizedBox.shrink();
+      },
     );
   }
 }
@@ -2516,7 +2592,10 @@ class _WorldLocationChatHostPageRoute extends PageRoute<void> {
   bool get maintainState => true;
 
   @override
-  bool get opaque => true;
+  bool get opaque => false;
+
+  @override
+  bool get popGestureEnabled => false;
 
   @override
   bool get popGestureInProgress => false;

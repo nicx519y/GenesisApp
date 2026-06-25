@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../app/telemetry/genesis_telemetry.dart';
 import '../platform/channels/genesis_method_channels.dart';
 import '../platform/device/device_id_service.dart';
 import 'api_client.dart';
@@ -44,12 +46,45 @@ class GatewayRequestInterceptor {
         forceRegister: forceRegister,
       );
       TransportRequest signed;
+      final signStopwatch = Stopwatch()..start();
       try {
         signed = await _signer.sign(request, context);
+        signStopwatch.stop();
+        _gatewayTelemetry(
+          'gateway.sign',
+          phase: 'sign',
+          data: <String, Object?>{
+            'path': request.uri.path,
+            'duration_ms': signStopwatch.elapsedMilliseconds,
+            'outcome': 'success',
+          },
+        );
       } on ApiException catch (error) {
+        signStopwatch.stop();
+        _gatewayTelemetry(
+          'gateway.sign',
+          phase: 'sign',
+          data: <String, Object?>{
+            'path': request.uri.path,
+            'duration_ms': signStopwatch.elapsedMilliseconds,
+            'outcome': 'failure',
+            'error_type': error.runtimeType.toString(),
+            'error_message': error.message,
+          },
+          level: SentryLevel.warning,
+        );
         if (!registrationRetried && isGatewayLocalSignatureError(error)) {
           registrationRetried = true;
           forceRegister = true;
+          _gatewayTelemetry(
+            'gateway.request.retry',
+            phase: 'request_retry',
+            data: <String, Object?>{
+              'path': request.uri.path,
+              'reason': 'local_signature_unavailable',
+            },
+            level: SentryLevel.warning,
+          );
           await _coordinator.clearRegistration();
           continue;
         }
@@ -60,17 +95,47 @@ class GatewayRequestInterceptor {
       if (errNo == 20502 && !timeRetried) {
         timeRetried = true;
         forceRegister = false;
+        _gatewayTelemetry(
+          'gateway.request.retry',
+          phase: 'request_retry',
+          data: <String, Object?>{
+            'path': request.uri.path,
+            'reason': 'time_20502',
+            'err_no': errNo,
+          },
+          level: SentryLevel.warning,
+        );
         await _coordinator.syncServerTime();
         continue;
       }
       if (errNo == 20503 && !nonceRetried) {
         nonceRetried = true;
         forceRegister = false;
+        _gatewayTelemetry(
+          'gateway.request.retry',
+          phase: 'request_retry',
+          data: <String, Object?>{
+            'path': request.uri.path,
+            'reason': 'nonce_20503',
+            'err_no': errNo,
+          },
+          level: SentryLevel.warning,
+        );
         continue;
       }
       if (isGatewayVerificationError(errNo) && !registrationRetried) {
         registrationRetried = true;
         forceRegister = true;
+        _gatewayTelemetry(
+          'gateway.request.retry',
+          phase: 'request_retry',
+          data: <String, Object?>{
+            'path': request.uri.path,
+            'reason': 'verification_20504_20509',
+            'err_no': errNo,
+          },
+          level: SentryLevel.warning,
+        );
         await _coordinator.clearRegistration();
         continue;
       }
@@ -196,13 +261,45 @@ GatewayHandshakeHeaderSigner gatewayHandshakeHeaderSigner({
         bodyBytes: null,
         timeoutMs: 0,
       );
+      final stopwatch = Stopwatch()..start();
       try {
         final signed = await signer.sign(request, context);
+        stopwatch.stop();
+        _gatewayTelemetry(
+          'gateway.ws_handshake_sign',
+          phase: 'ws_handshake_sign',
+          data: <String, Object?>{
+            'path': uri.path,
+            'duration_ms': stopwatch.elapsedMilliseconds,
+            'outcome': 'success',
+          },
+        );
         return signed.headers;
       } on ApiException catch (error) {
+        stopwatch.stop();
+        _gatewayTelemetry(
+          'gateway.ws_handshake_sign',
+          phase: 'ws_handshake_sign',
+          data: <String, Object?>{
+            'path': uri.path,
+            'duration_ms': stopwatch.elapsedMilliseconds,
+            'outcome': 'failure',
+            'error_message': error.message,
+          },
+          level: SentryLevel.warning,
+        );
         if (!registrationRetried && isGatewayLocalSignatureError(error)) {
           registrationRetried = true;
           forceRegister = true;
+          _gatewayTelemetry(
+            'gateway.request.retry',
+            phase: 'request_retry',
+            data: <String, Object?>{
+              'path': uri.path,
+              'reason': 'local_signature_unavailable',
+            },
+            level: SentryLevel.warning,
+          );
           await coordinator.clearRegistration();
           continue;
         }
@@ -310,8 +407,35 @@ class GatewayAuthCoordinator {
   Future<void>? _prepareFuture;
 
   Future<void> prepare({bool forceRegister = false}) async {
+    final stopwatch = Stopwatch()..start();
     if (forceRegister) {
-      await _runPrepare(forceRegister: true);
+      try {
+        await _runPrepare(forceRegister: true);
+        stopwatch.stop();
+        _gatewayTelemetry(
+          'gateway.prepare',
+          phase: 'prepare',
+          data: <String, Object?>{
+            'duration_ms': stopwatch.elapsedMilliseconds,
+            'force_register': true,
+            'outcome': 'success',
+          },
+        );
+      } catch (error) {
+        stopwatch.stop();
+        _gatewayTelemetry(
+          'gateway.prepare',
+          phase: 'prepare',
+          data: <String, Object?>{
+            'duration_ms': stopwatch.elapsedMilliseconds,
+            'force_register': true,
+            'outcome': 'failure',
+            'error_type': error.runtimeType.toString(),
+          },
+          level: SentryLevel.warning,
+        );
+        rethrow;
+      }
       return;
     }
     final pending = _prepareFuture;
@@ -323,7 +447,28 @@ class GatewayAuthCoordinator {
     _prepareFuture = future;
     try {
       await future;
+      stopwatch.stop();
+      _gatewayTelemetry(
+        'gateway.prepare',
+        phase: 'prepare',
+        data: <String, Object?>{
+          'duration_ms': stopwatch.elapsedMilliseconds,
+          'force_register': false,
+          'outcome': 'success',
+        },
+      );
     } catch (_) {
+      stopwatch.stop();
+      _gatewayTelemetry(
+        'gateway.prepare',
+        phase: 'prepare',
+        data: <String, Object?>{
+          'duration_ms': stopwatch.elapsedMilliseconds,
+          'force_register': false,
+          'outcome': 'failure',
+        },
+        level: SentryLevel.warning,
+      );
       if (identical(_prepareFuture, future)) {
         _prepareFuture = null;
       }
@@ -370,21 +515,53 @@ class GatewayAuthCoordinator {
   }
 
   Future<int> syncServerTime() async {
-    final json = await _client.get<Object?>('v1/time');
-    final data = _unwrapGatewayData(json);
-    final serverTimeMs = asInt(asJsonMap(data)['server_time_ms']);
-    if (serverTimeMs <= 0) {
-      throw ApiException(
-        message: 'Gateway time response missing server_time_ms',
+    final stopwatch = Stopwatch()..start();
+    try {
+      final json = await _client.get<Object?>('v1/time');
+      final data = _unwrapGatewayData(json);
+      final serverTimeMs = asInt(asJsonMap(data)['server_time_ms']);
+      if (serverTimeMs <= 0) {
+        throw ApiException(
+          message: 'Gateway time response missing server_time_ms',
+        );
+      }
+      final offset = serverTimeMs - DateTime.now().millisecondsSinceEpoch;
+      _serverTimeOffsetMs = offset;
+      stopwatch.stop();
+      _gatewayTelemetry(
+        'gateway.time_sync',
+        phase: 'time_sync',
+        data: <String, Object?>{
+          'duration_ms': stopwatch.elapsedMilliseconds,
+          'offset_ms': offset,
+          'outcome': 'success',
+        },
       );
+      return offset;
+    } catch (error) {
+      stopwatch.stop();
+      _gatewayTelemetry(
+        'gateway.time_sync',
+        phase: 'time_sync',
+        data: <String, Object?>{
+          'duration_ms': stopwatch.elapsedMilliseconds,
+          'outcome': 'failure',
+          'error_type': error.runtimeType.toString(),
+        },
+        level: SentryLevel.warning,
+      );
+      rethrow;
     }
-    final offset = serverTimeMs - DateTime.now().millisecondsSinceEpoch;
-    _serverTimeOffsetMs = offset;
-    return offset;
   }
 
   Future<void> clearRegistration() async {
     await _registrationStore.clearKeyId();
+    _gatewayTelemetry(
+      'gateway.clear_registration',
+      phase: 'clear_registration',
+      data: const <String, Object?>{'outcome': 'success'},
+      level: SentryLevel.warning,
+    );
   }
 
   Future<GatewaySignatureVerifyResponse> verifyLocalSignature({
@@ -413,15 +590,41 @@ class GatewayAuthCoordinator {
   }
 
   Future<String> _register(GatewayIdentity identity) async {
-    final challengeJson = await _client.post<Object?>(
-      'v1/app/device/challenge',
-      body: {
-        'app_id': identity.appId,
-        'platform': identity.platform,
-        'device_id': identity.deviceId,
-        'app_version': identity.appVersion,
-      },
-    );
+    final challengeStopwatch = Stopwatch()..start();
+    final Object? challengeJson;
+    try {
+      challengeJson = await _client.post<Object?>(
+        'v1/app/device/challenge',
+        body: {
+          'app_id': identity.appId,
+          'platform': identity.platform,
+          'device_id': identity.deviceId,
+          'app_version': identity.appVersion,
+        },
+      );
+      challengeStopwatch.stop();
+      _gatewayTelemetry(
+        'gateway.challenge',
+        phase: 'challenge',
+        data: <String, Object?>{
+          'duration_ms': challengeStopwatch.elapsedMilliseconds,
+          'outcome': 'success',
+        },
+      );
+    } catch (error) {
+      challengeStopwatch.stop();
+      _gatewayTelemetry(
+        'gateway.challenge',
+        phase: 'challenge',
+        data: <String, Object?>{
+          'duration_ms': challengeStopwatch.elapsedMilliseconds,
+          'outcome': 'failure',
+          'error_type': error.runtimeType.toString(),
+        },
+        level: SentryLevel.warning,
+      );
+      rethrow;
+    }
     final challengeData = asJsonMap(_unwrapGatewayData(challengeJson));
     final registerId = asString(challengeData['register_id']);
     if (registerId.trim().isEmpty) {
@@ -431,19 +634,45 @@ class GatewayAuthCoordinator {
     }
 
     final publicKey = await _keyStore.publicKeyBase64Url();
-    final registerJson = await _client.post<Object?>(
-      'v1/app/device/register',
-      body: {
-        'register_id': registerId,
-        'app_id': identity.appId,
-        'platform': identity.platform,
-        'device_id': identity.deviceId,
-        'app_version': identity.appVersion,
-        'public_key': publicKey,
-        'public_key_hash': gatewayPublicKeyHash(publicKey),
-        'attestation': const {'provider': 'dev', 'payload': ''},
-      },
-    );
+    final registerStopwatch = Stopwatch()..start();
+    final Object? registerJson;
+    try {
+      registerJson = await _client.post<Object?>(
+        'v1/app/device/register',
+        body: {
+          'register_id': registerId,
+          'app_id': identity.appId,
+          'platform': identity.platform,
+          'device_id': identity.deviceId,
+          'app_version': identity.appVersion,
+          'public_key': publicKey,
+          'public_key_hash': gatewayPublicKeyHash(publicKey),
+          'attestation': const {'provider': 'dev', 'payload': ''},
+        },
+      );
+      registerStopwatch.stop();
+      _gatewayTelemetry(
+        'gateway.register',
+        phase: 'register',
+        data: <String, Object?>{
+          'duration_ms': registerStopwatch.elapsedMilliseconds,
+          'outcome': 'success',
+        },
+      );
+    } catch (error) {
+      registerStopwatch.stop();
+      _gatewayTelemetry(
+        'gateway.register',
+        phase: 'register',
+        data: <String, Object?>{
+          'duration_ms': registerStopwatch.elapsedMilliseconds,
+          'outcome': 'failure',
+          'error_type': error.runtimeType.toString(),
+        },
+        level: SentryLevel.warning,
+      );
+      rethrow;
+    }
     final registerData = asJsonMap(_unwrapGatewayData(registerJson));
     final keyId = asString(registerData['key_id']);
     if (keyId.trim().isEmpty) {
@@ -482,6 +711,20 @@ class GatewayAuthCoordinator {
   }
 
   Uri _resolveGatewayUri(String path) => _gatewayBaseUri.resolve(path);
+}
+
+void _gatewayTelemetry(
+  String name, {
+  required String phase,
+  Map<String, Object?> data = const <String, Object?>{},
+  SentryLevel level = SentryLevel.info,
+}) {
+  GenesisTelemetry.event(
+    name,
+    category: 'network.gateway',
+    data: <String, Object?>{'gateway_phase': phase, ...data},
+    level: level,
+  );
 }
 
 Object? _unwrapGatewayData(Object? json) {

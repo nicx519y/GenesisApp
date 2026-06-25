@@ -46,6 +46,8 @@ dependencies:
   sqflite: ^2.4.2+1
   flutter_svg: ^2.3.0
   webview_flutter: ^4.10.0
+  sentry_flutter: ^9.22.0
+  alibabacloud_rum_flutter_plugin: ^2.1.0
 
 dependency_overrides:
   firebase_auth:

@@ -1,3 +1,4 @@
+import AlibabaCloudRUM
 import Flutter
 import PhotosUI
 import Security
@@ -21,6 +22,7 @@ import UniformTypeIdentifiers
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    configureAlibabaCloudRum()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -120,6 +122,12 @@ import UniformTypeIdentifiers
       "versionCode": info?["CFBundleVersion"] as? String ?? "",
       "packageName": Bundle.main.bundleIdentifier ?? ""
     ]
+  }
+
+  private func configureAlibabaCloudRum() {
+    AlibabaCloudRUM.setEndpoint(AlibabaRumConfig.endpoint)
+    AlibabaCloudRUM.setWorkspace(AlibabaRumConfig.workspace)
+    AlibabaCloudRUM.start(AlibabaRumConfig.serviceId)
   }
 
   private func configureDiscussImagePickerChannel(messenger: FlutterBinaryMessenger) {
