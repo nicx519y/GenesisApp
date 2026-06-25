@@ -7,6 +7,22 @@ void main() {
   const fallbackAvatar = 'https://example.test/fallback-avatar.webp';
   const entityAvatar = 'https://example.test/entity-avatar.webp';
 
+  test('location chat background falls back to bundled default when empty', () {
+    expect(
+      resolveLocationChatBackgroundUrlForTesting(imageUrl: ''),
+      'assets/images/map_default/location_default.webp',
+    );
+  });
+
+  test('location chat background maps predata default CDN image to asset', () {
+    expect(
+      resolveLocationChatBackgroundUrlForTesting(
+        imageUrl: 'https://cdn-001.worldo.ai/predata/location_default.webp',
+      ),
+      'assets/images/map_default/location_default.webp',
+    );
+  });
+
   test(
     'self message avatar falls back to local avatar before existing avatar',
     () {
