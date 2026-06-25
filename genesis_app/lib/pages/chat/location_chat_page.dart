@@ -96,6 +96,7 @@ class LocationChatPanel extends StatefulWidget {
     this.onInitialContentReady,
     this.composerReplacement,
     this.showConnectionStatus = true,
+    this.showMoreButton = true,
     this.systemUiOverlayStyle = kChatDarkHeaderSystemUiOverlayStyle,
     this.style,
     this.initialDraftText = '',
@@ -122,6 +123,7 @@ class LocationChatPanel extends StatefulWidget {
   final VoidCallback? onInitialContentReady;
   final Widget? composerReplacement;
   final bool showConnectionStatus;
+  final bool showMoreButton;
   final SystemUiOverlayStyle systemUiOverlayStyle;
   final ChatUiStyleConfig? style;
   final String initialDraftText;
@@ -1824,6 +1826,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       subtitleIconAsset: locationChatCharacterIconAsset,
       onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
       showSubtitle: widget.showConnectionStatus && aiRoleNames.isNotEmpty,
+      showMoreButton: widget.showMoreButton,
       style: style,
     );
     final listStyle = style.copyWith(
