@@ -78,6 +78,9 @@ void main() {
       ),
     );
 
+    expect(find.text('No Worldo you created yet.'), findsOneWidget);
+    expect(find.text('No Worldos you created yet.'), findsNothing);
+
     await tester.tap(find.text('World'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Worldo'));

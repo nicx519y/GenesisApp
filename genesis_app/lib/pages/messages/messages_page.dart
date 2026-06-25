@@ -557,15 +557,15 @@ class _NoMessagesFooter extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
         SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.45,
+          height: MediaQuery.sizeOf(context).height * 0.45 - 4,
           child: const Center(
             key: ValueKey('direct-messages-empty-state'),
             child: Text(
-              'no private messages yet.',
+              'Chat with your friends on Worldo.',
               style: TextStyle(
                 fontSize: 14,
-                color: Color(0xFF94979E),
-                fontWeight: FontWeight.w600,
+                color: Color(0xFF8A8A8A),
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
