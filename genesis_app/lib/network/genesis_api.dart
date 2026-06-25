@@ -1582,10 +1582,10 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
             .map((e) => _originLocationFromV1(asJsonMap(e), id))
             .toList(growable: false)
       : const <OriginLocation>[];
-  final locationTree = buildLocationTree(
+  final locationTree = buildOriginLocationTree(
     locations,
-    idOf: (location) => location.locationId,
-    parentIdOf: (location) => location.parentLocationId,
+    originMapUrl: mapUrl,
+    originId: id,
   );
   final events = _originEventsFromV1(raw);
   final ticks = _originTicksFromV1(raw);

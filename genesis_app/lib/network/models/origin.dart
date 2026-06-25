@@ -192,10 +192,14 @@ class OriginDetail {
               .map((e) => OriginLocation.fromJson(asJsonMap(e)))
               .toList(growable: false)
         : const <OriginLocation>[];
-    final locationTree = buildLocationTree(
+    final worldMap = asImageUrl(
+      json['world_map'],
+      fallback: asImageUrl(json['map_url'], fallback: mapImage),
+    );
+    final locationTree = buildOriginLocationTree(
       flatLocations,
-      idOf: (location) => location.locationId,
-      parentIdOf: (location) => location.parentLocationId,
+      originMapUrl: worldMap,
+      originId: asInt(json['id']),
     );
     return OriginDetail(
       id: asInt(json['id']),
@@ -203,7 +207,7 @@ class OriginDetail {
       name: asString(json['name']),
       description: asString(json['description']),
       mapImage: mapImage,
-      worldMap: asImageUrl(json['world_map'], fallback: mapImage),
+      worldMap: worldMap,
       worldView: asString(json['world_view']),
       deleted: entityDeleted(json['deleted'], fallback: json['origin_deleted']),
       ownerDeleted: entityDeleted(
@@ -289,6 +293,40 @@ class OriginEvent {
       ),
     );
   }
+}
+
+const String originSyntheticRootLocationId = '__origin_root__';
+
+List<LocationTreeNode<OriginLocation>> buildOriginLocationTree(
+  List<OriginLocation> locations, {
+  required String originMapUrl,
+  required int originId,
+}) {
+  final tree = buildLocationTree(
+    locations,
+    idOf: (location) => location.locationId,
+    parentIdOf: (location) => location.parentLocationId,
+  );
+  return withSyntheticRoot<OriginLocation>(
+    tree,
+    id: originSyntheticRootLocationId,
+    value: OriginLocation(
+      id: 0,
+      originId: originId,
+      name: '',
+      icon: '',
+      mapUrl: originMapUrl,
+      description: '',
+      position: 0,
+      isActive: true,
+      xPercent: 0,
+      yPercent: 0,
+      createdAt: null,
+      updatedAt: null,
+      locationId: originSyntheticRootLocationId,
+      parentLocationId: '',
+    ),
+  );
 }
 
 @immutable
