@@ -132,6 +132,24 @@ void main() {
     expect(find.textContaining('Latest Version: -'), findsNothing);
   });
 
+  testWidgets('shows deleted for deleted origin owner in search results', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1200);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Originator: deleted'), findsOneWidget);
+    expect(find.textContaining('Originator: Eve'), findsNothing);
+  });
+
   testWidgets('dismisses search focus when tapping result area', (
     tester,
   ) async {
@@ -336,6 +354,8 @@ Map<String, dynamic> _item(String type, int index) {
       'info': {
         'origin_id': 'origin_$index',
         'origin_name': 'Origin $index',
+        'owner_name': index == 1 ? 'Eve' : 'Owner $index',
+        'owner_user': {'deleted': index == 1, 'name': 'Owner $index'},
         'origin_version': '-',
         'latestVersion': {'versionNum': index},
         'origin_version_time': 1777680000 + index,
