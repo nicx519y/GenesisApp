@@ -147,7 +147,7 @@ class _DebugButton extends StatelessWidget {
         width: size,
         height: size,
         child: Material(
-          color: const Color(0xFFFF2344),
+          color: const Color(0xFFFF2442),
           shape: const CircleBorder(),
           elevation: 6,
           shadowColor: Colors.black.withValues(alpha: 0.2),

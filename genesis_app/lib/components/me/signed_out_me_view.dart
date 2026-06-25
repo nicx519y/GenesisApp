@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../platform/auth/auth_session.dart';
 import '../login_provider_button.dart';
@@ -30,8 +31,9 @@ class SignedOutMeView extends StatelessWidget {
                       child: Column(
                         children: [
                           SizedBox(height: constraints.maxHeight * 0.15),
-                          Image.asset(
-                            'assets/images/genesis_home_logo.png',
+                          SvgPicture.asset(
+                            'assets/images/worldo-logo.svg',
+                            key: const Key('signed_out_worldo_logo'),
                             width: 200,
                             fit: BoxFit.contain,
                           ),

@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
@@ -151,8 +152,8 @@ class _AboutBrandHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Image.asset(
-        'assets/images/genesis_launch_logo.png',
+      child: SvgPicture.asset(
+        'assets/images/worldo-logo.svg',
         key: const Key('about_genesis_launch_logo'),
         width: 236,
         fit: BoxFit.contain,

@@ -246,9 +246,15 @@ class OriginLaunchCoordinator {
       final worldName = world.name.trim().isEmpty
           ? fallbackWorldId
           : world.name.trim();
+      final title = 'Worldo #$worldName launched!';
       final shouldGo = await showGenesisActionBox<bool>(
         context: context,
-        title: 'World $worldName launched!',
+        title: title,
+        titleWidget: _successActionBoxTitle(
+          leadingText: 'Worldo ',
+          highlightedText: '#$worldName',
+          trailingText: ' launched!',
+        ),
         actions: const [
           GenesisActionBoxAction<bool>(label: 'Enter', value: true),
         ],
@@ -293,4 +299,33 @@ class OriginLaunchCoordinator {
     }
     return null;
   }
+}
+
+Widget _successActionBoxTitle({
+  required String leadingText,
+  required String highlightedText,
+  required String trailingText,
+}) {
+  const baseStyle = TextStyle(
+    color: Color(0xFF111111),
+    fontSize: 15,
+    height: 1.16,
+    fontWeight: FontWeight.w600,
+  );
+  return RichText(
+    maxLines: 2,
+    overflow: TextOverflow.ellipsis,
+    textAlign: TextAlign.center,
+    text: TextSpan(
+      style: baseStyle,
+      children: [
+        TextSpan(text: leadingText),
+        TextSpan(
+          text: highlightedText,
+          style: baseStyle.copyWith(color: const Color(0xFF4B6192)),
+        ),
+        TextSpan(text: trailingText),
+      ],
+    ),
+  );
 }

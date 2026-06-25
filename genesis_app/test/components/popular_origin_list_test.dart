@@ -142,7 +142,7 @@ void main() {
     expect(versionText.style?.fontWeight, FontWeight.w600);
     expect(versionText.style?.color, const Color(0xFF92400E));
     final worldViewIcon = tester.widget<Icon>(find.byIcon(MyFlutterApp.eye));
-    expect(worldViewIcon.color, const Color(0xFFFF2344));
+    expect(worldViewIcon.color, const Color(0xFFFF2442));
     expect(worldViewIcon.size, 14);
     final worldViewTitle = tester.widget<Text>(find.text('Worldo Brief'));
     final progressTitle = tester.widget<Text>(find.text('Copy World Progress'));

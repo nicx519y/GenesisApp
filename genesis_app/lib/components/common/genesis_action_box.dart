@@ -4,7 +4,7 @@ import '../../app/telemetry/genesis_telemetry.dart';
 import 'genesis_modal_routes.dart';
 
 const Color _genesisActionBoxText = Color(0xFF111111);
-const Color _genesisActionBoxDestructive = Color(0xFFFF2344);
+const Color _genesisActionBoxDestructive = Color(0xFFFF2442);
 const Color _genesisActionBoxDivider = Color(0xFFE8E8EA);
 
 class GenesisActionBoxAction<T> {
@@ -24,6 +24,7 @@ Future<T?> showGenesisActionBox<T>({
   required String title,
   required List<GenesisActionBoxAction<T>> actions,
   Widget? content,
+  Widget? titleWidget,
   Widget? titleContent,
   double titleContentSpacing = 8,
   String cancelLabel = 'Cancel',
@@ -39,6 +40,7 @@ Future<T?> showGenesisActionBox<T>({
       return GenesisActionBox<T>(
         title: title,
         content: content,
+        titleWidget: titleWidget,
         titleContent: titleContent,
         titleContentSpacing: titleContentSpacing,
         actions: actions,
@@ -62,6 +64,7 @@ class GenesisActionBox<T> extends StatelessWidget {
     required this.onActionSelected,
     required this.onCancel,
     this.content,
+    this.titleWidget,
     this.titleContent,
     this.titleContentSpacing = 8,
     this.cancelLabel = 'Cancel',
@@ -80,6 +83,7 @@ class GenesisActionBox<T> extends StatelessWidget {
 
   final String title;
   final Widget? content;
+  final Widget? titleWidget;
   final Widget? titleContent;
   final double titleContentSpacing;
   final List<GenesisActionBoxAction<T>> actions;
@@ -123,6 +127,7 @@ class GenesisActionBox<T> extends StatelessWidget {
             _TitleRow(
               title: title,
               height: titleHeight,
+              titleWidget: titleWidget,
               content: titleContent,
               contentSpacing: titleContentSpacing,
             ),
@@ -165,6 +170,7 @@ class GenesisActionBox<T> extends StatelessWidget {
                 _TitleRow(
                   title: title,
                   height: titleHeight,
+                  titleWidget: titleWidget,
                   content: titleContent,
                   contentSpacing: titleContentSpacing,
                 ),
@@ -206,12 +212,14 @@ class _TitleRow extends StatelessWidget {
   const _TitleRow({
     required this.title,
     required this.height,
+    required this.titleWidget,
     required this.content,
     required this.contentSpacing,
   });
 
   final String title;
   final double height;
+  final Widget? titleWidget;
   final Widget? content;
   final double contentSpacing;
 
@@ -228,18 +236,19 @@ class _TitleRow extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: _genesisActionBoxText,
-                  fontSize: 15,
-                  height: 1.16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              titleWidget ??
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: _genesisActionBoxText,
+                      fontSize: 15,
+                      height: 1.16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
               if (content case final content?) ...[
                 SizedBox(height: contentSpacing),
                 content,

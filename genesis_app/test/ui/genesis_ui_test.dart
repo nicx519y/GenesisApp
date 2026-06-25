@@ -305,7 +305,7 @@ void main() {
     expect(title.style?.fontWeight, FontWeight.w600);
     expect(action.style?.fontSize, 15);
     expect(action.style?.fontWeight, FontWeight.w600);
-    expect(action.style?.color, const Color(0xFFFF2344));
+    expect(action.style?.color, const Color(0xFFFF2442));
     expect(cancel.style?.fontSize, 15);
     expect(cancel.style?.fontWeight, FontWeight.w400);
 

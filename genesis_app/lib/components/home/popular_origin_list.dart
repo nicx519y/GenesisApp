@@ -503,7 +503,7 @@ class _SectionHeader extends StatelessWidget {
             excludeFromSemantics: true,
           )
         else
-          Icon(icon, color: const Color(0xFFFF2344), size: 14),
+          Icon(icon, color: const Color(0xFFFF2442), size: 14),
         const SizedBox(width: 8),
         Expanded(
           child: Text(

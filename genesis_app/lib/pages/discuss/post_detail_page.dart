@@ -443,7 +443,7 @@ class _ReplyActionRow extends StatelessWidget {
     final normalizedDiscussId = discussId.trim();
     final likePending = controller.isLikePending(normalizedDiscussId);
     final activeColor = isLiked
-        ? const Color(0xFFFF2344)
+        ? const Color(0xFFFF2442)
         : const Color(0xFF7D8178);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,

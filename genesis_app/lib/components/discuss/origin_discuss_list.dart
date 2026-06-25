@@ -1330,7 +1330,7 @@ class _DiscussActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final likePending = controller.isLikePending(item.discussId);
     final activeColor = item.isLiked
-        ? const Color(0xFFFF2344)
+        ? const Color(0xFFFF2442)
         : const Color(0xFF7D8178);
     return Row(
       children: [

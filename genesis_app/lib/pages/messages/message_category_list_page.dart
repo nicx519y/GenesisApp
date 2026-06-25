@@ -504,7 +504,7 @@ class _UnreadDot extends StatelessWidget {
       width: 7,
       height: 7,
       decoration: const BoxDecoration(
-        color: Color(0xFFFF2344),
+        color: Color(0xFFFF2442),
         shape: BoxShape.circle,
       ),
     );

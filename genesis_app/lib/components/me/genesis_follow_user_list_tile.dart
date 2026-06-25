@@ -109,10 +109,10 @@ class GenesisFollowUserListTile extends StatelessWidget {
                         minimumSize: const Size(_actionWidth, _actionHeight),
                         backgroundColor: isFollowed
                             ? const Color(0xFFE5E5E5)
-                            : const Color(0xFFFF2344),
+                            : const Color(0xFFFF2442),
                         disabledBackgroundColor: isFollowed
                             ? const Color(0xFFE5E5E5)
-                            : const Color(0xFFFF2344).withValues(alpha: 0.55),
+                            : const Color(0xFFFF2442).withValues(alpha: 0.55),
                         foregroundColor: isFollowed
                             ? Colors.black
                             : Colors.white,

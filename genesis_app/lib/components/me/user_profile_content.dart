@@ -737,11 +737,11 @@ class _ProfileActionButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     final backgroundColor = isFollowed
         ? const Color(0xFFE5E5E5)
-        : const Color(0xFFFF2344);
+        : const Color(0xFFFF2442);
     final foregroundColor = isFollowed ? Colors.black : Colors.white;
     final disabledBackgroundColor = isFollowed
         ? const Color(0xFFE5E5E5)
-        : const Color(0xFFFF2344).withValues(alpha: 0.55);
+        : const Color(0xFFFF2442).withValues(alpha: 0.55);
     final disabledForegroundColor = isFollowed ? Colors.black54 : Colors.white;
     const actionTextStyle = TextStyle(fontWeight: FontWeight.w600);
 

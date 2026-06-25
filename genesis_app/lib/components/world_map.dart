@@ -30,6 +30,17 @@ Color worldMapAvatarBorderColorForTesting({
 
 typedef WorldPointTapCallback = FutureOr<void> Function(WorldPoint point);
 
+@immutable
+class WorldMapHorizontalPanState {
+  const WorldMapHorizontalPanState({
+    required this.canScrollLeft,
+    required this.canScrollRight,
+  });
+
+  final bool canScrollLeft;
+  final bool canScrollRight;
+}
+
 class WorldMap extends StatefulWidget {
   const WorldMap({
     super.key,
@@ -51,6 +62,7 @@ class WorldMap extends StatefulWidget {
     this.onDrillIntoLocation,
     this.onSecondaryMapChanged,
     this.onVisibleLocationIdsChanged,
+    this.onHorizontalPanStateChanged,
     this.onPointTap,
   });
 
@@ -72,6 +84,7 @@ class WorldMap extends StatefulWidget {
   final VoidCallback? onDrillIntoLocation;
   final ValueChanged<bool>? onSecondaryMapChanged;
   final ValueChanged<List<String>>? onVisibleLocationIdsChanged;
+  final ValueChanged<WorldMapHorizontalPanState>? onHorizontalPanStateChanged;
   final WorldPointTapCallback? onPointTap;
 
   @override
@@ -79,10 +92,16 @@ class WorldMap extends StatefulWidget {
 }
 
 class _WorldMapState extends State<WorldMap> {
+  ScrollController? _horizontalScrollController;
+  ScrollController? _verticalScrollController;
   final List<_WorldMapLocationTrailEntry> _locationTrail =
       <_WorldMapLocationTrailEntry>[];
   final Set<String> _pendingLocationTapKeys = <String>{};
+  final Map<String, Size> _mapImageDimensionsByUrl = <String, Size>{};
+  final Set<String> _pendingMapImageDimensionUrls = <String>{};
   String _lastLoggedLocationTreeSignature = '';
+  String _scrollControllerSignature = '';
+  WorldMapHorizontalPanState? _lastHorizontalPanState;
   _MapTransitionSpec _mapTransition = const _MapTransitionSpec(
     origin: Alignment.center,
     direction: _MapTransitionDirection.drillIn,
@@ -117,6 +136,14 @@ class _WorldMapState extends State<WorldMap> {
   }
 
   @override
+  void dispose() {
+    _horizontalScrollController?.removeListener(_notifyHorizontalPanState);
+    _horizontalScrollController?.dispose();
+    _verticalScrollController?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final currentNode = _currentNode;
     final visibleNodes = _hasDrillTree
@@ -148,15 +175,14 @@ class _WorldMapState extends State<WorldMap> {
       builder: (context, constraints) {
         final devicePixelRatio =
             MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
-        const designWidth = 375.0;
-        const designHeight = 670.0;
+        final designSize = _mapDesignSize(currentMapImageUrl);
         final viewport = _MapViewport.cover(
           viewportWidth: constraints.maxWidth,
           viewportHeight: constraints.hasBoundedHeight
               ? constraints.maxHeight
-              : constraints.maxWidth / (designWidth / designHeight),
-          designWidth: designWidth,
-          designHeight: designHeight,
+              : constraints.maxWidth / (designSize.width / designSize.height),
+          designWidth: designSize.width,
+          designHeight: designSize.height,
         );
         final backgroundUrl = _selectWorldMapImageUrl(
           currentMapImageUrl,
@@ -181,9 +207,25 @@ class _WorldMapState extends State<WorldMap> {
           visiblePoints,
           devicePixelRatio: devicePixelRatio,
         );
-        final mapKey = ValueKey<String>(
-          _locationTrail.isEmpty ? '__world_root__' : _locationTrail.last.id,
+        final mapKeyId = _locationTrail.isEmpty
+            ? '__world_root__'
+            : _locationTrail.last.id;
+        final mapKey = ValueKey<String>(mapKeyId);
+        _syncMapScrollControllers(
+          signature:
+              '$currentMapImageUrl|$mapKeyId|${constraints.maxWidth}|${constraints.maxHeight}|${viewport.width}|${viewport.height}',
+          horizontalInitialOffset: _centerScrollOffset(
+            contentExtent: viewport.width,
+            viewportExtent: constraints.maxWidth,
+          ),
+          verticalInitialOffset: _centerScrollOffset(
+            contentExtent: viewport.height,
+            viewportExtent: constraints.maxHeight,
+          ),
         );
+        _scheduleHorizontalPanStateNotification();
+        final verticalScrollController = _verticalScrollController!;
+        final horizontalScrollController = _horizontalScrollController!;
         return Stack(
           children: [
             Positioned.fill(
@@ -192,85 +234,101 @@ class _WorldMapState extends State<WorldMap> {
                   context,
                 ).copyWith(overscroll: false),
                 child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: viewport.width > constraints.maxWidth + 0.5
+                  controller: verticalScrollController,
+                  primary: false,
+                  scrollDirection: Axis.vertical,
+                  physics: viewport.height > constraints.maxHeight + 0.5
                       ? const ClampingScrollPhysics()
                       : const NeverScrollableScrollPhysics(),
                   child: SizedBox(
-                    key: const ValueKey<String>('world-map-scaled-content'),
-                    width: viewport.width,
                     height: viewport.height,
-                    child: _WorldMapTransitionSurface(
-                      mapKey: mapKey,
-                      transition: _mapTransition,
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            left: viewport.left,
-                            top: viewport.top,
-                            width: viewport.width,
-                            height: viewport.height,
-                            child: _ZoomableMapContent(
-                              background: _MapBackgroundDeck(
-                                currentUrl: backgroundUrl,
-                                previewUrl: backgroundPreviewUrl,
-                                preloadUrls: preloadMapImageUrls,
-                                preloadAvatarUrls: preloadAvatarUrls,
-                                fallbackOnEmptyUrl:
-                                    widget.fallbackOnEmptyMapUrl,
-                              ),
-                              overlayBuilder:
-                                  (
-                                    context,
-                                    transform,
-                                    onOverlayPointerDown,
-                                  ) => Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      IgnorePointer(
-                                        ignoring: widget.showPointsList,
-                                        child: Opacity(
-                                          opacity: widget.showPointsList
-                                              ? 0.6
-                                              : 1,
-                                          child: Stack(
-                                            children: [
-                                              for (final p in visiblePoints)
-                                                _WorldPointPositioned(
-                                                  point: p,
-                                                  width: viewport.width,
-                                                  height: viewport.height,
-                                                  transform: transform,
-                                                  messageBubble:
-                                                      _locationTrail.isEmpty
-                                                      ? null
-                                                      : widget.messageBubbles[p
-                                                            .sceneId],
-                                                  onPointerDown:
-                                                      onOverlayPointerDown,
-                                                  onTap: _pointTapHandler(p),
-                                                ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      IgnorePointer(
-                                        child: AnimatedContainer(
-                                          duration: const Duration(
-                                            milliseconds: 220,
-                                          ),
-                                          color: widget.dimmed
-                                              ? Colors.black.withValues(
-                                                  alpha: 0.08,
-                                                )
-                                              : Colors.transparent,
-                                        ),
-                                      ),
-                                    ],
+                    child: SingleChildScrollView(
+                      controller: horizontalScrollController,
+                      primary: false,
+                      scrollDirection: Axis.horizontal,
+                      physics: viewport.width > constraints.maxWidth + 0.5
+                          ? const ClampingScrollPhysics()
+                          : const NeverScrollableScrollPhysics(),
+                      child: SizedBox(
+                        key: const ValueKey<String>('world-map-scaled-content'),
+                        width: viewport.width,
+                        height: viewport.height,
+                        child: _WorldMapTransitionSurface(
+                          mapKey: mapKey,
+                          transition: _mapTransition,
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                left: viewport.left,
+                                top: viewport.top,
+                                width: viewport.width,
+                                height: viewport.height,
+                                child: _ZoomableMapContent(
+                                  background: _MapBackgroundDeck(
+                                    currentUrl: backgroundUrl,
+                                    previewUrl: backgroundPreviewUrl,
+                                    preloadUrls: preloadMapImageUrls,
+                                    preloadAvatarUrls: preloadAvatarUrls,
+                                    fallbackOnEmptyUrl:
+                                        widget.fallbackOnEmptyMapUrl,
                                   ),
-                            ),
+                                  overlayBuilder:
+                                      (
+                                        context,
+                                        transform,
+                                        onOverlayPointerDown,
+                                      ) => Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          IgnorePointer(
+                                            ignoring: widget.showPointsList,
+                                            child: Opacity(
+                                              opacity: widget.showPointsList
+                                                  ? 0.6
+                                                  : 1,
+                                              child: Stack(
+                                                children: [
+                                                  for (final p in visiblePoints)
+                                                    _WorldPointPositioned(
+                                                      point: p,
+                                                      width: viewport.width,
+                                                      height: viewport.height,
+                                                      transform: transform,
+                                                      messageBubble:
+                                                          _locationTrail.isEmpty
+                                                          ? null
+                                                          : widget
+                                                                .messageBubbles[p
+                                                                .sceneId],
+                                                      onPointerDown:
+                                                          onOverlayPointerDown,
+                                                      onTap: _pointTapHandler(
+                                                        p,
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          IgnorePointer(
+                                            child: AnimatedContainer(
+                                              duration: const Duration(
+                                                milliseconds: 220,
+                                              ),
+                                              color: widget.dimmed
+                                                  ? Colors.black.withValues(
+                                                      alpha: 0.08,
+                                                    )
+                                                  : Colors.transparent,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -591,6 +649,127 @@ class _WorldMapState extends State<WorldMap> {
         .where((url) => url.isNotEmpty)
         .toSet()
         .toList(growable: false);
+  }
+
+  void _syncMapScrollControllers({
+    required String signature,
+    required double horizontalInitialOffset,
+    required double verticalInitialOffset,
+  }) {
+    if (_scrollControllerSignature == signature &&
+        _horizontalScrollController != null &&
+        _verticalScrollController != null) {
+      return;
+    }
+
+    final previousHorizontalController = _horizontalScrollController;
+    final previousVerticalController = _verticalScrollController;
+    previousHorizontalController?.removeListener(_notifyHorizontalPanState);
+
+    final horizontalController = ScrollController(
+      initialScrollOffset: horizontalInitialOffset,
+    );
+    horizontalController.addListener(_notifyHorizontalPanState);
+    _horizontalScrollController = horizontalController;
+    _verticalScrollController = ScrollController(
+      initialScrollOffset: verticalInitialOffset,
+    );
+    _scrollControllerSignature = signature;
+    _lastHorizontalPanState = null;
+
+    if (previousHorizontalController != null ||
+        previousVerticalController != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        previousHorizontalController?.dispose();
+        previousVerticalController?.dispose();
+      });
+    }
+  }
+
+  double _centerScrollOffset({
+    required double contentExtent,
+    required double viewportExtent,
+  }) {
+    return math.max(0, (contentExtent - viewportExtent) / 2);
+  }
+
+  void _scheduleHorizontalPanStateNotification() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _notifyHorizontalPanState();
+    });
+  }
+
+  void _notifyHorizontalPanState() {
+    final callback = widget.onHorizontalPanStateChanged;
+    if (callback == null) return;
+
+    var canScrollLeft = false;
+    var canScrollRight = false;
+    final horizontalScrollController = _horizontalScrollController;
+    if (horizontalScrollController != null &&
+        horizontalScrollController.hasClients) {
+      final position = horizontalScrollController.position;
+      canScrollLeft = position.pixels > position.minScrollExtent + 0.5;
+      canScrollRight = position.pixels < position.maxScrollExtent - 0.5;
+    }
+
+    final nextState = WorldMapHorizontalPanState(
+      canScrollLeft: canScrollLeft,
+      canScrollRight: canScrollRight,
+    );
+    final previousState = _lastHorizontalPanState;
+    if (previousState != null &&
+        previousState.canScrollLeft == nextState.canScrollLeft &&
+        previousState.canScrollRight == nextState.canScrollRight) {
+      return;
+    }
+    _lastHorizontalPanState = nextState;
+    callback(nextState);
+  }
+
+  Size _mapDesignSize(String mapImageUrl) {
+    const fallbackSize = Size(1024, 1536);
+    final url = mapImageUrl.trim();
+    if (url.isEmpty) return fallbackSize;
+    final cachedSize = _mapImageDimensionsByUrl[url];
+    if (cachedSize != null && !cachedSize.isEmpty) return cachedSize;
+    _resolveMapImageDimensions(url);
+    return fallbackSize;
+  }
+
+  void _resolveMapImageDimensions(String url) {
+    if (_pendingMapImageDimensionUrls.contains(url)) return;
+    _pendingMapImageDimensionUrls.add(url);
+
+    final ImageProvider imageProvider = url.startsWith('assets/')
+        ? AssetImage(url)
+        : NetworkImage(url);
+    final stream = imageProvider.resolve(
+      createLocalImageConfiguration(context),
+    );
+    late final ImageStreamListener listener;
+    listener = ImageStreamListener(
+      (imageInfo, _) {
+        stream.removeListener(listener);
+        _pendingMapImageDimensionUrls.remove(url);
+        final image = imageInfo.image;
+        final size = Size(image.width.toDouble(), image.height.toDouble());
+        if (size.isEmpty) return;
+        if (!mounted) {
+          _mapImageDimensionsByUrl[url] = size;
+          return;
+        }
+        setState(() => _mapImageDimensionsByUrl[url] = size);
+      },
+      onError: (error, stackTrace) {
+        stream.removeListener(listener);
+        _pendingMapImageDimensionUrls.remove(url);
+        debugPrint(
+          '[WorldMap] resolve map dimensions failed url="$url": $error',
+        );
+      },
+    );
+    stream.addListener(listener);
   }
 
   void _debugPrintLocationTree(String reason) {
@@ -1954,7 +2133,7 @@ class _LoadedMapAvatar extends StatelessWidget {
               child: const Icon(
                 MyFlutterApp.redstarCharIcon,
                 size: _starSize,
-                color: Color(0xFFFF2344),
+                color: Color(0xFFFF2442),
               ),
             ),
         ],

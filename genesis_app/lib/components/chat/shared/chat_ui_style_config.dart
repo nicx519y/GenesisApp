@@ -298,13 +298,13 @@ class ChatUiStyleConfig {
       fontWeight: FontWeight.w400, // 头像内文字字重。
     ),
     aiBadgeSize: 16, // AI 标识尺寸。
-    aiBadgeColor: Color(0xFFFF2344), // AI 标识颜色。
+    aiBadgeColor: Color(0xFFFF2442), // AI 标识颜色。
     sendingBadgeSize: 22, // sending loading 徽标尺寸。
     sendingBadgePadding: 2, // sending loading 徽标内边距。
     sendingBadgeStrokeWidth: 2, // sending loading 圆环线宽。
     sendingBadgeColor: Color(0xFF777777), // sending loading 圆环颜色。
     failedBadgeSize: 22, // failed 红色感叹号徽标尺寸。
-    failedBadgeColor: Color(0xFFFF2344), // failed 红色感叹号徽标背景色。
+    failedBadgeColor: Color(0xFFFF2442), // failed 红色感叹号徽标背景色。
     failedBadgeIconColor: Colors.white, // failed 感叹号图标颜色。
     failedBadgeIconSize: 17, // failed 感叹号图标尺寸。
     dateDividerBottomPadding: 12, // 日期分割线底部间距。
@@ -525,6 +525,7 @@ class ChatUiStyleConfig {
     double? headerSubtitleTopGap,
     EdgeInsets? messageListPadding,
     double? avatarSideSpacerWidth,
+    TextStyle? senderNameTextStyle,
     EdgeInsets? systemMessageMargin,
     bool? showComposerSendButton,
   }) {
@@ -604,7 +605,7 @@ class ChatUiStyleConfig {
       senderNameBottomGap: senderNameBottomGap,
       statusTextTopGap: statusTextTopGap,
       statusTextStyle: statusTextStyle,
-      senderNameTextStyle: senderNameTextStyle,
+      senderNameTextStyle: senderNameTextStyle ?? this.senderNameTextStyle,
       showSenderNameAboveOtherBubble: showSenderNameAboveOtherBubble,
       bubblePadding: bubblePadding,
       bubbleBorderRadius: bubbleBorderRadius,
