@@ -4,6 +4,9 @@ class AppConfig {
   static const defaultPostHogProjectToken =
       'phc_riFTSH7zTTeKCeb38WMYbTHjB2CndxFhaZhN6yUdA7AB';
   static const defaultPostHogHost = 'https://us.i.posthog.com';
+  static const defaultAppleWebClientId = 'com.worldo.ai.signin';
+  static const defaultAppleWebRedirectUri =
+      '${GenesisApi.defaultBaseHost}/callbacks/signinwithapple';
 
   const AppConfig({
     this.apiBaseUrl = GenesisApi.defaultApiBaseUrl,

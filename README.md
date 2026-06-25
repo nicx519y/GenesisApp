@@ -43,7 +43,6 @@ genesis_app/
 ├── test/                             # widget/component/network/utils 测试
 ├── android/                          # Android 平台工程
 ├── ios/                              # iOS 平台工程
-├── config/                           # 本地环境配置，如 Apple Sign In env
 ├── third_party/                      # 本地依赖覆盖，如 firebase_auth
 ├── pubspec.yaml                      # Flutter 依赖和资源声明
 └── analysis_options.yaml             # Dart analyzer 规则

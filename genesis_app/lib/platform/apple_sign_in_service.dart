@@ -8,19 +8,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
+import '../app/config/app_config.dart';
 import 'channels/genesis_method_channels.dart';
 
 class AppleSignInService {
   AppleSignInService._();
 
-  static const String _webClientId = String.fromEnvironment(
-    'APPLE_WEB_CLIENT_ID',
-    defaultValue: 'com.worldo.ai.signin',
-  );
-  static const String _webRedirectUri = String.fromEnvironment(
-    'APPLE_WEB_REDIRECT_URI',
-    defaultValue: 'https://api.worldo.ai/callbacks/signinwithapple',
-  );
+  static const String _webClientId = AppConfig.defaultAppleWebClientId;
+  static const String _webRedirectUri = AppConfig.defaultAppleWebRedirectUri;
 
   static bool get isSupportedPlatform =>
       !kIsWeb && (Platform.isIOS || Platform.isAndroid);
