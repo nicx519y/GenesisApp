@@ -116,32 +116,6 @@ void main() {
     expect(const AppConfig().appChannel, 'default');
   });
 
-  test('AppConfig provides default Sentry DSN', () {
-    expect(
-      const AppConfig().sentryDsn,
-      'https://genesis@proj-xtrace-787e287963ab8594ca6655fb346740-us-west-1'
-      '.us-west-1.log.aliyuncs.com/rum/sentry/'
-      'default-cms-1203224652491648-us-west-1/'
-      'bui9rvr4ow@ee4a8ef0e23567a0da8a4/0',
-    );
-  });
-
-  test('AppConfig provides default Alibaba Cloud RUM config', () {
-    expect(
-      const AppConfig().alibabaRumServiceId,
-      'bui9rvr4ow@ee4a8ef0e23567a0da8a4',
-    );
-    expect(
-      const AppConfig().alibabaRumWorkspace,
-      'default-cms-1203224652491648-us-west-1',
-    );
-    expect(
-      const AppConfig().alibabaRumEndpoint,
-      'https://proj-xtrace-787e287963ab8594ca6655fb346740-us-west-1'
-      '.us-west-1.log.aliyuncs.com',
-    );
-  });
-
   test('resolveAssetUrl maps predata default CDN images to bundled assets', () {
     expect(
       resolveAssetUrl('https://cdn-001.worldo.ai/predata/root_default.webp'),
@@ -2669,6 +2643,34 @@ void main() {
       'target_type': 'origin',
       'target_id': 'o_A1B2C3',
       'content': '内容疑似违规',
+    });
+  });
+
+  test('v1 feedback create posts Apifox body and parses feedback id', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"feedback_id":"fbk_X9KQ4M2A1B2C"}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    final result = await api.v1.feedback.create(content: '希望增加夜间模式');
+
+    expect(result['feedback_id'], 'fbk_X9KQ4M2A1B2C');
+    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/feedback/create');
+    expect(jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)), {
+      'content': '希望增加夜间模式',
     });
   });
 }

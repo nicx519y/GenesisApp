@@ -3,6 +3,7 @@ import 'app_api.dart';
 import 'common_api.dart';
 import 'discuss_api.dart';
 import 'dm_api.dart';
+import 'feedback_api.dart';
 import 'follow_api.dart';
 import 'home_api.dart';
 import 'messages_api.dart';
@@ -21,6 +22,7 @@ class GenesisV1Api {
       world = WorldV1Api(client),
       messages = MessagesV1Api(client),
       dm = DmV1Api(client),
+      feedback = FeedbackV1Api(client),
       follow = FollowV1Api(client),
       discuss = DiscussV1Api(client),
       report = ReportV1Api(client),
@@ -35,6 +37,7 @@ class GenesisV1Api {
   final WorldV1Api world;
   final MessagesV1Api messages;
   final DmV1Api dm;
+  final FeedbackV1Api feedback;
   final FollowV1Api follow;
   final DiscussV1Api discuss;
   final ReportV1Api report;

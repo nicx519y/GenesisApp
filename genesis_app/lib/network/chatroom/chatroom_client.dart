@@ -2,8 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:sentry_flutter/sentry_flutter.dart';
-
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../api_client.dart';
 import '../app_request_headers.dart';
@@ -106,7 +104,7 @@ class ChatroomClient {
           'outcome': 'failure',
           'error_type': error.runtimeType.toString(),
         },
-        level: SentryLevel.warning,
+        level: GenesisTelemetryLevel.warning,
       );
       rethrow;
     }
@@ -311,7 +309,7 @@ class ChatroomSession {
           'outcome': 'failure',
           'error_type': e.runtimeType.toString(),
         },
-        level: SentryLevel.warning,
+        level: GenesisTelemetryLevel.warning,
       );
       if (e is ChatroomFailureEvent) {
         rethrow;
@@ -587,7 +585,7 @@ class ChatroomSession {
         'source': 'socket_error',
         'error_type': error.runtimeType.toString(),
       },
-      level: SentryLevel.warning,
+      level: GenesisTelemetryLevel.warning,
     );
     final event = ChatroomErrorEvent(
       code: 'socket_error',
@@ -607,7 +605,7 @@ class ChatroomSession {
     _chatroomTelemetry(
       'chatroom.disconnect',
       data: const <String, Object?>{'outcome': 'socket_closed'},
-      level: SentryLevel.warning,
+      level: GenesisTelemetryLevel.warning,
     );
     final reason = ChatroomFailureEvent(
       code: 'socket_closed',
@@ -747,7 +745,7 @@ class ChatroomSession {
 void _chatroomTelemetry(
   String name, {
   Map<String, Object?> data = const <String, Object?>{},
-  SentryLevel level = SentryLevel.info,
+  GenesisTelemetryLevel level = GenesisTelemetryLevel.info,
 }) {
   GenesisTelemetry.event(
     name,

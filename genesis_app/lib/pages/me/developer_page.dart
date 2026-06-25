@@ -117,7 +117,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
   late final TextEditingController _apiBaseUrlController;
   late final TextEditingController _gatewayApiBaseUrlController;
   late final TextEditingController _chatroomWsBaseUrlController;
-  late final TextEditingController _sentryDsnController;
   bool _clearingDirectMessageCache = false;
   bool _clearingImageCache = false;
   bool _clearingGatewayAuth = false;
@@ -139,7 +138,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     _apiBaseUrlController = TextEditingController();
     _gatewayApiBaseUrlController = TextEditingController();
     _chatroomWsBaseUrlController = TextEditingController();
-    _sentryDsnController = TextEditingController();
     _loadEndpointOverrides();
   }
 
@@ -148,7 +146,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     _apiBaseUrlController.dispose();
     _gatewayApiBaseUrlController.dispose();
     _chatroomWsBaseUrlController.dispose();
-    _sentryDsnController.dispose();
     super.dispose();
   }
 
@@ -164,7 +161,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     _chatroomWsBaseUrlController.text = AppEndpointOverrideStore.displayDomain(
       overrides.chatroomWsBaseUrl,
     );
-    _sentryDsnController.text = overrides.sentryDsn ?? '';
     setState(() => _loadingEndpointOverrides = false);
   }
 
@@ -273,9 +269,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
         chatroomWsBaseUrl: AppEndpointOverrideStore.normalizeWssBaseUrl(
           _chatroomWsBaseUrlController.text,
         ),
-        sentryDsn: AppEndpointOverrideStore.normalizeSentryDsn(
-          _sentryDsnController.text,
-        ),
       );
       await AppEndpointOverrideStore.save(overrides);
       if (!mounted) return;
@@ -288,11 +281,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           AppEndpointOverrideStore.displayDomain(overrides.gatewayApiBaseUrl);
       _chatroomWsBaseUrlController.text =
           AppEndpointOverrideStore.displayDomain(overrides.chatroomWsBaseUrl);
-      _sentryDsnController.text = overrides.sentryDsn ?? '';
-      showGenesisToast(
-        context,
-        'Saved. New requests use endpoints. Sentry applies on next launch.',
-      );
+      showGenesisToast(context, 'Saved. New requests use endpoints.');
     } on FormatException catch (error) {
       if (!mounted) return;
       showGenesisToast(context, error.message);
@@ -316,7 +305,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
       _apiBaseUrlController.clear();
       _gatewayApiBaseUrlController.clear();
       _chatroomWsBaseUrlController.clear();
-      _sentryDsnController.clear();
       showGenesisToast(context, 'Endpoint overrides cleared.');
     } catch (error) {
       if (!mounted) return;
@@ -437,17 +425,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             textInputAction: TextInputAction.next,
           ),
           const SizedBox(height: _itemGap),
-          _DeveloperEndpointField(
-            key: const ValueKey<String>('developer-sentry-dsn-field'),
-            label: 'Sentry DSN',
-            scheme: '',
-            hintText: 'https://key@host/rum/sentry/workspace/service/0',
-            controller: _sentryDsnController,
-            enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _saveEndpointOverrides(),
-          ),
-          const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
             label: _savingEndpointOverrides ? 'Saving...' : 'Save endpoints',
             onPressed: _savingEndpointOverrides || _loadingEndpointOverrides
@@ -550,7 +527,6 @@ class _DeveloperEndpointField extends StatelessWidget {
     required this.controller,
     required this.enabled,
     this.textInputAction,
-    this.onSubmitted,
   });
 
   final String label;
@@ -559,7 +535,6 @@ class _DeveloperEndpointField extends StatelessWidget {
   final TextEditingController controller;
   final bool enabled;
   final TextInputAction? textInputAction;
-  final ValueChanged<String>? onSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -598,7 +573,6 @@ class _DeveloperEndpointField extends StatelessWidget {
                   enabled: enabled,
                   keyboardType: TextInputType.url,
                   textInputAction: textInputAction,
-                  onSubmitted: onSubmitted,
                   scrollPadding: EdgeInsets.only(
                     left: 20,
                     right: 20,

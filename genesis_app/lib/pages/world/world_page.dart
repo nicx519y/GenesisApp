@@ -144,6 +144,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _worldActionRunning = false;
   bool _worldTickInProgress = false;
   bool _openEventsAfterTickDone = false;
+  bool _worldBottomSheetOpen = false;
+  bool _openEventsAfterCurrentBottomSheetClosed = false;
+  int? _eventsAfterCurrentBottomSheetClosedTargetTickNumber;
+  BuildContext? _worldBottomSheetContext;
   int _worldMainTabIndex = 0;
   int? _worldMainSwipePointer;
   Offset? _worldMainSwipeStartPosition;
@@ -160,6 +164,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   var _currentUidRequested = false;
   late final ValueNotifier<WorldDetail?> _sectionsWorldNotifier =
       ValueNotifier<WorldDetail?>(_world);
+  late final ValueNotifier<_WorldBottomSheetSelection>
+  _worldBottomSheetSelection = ValueNotifier<_WorldBottomSheetSelection>(
+    const _WorldBottomSheetSelection(
+      kind: _WorldBottomSheetKind.detail,
+      eventsLatestRevision: 0,
+    ),
+  );
   final _sectionsEventsCache = _WorldSectionsEventsCache();
 
   @override
@@ -224,6 +235,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _sectionsEventsCache.clear();
     _locationChatPageCache.dispose();
     _sectionsWorldNotifier.dispose();
+    _worldBottomSheetSelection.dispose();
     super.dispose();
   }
 
@@ -1387,12 +1399,27 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (!mounted) return;
     if (_openEventsAfterTickDone) {
       _openEventsAfterTickDone = false;
-      _openWorldBottomSheet(
-        _WorldBottomSheetKind.events,
-        scrollEventsToLatest: true,
-        eventsTargetTickNumber: _world?.tickCount,
-      );
+      _showOrSelectEventsAfterTick();
     }
+  }
+
+  void _showOrSelectEventsAfterTick() {
+    if (_worldBottomSheetOpen &&
+        _worldBottomSheetSelection.value.kind != _WorldBottomSheetKind.events) {
+      final sheetContext = _worldBottomSheetContext;
+      if (sheetContext != null) {
+        _openEventsAfterCurrentBottomSheetClosed = true;
+        _eventsAfterCurrentBottomSheetClosedTargetTickNumber =
+            _world?.tickCount;
+        unawaited(Navigator.of(sheetContext).maybePop());
+        return;
+      }
+    }
+    _openWorldBottomSheet(
+      _WorldBottomSheetKind.events,
+      scrollEventsToLatest: true,
+      eventsTargetTickNumber: _world?.tickCount,
+    );
   }
 
   void _markWorldTickIdle() {
@@ -1783,26 +1810,51 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _eventsTargetTickNumber = eventsTargetTickNumber;
     _sectionsWorldNotifier.value = world;
     final services = AppServicesScope.read(context);
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      enableDrag: false,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.18),
-      builder: (context) => _WorldSingleSectionBottomSheet(
-        kind: kind,
-        services: services,
-        initialWorld: world,
-        worldListenable: _sectionsWorldNotifier,
-        eventsCache: _sectionsEventsCache,
-        currentUid: _currentUid,
-        eventsLatestRevision: _eventsLatestRevision,
-        eventsTargetTickNumber: _eventsTargetTickNumber,
-        locationPoints: locationPoints,
-        locationNodes: locationNodes,
-        onLocationTap: _openChatForPoint,
-      ),
+    _worldBottomSheetSelection.value = _WorldBottomSheetSelection(
+      kind: kind,
+      eventsLatestRevision: _eventsLatestRevision,
+      eventsTargetTickNumber: _eventsTargetTickNumber,
+    );
+    if (_worldBottomSheetOpen) return;
+    _worldBottomSheetOpen = true;
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        enableDrag: false,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.18),
+        builder: (context) {
+          _worldBottomSheetContext = context;
+          return _WorldSingleSectionBottomSheet(
+            selectionListenable: _worldBottomSheetSelection,
+            services: services,
+            initialWorld: world,
+            worldListenable: _sectionsWorldNotifier,
+            eventsCache: _sectionsEventsCache,
+            currentUid: _currentUid,
+            locationPoints: locationPoints,
+            locationNodes: locationNodes,
+            onLocationTap: _openChatForPoint,
+          );
+        },
+      ).whenComplete(() {
+        _worldBottomSheetOpen = false;
+        _worldBottomSheetContext = null;
+        final openEvents = _openEventsAfterCurrentBottomSheetClosed;
+        final targetTickNumber =
+            _eventsAfterCurrentBottomSheetClosedTargetTickNumber;
+        _openEventsAfterCurrentBottomSheetClosed = false;
+        _eventsAfterCurrentBottomSheetClosedTargetTickNumber = null;
+        if (openEvents && mounted) {
+          _openWorldBottomSheet(
+            _WorldBottomSheetKind.events,
+            scrollEventsToLatest: true,
+            eventsTargetTickNumber: targetTickNumber,
+          );
+        }
+      }),
     );
   }
 
@@ -2213,6 +2265,18 @@ String _worldTimeLabel({required int tickIndex, required String worldTime}) {
 }
 
 enum _WorldBottomSheetKind { detail, locations, events, status, cast }
+
+class _WorldBottomSheetSelection {
+  const _WorldBottomSheetSelection({
+    required this.kind,
+    required this.eventsLatestRevision,
+    this.eventsTargetTickNumber,
+  });
+
+  final _WorldBottomSheetKind kind;
+  final int eventsLatestRevision;
+  final int? eventsTargetTickNumber;
+}
 
 class _WorldBottomTagItem {
   const _WorldBottomTagItem({
@@ -3315,30 +3379,26 @@ class _WorldKeepAlivePageState extends State<_WorldKeepAlivePage>
 
 class _WorldSingleSectionBottomSheet extends StatefulWidget {
   const _WorldSingleSectionBottomSheet({
-    required this.kind,
+    required this.selectionListenable,
     required this.services,
     required this.initialWorld,
     required this.worldListenable,
     required this.eventsCache,
     required this.currentUid,
-    required this.eventsLatestRevision,
     required this.locationPoints,
     required this.locationNodes,
     required this.onLocationTap,
-    this.eventsTargetTickNumber,
   });
 
-  final _WorldBottomSheetKind kind;
+  final ValueListenable<_WorldBottomSheetSelection> selectionListenable;
   final AppServices services;
   final WorldDetail initialWorld;
   final ValueListenable<WorldDetail?> worldListenable;
   final _WorldSectionsEventsCache eventsCache;
   final String currentUid;
-  final int eventsLatestRevision;
   final List<WorldPoint> locationPoints;
   final List<WorldMapLocationNode> locationNodes;
   final ValueChanged<WorldPoint> onLocationTap;
-  final int? eventsTargetTickNumber;
 
   @override
   State<_WorldSingleSectionBottomSheet> createState() =>
@@ -3353,12 +3413,15 @@ class _WorldSingleSectionBottomSheetState
   WorldDetail get _currentWorld =>
       widget.worldListenable.value ?? widget.initialWorld;
 
+  _WorldBottomSheetSelection get _selection => widget.selectionListenable.value;
+
   _WorldSectionsEventsCache get _eventsCache => widget.eventsCache;
 
   @override
   void initState() {
     super.initState();
     widget.worldListenable.addListener(_handleWorldDetailChanged);
+    widget.selectionListenable.addListener(_handleSelectionChanged);
   }
 
   @override
@@ -3376,9 +3439,13 @@ class _WorldSingleSectionBottomSheetState
       oldWidget.worldListenable.removeListener(_handleWorldDetailChanged);
       widget.worldListenable.addListener(_handleWorldDetailChanged);
     }
+    if (oldWidget.selectionListenable != widget.selectionListenable) {
+      oldWidget.selectionListenable.removeListener(_handleSelectionChanged);
+      widget.selectionListenable.addListener(_handleSelectionChanged);
+    }
     if (_isEventsSheet &&
         (oldWidget.eventsCache != widget.eventsCache ||
-            oldWidget.kind != widget.kind)) {
+            oldWidget.selectionListenable.value.kind != _selection.kind)) {
       _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
     }
   }
@@ -3386,14 +3453,22 @@ class _WorldSingleSectionBottomSheetState
   @override
   void dispose() {
     widget.worldListenable.removeListener(_handleWorldDetailChanged);
+    widget.selectionListenable.removeListener(_handleSelectionChanged);
     super.dispose();
   }
 
-  bool get _isEventsSheet => widget.kind == _WorldBottomSheetKind.events;
+  bool get _isEventsSheet => _selection.kind == _WorldBottomSheetKind.events;
 
   void _handleWorldDetailChanged() {
     if (_isEventsSheet) {
       _ensureEventsForCurrentWorld();
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _handleSelectionChanged() {
+    if (_isEventsSheet) {
+      _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
     }
     if (mounted) setState(() {});
   }
@@ -3405,7 +3480,11 @@ class _WorldSingleSectionBottomSheetState
       unawaited(_loadEventsPage(1));
       return;
     }
-    if (_eventsCache.ticks.isEmpty || forceFirstPageRefresh) {
+    if (forceFirstPageRefresh) {
+      unawaited(_loadEventsPage(1, force: true));
+      return;
+    }
+    if (_eventsCache.ticks.isEmpty) {
       unawaited(_loadEventsPage(1));
     }
   }
@@ -3419,8 +3498,10 @@ class _WorldSingleSectionBottomSheetState
   }
 
   bool get _eventsHasMore {
-    return _eventsCache.total > 0 &&
-        _eventsCache.ticks.length < _eventsCache.total;
+    if (_eventsCache.total <= 0) return false;
+    if (_eventsCache.ticks.length >= _eventsCache.total) return false;
+    if (_eventsCache.page <= 0) return true;
+    return _eventsCache.page * _eventsPageSize < _eventsCache.total;
   }
 
   void _loadNextEventsPage() {
@@ -3432,10 +3513,10 @@ class _WorldSingleSectionBottomSheetState
     unawaited(_loadEventsPage(_eventsCache.page + 1));
   }
 
-  Future<void> _loadEventsPage(int page) async {
+  Future<void> _loadEventsPage(int page, {bool force = false}) async {
     if (page <= 0) return;
     if (page == 1) {
-      if (_eventsCache.initialLoading) return;
+      if (_eventsCache.initialLoading && !force) return;
       _mutateEventsCache(() {
         _eventsCache.initialLoading = true;
         _eventsCache.error = null;
@@ -3452,7 +3533,8 @@ class _WorldSingleSectionBottomSheetState
         limit: _eventsPageSize,
         offset: (page - 1) * _eventsPageSize,
       );
-      if (!mounted || worldId != _currentWorld.worldId) return;
+      if (worldId != _eventsCache.worldId) return;
+      if (mounted && worldId != _currentWorld.worldId) return;
       final loadedTicks = _eventTicksAscending(response.data);
       _mutateEventsCache(() {
         _eventsCache.ticks = _mergeEventTicksAscending(
@@ -3464,10 +3546,12 @@ class _WorldSingleSectionBottomSheetState
         _eventsCache.error = null;
       });
     } catch (e) {
-      if (!mounted || worldId != _currentWorld.worldId) return;
+      if (worldId != _eventsCache.worldId) return;
+      if (mounted && worldId != _currentWorld.worldId) return;
       _mutateEventsCache(() => _eventsCache.error = e);
     } finally {
-      if (mounted && worldId == _currentWorld.worldId) {
+      if (worldId == _eventsCache.worldId &&
+          (!mounted || worldId == _currentWorld.worldId)) {
         _mutateEventsCache(() {
           if (page == 1) {
             _eventsCache.initialLoading = false;
@@ -3490,8 +3574,8 @@ class _WorldSingleSectionBottomSheetState
         loadingMore: _eventsCache.loadingMore,
         hasMore: _eventsHasMore,
         error: _eventsCache.error,
-        latestRevision: widget.eventsLatestRevision,
-        targetTickNumber: widget.eventsTargetTickNumber,
+        latestRevision: _selection.eventsLatestRevision,
+        targetTickNumber: _selection.eventsTargetTickNumber,
         contentPadding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
         onLoadMore: _loadNextEventsPage,
       ),
@@ -3542,7 +3626,7 @@ class _WorldSingleSectionBottomSheetState
   }
 
   Widget _buildSheetContent() {
-    return switch (widget.kind) {
+    return switch (_selection.kind) {
       _WorldBottomSheetKind.detail => _buildDetailSectionPage(),
       _WorldBottomSheetKind.locations => _buildLocationsSectionPage(),
       _WorldBottomSheetKind.events => _buildEventsSectionPage(),
@@ -3552,7 +3636,9 @@ class _WorldSingleSectionBottomSheetState
   }
 
   _WorldBottomTagItem get _headerItem {
-    return _worldBottomTagItems.firstWhere((item) => item.kind == widget.kind);
+    return _worldBottomTagItems.firstWhere(
+      (item) => item.kind == _selection.kind,
+    );
   }
 
   @override
@@ -4360,6 +4446,7 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
       _showLatestWhenTicksArrive = true;
       if (_setCurrentPageToRequestedTargetOrLatestIfAvailable()) {
         _jumpToCurrentPage();
+        _maybeLoadPendingTarget();
       }
       return;
     }
@@ -4373,11 +4460,15 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
     }
 
     final nextIndex = _findPageByIdentity(_currentTickIdentity);
+    if (_isPendingTargetIdentity(_currentTickIdentity)) {
+      _maybeLoadPendingTarget();
+    }
     if (nextIndex < 0) {
       if (_isPendingTargetIdentity(_currentTickIdentity) &&
           _setCurrentPageToRequestedTargetOrLatestIfAvailable()) {
         _jumpToCurrentPage();
         _maybeLoadMoreForPage(_currentPage);
+        _maybeLoadPendingTarget();
         return;
       }
       _currentPage = _currentPage.clamp(0, _maxRenderedPage).toInt();
@@ -4417,6 +4508,9 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
     if (target == null || _pageIndexForTickNumber(target) != null) {
       return null;
     }
+    if (!widget.initialLoading && !widget.loadingMore && !widget.hasMore) {
+      return null;
+    }
     return _insertionPageForTickNumber(target);
   }
 
@@ -4424,14 +4518,16 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
     final visibleTicks = _visibleTicks;
     final requestedTickNumber = _requestedTickNumber;
     if (requestedTickNumber != null) {
-      final targetPage =
-          _pageIndexForTickNumber(requestedTickNumber) ??
-          _insertionPageForTickNumber(requestedTickNumber);
-      _currentPage = targetPage.clamp(0, _maxRenderedPage).toInt();
-      _currentTickIdentity = _pageIdentityAt(_currentPage);
-      _showLatestWhenTicksArrive = false;
-      _bumpTickCardResetRevisionAt(_currentPage);
-      return _pageCount > 0;
+      final resolvedTargetPage = _pageIndexForTickNumber(requestedTickNumber);
+      final pendingTargetPage = _pendingTargetPage;
+      if (resolvedTargetPage != null || pendingTargetPage != null) {
+        final targetPage = resolvedTargetPage ?? pendingTargetPage!;
+        _currentPage = targetPage.clamp(0, _maxRenderedPage).toInt();
+        _currentTickIdentity = _pageIdentityAt(_currentPage);
+        _showLatestWhenTicksArrive = false;
+        _bumpTickCardResetRevisionAt(_currentPage);
+        return _pageCount > 0;
+      }
     }
     if (visibleTicks.isEmpty) return false;
     final target = _showLatestWhenTicksArrive ? _maxRenderedPage : _currentPage;
@@ -4475,6 +4571,27 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
     }
   }
 
+  void _maybeLoadPendingTarget() {
+    if (_requestedTickNumber == null ||
+        _pendingTargetPage == null ||
+        !widget.hasMore ||
+        widget.loadingMore ||
+        widget.initialLoading) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _requestedTickNumber == null ||
+          _pendingTargetPage == null ||
+          !widget.hasMore ||
+          widget.loadingMore ||
+          widget.initialLoading) {
+        return;
+      }
+      widget.onLoadMore();
+    });
+  }
+
   void _bumpTickCardResetRevisionAt(int page) {
     final identity = _pageIdentityAt(page);
     if (identity.isEmpty) return;
@@ -4507,16 +4624,17 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
 
   @override
   Widget build(BuildContext context) {
-    final hasRequestedTickPage = _requestedTickNumber != null;
+    final pendingTargetPage = _pendingTargetPage;
+    final hasPendingTargetPage = pendingTargetPage != null;
     if (widget.ticks.isEmpty &&
         widget.initialLoading &&
-        !hasRequestedTickPage) {
+        !hasPendingTargetPage) {
       return Padding(
         padding: widget.contentPadding,
         child: const _WorldEventLoadingSkeleton(),
       );
     }
-    if (widget.ticks.isEmpty && !hasRequestedTickPage) {
+    if (widget.ticks.isEmpty && !hasPendingTargetPage) {
       return Padding(
         padding: widget.contentPadding,
         child: _EmptySection(
@@ -4532,7 +4650,6 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
     final fallbackBody = _eventBody(widget.world);
     final metricUnit = _mapString(widget.world.metric, const ['unit']);
     final visibleTicks = _visibleTicks;
-    final pendingTargetPage = _pendingTargetPage;
 
     return Stack(
       children: [

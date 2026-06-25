@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../network/genesis_api.dart';
@@ -66,7 +65,7 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
           'duration_ms': stopwatch.elapsedMilliseconds,
           'error_type': error.runtimeType.toString(),
         },
-        level: SentryLevel.warning,
+        level: GenesisTelemetryLevel.warning,
       );
       await _signOutIdentity();
       rethrow;
@@ -115,7 +114,7 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
         'logout_failure',
         category: 'auth',
         data: <String, Object?>{'error_type': e.runtimeType.toString()},
-        level: SentryLevel.warning,
+        level: GenesisTelemetryLevel.warning,
       );
       debugPrint('[Auth][BackendAuthCoordinator] backend logout failed: $e');
     }
@@ -129,7 +128,7 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
         'delete_account_failure',
         category: 'auth',
         data: <String, Object?>{'error_type': e.runtimeType.toString()},
-        level: SentryLevel.warning,
+        level: GenesisTelemetryLevel.warning,
       );
       debugPrint(
         '[Auth][BackendAuthCoordinator] backend account delete failed: $e',

@@ -643,6 +643,8 @@ void main() {
       content: '内容疑似违规',
     );
     expect(report['report_id'], startsWith('rpt_mock_'));
+    final feedback = await api.v1.feedback.create(content: '希望增加夜间模式');
+    expect(feedback['feedback_id'], startsWith('fbk_mock_'));
 
     final search = await api.v1.search.search(query: 'steam');
     expect((search['origins'] as Map)['list'] as List, isNotEmpty);

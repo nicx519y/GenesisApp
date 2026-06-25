@@ -1,5 +1,3 @@
-import 'package:sentry_flutter/sentry_flutter.dart';
-
 import '../../app/telemetry/genesis_telemetry.dart';
 import 'v1_api_resource.dart';
 
@@ -72,7 +70,7 @@ class CommonV1Api extends V1ApiResource {
           'duration_ms': stopwatch.elapsedMilliseconds,
           'error_type': error.runtimeType.toString(),
         },
-        level: SentryLevel.warning,
+        level: GenesisTelemetryLevel.warning,
       );
       rethrow;
     }

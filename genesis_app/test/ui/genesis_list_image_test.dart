@@ -20,6 +20,23 @@ void main() {
     expect(_defaultListImage(), findsOneWidget);
   });
 
+  testWidgets('GenesisListImage uses custom placeholder asset', (tester) async {
+    const placeholderAsset = 'assets/images/map_default/location_default.webp';
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: GenesisListImage(
+            imageUrl: '',
+            placeholderAsset: placeholderAsset,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.image(const AssetImage(placeholderAsset)), findsOneWidget);
+  });
+
   testWidgets('GenesisListImage uses shared content image radius by default', (
     WidgetTester tester,
   ) async {
