@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:alibabacloud_rum_flutter_plugin/alibabacloud_rum_flutter_plugin.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -35,14 +34,8 @@ Future<void> main() async {
       GenesisSystemUiChrome.applyDefault();
     }
 
-    final rootWidget = AlibabaCloudActionCapture(
-      child: GenesisApp(services: services),
-    );
-
-    await AlibabaCloudRUM().start(
-      rootWidget,
-      beforeRunApp: prepareBeforeRunApp,
-    );
+    await prepareBeforeRunApp();
+    runApp(GenesisApp(services: services));
     unawaited(AppBootstrap.warmUp(services));
   }
 

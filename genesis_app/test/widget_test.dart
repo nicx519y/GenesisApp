@@ -9090,6 +9090,56 @@ void main() {
     );
   });
 
+  testWidgets('chat page does not render a conversation background image', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingDmChatTransport(messages: const []);
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const DefaultPlatformConfig(),
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: const _FakeIdentityAuthService(),
+    );
+    final store = DirectMessageMessageStore(
+      api: api,
+      sessionStore: sessionStore,
+      storage: MemoryDirectMessageMessageStorage(),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            directMessageMessages: store,
+          ),
+          child: const ChatPage(peerUid: 'u_peer_dm', peerName: 'Penny Direct'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final background = find.byWidgetPredicate(
+      (widget) =>
+          widget is Image &&
+          widget.image is AssetImage &&
+          (widget.image as AssetImage).assetName ==
+              'assets/images/mock_maps/location_default.webp',
+    );
+    expect(background, findsNothing);
+
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    expect(
+      scaffold.backgroundColor,
+      kPrivateChatStyle.conversationBackgroundColor,
+    );
+    expect(scaffold.resizeToAvoidBottomInset, isTrue);
+  });
+
   testWidgets('chat page restores an unsent draft for the peer conversation', (
     WidgetTester tester,
   ) async {

@@ -5,9 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
-import 'genesis_action_box.dart';
-import 'genesis_center_toast.dart';
-import 'genesis_modal_routes.dart';
+import 'genesis_content_submission_dialog.dart';
 
 const TextStyle _genesisActionMenuTextStyle = TextStyle(
   fontSize: 12,
@@ -820,97 +818,19 @@ Future<bool> showGenesisReportDialog({
   required String targetType,
   required String targetId,
 }) async {
-  final submitted = await showGenesisDialog<bool>(
+  final api = AppServicesScope.read(context).api;
+  return showGenesisContentSubmissionDialog(
     context: context,
-    barrierColor: const Color(0x52000000),
-    builder: (dialogContext) {
-      return _GenesisReportDialog(targetType: targetType, targetId: targetId);
-    },
-  );
-  return submitted == true;
-}
-
-class _GenesisReportDialog extends StatefulWidget {
-  const _GenesisReportDialog({
-    required this.targetType,
-    required this.targetId,
-  });
-
-  final String targetType;
-  final String targetId;
-
-  @override
-  State<_GenesisReportDialog> createState() => _GenesisReportDialogState();
-}
-
-class _GenesisReportDialogState extends State<_GenesisReportDialog> {
-  final _controller = TextEditingController();
-  final _focusNode = FocusNode();
-  bool _submitting = false;
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final content = _controller.text.trim();
-    if (content.isEmpty || _submitting) return;
-    setState(() => _submitting = true);
-    try {
-      await AppServicesScope.read(context).api.v1.report.create(
-        targetType: widget.targetType,
-        targetId: widget.targetId,
+    title: 'Report',
+    contentInputKey: const ValueKey<String>('genesis-report-content-input'),
+    successMessage: 'Report submitted',
+    failureMessage: 'Report failed',
+    onSubmit: (content) {
+      return api.v1.report.create(
+        targetType: targetType,
+        targetId: targetId,
         content: content,
       );
-      if (!mounted) return;
-      showGenesisToast(context, 'Report submitted');
-      Navigator.of(context).pop(true);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _submitting = false);
-      showGenesisToast(context, 'Report failed');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GenesisActionBox<bool>(
-      title: 'Report',
-      titleHeight: 157,
-      titleContentSpacing: 16,
-      titleContent: TextField(
-        key: const ValueKey<String>('genesis-report-content-input'),
-        controller: _controller,
-        focusNode: _focusNode,
-        autofocus: true,
-        minLines: 3,
-        maxLines: 3,
-        textInputAction: TextInputAction.newline,
-        decoration: InputDecoration(
-          hintText: 'Describe the issue',
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 10,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFD8D8DE)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFD8D8DE)),
-          ),
-        ),
-        onChanged: (_) => setState(() {}),
-      ),
-      actions: const [
-        GenesisActionBoxAction<bool>(label: 'Submit', value: true),
-      ],
-      onActionSelected: (_) => unawaited(_submit()),
-      onCancel: () => Navigator.of(context).pop(false),
-    );
-  }
+    },
+  );
 }

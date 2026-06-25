@@ -2,6 +2,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/widgets.dart';
 
 import '../config/app_config.dart';
+import '../telemetry/firebase_crash_reporting.dart';
+import '../telemetry/firebase_performance_monitoring.dart';
 import 'service_registry.dart';
 
 class AppBootstrap {
@@ -27,6 +29,8 @@ class AppBootstrap {
   static Future<void> warmUp(AppServices services) async {
     try {
       await Firebase.initializeApp().timeout(_firebaseInitializeTimeout);
+      await FirebaseCrashReporting.enable();
+      await FirebasePerformanceMonitoring.enable();
     } catch (e, st) {
       debugPrint('[Auth][Firebase] initialize failed: $e');
       debugPrint('[Auth][Firebase] stacktrace:\n$st');

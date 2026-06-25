@@ -1,13 +1,6 @@
 import '../../network/genesis_api.dart';
 
 class AppConfig {
-  static const defaultAlibabaRumServiceId = 'bui9rvr4ow@ee4a8ef0e23567a0da8a4';
-  static const defaultAlibabaRumWorkspace =
-      'default-cms-1203224652491648-us-west-1';
-  static const defaultAlibabaRumEndpoint =
-      'https://proj-xtrace-787e287963ab8594ca6655fb346740-us-west-1'
-      '.us-west-1.log.aliyuncs.com';
-
   const AppConfig({
     this.apiBaseUrl = GenesisApi.defaultApiBaseUrl,
     this.gatewayApiBaseUrl = GenesisApi.defaultGatewayApiBaseUrl,
@@ -32,18 +25,6 @@ class AppConfig {
       'GENESIS_DEBUG_WS_LOG',
       defaultValue: false,
     ),
-    this.alibabaRumServiceId = const String.fromEnvironment(
-      'GENESIS_ALIBABA_RUM_SERVICE_ID',
-      defaultValue: defaultAlibabaRumServiceId,
-    ),
-    this.alibabaRumWorkspace = const String.fromEnvironment(
-      'GENESIS_ALIBABA_RUM_WORKSPACE',
-      defaultValue: defaultAlibabaRumWorkspace,
-    ),
-    this.alibabaRumEndpoint = const String.fromEnvironment(
-      'GENESIS_ALIBABA_RUM_ENDPOINT',
-      defaultValue: defaultAlibabaRumEndpoint,
-    ),
     this.appId = const String.fromEnvironment(
       'GENESIS_APP_ID',
       defaultValue: 'aitown',
@@ -65,9 +46,6 @@ class AppConfig {
   final String chatroomHttpBaseUrl;
   final String debugProxy;
   final bool debugWsLog;
-  final String alibabaRumServiceId;
-  final String alibabaRumWorkspace;
-  final String alibabaRumEndpoint;
   final String appId;
   final String appChannel;
   final Duration chatroomHeartbeatInterval;
@@ -89,9 +67,6 @@ class AppConfig {
     String? chatroomHttpBaseUrl,
     String? debugProxy,
     bool? debugWsLog,
-    String? alibabaRumServiceId,
-    String? alibabaRumWorkspace,
-    String? alibabaRumEndpoint,
     String? appId,
     String? appChannel,
     Duration? chatroomHeartbeatInterval,
@@ -107,9 +82,6 @@ class AppConfig {
       chatroomHttpBaseUrl: chatroomHttpBaseUrl ?? this.chatroomHttpBaseUrl,
       debugProxy: debugProxy ?? this.debugProxy,
       debugWsLog: debugWsLog ?? this.debugWsLog,
-      alibabaRumServiceId: alibabaRumServiceId ?? this.alibabaRumServiceId,
-      alibabaRumWorkspace: alibabaRumWorkspace ?? this.alibabaRumWorkspace,
-      alibabaRumEndpoint: alibabaRumEndpoint ?? this.alibabaRumEndpoint,
       appId: appId ?? this.appId,
       appChannel: appChannel ?? this.appChannel,
       chatroomHeartbeatInterval:

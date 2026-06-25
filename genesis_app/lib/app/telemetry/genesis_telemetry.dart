@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:alibabacloud_rum_flutter_plugin/alibabacloud_rum_flutter_plugin.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
@@ -8,6 +7,7 @@ import '../../platform/app/app_metadata_service.dart';
 import '../../platform/device/device_id_service.dart';
 import '../config/app_config.dart';
 import '../debug_page_tracker.dart';
+import 'firebase_crash_reporting.dart';
 
 enum GenesisTelemetryLevel { debug, info, warning, error, fatal }
 
@@ -88,92 +88,26 @@ abstract interface class GenesisTelemetrySink {
   Future<void> captureException(Object error, StackTrace stackTrace);
 }
 
-class AlibabaGenesisTelemetrySink implements GenesisTelemetrySink {
-  const AlibabaGenesisTelemetrySink();
+class NoopGenesisTelemetrySink implements GenesisTelemetrySink {
+  const NoopGenesisTelemetrySink();
 
   @override
-  Future<void> record(GenesisTelemetryEvent event) async {
-    if (!event.capture) return;
-    final data = _compact(<String, Object?>{
-      ...event.fullData,
-      'level': event.level.name,
-    });
-    await _recordAlibabaEvent(event, data);
-  }
+  Future<void> record(GenesisTelemetryEvent event) async {}
 
   @override
-  Future<void> setContext(GenesisTelemetryContext context) async {
-    await _safeAlibabaCall(
-      () => AlibabaCloudRUM().setExtraInfo(_compact(context.toMap())),
-    );
-  }
+  Future<void> setContext(GenesisTelemetryContext context) async {}
 
   @override
-  Future<void> setUserId(String? uid) async {
-    await _safeAlibabaCall(
-      () => AlibabaCloudRUM().setUserName(uid?.trim() ?? ''),
-    );
-  }
+  Future<void> setUserId(String? uid) async {}
 
   @override
-  Future<void> captureException(Object error, StackTrace stackTrace) async {
-    await _safeAlibabaCall(
-      () => AlibabaCloudRUM().setCustomException(
-        error.runtimeType.toString(),
-        error.toString(),
-        stackTrace.toString(),
-      ),
-    );
-  }
-
-  Map<String, dynamic> _compact(Map<String, Object?> data) {
-    return <String, dynamic>{
-      for (final entry in data.entries)
-        if (entry.value != null && entry.value.toString().trim().isNotEmpty)
-          entry.key: _safeValue(entry.value),
-    };
-  }
-
-  Object _safeValue(Object? value) {
-    final safe = value;
-    if (safe is num) return safe;
-    if (safe is bool) return safe;
-    if (safe is String) return safe;
-    return safe?.toString() ?? '';
-  }
-
-  Future<void> _recordAlibabaEvent(
-    GenesisTelemetryEvent event,
-    Map<String, dynamic> data,
-  ) {
-    return _safeAlibabaCall(
-      () => AlibabaCloudRUM().setCustomEvent(
-        event.name,
-        group: event.category,
-        attributes: _stringAttributes(data),
-      ),
-    );
-  }
-
-  Map<String, String> _stringAttributes(Map<String, dynamic> data) {
-    return <String, String>{
-      for (final entry in data.entries) entry.key: entry.value.toString(),
-    };
-  }
-
-  Future<void> _safeAlibabaCall(Future<void> Function() call) async {
-    try {
-      await call();
-    } catch (_) {
-      // Telemetry must not affect app behavior.
-    }
-  }
+  Future<void> captureException(Object error, StackTrace stackTrace) async {}
 }
 
 class GenesisTelemetry {
   GenesisTelemetry._();
 
-  static GenesisTelemetrySink _sink = const AlibabaGenesisTelemetrySink();
+  static GenesisTelemetrySink _sink = const NoopGenesisTelemetrySink();
   static GenesisTelemetryContext _context = const GenesisTelemetryContext();
   static bool _enabled = true;
 
@@ -188,7 +122,7 @@ class GenesisTelemetry {
 
   @visibleForTesting
   static void resetForTesting() {
-    _sink = const AlibabaGenesisTelemetrySink();
+    _sink = const NoopGenesisTelemetrySink();
     _context = const GenesisTelemetryContext();
     _enabled = true;
   }
@@ -293,6 +227,7 @@ class GenesisTelemetry {
   }
 
   static void captureException(Object error, StackTrace stackTrace) {
+    FirebaseCrashReporting.recordNonFatal(error, stackTrace);
     unawaited(_sink.captureException(error, stackTrace));
   }
 
