@@ -15,7 +15,7 @@ void main() {
                 'name': 'Iris',
                 'subtitle': 'A test character',
                 'tags': ['AI'],
-                'image': 'assets/images/mock_avatars/avatar_iris.png',
+                'image': 'assets/images/default_list_image.png',
                 'powerText': '',
               },
             ],
@@ -26,7 +26,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final image = find.image(
-      const AssetImage('assets/images/mock_avatars/avatar_iris.png'),
+      const AssetImage('assets/images/default_list_image.png'),
     );
     expect(image, findsOneWidget);
     expect(tester.getSize(image).width, 86);

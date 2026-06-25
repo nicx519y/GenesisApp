@@ -28,11 +28,13 @@ class MePage extends StatefulWidget {
     this.onLoggedOut,
     this.onLogin,
     this.activationListenable,
+    this.isActiveListenable,
   });
 
   final VoidCallback? onLoggedOut;
   final Future<bool> Function(IdentityProvider provider)? onLogin;
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<bool>? isActiveListenable;
 
   @override
   State<MePage> createState() => _MePageState();
@@ -63,6 +65,8 @@ class _MePageState extends State<MePage> {
   int _loadGeneration = 0;
   bool _profileCollapsed = false;
   bool _isActivationRefreshing = false;
+  bool _hasPendingActivationRefresh = false;
+  int _selectedCollectionTabIndex = 0;
   ValueListenable<int>? _sessionRevisionListenable;
 
   @override
@@ -115,14 +119,14 @@ class _MePageState extends State<MePage> {
 
   Future<UserProfileData> _loadProfileData({
     bool showCollectionLoading = true,
+    int? refreshCollectionTabIndex = 0,
   }) async {
     final generation = _loadGeneration + 1;
     _loadGeneration = generation;
     final currentOrigins = _originsState.value.items;
     final currentWorlds = _worldsState.value.items;
-    if (showCollectionLoading) {
-      _setOriginsState(currentOrigins, isLoading: true);
-      _setWorldsState(currentWorlds, isLoading: true);
+    if (refreshCollectionTabIndex != null && showCollectionLoading) {
+      _setCollectionLoading(refreshCollectionTabIndex, isLoading: true);
     }
     final services = AppServicesScope.read(context);
     final api = services.api;
@@ -143,14 +147,20 @@ class _MePageState extends State<MePage> {
 
     final cachedUser = await services.sessionStore.readUserInfo();
     if (cachedUser != null) {
+      final cachedUid = _mapString(cachedUser, 'uid');
       final backendName = _mapString(cachedUser, 'name');
-      final backendAvatar = asResolvedImageUrl(
-        cachedUser['avatar'],
-        resolveAssetUrl,
-        fallback: cachedUser['avatar_url'],
-      );
-      if (backendName.isNotEmpty) resolvedDisplayName = backendName;
-      if (backendAvatar.isNotEmpty) {
+      final backendAvatar = _resolvedBackendAvatar(cachedUser);
+      final cachedDeleted = entityDeleted(cachedUser['deleted']);
+      if (cachedDeleted) {
+        resolvedDisplayName = deletedEntityDisplayText;
+      } else if (_hasMapKey(cachedUser, 'name')) {
+        resolvedDisplayName = _profileDisplayNameFromBackend(
+          backendName,
+          cachedUid.isEmpty ? uid : cachedUid,
+          fallback: displayName,
+        );
+      }
+      if (_hasAvatarPayload(cachedUser)) {
         resolvedAvatarUrl = backendAvatar;
       }
       resolvedFollowingCount = _mapInt(cachedUser, 'following_cnt');
@@ -163,10 +173,18 @@ class _MePageState extends State<MePage> {
       fallbackUid: uid,
     );
 
-    unawaited(
-      _loadOrigins(generation, api, uid, fallbackItems: currentOrigins),
-    );
-    unawaited(_loadWorlds(generation, api, uid, fallbackItems: currentWorlds));
+    if (refreshCollectionTabIndex != null && _isTabActive) {
+      unawaited(
+        _refreshCollectionTab(
+          refreshCollectionTabIndex,
+          generation: generation,
+          api: api,
+          uid: uid,
+          fallbackOrigins: currentOrigins,
+          fallbackWorlds: currentWorlds,
+        ),
+      );
+    }
 
     final data = UserProfileData(
       avatarUrl: resolvedAvatarUrl,
@@ -225,6 +243,7 @@ class _MePageState extends State<MePage> {
   }
 
   void _handleTabActivated() {
+    if (!_isTabActive) return;
     unawaited(_refreshDataOnActivation());
   }
 
@@ -236,14 +255,48 @@ class _MePageState extends State<MePage> {
   }
 
   Future<void> _refreshDataOnActivation() async {
-    if (!mounted || _isActivationRefreshing) return;
-    if (!await _hasLocalLoginSession()) return;
+    if (!mounted || !_isTabActive) return;
+    if (_isActivationRefreshing) {
+      _hasPendingActivationRefresh = true;
+      return;
+    }
     _isActivationRefreshing = true;
     try {
-      await _loadProfileData(showCollectionLoading: false);
+      do {
+        _hasPendingActivationRefresh = false;
+        if (!_isTabActive) return;
+        if (!await _hasLocalLoginSession()) {
+          if (!mounted) return;
+          setState(() {
+            _future = SynchronousFuture<_MePageContent>(
+              const _MePageContent.signedOut(),
+            );
+          });
+          return;
+        }
+        final data = await _loadProfileData(
+          showCollectionLoading: false,
+          refreshCollectionTabIndex: _selectedCollectionTabIndex,
+        );
+        if (!mounted) return;
+        setState(() {
+          _future = SynchronousFuture<_MePageContent>(
+            _MePageContent.signedIn(data),
+          );
+        });
+      } while (_hasPendingActivationRefresh && mounted);
     } finally {
       _isActivationRefreshing = false;
     }
+  }
+
+  bool get _isTabActive => widget.isActiveListenable?.value ?? true;
+
+  void _handleCollectionTabChanged(int index) {
+    if (_selectedCollectionTabIndex == index) return;
+    _selectedCollectionTabIndex = index;
+    if (!_isTabActive) return;
+    unawaited(_refreshSelectedCollectionTab(showLoading: true));
   }
 
   void _handleProfileCollapsedChanged(bool collapsed) {
@@ -273,6 +326,57 @@ class _MePageState extends State<MePage> {
       if (!mounted || generation != _loadGeneration) return;
       _setWorldsState(fallbackItems, isLoading: false);
     }
+  }
+
+  Future<void> _refreshSelectedCollectionTab({required bool showLoading}) {
+    return _refreshCollectionTabForCurrentUser(
+      _selectedCollectionTabIndex,
+      showLoading: showLoading,
+    );
+  }
+
+  Future<void> _refreshCollectionTabForCurrentUser(
+    int tabIndex, {
+    required bool showLoading,
+  }) async {
+    if (!mounted || !_isTabActive) return;
+    final services = AppServicesScope.read(context);
+    final uid = await _readCurrentBackendUid();
+    if (!mounted || !_isTabActive) return;
+    final generation = _loadGeneration;
+    if (showLoading) {
+      _setCollectionLoading(tabIndex, isLoading: true);
+    }
+    await _refreshCollectionTab(
+      tabIndex,
+      generation: generation,
+      api: services.api,
+      uid: uid,
+      fallbackOrigins: _originsState.value.items,
+      fallbackWorlds: _worldsState.value.items,
+    );
+  }
+
+  Future<void> _refreshCollectionTab(
+    int tabIndex, {
+    required int generation,
+    required GenesisApi api,
+    required String uid,
+    required List<UserProfileOriginItem> fallbackOrigins,
+    required List<UserProfileWorldItem> fallbackWorlds,
+  }) {
+    if (tabIndex == 1) {
+      return _loadWorlds(generation, api, uid, fallbackItems: fallbackWorlds);
+    }
+    return _loadOrigins(generation, api, uid, fallbackItems: fallbackOrigins);
+  }
+
+  void _setCollectionLoading(int tabIndex, {required bool isLoading}) {
+    if (tabIndex == 1) {
+      _setWorldsState(_worldsState.value.items, isLoading: isLoading);
+      return;
+    }
+    _setOriginsState(_originsState.value.items, isLoading: isLoading);
   }
 
   void _setOriginsState(
@@ -680,6 +784,7 @@ class _MePageState extends State<MePage> {
                   onEditDisplayName: _editNickName,
                   onRefreshOrigins: _refreshOrigins,
                   onRefreshWorlds: _refreshWorlds,
+                  onCollectionTabChanged: _handleCollectionTabChanged,
                   onCollapsedChanged: _handleProfileCollapsedChanged,
                 ),
               ),
@@ -721,23 +826,62 @@ UserProfileData _mergeRemoteUserInfoForRender(
   Map<String, dynamic> remoteUser,
 ) {
   final backendName = _mapString(remoteUser, 'name');
-  final backendAvatar = asResolvedImageUrl(
-    remoteUser['avatar'],
-    resolveAssetUrl,
-    fallback: remoteUser['avatar_url'],
-  );
+  final backendAvatar = _resolvedBackendAvatar(remoteUser);
   final backendUid = _mapString(remoteUser, 'uid');
+  final deleted = entityDeleted(remoteUser['deleted']);
+  final resolvedUid = deleted
+      ? deletedEntityDisplayText
+      : (backendUid.isEmpty ? currentData.uid : backendUid);
+  final resolvedDisplayName = deleted
+      ? deletedEntityDisplayText
+      : _hasMapKey(remoteUser, 'name')
+      ? _profileDisplayNameFromBackend(
+          backendName,
+          resolvedUid,
+          fallback: currentData.displayName,
+        )
+      : currentData.displayName;
+  final resolvedAvatarUrl = _hasAvatarPayload(remoteUser)
+      ? backendAvatar
+      : currentData.avatarUrl;
   return currentData.copyWith(
-    avatarUrl: backendAvatar.isEmpty ? currentData.avatarUrl : backendAvatar,
-    displayName: backendName.isEmpty ? currentData.displayName : backendName,
-    uid: backendUid.isEmpty ? currentData.uid : backendUid,
+    avatarUrl: resolvedAvatarUrl,
+    displayName: resolvedDisplayName,
+    uid: resolvedUid,
     followingCount:
         _mapIntOrNull(remoteUser, 'following_cnt') ??
         currentData.followingCount,
     followerCount:
         _mapIntOrNull(remoteUser, 'follower_cnt') ?? currentData.followerCount,
-    deleted: entityDeleted(remoteUser['deleted']),
+    deleted: deleted,
   );
+}
+
+String _profileDisplayNameFromBackend(
+  String backendName,
+  String uid, {
+  required String fallback,
+}) {
+  final name = backendName.trim();
+  if (name.isNotEmpty) return name;
+  final cleanUid = uid.trim();
+  if (cleanUid.isNotEmpty) return cleanUid;
+  return fallback;
+}
+
+bool _hasAvatarPayload(Map<dynamic, dynamic> user) {
+  return _hasMapKey(user, 'avatar') || _hasMapKey(user, 'avatar_url');
+}
+
+bool _hasMapKey(Map<dynamic, dynamic> map, String key) {
+  return map.containsKey(key);
+}
+
+String _resolvedBackendAvatar(Map<dynamic, dynamic> user) {
+  if (_hasMapKey(user, 'avatar')) {
+    return asResolvedImageUrl(user['avatar'], resolveAssetUrl);
+  }
+  return asResolvedImageUrl(user['avatar_url'], resolveAssetUrl);
 }
 
 bool _sameRenderedUserInfo(

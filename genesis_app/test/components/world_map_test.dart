@@ -18,7 +18,7 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
   });
 
-  test('mock world data includes dense map points and local avatar assets', () {
+  test('mock world data includes dense map points and default map asset', () {
     expect(kMockV1Locations.length, greaterThanOrEqualTo(9));
 
     final countsByLocation = <String, int>{};
@@ -31,43 +31,34 @@ void main() {
     expect(countsByLocation['loc_gate'], greaterThanOrEqualTo(4));
     expect(countsByLocation['loc_market'], greaterThanOrEqualTo(5));
     expect(
-      File(kMockV1SteamMapImage).existsSync(),
+      File('assets/images/map_default/map_background.webp').existsSync(),
       isTrue,
-      reason: kMockV1SteamMapImage,
+      reason: 'assets/images/map_default/map_background.webp',
     );
     for (final origin in kMockV1Origins) {
-      expect(origin['cover'], kMockV1SteamMapImage);
+      expect(origin['cover'], isEmpty);
     }
     for (final world in kMockV1Worlds) {
-      expect(world['cover'], kMockV1SteamMapImage);
+      expect(world['cover'], isEmpty);
     }
 
     final avatarPaths = kMockV1Characters
         .map((character) => '${character['avatar']}')
         .where((path) => path.startsWith('assets/images/mock_avatars/'))
         .toSet();
-    expect(avatarPaths.length, greaterThanOrEqualTo(8));
-    for (final path in avatarPaths) {
-      expect(File(path).existsSync(), isTrue, reason: path);
-    }
+    expect(avatarPaths, isEmpty);
 
     final locationCoverPaths = kMockV1Locations
         .map((location) => '${location['image']}')
         .where((path) => path.startsWith('assets/images/mock_locations/'))
         .toSet();
-    expect(locationCoverPaths.length, greaterThanOrEqualTo(9));
-    for (final path in locationCoverPaths) {
-      expect(File(path).existsSync(), isTrue, reason: path);
-    }
+    expect(locationCoverPaths, isEmpty);
 
     final locationMapPaths = kMockV1Locations
         .map((location) => '${location['map_url']}')
-        .where((path) => path.startsWith('assets/images/mock_maps/'))
+        .where((path) => path.startsWith('assets/images/map_default/'))
         .toSet();
-    expect(locationMapPaths.length, greaterThanOrEqualTo(5));
-    for (final path in locationMapPaths) {
-      expect(File(path).existsSync(), isTrue, reason: path);
-    }
+    expect(locationMapPaths, isEmpty);
   });
 
   testWidgets('world map lays out fewer than four avatars in one row', (
@@ -80,18 +71,18 @@ void main() {
         UserAvatar(
           'AA',
           name: 'Ada',
-          avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+          avatarUrl: 'assets/images/default_list_image.png',
           showStar: true,
         ),
         UserAvatar(
           'BB',
           name: 'Bert',
-          avatarUrl: 'assets/images/mock_avatars/avatar_crow.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
         UserAvatar(
           'CC',
           name: 'Cy',
-          avatarUrl: 'assets/images/mock_avatars/avatar_lena.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
       ],
     );
@@ -160,7 +151,7 @@ void main() {
           UserAvatar(
             'AA',
             name: 'Ada',
-            avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+            avatarUrl: 'assets/images/default_list_image.png',
           ),
         ],
       );
@@ -212,7 +203,7 @@ void main() {
         UserAvatar(
           'AA',
           name: 'Ada',
-          avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
       ],
     );
@@ -249,7 +240,7 @@ void main() {
         UserAvatar(
           'AA',
           name: 'Ada',
-          avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
       ],
     );
@@ -340,7 +331,7 @@ void main() {
   ) async {
     await _pumpWorldMap(
       tester,
-      mapImageUrl: 'assets/images/mock_maps/missing_map.webp',
+      mapImageUrl: 'assets/images/map_default/missing_map.webp',
       users: const [],
     );
     await tester.pump();
@@ -383,22 +374,22 @@ void main() {
         UserAvatar(
           'AA',
           name: 'Ada',
-          avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
         UserAvatar(
           'BB',
           name: 'Bert',
-          avatarUrl: 'assets/images/mock_avatars/avatar_crow.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
         UserAvatar(
           'CC',
           name: 'Cy',
-          avatarUrl: 'assets/images/mock_avatars/avatar_lena.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
         UserAvatar(
           'DD',
           name: 'Dee',
-          avatarUrl: 'assets/images/mock_avatars/avatar_orren.png',
+          avatarUrl: 'assets/images/default_list_image.png',
         ),
       ],
     );

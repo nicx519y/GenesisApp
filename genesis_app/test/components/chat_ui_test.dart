@@ -328,7 +328,7 @@ void main() {
               localId: 'm1',
               senderId: 'peer',
               senderName: 'Peer',
-              avatarUrl: 'assets/images/mock_avatars/avatar_iris.png',
+              avatarUrl: 'assets/images/default_list_image.png',
               text: 'hello',
               isMe: false,
               status: 'sent',
@@ -345,7 +345,7 @@ void main() {
             widget is Image &&
             widget.image is AssetImage &&
             (widget.image as AssetImage).assetName ==
-                'assets/images/mock_avatars/avatar_iris.png',
+                'assets/images/default_list_image.png',
       ),
       findsOneWidget,
     );

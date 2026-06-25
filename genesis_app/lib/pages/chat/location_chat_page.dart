@@ -29,6 +29,8 @@ const double _locationChatComposerBottomExtension = 60;
 const double _locationChatEdgeSwipeWidth = 24;
 const double _locationChatEdgeSwipeTriggerDistance = 64;
 const double _locationChatEdgeSwipeTriggerVelocity = 450;
+const String _locationChatDefaultBackgroundAsset =
+    'assets/images/map_default/location_default.webp';
 
 class LocationChatPage extends StatelessWidget {
   const LocationChatPage({
@@ -2054,14 +2056,13 @@ class _LocationChatBackground extends StatelessWidget {
         color: color,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final url = selectGenesisImageUrl(
+            final url = _resolveLocationChatBackgroundUrl(
               imageUrl,
-              fallback: previewImageUrl,
+              previewImageUrl: previewImageUrl,
               logicalWidth: constraints.maxWidth,
               logicalHeight: constraints.maxHeight,
               devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
             );
-            if (url.isEmpty) return const SizedBox.expand();
             return Image(
               image: _locationChatBackgroundProvider(url),
               fit: BoxFit.cover,
@@ -2079,11 +2080,47 @@ class _LocationChatBackground extends StatelessWidget {
   }
 }
 
+String _resolveLocationChatBackgroundUrl(
+  Object? imageUrl, {
+  Object? previewImageUrl,
+  required double? logicalWidth,
+  required double? logicalHeight,
+  required double devicePixelRatio,
+}) {
+  final selected = selectGenesisImageUrl(
+    imageUrl,
+    fallback: previewImageUrl,
+    logicalWidth: logicalWidth,
+    logicalHeight: logicalHeight,
+    devicePixelRatio: devicePixelRatio,
+  );
+  final resolved = resolveAssetUrl(selected);
+  if (resolved.isNotEmpty) return resolved;
+  return _locationChatDefaultBackgroundAsset;
+}
+
 ImageProvider _locationChatBackgroundProvider(String url) {
   final resolved = url.trim();
   return resolved.startsWith('assets/')
       ? AssetImage(resolved)
       : CachedNetworkImageProvider(resolved);
+}
+
+@visibleForTesting
+String resolveLocationChatBackgroundUrlForTesting({
+  Object? imageUrl,
+  Object? previewImageUrl,
+  double logicalWidth = 390,
+  double logicalHeight = 844,
+  double devicePixelRatio = 1,
+}) {
+  return _resolveLocationChatBackgroundUrl(
+    imageUrl,
+    previewImageUrl: previewImageUrl,
+    logicalWidth: logicalWidth,
+    logicalHeight: logicalHeight,
+    devicePixelRatio: devicePixelRatio,
+  );
 }
 
 class _LocationChatComposerExtension extends StatelessWidget {

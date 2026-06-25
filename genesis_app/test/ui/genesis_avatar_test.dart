@@ -68,7 +68,7 @@ void main() {
       const MaterialApp(
         home: Scaffold(
           body: GenesisAvatar(
-            url: 'assets/images/mock_avatars/avatar_iris.png',
+            url: 'assets/images/default_list_image.png',
             name: 'Iris',
             width: 40,
             height: 60,
@@ -78,9 +78,7 @@ void main() {
     );
 
     final image = tester.widget<Image>(
-      find.image(
-        const AssetImage('assets/images/mock_avatars/avatar_iris.png'),
-      ),
+      find.image(const AssetImage('assets/images/default_list_image.png')),
     );
     expect(image.fit, BoxFit.cover);
     expect(image.alignment, Alignment.topCenter);

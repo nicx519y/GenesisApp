@@ -34,6 +34,7 @@ class _AppShellPageState extends State<AppShellPage>
   late int _selectedIndex;
   late final Set<int> _visitedTabIndexes;
   late final ValueNotifier<bool> _messagesTabActiveNotifier;
+  late final ValueNotifier<bool> _meTabActiveNotifier;
   late final ValueNotifier<int> _homeTabActivationNotifier;
   late final ValueNotifier<int> _meTabActivationNotifier;
   int? _homeInitialTabIndexOverride;
@@ -50,6 +51,7 @@ class _AppShellPageState extends State<AppShellPage>
     WidgetsBinding.instance.addObserver(this);
     _selectedIndex = _normalTabIndex(widget.initialIndex);
     _messagesTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 3);
+    _meTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 4);
     _homeTabActivationNotifier = ValueNotifier<int>(0);
     _meTabActivationNotifier = ValueNotifier<int>(0);
     _homeInitialTabIndexOverride = widget.homeInitialTabIndex;
@@ -69,6 +71,7 @@ class _AppShellPageState extends State<AppShellPage>
     WidgetsBinding.instance.removeObserver(this);
     _stopMessagesPolling();
     _messagesTabActiveNotifier.dispose();
+    _meTabActiveNotifier.dispose();
     _homeTabActivationNotifier.dispose();
     _meTabActivationNotifier.dispose();
     _unreadSummaryNotifier.dispose();
@@ -238,6 +241,7 @@ class _AppShellPageState extends State<AppShellPage>
       _visitedTabIndexes.add(index);
     });
     _messagesTabActiveNotifier.value = _selectedIndex == 3;
+    _meTabActiveNotifier.value = _selectedIndex == 4;
     if (previousIndex != index) {
       _notifyActiveTabActivated();
     }
@@ -282,6 +286,7 @@ class _AppShellPageState extends State<AppShellPage>
     });
     _unreadSummaryNotifier.value = UnreadSummary.zero;
     _messagesTabActiveNotifier.value = _selectedIndex == 3;
+    _meTabActiveNotifier.value = _selectedIndex == 4;
   }
 
   Widget _cachedTabPage(int index) {
@@ -306,6 +311,7 @@ class _AppShellPageState extends State<AppShellPage>
           onLoggedOut: _handleMeLoggedOut,
           onLogin: _loginWithProvider,
           activationListenable: _meTabActivationNotifier,
+          isActiveListenable: _meTabActiveNotifier,
         ),
         _ => const SizedBox.shrink(),
       };

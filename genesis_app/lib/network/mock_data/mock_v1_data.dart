@@ -11,36 +11,21 @@ const String kMockV1DustSubtitle =
     'Desert signal survival caravan chasing radio ghosts across glass dunes before the next sand tide buries every tower.';
 const String kMockV1MoonlitSubtitle =
     'Cozy supernatural midnight shop where sleepless guests trade secrets, dreams, and unfinished regrets over impossible pie.';
-const String kMockV1SteamMapImage =
-    'assets/images/mock_maps/steam_kingdom_isometric.webp';
-const String kMockV1LocationCentralHubMap =
-    'assets/images/mock_maps/location_central_hub_map.webp';
-const String kMockV1LocationRailGateMap =
-    'assets/images/mock_maps/location_rail_gate_map.webp';
-const String kMockV1LocationBrassMarketMap =
-    'assets/images/mock_maps/location_brass_market_map.webp';
-const String kMockV1LocationClocktowerMap =
-    'assets/images/mock_maps/location_clocktower_map.webp';
-const String kMockV1LocationCanalLockMap =
-    'assets/images/mock_maps/location_canal_lock_map.webp';
-const String kMockV1LocationCentralHub =
-    'assets/images/mock_locations/central_hub.webp';
-const String kMockV1LocationRailGate =
-    'assets/images/mock_locations/rail_gate.webp';
-const String kMockV1LocationBrassMarket =
-    'assets/images/mock_locations/brass_market.webp';
-const String kMockV1LocationUnderworks =
-    'assets/images/mock_locations/underworks.webp';
-const String kMockV1LocationAirdock =
-    'assets/images/mock_locations/airdock_nine.webp';
-const String kMockV1LocationClocktower =
-    'assets/images/mock_locations/clocktower_balcony.webp';
-const String kMockV1LocationBoilerArchive =
-    'assets/images/mock_locations/boiler_archive.webp';
-const String kMockV1LocationCanalLock =
-    'assets/images/mock_locations/canal_lock.webp';
-const String kMockV1LocationSignalWorkshop =
-    'assets/images/mock_locations/signal_workshop.webp';
+const String kMockV1SteamMapImage = '';
+const String kMockV1LocationCentralHubMap = '';
+const String kMockV1LocationRailGateMap = '';
+const String kMockV1LocationBrassMarketMap = '';
+const String kMockV1LocationClocktowerMap = '';
+const String kMockV1LocationCanalLockMap = '';
+const String kMockV1LocationCentralHub = '';
+const String kMockV1LocationRailGate = '';
+const String kMockV1LocationBrassMarket = '';
+const String kMockV1LocationUnderworks = '';
+const String kMockV1LocationAirdock = '';
+const String kMockV1LocationClocktower = '';
+const String kMockV1LocationBoilerArchive = '';
+const String kMockV1LocationCanalLock = '';
+const String kMockV1LocationSignalWorkshop = '';
 
 const Map<String, dynamic> kMockV1User = {
   'uid': 'u_mock_001',
@@ -228,7 +213,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Predicts unrest through machines.',
     'description': 'Builds devices that turn city rumors into forecasts.',
     'goal': 'Keep the Central Hub stable.',
-    'avatar': 'assets/images/mock_avatars/avatar_iris.png',
+    'avatar': '',
     'location_id': 'loc_hub',
   },
   {
@@ -241,7 +226,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Hears trouble through copper wire.',
     'description': 'Routes emergency messages through the public switchboard.',
     'goal': 'Keep every station connected.',
-    'avatar': 'assets/images/mock_avatars/avatar_lena.png',
+    'avatar': '',
     'location_id': 'loc_hub',
   },
   {
@@ -254,7 +239,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Fixes machines before asking who owns them.',
     'description': 'Carries spare valves and a notebook of forbidden tunnels.',
     'goal': 'Trace the pressure leak below the station.',
-    'avatar': 'assets/images/mock_avatars/avatar_toma.png',
+    'avatar': '',
     'location_id': 'loc_hub',
   },
   {
@@ -267,7 +252,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Keeps order around the rail gate.',
     'description': 'Protects the line between commerce and chaos.',
     'goal': 'Prevent sabotage at the Rail Gate.',
-    'avatar': 'assets/images/mock_avatars/avatar_crow.png',
+    'avatar': '',
     'location_id': 'loc_gate',
   },
   {
@@ -280,7 +265,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Counts every bolt on every departure.',
     'description': 'Knows which railcars are too quiet to be legal.',
     'goal': 'Find the forged cargo permit.',
-    'avatar': 'assets/images/mock_avatars/avatar_orren.png',
+    'avatar': '',
     'location_id': 'loc_gate',
   },
   {
@@ -293,7 +278,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Runs messages through blocked platforms.',
     'description': 'Carries sealed tubes for people who cannot be seen.',
     'goal': 'Deliver the anonymous schedule before noon.',
-    'avatar': 'assets/images/mock_avatars/avatar_nia.png',
+    'avatar': '',
     'location_id': 'loc_gate',
   },
   {
@@ -306,7 +291,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Makes documents look older than the city.',
     'description': 'Trades forged stamps for secrets about train delays.',
     'goal': 'Slip one fake manifest past the guards.',
-    'avatar': 'assets/images/mock_avatars/avatar_jules.png',
+    'avatar': '',
     'location_id': 'loc_gate',
   },
   {
@@ -319,7 +304,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Prices favors by the minute.',
     'description': 'Runs the exchange board at Brass Market.',
     'goal': 'Stabilize tool prices before panic spreads.',
-    'avatar': 'assets/images/mock_avatars/avatar_mira.png',
+    'avatar': '',
     'location_id': 'loc_market',
   },
   {
@@ -332,7 +317,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Knows which bins have real brass.',
     'description': 'Sprints replacement parts between stalls and workshops.',
     'goal': 'Find a relay coil before the next outage.',
-    'avatar': 'assets/images/mock_avatars/avatar_orren.png',
+    'avatar': '',
     'location_id': 'loc_market',
   },
   {
@@ -345,7 +330,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Never sells the final charge.',
     'description': 'Hoards and lends portable batteries during grid failures.',
     'goal': 'Decide which district receives emergency power.',
-    'avatar': 'assets/images/mock_avatars/avatar_lena.png',
+    'avatar': '',
     'location_id': 'loc_market',
   },
   {
@@ -358,7 +343,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Smiles whenever a rival gauge breaks.',
     'description': 'Competes with Iris for city repair contracts.',
     'goal': 'Win the mayoral maintenance bid.',
-    'avatar': 'assets/images/mock_avatars/avatar_crow.png',
+    'avatar': '',
     'location_id': 'loc_market',
   },
   {
@@ -371,7 +356,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Turns boiler soot into medicine.',
     'description': 'Mixes emergency salves under an awning of old tickets.',
     'goal': 'Treat the workers sick from copper fog.',
-    'avatar': 'assets/images/mock_avatars/avatar_iris.png',
+    'avatar': '',
     'location_id': 'loc_market',
   },
   {
@@ -384,7 +369,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Maps the city from below.',
     'description': 'Marks safe routes through the Underworks in chalk.',
     'goal': 'Find the new vibration source.',
-    'avatar': 'assets/images/mock_avatars/avatar_toma.png',
+    'avatar': '',
     'location_id': 'loc_underworks',
   },
   {
@@ -397,7 +382,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Keeps the old freight lifts moving.',
     'description': 'Can hear a broken pulley before anyone else.',
     'goal': 'Stop the lower lift from dropping into the dark.',
-    'avatar': 'assets/images/mock_avatars/avatar_nia.png',
+    'avatar': '',
     'location_id': 'loc_underworks',
   },
   {
@@ -410,7 +395,7 @@ const List<Map<String, dynamic>> kMockV1Characters = [
     'tagline': 'Lands through smoke by memory.',
     'description': 'Flies tiny cargo craft between rooftop mooring towers.',
     'goal': 'Keep the airdock clear for evacuation craft.',
-    'avatar': 'assets/images/mock_avatars/avatar_mira.png',
+    'avatar': '',
     'location_id': 'loc_airdock',
   },
 ];
