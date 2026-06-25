@@ -22,7 +22,6 @@ import '../../components/origin/stat_item.dart';
 import '../../components/page_header.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
-import '../../components/world_map_stage.dart';
 import '../../components/world_tick1_wait_dialog.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../icons/custom_icon_assets.dart';
@@ -97,9 +96,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   static const double _worldMainSwipeSystemGestureEdgeWidth = 24;
   static const double _worldMainSwipeMinDistance = 48;
   static const double _worldMainSwipeDirectionRatio = 1.25;
-
-  late final TabController _tabController;
-  late final TabController _sectionController;
   late final TabController _mainTabController;
   WorldDetail? _world;
   Object? _initialLoadError;
@@ -133,7 +129,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   Set<String> _visibleMapLocationIds = <String>{};
   String _visibleMapLocationIdsSignature = '';
   bool _isInSecondaryMap = false;
-  int _mapModeTargetIndex = 0;
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
   bool _worldTickInProgress = false;
@@ -159,11 +154,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _sectionController = TabController(length: 3, vsync: this);
     _mainTabController = TabController(length: 5, vsync: this);
-    _tabController.addListener(_handleMapModeTabChanged);
-    _handleMapModeTabChanged();
+    _mainTabController.addListener(_handleWorldMainTabChanged);
+    _syncWorldStatusBarForMainTab();
     final initialWorld = widget.initialWorldDetail;
     if (initialWorld != null) {
       _world = initialWorld;
@@ -200,7 +193,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _tabController.removeListener(_handleMapModeTabChanged);
+    _mainTabController.removeListener(_handleWorldMainTabChanged);
     WorldDetailsStatusBarOverride.clearStyle();
     GenesisSystemUiChrome.applyDefault();
     unawaited(_worldChatroomSub?.cancel());
@@ -213,8 +206,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (chatroom != null) {
       unawaited(_disposeWorldChatroom(chatroom));
     }
-    _tabController.dispose();
-    _sectionController.dispose();
     _mainTabController.dispose();
     _sectionsEventsCache.clear();
     _locationChatPageCache.dispose();
@@ -222,33 +213,26 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  void _handleMapModeTabChanged() {
-    if (_activeChatLocationId.isNotEmpty) {
-      WorldDetailsStatusBarOverride.setStyle(
-        kChatDarkHeaderSystemUiOverlayStyle,
-      );
-      return;
+  void _handleWorldMainTabChanged() {
+    final nextIndex = _mainTabController.index
+        .clamp(0, _WorldMainBottomTabs.itemCount - 1)
+        .toInt();
+    if (nextIndex >= 2) {
+      _sectionsWorldNotifier.value = _world;
     }
-    if (_tabController.index == 1) {
-      WorldDetailsStatusBarOverride.setStyle(
-        kGenesisDefaultSystemUiOverlayStyle,
-      );
-      return;
-    }
-    WorldDetailsStatusBarOverride.clearStyle();
+    _syncWorldStatusBarForMainTab(nextIndex);
+    if (_worldMainTabIndex == nextIndex) return;
+    setState(() => _worldMainTabIndex = nextIndex);
   }
 
-  void _handleMapModeTabTap(int index) {
-    if (_mapModeTargetIndex != index) {
-      setState(() => _mapModeTargetIndex = index);
-    }
+  void _syncWorldStatusBarForMainTab([int? index]) {
     if (_activeChatLocationId.isNotEmpty) {
       WorldDetailsStatusBarOverride.setStyle(
         kChatDarkHeaderSystemUiOverlayStyle,
       );
       return;
     }
-    if (index == 1) {
+    if ((index ?? _worldMainTabIndex) != 0) {
       WorldDetailsStatusBarOverride.setStyle(
         kGenesisDefaultSystemUiOverlayStyle,
       );
@@ -265,36 +249,19 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final nextIndex = index
         .clamp(0, _WorldMainBottomTabs.itemCount - 1)
         .toInt();
+    if (scrollEventsToLatest) {
+      _eventsLatestRevision += 1;
+    }
+    _eventsTargetTickNumber = eventsTargetTickNumber;
+    if (nextIndex >= 2) {
+      _sectionsWorldNotifier.value = _world;
+    }
+    _syncWorldStatusBarForMainTab(nextIndex);
     if (_mainTabController.index != nextIndex) {
       _mainTabController.animateTo(
         nextIndex,
         duration: const Duration(milliseconds: 160),
         curve: Curves.easeOutCubic,
-      );
-    }
-    if (scrollEventsToLatest) {
-      _eventsLatestRevision += 1;
-    }
-    _eventsTargetTickNumber = eventsTargetTickNumber;
-    if (nextIndex < 2) {
-      _handleMapModeTabTap(nextIndex);
-      if (_tabController.index != nextIndex) {
-        _tabController.animateTo(
-          nextIndex,
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOutCubic,
-        );
-      }
-    } else {
-      final sectionIndex = (nextIndex - 2).clamp(0, 2).toInt();
-      _sectionsWorldNotifier.value = _world;
-      _sectionController.animateTo(
-        sectionIndex,
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOutCubic,
-      );
-      WorldDetailsStatusBarOverride.setStyle(
-        kGenesisDefaultSystemUiOverlayStyle,
       );
     }
     if (_worldMainTabIndex == nextIndex) {
@@ -306,6 +273,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   void _handleWorldMainSwipePointerDown(PointerDownEvent event) {
     if (_activeChatLocationId.isNotEmpty || _world == null) return;
+    if (_worldMainTabIndex != 0) return;
     if (_worldMainSwipePointer != null) return;
 
     final screenWidth = MediaQuery.sizeOf(context).width;
@@ -324,7 +292,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   void _handleWorldMainSwipePointerUp(PointerUpEvent event) {
     if (_worldMainSwipePointer != event.pointer) return;
     final startPosition = _worldMainSwipeStartPosition;
-    if (startPosition != null) {
+    if (startPosition != null && _worldMainTabIndex == 0) {
       _maybeSelectWorldMainTabBySwipe(event.position - startPosition);
     }
     _clearWorldMainSwipeTracking();
@@ -360,10 +328,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   bool _canSelectWorldMainTabBySwipe(double horizontalDelta) {
-    if (_worldMainTabIndex != 0) return true;
-    if (_tabController.index != 0 || _mapModeTargetIndex != 0) return true;
-    if (horizontalDelta < 0) return !_worldMainSwipeStartCanMapScrollRight;
-    return !_worldMainSwipeStartCanMapScrollLeft;
+    if (_worldMainTabIndex != 0) return false;
+    if (horizontalDelta < 0) {
+      return !_worldMainSwipeStartCanMapScrollRight || !_worldMapCanScrollRight;
+    }
+    return !_worldMainSwipeStartCanMapScrollLeft || !_worldMapCanScrollLeft;
   }
 
   void _handleWorldMapHorizontalPanStateChanged(
@@ -1705,7 +1674,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _activeChatLocationId = '';
       _locationChatPageCache.deactivate();
     });
-    _handleMapModeTabChanged();
+    _syncWorldStatusBarForMainTab();
   }
 
   void _handleWorldPopBlocked() {
@@ -1732,7 +1701,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (!_locationChatDescriptors.containsKey(_activeChatLocationId)) {
       _activeChatLocationId = '';
       _locationChatPageCache.deactivate();
-      _handleMapModeTabChanged();
+      _syncWorldStatusBarForMainTab();
     }
     _scheduleLocationChatPrecache(descriptors.keys.toList(growable: false));
   }
@@ -1783,13 +1752,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   void _showMapTab() {
-    if (_worldMainTabIndex != 0) {
-      _selectWorldMainTab(0);
-      return;
-    }
-    if (_tabController.index == 0) return;
-    if (_mapModeTargetIndex != 0) setState(() => _mapModeTargetIndex = 0);
-    _tabController.animateTo(0);
+    if (_worldMainTabIndex == 0) return;
+    _selectWorldMainTab(0);
   }
 
   @override
@@ -1863,11 +1827,62 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         : world.locations.isNotEmpty
         ? _pointsFromWorldLocations(world.locations, avatarsByLocation)
         : points;
-    final thirdLevelLocationCount = allLocationNodes
-        .where((node) => node.children.isEmpty)
-        .length;
     final title = world.name.trim().isEmpty ? world.worldId : world.name.trim();
     final collapsedPanelHeight = _worldCollapsedPanelHeightFor(context, title);
+    Widget buildWorldMapPage(int tabIndex, {required bool pointMode}) {
+      return _WorldKeepAlivePage(
+        child: WorldMap(
+          key: PageStorageKey<String>('world-map-tab-$tabIndex'),
+          points: points,
+          listPoints: listPoints,
+          locationNodes: locationNodes,
+          listLocationNodes: listLocationNodes,
+          mapImageUrl: rootMapImageUrl,
+          dimmed: pointMode,
+          showPointsList: pointMode,
+          pointsListOuterScrollHandoff: false,
+          overlayTop:
+              topPadding +
+              8 +
+              (pointMode ? _worldMapTabsHeight + 8 : _worldMapContentTopOffset),
+          drillExitTop:
+              topPadding + 8 + _worldMapTabsHeight + _worldTimePillTopGap,
+          drillExitMaxWidth: _worldSecondaryMapControlWidth,
+          onDrillIntoLocation: _showMapTab,
+          onSecondaryMapChanged: (isInSecondaryMap) {
+            if (_worldMainTabIndex == tabIndex) {
+              _handleSecondaryMapChanged(isInSecondaryMap);
+            }
+          },
+          onVisibleLocationIdsChanged: (locationIds) {
+            if (_worldMainTabIndex == tabIndex) {
+              _handleVisibleMapLocationIdsChanged(locationIds);
+            }
+          },
+          onHorizontalPanStateChanged: tabIndex == 0
+              ? _handleWorldMapHorizontalPanStateChanged
+              : null,
+          onPointTap: _openChatForPoint,
+          messageBubbles: pointMode
+              ? const <String, WorldMapMessageBubble>{}
+              : _mapMessageBubbles,
+        ),
+      );
+    }
+
+    Widget buildSectionPage(int sectionIndex) {
+      return _WorldSectionsTopPage(
+        services: AppServicesScope.read(context),
+        sectionIndex: sectionIndex,
+        initialWorld: world,
+        worldListenable: _sectionsWorldNotifier,
+        eventsCache: _sectionsEventsCache,
+        currentUid: _currentUid,
+        eventsLatestRevision: _eventsLatestRevision,
+        eventsTargetTickNumber: _eventsTargetTickNumber,
+      );
+    }
+
     return PopScope(
       canPop: _activeChatLocationId.isEmpty,
       onPopInvokedWithResult: (didPop, result) {
@@ -1890,41 +1905,18 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 worldTime: world.currentTime,
                 tickIndex: world.tickCount,
               ),
-              map: WorldMapStage(
-                controller: _tabController,
-                pointsCount: thirdLevelLocationCount,
-                top: topPadding + 8,
-                showTopOverlay: false,
-                mapBuilder: (context, pointMode) => WorldMap(
-                  points: points,
-                  listPoints: listPoints,
-                  locationNodes: locationNodes,
-                  listLocationNodes: listLocationNodes,
-                  mapImageUrl: rootMapImageUrl,
-                  dimmed: pointMode,
-                  showPointsList: pointMode,
-                  pointsListOuterScrollHandoff: false,
-                  overlayTop:
-                      topPadding +
-                      8 +
-                      (pointMode
-                          ? _worldMapTabsHeight + 8
-                          : _worldMapContentTopOffset),
-                  drillExitTop:
-                      topPadding +
-                      8 +
-                      _worldMapTabsHeight +
-                      _worldTimePillTopGap,
-                  drillExitMaxWidth: _worldSecondaryMapControlWidth,
-                  onDrillIntoLocation: _showMapTab,
-                  onSecondaryMapChanged: _handleSecondaryMapChanged,
-                  onVisibleLocationIdsChanged:
-                      _handleVisibleMapLocationIdsChanged,
-                  onHorizontalPanStateChanged:
-                      _handleWorldMapHorizontalPanStateChanged,
-                  onPointTap: _openChatForPoint,
-                  messageBubbles: _mapMessageBubbles,
-                ),
+              map: TabBarView(
+                controller: _mainTabController,
+                physics: _activeChatLocationId.isEmpty
+                    ? const PageScrollPhysics()
+                    : const NeverScrollableScrollPhysics(),
+                children: [
+                  buildWorldMapPage(0, pointMode: false),
+                  buildWorldMapPage(1, pointMode: true),
+                  buildSectionPage(0),
+                  buildSectionPage(1),
+                  buildSectionPage(2),
+                ],
               ),
               fixedCollapsedPanelHeight: collapsedPanelHeight,
               fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
@@ -1951,23 +1943,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 ),
               ],
             ),
-            if (_worldMainTabIndex >= 2)
-              Positioned(
-                left: 0,
-                top: 0,
-                right: 0,
-                bottom: collapsedPanelHeight,
-                child: _WorldSectionsTopPage(
-                  services: AppServicesScope.read(context),
-                  initialWorld: world,
-                  worldListenable: _sectionsWorldNotifier,
-                  eventsCache: _sectionsEventsCache,
-                  controller: _sectionController,
-                  currentUid: _currentUid,
-                  eventsLatestRevision: _eventsLatestRevision,
-                  eventsTargetTickNumber: _eventsTargetTickNumber,
-                ),
-              ),
             if (_worldMainTabIndex != 0)
               Positioned(
                 left: 0,
@@ -2013,27 +1988,22 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   Widget _buildInitialLoadingScaffold(double topPadding) {
+    final pointMode = _worldMainTabIndex == 1;
     return WorldDetailsPageScaffold(
       panelTopGap: 50,
       panelCollapsedHeightOffset: 120,
       scrollPhysics: const NeverScrollableScrollPhysics(),
       persistentTopOverlay: _buildPersistentMapOverlay(topPadding),
-      map: WorldMapStage(
-        controller: _tabController,
-        pointsCount: 0,
-        top: topPadding + 8,
-        showTopOverlay: false,
-        mapBuilder: (context, pointMode) => WorldMap(
-          points: const <WorldPoint>[],
-          listPoints: const <WorldPoint>[],
-          locationNodes: const <WorldMapLocationNode>[],
-          fallbackOnEmptyMapUrl: false,
-          dimmed: pointMode,
-          showPointsList: pointMode,
-          pointsListOuterScrollHandoff: false,
-          overlayTop: topPadding + 8 + _worldMapContentTopOffset,
-          drillExitTop: topPadding + 8 + _worldMapContentTopOffset + 12,
-        ),
+      map: WorldMap(
+        points: const <WorldPoint>[],
+        listPoints: const <WorldPoint>[],
+        locationNodes: const <WorldMapLocationNode>[],
+        fallbackOnEmptyMapUrl: false,
+        dimmed: pointMode,
+        showPointsList: pointMode,
+        pointsListOuterScrollHandoff: false,
+        overlayTop: topPadding + 8 + _worldMapContentTopOffset,
+        drillExitTop: topPadding + 8 + _worldMapContentTopOffset + 12,
       ),
       slivers: const [_WorldDetailsLoadingContent()],
     );
@@ -2064,9 +2034,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               right: 12,
               top: top + (kGenesisTopBarHeight - _worldTimePillHeight) / 2,
               child: AnimatedBuilder(
-                animation: _tabController.animation ?? _tabController,
+                animation: _mainTabController.animation ?? _mainTabController,
                 builder: (context, _) {
-                  if (_worldMainTabIndex != 0 || _mapModeTargetIndex != 0) {
+                  if (_worldMainTabIndex != 0) {
                     return const SizedBox.shrink();
                   }
                   return _WorldTimePill(
@@ -3241,23 +3211,44 @@ class _WorldSectionSheetPullGestureState
   }
 }
 
+class _WorldKeepAlivePage extends StatefulWidget {
+  const _WorldKeepAlivePage({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_WorldKeepAlivePage> createState() => _WorldKeepAlivePageState();
+}
+
+class _WorldKeepAlivePageState extends State<_WorldKeepAlivePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}
+
 class _WorldSectionsTopPage extends StatefulWidget {
   const _WorldSectionsTopPage({
     required this.services,
+    required this.sectionIndex,
     required this.initialWorld,
     required this.worldListenable,
     required this.eventsCache,
-    required this.controller,
     required this.currentUid,
     required this.eventsLatestRevision,
     this.eventsTargetTickNumber,
   });
 
   final AppServices services;
+  final int sectionIndex;
   final WorldDetail initialWorld;
   final ValueListenable<WorldDetail?> worldListenable;
   final _WorldSectionsEventsCache eventsCache;
-  final TabController controller;
   final String currentUid;
   final int eventsLatestRevision;
   final int? eventsTargetTickNumber;
@@ -3266,7 +3257,8 @@ class _WorldSectionsTopPage extends StatefulWidget {
   State<_WorldSectionsTopPage> createState() => _WorldSectionsTopPageState();
 }
 
-class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
+class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage>
+    with AutomaticKeepAliveClientMixin {
   static const int _eventsPageSize = 20;
 
   WorldDetail get _currentWorld =>
@@ -3277,28 +3269,27 @@ class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
   @override
   void initState() {
     super.initState();
-    widget.controller.addListener(_handleTabChanged);
     widget.worldListenable.addListener(_handleWorldDetailChanged);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
+    if (_isEventsSection) {
+      _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
+    }
   }
 
   @override
   void didUpdateWidget(covariant _WorldSectionsTopPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.removeListener(_handleTabChanged);
-      widget.controller.addListener(_handleTabChanged);
-    }
     if (oldWidget.worldListenable != widget.worldListenable) {
       oldWidget.worldListenable.removeListener(_handleWorldDetailChanged);
       widget.worldListenable.addListener(_handleWorldDetailChanged);
     }
-    if (oldWidget.eventsCache != widget.eventsCache) {
+    if (_isEventsSection &&
+        (oldWidget.eventsCache != widget.eventsCache ||
+            oldWidget.sectionIndex != widget.sectionIndex)) {
       _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
     }
   }
@@ -3306,19 +3297,18 @@ class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
   @override
   void dispose() {
     widget.worldListenable.removeListener(_handleWorldDetailChanged);
-    widget.controller.removeListener(_handleTabChanged);
     super.dispose();
   }
 
-  void _handleTabChanged() {
-    if (mounted) setState(() {});
-    if (widget.controller.index == 0 && _eventsCache.ticks.isEmpty) {
-      unawaited(_loadEventsPage(1));
-    }
-  }
+  @override
+  bool get wantKeepAlive => true;
+
+  bool get _isEventsSection => widget.sectionIndex == _worldSectionEventsIndex;
 
   void _handleWorldDetailChanged() {
-    _ensureEventsForCurrentWorld();
+    if (_isEventsSection) {
+      _ensureEventsForCurrentWorld();
+    }
     if (mounted) setState(() {});
   }
 
@@ -3452,16 +3442,14 @@ class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Material(
       color: Colors.white,
-      child: IndexedStack(
-        index: widget.controller.index,
-        children: [
-          _buildEventsSectionPage(),
-          _buildStatusSectionPage(),
-          _buildCastSectionPage(),
-        ],
-      ),
+      child: switch (widget.sectionIndex) {
+        0 => _buildEventsSectionPage(),
+        1 => _buildStatusSectionPage(),
+        _ => _buildCastSectionPage(),
+      },
     );
   }
 }
@@ -3509,198 +3497,6 @@ class _WorldSectionListView extends StatelessWidget {
       padding: padding,
       children: [child],
     );
-  }
-}
-
-class _AutoSizedTabBarView extends StatefulWidget {
-  const _AutoSizedTabBarView({
-    required this.controller,
-    required this.children,
-  });
-
-  final TabController controller;
-  final List<Widget> children;
-
-  @override
-  State<_AutoSizedTabBarView> createState() => _AutoSizedTabBarViewState();
-}
-
-class _AutoSizedTabBarViewState extends State<_AutoSizedTabBarView> {
-  static const double _tabPageGap = 14;
-
-  final Map<int, double> _childHeights = <int, double>{};
-
-  @override
-  void initState() {
-    super.initState();
-    widget.controller.animation?.addListener(_handleTabAnimation);
-  }
-
-  @override
-  void didUpdateWidget(covariant _AutoSizedTabBarView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      oldWidget.controller.animation?.removeListener(_handleTabAnimation);
-      widget.controller.animation?.addListener(_handleTabAnimation);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.controller.animation?.removeListener(_handleTabAnimation);
-    super.dispose();
-  }
-
-  void _handleTabAnimation() {
-    if (mounted) setState(() {});
-  }
-
-  void _updateChildHeight(int index, Size size) {
-    final height = size.height;
-    if ((_childHeights[index] ?? -1) == height) return;
-    setState(() => _childHeights[index] = height);
-  }
-
-  double? get _currentHeight {
-    final animationValue =
-        widget.controller.animation?.value ??
-        widget.controller.index.toDouble();
-    final lowerIndex = animationValue.floor().clamp(
-      0,
-      widget.children.length - 1,
-    );
-    final upperIndex = animationValue.ceil().clamp(
-      0,
-      widget.children.length - 1,
-    );
-    final lowerHeight = _childHeights[lowerIndex];
-    final upperHeight = _childHeights[upperIndex] ?? lowerHeight;
-    final selectedHeight = _childHeights[widget.controller.index];
-    if (lowerHeight == null || upperHeight == null) {
-      return selectedHeight ?? lowerHeight ?? upperHeight;
-    }
-    return lowerHeight + (upperHeight - lowerHeight) * animationValue.frac();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final currentHeight = _currentHeight;
-    final measuringChildren = [
-      for (int index = 0; index < widget.children.length; index++)
-        Offstage(
-          offstage: true,
-          child: _MeasureSize(
-            onChange: (size) => _updateChildHeight(index, size),
-            child: widget.children[index],
-          ),
-        ),
-    ];
-
-    if (currentHeight == null) {
-      return Column(
-        children: [
-          ...measuringChildren,
-          widget.children[widget.controller.index],
-        ],
-      );
-    }
-
-    return Column(
-      children: [
-        ...measuringChildren,
-        ClipRect(
-          child: SizedBox(
-            height: currentHeight,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final expandedWidth = constraints.maxWidth + _tabPageGap * 2;
-                return OverflowBox(
-                  minWidth: expandedWidth,
-                  maxWidth: expandedWidth,
-                  alignment: Alignment.center,
-                  child: TabBarView(
-                    controller: widget.controller,
-                    children: [
-                      for (
-                        int index = 0;
-                        index < widget.children.length;
-                        index++
-                      )
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: _tabPageGap,
-                          ),
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            child: _UnboundedHeightTabPage(
-                              child: KeyedSubtree(
-                                key: PageStorageKey<String>(
-                                  'world-section-$index',
-                                ),
-                                child: widget.children[index],
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _UnboundedHeightTabPage extends StatelessWidget {
-  const _UnboundedHeightTabPage({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return OverflowBox(
-      minHeight: 0,
-      maxHeight: double.infinity,
-      alignment: Alignment.topCenter,
-      child: child,
-    );
-  }
-}
-
-class _MeasureSize extends StatefulWidget {
-  const _MeasureSize({required this.child, required this.onChange});
-
-  final Widget child;
-  final ValueChanged<Size> onChange;
-
-  @override
-  State<_MeasureSize> createState() => _MeasureSizeState();
-}
-
-class _MeasureSizeState extends State<_MeasureSize> {
-  Size? _oldSize;
-
-  @override
-  Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final renderObject = context.findRenderObject();
-      if (renderObject is! RenderBox || !renderObject.hasSize) return;
-      final size = renderObject.size;
-      if (_oldSize == size) return;
-      _oldSize = size;
-      widget.onChange(size);
-    });
-    return widget.child;
-  }
-}
-
-extension on double {
-  double frac() {
-    return this - floorToDouble();
   }
 }
 
