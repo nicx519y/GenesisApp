@@ -1950,16 +1950,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 ),
               ],
             ),
-            if (_worldMainTabIndex == 1)
-              Positioned(
-                left: 0,
-                top: 0,
-                right: 0,
-                child: _WorldTopHeader(
-                  title: 'Locations',
-                  onBack: () => Navigator.of(context).maybePop(),
-                ),
-              ),
             if (_worldMainTabIndex >= 2)
               Positioned(
                 left: 0,
@@ -1975,7 +1965,22 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                   currentUid: _currentUid,
                   eventsLatestRevision: _eventsLatestRevision,
                   eventsTargetTickNumber: _eventsTargetTickNumber,
-                  onBack: () => Navigator.of(context).maybePop(),
+                ),
+              ),
+            if (_worldMainTabIndex != 0)
+              Positioned(
+                left: 0,
+                top: 0,
+                right: 0,
+                height: topPadding,
+                child: const ColoredBox(color: Colors.white),
+              ),
+            if (_worldMainTabIndex != 0)
+              Positioned(
+                left: 9.5,
+                top: topPadding + 6,
+                child: _WorldMapBackButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ),
             Positioned(
@@ -2095,67 +2100,6 @@ class _WorldMapBackButton extends StatelessWidget {
         onPressed: onPressed,
         icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
         padding: EdgeInsets.zero,
-      ),
-    );
-  }
-}
-
-class _WorldTopBackButton extends StatelessWidget {
-  const _WorldTopBackButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 37,
-      height: kGenesisTopBarHeight,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 20),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: IconButton(
-            constraints: const BoxConstraints.tightFor(width: 17, height: 17),
-            padding: EdgeInsets.zero,
-            icon: const Icon(
-              Icons.arrow_back_ios_new,
-              color: Colors.black,
-              size: 17,
-            ),
-            onPressed: onPressed,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WorldTopHeader extends StatelessWidget {
-  const _WorldTopHeader({required this.title, required this.onBack});
-
-  final String title;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    final topPadding = GenesisSafeAreaInsets.top(context);
-    return Material(
-      color: Colors.white,
-      child: SizedBox(
-        height: topPadding + kGenesisTopBarHeight,
-        child: Padding(
-          padding: EdgeInsets.only(top: topPadding),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Center(child: PageTitleText(pageName: title)),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: _WorldTopBackButton(onPressed: onBack),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -3361,7 +3305,6 @@ class _WorldSectionsTopPage extends StatefulWidget {
     required this.controller,
     required this.currentUid,
     required this.eventsLatestRevision,
-    required this.onBack,
     this.eventsTargetTickNumber,
   });
 
@@ -3373,7 +3316,6 @@ class _WorldSectionsTopPage extends StatefulWidget {
   final String currentUid;
   final int eventsLatestRevision;
   final int? eventsTargetTickNumber;
-  final VoidCallback onBack;
 
   @override
   State<_WorldSectionsTopPage> createState() => _WorldSectionsTopPageState();
@@ -3526,20 +3468,18 @@ class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
   }
 
   Widget _buildEventsSectionPage() {
-    return Padding(
-      padding: _sectionContentPadding(context),
-      child: _WorldEventsSection(
-        key: const PageStorageKey<String>('world-events-section-top-page'),
-        world: _currentWorld,
-        ticks: _eventsCache.ticks,
-        initialLoading: _eventsCache.initialLoading,
-        loadingMore: _eventsCache.loadingMore,
-        hasMore: _eventsHasMore,
-        error: _eventsCache.error,
-        latestRevision: widget.eventsLatestRevision,
-        targetTickNumber: widget.eventsTargetTickNumber,
-        onLoadMore: _loadNextEventsPage,
-      ),
+    return _WorldEventsSection(
+      key: const PageStorageKey<String>('world-events-section-top-page'),
+      world: _currentWorld,
+      ticks: _eventsCache.ticks,
+      initialLoading: _eventsCache.initialLoading,
+      loadingMore: _eventsCache.loadingMore,
+      hasMore: _eventsHasMore,
+      error: _eventsCache.error,
+      latestRevision: widget.eventsLatestRevision,
+      targetTickNumber: widget.eventsTargetTickNumber,
+      contentPadding: _sectionContentPadding(context),
+      onLoadMore: _loadNextEventsPage,
     );
   }
 
@@ -3569,34 +3509,16 @@ class _WorldSectionsTopPageState extends State<_WorldSectionsTopPage> {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      child: Stack(
+      child: IndexedStack(
+        index: widget.controller.index,
         children: [
-          IndexedStack(
-            index: widget.controller.index,
-            children: [
-              _buildEventsSectionPage(),
-              _buildStatusSectionPage(),
-              _buildCastSectionPage(),
-            ],
-          ),
-          Positioned(
-            left: 0,
-            top: 0,
-            right: 0,
-            child: _WorldTopHeader(
-              title: _worldSectionHeaderTitle(widget.controller.index),
-              onBack: widget.onBack,
-            ),
-          ),
+          _buildEventsSectionPage(),
+          _buildStatusSectionPage(),
+          _buildCastSectionPage(),
         ],
       ),
     );
   }
-}
-
-String _worldSectionHeaderTitle(int index) {
-  final clampedIndex = index.clamp(0, _worldSectionTabItems.length - 1).toInt();
-  return _worldSectionTabItems[clampedIndex].label;
 }
 
 class _WorldSectionsEventsCache {
@@ -4193,6 +4115,7 @@ class _WorldEventsSection extends StatefulWidget {
     required this.error,
     required this.latestRevision,
     required this.targetTickNumber,
+    required this.contentPadding,
     required this.onLoadMore,
   });
 
@@ -4204,6 +4127,7 @@ class _WorldEventsSection extends StatefulWidget {
   final Object? error;
   final int latestRevision;
   final int? targetTickNumber;
+  final EdgeInsetsGeometry contentPadding;
   final VoidCallback onLoadMore;
 
   @override
@@ -4404,11 +4328,17 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
     if (widget.ticks.isEmpty &&
         widget.initialLoading &&
         !hasRequestedTickPage) {
-      return const _WorldEventLoadingSkeleton();
+      return Padding(
+        padding: widget.contentPadding,
+        child: const _WorldEventLoadingSkeleton(),
+      );
     }
     if (widget.ticks.isEmpty && !hasRequestedTickPage) {
-      return _EmptySection(
-        text: widget.error == null ? 'No events yet.' : 'Load events failed.',
+      return Padding(
+        padding: widget.contentPadding,
+        child: _EmptySection(
+          text: widget.error == null ? 'No events yet.' : 'Load events failed.',
+        ),
       );
     }
 
@@ -4438,6 +4368,7 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
                     _tickCardResetRevisions['pending_tick:$tickNumber'] ?? 0,
                 hasTopEdgePage: index > 0,
                 hasBottomEdgePage: index < _pageCount - 1,
+                padding: widget.contentPadding,
                 onTurnPage: _turnPage,
                 child: _WorldTickPendingEventPage(tickNumber: tickNumber),
               );
@@ -4455,6 +4386,7 @@ class _WorldEventsSectionState extends State<_WorldEventsSection> {
               resetRevision: _tickCardResetRevisions[identity] ?? 0,
               hasTopEdgePage: index > 0,
               hasBottomEdgePage: index < _pageCount - 1,
+              padding: widget.contentPadding,
               onTurnPage: _turnPage,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -4633,6 +4565,7 @@ class _WorldTickEventCardPage extends StatefulWidget {
     required this.resetRevision,
     required this.hasTopEdgePage,
     required this.hasBottomEdgePage,
+    required this.padding,
     required this.onTurnPage,
   });
 
@@ -4640,6 +4573,7 @@ class _WorldTickEventCardPage extends StatefulWidget {
   final int resetRevision;
   final bool hasTopEdgePage;
   final bool hasBottomEdgePage;
+  final EdgeInsetsGeometry padding;
   final ValueChanged<int> onTurnPage;
 
   @override
@@ -4788,6 +4722,7 @@ class _WorldTickEventCardPageState extends State<_WorldTickEventCardPage> {
           Positioned.fill(
             child: SingleChildScrollView(
               controller: _scrollController,
+              padding: widget.padding,
               physics: _WorldTickCardScrollPhysics(
                 allowLeadingOverscroll: widget.hasTopEdgePage,
                 allowTrailingOverscroll: widget.hasBottomEdgePage,

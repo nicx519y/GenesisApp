@@ -13,6 +13,7 @@ class WorldLocationList extends StatefulWidget {
     this.locationNodes = const <WorldMapLocationNode>[],
     this.physics,
     this.enableOuterScrollHandoff = true,
+    this.padding = const EdgeInsets.fromLTRB(12, 8, 12, 12),
     this.onPointTap,
   });
 
@@ -20,6 +21,7 @@ class WorldLocationList extends StatefulWidget {
   final List<WorldMapLocationNode> locationNodes;
   final ScrollPhysics? physics;
   final bool enableOuterScrollHandoff;
+  final EdgeInsetsGeometry padding;
   final ValueChanged<WorldPoint>? onPointTap;
 
   @override
@@ -122,7 +124,7 @@ class _WorldLocationListState extends State<WorldLocationList> {
               (_outerPageAtTop
                   ? const ClampingScrollPhysics()
                   : const NeverScrollableScrollPhysics()),
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          padding: widget.padding,
           children: widget.locationNodes.isNotEmpty
               ? _buildNodeRows(widget.locationNodes)
               : _buildFlatPointRows(widget.points),
