@@ -485,11 +485,15 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           rootLocationNodes,
           avatarsByLocation,
           processedLocationTree,
+          markAsMapRoot:
+              rootLocationNodes.length == 1 &&
+              rootLocationNodes.single.children.isNotEmpty,
         );
         final listLocationNodes = _originMapLocationNodes(
           processedLocationTree.mapRoots,
           avatarsByLocation,
           processedLocationTree,
+          markAsMapRoot: false,
         );
         final points = renderLocationNodes.isNotEmpty
             ? _pointsFromLocations(
@@ -666,15 +670,24 @@ class _OriginPendingLaunchWaitOverlayState
         child: Center(
           child: AlertDialog(
             key: const ValueKey('world-tick1-wait-dialog'),
-            title: const Text(
-              'Generating first tick',
-              style: TextStyle(fontSize: 16, height: 1.2),
+            backgroundColor: const Color(0xFFFFFFFF),
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(8)),
+            ),
+            title: Text(
+              'AI is generating${List.filled(_dotCount, '.').join()}',
+              style: const TextStyle(
+                fontSize: 16,
+                height: 1.2,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             content: SizedBox(
               width: 260,
-              child: Text(
-                'LLM is generating your first tick. This may take a moment${List.filled(_dotCount, '.').join()}',
-                style: const TextStyle(fontSize: 14, height: 1.35),
+              child: const Text(
+                'Generate  a live and customized world for you.\n'
+                'Please wait for a moment.',
+                style: TextStyle(fontSize: 14, height: 1.35),
               ),
             ),
           ),
@@ -2309,6 +2322,7 @@ List<WorldChatroomMessage> originLocationOpeningPreviewMessagesForTesting(
                 senderType: isNarrator ? 'narrator' : 'character',
                 senderId: senderId,
                 senderName: senderName,
+                currentTime: currentTime,
                 content: content,
                 createdAt:
                     createdAt ?? DateTime.fromMillisecondsSinceEpoch(index),

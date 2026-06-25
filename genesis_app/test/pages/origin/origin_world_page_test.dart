@@ -52,6 +52,10 @@ void main() {
     ]);
     expect(messages[1].senderType, 'narrator');
     expect(messages.last.senderType, 'character');
+    expect(messages.skip(1).map((message) => message.currentTime), [
+      'Day 1, 08:30',
+      'Day 1, 08:30',
+    ]);
   });
 
   test('origin location opening preview prefers tick one location group', () {
@@ -99,6 +103,7 @@ void main() {
 
     expect(messages.first.content, 'Opening time.');
     expect(messages.last.content, 'Opening line.');
+    expect(messages.last.currentTime, 'Opening time.');
   });
 
   test('origin location opening preview resolves character avatars', () {

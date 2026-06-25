@@ -13,6 +13,7 @@ class ChatroomHttpMessage {
     required this.userId,
     this.clientMsgId = '',
     required this.content,
+    this.currentTime = '',
     required this.createdAt,
   });
 
@@ -27,6 +28,7 @@ class ChatroomHttpMessage {
   final String userId;
   final String clientMsgId;
   final String content;
+  final String currentTime;
   final DateTime? createdAt;
 
   factory ChatroomHttpMessage.fromJson(Map<String, dynamic> json) {
@@ -42,6 +44,7 @@ class ChatroomHttpMessage {
       userId: asString(json['user_id']),
       clientMsgId: asString(json['client_msg_id']),
       content: asString(json['content']),
+      currentTime: asString(json['current_time']),
       createdAt: asDateTime(json['ts']) ?? asDateTime(json['created_at']),
     );
   }

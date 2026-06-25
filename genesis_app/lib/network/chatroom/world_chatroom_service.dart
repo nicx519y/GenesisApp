@@ -1187,7 +1187,14 @@ class WorldChatroomService {
       );
       return;
     }
-    _upsertMessage(existing.copyWith(content: existing.content + event.chunk));
+    _upsertMessage(
+      existing.copyWith(
+        content: existing.content + event.chunk,
+        currentTime: event.currentTime.trim().isEmpty
+            ? existing.currentTime
+            : event.currentTime,
+      ),
+    );
   }
 
   void _finishStream(ChatroomAiStreamEnd event) {
@@ -1208,6 +1215,9 @@ class WorldChatroomService {
         content: event.content.trim().isEmpty
             ? existing.content
             : event.content,
+        currentTime: event.currentTime.trim().isEmpty
+            ? existing.currentTime
+            : event.currentTime,
         streaming: false,
       ),
     );
@@ -1542,6 +1552,7 @@ class WorldChatroomService {
       'user_id': message.userId,
       'client_msg_id': message.clientMsgId,
       'content': message.content,
+      'current_time': message.currentTime,
       'ts': message.createdAt?.millisecondsSinceEpoch,
     };
   }
@@ -1564,6 +1575,7 @@ class WorldChatroomService {
       'user_id': message.userId,
       'client_msg_id': message.clientMsgId,
       'content': message.content,
+      'current_time': message.currentTime,
       'ts': message.createdAt?.millisecondsSinceEpoch,
     };
   }
@@ -1695,6 +1707,7 @@ class WorldChatroomMessage {
     required this.senderName,
     this.clientMsgId = '',
     required this.content,
+    this.currentTime = '',
     required this.createdAt,
     this.streaming = false,
   });
@@ -1710,6 +1723,7 @@ class WorldChatroomMessage {
   final String senderName;
   final String clientMsgId;
   final String content;
+  final String currentTime;
   final DateTime? createdAt;
   final bool streaming;
 
@@ -1728,6 +1742,7 @@ class WorldChatroomMessage {
       senderName: message.senderName,
       clientMsgId: message.clientMsgId,
       content: message.content,
+      currentTime: message.currentTime,
       createdAt: message.createdAt,
     );
   }
@@ -1750,6 +1765,7 @@ class WorldChatroomMessage {
       senderName: message.senderName,
       clientMsgId: message.clientMsgId,
       content: message.content,
+      currentTime: message.currentTime,
       createdAt: message.createdAt ?? message.ts,
     );
   }
@@ -1769,6 +1785,7 @@ class WorldChatroomMessage {
       senderId: message.senderId,
       senderName: message.senderName,
       content: message.content,
+      currentTime: message.currentTime,
       createdAt: message.createdAt ?? message.ts,
     );
   }
@@ -1787,6 +1804,7 @@ class WorldChatroomMessage {
       senderId: message.senderId,
       senderName: message.senderName,
       content: message.content.isEmpty ? message.currentTime : message.content,
+      currentTime: message.currentTime,
       createdAt: message.ts,
     );
   }
@@ -1803,6 +1821,7 @@ class WorldChatroomMessage {
       senderId: event.senderId,
       senderName: event.senderName,
       content: '',
+      currentTime: event.currentTime,
       createdAt: null,
       streaming: true,
     );
@@ -1820,6 +1839,7 @@ class WorldChatroomMessage {
     String? senderName,
     String? clientMsgId,
     String? content,
+    String? currentTime,
     DateTime? createdAt,
     bool? streaming,
   }) {
@@ -1835,6 +1855,7 @@ class WorldChatroomMessage {
       senderName: senderName ?? this.senderName,
       clientMsgId: clientMsgId ?? this.clientMsgId,
       content: content ?? this.content,
+      currentTime: currentTime ?? this.currentTime,
       createdAt: createdAt ?? this.createdAt,
       streaming: streaming ?? this.streaming,
     );

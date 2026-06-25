@@ -3270,6 +3270,61 @@ void main() {
     expect(find.text('World route W_REVIEW'), findsOneWidget);
   });
 
+  testWidgets('deleted world apply review hides stale world name', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingMessageCategoryTransport(
+      notification: const {
+        'notification_id': 'ntf_apply_review_deleted_001',
+        'notice_block': 'world_apply',
+        'notice_type': 'world_apply_review',
+        'sender': {'uid': 'U_REVIEWER', 'name': 'Reviewer'},
+        'biz_type': 2,
+        'biz_id': 'W_DELETED',
+        'obj_id': 'apl_review_deleted_001',
+        'world_name': '重回 20005',
+        'world_deleted': true,
+        'status': 20,
+        'content': 'request to 重回 20005',
+        'is_read': true,
+        'created_at': '2026-05-20T10:00:00Z',
+      },
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const MessageCategoryListPage(
+            title: 'Notifications',
+            block: 'world_apply',
+            emptyText: 'No notifications yet.',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Join request'), findsOneWidget);
+    expect(
+      _richTextWithPlainText('Request to deleted (deleted)'),
+      findsOneWidget,
+    );
+    expect(find.text('Approved'), findsOneWidget);
+    expect(
+      _richTextWithPlainText('Request to 重回 20005 (deleted)'),
+      findsNothing,
+    );
+
+    await tester.tap(_richTextWithPlainText('Request to deleted (deleted)'));
+    await tester.pumpAndSettle();
+
+    expect(_richTextWithPlainText('deleted deleted'), findsOneWidget);
+    expect(_richTextWithPlainText('重回 20005 deleted'), findsNothing);
+  });
+
   testWidgets('comment notifications render interaction categories', (
     WidgetTester tester,
   ) async {
@@ -4177,8 +4232,24 @@ void main() {
       find.byKey(const ValueKey('world-tick1-wait-dialog')),
       findsOneWidget,
     );
-    final waitTitle = tester.widget<Text>(find.text('Generating first tick'));
+    final waitDialog = tester.widget<AlertDialog>(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+    );
+    expect(waitDialog.backgroundColor, const Color(0xFFFFFFFF));
+    expect(
+      waitDialog.shape,
+      const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+    );
+    final waitTitleFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is Text && (widget.data ?? '').startsWith('AI is generating'),
+    );
+    expect(waitTitleFinder, findsOneWidget);
+    final waitTitle = tester.widget<Text>(waitTitleFinder);
     expect(waitTitle.style?.fontSize, 16);
+    expect(waitTitle.style?.fontWeight, FontWeight.w600);
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('world-tick1-wait-dialog')),
@@ -4186,21 +4257,25 @@ void main() {
       ),
       findsNothing,
     );
-    final waitBodyFinder = find.byWidgetPredicate(
-      (widget) =>
-          widget is Text &&
-          (widget.data ?? '').startsWith(
-            'LLM is generating your first tick. This may take a moment',
-          ),
+    expect(
+      find.text(
+        'Generate  a live and customized world for you.\n'
+        'Please wait for a moment.',
+      ),
+      findsOneWidget,
     );
-    expect(waitBodyFinder, findsOneWidget);
-    final waitBody = tester.widget<Text>(waitBodyFinder);
+    final waitBody = tester.widget<Text>(
+      find.text(
+        'Generate  a live and customized world for you.\n'
+        'Please wait for a moment.',
+      ),
+    );
     expect(waitBody.style?.fontSize, 14);
-    expect(waitBody.data, endsWith('.'));
-    final initialWaitBodyText = waitBody.data;
+    expect(waitTitle.data, endsWith('.'));
+    final initialWaitTitleText = waitTitle.data;
     await tester.pump(const Duration(milliseconds: 400));
-    final animatedWaitBody = tester.widget<Text>(waitBodyFinder);
-    expect(animatedWaitBody.data, isNot(initialWaitBodyText));
+    final animatedWaitTitle = tester.widget<Text>(waitTitleFinder);
+    expect(animatedWaitTitle.data, isNot(initialWaitTitleText));
     var worldRequests = transport.requestsFor('/api/v1/world/detail');
     expect(worldRequests, hasLength(1));
     expect(
@@ -7262,12 +7337,7 @@ void main() {
       find.widgetWithText(FilledButton, 'Creating...'),
     );
     expect(createButton.onPressed, isNull);
-    expect(
-      find.text(
-        'Worldo Origin o_created_1 has been created successfully. Go to it?',
-      ),
-      findsNothing,
-    );
+    expect(find.text('Worldo Origin o_created_1 created!'), findsNothing);
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
     await tester.pumpAndSettle();
     expect(find.text('Open create'), findsOneWidget);
@@ -7283,10 +7353,8 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(2));
-    expect(
-      find.text('Worldo Crystal City has been created successfully. Go to it?'),
-      findsOneWidget,
-    );
+    expect(find.text('Worldo Crystal City created!'), findsOneWidget);
+    expect(find.text('View'), findsOneWidget);
   });
 
   testWidgets('create clears draft after origin info reports complete', (
@@ -7350,10 +7418,8 @@ void main() {
 
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
-    expect(
-      find.text('Worldo Crystal City has been created successfully. Go to it?'),
-      findsOneWidget,
-    );
+    expect(find.text('Worldo Crystal City created!'), findsOneWidget);
+    expect(find.text('View'), findsOneWidget);
   });
 
   testWidgets('create page resumes pending origin after app rebuild', (
@@ -7588,12 +7654,7 @@ void main() {
       find.widgetWithText(FilledButton, 'Publishing...').last,
     );
     expect(publishButton.onPressed, isNull);
-    expect(
-      find.text(
-        'Worldo Origin o_edit_1 has been published successfully. Go to it?',
-      ),
-      findsNothing,
-    );
+    expect(find.text('Worldo Origin o_edit_1 published!'), findsNothing);
     await tester.tap(
       find.byIcon(Icons.arrow_back_ios_new),
       warnIfMissed: false,
@@ -7611,12 +7672,8 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(2));
-    expect(
-      find.text(
-        'Worldo Edited Origin has been published successfully. Go to it?',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Worldo Edited Origin published!'), findsOneWidget);
+    expect(find.text('View'), findsOneWidget);
   });
 
   testWidgets('edit flow completes after origin info reports published', (
@@ -7689,12 +7746,8 @@ void main() {
 
     expect(transport.requestsFor('/api/v1/origin/update'), hasLength(1));
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
-    expect(
-      find.text(
-        'Worldo Edited Origin has been published successfully. Go to it?',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Worldo Edited Origin published!'), findsOneWidget);
+    expect(find.text('View'), findsOneWidget);
   });
 
   testWidgets('edit page resumes matching publish pending after app rebuild', (

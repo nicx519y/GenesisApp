@@ -332,10 +332,12 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
     required super.senderName,
     required super.content,
     required super.broadcast,
+    required this.currentTime,
     required this.clientMsgId,
     required this.createdAt,
   });
 
+  final String currentTime;
   final String clientMsgId;
   final DateTime? createdAt;
 
@@ -356,6 +358,7 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
       senderId: asString(payload['sender_id']),
       senderName: asString(payload['sender_name']),
       content: asString(payload['content']),
+      currentTime: asString(payload['current_time']),
       broadcast: asBool(payload['broadcast']),
       clientMsgId: asString(payload['client_msg_id']),
       createdAt: asDateTime(payload['created_at']),
@@ -380,9 +383,11 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
     required super.senderName,
     required super.content,
     required super.broadcast,
+    required this.currentTime,
     required this.createdAt,
   });
 
+  final String currentTime;
   final DateTime? createdAt;
 
   factory ChatroomNarratorMessage.fromEnvelope(ChatroomEnvelope envelope) {
@@ -402,6 +407,7 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
       senderId: asString(payload['sender_id']),
       senderName: asString(payload['sender_name'], fallback: 'Narrator'),
       content: asString(payload['content']),
+      currentTime: asString(payload['current_time']),
       broadcast: asBool(payload['broadcast']),
       createdAt: asDateTime(payload['created_at']),
     );
