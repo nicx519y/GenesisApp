@@ -8234,14 +8234,6 @@ void main() {
       ),
       'chat.example.com',
     );
-    await tester.enterText(
-      find.descendant(
-        of: find.byKey(const ValueKey<String>('developer-sentry-dsn-field')),
-        matching: find.byType(TextField),
-      ),
-      'https://genesis@sentry.example.com/rum/sentry/workspace/service/0',
-    );
-
     await tester.scrollUntilVisible(
       find.text('Save endpoints'),
       180,
@@ -8250,21 +8242,12 @@ void main() {
     await tester.tap(find.text('Save endpoints'));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text(
-        'Saved. New requests use endpoints. Sentry applies on next launch.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Saved. New requests use endpoints.'), findsOneWidget);
     final saved = await AppEndpointOverrideStore.load();
     expect(saved.apiBaseUrl, 'https://api.example.com/api/');
     expect(saved.gatewayApiBaseUrl, 'https://gateway.example.com/apix/');
     expect(saved.chatroomHttpBaseUrl, 'https://api.example.com/');
     expect(saved.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
-    expect(
-      saved.sentryDsn,
-      'https://genesis@sentry.example.com/rum/sentry/workspace/service/0',
-    );
     expect(
       tester
           .widget<TextField>(
@@ -8297,10 +8280,6 @@ void main() {
       'wss://chat.example.com/aitown-chat/ws',
     );
     expect(
-      updatedServices.config.sentryDsn,
-      'https://genesis@sentry.example.com/rum/sentry/workspace/service/0',
-    );
-    expect(
       identical(updatedServices.sessionStore, originalServices.sessionStore),
       isTrue,
     );
@@ -8317,10 +8296,6 @@ void main() {
     expect(config.gatewayApiBaseUrl, 'https://gateway.example.com/apix/');
     expect(config.chatroomHttpBaseUrl, 'https://api.example.com/');
     expect(config.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
-    expect(
-      config.sentryDsn,
-      'https://genesis@sentry.example.com/rum/sentry/workspace/service/0',
-    );
 
     await tester.pump(const Duration(seconds: 2));
     await tester.scrollUntilVisible(
@@ -8348,7 +8323,6 @@ void main() {
       clearedServices.config.chatroomWsBaseUrl,
       GenesisApi.defaultChatroomWsBaseUrl,
     );
-    expect(clearedServices.config.sentryDsn, AppConfig.defaultSentryDsn);
     await tester.pump(const Duration(seconds: 2));
   });
 
@@ -10856,6 +10830,7 @@ void main() {
           senderName: '号称句句',
           content: 'hello castle',
           broadcast: true,
+          currentTime: '2026-06-25T00:00:00Z',
           clientMsgId: clientMsgId,
           createdAt: null,
         ),
@@ -10994,6 +10969,7 @@ void main() {
           senderName: 'Peer',
           content: 'focus history message $i',
           broadcast: true,
+          currentTime: '2026-06-25T00:00:00Z',
           clientMsgId: '',
           createdAt: null,
         ),
@@ -11042,6 +11018,7 @@ void main() {
         senderName: 'Peer',
         content: 'focused new message',
         broadcast: true,
+        currentTime: '2026-06-25T00:00:00Z',
         clientMsgId: '',
         createdAt: null,
       ),
@@ -11074,6 +11051,7 @@ void main() {
         senderName: 'Peer',
         content: 'focused but user is reading',
         broadcast: true,
+        currentTime: '2026-06-25T00:00:00Z',
         clientMsgId: '',
         createdAt: null,
       ),
@@ -11135,6 +11113,7 @@ void main() {
         senderName: '号称句句',
         content: '吃饭了吗',
         broadcast: true,
+        currentTime: '2026-06-25T00:00:00Z',
         clientMsgId: clientMsgId,
         createdAt: null,
       ),
@@ -11181,6 +11160,7 @@ void main() {
           senderName: 'Alice',
           content: '角色旁白式发言',
           broadcast: true,
+          currentTime: '2026-06-25T00:00:00Z',
           createdAt: null,
         ),
       );
@@ -11302,6 +11282,7 @@ void main() {
           senderName: 'Peer',
           content: 'history message $i',
           broadcast: true,
+          currentTime: '2026-06-25T00:00:00Z',
           clientMsgId: '',
           createdAt: null,
         ),
@@ -11340,6 +11321,7 @@ void main() {
         senderName: 'Peer',
         content: 'new while reading',
         broadcast: true,
+        currentTime: '2026-06-25T00:00:00Z',
         clientMsgId: '',
         createdAt: null,
       ),
@@ -11399,6 +11381,7 @@ void main() {
           senderName: 'Peer',
           content: 'history message $i',
           broadcast: true,
+          currentTime: '2026-06-25T00:00:00Z',
           clientMsgId: '',
           createdAt: null,
         ),
@@ -11433,6 +11416,7 @@ void main() {
         senderName: 'Peer',
         content: 'new at bottom',
         broadcast: true,
+        currentTime: '2026-06-25T00:00:00Z',
         clientMsgId: '',
         createdAt: null,
       ),
@@ -11504,6 +11488,7 @@ void main() {
         senderName: 'Actual Username',
         content: 'role name check',
         broadcast: true,
+        currentTime: '2026-06-25T00:00:00Z',
         clientMsgId: '',
         createdAt: null,
       ),

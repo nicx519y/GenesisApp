@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/app_request_headers.dart';
@@ -89,7 +90,7 @@ void main() {
     sink = _FakeTelemetrySink();
     GenesisTelemetry.setSinkForTesting(sink);
     await GenesisTelemetry.initialize(
-      config: const GenesisSentryConfig(environment: 'test'),
+      config: const AppConfig(apiEnvironment: 'test'),
       deviceIdService: const _TestDeviceIdService(),
       appVersion: const AppVersionInfo(
         versionName: '1.2.3',

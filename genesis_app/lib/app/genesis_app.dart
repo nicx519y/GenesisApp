@@ -1,6 +1,5 @@
 import 'package:alibabacloud_rum_flutter_plugin/alibabacloud_rum_flutter_plugin.dart';
 import 'package:flutter/material.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../components/developer_debug_floating_button.dart';
 import 'debug_page_tracker.dart';
@@ -33,7 +32,6 @@ class GenesisApp extends StatelessWidget {
         navigatorObservers: [
           genesisRouteObserver,
           genesisAlibabaRumRouteObserver,
-          SentryNavigatorObserver(),
         ],
         onGenerateRoute: AppRouter.onGenerateRoute,
         builder: (context, child) {

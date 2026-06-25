@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:alibabacloud_rum_flutter_plugin/alibabacloud_rum_flutter_plugin.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -21,13 +20,12 @@ Future<void> main() async {
     DeviceOrientation.portraitUp,
   ]);
   final appConfig = await AppEndpointOverrideStore.loadConfig();
-  final sentryConfig = GenesisSentryConfig.fromAppConfig(appConfig);
   final appVersion = await AppMetadataService.appVersion();
   Future<void> runGenesisApp() async {
     final services = AppBootstrap.createInitialServices(config: appConfig);
     Future<void> prepareBeforeRunApp() async {
       await GenesisTelemetry.initialize(
-        config: sentryConfig,
+        config: appConfig,
         deviceIdService: services.deviceId,
         appVersion: appVersion,
       );
@@ -38,7 +36,7 @@ Future<void> main() async {
     }
 
     final rootWidget = AlibabaCloudActionCapture(
-      child: SentryWidget(child: GenesisApp(services: services)),
+      child: GenesisApp(services: services),
     );
 
     await AlibabaCloudRUM().start(
@@ -48,25 +46,5 @@ Future<void> main() async {
     unawaited(AppBootstrap.warmUp(services));
   }
 
-  if (!sentryConfig.isEnabled) {
-    await runGenesisApp();
-    return;
-  }
-
-  await SentryFlutter.init((options) {
-    options.dsn = sentryConfig.dsn;
-    options.environment = sentryConfig.environment;
-    options.tracesSampleRate = sentryConfig.parsedTracesSampleRate;
-    options.debug = sentryConfig.debug;
-    options.sendDefaultPii = false;
-    final versionName = appVersion.versionName.trim();
-    final buildNumber = appVersion.versionCode.trim();
-    final releaseVersion = versionName.isEmpty ? 'unknown' : versionName;
-    options.release =
-        'worldo@$releaseVersion'
-        '${buildNumber.isEmpty ? '' : '+$buildNumber'}';
-    if (buildNumber.isNotEmpty) {
-      options.dist = buildNumber;
-    }
-  }, appRunner: runGenesisApp);
+  await runGenesisApp();
 }

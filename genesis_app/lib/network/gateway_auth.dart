@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app/telemetry/genesis_telemetry.dart';
@@ -71,7 +70,7 @@ class GatewayRequestInterceptor {
             'error_type': error.runtimeType.toString(),
             'error_message': error.message,
           },
-          level: SentryLevel.warning,
+          level: GenesisTelemetryLevel.warning,
         );
         if (!registrationRetried && isGatewayLocalSignatureError(error)) {
           registrationRetried = true;
@@ -83,7 +82,7 @@ class GatewayRequestInterceptor {
               'path': request.uri.path,
               'reason': 'local_signature_unavailable',
             },
-            level: SentryLevel.warning,
+            level: GenesisTelemetryLevel.warning,
           );
           await _coordinator.clearRegistration();
           continue;
@@ -103,7 +102,7 @@ class GatewayRequestInterceptor {
             'reason': 'time_20502',
             'err_no': errNo,
           },
-          level: SentryLevel.warning,
+          level: GenesisTelemetryLevel.warning,
         );
         await _coordinator.syncServerTime();
         continue;
@@ -119,7 +118,7 @@ class GatewayRequestInterceptor {
             'reason': 'nonce_20503',
             'err_no': errNo,
           },
-          level: SentryLevel.warning,
+          level: GenesisTelemetryLevel.warning,
         );
         continue;
       }
@@ -134,7 +133,7 @@ class GatewayRequestInterceptor {
             'reason': 'verification_20504_20509',
             'err_no': errNo,
           },
-          level: SentryLevel.warning,
+          level: GenesisTelemetryLevel.warning,
         );
         await _coordinator.clearRegistration();
         continue;
@@ -286,7 +285,7 @@ GatewayHandshakeHeaderSigner gatewayHandshakeHeaderSigner({
             'outcome': 'failure',
             'error_message': error.message,
           },
-          level: SentryLevel.warning,
+          level: GenesisTelemetryLevel.warning,
         );
         if (!registrationRetried && isGatewayLocalSignatureError(error)) {
           registrationRetried = true;
@@ -298,7 +297,7 @@ GatewayHandshakeHeaderSigner gatewayHandshakeHeaderSigner({
               'path': uri.path,
               'reason': 'local_signature_unavailable',
             },
-            level: SentryLevel.warning,
+            level: GenesisTelemetryLevel.warning,
           );
           await coordinator.clearRegistration();
           continue;
@@ -432,7 +431,7 @@ class GatewayAuthCoordinator {
             'outcome': 'failure',
             'error_type': error.runtimeType.toString(),
           },
-          level: SentryLevel.warning,
+          level: GenesisTelemetryLevel.warning,
         );
         rethrow;
       }
@@ -467,7 +466,7 @@ class GatewayAuthCoordinator {
           'force_register': false,
           'outcome': 'failure',
         },
-        level: SentryLevel.warning,
+        level: GenesisTelemetryLevel.warning,
       );
       if (identical(_prepareFuture, future)) {
         _prepareFuture = null;
@@ -548,7 +547,7 @@ class GatewayAuthCoordinator {
           'outcome': 'failure',
           'error_type': error.runtimeType.toString(),
         },
-        level: SentryLevel.warning,
+        level: GenesisTelemetryLevel.warning,
       );
       rethrow;
     }
@@ -560,7 +559,7 @@ class GatewayAuthCoordinator {
       'gateway.clear_registration',
       phase: 'clear_registration',
       data: const <String, Object?>{'outcome': 'success'},
-      level: SentryLevel.warning,
+      level: GenesisTelemetryLevel.warning,
     );
   }
 
@@ -621,7 +620,7 @@ class GatewayAuthCoordinator {
           'outcome': 'failure',
           'error_type': error.runtimeType.toString(),
         },
-        level: SentryLevel.warning,
+        level: GenesisTelemetryLevel.warning,
       );
       rethrow;
     }
@@ -669,7 +668,7 @@ class GatewayAuthCoordinator {
           'outcome': 'failure',
           'error_type': error.runtimeType.toString(),
         },
-        level: SentryLevel.warning,
+        level: GenesisTelemetryLevel.warning,
       );
       rethrow;
     }
@@ -717,7 +716,7 @@ void _gatewayTelemetry(
   String name, {
   required String phase,
   Map<String, Object?> data = const <String, Object?>{},
-  SentryLevel level = SentryLevel.info,
+  GenesisTelemetryLevel level = GenesisTelemetryLevel.info,
 }) {
   GenesisTelemetry.event(
     name,

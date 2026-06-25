@@ -116,16 +116,6 @@ void main() {
     expect(const AppConfig().appChannel, 'default');
   });
 
-  test('AppConfig provides default Sentry DSN', () {
-    expect(
-      const AppConfig().sentryDsn,
-      'https://genesis@proj-xtrace-787e287963ab8594ca6655fb346740-us-west-1'
-      '.us-west-1.log.aliyuncs.com/rum/sentry/'
-      'default-cms-1203224652491648-us-west-1/'
-      'bui9rvr4ow@ee4a8ef0e23567a0da8a4/0',
-    );
-  });
-
   test('AppConfig provides default Alibaba Cloud RUM config', () {
     expect(
       const AppConfig().alibabaRumServiceId,

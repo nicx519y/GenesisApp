@@ -7,10 +7,6 @@ class AppConfig {
   static const defaultAlibabaRumEndpoint =
       'https://proj-xtrace-787e287963ab8594ca6655fb346740-us-west-1'
       '.us-west-1.log.aliyuncs.com';
-  static const defaultSentryDsn =
-      'https://genesis@proj-xtrace-787e287963ab8594ca6655fb346740-us-west-1'
-      '.us-west-1.log.aliyuncs.com/rum/sentry/'
-      '$defaultAlibabaRumWorkspace/$defaultAlibabaRumServiceId/0';
 
   const AppConfig({
     this.apiBaseUrl = GenesisApi.defaultApiBaseUrl,
@@ -34,22 +30,6 @@ class AppConfig {
     ),
     this.debugWsLog = const bool.fromEnvironment(
       'GENESIS_DEBUG_WS_LOG',
-      defaultValue: false,
-    ),
-    this.sentryDsn = const String.fromEnvironment(
-      'GENESIS_SENTRY_DSN',
-      defaultValue: defaultSentryDsn,
-    ),
-    this.sentryEnvironment = const String.fromEnvironment(
-      'GENESIS_SENTRY_ENVIRONMENT',
-      defaultValue: 'production',
-    ),
-    this.sentryTracesSampleRate = const String.fromEnvironment(
-      'GENESIS_SENTRY_TRACES_SAMPLE_RATE',
-      defaultValue: '0.1',
-    ),
-    this.sentryDebug = const bool.fromEnvironment(
-      'GENESIS_SENTRY_DEBUG',
       defaultValue: false,
     ),
     this.alibabaRumServiceId = const String.fromEnvironment(
@@ -85,10 +65,6 @@ class AppConfig {
   final String chatroomHttpBaseUrl;
   final String debugProxy;
   final bool debugWsLog;
-  final String sentryDsn;
-  final String sentryEnvironment;
-  final String sentryTracesSampleRate;
-  final bool sentryDebug;
   final String alibabaRumServiceId;
   final String alibabaRumWorkspace;
   final String alibabaRumEndpoint;
@@ -113,10 +89,6 @@ class AppConfig {
     String? chatroomHttpBaseUrl,
     String? debugProxy,
     bool? debugWsLog,
-    String? sentryDsn,
-    String? sentryEnvironment,
-    String? sentryTracesSampleRate,
-    bool? sentryDebug,
     String? alibabaRumServiceId,
     String? alibabaRumWorkspace,
     String? alibabaRumEndpoint,
@@ -135,11 +107,6 @@ class AppConfig {
       chatroomHttpBaseUrl: chatroomHttpBaseUrl ?? this.chatroomHttpBaseUrl,
       debugProxy: debugProxy ?? this.debugProxy,
       debugWsLog: debugWsLog ?? this.debugWsLog,
-      sentryDsn: sentryDsn ?? this.sentryDsn,
-      sentryEnvironment: sentryEnvironment ?? this.sentryEnvironment,
-      sentryTracesSampleRate:
-          sentryTracesSampleRate ?? this.sentryTracesSampleRate,
-      sentryDebug: sentryDebug ?? this.sentryDebug,
       alibabaRumServiceId: alibabaRumServiceId ?? this.alibabaRumServiceId,
       alibabaRumWorkspace: alibabaRumWorkspace ?? this.alibabaRumWorkspace,
       alibabaRumEndpoint: alibabaRumEndpoint ?? this.alibabaRumEndpoint,
