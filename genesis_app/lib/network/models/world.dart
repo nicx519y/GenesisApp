@@ -13,6 +13,8 @@ class World {
     required this.originId,
     required this.ownerUid,
     required this.name,
+    this.brief = '',
+    this.cover = '',
     this.deleted = false,
     required this.progressCount,
     required this.interactCount,
@@ -25,6 +27,8 @@ class World {
   final int originId;
   final String ownerUid;
   final String name;
+  final String brief;
+  final String cover;
   final bool deleted;
   final int progressCount;
   final int interactCount;
@@ -54,7 +58,10 @@ class WorldDetail {
     required this.worldId,
     required this.originId,
     required this.ownerUid,
+    this.ownerName = '',
     required this.name,
+    this.brief = '',
+    this.cover = '',
     this.deleted = false,
     this.ownerDeleted = false,
     required this.tickCount,
@@ -87,7 +94,10 @@ class WorldDetail {
   final String worldId;
   final int originId;
   final String ownerUid;
+  final String ownerName;
   final String name;
+  final String brief;
+  final String cover;
   final bool deleted;
   final bool ownerDeleted;
   final int tickCount;
@@ -118,7 +128,10 @@ class WorldDetail {
     String? worldId,
     int? originId,
     String? ownerUid,
+    String? ownerName,
     String? name,
+    String? brief,
+    String? cover,
     bool? deleted,
     bool? ownerDeleted,
     int? tickCount,
@@ -164,7 +177,10 @@ class WorldDetail {
       worldId: worldId ?? this.worldId,
       originId: originId ?? this.originId,
       ownerUid: ownerUid ?? this.ownerUid,
+      ownerName: ownerName ?? this.ownerName,
       name: name ?? this.name,
+      brief: brief ?? this.brief,
+      cover: cover ?? this.cover,
       deleted: deleted ?? this.deleted,
       ownerDeleted: ownerDeleted ?? this.ownerDeleted,
       tickCount: tickCount ?? this.tickCount,
@@ -214,7 +230,25 @@ class WorldDetail {
       worldId: asString(json['world_id']),
       originId: asInt(json['origin_id']),
       ownerUid: asString(json['owner_uid']),
+      ownerName: asString(
+        json['owner_name'],
+        fallback: asString(
+          ownerUser['name'],
+          fallback: asString(ownerUser['display_name']),
+        ),
+      ),
       name: asString(json['name']),
+      brief: asString(
+        json['brief'],
+        fallback: asString(
+          json['world_view'],
+          fallback: asString(json['setting']),
+        ),
+      ),
+      cover: asImageUrl(
+        json['cover'],
+        fallback: asImageUrl(json['cover_url'], fallback: json['map_url']),
+      ),
       deleted: entityDeleted(json['deleted'], fallback: json['world_deleted']),
       ownerDeleted: entityDeleted(
         ownerUser['deleted'],
