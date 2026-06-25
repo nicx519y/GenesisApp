@@ -2,9 +2,10 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
-    id("com.aliyun.rum")
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
+    id("com.google.firebase.firebase-perf")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -71,7 +72,6 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.android.gms:play-services-auth:21.4.0")
     implementation("com.google.android.gms:play-services-ads-identifier:18.3.0")
-    implementation("com.aliyun.rum:alibabacloud-android-rum-sdk:2.2.14")
 }
 
 flutter {

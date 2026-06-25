@@ -4,6 +4,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/debug_floating_button_visibility.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/common/genesis_content_submission_dialog.dart';
 import '../../components/page_header.dart';
 import '../../routers/app_router.dart';
 import '../../ui/genesis_ui.dart';
@@ -65,6 +66,18 @@ class _SettingsPageState extends State<SettingsPage> {
     ).pushNamedAndRemoveUntil(RouteNames.origin, (route) => false);
   }
 
+  Future<void> _showFeedbackDialog(BuildContext context) async {
+    final api = AppServicesScope.read(context).api;
+    await showGenesisContentSubmissionDialog(
+      context: context,
+      title: 'Feedback',
+      contentInputKey: const ValueKey<String>('genesis-feedback-content-input'),
+      successMessage: 'Feedback submitted',
+      failureMessage: 'Feedback failed',
+      onSubmit: (content) => api.v1.feedback.create(content: content),
+    );
+  }
+
   void _handleBlankTap() {
     final nextCount = _blankTapCount + 1;
     if (nextCount < _debugButtonUnlockTapCount) {
@@ -100,6 +113,32 @@ class _SettingsPageState extends State<SettingsPage> {
                       Expanded(
                         child: Text(
                           'About us',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.black,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right,
+                        color: Color(0xFFB5B5B5),
+                        size: 30,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFE7E7E7)),
+              InkWell(
+                onTap: () => _showFeedbackDialog(context),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Feedback',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.black,

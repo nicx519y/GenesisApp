@@ -658,6 +658,19 @@ class LocalMockGenesisTransport implements HttpTransport {
       });
     }
 
+    if (method == 'POST' && path == 'feedback/create') {
+      final content = '${body['content'] ?? ''}'.trim();
+      if (content.isEmpty) {
+        return _v1Error(4004, 'ErrorParamInvalid');
+      }
+      if (content.length > 1000) {
+        return _v1Error(20901, 'ErrorFeedbackContentTooLong');
+      }
+      return _v1Ok({
+        'feedback_id': 'fbk_mock_${DateTime.now().microsecondsSinceEpoch}',
+      });
+    }
+
     if (method == 'GET' && path == 'search') {
       if (kDebugMode) {
         debugPrint('[LocalMockGenesisTransport] GET /api/v1/search $query');

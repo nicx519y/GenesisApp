@@ -1,41 +1,15 @@
 import 'dart:async';
 
-import 'package:alibabacloud_rum_flutter_plugin/alibabacloud_rum_flutter_plugin.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../platform/app/app_metadata_service.dart';
 import '../../platform/device/device_id_service.dart';
 import '../config/app_config.dart';
 import '../debug_page_tracker.dart';
+import 'firebase_crash_reporting.dart';
 
-class GenesisSentryConfig {
-  const GenesisSentryConfig({
-    this.dsn = AppConfig.defaultSentryDsn,
-    this.environment = 'production',
-    this.tracesSampleRate = '0.1',
-    this.debug = false,
-  });
-
-  factory GenesisSentryConfig.fromAppConfig(AppConfig config) {
-    return GenesisSentryConfig(
-      dsn: config.sentryDsn,
-      environment: config.sentryEnvironment,
-      tracesSampleRate: config.sentryTracesSampleRate,
-      debug: config.sentryDebug,
-    );
-  }
-
-  final String dsn;
-  final String environment;
-  final String tracesSampleRate;
-  final bool debug;
-
-  bool get isEnabled => dsn.trim().isNotEmpty;
-  double get parsedTracesSampleRate =>
-      double.tryParse(tracesSampleRate.trim()) ?? 0.1;
-}
+enum GenesisTelemetryLevel { debug, info, warning, error, fatal }
 
 class GenesisTelemetryContext {
   const GenesisTelemetryContext({
@@ -90,7 +64,7 @@ class GenesisTelemetryEvent {
     required this.category,
     required this.data,
     required this.context,
-    this.level = SentryLevel.info,
+    this.level = GenesisTelemetryLevel.info,
     this.capture = true,
   });
 
@@ -98,7 +72,7 @@ class GenesisTelemetryEvent {
   final String category;
   final Map<String, Object?> data;
   final GenesisTelemetryContext context;
-  final SentryLevel level;
+  final GenesisTelemetryLevel level;
   final bool capture;
 
   Map<String, Object?> get fullData => <String, Object?>{
@@ -114,134 +88,26 @@ abstract interface class GenesisTelemetrySink {
   Future<void> captureException(Object error, StackTrace stackTrace);
 }
 
-class SentryGenesisTelemetrySink implements GenesisTelemetrySink {
-  const SentryGenesisTelemetrySink();
+class NoopGenesisTelemetrySink implements GenesisTelemetrySink {
+  const NoopGenesisTelemetrySink();
 
   @override
-  Future<void> record(GenesisTelemetryEvent event) async {
-    final data = _compact(event.fullData);
-    await Sentry.addBreadcrumb(
-      Breadcrumb(
-        message: event.name,
-        category: event.category,
-        level: event.level,
-        data: data,
-      ),
-    );
-    if (!event.capture) return;
-    await Sentry.captureMessage(
-      'genesis.${event.name}',
-      level: event.level,
-      withScope: (scope) {
-        for (final entry in _tagValues(data).entries) {
-          scope.setTag(entry.key, entry.value);
-        }
-        scope.setContexts('genesis_event', data);
-      },
-    );
-    await _recordAlibabaEvent(event, data);
-  }
+  Future<void> record(GenesisTelemetryEvent event) async {}
 
   @override
-  Future<void> setContext(GenesisTelemetryContext context) async {
-    final data = _compact(context.toMap());
-    await Sentry.configureScope((scope) {
-      for (final entry in _tagValues(data).entries) {
-        scope.setTag(entry.key, entry.value);
-      }
-      scope.setContexts('genesis_app', data);
-    });
-    await _safeAlibabaCall(() => AlibabaCloudRUM().setExtraInfo(data));
-  }
+  Future<void> setContext(GenesisTelemetryContext context) async {}
 
   @override
-  Future<void> setUserId(String? uid) async {
-    final value = uid?.trim();
-    await Sentry.configureScope((scope) {
-      scope.setUser(
-        value == null || value.isEmpty ? null : SentryUser(id: value),
-      );
-    });
-    await _safeAlibabaCall(() => AlibabaCloudRUM().setUserName(value ?? ''));
-  }
+  Future<void> setUserId(String? uid) async {}
 
   @override
-  Future<void> captureException(Object error, StackTrace stackTrace) async {
-    await Sentry.captureException(error, stackTrace: stackTrace);
-    await _safeAlibabaCall(
-      () => AlibabaCloudRUM().setCustomException(
-        error.runtimeType.toString(),
-        error.toString(),
-        stackTrace.toString(),
-      ),
-    );
-  }
-
-  Map<String, dynamic> _compact(Map<String, Object?> data) {
-    return <String, dynamic>{
-      for (final entry in data.entries)
-        if (entry.value != null && entry.value.toString().trim().isNotEmpty)
-          entry.key: _safeValue(entry.value),
-    };
-  }
-
-  Map<String, String> _tagValues(Map<String, dynamic> data) {
-    return <String, String>{
-      for (final key in const [
-        'app_version',
-        'app_build',
-        'device_id',
-        'platform',
-        'environment',
-        'current_page',
-        'event_name',
-        'request_family',
-        'gateway_phase',
-      ])
-        if (data[key] != null) key: data[key].toString(),
-    };
-  }
-
-  Object _safeValue(Object? value) {
-    final safe = value;
-    if (safe is num) return safe;
-    if (safe is bool) return safe;
-    if (safe is String) return safe;
-    return safe?.toString() ?? '';
-  }
-
-  Future<void> _recordAlibabaEvent(
-    GenesisTelemetryEvent event,
-    Map<String, dynamic> data,
-  ) {
-    return _safeAlibabaCall(
-      () => AlibabaCloudRUM().setCustomEvent(
-        event.name,
-        group: event.category,
-        attributes: _stringAttributes(data),
-      ),
-    );
-  }
-
-  Map<String, String> _stringAttributes(Map<String, dynamic> data) {
-    return <String, String>{
-      for (final entry in data.entries) entry.key: entry.value.toString(),
-    };
-  }
-
-  Future<void> _safeAlibabaCall(Future<void> Function() call) async {
-    try {
-      await call();
-    } catch (_) {
-      // Telemetry must not affect app behavior.
-    }
-  }
+  Future<void> captureException(Object error, StackTrace stackTrace) async {}
 }
 
 class GenesisTelemetry {
   GenesisTelemetry._();
 
-  static GenesisTelemetrySink _sink = const SentryGenesisTelemetrySink();
+  static GenesisTelemetrySink _sink = const NoopGenesisTelemetrySink();
   static GenesisTelemetryContext _context = const GenesisTelemetryContext();
   static bool _enabled = true;
 
@@ -256,13 +122,13 @@ class GenesisTelemetry {
 
   @visibleForTesting
   static void resetForTesting() {
-    _sink = const SentryGenesisTelemetrySink();
+    _sink = const NoopGenesisTelemetrySink();
     _context = const GenesisTelemetryContext();
     _enabled = true;
   }
 
   static Future<void> initialize({
-    required GenesisSentryConfig config,
+    required AppConfig config,
     required DeviceIdService deviceIdService,
     AppVersionInfo? appVersion,
   }) async {
@@ -275,9 +141,9 @@ class GenesisTelemetry {
       appBuild: version.versionCode.trim(),
       deviceId: deviceId,
       platform: defaultTargetPlatform.name,
-      environment: config.environment.trim().isEmpty
+      environment: config.apiEnvironment.trim().isEmpty
           ? 'production'
-          : config.environment.trim(),
+          : config.apiEnvironment.trim(),
       currentPage: genesisCurrentPageClassName.value,
     );
     _enabled = true;
@@ -295,7 +161,7 @@ class GenesisTelemetry {
     String name, {
     String category = 'genesis',
     Map<String, Object?> data = const <String, Object?>{},
-    SentryLevel level = SentryLevel.info,
+    GenesisTelemetryLevel level = GenesisTelemetryLevel.info,
     bool capture = true,
   }) {
     if (!_enabled) return;
@@ -361,6 +227,7 @@ class GenesisTelemetry {
   }
 
   static void captureException(Object error, StackTrace stackTrace) {
+    FirebaseCrashReporting.recordNonFatal(error, stackTrace);
     unawaited(_sink.captureException(error, stackTrace));
   }
 

@@ -1,6 +1,4 @@
-import 'package:alibabacloud_rum_flutter_plugin/alibabacloud_rum_flutter_plugin.dart';
 import 'package:flutter/material.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../components/developer_debug_floating_button.dart';
 import 'debug_page_tracker.dart';
@@ -11,9 +9,6 @@ import '../routers/app_router.dart';
 import '../ui/genesis_ui.dart';
 import 'bootstrap/app_services_scope.dart';
 import 'bootstrap/service_registry.dart';
-
-final AlibabaCloudRUMNavigationObserver genesisAlibabaRumRouteObserver =
-    AlibabaCloudRUMNavigationObserver(enablePagePerf: true);
 
 class GenesisApp extends StatelessWidget {
   const GenesisApp({super.key, this.services});
@@ -30,11 +25,7 @@ class GenesisApp extends StatelessWidget {
         theme: GenesisTheme.light(),
         initialRoute: RouteNames.home,
         navigatorKey: genesisNavigatorKey,
-        navigatorObservers: [
-          genesisRouteObserver,
-          genesisAlibabaRumRouteObserver,
-          SentryNavigatorObserver(),
-        ],
+        navigatorObservers: [genesisRouteObserver],
         onGenerateRoute: AppRouter.onGenerateRoute,
         builder: (context, child) {
           return GenesisTelemetryTapRegion(

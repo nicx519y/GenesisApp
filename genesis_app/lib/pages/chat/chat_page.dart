@@ -15,8 +15,7 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/display_name_formatter.dart';
 
-const String _privateChatBackgroundAsset =
-    'assets/images/map_default/location_default.webp';
+const Color _privateChatHeaderBackgroundColor = Color(0xFFEDEDED);
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -531,6 +530,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       formatUidForDisplay(_peerUid),
       'Direct message',
     ]);
+    final headerStyle = kPrivateChatStyle.copyWith(
+      headerBackgroundColor: _privateChatHeaderBackgroundColor,
+    );
     return GenesisBottomSystemBarStyleScope(
       style: GenesisBottomSystemBarStyle(
         color: kPrivateChatStyle.composerBackgroundColor,
@@ -542,13 +544,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           resizeToAvoidBottomInset: true,
           body: Stack(
             children: [
-              Positioned.fill(
-                child: Image.asset(
-                  _privateChatBackgroundAsset,
-                  fit: BoxFit.cover,
-                  excludeFromSemantics: true,
-                ),
-              ),
               Stack(
                 children: [
                   Positioned.fill(child: _buildMessages()),
@@ -576,7 +571,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   showTitleIcon: false,
                   showSubtitle: false,
                   showMoreButton: false,
-                  style: kPrivateChatStyle,
+                  style: headerStyle,
                 ),
               ),
               Positioned(
