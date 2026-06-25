@@ -125,24 +125,24 @@ void main() {
     expect(const AppConfig().postHogDebug, false);
   });
 
-  test('resolveAssetUrl maps predata default CDN images to bundled assets', () {
+  test('resolveAssetUrl keeps predata default CDN images as remote URLs', () {
     expect(
       resolveAssetUrl('https://cdn-001.worldo.ai/predata/root_default.webp'),
-      'assets/images/map_default/root_default.webp',
+      'https://cdn-001.worldo.ai/predata/root_default.webp',
     );
     expect(
       resolveAssetUrl('https://cdn-001.worldo.ai/predata/l1_default.webp'),
-      'assets/images/map_default/l1_default.webp',
+      'https://cdn-001.worldo.ai/predata/l1_default.webp',
     );
     expect(
       resolveAssetUrl('https://cdn-001.worldo.ai/predata/l2_default.webp'),
-      'assets/images/map_default/l2_default.webp',
+      'https://cdn-001.worldo.ai/predata/l2_default.webp',
     );
     expect(
       resolveAssetUrl(
         'https://cdn-001.worldo.ai/predata/location_default.webp',
       ),
-      'assets/images/map_default/location_default.webp',
+      'https://cdn-001.worldo.ai/predata/location_default.webp',
     );
   });
 
