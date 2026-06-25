@@ -558,7 +558,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   }
 
   void _notifyReadyOrRefreshLatestMessages(WorldChatroomService service) {
-    if (_messages.isNotEmpty) {
+    final refreshReason = _initialLatestMessagesRefreshReason();
+    if (refreshReason.isEmpty) {
       _notifyInitialContentReady();
       return;
     }
@@ -568,7 +569,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     }
     final existingRefresh = _initialLatestMessagesRefresh;
     if (existingRefresh != null) return;
-    _logPanelMetric('initial history refresh start beforeReady');
+    _logPanelMetric('initial history refresh start beforeReady $refreshReason');
     final refresh = service.refreshLatestMessages(
       locationId: widget.locationId,
       limit: 20,
@@ -580,12 +581,33 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _syncFromServiceState(service);
         _logPanelMetric(
           'initial history refresh done beforeReady '
+          'reason=$refreshReason '
           'sourceCount=${_chatroomState.messagesByLocation[widget.locationId]?.length ?? 0} '
           'vmCount=${_messages.length}',
         );
         _notifyInitialContentReady();
       }),
     );
+  }
+
+  String _initialLatestMessagesRefreshReason() {
+    if (_messages.isEmpty) return 'empty';
+    return _hasVisibleAiMessageMissingCurrentTime() ? 'missingCurrentTime' : '';
+  }
+
+  bool _hasVisibleAiMessageMissingCurrentTime() {
+    for (final message in _messages) {
+      if (!_messageShouldShowCurrentTime(message)) continue;
+      if (message.currentTime.trim().isEmpty) return true;
+    }
+    return false;
+  }
+
+  bool _messageShouldShowCurrentTime(ChatMessageVm message) {
+    final senderType = message.senderType.trim().toLowerCase();
+    return senderType != 'user' &&
+        senderType != 'tick' &&
+        senderType != 'system';
   }
 
   void _syncFromServiceState(WorldChatroomService service) {
