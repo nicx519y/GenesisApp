@@ -332,10 +332,6 @@ class _GenesisActionMenuHandle {
 
   Future<void> get closed => _completer.future;
 
-  static void closeActive() {
-    _active?.close();
-  }
-
   void activate() {
     if (_active == this) return;
     _active?.close();

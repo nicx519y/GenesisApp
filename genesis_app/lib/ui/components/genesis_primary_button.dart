@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../tokens/genesis_colors.dart';
 import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_spacing.dart';
@@ -65,7 +66,16 @@ class GenesisPrimaryButton extends StatelessWidget {
       height: height ?? defaultHeight,
       width: width ?? (fullWidth ? double.infinity : null),
       child: FilledButton(
-        onPressed: isLoading ? null : onPressed,
+        onPressed: isLoading || onPressed == null
+            ? null
+            : () {
+                GenesisTelemetry.click(
+                  actionId: 'button.primary.${_actionSlug(label)}',
+                  component: 'GenesisPrimaryButton',
+                  enabled: true,
+                );
+                onPressed!();
+              },
         style: FilledButton.styleFrom(
           backgroundColor: backgroundColor ?? defaultBackgroundColor,
           foregroundColor: foregroundColor ?? defaultForegroundColor,
@@ -129,7 +139,16 @@ class GenesisSecondaryButton extends StatelessWidget {
       height: height ?? GenesisPrimaryButton.defaultHeight,
       width: width ?? double.infinity,
       child: OutlinedButton(
-        onPressed: onPressed,
+        onPressed: onPressed == null
+            ? null
+            : () {
+                GenesisTelemetry.click(
+                  actionId: 'button.secondary.${_actionSlug(label)}',
+                  component: 'GenesisSecondaryButton',
+                  enabled: true,
+                );
+                onPressed!();
+              },
         style: OutlinedButton.styleFrom(
           foregroundColor: foregroundColor,
           disabledForegroundColor: disabledForegroundColor,
@@ -147,4 +166,13 @@ class GenesisSecondaryButton extends StatelessWidget {
       ),
     );
   }
+}
+
+String _actionSlug(String label) {
+  final normalized = label
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
+  return normalized.isEmpty ? 'unknown' : normalized;
 }

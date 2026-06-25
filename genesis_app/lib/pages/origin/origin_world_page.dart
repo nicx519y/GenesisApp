@@ -9,6 +9,7 @@ import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/shared/chat_ui.dart';
+import '../../components/chat/shared/location_chat_overlay_transition.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/discuss/discuss_post_input.dart';
@@ -252,27 +253,31 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     WorldDetailsStatusBarOverride.clearStyle();
   }
 
-  Widget? _buildLocationChatOverlay(OriginDetail origin) {
+  Widget _buildLocationChatOverlay(OriginDetail origin) {
     final descriptor = _activeChatLocation;
-    if (descriptor == null) return null;
     return Positioned.fill(
-      child: LocationChatPanel(
-        key: ValueKey('origin-location-chat-${descriptor.locationId}'),
-        worldId: descriptor.originId,
-        locationId: descriptor.locationId,
-        locationName: descriptor.locationName,
-        backgroundImageUrl: descriptor.backgroundImageUrl,
-        backgroundPreviewImageUrl: descriptor.backgroundPreviewImageUrl,
-        openingPreviewMessages: descriptor.openingPreviewMessages,
-        openingPreviewEntities: descriptor.openingPreviewEntities,
-        isLeafLocation: descriptor.isLeafLocation,
-        active: false,
-        leaveOnInactive: false,
-        onBack: _closeLocationChat,
-        composerReplacement: _OriginLocationChatLaunchBar(
-          launching: _launching,
-          onLaunch: () => _showLaunchRoleSheet(origin),
-        ),
+      child: LocationChatOverlayTransition(
+        active: descriptor != null,
+        child: descriptor == null
+            ? null
+            : LocationChatPanel(
+                key: ValueKey('origin-location-chat-${descriptor.locationId}'),
+                worldId: descriptor.originId,
+                locationId: descriptor.locationId,
+                locationName: descriptor.locationName,
+                backgroundImageUrl: descriptor.backgroundImageUrl,
+                backgroundPreviewImageUrl: descriptor.backgroundPreviewImageUrl,
+                openingPreviewMessages: descriptor.openingPreviewMessages,
+                openingPreviewEntities: descriptor.openingPreviewEntities,
+                isLeafLocation: descriptor.isLeafLocation,
+                active: false,
+                leaveOnInactive: false,
+                onBack: _closeLocationChat,
+                composerReplacement: _OriginLocationChatLaunchBar(
+                  launching: _launching,
+                  onLaunch: () => _showLaunchRoleSheet(origin),
+                ),
+              ),
       ),
     );
   }
@@ -472,10 +477,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         }
 
         final processedLocationTree = origin.processedLocationTree;
-        final rootLocationNodes = processedLocationTree.collapsedMapRoots;
+        final rootLocationNodes = processedLocationTree.initialMapDisplayRoots;
         final mapImageUrl = _originRootMapImageUrl(rootLocationNodes);
-        final renderLocationNodes =
-            processedLocationTree.collapsedMapRenderRoots;
+        final renderLocationNodes = processedLocationTree.initialMapRenderRoots;
         final allLocationNodes = processedLocationTree.flattened;
         final avatarsByLocation = _originAvatarsByLocation(
           origin.characters,

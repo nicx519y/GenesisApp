@@ -117,6 +117,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
   late final TextEditingController _apiBaseUrlController;
   late final TextEditingController _gatewayApiBaseUrlController;
   late final TextEditingController _chatroomWsBaseUrlController;
+  late final TextEditingController _sentryDsnController;
   bool _clearingDirectMessageCache = false;
   bool _clearingImageCache = false;
   bool _clearingGatewayAuth = false;
@@ -138,6 +139,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     _apiBaseUrlController = TextEditingController();
     _gatewayApiBaseUrlController = TextEditingController();
     _chatroomWsBaseUrlController = TextEditingController();
+    _sentryDsnController = TextEditingController();
     _loadEndpointOverrides();
   }
 
@@ -146,6 +148,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     _apiBaseUrlController.dispose();
     _gatewayApiBaseUrlController.dispose();
     _chatroomWsBaseUrlController.dispose();
+    _sentryDsnController.dispose();
     super.dispose();
   }
 
@@ -161,6 +164,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     _chatroomWsBaseUrlController.text = AppEndpointOverrideStore.displayDomain(
       overrides.chatroomWsBaseUrl,
     );
+    _sentryDsnController.text = overrides.sentryDsn ?? '';
     setState(() => _loadingEndpointOverrides = false);
   }
 
@@ -269,6 +273,9 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
         chatroomWsBaseUrl: AppEndpointOverrideStore.normalizeWssBaseUrl(
           _chatroomWsBaseUrlController.text,
         ),
+        sentryDsn: AppEndpointOverrideStore.normalizeSentryDsn(
+          _sentryDsnController.text,
+        ),
       );
       await AppEndpointOverrideStore.save(overrides);
       if (!mounted) return;
@@ -281,9 +288,10 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           AppEndpointOverrideStore.displayDomain(overrides.gatewayApiBaseUrl);
       _chatroomWsBaseUrlController.text =
           AppEndpointOverrideStore.displayDomain(overrides.chatroomWsBaseUrl);
+      _sentryDsnController.text = overrides.sentryDsn ?? '';
       showGenesisToast(
         context,
-        'Saved. New requests will use these endpoints.',
+        'Saved. New requests use endpoints. Sentry applies on next launch.',
       );
     } on FormatException catch (error) {
       if (!mounted) return;
@@ -308,6 +316,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
       _apiBaseUrlController.clear();
       _gatewayApiBaseUrlController.clear();
       _chatroomWsBaseUrlController.clear();
+      _sentryDsnController.clear();
       showGenesisToast(context, 'Endpoint overrides cleared.');
     } catch (error) {
       if (!mounted) return;
@@ -424,6 +433,16 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             scheme: 'wss://',
             hintText: 'dev.hushie.ai',
             controller: _chatroomWsBaseUrlController,
+            enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
+            textInputAction: TextInputAction.next,
+          ),
+          const SizedBox(height: _itemGap),
+          _DeveloperEndpointField(
+            key: const ValueKey<String>('developer-sentry-dsn-field'),
+            label: 'Sentry DSN',
+            scheme: '',
+            hintText: 'https://key@host/rum/sentry/workspace/service/0',
+            controller: _sentryDsnController,
             enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _saveEndpointOverrides(),

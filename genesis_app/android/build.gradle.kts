@@ -1,3 +1,5 @@
+import com.android.build.gradle.LibraryExtension
+
 allprojects {
     buildscript {
         repositories {
@@ -27,6 +29,14 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(":app")
+}
+
+subprojects {
+    if (name == "alibabacloud_rum_flutter_plugin") {
+        afterEvaluate {
+            extensions.findByType(LibraryExtension::class.java)?.compileSdk = 36
+        }
+    }
 }
 
 tasks.register<Delete>("clean") {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/telemetry/genesis_telemetry.dart';
 import 'genesis_modal_routes.dart';
 
 const Color _genesisActionBoxText = Color(0xFF111111);
@@ -279,7 +280,15 @@ class _ActionRow<T> extends StatelessWidget {
         action.color ??
         (isPreferred ? _genesisActionBoxDestructive : _genesisActionBoxText);
     return InkWell(
-      onTap: () => onSelected(action.value),
+      onTap: () {
+        GenesisTelemetry.click(
+          actionId: 'action_box.${_actionSlug(action.label)}',
+          component: 'GenesisActionBoxAction',
+          enabled: true,
+          data: <String, Object?>{'label': action.label},
+        );
+        onSelected(action.value);
+      },
       child: SizedBox(
         key: const ValueKey('genesis-action-box-action-row'),
         height: height,
@@ -320,7 +329,15 @@ class _CancelRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onCancel,
+      onTap: () {
+        GenesisTelemetry.click(
+          actionId: 'action_box.${_actionSlug(label)}',
+          component: 'GenesisActionBoxCancel',
+          enabled: true,
+          data: <String, Object?>{'label': label},
+        );
+        onCancel();
+      },
       child: SizedBox(
         key: const ValueKey('genesis-action-box-cancel-row'),
         height: height,
@@ -345,6 +362,15 @@ class _CancelRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String _actionSlug(String label) {
+  final normalized = label
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
+  return normalized.isEmpty ? 'unknown' : normalized;
 }
 
 class _Divider extends StatelessWidget {

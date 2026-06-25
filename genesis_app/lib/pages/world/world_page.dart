@@ -14,6 +14,7 @@ import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/ai_content_disclaimer.dart';
 import '../../components/chat/shared/chat_ui.dart';
+import '../../components/chat/shared/location_chat_overlay_transition.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
@@ -1259,10 +1260,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   String _rootMapImageUrlForWorld(WorldDetail world) {
-    final rootLocationMapUrl = _rootWorldMapImageUrl(
-      world.processedLocationTree.collapsedMapRoots,
+    final displayRootMapUrl = _rootWorldMapImageUrl(
+      world.processedLocationTree.initialMapDisplayRoots,
     ).trim();
-    if (rootLocationMapUrl.isNotEmpty) return rootLocationMapUrl;
+    if (displayRootMapUrl.isNotEmpty) return displayRootMapUrl;
     final worldMapUrl = world.mapImageUrl.trim();
     if (worldMapUrl.isNotEmpty) return worldMapUrl;
     return world.origin.worldMap.trim();
@@ -1821,9 +1822,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       currentUid: _currentUid,
     );
     final processedLocationTree = world.processedLocationTree;
-    final rootLocationNodes = processedLocationTree.collapsedMapRoots;
+    final rootLocationNodes = processedLocationTree.initialMapDisplayRoots;
     final rootMapImageUrl = _rootMapImageUrlForWorld(world);
-    final renderLocationNodes = processedLocationTree.collapsedMapRenderRoots;
+    final renderLocationNodes = processedLocationTree.initialMapRenderRoots;
     final allLocationNodes = processedLocationTree.flattened;
     final locationNodes = _worldMapLocationNodes(
       rootLocationNodes,
@@ -2488,7 +2489,7 @@ class _WorldLocationChatPageCache {
   }
 }
 
-class _WorldLocationChatRouterHost extends StatelessWidget {
+class _WorldLocationChatRouterHost extends StatefulWidget {
   const _WorldLocationChatRouterHost({
     required this.worldId,
     required this.chatroom,
@@ -2504,34 +2505,75 @@ class _WorldLocationChatRouterHost extends StatelessWidget {
   final ValueChanged<String> onPanelReady;
 
   @override
+  State<_WorldLocationChatRouterHost> createState() =>
+      _WorldLocationChatRouterHostState();
+}
+
+class _WorldLocationChatRouterHostState
+    extends State<_WorldLocationChatRouterHost> {
+  String _displayLocationId = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _syncDisplayLocationId();
+  }
+
+  @override
+  void didUpdateWidget(_WorldLocationChatRouterHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncDisplayLocationId();
+  }
+
+  void _syncDisplayLocationId() {
+    final activeLocationId = widget.cache.activeLocationId;
+    if (activeLocationId.isNotEmpty) {
+      _displayLocationId = activeLocationId;
+    }
+  }
+
+  void _handleDismissed() {
+    if (_displayLocationId.isEmpty) return;
+    setState(() => _displayLocationId = '');
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final activeLocationId = cache.activeLocationId;
-    final activeDescriptor = cache.activeDescriptor;
-    final cachedIds = cache.cachedLocationIds.toList(growable: false);
+    final activeLocationId = widget.cache.activeLocationId;
+    final activeDescriptor = widget.cache.activeDescriptor;
+    final displayLocationId = activeLocationId.isNotEmpty
+        ? activeLocationId
+        : _displayLocationId;
+    final cachedIds = widget.cache.cachedLocationIds.toList(growable: false);
     final showSkeleton =
         activeLocationId.isNotEmpty &&
         activeDescriptor != null &&
-        !cache.isReady(activeLocationId);
+        !widget.cache.isReady(activeLocationId);
     final active = activeLocationId.isNotEmpty;
 
     return IgnorePointer(
       ignoring: !active,
       child: ExcludeSemantics(
         excluding: !active,
-        child: _WorldLocationChatHostTransition(
+        child: LocationChatOverlayTransition(
           active: active,
+          onDismissed: _handleDismissed,
           child: Stack(
             children: [
               for (final descriptor
                   in cachedIds
-                      .map(cache.descriptorFor)
+                      .map(widget.cache.descriptorFor)
                       .whereType<_LocationChatPanelDescriptor>())
-                _buildCachedPage(descriptor),
+                _buildCachedPage(
+                  descriptor,
+                  displayLocationId: displayLocationId,
+                  activeLocationId: activeLocationId,
+                ),
               if (showSkeleton)
                 Positioned.fill(
                   child: _LocationChatPanelSkeleton(
                     title: activeDescriptor.locationName,
-                    onBack: onBack,
+                    onBack: widget.onBack,
                   ),
                 ),
             ],
@@ -2541,41 +2583,51 @@ class _WorldLocationChatRouterHost extends StatelessWidget {
     );
   }
 
-  Widget _buildCachedPage(_LocationChatPanelDescriptor descriptor) {
-    final active = descriptor.locationId == cache.activeLocationId;
-    final visible = active && cache.isReady(descriptor.locationId);
+  Widget _buildCachedPage(
+    _LocationChatPanelDescriptor descriptor, {
+    required String displayLocationId,
+    required String activeLocationId,
+  }) {
+    final active = descriptor.locationId == activeLocationId;
+    final visible = descriptor.locationId == displayLocationId;
+    final ready = widget.cache.isReady(descriptor.locationId);
     return IgnorePointer(
       ignoring: !active,
       child: ExcludeSemantics(
         excluding: !active,
         child: Offstage(
-          offstage: !active,
+          offstage: !visible,
           child: Opacity(
-            opacity: visible ? 1 : 0,
+            opacity: visible && ready ? 1 : 0,
             child: TickerMode(
-              enabled: active,
+              enabled: visible,
               child: SizedBox.expand(
                 child: _WorldLocationChatNestedRouterPage(
                   key: ValueKey(
                     'world-location-chat-router-${descriptor.locationId}',
                   ),
-                  worldId: worldId,
-                  chatroom: chatroom,
+                  worldId: widget.worldId,
+                  chatroom: widget.chatroom,
                   descriptor: descriptor,
                   active: active,
-                  onBack: onBack,
+                  onBack: widget.onBack,
                   onInitialContentReady: () =>
-                      onPanelReady(descriptor.locationId),
-                  initialDraftText: cache.draftTextFor(descriptor.locationId),
-                  initialScrollOffset: cache.scrollOffsetFor(
+                      widget.onPanelReady(descriptor.locationId),
+                  initialDraftText: widget.cache.draftTextFor(
+                    descriptor.locationId,
+                  ),
+                  initialScrollOffset: widget.cache.scrollOffsetFor(
                     descriptor.locationId,
                   ),
                   onDraftTextChanged: (text) {
-                    cache.updateDraftText(descriptor.locationId, text);
+                    widget.cache.updateDraftText(descriptor.locationId, text);
                   },
                   onScrollOffsetChanged: (offset) {
                     if (!active) return;
-                    cache.updateScrollOffset(descriptor.locationId, offset);
+                    widget.cache.updateScrollOffset(
+                      descriptor.locationId,
+                      offset,
+                    );
                   },
                 ),
               ),
@@ -2585,113 +2637,6 @@ class _WorldLocationChatRouterHost extends StatelessWidget {
       ),
     );
   }
-}
-
-class _WorldLocationChatHostTransition extends StatefulWidget {
-  const _WorldLocationChatHostTransition({
-    required this.active,
-    required this.child,
-  });
-
-  final bool active;
-  final Widget child;
-
-  @override
-  State<_WorldLocationChatHostTransition> createState() =>
-      _WorldLocationChatHostTransitionState();
-}
-
-class _WorldLocationChatHostTransitionState
-    extends State<_WorldLocationChatHostTransition>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final PageRoute<void> _route;
-
-  @override
-  void initState() {
-    super.initState();
-    _route = _WorldLocationChatHostPageRoute();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-      reverseDuration: const Duration(milliseconds: 300),
-      value: widget.active ? 1 : 0,
-    );
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final builder = _pageTransitionsBuilderFor(context);
-    _controller.duration = builder.transitionDuration;
-    _controller.reverseDuration = builder.reverseTransitionDuration;
-  }
-
-  @override
-  void didUpdateWidget(_WorldLocationChatHostTransition oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.active == widget.active) return;
-    if (widget.active) {
-      _controller.forward();
-    } else {
-      _controller.reverse();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Theme.of(context).pageTransitionsTheme.buildTransitions<void>(
-      _route,
-      context,
-      _controller,
-      const AlwaysStoppedAnimation<double>(0),
-      widget.child,
-    );
-  }
-}
-
-class _WorldLocationChatHostPageRoute extends PageRoute<void> {
-  @override
-  Color? get barrierColor => null;
-
-  @override
-  String? get barrierLabel => null;
-
-  @override
-  bool get maintainState => true;
-
-  @override
-  bool get opaque => true;
-
-  @override
-  bool get popGestureInProgress => false;
-
-  @override
-  Duration get transitionDuration => const Duration(milliseconds: 300);
-
-  @override
-  Duration get reverseTransitionDuration => transitionDuration;
-
-  @override
-  Widget buildPage(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-  ) {
-    return const SizedBox.shrink();
-  }
-}
-
-PageTransitionsBuilder _pageTransitionsBuilderFor(BuildContext context) {
-  final theme = Theme.of(context);
-  return theme.pageTransitionsTheme.builders[theme.platform] ??
-      const ZoomPageTransitionsBuilder();
 }
 
 class _WorldLocationChatNestedRouterPage extends StatelessWidget {

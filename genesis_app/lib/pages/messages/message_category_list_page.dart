@@ -950,10 +950,13 @@ class _NotificationItem {
 
   String get applyId => objId;
 
-  String get senderDisplayName =>
-      senderName.isEmpty ? 'Someone' : formatUidForDisplay(senderName);
+  String get senderDisplayName {
+    if (senderDeleted) return deletedEntityDisplayText;
+    return senderName.isEmpty ? 'Someone' : formatUidForDisplay(senderName);
+  }
 
   String get requesterName {
+    if (senderDeleted) return deletedEntityDisplayText;
     if (senderName.isNotEmpty) return senderName;
     return _firstNonEmpty([
       _extractRequesterNameFromJoinContent(content),
@@ -962,6 +965,7 @@ class _NotificationItem {
   }
 
   String get requestWorldName {
+    if (worldDeleted) return deletedEntityDisplayText;
     final cleanWorldName = worldName.trim();
     final cleanBizId = bizId.trim();
     if (cleanWorldName.isEmpty || cleanWorldName == cleanBizId) {
@@ -971,6 +975,7 @@ class _NotificationItem {
   }
 
   String get requestWorldSummaryName {
+    if (worldDeleted) return deletedEntityDisplayText;
     final cleanWorldName = worldName.trim();
     final cleanBizId = bizId.trim();
     if (cleanWorldName.isEmpty || cleanWorldName == cleanBizId) {
@@ -1065,6 +1070,7 @@ class _NotificationItem {
 
   String get followUserName {
     if (!isFollowNotification) return '';
+    if (senderDeleted) return deletedEntityDisplayText;
     if (senderName.isNotEmpty) {
       return formatUidForDisplay(senderName, fallback: 'User');
     }
@@ -1096,7 +1102,7 @@ class _NotificationItem {
   }
 
   String get metaText {
-    final source = isDiscussNotification
+    final source = isDiscussNotification || originDeleted || worldDeleted
         ? discussSourceLabel
         : _firstNonEmpty([
             originName.trim(),
@@ -1112,6 +1118,7 @@ class _NotificationItem {
   bool get discussSourceDeleted => originDeleted || worldDeleted;
 
   String get discussSourceLabel {
+    if (discussSourceDeleted) return deletedEntityDisplayText;
     if (originName.trim().isNotEmpty) return originName.trim();
     if (worldName.trim().isNotEmpty) return worldName.trim();
     return bizId.trim();

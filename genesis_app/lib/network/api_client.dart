@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../app/telemetry/genesis_telemetry.dart';
 import 'api_exception.dart';
 import 'http_transport.dart';
 import 'io_http_transport.dart';
@@ -149,6 +150,7 @@ class ApiClient {
     Map<String, String>? headers,
     ApiResponseProcessor? responseProcessor,
   }) async {
+    final stopwatch = Stopwatch()..start();
     final uri = _resolveUri(path, query);
     final runtimeHeaders = await _resolveRequestHeaders();
     final mergedHeaders = <String, String>{
@@ -174,8 +176,21 @@ class ApiClient {
           ? await _send(request)
           : await interceptor(request, _send);
     } on ApiException {
+      stopwatch.stop();
+      _recordHttpTelemetry(
+        request: request,
+        duration: stopwatch.elapsed,
+        outcome: 'api_exception',
+      );
       rethrow;
     } catch (e) {
+      stopwatch.stop();
+      _recordHttpTelemetry(
+        request: request,
+        duration: stopwatch.elapsed,
+        outcome: 'transport_exception',
+        errorType: e.runtimeType.toString(),
+      );
       throw ApiException(message: 'Request failed', error: e, uri: uri);
     }
 
@@ -189,8 +204,27 @@ class ApiClient {
     );
 
     final processor = responseProcessor ?? _responseProcessor;
-    final processed = processor(apiResponse);
-    return processed as T;
+    try {
+      final processed = processor(apiResponse);
+      stopwatch.stop();
+      _recordHttpTelemetry(
+        request: request,
+        response: apiResponse,
+        duration: stopwatch.elapsed,
+        outcome: 'success',
+      );
+      return processed as T;
+    } on Object catch (error) {
+      stopwatch.stop();
+      _recordHttpTelemetry(
+        request: request,
+        response: apiResponse,
+        duration: stopwatch.elapsed,
+        outcome: 'response_exception',
+        errorType: error.runtimeType.toString(),
+      );
+      rethrow;
+    }
   }
 
   static Object? defaultResponseProcessor(ApiResponse response) {
@@ -231,6 +265,47 @@ class ApiClient {
     };
     return resolved.replace(queryParameters: qp);
   }
+}
+
+void _recordHttpTelemetry({
+  required TransportRequest request,
+  required Duration duration,
+  required String outcome,
+  ApiResponse? response,
+  String? errorType,
+}) {
+  GenesisTelemetry.event(
+    'http_request',
+    category: 'network.http',
+    data: <String, Object?>{
+      'method': request.method.toUpperCase(),
+      'host': request.uri.host,
+      'path': request.uri.path,
+      'status_code': response?.statusCode,
+      'duration_ms': duration.inMilliseconds,
+      'timeout_ms': request.timeoutMs,
+      'outcome': outcome,
+      'request_family': _requestFamily(request.uri),
+      'api_err_no': _apiErrNo(response?.data),
+      'error_type': errorType,
+    },
+  );
+}
+
+String _requestFamily(Uri uri) {
+  final path = uri.path;
+  if (path.startsWith('/aitown-chat/')) return 'chatroom';
+  if (path.startsWith('/apix/')) return 'gateway_auth';
+  if (path.startsWith('/api/')) return 'business_api';
+  return 'other';
+}
+
+int? _apiErrNo(Object? data) {
+  if (data is! Map) return null;
+  final raw = data.containsKey('err_no') ? data['err_no'] : data['errNo'];
+  if (raw is int) return raw;
+  if (raw is num) return raw.toInt();
+  return int.tryParse(raw?.toString() ?? '');
 }
 
 Object? _tryDecodeJson(String input) {

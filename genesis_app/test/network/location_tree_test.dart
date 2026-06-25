@@ -120,12 +120,13 @@ void main() {
     expect(values.map((value) => value['name']), ['Ada moved', 'Bert']);
   });
 
-  test('origin detail does not create synthetic root when api omits root', () {
+  test('origin detail creates synthetic root with origin map url', () {
     final detail = OriginDetail.fromJson({
       'id': 5011605,
       'oid': 'o_5011605',
       'name': 'One Bed in Okinawa',
       'map_image': 'cover.webp',
+      'map_url': 'origin-root.png',
       'owner_uid': 'u_origin_owner',
       'locations': [
         {
@@ -156,10 +157,16 @@ void main() {
       ['loc_1_1'],
     );
     expect(detail.ownerUid, 'u_origin_owner');
-    expect(detail.locationTree.map((node) => node.id), ['loc_1']);
-    expect(detail.processedLocationTree.root?.id, 'loc_1');
+    expect(detail.locationTree.map((node) => node.id), [
+      originSyntheticRootLocationId,
+    ]);
+    expect(
+      detail.processedLocationTree.root?.id,
+      originSyntheticRootLocationId,
+    );
+    expect(detail.processedLocationTree.root?.value.mapUrl, 'origin-root.png');
     expect(detail.processedLocationTree.renderRoots.map((node) => node.id), [
-      'loc_1_1',
+      'loc_1',
     ]);
   });
 
@@ -242,12 +249,13 @@ void main() {
     expect(detail.processedLocationTree.nodeById('loc_2_1_1')?.depth, 3);
   });
 
-  test('origin detail uses existing root location instead of map root', () {
+  test('origin detail keeps existing root under synthetic root', () {
     final detail = OriginDetail.fromJson({
       'id': 7,
       'oid': 'ori_live',
       'name': 'Origin Root',
       'map_image': 'map.png',
+      'map_url': 'origin-map.png',
       'locations': [
         {
           'id': 1,
@@ -273,13 +281,17 @@ void main() {
       ],
     });
 
-    expect(detail.processedLocationTree.root?.id, 'root_old');
+    expect(
+      detail.processedLocationTree.root?.id,
+      originSyntheticRootLocationId,
+    );
+    expect(detail.processedLocationTree.root?.value.mapUrl, 'origin-map.png');
     expect(detail.processedLocationTree.renderRoots.map((node) => node.id), [
-      'district',
+      'root_old',
     ]);
     expect(
       detail.processedLocationTree.flattenedRenderNodes.map((node) => node.id),
-      ['district', 'room'],
+      ['root_old', 'district', 'room'],
     );
   });
 
@@ -309,9 +321,12 @@ void main() {
         ],
       });
 
-      expect(detail.processedLocationTree.root?.id, 'root_old');
+      expect(
+        detail.processedLocationTree.root?.id,
+        originSyntheticRootLocationId,
+      );
       expect(detail.processedLocationTree.renderRoots.map((node) => node.id), [
-        'district',
+        'root_old',
       ]);
       expect(
         detail.processedLocationTree.chatTargetFor('district')?.id,
@@ -387,4 +402,67 @@ void main() {
       expect(detail.processedLocationTree.chatTargetFor('root_old'), isNull);
     },
   );
+
+  test('initial map display keeps multiple root children visible', () {
+    final tree = buildLocationTree(
+      [
+        {'location_id': 'root', 'location_pid': ''},
+        {'location_id': 'a', 'location_pid': 'root'},
+        {'location_id': 'b', 'location_pid': 'a'},
+        {'location_id': 'c', 'location_pid': 'b'},
+        {'location_id': 'a1', 'location_pid': 'root'},
+        {'location_id': 'b1', 'location_pid': 'a1'},
+        {'location_id': 'c1', 'location_pid': 'b1'},
+      ],
+      idOf: (location) => '${location['location_id']}',
+      parentIdOf: (location) => '${location['location_pid']}',
+    );
+
+    final processed = processLocationTree(tree);
+
+    expect(processed.initialMapDisplayRoots.map((node) => node.id), ['root']);
+    expect(processed.initialMapRenderRoots.map((node) => node.id), ['a', 'a1']);
+  });
+
+  test('initial map display follows single chain to leaf parent', () {
+    final tree = buildLocationTree(
+      [
+        {'location_id': 'root', 'location_pid': ''},
+        {'location_id': 'a', 'location_pid': 'root'},
+        {'location_id': 'b', 'location_pid': 'a'},
+        {'location_id': 'c', 'location_pid': 'b'},
+        {'location_id': 'd', 'location_pid': 'c'},
+      ],
+      idOf: (location) => '${location['location_id']}',
+      parentIdOf: (location) => '${location['location_pid']}',
+    );
+
+    final processed = processLocationTree(tree);
+
+    expect(processed.initialMapDisplayRoots.map((node) => node.id), ['c']);
+    expect(processed.initialMapRenderRoots.map((node) => node.id), ['d']);
+  });
+
+  test('initial map display does not drill into multiple top-level roots', () {
+    final tree = buildLocationTree(
+      [
+        {'location_id': 'a', 'location_pid': ''},
+        {'location_id': 'b', 'location_pid': 'a'},
+        {'location_id': 'c', 'location_pid': 'b'},
+        {'location_id': 'a1', 'location_pid': ''},
+        {'location_id': 'b1', 'location_pid': 'a1'},
+        {'location_id': 'c1', 'location_pid': 'b1'},
+      ],
+      idOf: (location) => '${location['location_id']}',
+      parentIdOf: (location) => '${location['location_pid']}',
+    );
+
+    final processed = processLocationTree(tree);
+
+    expect(processed.initialMapDisplayRoots.map((node) => node.id), [
+      'a',
+      'a1',
+    ]);
+    expect(processed.initialMapRenderRoots.map((node) => node.id), ['a', 'a1']);
+  });
 }
