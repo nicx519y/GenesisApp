@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/widgets.dart';
 
+import '../config/app_config.dart';
 import 'service_registry.dart';
 
 class AppBootstrap {
@@ -10,9 +11,11 @@ class AppBootstrap {
   static const _sessionReadTimeout = Duration(seconds: 2);
   static const _guestBindTimeout = Duration(seconds: 8);
 
-  static AppServices createInitialServices() {
+  static AppServices createInitialServices({
+    AppConfig config = const AppConfig(),
+  }) {
     WidgetsFlutterBinding.ensureInitialized();
-    return ServiceRegistry.build();
+    return ServiceRegistry.build(config: config);
   }
 
   static Future<AppServices> initialize() async {

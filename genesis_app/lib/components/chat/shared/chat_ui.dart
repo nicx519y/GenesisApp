@@ -48,6 +48,7 @@ const Color _locationChatChromeStrong = Color(0xF2111111);
 const Color _locationChatChromeSoft = Color(0x80111111);
 
 ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
+  conversationBackgroundColor: Colors.transparent,
   headerBackgroundGradient: LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,

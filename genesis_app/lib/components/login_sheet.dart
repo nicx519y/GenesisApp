@@ -4,6 +4,7 @@ import 'common/genesis_bottom_sheet_panel.dart';
 import 'common/genesis_center_toast.dart';
 import 'common/genesis_modal_routes.dart';
 import 'login_provider_button.dart';
+import '../app/telemetry/genesis_telemetry.dart';
 import '../platform/auth/auth_cancelled_exception.dart';
 import '../platform/auth/auth_session.dart';
 
@@ -37,6 +38,11 @@ class _LoginSheetState extends State<LoginSheet> {
       }
     } on AuthCancelledException {
       debugPrint('[Auth][LoginSheet] login cancelled');
+      GenesisTelemetry.event(
+        'login_cancel',
+        category: 'auth',
+        data: <String, Object?>{'provider': provider.name},
+      );
     } catch (e, st) {
       debugPrint('[Auth][LoginSheet] login exception: $e');
       debugPrint('[Auth][LoginSheet] stacktrace:\n$st');
@@ -67,7 +73,14 @@ class _LoginSheetState extends State<LoginSheet> {
       trailing: IconButton(
         onPressed: _submittingProvider != null
             ? null
-            : () => Navigator.of(context).pop(false),
+            : () {
+                GenesisTelemetry.event(
+                  'login_cancel',
+                  category: 'auth',
+                  data: const <String, Object?>{'source': 'close_button'},
+                );
+                Navigator.of(context).pop(false);
+              },
         icon: const Icon(Icons.close),
         iconSize: 22,
         color: Colors.black,

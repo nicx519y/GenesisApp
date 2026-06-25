@@ -1,3 +1,6 @@
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../json_utils.dart';
 import 'v1_api_resource.dart';
 
@@ -20,6 +23,16 @@ class UploadV1Api extends V1ApiResource {
     String filename = 'upload.jpg',
     String contentType = 'image/jpeg',
   }) async {
+    final stopwatch = Stopwatch()..start();
+    GenesisTelemetry.event(
+      'image_upload_start',
+      category: 'upload.image',
+      data: <String, Object?>{
+        'file_count': 1,
+        'bytes': bytes.length,
+        'content_type': contentType,
+      },
+    );
     final boundary = '----genesis-${DateTime.now().microsecondsSinceEpoch}';
     final body = multipartBody(
       boundary: boundary,
@@ -27,14 +40,45 @@ class UploadV1Api extends V1ApiResource {
       filename: filename,
       contentType: contentType,
     );
-    final json = await client
-        .copyWith(timeoutMs: imageUploadTimeoutMs)
-        .post<Object?>(
-          'v1/upload/image',
-          body: body,
-          headers: {'content-type': 'multipart/form-data; boundary=$boundary'},
-        );
-    final data = handleV1ResponseErrNo(json);
-    return data == null ? <String, dynamic>{} : asJsonMap(data);
+    try {
+      final json = await client
+          .copyWith(timeoutMs: imageUploadTimeoutMs)
+          .post<Object?>(
+            'v1/upload/image',
+            body: body,
+            headers: {
+              'content-type': 'multipart/form-data; boundary=$boundary',
+            },
+          );
+      final data = handleV1ResponseErrNo(json);
+      final result = data == null ? <String, dynamic>{} : asJsonMap(data);
+      stopwatch.stop();
+      GenesisTelemetry.event(
+        'image_upload_success',
+        category: 'upload.image',
+        data: <String, Object?>{
+          'file_count': 1,
+          'bytes': bytes.length,
+          'content_type': contentType,
+          'duration_ms': stopwatch.elapsedMilliseconds,
+        },
+      );
+      return result;
+    } catch (error) {
+      stopwatch.stop();
+      GenesisTelemetry.event(
+        'image_upload_failure',
+        category: 'upload.image',
+        data: <String, Object?>{
+          'file_count': 1,
+          'bytes': bytes.length,
+          'content_type': contentType,
+          'duration_ms': stopwatch.elapsedMilliseconds,
+          'error_type': error.runtimeType.toString(),
+        },
+        level: SentryLevel.warning,
+      );
+      rethrow;
+    }
   }
 }

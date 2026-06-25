@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../api_client.dart';
 import '../app_request_headers.dart';
 import '../gateway_auth.dart';
@@ -77,10 +80,36 @@ class ChatroomClient {
     if (signer != null) {
       headers = await signer(uri, headers);
     }
-    final socket = await _transport.connect(
-      uri,
-      headers: headers.isEmpty ? null : headers,
-    );
+    final connectStopwatch = Stopwatch()..start();
+    final ChatroomSocket socket;
+    try {
+      socket = await _transport.connect(
+        uri,
+        headers: headers.isEmpty ? null : headers,
+      );
+      connectStopwatch.stop();
+      _chatroomTelemetry(
+        'chatroom.ws_connect',
+        data: <String, Object?>{
+          'path': uri.path,
+          'duration_ms': connectStopwatch.elapsedMilliseconds,
+          'outcome': 'success',
+        },
+      );
+    } catch (error) {
+      connectStopwatch.stop();
+      _chatroomTelemetry(
+        'chatroom.ws_connect',
+        data: <String, Object?>{
+          'path': uri.path,
+          'duration_ms': connectStopwatch.elapsedMilliseconds,
+          'outcome': 'failure',
+          'error_type': error.runtimeType.toString(),
+        },
+        level: SentryLevel.warning,
+      );
+      rethrow;
+    }
     final session = ChatroomSession._(
       socket: socket,
       worldId: resolvedWorldId,
@@ -230,6 +259,7 @@ class ChatroomSession {
 
   Future<ChatroomJoined> join({String? locationId}) async {
     _throwIfClosed();
+    final stopwatch = Stopwatch()..start();
     try {
       final requestedLocationId = locationId?.trim();
       final resolvedLocationId =
@@ -263,8 +293,26 @@ class ChatroomSession {
         onlineUsers: const <ChatroomOnlineUser>[],
       );
       _joined = nextJoined;
+      stopwatch.stop();
+      _chatroomTelemetry(
+        'chatroom.join',
+        data: <String, Object?>{
+          'duration_ms': stopwatch.elapsedMilliseconds,
+          'outcome': 'success',
+        },
+      );
       return nextJoined;
     } catch (e) {
+      stopwatch.stop();
+      _chatroomTelemetry(
+        'chatroom.join',
+        data: <String, Object?>{
+          'duration_ms': stopwatch.elapsedMilliseconds,
+          'outcome': 'failure',
+          'error_type': e.runtimeType.toString(),
+        },
+        level: SentryLevel.warning,
+      );
       if (e is ChatroomFailureEvent) {
         rethrow;
       }
@@ -418,6 +466,10 @@ class ChatroomSession {
 
   Future<void> disconnect() async {
     if (_closed) return;
+    _chatroomTelemetry(
+      'chatroom.disconnect',
+      data: const <String, Object?>{'outcome': 'requested'},
+    );
     final reason = ChatroomFailureEvent(
       code: 'closed',
       message: 'Something went wrong',
@@ -529,6 +581,14 @@ class ChatroomSession {
   }
 
   void _handleSocketError(Object error) {
+    _chatroomTelemetry(
+      'chatroom.failure',
+      data: <String, Object?>{
+        'source': 'socket_error',
+        'error_type': error.runtimeType.toString(),
+      },
+      level: SentryLevel.warning,
+    );
     final event = ChatroomErrorEvent(
       code: 'socket_error',
       message: 'Something went wrong',
@@ -544,6 +604,11 @@ class ChatroomSession {
   }
 
   void _handleSocketDone() {
+    _chatroomTelemetry(
+      'chatroom.disconnect',
+      data: const <String, Object?>{'outcome': 'socket_closed'},
+      level: SentryLevel.warning,
+    );
     final reason = ChatroomFailureEvent(
       code: 'socket_closed',
       message: 'Something went wrong',
@@ -677,6 +742,19 @@ class ChatroomSession {
     final random = Random().nextInt(1 << 32).toRadixString(16);
     return '${DateTime.now().microsecondsSinceEpoch}-$random';
   }
+}
+
+void _chatroomTelemetry(
+  String name, {
+  Map<String, Object?> data = const <String, Object?>{},
+  SentryLevel level = SentryLevel.info,
+}) {
+  GenesisTelemetry.event(
+    name,
+    category: 'network.websocket',
+    data: data,
+    level: level,
+  );
 }
 
 class ChatroomAiMessageStream {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../app/telemetry/genesis_telemetry.dart';
 import 'genesis_safe_area.dart';
 import 'genesis_unread_badge.dart';
 import '../tokens/genesis_spacing.dart';
@@ -108,7 +109,20 @@ class GenesisBottomNavigationTile extends StatelessWidget {
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: item.enabled ? onTap : null,
+        onTap: item.enabled
+            ? () {
+                GenesisTelemetry.click(
+                  actionId: 'bottom_tab.${_actionSlug(item.label)}',
+                  component: 'GenesisBottomNavigationTile',
+                  enabled: true,
+                  data: <String, Object?>{
+                    'label': item.label,
+                    'selected': selected,
+                  },
+                );
+                onTap();
+              }
+            : null,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -135,6 +149,15 @@ class GenesisBottomNavigationTile extends StatelessWidget {
       ),
     );
   }
+}
+
+String _actionSlug(String label) {
+  final normalized = label
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+      .replaceAll(RegExp(r'^_+|_+$'), '');
+  return normalized.isEmpty ? 'unknown' : normalized;
 }
 
 class _BadgedIcon extends StatelessWidget {

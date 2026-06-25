@@ -8142,6 +8142,13 @@ void main() {
       ),
       'chat.example.com',
     );
+    await tester.enterText(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('developer-sentry-dsn-field')),
+        matching: find.byType(TextField),
+      ),
+      'https://genesis@sentry.example.com/rum/sentry/workspace/service/0',
+    );
 
     await tester.scrollUntilVisible(
       find.text('Save endpoints'),
@@ -8152,7 +8159,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.text('Saved. New requests will use these endpoints.'),
+      find.text(
+        'Saved. New requests use endpoints. Sentry applies on next launch.',
+      ),
       findsOneWidget,
     );
     final saved = await AppEndpointOverrideStore.load();
@@ -8160,6 +8169,10 @@ void main() {
     expect(saved.gatewayApiBaseUrl, 'https://gateway.example.com/apix/');
     expect(saved.chatroomHttpBaseUrl, 'https://api.example.com/');
     expect(saved.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
+    expect(
+      saved.sentryDsn,
+      'https://genesis@sentry.example.com/rum/sentry/workspace/service/0',
+    );
     expect(
       tester
           .widget<TextField>(
@@ -8192,6 +8205,10 @@ void main() {
       'wss://chat.example.com/aitown-chat/ws',
     );
     expect(
+      updatedServices.config.sentryDsn,
+      'https://genesis@sentry.example.com/rum/sentry/workspace/service/0',
+    );
+    expect(
       identical(updatedServices.sessionStore, originalServices.sessionStore),
       isTrue,
     );
@@ -8208,6 +8225,10 @@ void main() {
     expect(config.gatewayApiBaseUrl, 'https://gateway.example.com/apix/');
     expect(config.chatroomHttpBaseUrl, 'https://api.example.com/');
     expect(config.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
+    expect(
+      config.sentryDsn,
+      'https://genesis@sentry.example.com/rum/sentry/workspace/service/0',
+    );
 
     await tester.pump(const Duration(seconds: 2));
     await tester.scrollUntilVisible(
@@ -8235,6 +8256,7 @@ void main() {
       clearedServices.config.chatroomWsBaseUrl,
       GenesisApi.defaultChatroomWsBaseUrl,
     );
+    expect(clearedServices.config.sentryDsn, AppConfig.defaultSentryDsn);
     await tester.pump(const Duration(seconds: 2));
   });
 

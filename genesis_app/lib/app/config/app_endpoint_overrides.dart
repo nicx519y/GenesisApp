@@ -8,6 +8,7 @@ class AppEndpointOverrides {
     this.gatewayApiBaseUrl,
     this.chatroomHttpBaseUrl,
     this.chatroomWsBaseUrl,
+    this.sentryDsn,
   });
 
   static const empty = AppEndpointOverrides();
@@ -16,12 +17,14 @@ class AppEndpointOverrides {
   final String? gatewayApiBaseUrl;
   final String? chatroomHttpBaseUrl;
   final String? chatroomWsBaseUrl;
+  final String? sentryDsn;
 
   bool get hasAny {
     return apiBaseUrl != null ||
         gatewayApiBaseUrl != null ||
         chatroomHttpBaseUrl != null ||
-        chatroomWsBaseUrl != null;
+        chatroomWsBaseUrl != null ||
+        sentryDsn != null;
   }
 
   AppConfig applyTo(AppConfig config) {
@@ -30,6 +33,7 @@ class AppEndpointOverrides {
       gatewayApiBaseUrl: gatewayApiBaseUrl,
       chatroomHttpBaseUrl: chatroomHttpBaseUrl,
       chatroomWsBaseUrl: chatroomWsBaseUrl,
+      sentryDsn: sentryDsn,
     );
   }
 }
@@ -44,6 +48,7 @@ class AppEndpointOverrideStore {
       'developer_chatroom_http_base_url_override_v1';
   static const String _chatroomWsBaseUrlKey =
       'developer_chatroom_ws_base_url_override_v1';
+  static const String _sentryDsnKey = 'developer_sentry_dsn_override_v1';
   static const String _apiPath = '/api/';
   static const String _gatewayApiPath = '/apix/';
   static const String _chatroomWsPath = '/aitown-chat/ws';
@@ -55,6 +60,7 @@ class AppEndpointOverrideStore {
       gatewayApiBaseUrl: _storedValue(prefs, _gatewayApiBaseUrlKey),
       chatroomHttpBaseUrl: _storedValue(prefs, _chatroomHttpBaseUrlKey),
       chatroomWsBaseUrl: _storedValue(prefs, _chatroomWsBaseUrlKey),
+      sentryDsn: _storedValue(prefs, _sentryDsnKey),
     );
   }
 
@@ -83,6 +89,7 @@ class AppEndpointOverrideStore {
       _chatroomWsBaseUrlKey,
       overrides.chatroomWsBaseUrl,
     );
+    await _setOptionalValue(prefs, _sentryDsnKey, overrides.sentryDsn);
   }
 
   static Future<void> clear() async {
@@ -91,6 +98,7 @@ class AppEndpointOverrideStore {
     await prefs.remove(_gatewayApiBaseUrlKey);
     await prefs.remove(_chatroomHttpBaseUrlKey);
     await prefs.remove(_chatroomWsBaseUrlKey);
+    await prefs.remove(_sentryDsnKey);
   }
 
   static String? normalizeHttpsApiBaseUrl(String value) {
@@ -115,6 +123,25 @@ class AppEndpointOverrideStore {
     final uri = _normalizeDomainUrl(value, scheme: 'wss');
     if (uri == null) return null;
     return uri.replace(path: _chatroomWsPath).toString();
+  }
+
+  static String? normalizeSentryDsn(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null ||
+        (uri.scheme != 'https' && uri.scheme != 'http') ||
+        uri.host.trim().isEmpty ||
+        uri.userInfo.trim().isEmpty ||
+        uri.pathSegments.isEmpty ||
+        uri.pathSegments.last.trim().isEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      throw const FormatException(
+        'Sentry DSN must be like https://key@host/path/project_id',
+      );
+    }
+    return uri.toString();
   }
 
   static String displayDomain(String? value) {
