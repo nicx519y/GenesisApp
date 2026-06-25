@@ -15,6 +15,7 @@ class GenesisListImage extends StatelessWidget {
     this.height,
     this.fit = BoxFit.cover,
     this.borderRadius = GenesisImageRadii.content,
+    this.placeholderAsset = genesisDefaultListImageAsset,
   });
 
   final String imageUrl;
@@ -22,6 +23,7 @@ class GenesisListImage extends StatelessWidget {
   final double? height;
   final BoxFit fit;
   final BorderRadiusGeometry borderRadius;
+  final String placeholderAsset;
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +71,7 @@ class GenesisListImage extends StatelessWidget {
 
   Widget _placeholder() {
     return Image.asset(
-      genesisDefaultListImageAsset,
+      placeholderAsset,
       width: _finite(width),
       height: _finite(height),
       fit: fit,

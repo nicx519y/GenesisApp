@@ -9,6 +9,9 @@ import '../ui/components/genesis_list_image.dart';
 import 'world_details_shell.dart';
 import 'world_point.dart';
 
+const String _locationDefaultImageAsset =
+    'assets/images/map_default/location_default.webp';
+
 class WorldLocationList extends StatefulWidget {
   const WorldLocationList({
     super.key,
@@ -607,7 +610,10 @@ class _PointListCover extends StatelessWidget {
     return SizedBox(
       width: 64,
       height: 64,
-      child: GenesisListImage(imageUrl: point.iconUrl),
+      child: GenesisListImage(
+        imageUrl: point.iconUrl,
+        placeholderAsset: _locationDefaultImageAsset,
+      ),
     );
   }
 }
@@ -622,7 +628,10 @@ class _LocationCardCover extends StatelessWidget {
     return SizedBox(
       width: 64,
       height: 64,
-      child: GenesisListImage(imageUrl: point.iconUrl),
+      child: GenesisListImage(
+        imageUrl: point.iconUrl,
+        placeholderAsset: _locationDefaultImageAsset,
+      ),
     );
   }
 }
