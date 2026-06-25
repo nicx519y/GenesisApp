@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:posthog_flutter/posthog_flutter.dart';
 
+import '../../network/http_transport.dart';
+import '../../network/io_http_transport.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../platform/device/device_id_service.dart';
 import '../config/app_config.dart';
@@ -104,12 +108,248 @@ class NoopGenesisTelemetrySink implements GenesisTelemetrySink {
   Future<void> captureException(Object error, StackTrace stackTrace) async {}
 }
 
+class CompositeGenesisTelemetrySink implements GenesisTelemetrySink {
+  const CompositeGenesisTelemetrySink(this.sinks);
+
+  final List<GenesisTelemetrySink> sinks;
+
+  @override
+  Future<void> record(GenesisTelemetryEvent event) async {
+    await Future.wait(sinks.map((sink) => sink.record(event)));
+  }
+
+  @override
+  Future<void> setContext(GenesisTelemetryContext context) async {
+    await Future.wait(sinks.map((sink) => sink.setContext(context)));
+  }
+
+  @override
+  Future<void> setUserId(String? uid) async {
+    await Future.wait(sinks.map((sink) => sink.setUserId(uid)));
+  }
+
+  @override
+  Future<void> captureException(Object error, StackTrace stackTrace) async {
+    await Future.wait(
+      sinks.map((sink) => sink.captureException(error, stackTrace)),
+    );
+  }
+}
+
+@visibleForTesting
+abstract interface class PostHogTelemetryClient {
+  Future<void> setup(PostHogConfig config);
+  Future<void> capture({
+    required String eventName,
+    Map<String, Object>? properties,
+  });
+  Future<void> identify({
+    required String userId,
+    Map<String, Object>? userProperties,
+  });
+  Future<void> reset();
+  Future<void> captureException({
+    required Object error,
+    StackTrace? stackTrace,
+    Map<String, Object>? properties,
+  });
+}
+
+class SdkPostHogTelemetryClient implements PostHogTelemetryClient {
+  const SdkPostHogTelemetryClient();
+
+  @override
+  Future<void> setup(PostHogConfig config) => Posthog().setup(config);
+
+  @override
+  Future<void> capture({
+    required String eventName,
+    Map<String, Object>? properties,
+  }) {
+    return Posthog().capture(eventName: eventName, properties: properties);
+  }
+
+  @override
+  Future<void> identify({
+    required String userId,
+    Map<String, Object>? userProperties,
+  }) {
+    return Posthog().identify(userId: userId, userProperties: userProperties);
+  }
+
+  @override
+  Future<void> reset() => Posthog().reset();
+
+  @override
+  Future<void> captureException({
+    required Object error,
+    StackTrace? stackTrace,
+    Map<String, Object>? properties,
+  }) {
+    return Posthog().captureException(
+      error: error,
+      stackTrace: stackTrace,
+      properties: properties,
+    );
+  }
+}
+
+class PostHogGenesisTelemetrySink implements GenesisTelemetrySink {
+  PostHogGenesisTelemetrySink({required PostHogTelemetryClient client})
+    : _client = client;
+
+  final PostHogTelemetryClient _client;
+  GenesisTelemetryContext _context = const GenesisTelemetryContext();
+
+  @override
+  Future<void> record(GenesisTelemetryEvent event) async {
+    if (!event.capture) return;
+    if (event.category == 'collect.log') return;
+    await _safePostHogCall(
+      () => _client.capture(
+        eventName: event.name,
+        properties: _compact(<String, Object?>{
+          ...event.fullData,
+          'category': event.category,
+          'level': event.level.name,
+        }),
+      ),
+    );
+  }
+
+  @override
+  Future<void> setContext(GenesisTelemetryContext context) async {
+    _context = context;
+  }
+
+  @override
+  Future<void> setUserId(String? uid) async {
+    final userId = uid?.trim() ?? '';
+    await _safePostHogCall(() {
+      if (userId.isEmpty) return _client.reset();
+      return _client.identify(
+        userId: userId,
+        userProperties: _compact(_context.toMap()),
+      );
+    });
+  }
+
+  @override
+  Future<void> captureException(Object error, StackTrace stackTrace) async {
+    await _safePostHogCall(
+      () => _client.captureException(
+        error: error,
+        stackTrace: stackTrace,
+        properties: _compact(<String, Object?>{
+          ..._context.toMap(),
+          'error_type': error.runtimeType.toString(),
+          'handled': true,
+        }),
+      ),
+    );
+  }
+}
+
+@visibleForTesting
+abstract interface class CollectTelemetryClient {
+  Future<void> collect(
+    Map<String, Object> payload, {
+    Map<String, String> headers = const <String, String>{},
+  });
+}
+
+class SdkCollectTelemetryClient implements CollectTelemetryClient {
+  SdkCollectTelemetryClient({
+    required String endpoint,
+    HttpTransport? transport,
+    this.timeoutMs = 5000,
+  }) : _endpoint = Uri.parse(endpoint),
+       _transport = transport ?? IoHttpTransport();
+
+  final Uri _endpoint;
+  final HttpTransport _transport;
+  final int timeoutMs;
+
+  @override
+  Future<void> collect(
+    Map<String, Object> payload, {
+    Map<String, String> headers = const <String, String>{},
+  }) async {
+    final response = await _transport.send(
+      TransportRequest(
+        method: 'POST',
+        uri: _endpoint,
+        headers: {
+          'content-type': 'application/json',
+          'accept': 'application/json',
+          ...headers,
+        },
+        bodyBytes: utf8.encode(jsonEncode(payload)),
+        timeoutMs: timeoutMs,
+      ),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw StateError('Collect request failed: ${response.statusCode}');
+    }
+  }
+}
+
+class CollectGenesisTelemetrySink implements GenesisTelemetrySink {
+  CollectGenesisTelemetrySink({required CollectTelemetryClient client})
+    : _client = client;
+
+  final CollectTelemetryClient _client;
+  GenesisTelemetryContext _context = const GenesisTelemetryContext();
+  String? _userId;
+
+  @override
+  Future<void> record(GenesisTelemetryEvent event) async {
+    if (!event.capture || event.category != 'collect.log') return;
+    await _safeCollectCall(
+      () => _client.collect(
+        _collectLogPayload(event.data),
+        headers: _collectHeaders(),
+      ),
+    );
+  }
+
+  @override
+  Future<void> setContext(GenesisTelemetryContext context) async {
+    _context = context;
+  }
+
+  @override
+  Future<void> setUserId(String? uid) async {
+    final normalized = uid?.trim() ?? '';
+    _userId = normalized.isEmpty ? null : normalized;
+  }
+
+  @override
+  Future<void> captureException(Object error, StackTrace stackTrace) async {
+    // Collect is reserved for product behavior logs.
+  }
+
+  Map<String, String> _collectHeaders() {
+    return <String, String>{
+      for (final entry in <String, String?>{
+        'X-Platform': _collectPlatformHeaderValue(_context.platform),
+        'X-Device-ID': _context.deviceId,
+        'X-App-Version': _context.appVersion,
+        'X-UID': _userId,
+      }.entries)
+        if ((entry.value ?? '').trim().isNotEmpty)
+          entry.key: entry.value!.trim(),
+    };
+  }
+}
+
 class GenesisTelemetry {
   GenesisTelemetry._();
 
   static GenesisTelemetrySink _sink = const NoopGenesisTelemetrySink();
   static GenesisTelemetryContext _context = const GenesisTelemetryContext();
   static bool _enabled = true;
+  static bool _sinkOverriddenForTesting = false;
 
   @visibleForTesting
   static GenesisTelemetryContext get contextForTesting => _context;
@@ -118,6 +358,7 @@ class GenesisTelemetry {
   static void setSinkForTesting(GenesisTelemetrySink sink) {
     _sink = sink;
     _enabled = true;
+    _sinkOverriddenForTesting = true;
   }
 
   @visibleForTesting
@@ -125,6 +366,20 @@ class GenesisTelemetry {
     _sink = const NoopGenesisTelemetrySink();
     _context = const GenesisTelemetryContext();
     _enabled = true;
+    _sinkOverriddenForTesting = false;
+  }
+
+  @visibleForTesting
+  static Future<GenesisTelemetrySink> buildDefaultSinkForTesting({
+    required AppConfig config,
+    PostHogTelemetryClient? postHogClient,
+    CollectTelemetryClient? collectClient,
+  }) {
+    return _buildDefaultSink(
+      config: config,
+      postHogClient: postHogClient,
+      collectClient: collectClient,
+    );
   }
 
   static Future<void> initialize({
@@ -146,6 +401,9 @@ class GenesisTelemetry {
           : config.apiEnvironment.trim(),
       currentPage: genesisCurrentPageClassName.value,
     );
+    if (!_sinkOverriddenForTesting) {
+      _sink = await _buildDefaultSink(config: config);
+    }
     _enabled = true;
     await _sink.setContext(_context);
   }
@@ -218,6 +476,36 @@ class GenesisTelemetry {
     );
   }
 
+  static void collectLog({
+    required String actionType,
+    required String action,
+    Object? object1,
+    Object? object2,
+    Object? object3,
+  }) {
+    final normalizedActionType = actionType.trim();
+    final normalizedAction = action.trim();
+    if (!_enabled || normalizedActionType.isEmpty || normalizedAction.isEmpty) {
+      return;
+    }
+    unawaited(
+      _sink.record(
+        GenesisTelemetryEvent(
+          name: normalizedAction,
+          category: 'collect.log',
+          data: _compact(<String, Object?>{
+            'action_type': normalizedActionType,
+            'action': normalizedAction,
+            'object1': object1,
+            'object2': object2,
+            'object3': object3,
+          }),
+          context: _context,
+        ),
+      ),
+    );
+  }
+
   static void setUserId(String? uid) {
     unawaited(_sink.setUserId(uid));
   }
@@ -237,6 +525,113 @@ class GenesisTelemetry {
     } catch (_) {
       return '';
     }
+  }
+
+  static Future<GenesisTelemetrySink> _buildDefaultSink({
+    required AppConfig config,
+    PostHogTelemetryClient? postHogClient,
+    CollectTelemetryClient? collectClient,
+  }) async {
+    final sinks = <GenesisTelemetrySink>[];
+    final collectSink = _buildCollectSink(
+      config: config,
+      collectClient: collectClient,
+    );
+    if (collectSink != null) sinks.add(collectSink);
+
+    final projectToken = config.postHogProjectToken.trim();
+    if (projectToken.isNotEmpty) {
+      final client = postHogClient ?? const SdkPostHogTelemetryClient();
+      final postHogConfig = PostHogConfig(projectToken)
+        ..host = config.postHogHost
+        ..debug = config.postHogDebug
+        ..captureApplicationLifecycleEvents = false
+        ..sessionReplay = false
+        ..surveys = false;
+      await _safeStaticPostHogCall(() => client.setup(postHogConfig));
+      sinks.add(PostHogGenesisTelemetrySink(client: client));
+    }
+
+    if (sinks.isEmpty) return const NoopGenesisTelemetrySink();
+    if (sinks.length == 1) return sinks.single;
+    return CompositeGenesisTelemetrySink(sinks);
+  }
+}
+
+GenesisTelemetrySink? _buildCollectSink({
+  required AppConfig config,
+  CollectTelemetryClient? collectClient,
+}) {
+  if (!config.collectEnabled || config.useMock == true) return null;
+  final endpoint = config.collectEndpoint.trim();
+  if (endpoint.isEmpty) return null;
+  try {
+    final client =
+        collectClient ??
+        SdkCollectTelemetryClient(
+          endpoint: endpoint,
+          transport: IoHttpTransport(proxy: config.debugProxy),
+        );
+    return CollectGenesisTelemetrySink(client: client);
+  } catch (_) {
+    return null;
+  }
+}
+
+Map<String, Object> _compact(Map<String, Object?> data) {
+  return <String, Object>{
+    for (final entry in data.entries)
+      if (entry.value != null && entry.value.toString().trim().isNotEmpty)
+        entry.key: _safeTelemetryValue(entry.value),
+  };
+}
+
+Object _safeTelemetryValue(Object? value) {
+  final safe = value;
+  if (safe is num) return safe;
+  if (safe is bool) return safe;
+  if (safe is String) return safe;
+  return safe?.toString() ?? '';
+}
+
+Map<String, Object> _collectLogPayload(Map<String, Object?> data) {
+  return _compact(<String, Object?>{
+    'action_type': data['action_type'],
+    'action': data['action'],
+    'object1': data['object1'],
+    'object2': data['object2'],
+    'object3': data['object3'],
+  });
+}
+
+String _collectPlatformHeaderValue(String platform) {
+  final normalized = platform.trim().toLowerCase();
+  if (normalized == 'ios') return 'ios';
+  if (normalized == 'android') return 'android';
+  return platform.trim();
+}
+
+Future<void> _safePostHogCall(Future<void> Function() call) async {
+  try {
+    await call();
+  } catch (_) {
+    // Telemetry must not affect app behavior.
+  }
+}
+
+Future<void> _safeCollectCall(Future<void> Function() call) async {
+  try {
+    await call();
+  } catch (_) {
+    // Telemetry must not affect app behavior.
+  }
+}
+
+Future<void> _safeStaticPostHogCall(Future<void> Function() call) async {
+  try {
+    await call();
+  } catch (_) {
+    // Telemetry startup must not affect app behavior.
   }
 }
 

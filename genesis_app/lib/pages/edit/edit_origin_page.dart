@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/page_header.dart';
 import '../../network/api_exception.dart';
 import '../create/create_origin_draft_store.dart';
@@ -170,11 +171,21 @@ class _EditOriginPageState extends State<EditOriginPage> {
       payload['deleted_location_ids'] = repository.deletedLocationIds(draft);
     }
     payload['update_notes'] = _updateNotesController.text.trim();
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'edit_worldo_submit_start',
+      object1: originId,
+    );
     final result = await api.updateOrigin(oid: originId, payload: payload);
     final updatedOriginId = result.oid.trim();
     if (updatedOriginId.isEmpty) {
       throw StateError('origin_id is missing from publish response');
     }
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'edit_worldo_submit_success',
+      object1: updatedOriginId,
+    );
     await _pendingCoordinator.startPublishing(
       originId: updatedOriginId,
       loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),

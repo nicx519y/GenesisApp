@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../origin_editor/origin_draft_repository.dart';
 import '../origin_editor/origin_editor_pages.dart';
 import '../origin_editor/origin_pending_submission_coordinator.dart';
@@ -34,6 +35,10 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
   @override
   void initState() {
     super.initState();
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'create_worldo',
+    );
     _pendingCoordinator.creatingState.addListener(_syncSubmitStatus);
     _removeCreateOutcomeListener = _pendingCoordinator.addCreateOutcomeListener(
       _handleCreateOutcome,
@@ -81,6 +86,10 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
     CreateOriginDraft draft,
   ) async {
     final api = AppServicesScope.read(context).api;
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'create_worldo_submit_start',
+    );
     final result = await api.createOrigin(
       payload: draft.toCreateOriginPayload(),
     );
@@ -88,6 +97,11 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
     if (originId.isEmpty) {
       throw StateError('origin_id is missing from create response');
     }
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'create_worldo_submit_success',
+      object1: originId,
+    );
     await _pendingCoordinator.startCreating(
       originId: originId,
       loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),

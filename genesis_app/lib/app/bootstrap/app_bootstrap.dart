@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/widgets.dart';
 
 import '../config/app_config.dart';
+import '../telemetry/genesis_telemetry.dart';
 import '../telemetry/firebase_crash_reporting.dart';
 import '../telemetry/firebase_performance_monitoring.dart';
 import 'service_registry.dart';
@@ -43,7 +44,10 @@ class AppBootstrap {
       debugPrint('[Auth][Bootstrap] session read failed: $e');
       debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
     }
-    if (uid == null) {
+    final normalizedUid = uid?.trim() ?? '';
+    if (normalizedUid.isNotEmpty) {
+      GenesisTelemetry.setUserId(normalizedUid);
+    } else {
       try {
         await services.api.bindDevice().timeout(_guestBindTimeout);
       } catch (e, st) {

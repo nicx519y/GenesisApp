@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../network/models/origin.dart';
@@ -15,6 +16,11 @@ Future<bool> startOriginLaunch({
   try {
     final api = AppServicesScope.of(context).api;
     final launchCoordinator = coordinator ?? OriginLaunchCoordinator.instance;
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_launch_submit_start',
+      object1: origin.oid,
+    );
     final result = await api.v1.origin.launch(
       oid: origin.oid,
       presetCharacterId: roleSelection.presetCharacterId,
@@ -27,6 +33,12 @@ Future<bool> startOriginLaunch({
       showGenesisToast(context, 'Launch failed');
       return false;
     }
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_launch_submit_success',
+      object1: origin.oid,
+      object2: wid,
+    );
 
     await launchCoordinator.start(
       originId: origin.oid,

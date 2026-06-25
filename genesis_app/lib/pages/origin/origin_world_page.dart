@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/common/copyable_id_label.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/shared/chat_ui.dart';
@@ -216,6 +217,18 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       openingPreviewMessages,
       locationId,
     );
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'worldo_map',
+      object1: origin.oid,
+      object2: locationId,
+    );
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'worldo_location_chat',
+      object1: origin.oid,
+      object2: locationId,
+    );
 
     setState(() {
       _activeChatLocation = _OriginLocationChatDescriptor(
@@ -245,11 +258,21 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   void _handleMapModeTabTap(int index) {
     if (index == 1) {
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'worldo_detail_location_list',
+        object1: widget.oid,
+      );
       WorldDetailsStatusBarOverride.setStyle(
         kGenesisDefaultSystemUiOverlayStyle,
       );
       return;
     }
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'worldo_map',
+      object1: widget.oid,
+    );
     WorldDetailsStatusBarOverride.clearStyle();
   }
 
@@ -300,6 +323,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     if (_launching) return;
     if (!await ensureGenesisLogin(context)) return;
     if (!mounted) return;
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'launch_sheet',
+      object1: origin.oid,
+    );
     final selection = await showOriginRoleLaunchSheet(
       context: context,
       characters: origin.characters,

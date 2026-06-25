@@ -2,12 +2,12 @@
 
 ## 结论摘要
 
-- 真机设备：Pixel 6，包名 `com.genesis.ai`，当前登录用户 `U_730NIE`，接口环境 `https://dev.hushie.ai`。
+- 真机设备：Pixel 6，包名 `com.genesis.ai`，当前登录用户 `U_730NIE`，接口环境 `https://api.worldo.ai`。
 - 抓包方式：Flutter VM Service / DevTools Network，`ext.dart.io.getHttpProfile` 可读取真机 Dart `HttpClient` 请求。
 - UI 自动点击未完整执行：测试中设备进入安全锁屏，ADB 无法越过指纹/PIN；后续真机 UI 路径需要先保持屏幕解锁。
 - 服务端核心阻塞：`origin` 和 `world` 相关接口大面积返回 `err_no=3103`，错误为 MySQL 表不存在：`aitown_dev.tbl_origins`、`aitown_dev.tbl_worlds`。这是服务端库表/迁移问题，不是客户端字段问题。
 - 客户端明确契约问题：当前 App 代码仍调用复数路径 `GET /api/v1/message/notifications`、`POST /api/v1/message/notifications/read`、`GET /api/v1/messages/followers`，但 Apifox 当前文档和服务端可用接口是单数路径 `GET /api/v1/message/notifications`、`POST /api/v1/message/read`，并且查询字段从 `category` 变为 `block`。复数路径实测 404。
-- 真机运行时抓包发现：App 后台轮询 `GET /api/v1/direct_message/conversations?after_message_id=0` 时，Dart `HttpClient` 报 `SocketException: Failed host lookup: 'dev.hushie.ai'`；但同设备 Wi-Fi 在 ADB shell 可 ping 通该域名，Mac 端用同一 session 直连该接口返回成功。因此这更像 App 进程/锁屏后台状态下的解析或网络状态问题，而不是接口本身不可用。
+- 真机运行时抓包发现：App 后台轮询 `GET /api/v1/direct_message/conversations?after_message_id=0` 时，Dart `HttpClient` 报 `SocketException: Failed host lookup: 'api.worldo.ai'`；但同设备 Wi-Fi 在 ADB shell 可 ping 通该域名，Mac 端用同一 session 直连该接口返回成功。因此这更像 App 进程/锁屏后台状态下的解析或网络状态问题，而不是接口本身不可用。
 
 ## 验证方法
 
@@ -17,7 +17,7 @@
   - `clearHttpProfile` 清空。
   - 等待 App 自动轮询。
   - `getHttpProfile` 读取请求、错误、响应状态。
-- 服务端对照：使用同一真机 session token，以 `Authorization: Bearer <token>`、`x-platform: android` 请求 `https://dev.hushie.ai`。
+- 服务端对照：使用同一真机 session token，以 `Authorization: Bearer <token>`、`x-platform: android` 请求 `https://api.worldo.ai`。
 - 副作用控制：
   - 没有调用 logout，避免破坏当前登录态。
   - 写接口优先用无效 id 或空 payload 验证路由/字段校验，不做业务数据破坏。
@@ -27,10 +27,10 @@
 
 | 场景 | App 实际请求 | 抓包结果 | 判断 |
 | --- | --- | --- | --- |
-| 消息页 DM 轮询 | `GET /api/v1/direct_message/conversations?after_message_id=0` | 84 次同类请求，均无 HTTP status，错误为 `SocketException: Failed host lookup: 'dev.hushie.ai'` | 真机 App 运行态 DNS/网络解析失败；服务端对照同接口成功，所以不是接口字段问题 |
+| 消息页 DM 轮询 | `GET /api/v1/direct_message/conversations?after_message_id=0` | 84 次同类请求，均无 HTTP status，错误为 `SocketException: Failed host lookup: 'api.worldo.ai'` | 真机 App 运行态 DNS/网络解析失败；服务端对照同接口成功，所以不是接口字段问题 |
 | 首页/Origin 列表 | `GET /api/v1/origin/list?pn=1&rn=20` | DevTools 截图显示 HTTP 200，但响应 `err_no=3103`，`tbl_origins` 不存在 | 服务端 DB 迁移/库表问题 |
 
-补充：ADB shell 网络状态显示 Wi-Fi `AIsphere-guest` 已连接、网络 validated，DNS 为 `202.106.0.20`、`119.29.29.29`；`adb shell ping dev.hushie.ai` 成功。
+补充：ADB shell 网络状态显示 Wi-Fi `AIsphere-guest` 已连接、网络 validated，DNS 为 `202.106.0.20`、`119.29.29.29`；`adb shell ping api.worldo.ai` 成功。
 
 ## 服务端对照结果
 
@@ -110,11 +110,11 @@
 | 接口 | 结果 | 判断 |
 | --- | --- | --- |
 | `GET /api/messages` | 未测真实数据；缺少可用 `world_id/location_id` | 依赖 world/detail 或可用 world 数据 |
-| `POST /internal/tick/lock` | `https://dev.hushie.ai` 返回 nginx 404 | 该类接口不是当前 dev HTTP 网关公开路由 |
-| `GET /internal/tick/progress` | `https://dev.hushie.ai` 返回 nginx 404 | 需要对应 chat/tick 内网服务地址 |
-| `POST /internal/tick/unlock` | `https://dev.hushie.ai` 返回 nginx 404 | 需要对应 chat/tick 内网服务地址 |
-| `GET /internal/tick/is_locked` | `https://dev.hushie.ai` 返回 nginx 404 | 需要对应 chat/tick 内网服务地址 |
-| `POST /internal/narrator/write` | `https://dev.hushie.ai` 返回 nginx 404 | 需要对应 narrator 内网服务地址 |
+| `POST /internal/tick/lock` | `https://api.worldo.ai` 返回 nginx 404 | 该类接口不是当前 dev HTTP 网关公开路由 |
+| `GET /internal/tick/progress` | `https://api.worldo.ai` 返回 nginx 404 | 需要对应 chat/tick 内网服务地址 |
+| `POST /internal/tick/unlock` | `https://api.worldo.ai` 返回 nginx 404 | 需要对应 chat/tick 内网服务地址 |
+| `GET /internal/tick/is_locked` | `https://api.worldo.ai` 返回 nginx 404 | 需要对应 chat/tick 内网服务地址 |
+| `POST /internal/narrator/write` | `https://api.worldo.ai` 返回 nginx 404 | 需要对应 narrator 内网服务地址 |
 | `ws://localhost:8082/aitown-chat/ws` | 未在真机 UI 中完整验证 | 文档地址为 localhost，不是 Android 真机可直接访问的服务端地址；App 代码默认配置是 `ws://47.77.195.140:5002/aitown-chat/ws` |
 
 ## 建议修复顺序
@@ -131,7 +131,7 @@
    - Messages：未读 -> 通知块 -> 标记已读 -> DM 会话。
    - Me：关注/粉丝 -> 关注/取消关注。
    - Create/Edit：上传图片 -> 创建 origin -> 编辑 origin。
-5. 如果要验证 chatroom/internal 接口，需要提供 Android 真机可访问的 chat/tick/narrator 服务地址；当前 Apifox 的 `localhost:8082` 和 `/internal/*` 不能直接用 `https://dev.hushie.ai` 验证。
+5. 如果要验证 chatroom/internal 接口，需要提供 Android 真机可访问的 chat/tick/narrator 服务地址；当前 Apifox 的 `localhost:8082` 和 `/internal/*` 不能直接用 `https://api.worldo.ai` 验证。
 
 ## 原始证据位置
 

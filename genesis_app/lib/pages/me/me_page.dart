@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -41,6 +43,8 @@ class MePage extends StatefulWidget {
 }
 
 class _MePageState extends State<MePage> {
+  static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
+
   late Future<_MePageContent> _future;
   final ValueNotifier<bool> _isUpdatingProfile = ValueNotifier<bool>(false);
   final ValueNotifier<String> _avatarUrl = ValueNotifier<String>('');
@@ -584,6 +588,22 @@ class _MePageState extends State<MePage> {
     }
   }
 
+  Future<void> _openDiscord() async {
+    try {
+      final launched = await launchUrl(
+        _discordUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && mounted) {
+        showGenesisToast(context, 'Could not open Discord');
+      }
+    } catch (_) {
+      if (mounted) {
+        showGenesisToast(context, 'Could not open Discord');
+      }
+    }
+  }
+
   Future<void> _editAvatar() async {
     final Uint8List bytes;
     try {
@@ -763,10 +783,23 @@ class _MePageState extends State<MePage> {
                     ),
                     Align(
                       alignment: Alignment.centerRight,
-                      child: IconButton(
-                        onPressed: _openSettings,
-                        icon: const Icon(Icons.settings, size: 24),
-                        color: Colors.black,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: _openDiscord,
+                            icon: SvgPicture.asset(
+                              'assets/custom-icons/svg/discord-svgrepo-com.svg',
+                              width: 30,
+                              height: 30,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: _openSettings,
+                            icon: const Icon(Icons.settings, size: 24),
+                            color: Colors.black,
+                          ),
+                        ],
                       ),
                     ),
                   ],

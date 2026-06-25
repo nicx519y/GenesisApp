@@ -46,6 +46,7 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
       final user = await _api.loginWithIdentity(session);
       stopwatch.stop();
       GenesisTelemetry.setUserId(user.uid);
+      GenesisTelemetry.collectLog(actionType: 'event', action: 'login');
       GenesisTelemetry.event(
         'login_success',
         category: 'auth',
@@ -78,6 +79,7 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
     GenesisTelemetry.event('logout_start', category: 'auth');
     final authToken = (await _sessionStore.readAuthToken())?.trim();
     unawaited(_logoutBackend(authToken: authToken));
+    GenesisTelemetry.collectLog(actionType: 'event', action: 'logout');
     await _sessionStore.clearUid();
     unawaited(_signOutIdentity());
     GenesisTelemetry.clearUser();
@@ -95,6 +97,7 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
     GenesisTelemetry.event('delete_account_start', category: 'auth');
     final authToken = (await _sessionStore.readAuthToken())?.trim();
     unawaited(_deleteBackend(authToken: authToken));
+    GenesisTelemetry.collectLog(actionType: 'event', action: 'delete_account');
     await _sessionStore.clearUid();
     unawaited(_signOutIdentity());
     GenesisTelemetry.clearUser();

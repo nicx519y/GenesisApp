@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../icons/custom_icon_assets.dart';
@@ -501,6 +502,11 @@ class _OriginProfileCollectionList extends StatelessWidget {
               onTap: item.deleted
                   ? null
                   : () {
+                      GenesisTelemetry.collectLog(
+                        actionType: 'event',
+                        action: 'me_click',
+                        object1: item.oid,
+                      );
                       Navigator.of(context)
                           .pushNamed(
                             RouteNames.originWorld,
@@ -589,9 +595,17 @@ class _WorldProfileCollectionList extends StatelessWidget {
               ],
               onTap: item.deleted
                   ? null
-                  : () => Navigator.of(
-                      context,
-                    ).pushNamed(RouteNames.world, arguments: {'wid': item.wid}),
+                  : () {
+                      GenesisTelemetry.collectLog(
+                        actionType: 'event',
+                        action: 'me_click',
+                        object1: item.wid,
+                      );
+                      Navigator.of(context).pushNamed(
+                        RouteNames.world,
+                        arguments: {'wid': item.wid},
+                      );
+                    },
             ),
           )
           .toList(growable: false),

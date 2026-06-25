@@ -196,7 +196,7 @@ void main() {
 
     expect(
       transport.lastUri.toString(),
-      'wss://dev.hushie.ai:443/aitown-chat/ws?world_id=world-1',
+      'wss://api.worldo.ai:443/aitown-chat/ws?world_id=world-1',
     );
     await session.disconnect();
   });
@@ -208,14 +208,14 @@ void main() {
       final transport = _FakeChatroomTransport(socket);
       final client = await _client(
         transport,
-        wsBaseUrl: 'ws://dev.hushie.ai/aitown-chat/',
+        wsBaseUrl: 'ws://api.worldo.ai/aitown-chat/',
       );
 
       final session = await client.connect(worldId: 'world-1');
 
       expect(
         transport.lastUri.toString(),
-        'ws://dev.hushie.ai:80/aitown-chat/?world_id=world-1',
+        'ws://api.worldo.ai:80/aitown-chat/?world_id=world-1',
       );
       expect(transport.lastUri?.port, 80);
       await session.disconnect();

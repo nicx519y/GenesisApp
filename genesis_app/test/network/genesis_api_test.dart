@@ -116,6 +116,15 @@ void main() {
     expect(const AppConfig().appChannel, 'default');
   });
 
+  test('AppConfig provides default PostHog config', () {
+    expect(
+      const AppConfig().postHogProjectToken,
+      AppConfig.defaultPostHogProjectToken,
+    );
+    expect(const AppConfig().postHogHost, AppConfig.defaultPostHogHost);
+    expect(const AppConfig().postHogDebug, false);
+  });
+
   test('resolveAssetUrl maps predata default CDN images to bundled assets', () {
     expect(
       resolveAssetUrl('https://cdn-001.worldo.ai/predata/root_default.webp'),
@@ -1413,7 +1422,7 @@ void main() {
 
     expect(
       apiTransport.lastRequest!.uri.toString(),
-      'https://dev.hushie.ai/api/v1/origin/list?scene=foryou&pn=1&rn=20',
+      'https://api.worldo.ai/api/v1/origin/list?scene=foryou&pn=1&rn=20',
     );
   });
 

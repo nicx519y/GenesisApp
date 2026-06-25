@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../app/genesis_navigator.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -202,6 +203,12 @@ class OriginLaunchCoordinator {
         completed: true,
         world: world,
       ),
+    );
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_launch_async_complete',
+      object1: pending.originId,
+      object2: pending.worldId,
     );
     await _showCompletionDialog(world, fallbackWorldId: pending.worldId);
   }

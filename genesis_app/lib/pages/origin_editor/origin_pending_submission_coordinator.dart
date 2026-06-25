@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../app/genesis_navigator.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -321,6 +322,14 @@ class _OriginPendingSubmissionPoller {
         originId: originId,
         completed: true,
       ),
+    );
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: switch (kind) {
+        OriginPendingSubmissionKind.create => 'create_worldo_async_complete',
+        OriginPendingSubmissionKind.publish => 'edit_worldo_async_complete',
+      },
+      object1: originId,
     );
 
     final shouldGo = await _showSuccessDialog(originName);

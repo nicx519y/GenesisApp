@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
 import '../../components/discuss/origin_discuss_preview_list.dart';
 import '../../components/genesis_logo.dart';
@@ -272,6 +273,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _requestIfCurrentTab();
       return;
     }
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'home_my_worlds',
+    );
     unawaited(_refreshItems());
   }
 
@@ -283,6 +288,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       return;
     }
     _hasRequested = true;
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'home_my_worlds',
+    );
     _refreshItems();
   }
 
@@ -476,10 +485,17 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                   behavior: HitTestBehavior.opaque,
                   onTap: vm.deleted
                       ? null
-                      : () => Navigator.of(context).pushNamed(
-                          RouteNames.world,
-                          arguments: {'wid': vm.wid},
-                        ),
+                      : () {
+                          GenesisTelemetry.collectLog(
+                            actionType: 'event',
+                            action: 'home_my_worlds_click',
+                            object1: vm.wid,
+                          );
+                          Navigator.of(context).pushNamed(
+                            RouteNames.world,
+                            arguments: {'wid': vm.wid},
+                          );
+                        },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: WorldItemCard(item: vm, showPreviewImages: false),
@@ -657,6 +673,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
       _requestIfCurrentTab();
       return;
     }
+    GenesisTelemetry.collectLog(actionType: 'pageview', action: 'home_popular');
     unawaited(_refreshItems());
   }
 
@@ -668,6 +685,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
       return;
     }
     _hasRequested = true;
+    GenesisTelemetry.collectLog(actionType: 'pageview', action: 'home_popular');
     _refreshItems();
   }
 
@@ -856,6 +874,11 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
               preloadedDiscussItems: _discussPreviews,
               onItemTap: (item) {
                 if (item.deleted) return;
+                GenesisTelemetry.collectLog(
+                  actionType: 'event',
+                  action: 'home_popular_click',
+                  object1: item.oid,
+                );
                 Navigator.of(context).pushNamed(
                   RouteNames.originWorld,
                   arguments: {'originId': 0, 'oid': item.oid},
