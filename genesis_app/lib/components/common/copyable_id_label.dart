@@ -158,7 +158,7 @@ class GenesisPairedMetaRow extends StatelessWidget {
       child: SizedBox(
         height: _iconSize,
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
               child: InkWell(
@@ -171,7 +171,7 @@ class GenesisPairedMetaRow extends StatelessWidget {
                     : null,
                 borderRadius: BorderRadius.circular(6),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Flexible(
                       child: Text(
@@ -200,7 +200,7 @@ class GenesisPairedMetaRow extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Flexible(
                       child: Text(
