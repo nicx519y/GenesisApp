@@ -2058,8 +2058,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 ),
                 _WorldFeedContent(
                   world: world,
-                  worldActionRunning:
-                      _worldActionRunning || _worldTickInProgress,
+                  worldActionRunning: _worldActionRunning,
+                  worldTickInProgress: _worldTickInProgress,
                   onWorldAction: _runWorldAction,
                   onPullUp: () =>
                       _openWorldBottomSheet(_WorldBottomSheetKind.events),
@@ -3339,12 +3339,14 @@ class _WorldFeedContent extends StatelessWidget {
   const _WorldFeedContent({
     required this.world,
     required this.worldActionRunning,
+    required this.worldTickInProgress,
     required this.onWorldAction,
     required this.onPullUp,
   });
 
   final WorldDetail world;
   final bool worldActionRunning;
+  final bool worldTickInProgress;
   final Future<void> Function(_WorldHeaderActionKind action) onWorldAction;
   final VoidCallback onPullUp;
 
@@ -3360,6 +3362,7 @@ class _WorldFeedContent extends StatelessWidget {
                 _WorldInfoHeader(
                   world: world,
                   worldActionRunning: worldActionRunning,
+                  worldTickInProgress: worldTickInProgress,
                   onWorldAction: onWorldAction,
                 ),
               ],
@@ -4160,18 +4163,23 @@ class _WorldInfoHeader extends StatelessWidget {
   const _WorldInfoHeader({
     required this.world,
     required this.worldActionRunning,
+    required this.worldTickInProgress,
     required this.onWorldAction,
   });
 
   final WorldDetail world;
   final bool worldActionRunning;
+  final bool worldTickInProgress;
   final Future<void> Function(_WorldHeaderActionKind action) onWorldAction;
 
   @override
   Widget build(BuildContext context) {
     final action = _worldHeaderActionFor(world.relationStatus);
+    final actionLoading =
+        worldActionRunning ||
+        (worldTickInProgress && action.kind == _WorldHeaderActionKind.progress);
     final actionEnabled =
-        !world.deleted && !worldActionRunning && action.isClickable;
+        !world.deleted && !actionLoading && action.isClickable;
     final counters = <Map<String, dynamic>>[
       {'icon': 'tick', 'value': world.tickCount},
       {'icon': 'connect', 'value': world.connectCount},
@@ -4240,7 +4248,7 @@ class _WorldInfoHeader extends StatelessWidget {
                     padding: EdgeInsets.zero,
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    isLoading: worldActionRunning,
+                    isLoading: actionLoading,
                     loadingSize: 18,
                     loadingStrokeWidth: 2,
                   ),
