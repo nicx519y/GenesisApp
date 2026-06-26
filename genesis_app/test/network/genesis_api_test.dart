@@ -111,6 +111,22 @@ void main() {
     );
   });
 
+  test('AppConfig endpoint defaults follow build mode defaults', () {
+    expect(const AppConfig().apiBaseUrl, GenesisApi.defaultApiBaseUrl);
+    expect(
+      const AppConfig().gatewayApiBaseUrl,
+      GenesisApi.defaultGatewayApiBaseUrl,
+    );
+    expect(
+      const AppConfig().chatroomHttpBaseUrl,
+      GenesisApi.defaultChatroomHttpBaseUrl,
+    );
+    expect(
+      const AppConfig().chatroomWsBaseUrl,
+      GenesisApi.defaultChatroomWsBaseUrl,
+    );
+  });
+
   test('AppConfig provides default version check app id and channel', () {
     expect(const AppConfig().appId, 'aitown');
     expect(const AppConfig().appChannel, 'default');
@@ -1422,7 +1438,8 @@ void main() {
 
     expect(
       apiTransport.lastRequest!.uri.toString(),
-      'https://api.worldo.ai/api/v1/origin/list?scene=foryou&pn=1&rn=20',
+      '${GenesisApi.defaultApiBaseUrl}'
+      'v1/origin/list?scene=foryou&pn=1&rn=20',
     );
   });
 

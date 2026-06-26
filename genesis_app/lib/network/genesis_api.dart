@@ -30,13 +30,20 @@ import '../utils/entity_deleted.dart';
 import '../utils/genesis_image_resource.dart';
 
 class GenesisApi {
-  static const String defaultBaseHost = 'https://api.worldo.ai';
+  static const String releaseBaseHost = 'https://api.worldo.ai';
+  static const String debugBaseHost = 'https://dev.hushie.ai';
+  static const String defaultBaseHost = kReleaseMode
+      ? releaseBaseHost
+      : debugBaseHost;
   static const String defaultApiBaseUrl = '$defaultBaseHost/api/';
   static const String defaultGatewayApiBaseUrl = '$defaultBaseHost/apix/';
   static const String defaultAssetBaseUrl = 'https://af.hushie.ai/html/';
-  static const String defaultChatroomWsBaseUrl =
-      'wss://api.worldo.ai/aitown-chat/ws';
-  static const String defaultChatroomHttpBaseUrl = 'https://api.worldo.ai/';
+  static const String defaultChatroomWsBaseUrl = kReleaseMode
+      ? 'wss://api.worldo.ai/aitown-chat/ws'
+      : 'wss://dev.hushie.ai/aitown-chat/ws';
+  static const String defaultChatroomHttpBaseUrl = kReleaseMode
+      ? '$releaseBaseHost/'
+      : '$debugBaseHost/';
 
   GenesisApi({
     ApiClient? apiClient,
