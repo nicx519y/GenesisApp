@@ -105,6 +105,80 @@ void main() {
     expect(third.dx, greaterThan(second.dx));
   });
 
+  testWidgets('world map renders generated avatar when avatar URL is empty', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('LP', id: 'larry-page', name: 'Larry Page')],
+    );
+
+    expect(find.byType(GenesisCharacterAvatar), findsOneWidget);
+    expect(find.text('LP'), findsOneWidget);
+  });
+
+  testWidgets('world map shows message bubbles on the root map', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [],
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'root',
+          isRoot: true,
+          point: WorldPoint(
+            id: 'root',
+            name: 'Root',
+            type: WorldPointType.portal,
+            position: _pointPosition,
+            users: [],
+            sceneId: 'root',
+            isLeafLocation: false,
+          ),
+          children: [
+            WorldMapLocationNode(
+              id: 'a',
+              point: WorldPoint(
+                id: 'a',
+                name: 'A',
+                type: WorldPointType.shop,
+                position: Offset(0.28, 0.22),
+                users: [],
+                sceneId: 'a',
+                isLeafLocation: false,
+              ),
+            ),
+            WorldMapLocationNode(
+              id: 'b',
+              point: WorldPoint(
+                id: 'b',
+                name: 'B',
+                type: WorldPointType.camp,
+                position: Offset(0.72, 0.22),
+                users: [UserAvatar('CC', id: 'char-c', name: 'Celia')],
+                sceneId: 'b',
+                isLeafLocation: false,
+              ),
+            ),
+          ],
+        ),
+      ],
+      messageBubbles: {
+        'b': WorldMapMessageBubble(
+          locationId: 'c',
+          senderId: 'char-c',
+          senderName: 'Celia',
+          content: 'C speaks from below',
+          createdAt: DateTime(2026),
+        ),
+      },
+    );
+
+    expect(find.text('C speaks from below'), findsOneWidget);
+  });
+
   test('player controlled map avatar uses highlighted border', () {
     expect(
       worldMapAvatarBorderColorForTesting(isPlayerControlledRole: true),
@@ -1575,6 +1649,8 @@ Future<void> _pumpWorldMap(
   WorldPointTapCallback? onPointTap,
   VoidCallback? onDrillIntoLocation,
   ValueChanged<bool>? onMapInteractionChanged,
+  Map<String, WorldMapMessageBubble> messageBubbles =
+      const <String, WorldMapMessageBubble>{},
 }) async {
   tester.view.physicalSize = const Size(430, 820);
   tester.view.devicePixelRatio = 1;
@@ -1601,6 +1677,7 @@ Future<void> _pumpWorldMap(
                 showPointsList: showPointsList,
                 listPoints: listPoints,
                 locationNodes: locationNodes,
+                messageBubbles: messageBubbles,
                 onDrillIntoLocation: onDrillIntoLocation,
                 onPointTap: onPointTap,
                 points:

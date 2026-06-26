@@ -439,6 +439,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       final candidate = _mapBubbleCandidate(message);
       if (candidate == null) continue;
       final queueLocationId = _mapBubbleQueueLocationId(candidate.locationId);
+      if (queueLocationId.isEmpty) continue;
       byLocation
           .putIfAbsent(queueLocationId, () => <WorldChatroomMessage>[])
           .add(candidate);
@@ -534,13 +535,15 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   String _mapBubbleQueueLocationId(String locationId) {
-    final id = locationId.trim();
-    if (id.isEmpty) return '';
-    final locationKeys = _mapBubbleLocationKeys(id);
+    return _visibleMapBubbleLocationId(locationId);
+  }
+
+  String _visibleMapBubbleLocationId(String locationId) {
+    final locationKeys = _mapBubbleLocationKeys(locationId);
     for (final key in locationKeys) {
       if (_visibleMapLocationIds.contains(key)) return key;
     }
-    return id;
+    return '';
   }
 
   WorldChatroomMessage? _mapBubbleCandidate(WorldChatroomMessage message) {
@@ -618,7 +621,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       triedLocationIds.add(locationId);
       final nextMessage = _nextMapMessageBubble(locationId);
       if (nextMessage == null) continue;
-      if (_showMapMessageBubble(locationId, nextMessage)) {
+      if (_showMapMessageBubble(nextMessage)) {
         return true;
       }
     }
@@ -724,17 +727,15 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     return _mapBubbleDisplayContent(message.content).isNotEmpty;
   }
 
-  bool _showMapMessageBubble(
-    String queueLocationId,
-    WorldChatroomMessage message,
-  ) {
+  bool _showMapMessageBubble(WorldChatroomMessage message) {
     final content = _mapBubbleDisplayContent(message.content);
     if (content.isEmpty) {
       return false;
     }
-    final locationId = message.locationId.trim().isNotEmpty
-        ? message.locationId.trim()
-        : queueLocationId;
+    final locationId = message.locationId.trim();
+    if (locationId.isEmpty) {
+      return false;
+    }
     final bubble = WorldMapMessageBubble(
       locationId: locationId,
       senderId: _firstNonEmpty([message.senderId, message.userId]),
@@ -747,13 +748,15 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (locationKeys.isEmpty) {
       return false;
     }
+    final displayLocationId = _visibleMapBubbleLocationId(locationId);
+    if (displayLocationId.isEmpty) {
+      return false;
+    }
     setState(() {
       _removeActiveMapMessageBubble();
-      _activeMapMessageBubblesByLocation[queueLocationId] = bubble;
-      _mapMessageBubbleKeysByLocation[queueLocationId] = locationKeys;
-      for (final locationId in locationKeys) {
-        _mapMessageBubbles[locationId] = bubble;
-      }
+      _activeMapMessageBubblesByLocation[displayLocationId] = bubble;
+      _mapMessageBubbleKeysByLocation[displayLocationId] = locationKeys;
+      _mapMessageBubbles[displayLocationId] = bubble;
     });
     return true;
   }
@@ -875,7 +878,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   void _maybePrimeMapMessageBubbles() {
-    if (!_isInSecondaryMap) return;
     final service = _worldChatroom;
     final world = _world;
     final identity = service?.identity;
@@ -988,12 +990,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   void _handleSecondaryMapChanged(bool isInSecondaryMap) {
     if (_isInSecondaryMap == isInSecondaryMap) return;
     _isInSecondaryMap = isInSecondaryMap;
-    if (isInSecondaryMap) {
-      _visibleMapLocationIds = <String>{};
-      _visibleMapLocationIdsSignature = '';
-      _clearMapMessageBubbleState();
-      return;
-    }
+    _visibleMapLocationIds = <String>{};
+    _visibleMapLocationIdsSignature = '';
     _clearMapMessageBubbleState();
   }
 
@@ -1006,7 +1004,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (signature == _visibleMapLocationIdsSignature) return;
     _visibleMapLocationIds = ids;
     _visibleMapLocationIdsSignature = signature;
-    if (!_isInSecondaryMap) return;
     _clearMapMessageBubbleState();
     _maybePrimeMapMessageBubbles();
   }
