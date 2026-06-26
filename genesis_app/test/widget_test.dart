@@ -1750,8 +1750,8 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         },
         'started_at': 'Day 1',
         'tick_duration_time': '30 days',
-        'cover': 'assets/images/map_default/map_background.webp',
-        'map_url': 'assets/images/map_default/map_background.webp',
+        'cover': 'assets/images/map_default/root_default.webp',
+        'map_url': 'assets/images/map_default/root_default.webp',
         'characters': [
           {
             'char_id': 'char_edit_1',
@@ -7721,7 +7721,7 @@ void main() {
     expect(metric.containsKey('starting_value'), isFalse);
     expect(metric.containsKey('start_time'), isFalse);
     expect(metric.containsKey('time_per_progress'), isFalse);
-    expect(body['cover'], 'assets/images/map_default/map_background.webp');
+    expect(body['cover'], 'assets/images/map_default/root_default.webp');
     final editedCharacters = body['characters'] as List;
     expect(editedCharacters.single['char_id'], 'char_edit_1');
     expect(editedCharacters.single['initial_location_id'], 'location_edit_1');

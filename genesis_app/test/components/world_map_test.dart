@@ -31,9 +31,9 @@ void main() {
     expect(countsByLocation['loc_gate'], greaterThanOrEqualTo(4));
     expect(countsByLocation['loc_market'], greaterThanOrEqualTo(5));
     expect(
-      File('assets/images/map_default/map_background.webp').existsSync(),
+      File('assets/images/map_default/root_default.webp').existsSync(),
       isTrue,
-      reason: 'assets/images/map_default/map_background.webp',
+      reason: 'assets/images/map_default/root_default.webp',
     );
     for (final origin in kMockV1Origins) {
       expect(origin['cover'], isEmpty);
@@ -294,7 +294,7 @@ void main() {
   testWidgets('world map renders local asset map background', (tester) async {
     await _pumpWorldMap(
       tester,
-      mapImageUrl: kMockV1SteamMapImage,
+      mapImageUrl: kWorldMapFallbackBackgroundAsset,
       users: const [],
     );
 
@@ -303,7 +303,8 @@ void main() {
         (widget) =>
             widget is Image &&
             widget.image is AssetImage &&
-            (widget.image as AssetImage).assetName == kMockV1SteamMapImage,
+            (widget.image as AssetImage).assetName ==
+                kWorldMapFallbackBackgroundAsset,
       ),
       findsOneWidget,
     );
