@@ -73,6 +73,7 @@ class LocationChatPage extends StatelessWidget {
       service: service,
       connection: connection,
       active: true,
+      showMoreButton: false,
       onBack: () => Navigator.of(context).maybePop(),
     );
   }

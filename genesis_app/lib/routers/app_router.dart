@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../pages/app_shell_page.dart';
@@ -482,7 +483,7 @@ sealed class AppRouter {
         );
       case RouteNames.locationChat:
         final args = _LocationChatRouteArgs.from(settings.arguments);
-        return MaterialPageRoute<void>(
+        return _LocationChatPageRoute(
           settings: settings,
           builder: (_) => LocationChatPage(
             worldId: args.worldId,
@@ -579,5 +580,79 @@ sealed class AppRouter {
           builder: (_) => const AppShellPage(initialIndex: 0),
         );
     }
+  }
+}
+
+class _LocationChatPageRoute extends PageRoute<void>
+    with CupertinoRouteTransitionMixin<void> {
+  _LocationChatPageRoute({
+    required this.builder,
+    required RouteSettings settings,
+  }) : super(settings: settings);
+
+  final WidgetBuilder builder;
+
+  @override
+  String? get title => null;
+
+  @override
+  Color? get barrierColor => null;
+
+  @override
+  String? get barrierLabel => null;
+
+  @override
+  bool get maintainState => true;
+
+  @override
+  bool get opaque => false;
+
+  @override
+  Duration get transitionDuration => const Duration(milliseconds: 300);
+
+  @override
+  Duration get reverseTransitionDuration => transitionDuration;
+
+  @override
+  bool get popGestureInProgress => navigator?.userGestureInProgress ?? false;
+
+  @override
+  Widget buildContent(BuildContext context) {
+    return builder(context);
+  }
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final platform = Theme.of(context).platform;
+    if (platform != TargetPlatform.iOS && platform != TargetPlatform.macOS) {
+      return Theme.of(context).pageTransitionsTheme.buildTransitions<void>(
+        this,
+        context,
+        animation,
+        secondaryAnimation,
+        child,
+      );
+    }
+    final cupertinoTransition =
+        CupertinoRouteTransitionMixin.buildPageTransitions<void>(
+          this,
+          context,
+          animation,
+          secondaryAnimation,
+          child,
+        );
+    return FadeTransition(
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+      child: cupertinoTransition,
+    );
   }
 }

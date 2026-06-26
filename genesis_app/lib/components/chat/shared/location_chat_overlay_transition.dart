@@ -22,6 +22,7 @@ class _LocationChatOverlayTransitionState
     extends State<LocationChatOverlayTransition>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  late final CurvedAnimation _cupertinoFadeAnimation;
   late final PageRoute<void> _route;
   Widget? _displayChild;
 
@@ -35,6 +36,11 @@ class _LocationChatOverlayTransitionState
       duration: const Duration(milliseconds: 300),
       reverseDuration: const Duration(milliseconds: 300),
       value: widget.active ? 1 : 0,
+    );
+    _cupertinoFadeAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
     );
   }
 
@@ -66,6 +72,7 @@ class _LocationChatOverlayTransitionState
 
   @override
   void dispose() {
+    _cupertinoFadeAnimation.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -77,13 +84,17 @@ class _LocationChatOverlayTransitionState
       return const SizedBox.shrink();
     }
     final platform = Theme.of(context).platform;
-    final transition =
-        platform == TargetPlatform.iOS || platform == TargetPlatform.macOS
-        ? CupertinoPageTransition(
-            primaryRouteAnimation: _controller,
-            secondaryRouteAnimation: const AlwaysStoppedAnimation<double>(0),
-            linearTransition: false,
-            child: child ?? const SizedBox.shrink(),
+    final isCupertino =
+        platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
+    final transition = isCupertino
+        ? FadeTransition(
+            opacity: _cupertinoFadeAnimation,
+            child: CupertinoPageTransition(
+              primaryRouteAnimation: _controller,
+              secondaryRouteAnimation: const AlwaysStoppedAnimation<double>(0),
+              linearTransition: false,
+              child: child ?? const SizedBox.shrink(),
+            ),
           )
         : Theme.of(context).pageTransitionsTheme.buildTransitions<void>(
             _route,

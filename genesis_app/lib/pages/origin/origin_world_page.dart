@@ -36,6 +36,7 @@ import '../../network/models/origin.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
@@ -187,8 +188,17 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   }
 
   void _handleLaunchWaitBack() {
-    final navigator = Navigator.of(context);
-    if (navigator.canPop()) navigator.pop();
+    if (_activeChatLocation != null) {
+      setState(() => _activeChatLocation = null);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final navigator = Navigator.of(context);
+        if (navigator.canPop()) navigator.pop();
+      });
+    });
   }
 
   void _showMapTab() {
@@ -283,23 +293,29 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         active: descriptor != null,
         child: descriptor == null
             ? null
-            : LocationChatPanel(
-                key: ValueKey('origin-location-chat-${descriptor.locationId}'),
-                worldId: descriptor.originId,
-                locationId: descriptor.locationId,
-                locationName: descriptor.locationName,
-                backgroundImageUrl: descriptor.backgroundImageUrl,
-                backgroundPreviewImageUrl: descriptor.backgroundPreviewImageUrl,
-                openingPreviewMessages: descriptor.openingPreviewMessages,
-                openingPreviewEntities: descriptor.openingPreviewEntities,
-                isLeafLocation: descriptor.isLeafLocation,
-                active: false,
-                leaveOnInactive: false,
-                showMoreButton: false,
+            : GenesisEdgeSwipeBack(
                 onBack: _closeLocationChat,
-                composerReplacement: _OriginLocationChatLaunchBar(
-                  launching: _launching,
-                  onLaunch: () => _showLaunchRoleSheet(origin),
+                child: LocationChatPanel(
+                  key: ValueKey(
+                    'origin-location-chat-${descriptor.locationId}',
+                  ),
+                  worldId: descriptor.originId,
+                  locationId: descriptor.locationId,
+                  locationName: descriptor.locationName,
+                  backgroundImageUrl: descriptor.backgroundImageUrl,
+                  backgroundPreviewImageUrl:
+                      descriptor.backgroundPreviewImageUrl,
+                  openingPreviewMessages: descriptor.openingPreviewMessages,
+                  openingPreviewEntities: descriptor.openingPreviewEntities,
+                  isLeafLocation: descriptor.isLeafLocation,
+                  active: false,
+                  leaveOnInactive: false,
+                  showMoreButton: false,
+                  onBack: _closeLocationChat,
+                  composerReplacement: _OriginLocationChatLaunchBar(
+                    launching: _launching,
+                    onLaunch: () => _showLaunchRoleSheet(origin),
+                  ),
                 ),
               ),
       ),
@@ -674,6 +690,7 @@ class _OriginPendingLaunchWaitOverlayState
     extends State<_OriginPendingLaunchWaitOverlay> {
   Timer? _dotsTimer;
   int _dotCount = 1;
+  bool _allowRoutePop = false;
 
   @override
   void initState() {
@@ -693,40 +710,56 @@ class _OriginPendingLaunchWaitOverlayState
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false,
+      canPop: _allowRoutePop,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        widget.onBackPressed();
+        _handleBackRequest();
       },
-      child: ColoredBox(
-        color: const Color(0x8A000000),
-        child: Center(
-          child: AlertDialog(
-            key: const ValueKey('world-tick1-wait-dialog'),
-            backgroundColor: const Color(0xFFFFFFFF),
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(8)),
-            ),
-            title: Text(
-              'AI is generating${List.filled(_dotCount, '.').join()}',
-              style: const TextStyle(
-                fontSize: 16,
-                height: 1.2,
-                fontWeight: FontWeight.w600,
+      child: GenesisEdgeSwipeBack(
+        onBack: _handleBackRequest,
+        child: ColoredBox(
+          color: const Color(0x8A000000),
+          child: Center(
+            child: AlertDialog(
+              key: const ValueKey('world-tick1-wait-dialog'),
+              backgroundColor: const Color(0xFFFFFFFF),
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(8)),
               ),
-            ),
-            content: SizedBox(
-              width: 260,
-              child: const Text(
-                'Generate  a live and customized world for you.\n'
-                'Please wait for a moment.',
-                style: TextStyle(fontSize: 14, height: 1.35),
+              title: Text(
+                'AI is generating${List.filled(_dotCount, '.').join()}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  height: 1.2,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              content: SizedBox(
+                width: 260,
+                child: const Text(
+                  'Generate  a live and customized world for you.\n'
+                  'Please wait for a moment.',
+                  style: TextStyle(fontSize: 14, height: 1.35),
+                ),
               ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  void _handleBackRequest() {
+    if (!_allowRoutePop && mounted) {
+      setState(() => _allowRoutePop = true);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        widget.onBackPressed();
+      });
+    });
   }
 }
 

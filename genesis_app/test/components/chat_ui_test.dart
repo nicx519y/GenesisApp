@@ -568,6 +568,8 @@ void main() {
     final expectedInnerPadding = ChatUiStyleConfig.standard.avatarSize / 3;
     final expectedBubbleEdge = expectedOuterPadding + expectedInnerPadding;
 
+    expect(style.conversationBackgroundColor, const Color(0xFF111111));
+    expect(style.conversationBackgroundColor.a, 1);
     expect(style.messageListPadding.left, expectedOuterPadding);
     expect(style.messageListPadding.right, expectedOuterPadding);
     expect(style.avatarSideSpacerWidth, closeTo(expectedInnerPadding, 0.01));

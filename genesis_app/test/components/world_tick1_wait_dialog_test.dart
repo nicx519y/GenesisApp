@@ -5,66 +5,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_tick1_wait_dialog.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_edge_swipe_back.dart';
 
 void main() {
-  testWidgets('tick wait dialog blocks route pop while waiting', (
-    WidgetTester tester,
-  ) async {
-    final navigatorKey = GlobalKey<NavigatorState>();
-    final completer = Completer<WorldDetail>();
-    await tester.pumpWidget(
-      MaterialApp(
-        navigatorKey: navigatorKey,
-        home: Builder(
-          builder: (context) {
-            return TextButton(
-              onPressed: () {
-                unawaited(
-                  showWorldTick1WaitDialog(
-                    context: context,
-                    loadWorld: () => completer.future,
-                  ),
-                );
-              },
-              child: const Text('Open'),
-            );
-          },
-        ),
-      ),
-    );
-
-    await tester.tap(find.text('Open'));
-    await tester.pump();
-    await tester.pump();
-
-    expect(
-      find.byKey(const ValueKey('world-tick1-wait-dialog')),
-      findsOneWidget,
-    );
-
-    await navigatorKey.currentState!.maybePop();
-    await tester.pump();
-
-    expect(
-      find.byKey(const ValueKey('world-tick1-wait-dialog')),
-      findsOneWidget,
-    );
-
-    completer.complete(_world(tickCount: 1));
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
-  });
-
   testWidgets('tick wait dialog error state only allows retry', (
     WidgetTester tester,
   ) async {
-    final navigatorKey = GlobalKey<NavigatorState>();
     final requests = <Completer<WorldDetail>>[];
     await tester.pumpWidget(
       MaterialApp(
-        navigatorKey: navigatorKey,
         home: Builder(
           builder: (context) {
             return TextButton(
@@ -102,14 +51,6 @@ void main() {
       findsOneWidget,
     );
 
-    await navigatorKey.currentState!.maybePop();
-    await tester.pump();
-
-    expect(
-      find.byKey(const ValueKey('world-tick1-wait-dialog')),
-      findsOneWidget,
-    );
-
     await tester.tap(find.byKey(const ValueKey('world-tick1-wait-retry')));
     await tester.pump();
     requests.last.complete(_world(tickCount: 1));
@@ -117,6 +58,85 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
+  });
+
+  testWidgets('tick wait dialog closes from iOS leading edge swipe', (
+    WidgetTester tester,
+  ) async {
+    final completer = Completer<WorldDetail>();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.iOS),
+        home: Builder(
+          builder: (context) {
+            return TextButton(
+              onPressed: () {
+                unawaited(
+                  showWorldTick1WaitDialog(
+                    context: context,
+                    loadWorld: () => completer.future,
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+      findsOneWidget,
+    );
+    expect(tester.getRect(find.byType(GenesisEdgeSwipeBack)).left, 0);
+    expect(
+      tester.getSize(find.byType(GenesisEdgeSwipeBack)).width,
+      tester.view.physicalSize.width / tester.view.devicePixelRatio,
+    );
+    final edgeSwipeFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is GestureDetector && widget.onHorizontalDragUpdate != null,
+    );
+    expect(edgeSwipeFinder, findsOneWidget);
+
+    await tester.drag(edgeSwipeFinder, const Offset(160, 0));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
+  });
+
+  testWidgets('tick wait dialog invokes back callback from iOS edge swipe', (
+    WidgetTester tester,
+  ) async {
+    var backCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.iOS),
+        home: WorldTick1WaitDialog(onBackPressed: () => backCount += 1),
+      ),
+    );
+
+    final edgeSwipeFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is GestureDetector && widget.onHorizontalDragUpdate != null,
+    );
+    expect(edgeSwipeFinder, findsOneWidget);
+
+    await tester.drag(edgeSwipeFinder, const Offset(160, 0));
+    await tester.pump();
+
+    expect(backCount, 1);
   });
 }
 

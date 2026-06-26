@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../network/models/world.dart';
+import '../ui/components/genesis_edge_swipe_back.dart';
 import 'common/genesis_modal_routes.dart';
 
 const Duration kWorldTick1WaitPollInterval = Duration(seconds: 2);
@@ -19,7 +20,7 @@ Future<WorldDetail?> showWorldTick1WaitDialog({
   WorldDetail? readyWorld;
   await showGenesisDialog<void>(
     context: context,
-    barrierDismissible: false,
+    barrierDismissible: true,
     builder: (_) => WorldTick1WaitDialog(
       loadWorld: loadWorld,
       onWorldReady: (world) => readyWorld = world,
@@ -104,6 +105,9 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
   void _handleBackRequest() {
     final onBackPressed = widget.onBackPressed;
     if (onBackPressed != null) {
+      if (!_allowRoutePop && mounted) {
+        setState(() => _allowRoutePop = true);
+      }
       onBackPressed();
       return;
     }
@@ -111,48 +115,53 @@ class _WorldTick1WaitDialogState extends State<WorldTick1WaitDialog> {
   }
 
   void _popRoute() {
-    if (!_allowRoutePop && mounted) {
-      setState(() => _allowRoutePop = true);
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      Navigator.of(context).pop();
-    });
+    Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
+    final content = SizedBox(
+      width: MediaQuery.sizeOf(context).width,
+      height: MediaQuery.sizeOf(context).height,
+      child: GenesisEdgeSwipeBack(
+        onBack: _handleBackRequest,
+        child: Center(
+          child: AlertDialog(
+            key: const ValueKey('world-tick1-wait-dialog'),
+            title: const Text(
+              'Generating first tick',
+              style: TextStyle(fontSize: 16, height: 1.2),
+            ),
+            content: SizedBox(
+              width: 260,
+              child: Text(
+                _hasError
+                    ? 'Generation status could not be loaded.'
+                    : 'LLM is generating your first tick. This may take a moment${List.filled(_dotCount, '.').join()}',
+                style: const TextStyle(fontSize: 14, height: 1.35),
+              ),
+            ),
+            actions: _hasError
+                ? [
+                    FilledButton(
+                      key: const ValueKey('world-tick1-wait-retry'),
+                      onPressed: _loading ? null : () => unawaited(_poll()),
+                      child: const Text('Retry'),
+                    ),
+                  ]
+                : null,
+          ),
+        ),
+      ),
+    );
+    if (widget.onBackPressed == null) return content;
     return PopScope(
       canPop: _allowRoutePop,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         _handleBackRequest();
       },
-      child: AlertDialog(
-        key: const ValueKey('world-tick1-wait-dialog'),
-        title: const Text(
-          'Generating first tick',
-          style: TextStyle(fontSize: 16, height: 1.2),
-        ),
-        content: SizedBox(
-          width: 260,
-          child: Text(
-            _hasError
-                ? 'Generation status could not be loaded.'
-                : 'LLM is generating your first tick. This may take a moment${List.filled(_dotCount, '.').join()}',
-            style: const TextStyle(fontSize: 14, height: 1.35),
-          ),
-        ),
-        actions: _hasError
-            ? [
-                FilledButton(
-                  key: const ValueKey('world-tick1-wait-retry'),
-                  onPressed: _loading ? null : () => unawaited(_poll()),
-                  child: const Text('Retry'),
-                ),
-              ]
-            : null,
-      ),
+      child: content,
     );
   }
 }

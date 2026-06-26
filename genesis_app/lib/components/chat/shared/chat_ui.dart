@@ -47,11 +47,12 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
 
 const double _locationChatOuterPadding = 10;
 const double _locationChatAvatarOneThird = 40 / 3;
+const Color _locationChatBackgroundColor = Color(0xFF111111);
 const Color _locationChatChromeStrong = Color(0xF2111111);
 const Color _locationChatChromeSoft = Color(0x80111111);
 
 ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
-  conversationBackgroundColor: Colors.transparent,
+  conversationBackgroundColor: _locationChatBackgroundColor,
   headerBackgroundGradient: LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,

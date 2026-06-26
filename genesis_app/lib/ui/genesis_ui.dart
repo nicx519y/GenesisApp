@@ -1,6 +1,7 @@
 export 'components/genesis_avatar.dart';
 export 'components/genesis_bottom_navigation.dart';
 export 'components/genesis_character_avatar.dart';
+export 'components/genesis_edge_swipe_back.dart';
 export 'components/genesis_fixed_underline_indicator.dart';
 export 'components/genesis_list_image.dart';
 export 'components/genesis_page_title.dart';

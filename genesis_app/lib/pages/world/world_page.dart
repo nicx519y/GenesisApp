@@ -37,6 +37,7 @@ import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
@@ -1274,7 +1275,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       unawaited(
         showGenesisDialog<void>(
           context: context,
-          barrierDismissible: false,
+          barrierDismissible: true,
           builder: (_) => WorldTick1WaitDialog(
             loadWorld: _loadWorldForTick1Wait,
             onWorldReady: (world) =>
@@ -1335,7 +1336,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         );
       }
       if (!mounted) return;
-      if (message.trim().isNotEmpty) {
+      if (action != _WorldHeaderActionKind.progress &&
+          message.trim().isNotEmpty) {
         showGenesisToast(context, message);
       }
       if (action == _WorldHeaderActionKind.progress) {
@@ -3719,29 +3721,32 @@ class _WorldSingleSectionBottomSheetState
 
   @override
   Widget build(BuildContext context) {
-    return FractionallySizedBox(
-      heightFactor: _sheetHeightFactor,
-      alignment: Alignment.bottomCenter,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: Column(
-          children: [
-            _WorldSingleSectionSheetHeader(
-              item: _headerItem,
-              onClose: () => Navigator.of(context).pop(),
-            ),
-            Expanded(
-              child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(
-                  context,
-                ).copyWith(overscroll: false),
-                child: _buildSheetContent(),
+    return GenesisEdgeSwipeBack(
+      onBack: () => Navigator.of(context).pop(),
+      child: FractionallySizedBox(
+        heightFactor: _sheetHeightFactor,
+        alignment: Alignment.bottomCenter,
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            children: [
+              _WorldSingleSectionSheetHeader(
+                item: _headerItem,
+                onClose: () => Navigator.of(context).pop(),
               ),
-            ),
-          ],
+              Expanded(
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(overscroll: false),
+                  child: _buildSheetContent(),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

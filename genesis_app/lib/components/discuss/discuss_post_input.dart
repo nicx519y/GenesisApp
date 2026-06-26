@@ -10,6 +10,7 @@ import '../common/genesis_center_toast.dart';
 import '../common/genesis_modal_routes.dart';
 import '../common/genesis_upload_progress_overlay.dart';
 import '../../platform/native_image_picker.dart';
+import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/image_upload_processing.dart';
@@ -498,48 +499,51 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
         if (didPop) return;
         unawaited(_dismiss());
       },
-      child: Scaffold(
-        resizeToAvoidBottomInset: true,
-        backgroundColor: Colors.transparent,
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: FadeTransition(
-                opacity: _scrimController,
-                child: GestureDetector(
-                  key: const ValueKey('discuss-composer-scrim-dismiss'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _handleScrimTap,
-                  child: const ColoredBox(
-                    color: kGenesisSubtleModalBarrierColor,
+      child: GenesisEdgeSwipeBack(
+        onBack: () => unawaited(_dismiss()),
+        child: Scaffold(
+          resizeToAvoidBottomInset: true,
+          backgroundColor: Colors.transparent,
+          body: Stack(
+            children: [
+              Positioned.fill(
+                child: FadeTransition(
+                  opacity: _scrimController,
+                  child: GestureDetector(
+                    key: const ValueKey('discuss-composer-scrim-dismiss'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _handleScrimTap,
+                    child: const ColoredBox(
+                      color: kGenesisSubtleModalBarrierColor,
+                    ),
                   ),
                 ),
               ),
-            ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: FractionalTranslation(
-                translation: Offset(0, closingSlideProgress),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {},
-                  child: _DiscussComposerPanel(
-                    title: widget.title,
-                    placeholder: widget.placeholder,
-                    controller: _controller,
-                    focusNode: _composerFocusNode,
-                    hasImages: hasImages,
-                    images: _images,
-                    submitting: _submitting,
-                    canSend: _canSend,
-                    onPickImages: _pickAndUploadImages,
-                    onRemoveImage: _removeImage,
-                    onSend: _send,
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: FractionalTranslation(
+                  translation: Offset(0, closingSlideProgress),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {},
+                    child: _DiscussComposerPanel(
+                      title: widget.title,
+                      placeholder: widget.placeholder,
+                      controller: _controller,
+                      focusNode: _composerFocusNode,
+                      hasImages: hasImages,
+                      images: _images,
+                      submitting: _submitting,
+                      canSend: _canSend,
+                      onPickImages: _pickAndUploadImages,
+                      onRemoveImage: _removeImage,
+                      onSend: _send,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
