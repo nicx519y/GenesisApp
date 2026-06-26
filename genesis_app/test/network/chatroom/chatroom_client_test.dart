@@ -193,10 +193,12 @@ void main() {
     );
 
     final session = await client.connect(worldId: 'world-1');
+    final defaultUri = Uri.parse(GenesisApi.defaultChatroomWsBaseUrl);
 
     expect(
       transport.lastUri.toString(),
-      'wss://api.worldo.ai:443/aitown-chat/ws?world_id=world-1',
+      '${defaultUri.scheme}://${defaultUri.host}:443'
+      '${defaultUri.path}?world_id=world-1',
     );
     await session.disconnect();
   });

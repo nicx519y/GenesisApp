@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../app/debug_floating_button_visibility.dart';
+import '../common/genesis_center_toast.dart';
 import '../../platform/auth/auth_session.dart';
 import '../login_provider_button.dart';
 
-class SignedOutMeView extends StatelessWidget {
+class SignedOutMeView extends StatefulWidget {
   const SignedOutMeView({
     super.key,
     required this.loggingInProvider,
@@ -13,6 +15,26 @@ class SignedOutMeView extends StatelessWidget {
 
   final IdentityProvider? loggingInProvider;
   final ValueChanged<IdentityProvider> onLogin;
+
+  @override
+  State<SignedOutMeView> createState() => _SignedOutMeViewState();
+}
+
+class _SignedOutMeViewState extends State<SignedOutMeView> {
+  static const int _debugButtonUnlockTapCount = 10;
+
+  int _topTapCount = 0;
+
+  void _handleTopTap() {
+    final nextCount = _topTapCount + 1;
+    if (nextCount < _debugButtonUnlockTapCount) {
+      _topTapCount = nextCount;
+      return;
+    }
+    _topTapCount = 0;
+    showGenesisDebugFloatingButton();
+    showGenesisToast(context, 'Debug button shown');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,45 +50,52 @@ class SignedOutMeView extends StatelessWidget {
                 child: Column(
                   children: [
                     Expanded(
-                      child: Column(
-                        children: [
-                          SizedBox(height: constraints.maxHeight * 0.15),
-                          SvgPicture.asset(
-                            'assets/svg/worldo-logo.svg',
-                            key: const Key('signed_out_worldo_logo'),
-                            width: 200,
-                            fit: BoxFit.contain,
-                          ),
-                          const SizedBox(height: 30),
-                          const Text(
-                            'LIVE YOUR WORLD',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 9,
-                              color: Color(0xFF7A7A7A),
+                      child: GestureDetector(
+                        key: const ValueKey<String>(
+                          'signed-out-debug-button-restore',
+                        ),
+                        behavior: HitTestBehavior.translucent,
+                        onTap: _handleTopTap,
+                        child: Column(
+                          children: [
+                            SizedBox(height: constraints.maxHeight * 0.15),
+                            SvgPicture.asset(
+                              'assets/svg/worldo-logo.svg',
+                              key: const Key('signed_out_worldo_logo'),
+                              width: 200,
+                              fit: BoxFit.contain,
                             ),
-                          ),
-                          const SizedBox(height: 18),
-                          const Text(
-                            'Launch world, create worldo, invite\n'
-                            'friends, and continue them anywhere.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.35,
-                              color: Color(0xFF666666),
+                            const SizedBox(height: 30),
+                            const Text(
+                              'LIVE YOUR WORLD',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 9,
+                                color: Color(0xFF7A7A7A),
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 18),
+                            const Text(
+                              'Launch world, create worldo, invite\n'
+                              'friends, and continue them anywhere.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.35,
+                                color: Color(0xFF666666),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     Column(
                       children: [
                         LoginProviderButtons(
-                          loggingInProvider: loggingInProvider,
-                          onLogin: onLogin,
+                          loggingInProvider: widget.loggingInProvider,
+                          onLogin: widget.onLogin,
                         ),
                         const SizedBox(height: 38),
                         const LoginLegalText(),
