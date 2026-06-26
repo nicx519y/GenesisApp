@@ -4,64 +4,102 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   final worldPageSource = File('lib/pages/world/world_page.dart');
+  final worldHeaderSource = File('lib/pages/world/world_header.dart');
+  final worldBottomSheetSource = File(
+    'lib/pages/world/world_bottom_sheet.dart',
+  );
+  final worldModelsSource = File('lib/pages/world/world_models.dart');
+  final worldSectionsSource = File('lib/pages/world/world_sections.dart');
+  final worldLocationChatSource = File(
+    'lib/pages/world/world_location_chat_host.dart',
+  );
+  final worldMapBubbleSource = File(
+    'lib/pages/world/world_map_bubble_coordinator.dart',
+  );
+
+  String allWorldSource() {
+    return Directory('lib/pages/world')
+        .listSync()
+        .whereType<File>()
+        .where((file) => file.path.endsWith('.dart'))
+        .map((file) => file.readAsStringSync())
+        .join('\n');
+  }
+
+  test('world page keeps only page shell and delegates modules', () {
+    final source = worldPageSource.readAsStringSync();
+
+    expect(source, contains('class WorldPage extends StatefulWidget'));
+    expect(source, contains('class _WorldPageState'));
+    expect(source, contains('WorldDetailsPageScaffold('));
+    expect(source, contains('WorldBottomTags('));
+    expect(source, contains('WorldLocationChatRouterHost('));
+    expect(source, contains('WorldMapBubbleCoordinator('));
+    expect(source, isNot(contains('class WorldSingleSectionBottomSheet')));
+    expect(source, isNot(contains('class WorldEventsSection')));
+    expect(source, isNot(contains('class WorldLocationChatPageCache')));
+  });
 
   test('world map owns identity while collapsed panel keeps only actions', () {
-    final source = worldPageSource.readAsStringSync();
-    final bottomHeader = source.substring(
-      source.indexOf('class _WorldInfoHeader'),
-      source.indexOf('enum _WorldHeaderActionKind'),
+    final source = allWorldSource();
+    final headerSource = worldHeaderSource.readAsStringSync();
+    final bottomHeader = headerSource.substring(
+      headerSource.indexOf('class WorldInfoHeader'),
+      headerSource.indexOf('IconData? worldCounterIcon'),
     );
 
-    expect(source, contains('class _WorldMapIdentityPill'));
-    expect(source, contains('_WorldMapIdentityPill('));
+    expect(headerSource, contains('class WorldMapIdentityPill'));
+    expect(
+      worldPageSource.readAsStringSync(),
+      contains('WorldMapIdentityPill('),
+    );
     expect(source, contains('LayoutBuilder'));
     expect(source, contains('maxIdentityWidth'));
     expect(source, isNot(contains('maxWidth: 240')));
     expect(bottomHeader, isNot(contains('GenesisPairedMetaRow')));
     expect(bottomHeader, isNot(contains('GenesisMoreActionMenuButton')));
-    expect(bottomHeader, isNot(contains('_worldTitleTextStyle')));
+    expect(bottomHeader, isNot(contains('worldTitleTextStyle')));
     expect(bottomHeader, contains('StatItem'));
     expect(bottomHeader, contains('GenesisPrimaryButton'));
   });
 
   test('world bottom tags open single-section sheets', () {
-    final source = worldPageSource.readAsStringSync();
-    expect(source, contains('const _worldBottomTagItems'));
-    expect(source, contains('class _WorldBottomTags'));
-    expect(source, contains('class _WorldBottomTagContent'));
-
-    final tags = source.substring(
-      source.indexOf('const _worldBottomTagItems'),
-      source.indexOf('class _WorldBottomTags'),
+    final source = allWorldSource();
+    final bottomSheet = worldBottomSheetSource.readAsStringSync();
+    final models = worldModelsSource.readAsStringSync();
+    final tags = models.substring(models.indexOf('const worldBottomTagItems'));
+    final bottomTags = bottomSheet.substring(
+      bottomSheet.indexOf('class WorldBottomTags'),
+      bottomSheet.indexOf('class WorldBottomTagContent'),
     );
-    final bottomTags = source.substring(
-      source.indexOf('class _WorldBottomTags'),
-      source.indexOf('class _WorldBottomTagContent'),
+    final bottomTagContent = bottomSheet.substring(
+      bottomSheet.indexOf('class WorldBottomTagContent'),
+      bottomSheet.indexOf('class WorldSingleSectionBottomSheet'),
     );
-    final bottomTagContent = source.substring(
-      source.indexOf('class _WorldBottomTagContent'),
-      source.indexOf('class _LocationChatPanelDescriptor'),
+    final eventsSectionBuilder = bottomSheet.substring(
+      bottomSheet.indexOf('Widget _buildEventsSectionPage()'),
+      bottomSheet.indexOf('Widget _buildStatusSectionPage()'),
     );
-    final eventsSectionBuilder = source.substring(
-      source.indexOf('Widget _buildEventsSectionPage()'),
-      source.indexOf('Widget _buildStatusSectionPage()'),
+    final locationsSectionBuilder = bottomSheet.substring(
+      bottomSheet.indexOf('Widget _buildLocationsSectionPage()'),
+      bottomSheet.indexOf('Widget _buildDetailSectionPage()'),
     );
-    final locationsSectionBuilder = source.substring(
-      source.indexOf('Widget _buildLocationsSectionPage()'),
-      source.indexOf('Widget _buildDetailSectionPage()'),
+    final singleSectionSheet = bottomSheet.substring(
+      bottomSheet.indexOf('class WorldSingleSectionBottomSheet'),
+      bottomSheet.indexOf('class WorldSingleSectionSheetHeader'),
     );
-    final singleSectionSheet = source.substring(
-      source.indexOf('class _WorldSingleSectionBottomSheet'),
-      source.indexOf('class _WorldSingleSectionSheetHeader'),
-    );
-    final sectionListView = source.substring(
-      source.indexOf('class _WorldSectionListView'),
-      source.indexOf('class _WorldInfoHeader'),
+    final sectionListView = worldSectionsSource.readAsStringSync().substring(
+      worldSectionsSource.readAsStringSync().indexOf(
+        'class WorldSectionListView',
+      ),
+      worldSectionsSource.readAsStringSync().indexOf(
+        'class WorldEventsSection',
+      ),
     );
 
     expect(tags, contains("label: 'Locations'"));
     expect(tags, contains("label: 'Detail'"));
-    expect(tags, contains('_worldDetailIconAsset'));
+    expect(tags, contains('worldDetailIconAsset'));
     expect(tags, contains("label: 'Events'"));
     expect(tags, contains("label: 'Status'"));
     expect(tags, contains("label: 'Cast'"));
@@ -86,14 +124,14 @@ void main() {
       bottomTagContent,
       contains('borderRadius: BorderRadius.circular(12)'),
     );
-    expect(source, contains('class _WorldSingleSectionBottomSheet'));
-    expect(source, contains('class _WorldSingleSectionSheetHeader'));
+    expect(source, contains('class WorldSingleSectionBottomSheet'));
+    expect(source, contains('class WorldSingleSectionSheetHeader'));
     expect(source, contains('onVerticalDragEnd'));
     expect(source, contains('top: 5'));
     expect(source, contains('fontSize: 16'));
     expect(source, contains('fontWeight: FontWeight.w600'));
     expect(source, contains('minimumSize: const Size(28, 28)'));
-    expect(source, isNot(contains('_WorldSectionsSheetTabs')));
+    expect(source, isNot(contains('WorldSectionsSheetTabs')));
   });
 
   test('world tick completion closes other sheets before opening events', () {
@@ -117,7 +155,7 @@ void main() {
       showOrSelectEvents,
       contains('_worldBottomSheetSelection.value.kind !='),
     );
-    expect(showOrSelectEvents, contains('_WorldBottomSheetKind.events'));
+    expect(showOrSelectEvents, contains('WorldBottomSheetKind.events'));
     expect(
       showOrSelectEvents,
       contains('_openEventsAfterCurrentBottomSheetClosed = true'),
@@ -138,24 +176,25 @@ void main() {
   });
 
   test('world events force refreshes and releases stale target', () {
-    final source = worldPageSource.readAsStringSync();
-    final ensureEvents = source.substring(
-      source.indexOf('void _ensureEventsForCurrentWorld'),
-      source.indexOf('void _mutateEventsCache'),
+    final bottomSheet = worldBottomSheetSource.readAsStringSync();
+    final sections = worldSectionsSource.readAsStringSync();
+    final ensureEvents = bottomSheet.substring(
+      bottomSheet.indexOf('void _ensureEventsForCurrentWorld'),
+      bottomSheet.indexOf('void _mutateEventsCache'),
     );
-    final loadEvents = source.substring(
-      source.indexOf('Future<void> _loadEventsPage('),
-      source.indexOf('Widget _buildEventsSectionPage()'),
+    final loadEvents = bottomSheet.substring(
+      bottomSheet.indexOf('Future<void> _loadEventsPage('),
+      bottomSheet.indexOf('Widget _buildEventsSectionPage()'),
     );
-    final eventsSectionState = source.substring(
-      source.indexOf('class _WorldEventsSectionState'),
-      source.indexOf('class _WorldTickPendingEventPage'),
+    final eventsSectionState = sections.substring(
+      sections.indexOf('class WorldEventsSectionState'),
+      sections.indexOf('class WorldTickPendingEventPage'),
     );
-    final setCurrentPage = source.substring(
-      source.indexOf(
+    final setCurrentPage = sections.substring(
+      sections.indexOf(
         'bool _setCurrentPageToRequestedTargetOrLatestIfAvailable',
       ),
-      source.indexOf('void _jumpToCurrentPage()'),
+      sections.indexOf('void _jumpToCurrentPage()'),
     );
 
     expect(
@@ -168,9 +207,9 @@ void main() {
       contains('if (_eventsCache.initialLoading && !force) return;'),
     );
     expect(loadEvents, contains('worldId != _eventsCache.worldId'));
-    expect(source, contains('if (_eventsCache.page <= 0) return true;'));
+    expect(bottomSheet, contains('if (_eventsCache.page <= 0) return true;'));
     expect(
-      source,
+      bottomSheet,
       contains(
         'return _eventsCache.page * _eventsPageSize < _eventsCache.total',
       ),
@@ -186,5 +225,17 @@ void main() {
       eventsSectionState,
       isNot(contains('final hasRequestedTickPage = _requestedTickNumber')),
     );
+  });
+
+  test('location chat and map bubble code live outside world page', () {
+    final worldPage = worldPageSource.readAsStringSync();
+    final locationChat = worldLocationChatSource.readAsStringSync();
+    final mapBubble = worldMapBubbleSource.readAsStringSync();
+
+    expect(locationChat, contains('class WorldLocationChatRouterHost'));
+    expect(locationChat, contains('class WorldLocationChatPageCache'));
+    expect(mapBubble, contains('class WorldMapBubbleCoordinator'));
+    expect(worldPage, isNot(contains('class WorldLocationChatRouterHost')));
+    expect(worldPage, isNot(contains('_mapMessageBubbleQueuesByLocation')));
   });
 }

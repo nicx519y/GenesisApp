@@ -10,7 +10,7 @@ import 'package:genesis_flutter_android/components/world_map_interaction_notific
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
-import 'package:genesis_flutter_android/pages/world/world_page.dart';
+import 'package:genesis_flutter_android/pages/world/world_map_data.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 
 void main() {
