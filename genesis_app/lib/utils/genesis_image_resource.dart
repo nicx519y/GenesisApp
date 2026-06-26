@@ -144,6 +144,22 @@ const List<int> _imageResizeWidthTiers = <int>[
 const String _ossResizeProcessPrefix = '?x-oss-process=image/resize,w_';
 const String _ossResizeProcessSuffix = ',image/format,webp';
 
+const Map<String, String> _backendDefaultMapImageAssets = <String, String>{
+  'l1_default': 'assets/images/map_default/l1_default.webp',
+  'l2_default': 'assets/images/map_default/l2_default.webp',
+  'location_default': 'assets/images/map_default/location_default.webp',
+  'root_default': 'assets/images/map_default/root_default.webp',
+};
+
+String? localDefaultMapImageAssetForBackendImageUrl(String url) {
+  final normalized = url.trim().toLowerCase();
+  if (normalized.isEmpty || normalized.startsWith('assets/')) return null;
+  for (final entry in _backendDefaultMapImageAssets.entries) {
+    if (normalized.contains(entry.key)) return entry.value;
+  }
+  return null;
+}
+
 String resizeGenesisImageUrl(
   String url, {
   required double? logicalWidth,
@@ -151,6 +167,8 @@ String resizeGenesisImageUrl(
 }) {
   final source = url.trim();
   if (source.isEmpty || source.startsWith('assets/')) return '';
+  final localDefaultAsset = localDefaultMapImageAssetForBackendImageUrl(source);
+  if (localDefaultAsset != null) return localDefaultAsset;
   final requiredWidth = _requiredPixels(logicalWidth, devicePixelRatio);
   if (requiredWidth == null) return '';
   final width = _ceilImageWidthTier(requiredWidth);
@@ -212,11 +230,12 @@ String selectGenesisImageUrl(
     source,
     fallback: fallback,
   );
-  return resource.selectUrl(
+  final selected = resource.selectUrl(
     logicalWidth: logicalWidth,
     logicalHeight: logicalHeight,
     devicePixelRatio: devicePixelRatio,
   );
+  return localDefaultMapImageAssetForBackendImageUrl(selected) ?? selected;
 }
 
 double? _requiredPixels(double? logicalValue, double devicePixelRatio) {

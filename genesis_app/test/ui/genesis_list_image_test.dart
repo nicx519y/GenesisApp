@@ -140,6 +140,71 @@ void main() {
       '?x-oss-process=image/resize,w_1080,image/format,webp',
     );
   });
+
+  test(
+    'selectGenesisImageUrl maps backend default image URLs to local assets',
+    () {
+      expect(
+        selectGenesisImageUrl(
+          'https://cdn.example.com/predata/L1_default.webp?old=true',
+          logicalWidth: 320,
+          logicalHeight: 480,
+          devicePixelRatio: 2,
+        ),
+        'assets/images/map_default/l1_default.webp',
+      );
+      expect(
+        selectGenesisImageUrl(
+          'https://cdn.example.com/predata/l2_DEFAULT.png',
+          logicalWidth: 320,
+          logicalHeight: 480,
+          devicePixelRatio: 2,
+        ),
+        'assets/images/map_default/l2_default.webp',
+      );
+      expect(
+        selectGenesisImageUrl(
+          'https://cdn.example.com/predata/location_default.webp',
+          logicalWidth: null,
+          logicalHeight: null,
+          devicePixelRatio: 2,
+        ),
+        'assets/images/map_default/location_default.webp',
+      );
+      expect(
+        selectGenesisImageUrl(
+          'https://cdn.example.com/predata/root_default.webp',
+          logicalWidth: null,
+          logicalHeight: null,
+          devicePixelRatio: 2,
+        ),
+        'assets/images/map_default/root_default.webp',
+      );
+    },
+  );
+
+  test(
+    'resizeGenesisImageUrl maps backend default image URLs to local assets',
+    () {
+      expect(
+        resizeGenesisImageUrl(
+          'https://cdn.example.com/predata/ROOT_default.webp?old=true',
+          logicalWidth: 320,
+          devicePixelRatio: 3,
+        ),
+        'assets/images/map_default/root_default.webp',
+      );
+    },
+  );
+
+  test('local default image resolver returns null for normal network URLs', () {
+    expect(
+      localDefaultMapImageAssetForBackendImageUrl(
+        'https://cdn.example.com/regular-map.webp',
+      ),
+      isNull,
+    );
+  });
 }
 
 Finder _defaultListImage() {
