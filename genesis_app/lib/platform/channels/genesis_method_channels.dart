@@ -20,6 +20,8 @@ class GenesisMethodChannels {
   static const getAppName = 'getAppName';
   static const getAppVersion = 'getAppVersion';
   static const getSystemUserAgent = 'getSystemUserAgent';
+  static const requestTrackingAuthorization = 'requestTrackingAuthorization';
+  static const trackingAuthorizationStatus = 'trackingAuthorizationStatus';
   static const openExternalUrl = 'openExternalUrl';
   static const gatewayPublicKey = 'gatewayPublicKey';
   static const signGatewayCanonical = 'signGatewayCanonical';

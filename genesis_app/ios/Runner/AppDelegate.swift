@@ -1,3 +1,4 @@
+import AppTrackingTransparency
 import Flutter
 import PhotosUI
 import Security
@@ -80,6 +81,10 @@ import UniformTypeIdentifiers
         result(self.appVersionInfo())
       case "getSystemUserAgent":
         result("\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)")
+      case "requestTrackingAuthorization":
+        self.requestTrackingAuthorization(result: result)
+      case "trackingAuthorizationStatus":
+        result(self.currentTrackingAuthorizationStatus())
       case "openExternalUrl":
         let args = call.arguments as? [String: Any]
         let value = (args?["url"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -110,6 +115,44 @@ import UniformTypeIdentifiers
       default:
         result(FlutterMethodNotImplemented)
       }
+    }
+  }
+
+  private func requestTrackingAuthorization(result: @escaping FlutterResult) {
+    guard #available(iOS 14, *) else {
+      result("notSupported")
+      return
+    }
+
+    DispatchQueue.main.async {
+      ATTrackingManager.requestTrackingAuthorization { status in
+        DispatchQueue.main.async {
+          result(self.trackingAuthorizationStatusValue(status))
+        }
+      }
+    }
+  }
+
+  private func currentTrackingAuthorizationStatus() -> String {
+    guard #available(iOS 14, *) else {
+      return "notSupported"
+    }
+    return trackingAuthorizationStatusValue(ATTrackingManager.trackingAuthorizationStatus)
+  }
+
+  @available(iOS 14, *)
+  private func trackingAuthorizationStatusValue(_ status: ATTrackingManager.AuthorizationStatus) -> String {
+    switch status {
+    case .notDetermined:
+      return "notDetermined"
+    case .restricted:
+      return "restricted"
+    case .denied:
+      return "denied"
+    case .authorized:
+      return "authorized"
+    @unknown default:
+      return "unknown"
     }
   }
 

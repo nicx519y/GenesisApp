@@ -9,6 +9,7 @@ import 'app/genesis_app.dart';
 import 'app/telemetry/genesis_telemetry.dart';
 import 'components/common/genesis_modal_routes.dart';
 import 'platform/app/app_metadata_service.dart';
+import 'platform/privacy/app_tracking_transparency_service.dart';
 
 export 'app/genesis_app.dart';
 
@@ -23,10 +24,13 @@ Future<void> main() async {
   Future<void> runGenesisApp() async {
     final services = AppBootstrap.createInitialServices(config: appConfig);
     Future<void> prepareBeforeRunApp() async {
+      final trackingAuthorizationStatus =
+          await AppTrackingTransparencyService.requestAuthorization();
       await GenesisTelemetry.initialize(
         config: appConfig,
         deviceIdService: services.deviceId,
         appVersion: appVersion,
+        trackingEnabled: trackingAuthorizationStatus.allowsTracking,
       );
       WidgetsBinding.instance.addObserver(
         GenesisTelemetryLifecycleObserver(startedAt: appStartedAt),
