@@ -199,118 +199,122 @@ class _WorldDetailsPageScaffoldState extends State<WorldDetailsPageScaffold> {
                   )!;
               return AnnotatedRegion<SystemUiOverlayStyle>(
                 value: overrideStyle ?? _statusBarStyle(statusBarProgress),
-                child: Stack(
-                  children: [
-                    WorldDetailsPanelScrollControllerScope(
-                      controller: _scrollController,
-                      mapHeight: mapHeight,
-                      child: Stack(
-                        children: [
-                          NotificationListener<WorldMapInteractionNotification>(
-                            onNotification: (notification) {
-                              if (_mapInteractionActive !=
-                                  notification.active) {
-                                setState(
-                                  () => _mapInteractionActive =
-                                      notification.active,
-                                );
-                              }
-                              return false;
-                            },
-                            child: MediaQuery.removePadding(
-                              context: context,
-                              removeBottom: true,
-                              child: CustomScrollView(
-                                controller: _scrollController,
-                                physics: _mapInteractionActive
-                                    ? const NeverScrollableScrollPhysics()
-                                    : widget.scrollPhysics,
-                                slivers: [
-                                  SliverToBoxAdapter(
-                                    child: SizedBox(
-                                      height: mapHeight,
-                                      child: widget.map,
-                                    ),
-                                  ),
-                                  SliverToBoxAdapter(
-                                    child: SizedBox(
-                                      height: WorldDetailsPageScaffold
-                                          .inlineContentTopPadding,
-                                      child: OverflowBox(
-                                        minHeight:
-                                            WorldDetailsPageScaffold
-                                                .inlineContentTopPadding +
-                                            panelTopOverlap,
-                                        maxHeight:
-                                            WorldDetailsPageScaffold
-                                                .inlineContentTopPadding +
-                                            panelTopOverlap,
-                                        alignment: Alignment.bottomCenter,
-                                        child: _WorldDetailsPanelTopPullGesture(
-                                          onPullUp: widget.onPanelTopPullUp,
-                                          child: DecoratedBox(
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius:
-                                                  BorderRadius.vertical(
-                                                    top: Radius.circular(
-                                                      widget.panelTopRadius,
-                                                    ),
-                                                  ),
-                                            ),
-                                            child: const SizedBox.expand(),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  SliverPadding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: WorldDetailsPageScaffold
-                                          .contentHorizontalPadding,
-                                    ),
-                                    sliver: SliverMainAxisGroup(
-                                      slivers: widget.slivers,
-                                    ),
-                                  ),
-                                  SliverToBoxAdapter(
-                                    child: SizedBox(
-                                      height:
-                                          bottomPadding + contentBottomSafeArea,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            left: 0,
-                            top: 0,
-                            right: 0,
-                            height: statusBarHeight,
-                            child: IgnorePointer(
-                              child: ColoredBox(color: statusBarColor),
-                            ),
-                          ),
-                          if (bottomBar != null)
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: 0,
-                              child: bottomBar,
-                            ),
-                          if (widget.persistentTopOverlay != null)
-                            widget.persistentTopOverlay!,
-                          if (topOverlay != null) topOverlay,
-                        ],
-                      ),
-                    ),
-                  ],
+                child: _buildPanelShell(
+                  mapHeight: mapHeight,
+                  panelTopOverlap: panelTopOverlap,
+                  bottomPadding: bottomPadding,
+                  contentBottomSafeArea: contentBottomSafeArea,
+                  statusBarHeight: statusBarHeight,
+                  statusBarColor: statusBarColor,
+                  bottomBar: bottomBar,
+                  topOverlay: topOverlay,
                 ),
               );
             },
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildAlignedMapLayer(double mapHeight) {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: SizedBox(height: mapHeight, child: widget.map),
+    );
+  }
+
+  Widget _buildPanelShell({
+    required double mapHeight,
+    required double panelTopOverlap,
+    required double bottomPadding,
+    required double contentBottomSafeArea,
+    required double statusBarHeight,
+    required Color statusBarColor,
+    required Widget? bottomBar,
+    required Widget? topOverlay,
+  }) {
+    final scrollView = MediaQuery.removePadding(
+      context: context,
+      removeBottom: true,
+      child: CustomScrollView(
+        controller: _scrollController,
+        hitTestBehavior: HitTestBehavior.deferToChild,
+        physics: _mapInteractionActive
+            ? const NeverScrollableScrollPhysics()
+            : widget.scrollPhysics,
+        slivers: [
+          SliverToBoxAdapter(child: SizedBox(height: mapHeight)),
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: WorldDetailsPageScaffold.inlineContentTopPadding,
+              child: _buildPanelTopBand(panelTopOverlap),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: WorldDetailsPageScaffold.contentHorizontalPadding,
+            ),
+            sliver: SliverMainAxisGroup(slivers: widget.slivers),
+          ),
+          SliverToBoxAdapter(
+            child: SizedBox(height: bottomPadding + contentBottomSafeArea),
+          ),
+        ],
+      ),
+    );
+    final stack = Stack(
+      children: [
+        _buildAlignedMapLayer(mapHeight),
+        scrollView,
+        Positioned(
+          left: 0,
+          top: 0,
+          right: 0,
+          height: statusBarHeight,
+          child: IgnorePointer(child: ColoredBox(color: statusBarColor)),
+        ),
+        if (bottomBar != null)
+          Positioned(left: 0, right: 0, bottom: 0, child: bottomBar),
+        if (widget.persistentTopOverlay != null) widget.persistentTopOverlay!,
+        if (topOverlay != null) topOverlay,
+      ],
+    );
+    final shell = NotificationListener<WorldMapInteractionNotification>(
+      onNotification: (notification) {
+        if (_mapInteractionActive != notification.active) {
+          setState(() => _mapInteractionActive = notification.active);
+        }
+        return false;
+      },
+      child: stack,
+    );
+
+    return WorldDetailsPanelScrollControllerScope(
+      controller: _scrollController,
+      mapHeight: mapHeight,
+      child: shell,
+    );
+  }
+
+  Widget _buildPanelTopBand(double panelTopOverlap) {
+    return OverflowBox(
+      minHeight:
+          WorldDetailsPageScaffold.inlineContentTopPadding + panelTopOverlap,
+      maxHeight:
+          WorldDetailsPageScaffold.inlineContentTopPadding + panelTopOverlap,
+      alignment: Alignment.bottomCenter,
+      child: _WorldDetailsPanelTopPullGesture(
+        onPullUp: widget.onPanelTopPullUp,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(widget.panelTopRadius),
+            ),
+          ),
+          child: const SizedBox.expand(),
+        ),
       ),
     );
   }

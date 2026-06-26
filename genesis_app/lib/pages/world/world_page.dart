@@ -1086,6 +1086,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _selectWorldMainTab(0);
   }
 
+  void _handleBottomSheetLocationTap(WorldPoint point) {
+    unawaited(_openChatForPoint(point));
+  }
+
   void _openWorldBottomSheet(
     WorldBottomSheetKind kind, {
     List<WorldPoint> locationPoints = const <WorldPoint>[],
@@ -1132,7 +1136,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             currentUid: _currentUid,
             locationPoints: locationPoints,
             locationNodes: locationNodes,
-            onLocationTap: _openChatForPoint,
+            onLocationTap: _handleBottomSheetLocationTap,
           );
         },
       ).whenComplete(() {
@@ -1227,45 +1231,55 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         : points;
     final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);
     Widget buildWorldMapPage(int tabIndex, {required bool pointMode}) {
-      return WorldKeepAlivePage(
-        child: WorldMap(
-          key: PageStorageKey<String>('world-map-tab-$tabIndex'),
-          points: points,
-          listPoints: listPoints,
-          locationNodes: locationNodes,
-          listLocationNodes: listLocationNodes,
-          mapImageUrl: rootMapImageUrl,
-          dimmed: pointMode,
-          showPointsList: pointMode,
-          pointsListOuterScrollHandoff: false,
-          overlayTop:
-              topPadding +
-              8 +
-              (pointMode ? worldMapTabsHeight + 8 : worldMapContentTopOffset),
-          drillExitTop:
-              topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
-          drillExitMaxWidth: worldSecondaryMapControlWidth,
-          onDrillIntoLocation: _showMapTab,
-          onSecondaryMapChanged: (isInSecondaryMap) {
-            if (_worldMainTabIndex == tabIndex) {
-              _handleSecondaryMapChanged(isInSecondaryMap);
-            }
-          },
-          onVisibleLocationIdsChanged: (locationIds) {
-            if (_worldMainTabIndex == tabIndex) {
-              _handleVisibleMapLocationIdsChanged(locationIds);
-            }
-          },
-          onHorizontalPanStateChanged: tabIndex == 0
-              ? _handleWorldMapHorizontalPanStateChanged
-              : null,
-          onPointTap: _openChatForPoint,
-          messageBubbles: pointMode
-              ? const <String, WorldMapMessageBubble>{}
-              : _mapBubbleCoordinator.messageBubbles,
-        ),
+      final map = WorldMap(
+        key: PageStorageKey<String>('world-map-tab-$tabIndex'),
+        points: points,
+        listPoints: listPoints,
+        locationNodes: locationNodes,
+        listLocationNodes: listLocationNodes,
+        mapImageUrl: rootMapImageUrl,
+        dimmed: pointMode,
+        showPointsList: pointMode,
+        pointsListOuterScrollHandoff: false,
+        overlayTop:
+            topPadding +
+            8 +
+            (pointMode ? worldMapTabsHeight + 8 : worldMapContentTopOffset),
+        drillExitTop: topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
+        drillExitMaxWidth: worldSecondaryMapControlWidth,
+        onDrillIntoLocation: _showMapTab,
+        onSecondaryMapChanged: (isInSecondaryMap) {
+          if (_worldMainTabIndex == tabIndex) {
+            _handleSecondaryMapChanged(isInSecondaryMap);
+          }
+        },
+        onVisibleLocationIdsChanged: (locationIds) {
+          if (_worldMainTabIndex == tabIndex) {
+            _handleVisibleMapLocationIdsChanged(locationIds);
+          }
+        },
+        onHorizontalPanStateChanged: tabIndex == 0
+            ? _handleWorldMapHorizontalPanStateChanged
+            : null,
+        onPointTap: _openChatForPoint,
+        messageBubbles: pointMode
+            ? const <String, WorldMapMessageBubble>{}
+            : _mapBubbleCoordinator.messageBubbles,
       );
+      return WorldKeepAlivePage(child: map);
     }
+
+    final mountedSlivers = <Widget>[
+      const SliverToBoxAdapter(
+        child: SizedBox(height: worldStatsTopSpacerHeight),
+      ),
+      WorldFeedContent(
+        world: world,
+        worldActionRunning: _worldActionRunning || _worldTickInProgress,
+        onWorldAction: _runWorldAction,
+        onPullUp: () => _openWorldBottomSheet(WorldBottomSheetKind.events),
+      ),
+    ];
 
     return PopScope(
       canPop: _activeChatLocationId.isEmpty,
@@ -1296,19 +1310,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               contentBottomPaddingOverride: 0,
               onPanelTopPullUp: () =>
                   _openWorldBottomSheet(WorldBottomSheetKind.events),
-              slivers: [
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: worldStatsTopSpacerHeight),
-                ),
-                WorldFeedContent(
-                  world: world,
-                  worldActionRunning:
-                      _worldActionRunning || _worldTickInProgress,
-                  onWorldAction: _runWorldAction,
-                  onPullUp: () =>
-                      _openWorldBottomSheet(WorldBottomSheetKind.events),
-                ),
-              ],
+              slivers: mountedSlivers,
             ),
             if (_worldMainTabIndex != 0)
               Positioned(
