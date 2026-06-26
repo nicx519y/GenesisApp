@@ -192,6 +192,32 @@ void main() {
 
   tearDown(GenesisTelemetry.resetForTesting);
 
+  test(
+    'initialize disables event capture when tracking is not authorized',
+    () async {
+      await GenesisTelemetry.initialize(
+        config: const AppConfig(apiEnvironment: 'test'),
+        deviceIdService: const _TestDeviceIdService(),
+        appVersion: const AppVersionInfo(
+          versionName: '1.2.3',
+          versionCode: '45',
+          packageName: 'com.worldo.ai',
+        ),
+        trackingEnabled: false,
+      );
+
+      GenesisTelemetry.pageView(
+        routeName: '/home',
+        pageClassName: 'AppShellPage',
+        navigationType: 'push',
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(sink.events, isEmpty);
+      expect(sink.contexts.last.deviceId, 'device-test-1');
+    },
+  );
+
   test('page and click telemetry carries app version and device id', () async {
     GenesisTelemetry.pageView(
       routeName: '/home',

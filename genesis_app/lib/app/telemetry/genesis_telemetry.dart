@@ -386,6 +386,7 @@ class GenesisTelemetry {
     required AppConfig config,
     required DeviceIdService deviceIdService,
     AppVersionInfo? appVersion,
+    bool trackingEnabled = true,
   }) async {
     final version = appVersion ?? await AppMetadataService.appVersion();
     final deviceId = await _safeDeviceId(deviceIdService);
@@ -402,9 +403,11 @@ class GenesisTelemetry {
       currentPage: genesisCurrentPageClassName.value,
     );
     if (!_sinkOverriddenForTesting) {
-      _sink = await _buildDefaultSink(config: config);
+      _sink = trackingEnabled
+          ? await _buildDefaultSink(config: config)
+          : const NoopGenesisTelemetrySink();
     }
-    _enabled = true;
+    _enabled = trackingEnabled;
     await _sink.setContext(_context);
   }
 
