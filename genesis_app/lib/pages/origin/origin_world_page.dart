@@ -1,33 +1,20 @@
 import 'dart:async';
 import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter/services.dart';
 
-import '../../components/common/copyable_id_label.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
-import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/shared/location_chat_overlay_transition.dart';
 import '../../components/common/genesis_modal_routes.dart';
-import '../../components/common/genesis_report_actions.dart';
-import '../../components/discuss/discuss_post_input.dart';
-import '../../components/discuss/origin_discuss_list.dart';
-import '../../components/discuss/story_badge.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/discuss/story_badge.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
-import '../../components/origin/stat_item.dart';
 import '../../components/world_map.dart';
-import '../../components/world_map_stage.dart';
-import '../../components/world_details_shell.dart';
-import '../../components/world_top_overlay_bar.dart';
-import '../../components/world_tick_event_item.dart';
 import '../../components/world_tick1_wait_dialog.dart';
-import '../../icons/custom_icon_assets.dart';
-import '../../icons/my_flutter_app_icons.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
@@ -39,15 +26,13 @@ import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
-import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/tokens/genesis_image_radii.dart';
-import '../../utils/entity_deleted.dart';
+import '../../ui/components/genesis_search_field.dart';
+import '../../ui/theme/genesis_ui_theme.dart';
 import '../../app/bootstrap/app_services_scope.dart';
-import '../../utils/display_name_formatter.dart';
-import '../../utils/genesis_image_resource.dart';
+import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
-import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_page.dart';
+import '../world/world_header.dart';
 import 'origin_launch_coordinator.dart';
 import 'origin_launch_flow.dart';
 
@@ -61,25 +46,31 @@ class OriginWorldPage extends StatefulWidget {
   State<OriginWorldPage> createState() => _OriginWorldPageState();
 }
 
-class _OriginWorldPageState extends State<OriginWorldPage>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-  late final OriginDiscussListController _discussController;
+class _OriginWorldPageState extends State<OriginWorldPage> {
+  static const SystemUiOverlayStyle _transparentStatusBarStyle =
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      );
+  static const double _mapPanelTopGap = 50;
+  static const double _mapLoadingCollapsedHeightOffset = 100;
+  static const double _mapLoadedCollapsedHeightOffset = 60;
+  static const double _mapDefaultExposedChildSize = 0.31;
+
   final OriginLaunchCoordinator _launchCoordinator =
       OriginLaunchCoordinator.instance;
   Future<OriginDetail>? _future;
   bool _launching = false;
   bool _didResumePendingLaunch = false;
+  bool _showLocationPage = false;
   _OriginLocationChatDescriptor? _activeChatLocation;
-  var _currentUid = '';
-  var _currentUidRequested = false;
   late final VoidCallback _removeLaunchOutcomeListener;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _discussController = OriginDiscussListController();
+    SystemChrome.setSystemUIOverlayStyle(_transparentStatusBarStyle);
     _launchCoordinator.state.addListener(_syncLaunchState);
     _removeLaunchOutcomeListener = _launchCoordinator.addOutcomeListener(
       _handleLaunchOutcome,
@@ -90,10 +81,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _future ??= _loadOriginDetail();
-    if (!_currentUidRequested) {
-      _currentUidRequested = true;
-      unawaited(_loadCurrentUid());
-    }
     if (!_didResumePendingLaunch) {
       _didResumePendingLaunch = true;
       _resumePendingLaunch();
@@ -106,6 +93,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     if (oldWidget.oid != widget.oid) {
       _future = _loadOriginDetail();
       _activeChatLocation = null;
+      _showLocationPage = false;
       _didResumePendingLaunch = false;
       _syncLaunchState();
       _resumePendingLaunch();
@@ -125,41 +113,13 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     GenesisSystemUiChrome.applyDefault();
     _launchCoordinator.state.removeListener(_syncLaunchState);
     _removeLaunchOutcomeListener();
-    _discussController.dispose();
-    _tabController.dispose();
     super.dispose();
   }
 
   Future<OriginDetail> _loadOriginDetail() async {
     final api = AppServicesScope.read(context).api;
     final origin = await api.getOrigin(widget.oid);
-    if (!mounted) return origin;
-    _configureDiscuss(origin.oid);
-    unawaited(_discussController.loadInitialIfNeeded());
     return origin;
-  }
-
-  void _refreshOriginDetail() {
-    setState(() {
-      _future = _loadOriginDetail();
-    });
-  }
-
-  Future<void> _loadCurrentUid() async {
-    final uid =
-        (await AppServicesScope.of(context).sessionStore.readUid())?.trim() ??
-        '';
-    if (!mounted || uid == _currentUid) return;
-    setState(() => _currentUid = uid);
-  }
-
-  void _configureDiscuss(String oid) {
-    _discussController.configure(
-      oid: oid,
-      loader: ({required String oid, required int pn, required int rn}) async {
-        return loadOriginDiscussPage(context, oid, pn: pn, rn: rn);
-      },
-    );
   }
 
   void _resumePendingLaunch() {
@@ -199,15 +159,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         if (navigator.canPop()) navigator.pop();
       });
     });
-  }
-
-  void _showMapTab() {
-    if (_tabController.index == 0) return;
-    _tabController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 120),
-      curve: Curves.easeOutCubic,
-    );
   }
 
   void _openChatForPoint(OriginDetail origin, WorldPoint point) {
@@ -266,26 +217,6 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     _closeLocationChat();
   }
 
-  void _handleMapModeTabTap(int index) {
-    if (index == 1) {
-      GenesisTelemetry.collectLog(
-        actionType: 'pageview',
-        action: 'worldo_detail_location_list',
-        object1: widget.oid,
-      );
-      WorldDetailsStatusBarOverride.setStyle(
-        kGenesisDefaultSystemUiOverlayStyle,
-      );
-      return;
-    }
-    GenesisTelemetry.collectLog(
-      actionType: 'pageview',
-      action: 'worldo_map',
-      object1: widget.oid,
-    );
-    WorldDetailsStatusBarOverride.clearStyle();
-  }
-
   Widget _buildLocationChatOverlay(OriginDetail origin) {
     final descriptor = _activeChatLocation;
     return Positioned.fill(
@@ -322,15 +253,53 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     );
   }
 
-  Widget _buildPersistentMapTabs(int pointsCount, double top) {
-    return Positioned(
-      left: 12,
-      right: 12,
-      top: top,
-      child: WorldTopOverlayBar(
-        pointsCount: pointsCount,
-        controller: _tabController,
-        onTabTap: _handleMapModeTabTap,
+  void _handleMapTitleTap() {
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'worldo_map',
+      object1: widget.oid,
+    );
+    if (!_showLocationPage) return;
+    setState(() => _showLocationPage = false);
+  }
+
+  void _handleLocationTitleTap() {
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'worldo_detail_location_list',
+      object1: widget.oid,
+    );
+    if (_showLocationPage) return;
+    setState(() => _showLocationPage = true);
+  }
+
+  Widget _buildPersistentMapOverlay(double top, {int locationCount = 0}) {
+    return Positioned.fill(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Stack(
+            children: [
+              Positioned(
+                left: 12,
+                top: top + 6,
+                child: WorldMapBackButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                ),
+              ),
+              Positioned(
+                left: 60,
+                right: 12,
+                top: top + 6,
+                child: _OriginMapTabsPill(
+                  locationCount: locationCount,
+                  selectedIndex: _showLocationPage ? 1 : 0,
+                  onMapTap: _handleMapTitleTap,
+                  onLocationTap: _handleLocationTitleTap,
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -471,28 +440,24 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return WorldDetailsPageScaffold(
-            panelTopGap: 50,
-            panelCollapsedHeightOffset: 100,
-            persistentTopOverlay: _buildPersistentMapTabs(0, topPadding + 8),
-            map: WorldMapStage(
-              controller: _tabController,
-              pointsCount: 0,
-              top: topPadding + 8,
-              showTopOverlay: false,
-              mapBuilder: (context, pointMode) => WorldMap(
+          return _buildMapOnlyScaffold(
+            topPadding: topPadding,
+            panelCollapsedHeightOffset: _mapLoadingCollapsedHeightOffset,
+            mapOverlay: _buildPersistentMapOverlay(topPadding),
+            map: WorldKeepAlivePage(
+              child: WorldMap(
+                key: PageStorageKey<String>('origin-map-loading-${widget.oid}'),
                 points: const <WorldPoint>[],
                 listPoints: const <WorldPoint>[],
                 locationNodes: const <WorldMapLocationNode>[],
                 fallbackOnEmptyMapUrl: false,
-                dimmed: pointMode,
-                showPointsList: pointMode,
+                dimmed: false,
+                showPointsList: false,
+                pointsListOuterScrollHandoff: false,
                 overlayTop: topPadding + 8 + 48,
                 drillExitTop: topPadding + 68,
               ),
             ),
-            slivers: const [_OriginDetailsLoadingContent()],
-            bottomBar: const _OriginBottomLaunchBarSkeleton(),
           );
         }
 
@@ -597,9 +562,9 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             : origin.allLocations.isNotEmpty
             ? _pointsFromLocations(origin.allLocations, avatarsByLocation)
             : points;
-        final leafLocationCount = _originLeafLocationNodeCount(
-          listLocationNodes,
-        );
+        final locationCount = listLocationNodes.isNotEmpty
+            ? _originLeafLocationNodeCount(listLocationNodes)
+            : listPoints.length;
 
         return PopScope(
           canPop: _activeChatLocation == null,
@@ -607,49 +572,212 @@ class _OriginWorldPageState extends State<OriginWorldPage>
             if (didPop) return;
             _handleOriginPopBlocked();
           },
-          child: WorldDetailsPageScaffold(
-            panelTopGap: 50,
-            panelCollapsedHeightOffset: 60,
-            topOverlay: _buildLocationChatOverlay(origin),
-            persistentTopOverlay: _buildPersistentMapTabs(
-              leafLocationCount,
-              topPadding + 8,
+          child: _buildMapOnlyScaffold(
+            topPadding: topPadding,
+            panelCollapsedHeightOffset: _mapLoadedCollapsedHeightOffset,
+            mapOverlay: _buildPersistentMapOverlay(
+              topPadding,
+              locationCount: locationCount,
             ),
-            map: WorldMapStage(
-              controller: _tabController,
-              pointsCount: leafLocationCount,
-              top: topPadding + 8,
-              showTopOverlay: false,
-              mapBuilder: (context, pointMode) => WorldMap(
+            topOverlay: _buildLocationChatOverlay(origin),
+            map: WorldKeepAlivePage(
+              child: WorldMap(
+                key: PageStorageKey<String>('origin-map-${origin.oid}'),
                 points: points,
                 listPoints: listPoints,
                 locationNodes: locationNodes,
                 listLocationNodes: listLocationNodes,
                 mapImageUrl: mapImageUrl,
-                dimmed: pointMode,
-                showPointsList: pointMode,
+                dimmed: _showLocationPage,
+                showPointsList: _showLocationPage,
+                pointsListOuterScrollHandoff: false,
                 overlayTop: topPadding + 8 + 48,
                 drillExitTop: topPadding + 68,
-                onDrillIntoLocation: _showMapTab,
                 onPointTap: (point) => _openChatForPoint(origin, point),
               ),
-            ),
-            slivers: [
-              _WorldDetailsContent(
-                origin: origin,
-                currentUid: _currentUid,
-                discussController: _discussController,
-                onOriginChanged: _refreshOriginDetail,
-              ),
-            ],
-            bottomBar: _OriginBottomLaunchBar(
-              origin: origin,
-              launching: _launching,
-              onLaunch: () => _showLaunchRoleSheet(origin),
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildMapOnlyScaffold({
+    required double topPadding,
+    required double panelCollapsedHeightOffset,
+    required Widget mapOverlay,
+    required Widget map,
+    Widget? topOverlay,
+  }) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _transparentStatusBarStyle,
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final viewportHeight = constraints.maxHeight.isFinite
+                ? constraints.maxHeight
+                : MediaQuery.sizeOf(context).height;
+            final mediaQuery = MediaQuery.of(context);
+            final bottomSafeArea =
+                mediaQuery.padding.bottom > mediaQuery.viewPadding.bottom
+                ? mediaQuery.padding.bottom
+                : mediaQuery.viewPadding.bottom;
+            final maxMapHeight =
+                (viewportHeight - _mapPanelTopGap - bottomSafeArea)
+                    .clamp(0.0, viewportHeight)
+                    .toDouble();
+            final mapHeight =
+                (viewportHeight * (1 - _mapDefaultExposedChildSize) +
+                        panelCollapsedHeightOffset -
+                        bottomSafeArea)
+                    .clamp(0.0, maxMapHeight)
+                    .toDouble();
+            return Stack(
+              children: [
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(height: mapHeight, child: map),
+                ),
+                mapOverlay,
+                if (topOverlay != null) topOverlay,
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _OriginMapTabsPill extends StatelessWidget {
+  const _OriginMapTabsPill({
+    required this.locationCount,
+    required this.selectedIndex,
+    required this.onMapTap,
+    required this.onLocationTap,
+  });
+
+  final int locationCount;
+  final int selectedIndex;
+  final VoidCallback onMapTap;
+  final VoidCallback onLocationTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final uiTheme = GenesisUiTheme.of(context);
+    const height = genesisSearchFieldHeight;
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color(0xE6FFFFFF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onMapTap,
+            child: _OriginMapTabTitle(
+              selected: selectedIndex == 0,
+              icon: Icons.map_outlined,
+              label: 'Map',
+              labelStyle:
+                  (selectedIndex == 0
+                          ? uiTheme.bodyStrongStyle
+                          : uiTheme.bodyStyle)
+                      .copyWith(fontSize: 16),
+              indicatorColor: uiTheme.tabIndicatorColor,
+              indicatorWidth: uiTheme.tabIndicatorWidth,
+              indicatorHeight: uiTheme.tabIndicatorHeight,
+            ),
+          ),
+          const SizedBox(width: 24),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onLocationTap,
+            child: _OriginMapTabTitle(
+              selected: selectedIndex == 1,
+              icon: Icons.place_outlined,
+              label: 'Location ($locationCount)',
+              labelStyle:
+                  (selectedIndex == 1
+                          ? uiTheme.bodyStrongStyle
+                          : uiTheme.bodyStyle)
+                      .copyWith(fontSize: 16),
+              indicatorColor: uiTheme.tabIndicatorColor,
+              indicatorWidth: uiTheme.tabIndicatorWidth,
+              indicatorHeight: uiTheme.tabIndicatorHeight,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OriginMapTabTitle extends StatelessWidget {
+  const _OriginMapTabTitle({
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.labelStyle,
+    required this.indicatorColor,
+    required this.indicatorWidth,
+    required this.indicatorHeight,
+  });
+
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final TextStyle labelStyle;
+  final Color indicatorColor;
+  final double indicatorWidth;
+  final double indicatorHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: genesisSearchFieldHeight,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: const Color(0xFF111111)),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: labelStyle.copyWith(color: const Color(0xFF111111)),
+                ),
+              ],
+            ),
+          ),
+          if (selected)
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 3,
+              child: Center(
+                child: Container(
+                  width: indicatorWidth,
+                  height: indicatorHeight,
+                  decoration: BoxDecoration(
+                    color: indicatorColor,
+                    borderRadius: BorderRadius.circular(indicatorHeight / 2),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -811,641 +939,6 @@ class _OriginLocationChatLaunchBar extends StatelessWidget {
   }
 }
 
-class _OriginDetailsLoadingContent extends StatelessWidget {
-  const _OriginDetailsLoadingContent();
-
-  @override
-  Widget build(BuildContext context) {
-    return SliverList.list(
-      children: const [
-        _OriginHeaderLoadingSkeleton(),
-        SizedBox(height: 22),
-        _OriginSectionLoadingSkeleton(
-          titleWidth: 96,
-          imageAspectRatio: 2 / 3,
-          lineWidths: [0.94, 0.82, 0.68],
-        ),
-        SizedBox(height: 26),
-        _OriginSectionLoadingSkeleton(
-          titleWidth: 118,
-          imageHeight: 92,
-          lineWidths: [0.88, 0.76],
-        ),
-        SizedBox(height: 28),
-        _OriginSectionTitleLoadingSkeleton(width: 146),
-        SizedBox(height: 10),
-        _OriginLoadingBone(width: 108, height: 12),
-        SizedBox(height: 18),
-        _OriginSectionTitleLoadingSkeleton(width: 92),
-        SizedBox(height: 14),
-        _OriginLoadingBone(widthFactor: 0.96, height: 74, radius: 6),
-        SizedBox(height: 24),
-        Divider(height: 1, thickness: 1, color: Color(0xFFEDEDED)),
-        SizedBox(height: 24),
-        _OriginSectionTitleLoadingSkeleton(width: 112),
-        SizedBox(height: 14),
-        _OriginCharacterLoadingSkeleton(),
-      ],
-    );
-  }
-}
-
-class _OriginHeaderLoadingSkeleton extends StatelessWidget {
-  const _OriginHeaderLoadingSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Center(child: _OriginLoadingBone(width: 170, height: 18)),
-        SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(child: _OriginLoadingBone(width: 122, height: 12)),
-            SizedBox(width: 12),
-            _OriginLoadingBone(width: 128, height: 12),
-          ],
-        ),
-        SizedBox(height: 12),
-        _OriginLoadingBone(width: 150, height: 12),
-      ],
-    );
-  }
-}
-
-class _OriginSectionLoadingSkeleton extends StatelessWidget {
-  const _OriginSectionLoadingSkeleton({
-    required this.titleWidth,
-    this.imageHeight,
-    this.imageAspectRatio,
-    required this.lineWidths,
-  }) : assert(imageHeight != null || imageAspectRatio != null);
-
-  final double titleWidth;
-  final double? imageHeight;
-  final double? imageAspectRatio;
-  final List<double> lineWidths;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _OriginSectionTitleLoadingSkeleton(width: titleWidth),
-        const SizedBox(height: 12),
-        for (final width in lineWidths) ...[
-          _OriginLoadingBone(widthFactor: width, height: 12),
-          const SizedBox(height: 8),
-        ],
-        const SizedBox(height: 4),
-        if (imageAspectRatio == null)
-          _OriginLoadingBone(widthFactor: 1, height: imageHeight!, radius: 4)
-        else
-          _OriginLoadingAspectBone(aspectRatio: imageAspectRatio!, radius: 4),
-      ],
-    );
-  }
-}
-
-class _OriginLoadingAspectBone extends StatelessWidget {
-  const _OriginLoadingAspectBone({required this.aspectRatio, this.radius = 4});
-
-  final double aspectRatio;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: aspectRatio,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xFFE9EDF2),
-          borderRadius: BorderRadius.circular(radius),
-        ),
-      ),
-    );
-  }
-}
-
-class _OriginSectionTitleLoadingSkeleton extends StatelessWidget {
-  const _OriginSectionTitleLoadingSkeleton({required this.width});
-
-  final double width;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const _OriginLoadingBone(width: 14, height: 14, radius: 7),
-        const SizedBox(width: 8),
-        _OriginLoadingBone(width: width, height: 14),
-      ],
-    );
-  }
-}
-
-class _OriginCharacterLoadingSkeleton extends StatelessWidget {
-  const _OriginCharacterLoadingSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _OriginLoadingBone(width: 86, height: 86, radius: 6),
-        SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _OriginLoadingBone(width: 118, height: 14),
-              SizedBox(height: 8),
-              _OriginLoadingBone(widthFactor: 0.68, height: 12),
-              SizedBox(height: 10),
-              _OriginLoadingBone(widthFactor: 0.94, height: 12),
-              SizedBox(height: 8),
-              _OriginLoadingBone(widthFactor: 0.72, height: 12),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _OriginBottomLaunchBarSkeleton extends StatelessWidget {
-  const _OriginBottomLaunchBarSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(color: Color(0xFFF9F9F9)),
-      child: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.fromLTRB(13, 0, 13, 0),
-        child: SizedBox(
-          height: 56,
-          child: Row(
-            children: const [
-              _OriginLoadingBone(width: 36, height: 12),
-              SizedBox(width: 20),
-              _OriginLoadingBone(width: 36, height: 12),
-              SizedBox(width: 20),
-              _OriginLoadingBone(width: 36, height: 12),
-              Spacer(),
-              _OriginLoadingBone(width: 140, height: 35, radius: 8),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OriginLoadingBone extends StatelessWidget {
-  const _OriginLoadingBone({
-    this.width,
-    this.widthFactor,
-    required this.height,
-    this.radius = 4,
-  });
-
-  final double? width;
-  final double? widthFactor;
-  final double height;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    final child = DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFE9EDF2),
-        borderRadius: BorderRadius.circular(radius),
-      ),
-      child: SizedBox(width: width, height: height),
-    );
-    final widthFactor = this.widthFactor;
-    if (widthFactor == null) return child;
-    return FractionallySizedBox(
-      widthFactor: widthFactor,
-      alignment: Alignment.centerLeft,
-      child: child,
-    );
-  }
-}
-
-class _WorldDetailsContent extends StatelessWidget {
-  const _WorldDetailsContent({
-    required this.origin,
-    required this.currentUid,
-    required this.discussController,
-    required this.onOriginChanged,
-  });
-
-  final OriginDetail origin;
-  final String currentUid;
-  final OriginDiscussListController discussController;
-  final VoidCallback onOriginChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final previewTick = _originPreviewTick(origin);
-    return SliverList.list(
-      children: [
-        _OriginHeader(
-          origin: origin,
-          currentUid: currentUid,
-          onOriginChanged: onOriginChanged,
-        ),
-        // Section gap: header -> world view.
-        const SizedBox(height: 24),
-        _WorldViewSection(origin: origin),
-        if (previewTick != null) ...[
-          // Section gap: world view -> launch preview.
-          const SizedBox(height: 24),
-          _LaunchPreviewSection(origin: origin, previewTick: previewTick),
-        ],
-        // Section gap: previous content -> copy world progress.
-        const SizedBox(height: 24),
-        CopyWorldProgressSection(originId: origin.oid),
-        // Section gap: copy world progress -> discuss.
-        const SizedBox(height: 24),
-        _DiscussSection(origin: origin, controller: discussController),
-        // Section gap: discuss -> characters.
-        const SizedBox(height: 24),
-        _OriginCharactersSection(characters: origin.characters),
-      ],
-    );
-  }
-}
-
-class _OriginBottomLaunchBar extends StatelessWidget {
-  const _OriginBottomLaunchBar({
-    required this.origin,
-    required this.launching,
-    required this.onLaunch,
-  });
-
-  final OriginDetail origin;
-  final bool launching;
-  final VoidCallback onLaunch;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(color: const Color(0xFFF9F9F9)),
-      child: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.fromLTRB(13, 0, 13, 0),
-        child: SizedBox(
-          height: 56,
-          child: Row(
-            children: [
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SizedBox(
-                    height: 32,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        _LaunchBarStat(
-                          iconAsset: copyStatIconAsset,
-                          value: origin.copyCount,
-                        ),
-                        const SizedBox(width: 20),
-                        _LaunchBarStat(
-                          iconAsset: connectStatIconAsset,
-                          value: origin.interactCount,
-                        ),
-                        const SizedBox(width: 20),
-                        _LaunchBarStat(
-                          iconAsset: characterStatIconAsset,
-                          preserveIconAssetColor: true,
-                          value: origin.characterCount,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 18),
-              GenesisPrimaryButton(
-                label: 'Launch',
-                onPressed: launching ? null : onLaunch,
-                width: 140,
-                height: 35,
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                isLoading: launching,
-                loadingSize: 22,
-                loadingStrokeWidth: 2.4,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LaunchBarStat extends StatelessWidget {
-  const _LaunchBarStat({
-    this.icon,
-    this.iconAsset,
-    this.preserveIconAssetColor = false,
-    required this.value,
-  }) : assert(icon != null || iconAsset != null);
-
-  final IconData? icon;
-  final String? iconAsset;
-  final bool preserveIconAssetColor;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    return StatItem(
-      icon: icon,
-      iconAsset: iconAsset,
-      preserveIconAssetColor: preserveIconAssetColor,
-      iconSize: 14,
-      iconAssetScale: 1,
-      iconVerticalOffset: 0,
-      iconColor: const Color(0xFF111111),
-      gap: 4,
-      text: formatStatCount(value),
-      textStyle: const TextStyle(
-        fontSize: 14,
-        height: 1,
-        fontWeight: FontWeight.w400,
-        color: Color(0xFF111111),
-      ),
-    );
-  }
-}
-
-class _OriginHeader extends StatelessWidget {
-  const _OriginHeader({
-    required this.origin,
-    required this.currentUid,
-    required this.onOriginChanged,
-  });
-
-  final OriginDetail origin;
-  final String currentUid;
-  final VoidCallback onOriginChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final originator = origin.ownerDeleted
-        ? deletedEntityDisplayText
-        : origin.originator.trim().isEmpty
-        ? '-'
-        : formatUidForDisplay(origin.originator);
-    final ownerUid = origin.ownerUid.trim();
-    final canEditOrigin =
-        currentUid.trim().isNotEmpty && currentUid.trim() == ownerUid;
-    final version = origin.versionNum <= 0 ? 1 : origin.versionNum;
-    final age = formatGenesisDateTime(origin.updatedAt, fallback: '');
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const SizedBox(width: 38),
-            Expanded(
-              child: Text(
-                originDisplayName(origin.name, fallback: origin.oid),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 18,
-                  height: 1.25,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF4B6192),
-                ),
-              ),
-            ),
-            SizedBox(
-              width: 38,
-              child: GenesisMoreActionMenuButton(
-                buttonSize: 18 * 1.25,
-                items: [
-                  genesisReportMenuItem(
-                    context: context,
-                    targetType: 'origin',
-                    targetId: origin.oid,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        // Header inner spacing: title -> OID/originator row.
-        const SizedBox(height: 4),
-        GenesisPairedMetaRow(
-          leftLabel: 'OID',
-          leftValue: origin.oid,
-          leftDisplayValue: origin.deleted ? deletedEntityDisplayText : null,
-          leftCopyEnabled: !origin.deleted,
-          rightText: 'Originator: ${formatUidForDisplay(originator)}',
-          rightOnTap: ownerUid.isEmpty || origin.ownerDeleted
-              ? null
-              : () => Navigator.of(
-                  context,
-                ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
-        ),
-        // Header inner spacing: OID/originator row -> latest version.
-        const SizedBox(height: 0),
-        Text(
-          'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
-          style: CopyableIdLabel.textStyle,
-        ),
-        if (canEditOrigin) ...[
-          // Header inner spacing: latest version -> edit button.
-          const SizedBox(height: 8),
-          GenesisPrimaryButton(
-            label: 'Edit Worldo',
-            onPressed: () async {
-              await Navigator.of(context).pushNamed(
-                RouteNames.edit,
-                arguments: {'origin_id': origin.oid},
-              );
-              if (!context.mounted) return;
-              onOriginChanged();
-            },
-            backgroundColor: const Color(0xFF3B2468),
-            foregroundColor: Colors.white,
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _WorldViewSection extends StatelessWidget {
-  const _WorldViewSection({required this.origin});
-
-  final OriginDetail origin;
-
-  @override
-  Widget build(BuildContext context) {
-    final body = origin.worldView.trim().isEmpty
-        ? origin.description.trim()
-        : origin.worldView.trim();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionTitle(
-          icon: MyFlutterApp.eye,
-          iconColor: Color(0xFFFF2442),
-          title: 'Worldo Brief',
-        ),
-        // World view inner spacing: section title -> body text.
-        const SizedBox(height: 8),
-        Text(body, style: _bodyTextStyle),
-        // World view inner spacing: body text -> preview image.
-        const SizedBox(height: 8),
-        _PreviewImage(url: _resolveAssetUrl(origin.mapImage)),
-      ],
-    );
-  }
-}
-
-class _PreviewImage extends StatelessWidget {
-  const _PreviewImage({required this.url});
-
-  static const double _maxHeight = 360;
-  static const double _aspectRatio = 2 / 3;
-
-  final String url;
-
-  @override
-  Widget build(BuildContext context) {
-    final viewerUrl = url.trim();
-    final fallback = Container(
-      color: const Color(0xFFEFF1F4),
-      alignment: Alignment.center,
-      child: const Icon(Icons.image_outlined, color: Color(0xFF9A9A9A)),
-    );
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final mediaHeight = MediaQuery.sizeOf(context).height;
-        final maxHeight = mediaHeight.isFinite
-            ? _maxHeight.clamp(0.0, mediaHeight * 0.35).toDouble()
-            : _maxHeight;
-        final maxWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : maxHeight * _aspectRatio;
-        final width = maxWidth.clamp(0.0, maxHeight * _aspectRatio).toDouble();
-        final height = width / _aspectRatio;
-
-        final preview = Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: width,
-            height: height,
-            child: ClipRRect(
-              borderRadius: GenesisImageRadii.content,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final imageUrl = selectGenesisImageUrl(
-                    url,
-                    logicalWidth: constraints.maxWidth.isFinite
-                        ? constraints.maxWidth
-                        : null,
-                    logicalHeight: constraints.maxHeight.isFinite
-                        ? constraints.maxHeight
-                        : null,
-                    devicePixelRatio:
-                        MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
-                  );
-                  return imageUrl.isEmpty
-                      ? fallback
-                      : imageUrl.startsWith('assets/')
-                      ? Image.asset(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              fallback,
-                        )
-                      : Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              fallback,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return fallback;
-                          },
-                        );
-                },
-              ),
-            ),
-          ),
-        );
-        if (viewerUrl.isEmpty) return preview;
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => showGenesisImageViewer(context, imageUrls: [viewerUrl]),
-          child: preview,
-        );
-      },
-    );
-  }
-}
-
-class _LaunchPreviewSection extends StatelessWidget {
-  const _LaunchPreviewSection({
-    required this.origin,
-    required this.previewTick,
-  });
-
-  final OriginDetail origin;
-  final Map<String, dynamic> previewTick;
-
-  @override
-  Widget build(BuildContext context) {
-    final tickResult = previewTick['tick_result'] is Map
-        ? (previewTick['tick_result'] as Map).cast<String, dynamic>()
-        : const <String, dynamic>{};
-    final globalBody = _mapString(tickResult, const ['narrator']);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionTitle(
-          icon: Icons.auto_awesome,
-          iconColor: Color(0xFF6554FF),
-          title: 'Launch Preview',
-        ),
-        // Launch preview inner spacing: section title -> preview event item.
-        const SizedBox(height: 8),
-        WorldTickEventItem(
-          tick: previewTick,
-          tickNumber: 1,
-          fallbackBody: globalBody,
-          locationsById: _originLocationsById(origin.allLocations),
-          dateLabel: origin.startTime.trim().isEmpty
-              ? 'Day 1, 18:00'
-              : formatGenesisTimestamp(origin.startTime),
-          timeAgoLabel: '',
-          stackedContent: true,
-          contentLabelStyle: _originTickContentLabelStyle,
-          contentTextStyle: _originTickContentTextStyle,
-          contentTimestampStyle: _originTickContentTimestampStyle,
-        ),
-      ],
-    );
-  }
-}
-
 class CopyWorldProgressSection extends StatefulWidget {
   const CopyWorldProgressSection({super.key, required this.originId});
 
@@ -1462,10 +955,18 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
   Timer? _timer;
   var _summaries = const <WorldSummaryLatestItem>[];
   var _visibleIndex = 0;
+  var _didLoadSummaries = false;
 
   @override
   void initState() {
     super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didLoadSummaries) return;
+    _didLoadSummaries = true;
     unawaited(_loadSummaries());
   }
 
@@ -1530,12 +1031,7 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle(
-          icon: MyFlutterApp.lastProgress,
-          iconColor: Color(0xFFFF2442),
-          title: 'Copy World Progress',
-        ),
-        // Copy progress inner spacing: section title -> summary body.
+        const _SectionTitle(title: 'Copy World Progress'),
         const SizedBox(height: 8),
         _CopyWorldProgressCard(summary: summary),
       ],
@@ -1549,9 +1045,6 @@ class _CopyWorldProgressCard extends StatelessWidget {
   static const double _bodyFontSize = 13;
   static const double _bodyLineHeight = 1.45;
   static const double _bodyHeight = _bodyFontSize * _bodyLineHeight * 5 + 6;
-  static final _bodyStyle = _bodyTextStyle.copyWith(
-    color: const Color(0xFF111111),
-  );
   static const _bodyStrutStyle = StrutStyle(
     fontSize: _bodyFontSize,
     height: _bodyLineHeight,
@@ -1610,11 +1103,15 @@ class _CopyWorldProgressCard extends StatelessWidget {
                 maxLines: 5,
                 overflow: TextOverflow.ellipsis,
                 strutStyle: _bodyStrutStyle,
-                style: _bodyStyle,
+                style: const TextStyle(
+                  fontSize: _bodyFontSize,
+                  height: _bodyLineHeight,
+                  fontWeight: FontWeight.w400,
+                  color: Color(0xFF111111),
+                ),
               ),
             ),
           ),
-          // Copy progress inner spacing: summary body -> WID/tick/time row.
           const SizedBox(height: 0),
           _CopyWorldProgressMeta(summary: item),
         ],
@@ -1631,9 +1128,7 @@ class _CopyWorldProgressMeta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final item = summary;
-    if (item == null) {
-      return const SizedBox(height: 18);
-    }
+    if (item == null) return const SizedBox(height: 18);
     final timestamp = _formatSummaryTimestamp(
       item.tickTime == 0 ? item.createdAt : item.tickTime,
     );
@@ -1661,17 +1156,20 @@ class _CopyWorldProgressMeta extends StatelessWidget {
                       'WID: ${deletedAwareIdLabel(item.worldId, deleted: item.deleted)}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: _copyWorldProgressWidStyle,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.2,
+                        fontWeight: FontWeight.w400,
+                        color: Color(0xFF666666),
+                      ),
                     ),
                   ),
-                  // Copy progress meta spacing: WID -> tick badge.
                   const SizedBox(width: 8),
                   DiscussStoryBadge(count: item.tickNo),
                 ],
               ),
             ),
             if (hasTimestamp) ...[
-              // Copy progress meta spacing: WID/tick area -> timestamp.
               const SizedBox(width: gap),
               SizedBox(
                 width: timeWidth,
@@ -1680,443 +1178,32 @@ class _CopyWorldProgressMeta extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.right,
-                  style: _copyWorldProgressMetaStyle,
-                ),
-              ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _DiscussSection extends StatelessWidget {
-  const _DiscussSection({required this.origin, required this.controller});
-
-  final OriginDetail origin;
-  final OriginDiscussListController controller;
-
-  bool get _hasDiscussContent =>
-      origin.discussCount > 0 ||
-      controller.totalAll > 0 ||
-      controller.items.isNotEmpty;
-
-  Future<void> _handleDiscussAreaTap(BuildContext context) {
-    if (_hasDiscussContent) return _openDiscussPage(context);
-    return _openPostComposer(context);
-  }
-
-  Future<void> _openDiscussPage(BuildContext context) {
-    return Navigator.of(context).pushNamed(
-      RouteNames.discuss,
-      arguments: {'oid': origin.oid, 'originId': origin.id},
-    );
-  }
-
-  Future<void> _openPostComposer(BuildContext context) async {
-    final submitted = await showDiscussPostComposer(
-      context: context,
-      title: 'New post',
-      placeholder: 'Write a post',
-      submitter: (content, images) async {
-        await AppServicesScope.read(context).api.v1.discuss.post(
-          bizId: origin.oid.trim(),
-          bizType: 1,
-          content: content,
-          images: images,
-        );
-      },
-    );
-    if (!context.mounted || !submitted) return;
-    unawaited(controller.refreshFirstPage());
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final hasDiscussContent = _hasDiscussContent;
-        final showDiscussList =
-            hasDiscussContent ||
-            controller.isInitialLoading ||
-            controller.error != null;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            GestureDetector(
-              key: const ValueKey('origin-discuss-summary-area'),
-              behavior: HitTestBehavior.opaque,
-              onTap: () => unawaited(_handleDiscussAreaTap(context)),
-              child: SizedBox(
-                width: double.infinity,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _SectionTitle(
-                      iconAsset: discussIconAsset,
-                      title: 'Discuss (${origin.discussCount})',
-                    ),
-                    if (showDiscussList) ...[
-                      // Discuss inner spacing: section title -> discuss list.
-                      const SizedBox(height: 8),
-                      OriginDiscussList(
-                        controller: controller,
-                        count: origin.discussCount,
-                        showHeader: false,
-                        showActions: false,
-                        showReplies: false,
-                        disableAvatarProfileTap: true,
-                        onViewMoreTap: () => _openDiscussPage(context),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            if (!hasDiscussContent) ...[
-              // Discuss inner spacing: empty discuss summary -> post input.
-              const SizedBox(height: 8),
-              DiscussPostInput(
-                bizId: origin.oid,
-                onSubmitted: () => unawaited(controller.refreshFirstPage()),
-              ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _OriginCharactersSection extends StatelessWidget {
-  const _OriginCharactersSection({required this.characters});
-
-  final List<OriginCharacter> characters;
-
-  @override
-  Widget build(BuildContext context) {
-    final characterAvatarUrls = characters
-        .map((character) => _resolveAssetUrl(character.avatar).trim())
-        .where((url) => url.isNotEmpty)
-        .toList(growable: false);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionTitle(
-          iconAsset: characterStatIconAsset,
-          title: 'Characters (${characters.length})',
-        ),
-        // Characters inner spacing: section title -> first character row.
-        const SizedBox(height: 14),
-        if (characters.isEmpty)
-          const Text('No characters', style: _mutedBodyTextStyle)
-        else
-          for (int i = 0; i < characters.length; i++) ...[
-            _OriginCharacterRow(
-              character: characters[i],
-              imageUrls: characterAvatarUrls,
-            ),
-            // Characters inner spacing: one character row -> next row.
-            if (i != characters.length - 1) const SizedBox(height: 20),
-          ],
-      ],
-    );
-  }
-}
-
-class _OriginCharacterRow extends StatelessWidget {
-  const _OriginCharacterRow({required this.character, required this.imageUrls});
-
-  final OriginCharacter character;
-  final List<String> imageUrls;
-
-  @override
-  Widget build(BuildContext context) {
-    final identity = _splitTags(character.tags).join(' · ');
-    final tagline = character.tagline.trim();
-    final description = character.description.trim();
-    final visibleDescription = _sameCharacterText(tagline, description)
-        ? ''
-        : description;
-    final goal = character.goal.trim();
-    final avatarUrl = _resolveAssetUrl(character.avatar);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _OriginCharacterPortrait(
-          characterId: _characterStableId(character),
-          url: avatarUrl,
-          name: character.name,
-          imageUrls: imageUrls,
-        ),
-        // Character row inner spacing: portrait -> text column.
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                character.name,
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 1.15,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF111111),
-                ),
-              ),
-              if (identity.isNotEmpty) ...[
-                // Character text spacing: name -> identity.
-                const SizedBox(height: 5),
-                Text(
-                  identity,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 12,
                     height: 1.2,
                     fontWeight: FontWeight.w400,
-                    color: Color(0xFF111111),
+                    color: Color(0xFF8C8C8C),
                   ),
                 ),
-              ],
-              if (tagline.isNotEmpty) ...[
-                // Character text spacing: previous short line -> tagline.
-                const SizedBox(height: 5),
-                Text(
-                  tagline,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    height: 1.2,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFFFF2442),
-                  ),
-                ),
-              ],
-              if (visibleDescription.isNotEmpty) ...[
-                // Character text spacing: previous line -> description.
-                const SizedBox(height: 9),
-                Text(visibleDescription, style: _characterBodyTextStyle),
-              ],
-              if (goal.isNotEmpty) ...[
-                // Character text spacing: description/previous line -> goal.
-                const SizedBox(height: 9),
-                Text('Goal: $goal', style: _characterBodyTextStyle),
-              ],
+              ),
             ],
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
-}
-
-class _OriginCharacterPortrait extends StatefulWidget {
-  const _OriginCharacterPortrait({
-    required this.characterId,
-    required this.url,
-    required this.name,
-    required this.imageUrls,
-  });
-
-  static const double _width = 86;
-  static const double _borderRadius = GenesisAvatarRadii.character;
-  static const double _starSize = 20;
-
-  final String characterId;
-  final String url;
-  final String name;
-  final List<String> imageUrls;
-
-  @override
-  State<_OriginCharacterPortrait> createState() =>
-      _OriginCharacterPortraitState();
-}
-
-class _OriginCharacterPortraitState extends State<_OriginCharacterPortrait> {
-  late bool _hasVisiblePortrait;
-
-  @override
-  void initState() {
-    super.initState();
-    _hasVisiblePortrait = !_shouldWaitForNetworkPortrait(widget.url);
-  }
-
-  @override
-  void didUpdateWidget(covariant _OriginCharacterPortrait oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url) {
-      _hasVisiblePortrait = !_shouldWaitForNetworkPortrait(widget.url);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final resolvedUrl = selectGenesisImageUrl(
-      widget.url,
-      logicalWidth: _OriginCharacterPortrait._width,
-      logicalHeight: _OriginCharacterPortrait._width,
-      devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
-    ).trim();
-    final fallback = GenesisAvatarFallback(
-      name: widget.name,
-      width: _OriginCharacterPortrait._width,
-      height: _OriginCharacterPortrait._width,
-      borderRadius: _OriginCharacterPortrait._borderRadius,
-    );
-    final waitsForNetworkPortrait =
-        resolvedUrl.isNotEmpty && !resolvedUrl.startsWith('assets/');
-    final image = resolvedUrl.isEmpty
-        ? fallback
-        : resolvedUrl.startsWith('assets/')
-        ? Image.asset(
-            resolvedUrl,
-            width: _OriginCharacterPortrait._width,
-            fit: BoxFit.fitWidth,
-            alignment: Alignment.topCenter,
-            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-              if (wasSynchronouslyLoaded || frame != null) {
-                _updatePortraitVisibility(true);
-              }
-              return child;
-            },
-            errorBuilder: (context, error, stackTrace) {
-              _updatePortraitVisibility(true);
-              return fallback;
-            },
-          )
-        : CachedNetworkImage(
-            imageUrl: resolvedUrl,
-            width: _OriginCharacterPortrait._width,
-            fit: BoxFit.fitWidth,
-            alignment: Alignment.topCenter,
-            fadeInDuration: Duration.zero,
-            fadeOutDuration: Duration.zero,
-            placeholderFadeInDuration: Duration.zero,
-            imageBuilder: (context, imageProvider) {
-              _updatePortraitVisibility(true);
-              return Image(
-                image: imageProvider,
-                width: _OriginCharacterPortrait._width,
-                fit: BoxFit.fitWidth,
-                alignment: Alignment.topCenter,
-              );
-            },
-            placeholder: (context, url) {
-              _updatePortraitVisibility(false);
-              return const SizedBox(
-                width: _OriginCharacterPortrait._width,
-                height: _OriginCharacterPortrait._width,
-              );
-            },
-            errorWidget: (context, url, error) {
-              _updatePortraitVisibility(true);
-              return fallback;
-            },
-          );
-
-    final portraitImage = SizedBox(
-      width: _OriginCharacterPortrait._width,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(
-          _OriginCharacterPortrait._borderRadius,
-        ),
-        child: image,
-      ),
-    );
-    final initialIndex = widget.imageUrls.indexOf(widget.url.trim());
-    final portrait = Stack(
-      clipBehavior: Clip.none,
-      children: [
-        portraitImage,
-        if (!waitsForNetworkPortrait || _hasVisiblePortrait)
-          Positioned(
-            top: -_OriginCharacterPortrait._starSize / 4 - 2,
-            right: -_OriginCharacterPortrait._starSize / 4 - 3,
-            child: Icon(
-              MyFlutterApp.redstarCharIcon,
-              size: _OriginCharacterPortrait._starSize,
-              color: const Color(0xFFFF2442),
-            ),
-          ),
-      ],
-    );
-    if (resolvedUrl.isEmpty) return portrait;
-    return GestureDetector(
-      key: ValueKey('origin-character-portrait-${widget.characterId}'),
-      behavior: HitTestBehavior.opaque,
-      onTap: () => showGenesisImageViewer(
-        context,
-        imageUrls: widget.imageUrls,
-        initialIndex: initialIndex < 0 ? 0 : initialIndex,
-      ),
-      child: portrait,
-    );
-  }
-
-  bool _shouldWaitForNetworkPortrait(String url) {
-    final trimmed = url.trim();
-    return trimmed.isNotEmpty && !trimmed.startsWith('assets/');
-  }
-
-  void _updatePortraitVisibility(bool isVisible) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _hasVisiblePortrait == isVisible) return;
-      setState(() {
-        _hasVisiblePortrait = isVisible;
-      });
-    });
-  }
-}
-
-String _characterStableId(OriginCharacter character) {
-  final explicitId = character.characterId.trim();
-  if (explicitId.isNotEmpty) return explicitId;
-  if (character.id > 0) return '${character.id}';
-  return character.name.trim();
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    this.icon,
-    this.iconAsset,
-    this.iconColor,
-    required this.title,
-  }) : assert(icon != null || iconAsset != null);
+  const _SectionTitle({required this.title});
 
-  final IconData? icon;
-  final String? iconAsset;
-  final Color? iconColor;
   final String title;
 
   @override
   Widget build(BuildContext context) {
-    final asset = iconAsset;
-    final isCharacterIcon = asset == characterStatIconAsset;
-    const assetSize = 16.0;
     return Row(
       children: [
-        if (asset case final asset?)
-          Transform.translate(
-            offset: Offset(0, isCharacterIcon ? -1.2 : 0),
-            child: asset.endsWith('.svg')
-                ? SvgPicture.asset(
-                    asset,
-                    width: assetSize,
-                    height: assetSize,
-                    fit: BoxFit.contain,
-                    excludeFromSemantics: true,
-                  )
-                : Image.asset(
-                    asset,
-                    width: assetSize,
-                    height: assetSize,
-                    fit: BoxFit.contain,
-                    excludeFromSemantics: true,
-                  ),
-          )
-        else
-          Icon(icon, size: 14, color: iconColor),
+        const Icon(Icons.history, size: 14, color: Color(0xFFFF2442)),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
@@ -2136,75 +1223,9 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-const _bodyTextStyle = TextStyle(
-  fontSize: 13,
-  height: 1.45,
-  fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
-);
-
-const _characterBodyTextStyle = TextStyle(
-  fontSize: 13,
-  height: 1.35,
-  fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
-);
-
-const _mutedBodyTextStyle = TextStyle(
-  fontSize: 13,
-  height: 1.3,
-  fontWeight: FontWeight.w600,
-  color: Color(0xFF999999),
-);
-
-const _originTickContentLabelStyle = TextStyle(
-  fontSize: 13,
-  height: 1.6,
-  fontWeight: FontWeight.w600,
-  color: Color(0xFF111111),
-);
-
-const _originTickContentTextStyle = TextStyle(
-  fontSize: 13,
-  height: 1.6,
-  fontWeight: FontWeight.w400,
-  color: Color(0xFF444444),
-);
-
-const _originTickContentTimestampStyle = TextStyle(
-  fontSize: 13,
-  height: 1.4,
-  fontWeight: FontWeight.w600,
-  color: Color(0xFF111111),
-);
-
-const _copyWorldProgressMetaStyle = TextStyle(
-  fontSize: 12,
-  height: 1.2,
-  fontWeight: FontWeight.w400,
-  color: Color(0xFF8C8C8C),
-);
-
-const _copyWorldProgressWidStyle = TextStyle(
-  fontSize: 12,
-  height: 1.2,
-  fontWeight: FontWeight.w400,
-  color: Color(0xFF666666),
-);
-
-List<String> _splitTags(String tags) {
-  if (tags.trim().isEmpty) return const [];
-  return tags
-      .split(',')
-      .map((e) => e.trim())
-      .where((e) => e.isNotEmpty)
-      .toList();
-}
-
-bool _sameCharacterText(String a, String b) {
-  final left = a.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
-  final right = b.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
-  return left.isNotEmpty && left == right;
+String _formatSummaryTimestamp(int seconds) {
+  if (seconds <= 0) return '';
+  return formatGenesisTimestamp(seconds);
 }
 
 String _resolveAssetUrl(String raw) {
@@ -2247,31 +1268,6 @@ String _mapString(Map<dynamic, dynamic> map, List<String> keys) {
     if (text.isNotEmpty) return text;
   }
   return '';
-}
-
-Map<String, dynamic>? _originPreviewTick(OriginDetail origin) {
-  final tick = _originTick1(origin);
-  if (tick == null) return null;
-  final result = tick['tick_result'] is Map
-      ? (tick['tick_result'] as Map).cast<String, dynamic>()
-      : const <String, dynamic>{};
-  final narrator = _mapString(result, const ['narrator']);
-  final paragraphsRaw = result['paragraphs'];
-  final paragraphs = paragraphsRaw is List
-      ? paragraphsRaw
-            .whereType<Map>()
-            .map((item) => item.cast<String, dynamic>())
-            .where(_originPreviewParagraphHasText)
-            .toList(growable: false)
-      : const <Map<String, dynamic>>[];
-
-  return <String, dynamic>{
-    'created_at': tick['created_at'] ?? origin.updatedAt,
-    'tick_result': <String, dynamic>{
-      'narrator': narrator,
-      'paragraphs': paragraphs,
-    },
-  };
 }
 
 List<WorldChatroomMessage> _originLocationOpeningPreviewMessages(
@@ -2459,37 +1455,6 @@ List<WorldChatroomEntity> originLocationOpeningPreviewEntitiesForTesting(
   return entities;
 }
 
-Map<String, dynamic>? _originTick1(OriginDetail origin) {
-  for (final tick in origin.ticks) {
-    if (_mapInt(tick, const ['tick_no']) == 1) return tick;
-  }
-  return null;
-}
-
-bool _originPreviewParagraphHasText(Map<String, dynamic> paragraph) {
-  return _mapString(paragraph, const [
-    'text',
-    'content',
-    'summary',
-    'paragraph',
-  ]).isNotEmpty;
-}
-
-Map<String, Map<String, dynamic>> _originLocationsById(
-  List<OriginLocation> locations,
-) {
-  final out = <String, Map<String, dynamic>>{};
-  for (final location in locations) {
-    final locationId = location.locationId.trim();
-    if (locationId.isEmpty) continue;
-    out[locationId] = <String, dynamic>{
-      'location_name': location.name,
-      'name': location.name,
-    };
-  }
-  return out;
-}
-
 int _mapInt(Map<dynamic, dynamic> map, List<String> keys) {
   for (final key in keys) {
     final value = map[key];
@@ -2501,11 +1466,6 @@ int _mapInt(Map<dynamic, dynamic> map, List<String> keys) {
     }
   }
   return 0;
-}
-
-String _formatSummaryTimestamp(int seconds) {
-  if (seconds <= 0) return '';
-  return formatGenesisTimestamp(seconds);
 }
 
 List<OriginLocation> _rootOriginLocations(List<OriginLocation> locations) {
