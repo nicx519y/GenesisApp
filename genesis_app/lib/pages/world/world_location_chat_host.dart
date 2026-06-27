@@ -106,7 +106,6 @@ class WorldLocationChatPageCache {
       <String, WorldLocationChatPanelDescriptor>{};
   final Set<String> _cachedLocationIds = <String>{};
   final Set<String> _readyLocationIds = <String>{};
-  final Map<String, double> _scrollOffsetsByLocation = <String, double>{};
   final Map<String, String> _draftTextByLocation = <String, String>{};
 
   String activeLocationId = '';
@@ -140,9 +139,6 @@ class WorldLocationChatPageCache {
     _readyLocationIds.removeWhere((locationId) {
       return !descriptors.containsKey(locationId);
     });
-    _scrollOffsetsByLocation.removeWhere((locationId, _) {
-      return !descriptors.containsKey(locationId);
-    });
     _draftTextByLocation.removeWhere((locationId, _) {
       return !descriptors.containsKey(locationId);
     });
@@ -169,17 +165,8 @@ class WorldLocationChatPageCache {
     _readyLocationIds.add(locationId);
   }
 
-  double? scrollOffsetFor(String locationId) {
-    return _scrollOffsetsByLocation[locationId];
-  }
-
   String draftTextFor(String locationId) {
     return _draftTextByLocation[locationId] ?? '';
-  }
-
-  void updateScrollOffset(String locationId, double offset) {
-    if (locationId.isEmpty) return;
-    _scrollOffsetsByLocation[locationId] = offset;
   }
 
   void updateDraftText(String locationId, String text) {
@@ -195,7 +182,6 @@ class WorldLocationChatPageCache {
     _descriptors.clear();
     _cachedLocationIds.clear();
     _readyLocationIds.clear();
-    _scrollOffsetsByLocation.clear();
     _draftTextByLocation.clear();
     activeLocationId = '';
   }
@@ -273,6 +259,7 @@ class WorldLocationChatRouterHostState
         excluding: !active,
         child: LocationChatOverlayTransition(
           active: active,
+          maintainChildOnDismiss: true,
           onDismissed: _handleDismissed,
           child: Stack(
             children: [
@@ -332,18 +319,8 @@ class WorldLocationChatRouterHostState
                   initialDraftText: widget.cache.draftTextFor(
                     descriptor.locationId,
                   ),
-                  initialScrollOffset: widget.cache.scrollOffsetFor(
-                    descriptor.locationId,
-                  ),
                   onDraftTextChanged: (text) {
                     widget.cache.updateDraftText(descriptor.locationId, text);
-                  },
-                  onScrollOffsetChanged: (offset) {
-                    if (!active) return;
-                    widget.cache.updateScrollOffset(
-                      descriptor.locationId,
-                      offset,
-                    );
                   },
                 ),
               ),
@@ -365,9 +342,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
     required this.onBack,
     required this.onInitialContentReady,
     required this.initialDraftText,
-    required this.initialScrollOffset,
     required this.onDraftTextChanged,
-    required this.onScrollOffsetChanged,
   });
 
   final String worldId;
@@ -377,9 +352,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onInitialContentReady;
   final String initialDraftText;
-  final double? initialScrollOffset;
   final ValueChanged<String> onDraftTextChanged;
-  final ValueChanged<double> onScrollOffsetChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -406,9 +379,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             onBack: onBack,
             onInitialContentReady: onInitialContentReady,
             initialDraftText: initialDraftText,
-            initialScrollOffset: initialScrollOffset,
             onDraftTextChanged: onDraftTextChanged,
-            onScrollOffsetChanged: onScrollOffsetChanged,
           ),
         ),
       ],

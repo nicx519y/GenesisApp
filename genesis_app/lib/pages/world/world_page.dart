@@ -64,6 +64,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   Map<String, WorldLocationChatPanelDescriptor> _locationChatDescriptors =
       <String, WorldLocationChatPanelDescriptor>{};
   final _locationChatPageCache = WorldLocationChatPageCache();
+  final Set<String> _preloadedLocationMessageIds = <String>{};
+  final Map<String, Future<void>> _preloadingLocationMessageFutures =
+      <String, Future<void>>{};
+  Future<void>? _preloadMessageCacheResetFuture;
   String _activeChatLocationId = '';
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
@@ -363,6 +367,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _worldChatroomSub = null;
     _worldChatroomFailureSub = null;
     _worldChatroom = null;
+    _preloadedLocationMessageIds.clear();
+    _preloadingLocationMessageFutures.clear();
+    _preloadMessageCacheResetFuture = null;
     if (mounted) {
       setState(() {
         _activeChatLocationId = '';
@@ -382,6 +389,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       if (!mounted || !identical(_worldChatroom, service)) return;
       await service.connect(worldId: widget.wid, identity: identity);
       if (!mounted || !identical(_worldChatroom, service)) return;
+      _scheduleLocationChatPrecache();
     } catch (_) {
       // The service emits failures and keeps reconnecting while desired.
     }
@@ -1017,6 +1025,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       'active hydrate start location=${descriptor.locationId} '
       'aliases=${descriptor.localMessageLocationIds.join(',')}',
     );
+    unawaited(_preloadLocationChatMessages(descriptor));
     await chatroom.hydrateLocalMessages(
       worldId: widget.wid,
       locationId: descriptor.locationId,
@@ -1068,7 +1077,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _locationChatPageCache.deactivate();
       _syncWorldStatusBarForMainTab();
     }
-    _scheduleLocationChatPrecache(descriptors.keys.toList(growable: false));
+    _preloadedLocationMessageIds.removeWhere(
+      (locationId) => !descriptors.containsKey(locationId),
+    );
+    _preloadingLocationMessageFutures.removeWhere(
+      (locationId, _) => !descriptors.containsKey(locationId),
+    );
+    _scheduleLocationChatPrecache();
   }
 
   Map<String, WorldLocationChatPanelDescriptor>
@@ -1101,11 +1116,103 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     };
   }
 
-  void _scheduleLocationChatPrecache(List<String> locationIds) {
+  void _scheduleLocationChatPrecache() {
+    final descriptors = _locationChatDescriptors.values
+        .where((descriptor) => descriptor.isLeafLocation)
+        .where((descriptor) => descriptor.locationId.trim().isNotEmpty)
+        .toList(growable: false);
     _logLocationChatMetric(
-      'panel precache scheduled count=${locationIds.length} '
-      'cached=${_locationChatPageCache.cachedPanelCount}',
+      'panel precache scheduled count=${descriptors.length} '
+      'cached=${_locationChatPageCache.cachedPanelCount} '
+      'preloaded=${_preloadedLocationMessageIds.length}',
     );
+    if (descriptors.isEmpty) return;
+    final chatroom = _worldChatroom;
+    if (chatroom == null || chatroom.identity == null) return;
+    final resetFuture = _ensureLocationMessagePreloadReset(chatroom);
+    for (final descriptor in descriptors) {
+      unawaited(
+        _preloadLocationChatMessages(descriptor, resetFuture: resetFuture),
+      );
+    }
+  }
+
+  Future<void> _ensureLocationMessagePreloadReset(
+    WorldChatroomService chatroom,
+  ) {
+    final existing = _preloadMessageCacheResetFuture;
+    if (existing != null) return existing;
+    _logLocationChatMetric('message preload cache reset start');
+    final future = chatroom
+        .clearCachedMessages()
+        .then((_) {
+          if (!identical(_worldChatroom, chatroom)) return;
+          _preloadedLocationMessageIds.clear();
+          _logLocationChatMetric('message preload cache reset done');
+        })
+        .catchError((Object error) {
+          _logLocationChatMetric(
+            'message preload cache reset failed error=$error',
+          );
+          throw error;
+        });
+    _preloadMessageCacheResetFuture = future;
+    return future;
+  }
+
+  Future<void> _preloadLocationChatMessages(
+    WorldLocationChatPanelDescriptor descriptor, {
+    Future<void>? resetFuture,
+  }) {
+    final locationId = descriptor.locationId.trim();
+    if (locationId.isEmpty || !descriptor.isLeafLocation) {
+      return Future<void>.value();
+    }
+    final chatroom = _worldChatroom;
+    if (chatroom == null || chatroom.identity == null) {
+      return Future<void>.value();
+    }
+    if (_preloadedLocationMessageIds.contains(locationId)) {
+      return Future<void>.value();
+    }
+    final existing = _preloadingLocationMessageFutures[locationId];
+    if (existing != null) return existing;
+    final resolvedResetFuture =
+        resetFuture ?? _ensureLocationMessagePreloadReset(chatroom);
+    _logLocationChatMetric(
+      'message preload start location=$locationId '
+      'aliases=${descriptor.localMessageLocationIds.join(',')}',
+    );
+    final future = resolvedResetFuture
+        .then(
+          (_) => chatroom.refreshLatestMessages(
+            locationId: locationId,
+            limit: 20,
+            emitLatestFetched: false,
+          ),
+        )
+        .then((messages) {
+          if (!identical(_worldChatroom, chatroom) ||
+              !_locationChatDescriptors.containsKey(locationId)) {
+            return;
+          }
+          _preloadedLocationMessageIds.add(locationId);
+          _logLocationChatMetric(
+            'message preload done location=$locationId '
+            'loaded=${messages.length} '
+            'stateCount=${chatroom.state.messagesByLocation[locationId]?.length ?? 0}',
+          );
+        })
+        .catchError((Object error) {
+          _logLocationChatMetric(
+            'message preload failed location=$locationId error=$error',
+          );
+        })
+        .whenComplete(() {
+          _preloadingLocationMessageFutures.remove(locationId);
+        });
+    _preloadingLocationMessageFutures[locationId] = future;
+    return future;
   }
 
   bool get _locationChatMetricsEnabled => kDebugMode || kProfileMode;

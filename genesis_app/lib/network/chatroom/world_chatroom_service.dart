@@ -74,6 +74,7 @@ class WorldChatroomService {
   final Map<String, Future<void>> _localHydratingMessageFutures =
       <String, Future<void>>{};
   final Set<String> _localHydratedMessageKeys = <String>{};
+  int _localMessageCacheGeneration = 0;
   final Map<String, Future<List<WorldChatroomMessage>>>
   _latestMessageFetchFutures = <String, Future<List<WorldChatroomMessage>>>{};
   bool _heartbeatInFlight = false;
@@ -382,6 +383,24 @@ class WorldChatroomService {
     return WorldChatroomOlderMessagesPage(
       loadedCount: loadedMessageIds.length,
       hasMore: response.hasMore || loadedMessageIds.length >= limit,
+    );
+  }
+
+  Future<void> clearCachedMessages() async {
+    _throwIfDisposed();
+    final ownerUid = _storageOwnerUid;
+    if (ownerUid.isEmpty) return;
+    await _messageStorage.clearCache(ownerUid);
+    _localMessageCacheGeneration += 1;
+    _localHydratedMessageKeys.clear();
+    _localHydratingMessageFutures.clear();
+    _setState(
+      _state.copyWith(
+        worldMessages: const <WorldChatroomMessage>[],
+        messagesByLocation: const <String, List<WorldChatroomMessage>>{},
+        streamMessagesByKey: const <String, WorldChatroomMessage>{},
+        lastMessageId: 0,
+      ),
     );
   }
 
@@ -927,12 +946,15 @@ class WorldChatroomService {
       storageLocationId: resolvedLocationId,
       stateLocationId: resolvedStateLocationId,
       hydrationKey: hydrationKey,
+      cacheGeneration: _localMessageCacheGeneration,
     );
     _localHydratingMessageFutures[hydrationKey] = hydration;
     try {
       await hydration;
     } finally {
-      _localHydratingMessageFutures.remove(hydrationKey);
+      if (identical(_localHydratingMessageFutures[hydrationKey], hydration)) {
+        _localHydratingMessageFutures.remove(hydrationKey);
+      }
     }
   }
 
@@ -942,6 +964,7 @@ class WorldChatroomService {
     required String storageLocationId,
     required String stateLocationId,
     required String hydrationKey,
+    required int cacheGeneration,
   }) async {
     final stopwatch = _chatroomHydrateMetricsEnabled
         ? (Stopwatch()..start())
@@ -959,6 +982,13 @@ class WorldChatroomService {
         locationId: storageLocationId,
         limit: 20,
       );
+      if (cacheGeneration != _localMessageCacheGeneration) {
+        _logChatroomHydrateMetric(
+          'db load skipped stale generation storage=$storageLocationId '
+          'state=$stateLocationId',
+        );
+        return;
+      }
       final hydratedMessages = localMessages
           .map((json) {
             final message = WorldChatroomMessage.fromStorageJson(json);
@@ -1015,9 +1045,6 @@ class WorldChatroomService {
   }
 
   Future<void> _handleIncomingMessage(WorldChatroomMessage message) async {
-    if (_shouldFetchGap(message)) {
-      await _fetchLatestMessages(message.locationId, limit: 100);
-    }
     _upsertMessage(message);
   }
 
@@ -1026,13 +1053,6 @@ class WorldChatroomService {
         .map((locationId) => message.copyWith(locationId: locationId))
         .toList(growable: false);
     _upsertMessages(messages.isEmpty ? [message] : messages);
-  }
-
-  bool _shouldFetchGap(WorldChatroomMessage message) {
-    return message.messageId > 0 &&
-        _state.lastMessageId > 0 &&
-        message.messageId > _state.lastMessageId + 1 &&
-        message.locationId.isNotEmpty;
   }
 
   Future<List<WorldChatroomMessage>> _fetchLatestMessages(

@@ -6,11 +6,13 @@ class LocationChatOverlayTransition extends StatefulWidget {
     super.key,
     required this.active,
     required this.child,
+    this.maintainChildOnDismiss = false,
     this.onDismissed,
   });
 
   final bool active;
   final Widget? child;
+  final bool maintainChildOnDismiss;
   final VoidCallback? onDismissed;
 
   @override
@@ -65,7 +67,9 @@ class _LocationChatOverlayTransitionState
     }
     _controller.reverse().then((_) {
       if (!mounted || widget.active || !_controller.isDismissed) return;
-      setState(() => _displayChild = null);
+      if (!widget.maintainChildOnDismiss) {
+        setState(() => _displayChild = null);
+      }
       widget.onDismissed?.call();
     });
   }

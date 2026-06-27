@@ -104,9 +104,7 @@ class LocationChatPanel extends StatefulWidget {
     this.systemUiOverlayStyle = kChatDarkHeaderSystemUiOverlayStyle,
     this.style,
     this.initialDraftText = '',
-    this.initialScrollOffset,
     this.onDraftTextChanged,
-    this.onScrollOffsetChanged,
   });
 
   final String worldId;
@@ -131,9 +129,7 @@ class LocationChatPanel extends StatefulWidget {
   final SystemUiOverlayStyle systemUiOverlayStyle;
   final ChatUiStyleConfig? style;
   final String initialDraftText;
-  final double? initialScrollOffset;
   final ValueChanged<String>? onDraftTextChanged;
-  final ValueChanged<double>? onScrollOffsetChanged;
 
   @override
   State<LocationChatPanel> createState() => _LocationChatPanelState();
@@ -201,9 +197,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _textController.addListener(_handleDraftTextChanged);
     _scrollController.addListener(_handleMessageListScroll);
     _prepareConnection();
-    if (!_restoreInitialScrollOffset()) {
-      _startInitialBottomScroll();
-    }
+    _startInitialBottomScroll();
   }
 
   @override
@@ -215,9 +209,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     }
     unawaited(_closeChatroom());
     widget.onDraftTextChanged?.call(_textController.text);
-    if (!_initialBottomScrollPending && _scrollController.hasClients) {
-      widget.onScrollOffsetChanged?.call(_scrollController.position.pixels);
-    }
     _scrollController.removeListener(_handleMessageListScroll);
     _scrollController.dispose();
     _composerFocusNode.removeListener(_handleComposerFocusChanged);
@@ -249,18 +240,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           _initialContentReadyNotified = false;
           _initialLatestMessagesRefresh = null;
           _prepareConnection();
-          if (!_restoreInitialScrollOffset()) {
-            _startInitialBottomScroll();
-          }
+          _startInitialBottomScroll();
         }),
       );
       return;
     }
     if (!oldWidget.active && widget.active) {
       _activateConnection();
-      if (!_restoreInitialScrollOffset()) {
-        _startInitialBottomScroll();
-      }
+      _startInitialBottomScroll();
     } else if (oldWidget.active && !widget.active) {
       unawaited(_deactivateConnection());
     }
@@ -1096,18 +1083,12 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   void _handleMessageListScroll() {
     if (!_scrollController.hasClients) return;
-    var publishedOffset = false;
     if (_initialBottomScrollPending &&
         _initialBottomScrollDidJump &&
         _messages.isNotEmpty &&
         !_isAtBottom()) {
       _initialBottomScrollPending = false;
       _initialBottomScrollShouldComplete = false;
-      widget.onScrollOffsetChanged?.call(_scrollController.position.pixels);
-      publishedOffset = true;
-    }
-    if (!_initialBottomScrollPending && !publishedOffset) {
-      widget.onScrollOffsetChanged?.call(_scrollController.position.pixels);
     }
     if (_unseenIncomingCount > 0 && _isAtBottom()) {
       _clearUnseenIncomingCount();
@@ -1132,7 +1113,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _hasMoreOlderMessages = false;
       return;
     }
-    _loadingOlderMessages = true;
+    setState(() {
+      _loadingOlderMessages = true;
+    });
     try {
       final page = await service.loadOlderMessages(
         locationId: widget.locationId,
@@ -1144,7 +1127,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       // Up-scroll history loading is opportunistic; connection failures are
       // surfaced by the chatroom service failure stream when appropriate.
     } finally {
-      _loadingOlderMessages = false;
+      if (mounted) {
+        setState(() {
+          _loadingOlderMessages = false;
+        });
+      } else {
+        _loadingOlderMessages = false;
+      }
     }
   }
 
@@ -1507,30 +1496,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     return _scrollController.position.maxScrollExtent;
   }
 
-  bool _restoreInitialScrollOffset() {
-    final initialOffset = widget.initialScrollOffset;
-    if (initialOffset == null) return false;
-    _initialBottomScrollPending = false;
-    _initialBottomScrollShouldComplete = false;
-    _initialBottomScrollDidJump = false;
-
-    void restoreIfReady() {
-      if (!mounted || !_scrollController.hasClients) return;
-      final position = _scrollController.position;
-      final target = initialOffset
-          .clamp(position.minScrollExtent, position.maxScrollExtent)
-          .toDouble();
-      _scrollController.jumpTo(target);
-    }
-
-    restoreIfReady();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      restoreIfReady();
-      WidgetsBinding.instance.addPostFrameCallback((_) => restoreIfReady());
-    });
-    return true;
-  }
-
   void _startInitialBottomScroll() {
     _initialBottomScrollPending = true;
     _initialBottomScrollShouldComplete = false;
@@ -1559,7 +1524,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _scrollController.jumpTo(_bottomScrollOffset());
         _initialBottomScrollPending = false;
         _initialBottomScrollDidJump = false;
-        widget.onScrollOffsetChanged?.call(_scrollController.position.pixels);
       });
     });
   }

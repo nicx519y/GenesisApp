@@ -418,6 +418,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldSummaryLatestItems,
     this.worldDetailTicksByRequest,
     this.worldDetailTickCountsByRequest,
+    this.chatroomMessagesByLocation,
     this.worldTickListCompleter,
     this.hotTagsCompleter,
   });
@@ -445,6 +446,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final List<Map<String, Object?>>? worldSummaryLatestItems;
   final List<List<Map<String, Object?>>>? worldDetailTicksByRequest;
   final List<int>? worldDetailTickCountsByRequest;
+  final Map<String, List<Map<String, Object?>>>? chatroomMessagesByLocation;
   final Completer<TransportResponse>? worldTickListCompleter;
   final Completer<TransportResponse>? hotTagsCompleter;
   int _worldDetailRequestIndex = 0;
@@ -598,6 +600,37 @@ class _RecordingV1ListTransport implements HttpTransport {
         'err_no': 0,
         'err_str': 'success',
         'data': {'ok': true},
+      });
+    }
+    if (request.method == 'GET' &&
+        request.uri.path.endsWith('/aitown-chat/api/messages')) {
+      final locationId = request.uri.queryParameters['location_id'] ?? '';
+      final since = int.tryParse(request.uri.queryParameters['since'] ?? '');
+      final messages =
+          chatroomMessagesByLocation?[locationId] ??
+          const <Map<String, Object?>>[];
+      final filteredMessages = since == null
+          ? messages
+          : messages
+                .where((message) {
+                  final id = message['msg_id'] ?? message['message_id'];
+                  return id is int && id < since;
+                })
+                .toList(growable: false);
+      return _jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'messages': filteredMessages,
+          'has_more': false,
+          'newest_message_id': filteredMessages.fold<int>(0, (
+            previous,
+            message,
+          ) {
+            final id = message['msg_id'] ?? message['message_id'];
+            return id is int && id > previous ? id : previous;
+          }),
+        },
       });
     }
     if (request.method == 'POST' &&
@@ -10450,12 +10483,84 @@ void main() {
   testWidgets('world location chat prebuilds hidden leaf panels on entry', (
     WidgetTester tester,
   ) async {
-    final transport = _RecordingV1ListTransport(worldRelationStatus: 'joined');
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'joined',
+      worldLocations: const [
+        {
+          'location_id': 'l_w_test_1',
+          'location_name': 'World Location',
+          'location_summary': 'A world location.',
+        },
+        {
+          'location_id': 'l_w_test_1_child',
+          'location_pid': 'l_w_test_1',
+          'location_name': 'Child Location',
+          'location_summary': 'A child world location.',
+        },
+        {
+          'location_id': 'l_w_test_1_second_child',
+          'location_pid': 'l_w_test_1',
+          'location_name': 'Second Child Location',
+          'location_summary': 'Another child world location.',
+        },
+      ],
+      chatroomMessagesByLocation: const {
+        'l_w_test_1_child': [
+          {
+            'msg_id': 101,
+            'location_id': 'l_w_test_1_child',
+            'conversation_round_id': 101,
+            'round_order': 1,
+            'sender_type': 'user',
+            'sender_id': 'u_child_peer',
+            'sender_name': 'Child Peer',
+            'user_id': 'u_child_peer',
+            'content': 'preloaded child message',
+            'ts': 1717300000101,
+          },
+        ],
+        'l_w_test_1_second_child': [
+          {
+            'msg_id': 102,
+            'location_id': 'l_w_test_1_second_child',
+            'conversation_round_id': 102,
+            'round_order': 1,
+            'sender_type': 'user',
+            'sender_id': 'u_second_child_peer',
+            'sender_name': 'Second Child Peer',
+            'user_id': 'u_second_child_peer',
+            'content': 'preloaded second child message',
+            'ts': 1717300000102,
+          },
+        ],
+      },
+    );
     final chatroom = _FakeChatroomClient();
+    final messageStorage = MemoryChatroomMessageStorage();
+    await messageStorage.mergeMessages(
+      ownerUid: 'u_mock',
+      worldId: 'w_test_1',
+      locationId: 'stale_location',
+      messages: const [
+        {
+          'msg_id': 1,
+          'location_id': 'stale_location',
+          'conversation_round_id': 1,
+          'round_order': 1,
+          'sender_type': 'user',
+          'sender_id': 'u_stale',
+          'sender_name': 'Stale',
+          'user_id': 'u_stale',
+          'content': 'stale cached message',
+          'ts': 1717300000001,
+        },
+      ],
+    );
     final services = await _testServices(
       transport: transport,
       useMock: false,
       chatroom: chatroom,
+      chatroomMessages: messageStorage,
     );
 
     await tester.pumpWidget(
@@ -10471,9 +10576,21 @@ void main() {
       var attempt = 0;
       attempt < 10 &&
           find
-              .byType(LocationChatPanel, skipOffstage: false)
-              .evaluate()
-              .isEmpty;
+                  .byType(LocationChatPanel, skipOffstage: false)
+                  .evaluate()
+                  .length <
+              2;
+      attempt += 1
+    ) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      });
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    for (
+      var attempt = 0;
+      attempt < 10 &&
+          transport.requestsFor('/aitown-chat/api/messages').length < 2;
       attempt += 1
     ) {
       await tester.runAsync(() async {
@@ -10484,14 +10601,50 @@ void main() {
 
     expect(chatroom.connectCount, 1);
     expect(chatroom.session.joinLocationId, isNull);
-    expect(find.byType(LocationChatPanel, skipOffstage: false), findsOneWidget);
+    final messageRequests = transport.requestsFor('/aitown-chat/api/messages');
+    expect(
+      messageRequests
+          .map((request) => request.uri.queryParameters['location_id'])
+          .toSet(),
+      {'l_w_test_1_child', 'l_w_test_1_second_child'},
+    );
+    final staleMessages = await messageStorage.loadLatestMessages(
+      ownerUid: 'u_mock',
+      worldId: 'w_test_1',
+      locationId: 'stale_location',
+      limit: 20,
+    );
+    final childMessages = await messageStorage.loadLatestMessages(
+      ownerUid: 'u_mock',
+      worldId: 'w_test_1',
+      locationId: 'l_w_test_1_child',
+      limit: 20,
+    );
+    final secondChildMessages = await messageStorage.loadLatestMessages(
+      ownerUid: 'u_mock',
+      worldId: 'w_test_1',
+      locationId: 'l_w_test_1_second_child',
+      limit: 20,
+    );
+    expect(staleMessages, isEmpty);
+    expect(childMessages.map((message) => message['msg_id']), [101]);
+    expect(secondChildMessages.map((message) => message['msg_id']), [102]);
+    expect(
+      find.byType(LocationChatPanel, skipOffstage: false),
+      findsNWidgets(2),
+    );
     expect(find.text('World Location (1)', skipOffstage: false), findsNothing);
     expect(
       find.text('Child Location (0)', skipOffstage: false),
       findsOneWidget,
     );
+    expect(
+      find.text('Second Child Location (0)', skipOffstage: false),
+      findsOneWidget,
+    );
     expect(_visibleText('World Location (1)'), findsNothing);
     expect(_visibleText('Child Location (0)'), findsNothing);
+    expect(_visibleText('Second Child Location (0)'), findsNothing);
   });
 
   testWidgets(
@@ -10557,6 +10710,10 @@ void main() {
 
       expect(chatroom.session.leaveCount, 1);
       expect(_visibleText('Child Location (1)'), findsNothing);
+      expect(
+        find.byType(LocationChatPanel, skipOffstage: false),
+        findsOneWidget,
+      );
 
       await tester.tap(find.text('Location (2)'));
       await tester.pumpAndSettle();
@@ -11416,7 +11573,6 @@ void main() {
   testWidgets('location chat first render starts at message list bottom', (
     WidgetTester tester,
   ) async {
-    final reportedOffsets = <double>[];
     await tester.pumpWidget(
       MaterialApp(
         home: LocationChatPanel(
@@ -11424,7 +11580,6 @@ void main() {
           locationId: 'castle',
           locationName: 'Castle',
           active: false,
-          onScrollOffsetChanged: reportedOffsets.add,
           openingPreviewMessages: [
             for (var i = 1; i <= 60; i += 1)
               WorldChatroomMessage(
@@ -11455,9 +11610,6 @@ void main() {
     final position = tester.state<ScrollableState>(scrollable).position;
     expect(position.maxScrollExtent, greaterThan(240));
     expect(position.pixels, closeTo(position.maxScrollExtent, 1));
-    expect(reportedOffsets, isNotEmpty);
-    expect(reportedOffsets.last, closeTo(position.maxScrollExtent, 1));
-    expect(reportedOffsets, everyElement(greaterThan(0)));
   });
 
   testWidgets('location chat shows new message notice when not at bottom', (

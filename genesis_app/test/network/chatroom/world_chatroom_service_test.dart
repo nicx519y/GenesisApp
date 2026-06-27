@@ -550,6 +550,68 @@ void main() {
     expect(records.map((message) => message['msg_id']).toList(), [2, 3]);
   });
 
+  test('clearCachedMessages clears persisted and in-memory history', () async {
+    final socket = _FakeChatroomSocket();
+    final http = _WorldChatroomHttpTransport()
+      ..messagesByLocation['loc-1'] = const <Map<String, dynamic>>[]
+      ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+    final storage = MemoryChatroomMessageStorage();
+    await storage.mergeMessages(
+      ownerUid: 'user-1',
+      worldId: 'world-1',
+      locationId: 'loc-1',
+      messages: [
+        _httpMessageJson(messageId: 1, locationId: 'loc-1', content: 'old-1'),
+      ],
+    );
+    await storage.mergeMessages(
+      ownerUid: 'user-1',
+      worldId: 'world-1',
+      locationId: 'loc-2',
+      messages: [
+        _httpMessageJson(
+          messageId: 7,
+          locationId: 'loc-2',
+          content: 'other-location',
+        ),
+      ],
+    );
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      httpTransport: http,
+      messageStorage: storage,
+    );
+
+    await service.connect(worldId: 'world-1', identity: _identity());
+    await service.hydrateLocalMessages(
+      worldId: 'world-1',
+      locationId: 'loc-1',
+      locationAliases: const ['loc-1'],
+    );
+    expect(service.state.messagesByLocation['loc-1'], isNotEmpty);
+
+    await service.clearCachedMessages();
+
+    final loc1 = await storage.loadLatestMessages(
+      ownerUid: 'user-1',
+      worldId: 'world-1',
+      locationId: 'loc-1',
+      limit: 20,
+    );
+    final loc2 = await storage.loadLatestMessages(
+      ownerUid: 'user-1',
+      worldId: 'world-1',
+      locationId: 'loc-2',
+      limit: 20,
+    );
+
+    expect(loc1, isEmpty);
+    expect(loc2, isEmpty);
+    expect(service.state.messagesByLocation, isEmpty);
+    expect(service.state.worldMessages, isEmpty);
+    await service.dispose();
+  });
+
   test('loadOlderMessages requests remote history before cursor', () async {
     final socket = _FakeChatroomSocket();
     final http = _WorldChatroomHttpTransport()
@@ -1002,49 +1064,55 @@ void main() {
     await service.dispose();
   });
 
-  test(
-    'message id gaps fetch missing messages and keep queues sorted',
-    () async {
-      final socket = _FakeChatroomSocket();
-      final http = _WorldChatroomHttpTransport()
-        ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
-      final service = await _service(
-        socketTransport: _FakeChatroomTransport(socket),
-        httpTransport: http,
-      );
+  test('push message id gaps do not fetch missing messages', () async {
+    final socket = _FakeChatroomSocket();
+    final http = _WorldChatroomHttpTransport()
+      ..messagesByLocation['loc-1'] = [
+        _httpMessageJson(
+          messageId: 1,
+          locationId: 'loc-1',
+          content: 'loc-1-first',
+        ),
+        _httpMessageJson(
+          messageId: 2,
+          locationId: 'loc-1',
+          content: 'loc-1-gap',
+        ),
+      ]
+      ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      httpTransport: http,
+    );
 
-      await service.connect(worldId: 'world-1', identity: _identity());
-      socket.serverUserMessage(messageId: 1, roundId: 1, content: 'first');
-      await _waitFor(
-        () =>
-            service.state.messagesByLocation['loc-1']?.any(
-              (message) => message.messageId == 1,
-            ) ==
-            true,
-      );
+    await service.connect(worldId: 'world-1', identity: _identity());
+    socket.serverUserMessage(messageId: 1, roundId: 1, content: 'loc-1-one');
+    await _waitFor(
+      () =>
+          service.state.messagesByLocation['loc-1']?.any(
+            (message) => message.messageId == 1,
+          ) ==
+          true,
+    );
 
-      socket.serverUserMessage(messageId: 3, roundId: 3, content: 'third');
-      await _waitFor(
-        () =>
-            service.state.messagesByLocation['loc-1']?.any(
-              (message) => message.messageId == 3,
-            ) ==
-            true,
-      );
+    socket.serverUserMessage(messageId: 3, roundId: 3, content: 'loc-1-three');
+    await _waitFor(
+      () =>
+          service.state.messagesByLocation['loc-1']?.any(
+            (message) => message.messageId == 3,
+          ) ==
+          true,
+    );
 
-      expect(
-        service.state.messagesByLocation['loc-1']!
-            .map((message) => message.messageId)
-            .toList(),
-        [1, 2, 3],
-      );
-      expect(
-        service.state.worldMessages.map((message) => message.content).toList(),
-        ['first', 'gap', 'third'],
-      );
-      await service.dispose();
-    },
-  );
+    expect(http.messagesRequestsByLocation['loc-1'], isNull);
+    expect(
+      service.state.messagesByLocation['loc-1']!
+          .map((message) => message.messageId)
+          .toList(),
+      [1, 3],
+    );
+    await service.dispose();
+  });
 
   test('llm stream updates are matched by location and round id', () async {
     final socket = _FakeChatroomSocket();
@@ -1599,11 +1667,12 @@ class _FakeChatroomSocket implements ChatroomSocket {
     required int messageId,
     required int roundId,
     required String content,
+    String locationId = 'loc-1',
   }) {
     serverFrame('user_message', {
       'world_id': 'world-1',
       'session_id': 'sess-1',
-      'location_id': 'loc-1',
+      'location_id': locationId,
       'msg_id': messageId,
       'conversation_round_id': roundId,
       'payload': {
