@@ -10,6 +10,8 @@ import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/shared/location_chat_overlay_transition.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/discuss/discuss_post_input.dart';
+import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
@@ -53,6 +55,12 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
       );
+  static const SystemUiOverlayStyle _transparentDarkStatusBarStyle =
+      SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      );
   static const double _mapPanelTopGap = 50;
   static const double _mapLoadingCollapsedHeightOffset = 100;
   static const double _mapLoadedCollapsedHeightOffset = 60;
@@ -67,10 +75,14 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   _OriginLocationChatDescriptor? _activeChatLocation;
   late final VoidCallback _removeLaunchOutcomeListener;
 
+  SystemUiOverlayStyle get _baseStatusBarStyle => _showLocationPage
+      ? _transparentDarkStatusBarStyle
+      : _transparentStatusBarStyle;
+
   @override
   void initState() {
     super.initState();
-    SystemChrome.setSystemUIOverlayStyle(_transparentStatusBarStyle);
+    SystemChrome.setSystemUIOverlayStyle(_baseStatusBarStyle);
     _launchCoordinator.state.addListener(_syncLaunchState);
     _removeLaunchOutcomeListener = _launchCoordinator.addOutcomeListener(
       _handleLaunchOutcome,
@@ -94,6 +106,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _future = _loadOriginDetail();
       _activeChatLocation = null;
       _showLocationPage = false;
+      SystemChrome.setSystemUIOverlayStyle(_baseStatusBarStyle);
       _didResumePendingLaunch = false;
       _syncLaunchState();
       _resumePendingLaunch();
@@ -120,6 +133,12 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     final api = AppServicesScope.read(context).api;
     final origin = await api.getOrigin(widget.oid);
     return origin;
+  }
+
+  void _refreshOriginDetail() {
+    setState(() {
+      _future = _loadOriginDetail();
+    });
   }
 
   void _resumePendingLaunch() {
@@ -261,6 +280,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     );
     if (!_showLocationPage) return;
     setState(() => _showLocationPage = false);
+    SystemChrome.setSystemUIOverlayStyle(_transparentStatusBarStyle);
   }
 
   void _handleLocationTitleTap() {
@@ -271,6 +291,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     );
     if (_showLocationPage) return;
     setState(() => _showLocationPage = true);
+    SystemChrome.setSystemUIOverlayStyle(_transparentDarkStatusBarStyle);
   }
 
   Widget _buildPersistentMapOverlay(double top, {int locationCount = 0}) {
@@ -579,6 +600,18 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               topPadding,
               locationCount: locationCount,
             ),
+            bottomSheetOverlayBuilder: (minChildSize) =>
+                _OriginDetailDraggableSheet(
+                  origin: origin,
+                  baseStatusBarStyle: _baseStatusBarStyle,
+                  minChildSize: minChildSize,
+                  onOriginChanged: _refreshOriginDetail,
+                ),
+            bottomOverlay: _OriginBottomLaunchBar(
+              origin: origin,
+              launching: _launching,
+              onLaunch: () => _showLaunchRoleSheet(origin),
+            ),
             topOverlay: _buildLocationChatOverlay(origin),
             map: WorldKeepAlivePage(
               child: WorldMap(
@@ -607,10 +640,12 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     required double panelCollapsedHeightOffset,
     required Widget mapOverlay,
     required Widget map,
+    Widget Function(double minChildSize)? bottomSheetOverlayBuilder,
+    Widget? bottomOverlay,
     Widget? topOverlay,
   }) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: _transparentStatusBarStyle,
+      value: _baseStatusBarStyle,
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         body: LayoutBuilder(
@@ -633,6 +668,17 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                         bottomSafeArea)
                     .clamp(0.0, maxMapHeight)
                     .toDouble();
+            final bottomOverlayHeight = bottomOverlay == null
+                ? 0.0
+                : _OriginBottomLaunchBar.heightFor(context);
+            final sheetHostHeight = (viewportHeight - bottomOverlayHeight)
+                .clamp(0.0, viewportHeight)
+                .toDouble();
+            final sheetMinChildSize = sheetHostHeight <= 0
+                ? _OriginDetailDraggableSheet.defaultInitialChildSize
+                : ((sheetHostHeight - mapHeight) / sheetHostHeight)
+                      .clamp(0.08, 0.42)
+                      .toDouble();
             return Stack(
               children: [
                 Align(
@@ -640,6 +686,18 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                   child: SizedBox(height: mapHeight, child: map),
                 ),
                 mapOverlay,
+                if (bottomSheetOverlayBuilder != null)
+                  Positioned.fill(
+                    bottom: bottomOverlayHeight,
+                    child: bottomSheetOverlayBuilder(sheetMinChildSize),
+                  ),
+                if (bottomOverlay != null)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: bottomOverlay,
+                  ),
                 if (topOverlay != null) topOverlay,
               ],
             );
@@ -648,6 +706,964 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       ),
     );
   }
+}
+
+class _OriginBottomLaunchBar extends StatelessWidget {
+  const _OriginBottomLaunchBar({
+    required this.origin,
+    required this.launching,
+    required this.onLaunch,
+  });
+
+  static double heightFor(BuildContext context) {
+    return 56 + GenesisSafeAreaInsets.bottom(context);
+  }
+
+  final OriginDetail origin;
+  final bool launching;
+  final VoidCallback onLaunch;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(color: Color(0xFFF9F9F9)),
+      child: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.fromLTRB(13, 0, 13, 0),
+        child: SizedBox(
+          height: 56,
+          child: Row(
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox(
+                    height: 32,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        _LaunchBarStat(
+                          icon: Icons.copy_rounded,
+                          value: origin.copyCount,
+                        ),
+                        const SizedBox(width: 20),
+                        _LaunchBarStat(
+                          icon: Icons.hub_outlined,
+                          value: origin.interactCount,
+                        ),
+                        const SizedBox(width: 20),
+                        _LaunchBarStat(
+                          icon: Icons.group_rounded,
+                          value: origin.characterCount > 0
+                              ? origin.characterCount
+                              : origin.characters.length,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 18),
+              GenesisPrimaryButton(
+                label: 'Launch',
+                onPressed: launching ? null : onLaunch,
+                width: 140,
+                height: 35,
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                isLoading: launching,
+                loadingSize: 22,
+                loadingStrokeWidth: 2.4,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LaunchBarStat extends StatelessWidget {
+  const _LaunchBarStat({required this.icon, required this.value});
+
+  final IconData icon;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFF111111)),
+        const SizedBox(width: 4),
+        Text(
+          '$value',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 14,
+            height: 1,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFF111111),
+            decoration: TextDecoration.none,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OriginDetailDraggableSheet extends StatefulWidget {
+  const _OriginDetailDraggableSheet({
+    required this.origin,
+    required this.baseStatusBarStyle,
+    required this.minChildSize,
+    required this.onOriginChanged,
+  });
+
+  static const double defaultInitialChildSize = 0.22;
+
+  final OriginDetail origin;
+  final SystemUiOverlayStyle baseStatusBarStyle;
+  final double minChildSize;
+  final VoidCallback onOriginChanged;
+
+  @override
+  State<_OriginDetailDraggableSheet> createState() =>
+      _OriginDetailDraggableSheetState();
+}
+
+class _OriginDetailDraggableSheetState
+    extends State<_OriginDetailDraggableSheet> {
+  static const double _initialChildSize =
+      _OriginDetailDraggableSheet.defaultInitialChildSize;
+  static const double _maxChildSize = 1.0;
+  static const double _extentUpdateEpsilon = 0.001;
+
+  late final OriginDiscussListController _discussController;
+  var _currentUid = '';
+  var _didLoadCurrentUid = false;
+  var _sheetExtent = _initialChildSize;
+
+  double get _minChildSize => widget.minChildSize.clamp(0.08, 0.42).toDouble();
+
+  double get _effectiveInitialChildSize =>
+      _initialChildSize.clamp(_minChildSize, _maxChildSize).toDouble();
+
+  @override
+  void initState() {
+    super.initState();
+    _discussController = OriginDiscussListController();
+    _configureDiscuss();
+    unawaited(_discussController.loadInitialIfNeeded());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final initialExtent = _effectiveInitialChildSize;
+    if (_sheetExtent < initialExtent) {
+      _sheetExtent = initialExtent;
+    }
+    if (!_didLoadCurrentUid) {
+      _didLoadCurrentUid = true;
+      unawaited(_loadCurrentUid());
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _OriginDetailDraggableSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.origin.oid != widget.origin.oid) {
+      _configureDiscuss();
+      unawaited(_discussController.refreshFirstPage());
+    }
+    if (oldWidget.minChildSize != widget.minChildSize) {
+      final nextExtent = _sheetExtent
+          .clamp(_minChildSize, _maxChildSize)
+          .toDouble();
+      if (nextExtent != _sheetExtent) _sheetExtent = nextExtent;
+    }
+    if (oldWidget.baseStatusBarStyle != widget.baseStatusBarStyle) {
+      SystemChrome.setSystemUIOverlayStyle(
+        _statusBarStyleForExtent(context, _sheetExtent),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    SystemChrome.setSystemUIOverlayStyle(widget.baseStatusBarStyle);
+    _discussController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadCurrentUid() async {
+    final uid =
+        (await AppServicesScope.of(context).sessionStore.readUid())?.trim() ??
+        '';
+    if (!mounted || uid == _currentUid) return;
+    setState(() => _currentUid = uid);
+  }
+
+  void _configureDiscuss() {
+    _discussController.configure(
+      oid: widget.origin.oid,
+      loader: ({required String oid, required int pn, required int rn}) async {
+        return loadOriginDiscussPage(context, oid, pn: pn, rn: rn);
+      },
+    );
+  }
+
+  bool _handleSheetNotification(DraggableScrollableNotification notification) {
+    final extent = notification.extent
+        .clamp(_minChildSize, _maxChildSize)
+        .toDouble();
+    final extentChanged = (extent - _sheetExtent).abs() > _extentUpdateEpsilon;
+    if (!extentChanged) return false;
+    setState(() => _sheetExtent = extent);
+    SystemChrome.setSystemUIOverlayStyle(
+      _statusBarStyleForExtent(context, extent),
+    );
+    return false;
+  }
+
+  double _statusBarAlphaForExtent(BuildContext context, double extent) {
+    final statusBarHeight = GenesisSafeAreaInsets.top(context);
+    if (statusBarHeight <= 0) return extent >= _maxChildSize ? 1.0 : 0.0;
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final sheetHostHeight =
+        viewportHeight - _OriginBottomLaunchBar.heightFor(context);
+    final sheetTop = sheetHostHeight * (1.0 - extent);
+    return ((statusBarHeight - sheetTop) / statusBarHeight)
+        .clamp(0.0, 1.0)
+        .toDouble();
+  }
+
+  SystemUiOverlayStyle _statusBarStyleForExtent(
+    BuildContext context,
+    double extent,
+  ) {
+    final alpha = _statusBarAlphaForExtent(context, extent);
+    if (alpha <= 0.001) return widget.baseStatusBarStyle;
+    final darkIcons = alpha >= 0.5;
+    return widget.baseStatusBarStyle.copyWith(
+      statusBarColor: Colors.white.withValues(alpha: alpha),
+      statusBarIconBrightness: darkIcons
+          ? Brightness.dark
+          : widget.baseStatusBarStyle.statusBarIconBrightness,
+      statusBarBrightness: darkIcons
+          ? Brightness.light
+          : widget.baseStatusBarStyle.statusBarBrightness,
+    );
+  }
+
+  double _sheetTopProgress(BuildContext context) {
+    final alpha = _statusBarAlphaForExtent(context, _sheetExtent);
+    if (alpha > 0) return alpha;
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final sheetHostHeight =
+        viewportHeight - _OriginBottomLaunchBar.heightFor(context);
+    final statusBarHeight = GenesisSafeAreaInsets.top(context);
+    final sheetTop = sheetHostHeight * (1.0 - _sheetExtent);
+    final transitionDistance = statusBarHeight <= 0 ? 1.0 : statusBarHeight;
+    return ((transitionDistance - (sheetTop - statusBarHeight)) /
+            transitionDistance)
+        .clamp(0.0, 1.0)
+        .toDouble();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final minChildSize = _minChildSize;
+    final initialChildSize = _effectiveInitialChildSize;
+    final topProgress = _sheetTopProgress(context);
+    final topPadding =
+        GenesisSafeAreaInsets.top(context) *
+        _statusBarAlphaForExtent(context, _sheetExtent);
+    final topRadius = 28.0 * (1.0 - topProgress);
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _statusBarStyleForExtent(context, _sheetExtent),
+      child: NotificationListener<DraggableScrollableNotification>(
+        onNotification: _handleSheetNotification,
+        child: DraggableScrollableSheet(
+          initialChildSize: initialChildSize,
+          minChildSize: minChildSize,
+          maxChildSize: _maxChildSize,
+          snap: false,
+          builder: (context, scrollController) {
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFFFF),
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(topRadius),
+                ),
+              ),
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(overscroll: false),
+                child: ListView(
+                  controller: scrollController,
+                  key: PageStorageKey<String>(
+                    'origin-detail-bottom-sheet-${widget.origin.oid}',
+                  ),
+                  physics: const ClampingScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(24, topPadding + 5, 24, 32),
+                  children: [
+                    const _OriginSheetDragHandle(),
+                    const SizedBox(height: 10),
+                    _OriginSheetHeaderContent(
+                      origin: widget.origin,
+                      currentUid: _currentUid,
+                      onOriginChanged: widget.onOriginChanged,
+                    ),
+                    const SizedBox(height: 24),
+                    _WorldViewSection(origin: widget.origin),
+                    if (_originPreviewTick(widget.origin) case final tick?) ...[
+                      const SizedBox(height: 24),
+                      _LaunchPreviewSection(
+                        origin: widget.origin,
+                        previewTick: tick,
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    CopyWorldProgressSection(originId: widget.origin.oid),
+                    const SizedBox(height: 24),
+                    _DiscussSection(
+                      origin: widget.origin,
+                      controller: _discussController,
+                    ),
+                    const SizedBox(height: 24),
+                    _OriginCharactersSection(
+                      characters: widget.origin.characters,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _OriginSheetDragHandle extends StatelessWidget {
+  const _OriginSheetDragHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 14,
+      child: Center(
+        child: Container(
+          width: 64,
+          height: 5,
+          decoration: BoxDecoration(
+            color: const Color(0xFFD2D2D2),
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OriginSheetHeaderContent extends StatelessWidget {
+  const _OriginSheetHeaderContent({
+    required this.origin,
+    required this.currentUid,
+    required this.onOriginChanged,
+  });
+
+  final OriginDetail origin;
+  final String currentUid;
+  final VoidCallback onOriginChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final originator = origin.ownerDeleted
+        ? deletedEntityDisplayText
+        : origin.originator.trim().isEmpty
+        ? '-'
+        : origin.originator.trim();
+    final ownerUid = origin.ownerUid.trim();
+    final canEditOrigin =
+        currentUid.trim().isNotEmpty && currentUid == ownerUid;
+    final version = origin.versionNum <= 0 ? 1 : origin.versionNum;
+    final age = formatGenesisTimestamp(
+      origin.updatedAt?.millisecondsSinceEpoch == null
+          ? 0
+          : origin.updatedAt!.millisecondsSinceEpoch ~/ 1000,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          origin.name.trim().isEmpty ? origin.oid : origin.name.trim(),
+          textAlign: TextAlign.left,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 18,
+            height: 1.25,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF4B6192),
+            decoration: TextDecoration.none,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'OID: ${origin.deleted ? deletedEntityDisplayText : origin.oid}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 12,
+            height: 1.2,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFF666666),
+            decoration: TextDecoration.none,
+          ),
+        ),
+        const SizedBox(height: 4),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: ownerUid.isEmpty || origin.ownerDeleted
+              ? null
+              : () => Navigator.of(
+                  context,
+                ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
+          child: Text(
+            'Originator: $originator',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.2,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF666666),
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
+          style: const TextStyle(
+            fontSize: 12,
+            height: 1.2,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFF666666),
+            decoration: TextDecoration.none,
+          ),
+        ),
+        if (canEditOrigin) ...[
+          const SizedBox(height: 8),
+          GenesisPrimaryButton(
+            label: 'Edit Worldo',
+            onPressed: () async {
+              await Navigator.of(context).pushNamed(
+                RouteNames.edit,
+                arguments: {'origin_id': origin.oid},
+              );
+              if (!context.mounted) return;
+              onOriginChanged();
+            },
+            backgroundColor: const Color(0xFF3B2468),
+            foregroundColor: Colors.white,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _WorldViewSection extends StatelessWidget {
+  const _WorldViewSection({required this.origin});
+
+  final OriginDetail origin;
+
+  @override
+  Widget build(BuildContext context) {
+    final body = origin.worldView.trim().isEmpty
+        ? origin.description.trim()
+        : origin.worldView.trim();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle(title: 'Worldo Brief'),
+        const SizedBox(height: 8),
+        Text(body, style: _bodyTextStyle),
+        const SizedBox(height: 8),
+        _OriginPreviewImage(url: _resolveAssetUrl(origin.mapImage)),
+      ],
+    );
+  }
+}
+
+class _OriginPreviewImage extends StatelessWidget {
+  const _OriginPreviewImage({required this.url});
+
+  static const double _maxHeight = 360;
+  static const double _aspectRatio = 2 / 3;
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Container(
+      color: const Color(0xFFEFF1F4),
+      alignment: Alignment.center,
+      child: const Icon(Icons.image_outlined, color: Color(0xFF9A9A9A)),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mediaHeight = MediaQuery.sizeOf(context).height;
+        final maxHeight = mediaHeight.isFinite
+            ? _maxHeight.clamp(0.0, mediaHeight * 0.35).toDouble()
+            : _maxHeight;
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : maxHeight * _aspectRatio;
+        final width = maxWidth.clamp(0.0, maxHeight * _aspectRatio).toDouble();
+        final height = width / _aspectRatio;
+        final imageUrl = url.trim();
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: imageUrl.isEmpty
+                  ? fallback
+                  : imageUrl.startsWith('assets/')
+                  ? Image.asset(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => fallback,
+                    )
+                  : Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => fallback,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return fallback;
+                      },
+                    ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LaunchPreviewSection extends StatelessWidget {
+  const _LaunchPreviewSection({
+    required this.origin,
+    required this.previewTick,
+  });
+
+  final OriginDetail origin;
+  final Map<String, dynamic> previewTick;
+
+  @override
+  Widget build(BuildContext context) {
+    final tickResult = previewTick['tick_result'] is Map
+        ? (previewTick['tick_result'] as Map).cast<String, dynamic>()
+        : const <String, dynamic>{};
+    final globalBody = _mapString(tickResult, const ['narrator']);
+    final paragraphsRaw = tickResult['paragraphs'];
+    final paragraphs = paragraphsRaw is List
+        ? paragraphsRaw.whereType<Map>().map((raw) => raw.cast()).toList()
+        : const <Map<dynamic, dynamic>>[];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle(title: 'Launch Preview'),
+        const SizedBox(height: 8),
+        if (globalBody.trim().isNotEmpty)
+          _OriginPreviewEventCard(label: 'Global', body: globalBody)
+        else if (paragraphs.isEmpty)
+          const Text('No preview', style: _mutedBodyTextStyle),
+        for (final paragraph in paragraphs)
+          _OriginPreviewEventCard(
+            label: _mapString(paragraph, const [
+              'location_name',
+              'name',
+              'label',
+            ]),
+            body: _mapString(paragraph, const [
+              'content',
+              'text',
+              'summary',
+              'narrator',
+            ]),
+          ),
+      ],
+    );
+  }
+}
+
+class _OriginPreviewEventCard extends StatelessWidget {
+  const _OriginPreviewEventCard({required this.label, required this.body});
+
+  final String label;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleBody = body.trim();
+    if (visibleBody.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFEAF8F2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (label.trim().isNotEmpty) ...[
+                Text(
+                  label.trim(),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.2,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111111),
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
+              Text(visibleBody, style: _bodyTextStyle),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DiscussSection extends StatelessWidget {
+  const _DiscussSection({required this.origin, required this.controller});
+
+  final OriginDetail origin;
+  final OriginDiscussListController controller;
+
+  bool get _hasDiscussContent =>
+      origin.discussCount > 0 ||
+      controller.totalAll > 0 ||
+      controller.items.isNotEmpty;
+
+  Future<void> _handleDiscussAreaTap(BuildContext context) {
+    if (_hasDiscussContent) return _openDiscussPage(context);
+    return _openPostComposer(context);
+  }
+
+  Future<void> _openDiscussPage(BuildContext context) {
+    return Navigator.of(context).pushNamed(
+      RouteNames.discuss,
+      arguments: {'oid': origin.oid, 'originId': origin.id},
+    );
+  }
+
+  Future<void> _openPostComposer(BuildContext context) async {
+    final submitted = await showDiscussPostComposer(
+      context: context,
+      title: 'New post',
+      placeholder: 'Write a post',
+      submitter: (content, images) async {
+        await AppServicesScope.read(context).api.v1.discuss.post(
+          bizId: origin.oid.trim(),
+          bizType: 1,
+          content: content,
+          images: images,
+        );
+      },
+    );
+    if (!context.mounted || !submitted) return;
+    unawaited(controller.refreshFirstPage());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        final hasDiscussContent = _hasDiscussContent;
+        final showDiscussList =
+            hasDiscussContent ||
+            controller.isInitialLoading ||
+            controller.error != null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              key: const ValueKey('origin-discuss-summary-area'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => unawaited(_handleDiscussAreaTap(context)),
+              child: SizedBox(
+                width: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _SectionTitle(title: 'Discuss (${origin.discussCount})'),
+                    if (showDiscussList) ...[
+                      const SizedBox(height: 8),
+                      OriginDiscussList(
+                        controller: controller,
+                        count: origin.discussCount,
+                        showHeader: false,
+                        showActions: false,
+                        showReplies: false,
+                        disableAvatarProfileTap: true,
+                        onViewMoreTap: () => _openDiscussPage(context),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            if (!hasDiscussContent) ...[
+              const SizedBox(height: 8),
+              DiscussPostInput(
+                bizId: origin.oid,
+                onSubmitted: () => unawaited(controller.refreshFirstPage()),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _OriginCharactersSection extends StatelessWidget {
+  const _OriginCharactersSection({required this.characters});
+
+  final List<OriginCharacter> characters;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _SectionTitle(title: 'Characters (${characters.length})'),
+        const SizedBox(height: 14),
+        if (characters.isEmpty)
+          const Text('No characters', style: _mutedBodyTextStyle)
+        else
+          for (int i = 0; i < characters.length; i++) ...[
+            _OriginCharacterRow(character: characters[i]),
+            if (i != characters.length - 1) const SizedBox(height: 20),
+          ],
+      ],
+    );
+  }
+}
+
+class _OriginCharacterRow extends StatelessWidget {
+  const _OriginCharacterRow({required this.character});
+
+  final OriginCharacter character;
+
+  @override
+  Widget build(BuildContext context) {
+    final identity = _splitTags(character.tags).join(' · ');
+    final tagline = character.tagline.trim();
+    final description = character.description.trim();
+    final visibleDescription = _sameCharacterText(tagline, description)
+        ? ''
+        : description;
+    final goal = character.goal.trim();
+    final avatarUrl = _resolveAssetUrl(character.avatar);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _OriginCharacterPortrait(url: avatarUrl, name: character.name),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                character.name,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.15,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF111111),
+                  decoration: TextDecoration.none,
+                ),
+              ),
+              if (identity.isNotEmpty) ...[
+                const SizedBox(height: 5),
+                Text(identity, style: _bodyTextStyle),
+              ],
+              if (tagline.isNotEmpty) ...[
+                const SizedBox(height: 5),
+                Text(
+                  tagline,
+                  style: _bodyTextStyle.copyWith(
+                    color: const Color(0xFFFF2442),
+                  ),
+                ),
+              ],
+              if (visibleDescription.isNotEmpty) ...[
+                const SizedBox(height: 9),
+                Text(visibleDescription, style: _characterBodyTextStyle),
+              ],
+              if (goal.isNotEmpty) ...[
+                const SizedBox(height: 9),
+                Text('Goal: $goal', style: _characterBodyTextStyle),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _OriginCharacterPortrait extends StatelessWidget {
+  const _OriginCharacterPortrait({required this.url, required this.name});
+
+  static const double _width = 86;
+
+  final String url;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = GenesisAvatarFallback(
+      name: name,
+      width: _width,
+      height: _width,
+      borderRadius: 8,
+    );
+    final imageUrl = url.trim();
+    final image = imageUrl.isEmpty
+        ? fallback
+        : imageUrl.startsWith('assets/')
+        ? Image.asset(
+            imageUrl,
+            width: _width,
+            height: _width,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => fallback,
+          )
+        : Image.network(
+            imageUrl,
+            width: _width,
+            height: _width,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => fallback,
+          );
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        ClipRRect(borderRadius: BorderRadius.circular(8), child: image),
+        const Positioned(
+          top: -7,
+          right: -8,
+          child: Icon(Icons.auto_awesome, size: 20, color: Color(0xFFFF2442)),
+        ),
+      ],
+    );
+  }
+}
+
+const _bodyTextStyle = TextStyle(
+  fontSize: 13,
+  height: 1.45,
+  fontWeight: FontWeight.w400,
+  color: Color(0xFF111111),
+  decoration: TextDecoration.none,
+);
+
+const _characterBodyTextStyle = TextStyle(
+  fontSize: 13,
+  height: 1.35,
+  fontWeight: FontWeight.w400,
+  color: Color(0xFF111111),
+  decoration: TextDecoration.none,
+);
+
+const _mutedBodyTextStyle = TextStyle(
+  fontSize: 13,
+  height: 1.3,
+  fontWeight: FontWeight.w600,
+  color: Color(0xFF999999),
+  decoration: TextDecoration.none,
+);
+
+List<String> _splitTags(String tags) {
+  if (tags.trim().isEmpty) return const [];
+  return tags
+      .split(',')
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toList();
+}
+
+bool _sameCharacterText(String a, String b) {
+  final left = a.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+  final right = b.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+  return left.isNotEmpty && left == right;
+}
+
+Map<String, dynamic>? _originPreviewTick(OriginDetail origin) {
+  final tick = _originTick1(origin);
+  if (tick == null) return null;
+  final result = tick['tick_result'] is Map
+      ? (tick['tick_result'] as Map).cast<String, dynamic>()
+      : const <String, dynamic>{};
+  final narrator = _mapString(result, const ['narrator']);
+  final paragraphsRaw = result['paragraphs'];
+  final paragraphs = paragraphsRaw is List
+      ? paragraphsRaw
+            .whereType<Map>()
+            .map((item) => item.cast<String, dynamic>())
+            .where(_originPreviewParagraphHasText)
+            .toList(growable: false)
+      : const <Map<String, dynamic>>[];
+
+  return <String, dynamic>{
+    'created_at': tick['created_at'] ?? origin.updatedAt,
+    'tick_result': <String, dynamic>{
+      'narrator': narrator,
+      'paragraphs': paragraphs,
+    },
+  };
+}
+
+Map<String, dynamic>? _originTick1(OriginDetail origin) {
+  for (final tick in origin.ticks) {
+    if (_mapInt(tick, const ['tick_no']) == 1) return tick;
+  }
+  return origin.ticks.isEmpty ? null : origin.ticks.first;
+}
+
+bool _originPreviewParagraphHasText(Map<String, dynamic> paragraph) {
+  return _mapString(paragraph, const [
+    'content',
+    'text',
+    'summary',
+    'narrator',
+  ]).isNotEmpty;
 }
 
 class _OriginMapTabsPill extends StatelessWidget {
