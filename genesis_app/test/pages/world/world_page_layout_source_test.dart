@@ -112,7 +112,13 @@ void main() {
     expect(locationsSectionBuilder, contains('ScrollConfiguration'));
     expect(locationsSectionBuilder, contains('overscroll: false'));
     expect(singleSectionSheet, contains('Expanded('));
-    expect(singleSectionSheet, contains('child: ScrollConfiguration('));
+    expect(singleSectionSheet, contains('_buildDismissibleSheetContent()'));
+    expect(singleSectionSheet, contains('Listener('));
+    expect(
+      singleSectionSheet,
+      contains('NotificationListener<ScrollNotification>'),
+    );
+    expect(singleSectionSheet, contains('ScrollConfiguration('));
     expect(singleSectionSheet, contains('overscroll: false'));
     expect(sectionListView, contains('physics: const ClampingScrollPhysics()'));
     expect(bottomTags, isNot(contains('TabBar(')));
@@ -132,6 +138,18 @@ void main() {
     expect(source, contains('fontWeight: FontWeight.w600'));
     expect(source, contains('minimumSize: const Size(28, 28)'));
     expect(source, isNot(contains('WorldSectionsSheetTabs')));
+  });
+
+  test('world detail cover uses cached network image', () {
+    final sections = worldSectionsSource.readAsStringSync();
+    final cover = sections.substring(
+      sections.indexOf('class WorldDetailCoverImage'),
+      sections.indexOf('class WorldStatusSection'),
+    );
+
+    expect(cover, contains('CachedNetworkImage('));
+    expect(cover, contains('fadeInDuration: Duration.zero'));
+    expect(cover, isNot(contains('Image.network(')));
   });
 
   test('world tick completion closes other sheets before opening events', () {

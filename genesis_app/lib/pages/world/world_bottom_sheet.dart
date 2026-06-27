@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -146,6 +147,12 @@ class WorldSingleSectionBottomSheetState
     extends State<WorldSingleSectionBottomSheet> {
   static const int _eventsPageSize = 20;
   static const double _sheetHeightFactor = 0.85;
+  static const double _contentDismissDragDistance = 48;
+  static const double _contentDismissDragVelocity = 650;
+
+  var _contentAtTop = true;
+  var _contentDragDy = 0.0;
+  VelocityTracker? _contentVelocityTracker;
 
   WorldDetail get _currentWorld =>
       widget.worldListenable.value ?? widget.initialWorld;
@@ -207,6 +214,8 @@ class WorldSingleSectionBottomSheetState
     if (_isEventsSheet) {
       _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
     }
+    _contentAtTop = true;
+    _resetContentDrag();
     if (mounted) setState(() {});
   }
 
@@ -389,6 +398,68 @@ class WorldSingleSectionBottomSheetState
     );
   }
 
+  void _handleContentPointerDown(PointerDownEvent event) {
+    _contentDragDy = 0;
+    _contentVelocityTracker = VelocityTracker.withKind(event.kind)
+      ..addPosition(event.timeStamp, event.localPosition);
+  }
+
+  void _handleContentPointerMove(PointerMoveEvent event) {
+    _contentVelocityTracker?.addPosition(event.timeStamp, event.localPosition);
+    final dragDelta = event.delta.dy;
+    if (!_contentAtTop || dragDelta <= 0) {
+      if (dragDelta < 0) _contentDragDy = 0;
+      return;
+    }
+    _contentDragDy += dragDelta;
+  }
+
+  void _handleContentPointerUp(PointerUpEvent event) {
+    _contentVelocityTracker?.addPosition(event.timeStamp, event.localPosition);
+    final velocity =
+        _contentVelocityTracker?.getVelocity().pixelsPerSecond.dy ?? 0;
+    final shouldClose =
+        _contentAtTop &&
+        (_contentDragDy >= _contentDismissDragDistance ||
+            velocity >= _contentDismissDragVelocity);
+    _resetContentDrag();
+    if (shouldClose) Navigator.of(context).pop();
+  }
+
+  void _handleContentPointerCancel(PointerCancelEvent event) {
+    _resetContentDrag();
+  }
+
+  void _resetContentDrag() {
+    _contentDragDy = 0;
+    _contentVelocityTracker = null;
+  }
+
+  bool _handleContentScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+    final atTop = notification.metrics.extentBefore <= 0.5;
+    if (_contentAtTop != atTop) _contentAtTop = atTop;
+    if (!atTop) _contentDragDy = 0;
+    return false;
+  }
+
+  Widget _buildDismissibleSheetContent() {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: _handleContentPointerDown,
+      onPointerMove: _handleContentPointerMove,
+      onPointerUp: _handleContentPointerUp,
+      onPointerCancel: _handleContentPointerCancel,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _handleContentScrollNotification,
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+          child: _buildSheetContent(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return GenesisEdgeSwipeBack(
@@ -407,14 +478,7 @@ class WorldSingleSectionBottomSheetState
                 item: _headerItem,
                 onClose: () => Navigator.of(context).pop(),
               ),
-              Expanded(
-                child: ScrollConfiguration(
-                  behavior: ScrollConfiguration.of(
-                    context,
-                  ).copyWith(overscroll: false),
-                  child: _buildSheetContent(),
-                ),
-              ),
+              Expanded(child: _buildDismissibleSheetContent()),
             ],
           ),
         ),

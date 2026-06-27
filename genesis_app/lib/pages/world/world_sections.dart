@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../components/ai_content_disclaimer.dart';
@@ -346,15 +347,14 @@ class WorldDetailCoverImage extends StatelessWidget {
                           errorBuilder: (context, error, stackTrace) =>
                               fallback,
                         )
-                      : Image.network(
-                          imageUrl,
+                      : CachedNetworkImage(
+                          imageUrl: imageUrl,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              fallback,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return fallback;
-                          },
+                          fadeInDuration: Duration.zero,
+                          fadeOutDuration: Duration.zero,
+                          placeholderFadeInDuration: Duration.zero,
+                          placeholder: (context, url) => fallback,
+                          errorWidget: (context, url, error) => fallback,
                         );
                 },
               ),
