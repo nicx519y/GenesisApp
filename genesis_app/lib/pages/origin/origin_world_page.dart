@@ -22,6 +22,7 @@ import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/world_map.dart';
+import '../../components/world_top_overlay_bar.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../components/world_tick1_wait_dialog.dart';
 import '../../icons/custom_icon_assets.dart';
@@ -37,9 +38,7 @@ import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
-import '../../ui/components/genesis_search_field.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/theme/genesis_ui_theme.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
@@ -79,7 +78,8 @@ const double originDetailSectionGapForTesting = 24;
 @visibleForTesting
 const double originDetailSectionTitleIconGapForTesting = 8;
 
-class _OriginWorldPageState extends State<OriginWorldPage> {
+class _OriginWorldPageState extends State<OriginWorldPage>
+    with SingleTickerProviderStateMixin {
   static const SystemUiOverlayStyle _transparentStatusBarStyle =
       SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -97,6 +97,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   static const double _mapLoadedCollapsedHeightOffset = 60;
   static const double _mapDefaultExposedChildSize = 0.31;
 
+  late final TabController _tabController;
   final OriginLaunchCoordinator _launchCoordinator =
       OriginLaunchCoordinator.instance;
   Future<OriginDetail>? _future;
@@ -113,6 +114,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     SystemChrome.setSystemUIOverlayStyle(_baseStatusBarStyle);
     _launchCoordinator.state.addListener(_syncLaunchState);
     _removeLaunchOutcomeListener = _launchCoordinator.addOutcomeListener(
@@ -137,6 +139,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _future = _loadOriginDetail();
       _activeChatLocation = null;
       _showLocationPage = false;
+      _tabController.index = 0;
       SystemChrome.setSystemUIOverlayStyle(_baseStatusBarStyle);
       _didResumePendingLaunch = false;
       _syncLaunchState();
@@ -157,6 +160,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     GenesisSystemUiChrome.applyDefault();
     _launchCoordinator.state.removeListener(_syncLaunchState);
     _removeLaunchOutcomeListener();
+    _tabController.dispose();
     super.dispose();
   }
 
@@ -303,55 +307,34 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     );
   }
 
-  void _handleMapTitleTap() {
+  void _handleMapModeTabTap(int index) {
+    final nextShowsLocationPage = index == 1;
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
-      action: 'worldo_map',
+      action: nextShowsLocationPage
+          ? 'worldo_detail_location_list'
+          : 'worldo_map',
       object1: widget.oid,
     );
-    if (!_showLocationPage) return;
-    setState(() => _showLocationPage = false);
-    SystemChrome.setSystemUIOverlayStyle(_transparentStatusBarStyle);
-  }
-
-  void _handleLocationTitleTap() {
-    GenesisTelemetry.collectLog(
-      actionType: 'pageview',
-      action: 'worldo_detail_location_list',
-      object1: widget.oid,
+    if (_showLocationPage != nextShowsLocationPage) {
+      setState(() => _showLocationPage = nextShowsLocationPage);
+    }
+    SystemChrome.setSystemUIOverlayStyle(
+      nextShowsLocationPage
+          ? _transparentDarkStatusBarStyle
+          : _transparentStatusBarStyle,
     );
-    if (_showLocationPage) return;
-    setState(() => _showLocationPage = true);
-    SystemChrome.setSystemUIOverlayStyle(_transparentDarkStatusBarStyle);
   }
 
   Widget _buildPersistentMapOverlay(double top, {int locationCount = 0}) {
-    return Positioned.fill(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Stack(
-            children: [
-              Positioned(
-                left: 12,
-                top: top + 6,
-                child: WorldMapBackButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
-                ),
-              ),
-              Positioned(
-                left: 60,
-                right: 12,
-                top: top + 6,
-                child: _OriginMapTabsPill(
-                  locationCount: locationCount,
-                  selectedIndex: _showLocationPage ? 1 : 0,
-                  onMapTap: _handleMapTitleTap,
-                  onLocationTap: _handleLocationTitleTap,
-                ),
-              ),
-            ],
-          );
-        },
+    return Positioned(
+      left: 12,
+      right: 12,
+      top: top + 8,
+      child: WorldTopOverlayBar(
+        pointsCount: locationCount,
+        controller: _tabController,
+        onTabTap: _handleMapModeTabTap,
       ),
     );
   }
@@ -1818,138 +1801,6 @@ bool _originPreviewParagraphHasText(Map<String, dynamic> paragraph) {
     'summary',
     'narrator',
   ]).isNotEmpty;
-}
-
-class _OriginMapTabsPill extends StatelessWidget {
-  const _OriginMapTabsPill({
-    required this.locationCount,
-    required this.selectedIndex,
-    required this.onMapTap,
-    required this.onLocationTap,
-  });
-
-  final int locationCount;
-  final int selectedIndex;
-  final VoidCallback onMapTap;
-  final VoidCallback onLocationTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final uiTheme = GenesisUiTheme.of(context);
-    const height = genesisSearchFieldHeight;
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        color: const Color(0xE6FFFFFF),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onMapTap,
-            child: _OriginMapTabTitle(
-              selected: selectedIndex == 0,
-              icon: Icons.map_outlined,
-              label: 'Map',
-              labelStyle:
-                  (selectedIndex == 0
-                          ? uiTheme.bodyStrongStyle
-                          : uiTheme.bodyStyle)
-                      .copyWith(fontSize: 16),
-              indicatorColor: uiTheme.tabIndicatorColor,
-              indicatorWidth: uiTheme.tabIndicatorWidth,
-              indicatorHeight: uiTheme.tabIndicatorHeight,
-            ),
-          ),
-          const SizedBox(width: 24),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onLocationTap,
-            child: _OriginMapTabTitle(
-              selected: selectedIndex == 1,
-              icon: Icons.place_outlined,
-              label: 'Location ($locationCount)',
-              labelStyle:
-                  (selectedIndex == 1
-                          ? uiTheme.bodyStrongStyle
-                          : uiTheme.bodyStyle)
-                      .copyWith(fontSize: 16),
-              indicatorColor: uiTheme.tabIndicatorColor,
-              indicatorWidth: uiTheme.tabIndicatorWidth,
-              indicatorHeight: uiTheme.tabIndicatorHeight,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OriginMapTabTitle extends StatelessWidget {
-  const _OriginMapTabTitle({
-    required this.selected,
-    required this.icon,
-    required this.label,
-    required this.labelStyle,
-    required this.indicatorColor,
-    required this.indicatorWidth,
-    required this.indicatorHeight,
-  });
-
-  final bool selected;
-  final IconData icon;
-  final String label;
-  final TextStyle labelStyle;
-  final Color indicatorColor;
-  final double indicatorWidth;
-  final double indicatorHeight;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: genesisSearchFieldHeight,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 16, color: const Color(0xFF111111)),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: labelStyle.copyWith(color: const Color(0xFF111111)),
-                ),
-              ],
-            ),
-          ),
-          if (selected)
-            Positioned(
-              left: 12,
-              right: 12,
-              bottom: 3,
-              child: Center(
-                child: Container(
-                  width: indicatorWidth,
-                  height: indicatorHeight,
-                  decoration: BoxDecoration(
-                    color: indicatorColor,
-                    borderRadius: BorderRadius.circular(indicatorHeight / 2),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 }
 
 class _OriginLocationChatDescriptor {
