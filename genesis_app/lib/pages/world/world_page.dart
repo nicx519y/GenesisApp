@@ -1363,13 +1363,18 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       return WorldKeepAlivePage(child: map);
     }
 
+    final canShowWorldTickProgress = shouldConnectWorldChatroom(
+      world.relationStatus,
+    );
     final mountedSlivers = <Widget>[
       const SliverToBoxAdapter(
         child: SizedBox(height: worldStatsTopSpacerHeight),
       ),
       WorldFeedContent(
         world: world,
-        worldActionRunning: _worldActionRunning || _worldTickInProgress,
+        worldActionRunning:
+            _worldActionRunning ||
+            (canShowWorldTickProgress && _worldTickInProgress),
         onWorldAction: _runWorldAction,
         onPullUp: () => _openWorldBottomSheet(WorldBottomSheetKind.events),
       ),

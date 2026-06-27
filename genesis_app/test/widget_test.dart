@@ -9930,6 +9930,84 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets(
+    'world page keeps request action while non-owner world progresses',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(worldRelationStatus: 'none');
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+      );
+      final initialWorld = WorldDetail(
+        id: 0,
+        worldId: 'w_test_1',
+        originId: 0,
+        ownerUid: 'u_owner',
+        name: 'World detail w_test_1',
+        tickCount: 3,
+        connectCount: 4,
+        characterCount: 1,
+        playerCount: 1,
+        currentTime: 'Day 1',
+        mapImageUrl: '',
+        latestTickAt: null,
+        latestNarrator: '',
+        isProgressing: true,
+        relationStatus: 'none',
+        metric: const <String, dynamic>{},
+        inviteToken: '',
+        createdAt: null,
+        updatedAt: null,
+        origin: const OriginSummary(
+          id: 0,
+          oid: 'o_test_1',
+          name: 'Origin',
+          description: '',
+          mapImage: '',
+          worldMap: '',
+          worldView: '',
+          deleted: false,
+          copyCount: 0,
+          interactCount: 0,
+          tags: <String>[],
+          createdAt: null,
+          updatedAt: null,
+          characters: <OriginCharacter>[],
+          locations: <OriginLocation>[],
+        ),
+        characters: const <Map<String, dynamic>>[],
+        ticks: const <Map<String, dynamic>>[],
+        locations: const <Map<String, dynamic>>[],
+        characterPositions: const <Map<String, dynamic>>[],
+        userPositions: const <Map<String, dynamic>>[],
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: WorldPage(wid: 'w_test_1', initialWorldDetail: initialWorld),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final buttonFinder = find.widgetWithText(FilledButton, 'Request');
+      await tester.ensureVisible(buttonFinder);
+      await tester.pump();
+
+      expect(buttonFinder, findsOneWidget);
+      expect(tester.widget<FilledButton>(buttonFinder).onPressed, isNotNull);
+      expect(
+        find.descendant(
+          of: buttonFinder,
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsNothing,
+      );
+    },
+  );
+
   testWidgets('world detail status bar switches after map scrolls out', (
     WidgetTester tester,
   ) async {
