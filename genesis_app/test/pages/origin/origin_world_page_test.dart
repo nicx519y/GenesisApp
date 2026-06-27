@@ -3,6 +3,10 @@ import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 
 void main() {
+  test('origin detail sheet uses main ui horizontal padding', () {
+    expect(originDetailSheetHorizontalPaddingForTesting, 12);
+  });
+
   test('origin location opening preview keeps every initial dialogue line', () {
     final messages = originLocationOpeningPreviewMessagesForTesting(
       [

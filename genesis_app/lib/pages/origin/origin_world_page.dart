@@ -48,6 +48,9 @@ class OriginWorldPage extends StatefulWidget {
   State<OriginWorldPage> createState() => _OriginWorldPageState();
 }
 
+@visibleForTesting
+const double originDetailSheetHorizontalPaddingForTesting = 12;
+
 class _OriginWorldPageState extends State<OriginWorldPage> {
   static const SystemUiOverlayStyle _transparentStatusBarStyle =
       SystemUiOverlayStyle(
@@ -1010,7 +1013,12 @@ class _OriginDetailDraggableSheetState
                     'origin-detail-bottom-sheet-${widget.origin.oid}',
                   ),
                   physics: const ClampingScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(24, topPadding + 5, 24, 32),
+                  padding: EdgeInsets.fromLTRB(
+                    originDetailSheetHorizontalPaddingForTesting,
+                    topPadding + 5,
+                    originDetailSheetHorizontalPaddingForTesting,
+                    32,
+                  ),
                   children: [
                     const _OriginSheetDragHandle(),
                     const SizedBox(height: 10),
