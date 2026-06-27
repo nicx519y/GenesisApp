@@ -27,7 +27,7 @@ import 'world_bottom_sheet.dart';
 import 'world_constants.dart';
 import 'world_header.dart';
 import 'world_location_chat_host.dart';
-import 'world_map_bubble_coordinator.dart';
+import 'world_map_bubble_candidates.dart';
 import 'world_map_data.dart';
 import 'world_models.dart';
 import 'world_sections.dart';
@@ -51,6 +51,7 @@ class WorldPage extends StatefulWidget {
 
 class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   static const Duration _worldInfoPollInterval = Duration(seconds: 5);
+  static const Duration _mapBubblePlaybackInterval = Duration(seconds: 4);
   static const double _worldMainSwipeSystemGestureEdgeWidth = 24;
   static const double _worldMainSwipeMinDistance = 48;
   static const double _worldMainSwipeDirectionRatio = 1.25;
@@ -60,11 +61,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   WorldChatroomService? _worldChatroom;
   StreamSubscription<WorldChatroomState>? _worldChatroomSub;
   StreamSubscription? _worldChatroomFailureSub;
-  StreamSubscription<List<WorldChatroomMessage>>? _worldChatroomLatestSub;
   Map<String, WorldLocationChatPanelDescriptor> _locationChatDescriptors =
       <String, WorldLocationChatPanelDescriptor>{};
   final _locationChatPageCache = WorldLocationChatPageCache();
-  late final WorldMapBubbleCoordinator _mapBubbleCoordinator;
   String _activeChatLocationId = '';
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
@@ -86,6 +85,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _tick1WaitDialogStarted = false;
   Timer? _worldInfoPollTimer;
   Future<void>? _worldInfoPollFuture;
+  Timer? _mapBubblePlaybackTimer;
+  List<WorldMapBubbleCandidate> _mapBubbleCandidates =
+      const <WorldMapBubbleCandidate>[];
+  int _mapBubblePlaybackIndex = 0;
   int? _pendingProgressTickCount;
   var _currentUid = '';
   var _currentUidRequested = false;
@@ -103,16 +106,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _mapBubbleCoordinator = WorldMapBubbleCoordinator(
-      worldId: widget.wid,
-      isMounted: () => mounted,
-      world: () => _world,
-      chatroom: () => _worldChatroom,
-      descriptors: () => _locationChatDescriptors.values,
-      requestUiUpdate: () {
-        if (mounted) setState(() {});
-      },
-    );
     _mainTabController = TabController(length: worldMainPageCount, vsync: this);
     _mainTabController.addListener(_handleWorldMainTabChanged);
     _syncWorldStatusBarForMainTab();
@@ -157,9 +150,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     GenesisSystemUiChrome.applyDefault();
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
-    unawaited(_worldChatroomLatestSub?.cancel());
+    _stopMapBubblePlayback();
     _stopWorldInfoPolling();
-    _mapBubbleCoordinator.clear(updateUi: false);
     final chatroom = _worldChatroom;
     _worldChatroom = null;
     if (chatroom != null) {
@@ -319,9 +311,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     );
     _worldChatroom = service;
     _worldChatroomSub = service.states.listen(_handleWorldChatroomState);
-    _worldChatroomLatestSub = service.latestFetchedMessages.listen(
-      _handleLatestFetchedChatroomMessages,
-    );
     _worldChatroomFailureSub = bindChatroomFailureToast(
       context,
       service.failures,
@@ -337,6 +326,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   void _handleWorldChatroomState(WorldChatroomState state) {
     if (!mounted) return;
     final world = state.world;
+    final currentWorld = world ?? _world;
     var shouldSyncRelationStatus = false;
     final tickDoneFromPush = _worldTickInProgress && !state.inputBlocked;
     setState(() {
@@ -345,6 +335,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         _syncLocationChatDescriptors(world);
         shouldSyncRelationStatus = true;
       }
+      _replaceMapBubbleCandidates(
+        _buildMapBubbleCandidates(state, currentWorld),
+      );
     });
     if (shouldSyncRelationStatus) {
       _syncWorldChatroomForRelationStatus(world!.relationStatus);
@@ -352,25 +345,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (tickDoneFromPush) {
       unawaited(_handleWorldTickDone());
     }
-    _maybePrimeMapMessageBubbles();
-  }
-
-  void _handleLatestFetchedChatroomMessages(
-    List<WorldChatroomMessage> messages,
-  ) {
-    _mapBubbleCoordinator.enqueue(messages, priority: true);
-  }
-
-  void _maybePrimeMapMessageBubbles() {
-    _mapBubbleCoordinator.maybePrime();
-  }
-
-  void _handleSecondaryMapChanged(bool isInSecondaryMap) {
-    _mapBubbleCoordinator.handleSecondaryMapChanged(isInSecondaryMap);
-  }
-
-  void _handleVisibleMapLocationIdsChanged(List<String> locationIds) {
-    _mapBubbleCoordinator.handleVisibleLocationIdsChanged(locationIds);
   }
 
   void _syncWorldChatroomForRelationStatus(String relationStatus) {
@@ -386,18 +360,16 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (chatroom == null) return;
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
-    unawaited(_worldChatroomLatestSub?.cancel());
     _worldChatroomSub = null;
     _worldChatroomFailureSub = null;
-    _worldChatroomLatestSub = null;
     _worldChatroom = null;
     if (mounted) {
       setState(() {
         _activeChatLocationId = '';
         _locationChatPageCache.clear();
+        _replaceMapBubbleCandidates(const <WorldMapBubbleCandidate>[]);
       });
     }
-    _mapBubbleCoordinator.clear();
     unawaited(_disposeWorldChatroom(chatroom));
   }
 
@@ -410,7 +382,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       if (!mounted || !identical(_worldChatroom, service)) return;
       await service.connect(worldId: widget.wid, identity: identity);
       if (!mounted || !identical(_worldChatroom, service)) return;
-      _maybePrimeMapMessageBubbles();
     } catch (_) {
       // The service emits failures and keeps reconnecting while desired.
     }
@@ -485,6 +456,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _sectionsWorldNotifier.value = world;
       if (clearInitialLoadError) _initialLoadError = null;
       _syncLocationChatDescriptors(world);
+      _replaceMapBubbleCandidates(
+        _buildMapBubbleCandidates(_worldChatroom?.state, world),
+      );
     });
     _syncWorldChatroomForRelationStatus(world.relationStatus);
     if (shouldStartPolling) {
@@ -492,7 +466,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     } else if (_worldTickInProgress) {
       _markWorldTickIdle();
     }
-    _maybePrimeMapMessageBubbles();
   }
 
   String _rootMapImageUrlForWorld(WorldDetail world) {
@@ -503,6 +476,67 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final worldMapUrl = world.mapImageUrl.trim();
     if (worldMapUrl.isNotEmpty) return worldMapUrl;
     return world.origin.worldMap.trim();
+  }
+
+  List<WorldMapBubbleCandidate> _buildMapBubbleCandidates(
+    WorldChatroomState? state,
+    WorldDetail? world,
+  ) {
+    if (state == null || world == null) {
+      return const <WorldMapBubbleCandidate>[];
+    }
+    return worldMapBubbleCandidatesFor(
+      currentTickNo: world.tickCount,
+      characterPositions: world.characterPositions,
+      messagesByLocation: state.messagesByLocation,
+    );
+  }
+
+  void _replaceMapBubbleCandidates(List<WorldMapBubbleCandidate> candidates) {
+    _mapBubbleCandidates = candidates;
+    if (_mapBubbleCandidates.isEmpty) {
+      _mapBubblePlaybackIndex = 0;
+      _stopMapBubblePlayback();
+      return;
+    }
+    if (_mapBubbleCandidates.length <= 1) {
+      _mapBubblePlaybackIndex = 0;
+      _stopMapBubblePlayback();
+      return;
+    }
+    if (_mapBubblePlaybackIndex >= _mapBubbleCandidates.length) {
+      _mapBubblePlaybackIndex = 0;
+    }
+    _ensureMapBubblePlayback();
+  }
+
+  void _ensureMapBubblePlayback() {
+    if (_mapBubblePlaybackTimer != null || _mapBubbleCandidates.length <= 1) {
+      return;
+    }
+    _mapBubblePlaybackTimer = Timer.periodic(_mapBubblePlaybackInterval, (_) {
+      if (!mounted || _mapBubbleCandidates.isEmpty) return;
+      setState(() {
+        _mapBubblePlaybackIndex =
+            (_mapBubblePlaybackIndex + 1) % _mapBubbleCandidates.length;
+      });
+    });
+  }
+
+  void _stopMapBubblePlayback() {
+    _mapBubblePlaybackTimer?.cancel();
+    _mapBubblePlaybackTimer = null;
+  }
+
+  List<WorldMapMessageBubble> get _mapMessageBubbles {
+    return _mapBubbleCandidates
+        .map(
+          (candidate) => WorldMapMessageBubble(
+            characterId: candidate.characterId,
+            content: candidate.content,
+          ),
+        )
+        .toList(growable: false);
   }
 
   void _maybeShowTick1WaitDialog() {
@@ -1237,6 +1271,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         listPoints: listPoints,
         locationNodes: locationNodes,
         listLocationNodes: listLocationNodes,
+        messageBubbles: _mapMessageBubbles,
+        messageBubbleIndex: _mapBubblePlaybackIndex,
         mapImageUrl: rootMapImageUrl,
         dimmed: pointMode,
         showPointsList: pointMode,
@@ -1248,23 +1284,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         drillExitTop: topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
         drillExitMaxWidth: worldSecondaryMapControlWidth,
         onDrillIntoLocation: _showMapTab,
-        onSecondaryMapChanged: (isInSecondaryMap) {
-          if (_worldMainTabIndex == tabIndex) {
-            _handleSecondaryMapChanged(isInSecondaryMap);
-          }
-        },
-        onVisibleLocationIdsChanged: (locationIds) {
-          if (_worldMainTabIndex == tabIndex) {
-            _handleVisibleMapLocationIdsChanged(locationIds);
-          }
-        },
         onHorizontalPanStateChanged: tabIndex == 0
             ? _handleWorldMapHorizontalPanStateChanged
             : null,
         onPointTap: _openChatForPoint,
-        messageBubbles: pointMode
-            ? const <String, WorldMapMessageBubble>{}
-            : _mapBubbleCoordinator.messageBubbles,
       );
       return WorldKeepAlivePage(child: map);
     }

@@ -13,9 +13,6 @@ void main() {
   final worldLocationChatSource = File(
     'lib/pages/world/world_location_chat_host.dart',
   );
-  final worldMapBubbleSource = File(
-    'lib/pages/world/world_map_bubble_coordinator.dart',
-  );
 
   String allWorldSource() {
     return Directory('lib/pages/world')
@@ -34,7 +31,6 @@ void main() {
     expect(source, contains('WorldDetailsPageScaffold('));
     expect(source, contains('WorldBottomTags('));
     expect(source, contains('WorldLocationChatRouterHost('));
-    expect(source, contains('WorldMapBubbleCoordinator('));
     expect(source, isNot(contains('class WorldSingleSectionBottomSheet')));
     expect(source, isNot(contains('class WorldEventsSection')));
     expect(source, isNot(contains('class WorldLocationChatPageCache')));
@@ -167,6 +163,15 @@ void main() {
     expect(cover, isNot(contains('Image.network(')));
   });
 
+  test('world map bubbles are derived from chatroom state', () {
+    final source = worldPageSource.readAsStringSync();
+
+    expect(source, contains('worldMapBubbleCandidatesFor('));
+    expect(source, contains('messageBubbles: _mapMessageBubbles'));
+    expect(source, contains('messageBubbleIndex: _mapBubblePlaybackIndex'));
+    expect(source, isNot(contains('WorldMapBubbleCoordinator')));
+  });
+
   test('world tick completion closes other sheets before opening events', () {
     final source = worldPageSource.readAsStringSync();
     final tickDone = source.substring(
@@ -260,15 +265,12 @@ void main() {
     );
   });
 
-  test('location chat and map bubble code live outside world page', () {
+  test('location chat code lives outside world page', () {
     final worldPage = worldPageSource.readAsStringSync();
     final locationChat = worldLocationChatSource.readAsStringSync();
-    final mapBubble = worldMapBubbleSource.readAsStringSync();
 
     expect(locationChat, contains('class WorldLocationChatRouterHost'));
     expect(locationChat, contains('class WorldLocationChatPageCache'));
-    expect(mapBubble, contains('class WorldMapBubbleCoordinator'));
     expect(worldPage, isNot(contains('class WorldLocationChatRouterHost')));
-    expect(worldPage, isNot(contains('_mapMessageBubbleQueuesByLocation')));
   });
 }

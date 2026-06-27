@@ -117,66 +117,34 @@ void main() {
     expect(find.text('LP'), findsOneWidget);
   });
 
-  testWidgets('world map shows message bubbles on the root map', (
+  testWidgets('world map shows bubble for matching visible avatar', (
     tester,
   ) async {
     await _pumpWorldMap(
       tester,
-      users: const [],
-      points: const [],
-      locationNodes: const [
-        WorldMapLocationNode(
-          id: 'root',
-          isRoot: true,
-          point: WorldPoint(
-            id: 'root',
-            name: 'Root',
-            type: WorldPointType.portal,
-            position: _pointPosition,
-            users: [],
-            sceneId: 'root',
-            isLeafLocation: false,
-          ),
-          children: [
-            WorldMapLocationNode(
-              id: 'a',
-              point: WorldPoint(
-                id: 'a',
-                name: 'A',
-                type: WorldPointType.shop,
-                position: Offset(0.28, 0.22),
-                users: [],
-                sceneId: 'a',
-                isLeafLocation: false,
-              ),
-            ),
-            WorldMapLocationNode(
-              id: 'b',
-              point: WorldPoint(
-                id: 'b',
-                name: 'B',
-                type: WorldPointType.camp,
-                position: Offset(0.72, 0.22),
-                users: [UserAvatar('CC', id: 'char-c', name: 'Celia')],
-                sceneId: 'b',
-                isLeafLocation: false,
-              ),
-            ),
-          ],
-        ),
-      ],
-      messageBubbles: {
-        'b': WorldMapMessageBubble(
-          locationId: 'c',
-          senderId: 'char-c',
-          senderName: 'Celia',
-          content: 'C speaks from below',
-          createdAt: DateTime(2026),
-        ),
-      },
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      activeBubble: const WorldMapMessageBubble(
+        characterId: 'char_a',
+        content: 'Ava checks the storefront.',
+      ),
     );
 
-    expect(find.text('C speaks from below'), findsOneWidget);
+    expect(find.text('Ava checks the storefront.'), findsOneWidget);
+  });
+
+  testWidgets('world map hides bubble when avatar is not visible', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      activeBubble: const WorldMapMessageBubble(
+        characterId: 'char_b',
+        content: 'Ben is elsewhere.',
+      ),
+    );
+
+    expect(find.text('Ben is elsewhere.'), findsNothing);
   });
 
   test('player controlled map avatar uses highlighted border', () {
@@ -1650,8 +1618,7 @@ Future<void> _pumpWorldMap(
   WorldPointTapCallback? onPointTap,
   VoidCallback? onDrillIntoLocation,
   ValueChanged<bool>? onMapInteractionChanged,
-  Map<String, WorldMapMessageBubble> messageBubbles =
-      const <String, WorldMapMessageBubble>{},
+  WorldMapMessageBubble? activeBubble,
 }) async {
   tester.view.physicalSize = const Size(430, 820);
   tester.view.devicePixelRatio = 1;
@@ -1678,7 +1645,7 @@ Future<void> _pumpWorldMap(
                 showPointsList: showPointsList,
                 listPoints: listPoints,
                 locationNodes: locationNodes,
-                messageBubbles: messageBubbles,
+                activeBubble: activeBubble,
                 onDrillIntoLocation: onDrillIntoLocation,
                 onPointTap: onPointTap,
                 points:
