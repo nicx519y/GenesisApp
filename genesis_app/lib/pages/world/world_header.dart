@@ -86,35 +86,90 @@ class WorldMapIdentityPill extends StatelessWidget {
                 ),
               if (title.isNotEmpty && timeText.isNotEmpty)
                 const SizedBox(height: 3),
-              if (timeText.isNotEmpty)
-                Text(
-                  timeText,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Color(0xFF111111),
-                    fontSize: 12,
-                    height: 1,
-                    leadingDistribution: TextLeadingDistribution.even,
-                    fontWeight: FontWeight.w400,
-                  ),
-                  strutStyle: const StrutStyle(
-                    fontSize: 12,
-                    height: 1,
-                    forceStrutHeight: true,
-                  ),
-                  textHeightBehavior: const TextHeightBehavior(
-                    applyHeightToFirstAscent: false,
-                    applyHeightToLastDescent: false,
-                  ),
-                ),
+              if (timeText.isNotEmpty) _WorldMapTimeLabel(text: timeText),
             ],
           ),
         ),
       ),
     );
   }
+}
+
+class _WorldMapTimeLabel extends StatelessWidget {
+  const _WorldMapTimeLabel({required this.text});
+
+  static const _textStyle = TextStyle(
+    color: Color(0xFF111111),
+    fontSize: 12,
+    height: 1,
+    leadingDistribution: TextLeadingDistribution.even,
+    fontWeight: FontWeight.w400,
+  );
+  static const _strutStyle = StrutStyle(
+    fontSize: 12,
+    height: 1,
+    forceStrutHeight: true,
+  );
+  static const _textHeightBehavior = TextHeightBehavior(
+    applyHeightToFirstAscent: false,
+    applyHeightToLastDescent: false,
+  );
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = _splitWorldMapTimeLabel(text);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (parts.tick.isNotEmpty) ...[
+          Text(
+            parts.tick,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: _textStyle,
+            strutStyle: _strutStyle,
+            textHeightBehavior: _textHeightBehavior,
+          ),
+          if (parts.time.isNotEmpty)
+            const Text(' · ', style: _textStyle, strutStyle: _strutStyle),
+        ],
+        if (parts.time.isNotEmpty) ...[
+          const Icon(Icons.schedule, size: 12, color: Color(0xFF111111)),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              parts.time,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: _textStyle,
+              strutStyle: _strutStyle,
+              textHeightBehavior: _textHeightBehavior,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+({String tick, String time}) _splitWorldMapTimeLabel(String text) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return (tick: '', time: '');
+  final separatorIndex = trimmed.indexOf(' · ');
+  if (separatorIndex <= 0) {
+    return trimmed.startsWith('Tick ')
+        ? (tick: trimmed, time: '')
+        : (tick: '', time: trimmed);
+  }
+  final tick = trimmed.substring(0, separatorIndex).trim();
+  final time = trimmed.substring(separatorIndex + 3).trim();
+  if (!tick.startsWith('Tick ')) return (tick: '', time: trimmed);
+  return (tick: tick, time: time);
 }
 
 String worldTimeLabel({required int tickIndex, required String worldTime}) {

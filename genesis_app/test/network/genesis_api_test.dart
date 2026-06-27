@@ -582,6 +582,7 @@ void main() {
     final origin = await api.getOrigin('o_1');
 
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/detail');
+    expect(apiTransport.requests, hasLength(1));
     expect(apiTransport.lastRequest!.uri.queryParameters['origin_id'], 'o_1');
     expect(origin.worldView, 'Brief shown in World View.');
     expect(origin.worldView, isNot('Internal setting text.'));

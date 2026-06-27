@@ -573,10 +573,10 @@ void main() {
     expect(levelOneTitle, findsOneWidget);
     expect(levelTwoTitle, findsOneWidget);
     expect(find.byType(Divider), findsNWidgets(2));
-    expect(find.byIcon(Icons.place), findsNWidgets(3));
+    expect(find.byIcon(Icons.place_outlined), findsNWidgets(3));
     expect(_assetSvgFinder(characterStatIconAsset), findsOneWidget);
     expect(_assetSvgFinder(userStatIconAsset), findsOneWidget);
-    expect(find.byIcon(Icons.schedule), findsOneWidget);
+    expect(find.byIcon(Icons.schedule), findsNothing);
     expect(find.text('Ada, Bert'), findsOneWidget);
     expect(find.text('Cara, Drew'), findsOneWidget);
     expect(find.text('Gate checkpoint description.'), findsOneWidget);
@@ -622,7 +622,7 @@ void main() {
       expect(find.text('Older location description.'), findsOneWidget);
       expect(find.text('Preferred current summary.'), findsNothing);
       expect(find.text('Unused summary description.'), findsNothing);
-      expect(find.byIcon(Icons.schedule), findsOneWidget);
+      expect(find.byIcon(Icons.schedule), findsNothing);
     },
   );
 

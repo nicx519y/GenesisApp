@@ -1173,7 +1173,7 @@ const TextStyle _worldEventContentTextStyle = TextStyle(
 const TextStyle _worldEventContentTimestampStyle = TextStyle(
   fontSize: 13,
   height: 1.4,
-  fontWeight: FontWeight.w600,
+  fontWeight: FontWeight.w400,
   color: Color(0xFF111111),
 );
 

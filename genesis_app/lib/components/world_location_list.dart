@@ -574,28 +574,16 @@ class _PointSummaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: const Icon(Icons.schedule, size: 12, color: Colors.black),
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Text(
-            description,
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1.25,
-              fontWeight: FontWeight.w400,
-              color: Colors.black,
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
+    return Text(
+      description,
+      style: const TextStyle(
+        fontSize: 12,
+        height: 1.25,
+        fontWeight: FontWeight.w400,
+        color: Colors.black,
+      ),
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
     );
   }
 }

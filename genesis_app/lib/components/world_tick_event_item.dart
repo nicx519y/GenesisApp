@@ -220,7 +220,7 @@ class _TickParagraphRow extends StatelessWidget {
     final bodyText = Text(body, style: resolvedBodyStyle);
     final timestampText = timestamp.isEmpty
         ? null
-        : Text(timestamp, style: timestampStyle ?? _timestampStyle);
+        : _TimestampLabel(text: timestamp, style: timestampStyle);
     final characterDetailsText = characterDetails.isEmpty
         ? null
         : _CharacterDetailsText(
@@ -290,7 +290,7 @@ const _bodyStyle = TextStyle(
 const _timestampStyle = TextStyle(
   fontSize: 12,
   height: 1.4,
-  fontWeight: FontWeight.w600,
+  fontWeight: FontWeight.w400,
   color: Color(0xFF111111),
 );
 
@@ -351,6 +351,28 @@ class _LocationLabel extends StatelessWidget {
         const Icon(Icons.place_outlined, size: 12, color: Color(0xFF111111)),
         const SizedBox(width: 4),
         Flexible(child: Text(text, style: style ?? _labelStyle)),
+      ],
+    );
+  }
+}
+
+class _TimestampLabel extends StatelessWidget {
+  const _TimestampLabel({required this.text, this.style});
+
+  final String text;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedStyle = (style ?? _timestampStyle).copyWith(
+      fontWeight: FontWeight.w400,
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.schedule, size: 12, color: Color(0xFF111111)),
+        const SizedBox(width: 4),
+        Flexible(child: Text(text, style: resolvedStyle)),
       ],
     );
   }

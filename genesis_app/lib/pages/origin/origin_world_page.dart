@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -19,7 +20,9 @@ import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
+import '../../components/origin/stat_item.dart';
 import '../../components/world_map.dart';
+import '../../components/world_tick_event_item.dart';
 import '../../components/world_tick1_wait_dialog.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
@@ -35,11 +38,14 @@ import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_search_field.dart';
+import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/theme/genesis_ui_theme.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/genesis_image_resource.dart';
+import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_page.dart';
 import '../world/world_header.dart';
 import 'origin_launch_coordinator.dart';
@@ -768,20 +774,19 @@ class _OriginBottomLaunchBar extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         _LaunchBarStat(
-                          icon: Icons.copy_rounded,
+                          iconAsset: copyStatIconAsset,
                           value: origin.copyCount,
                         ),
                         const SizedBox(width: 20),
                         _LaunchBarStat(
-                          icon: Icons.hub_outlined,
+                          iconAsset: connectStatIconAsset,
                           value: origin.interactCount,
                         ),
                         const SizedBox(width: 20),
                         _LaunchBarStat(
-                          icon: Icons.group_rounded,
-                          value: origin.characterCount > 0
-                              ? origin.characterCount
-                              : origin.characters.length,
+                          iconAsset: characterStatIconAsset,
+                          preserveIconAssetColor: true,
+                          value: origin.characterCount,
                         ),
                       ],
                     ),
@@ -810,31 +815,36 @@ class _OriginBottomLaunchBar extends StatelessWidget {
 }
 
 class _LaunchBarStat extends StatelessWidget {
-  const _LaunchBarStat({required this.icon, required this.value});
+  const _LaunchBarStat({
+    this.icon,
+    this.iconAsset,
+    this.preserveIconAssetColor = false,
+    required this.value,
+  }) : assert(icon != null || iconAsset != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final String? iconAsset;
+  final bool preserveIconAssetColor;
   final int value;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: const Color(0xFF111111)),
-        const SizedBox(width: 4),
-        Text(
-          '$value',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 14,
-            height: 1,
-            fontWeight: FontWeight.w400,
-            color: Color(0xFF111111),
-            decoration: TextDecoration.none,
-          ),
-        ),
-      ],
+    return StatItem(
+      icon: icon,
+      iconAsset: iconAsset,
+      preserveIconAssetColor: preserveIconAssetColor,
+      iconSize: 14,
+      iconAssetScale: 1,
+      iconVerticalOffset: 0,
+      iconColor: const Color(0xFF111111),
+      gap: 4,
+      text: formatStatCount(value),
+      textStyle: const TextStyle(
+        fontSize: 14,
+        height: 1,
+        fontWeight: FontWeight.w400,
+        color: Color(0xFF111111),
+      ),
     );
   }
 }
@@ -1372,10 +1382,6 @@ class _LaunchPreviewSection extends StatelessWidget {
         ? (previewTick['tick_result'] as Map).cast<String, dynamic>()
         : const <String, dynamic>{};
     final globalBody = _mapString(tickResult, const ['narrator']);
-    final paragraphsRaw = tickResult['paragraphs'];
-    final paragraphs = paragraphsRaw is List
-        ? paragraphsRaw.whereType<Map>().map((raw) => raw.cast()).toList()
-        : const <Map<dynamic, dynamic>>[];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1386,69 +1392,21 @@ class _LaunchPreviewSection extends StatelessWidget {
           title: 'Launch Preview',
         ),
         const SizedBox(height: 8),
-        if (globalBody.trim().isNotEmpty)
-          _OriginPreviewEventCard(label: 'Global', body: globalBody)
-        else if (paragraphs.isEmpty)
-          const Text('No preview', style: _mutedBodyTextStyle),
-        for (final paragraph in paragraphs)
-          _OriginPreviewEventCard(
-            label: _mapString(paragraph, const [
-              'location_name',
-              'name',
-              'label',
-            ]),
-            body: _mapString(paragraph, const [
-              'content',
-              'text',
-              'summary',
-              'narrator',
-            ]),
-          ),
+        WorldTickEventItem(
+          tick: previewTick,
+          tickNumber: 1,
+          fallbackBody: globalBody,
+          locationsById: _originLocationsById(origin.allLocations),
+          dateLabel: origin.startTime.trim().isEmpty
+              ? 'Day 1, 18:00'
+              : formatGenesisTimestamp(origin.startTime),
+          timeAgoLabel: '',
+          stackedContent: true,
+          contentLabelStyle: _originTickContentLabelStyle,
+          contentTextStyle: _originTickContentTextStyle,
+          contentTimestampStyle: _originTickContentTimestampStyle,
+        ),
       ],
-    );
-  }
-}
-
-class _OriginPreviewEventCard extends StatelessWidget {
-  const _OriginPreviewEventCard({required this.label, required this.body});
-
-  final String label;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    final visibleBody = body.trim();
-    if (visibleBody.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xFFEAF8F2),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (label.trim().isNotEmpty) ...[
-                Text(
-                  label.trim(),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    height: 1.2,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF111111),
-                    decoration: TextDecoration.none,
-                  ),
-                ),
-                const SizedBox(height: 6),
-              ],
-              Text(visibleBody, style: _bodyTextStyle),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -1557,6 +1515,10 @@ class _OriginCharactersSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final characterAvatarUrls = characters
+        .map((character) => _resolveAssetUrl(character.avatar).trim())
+        .where((url) => url.isNotEmpty)
+        .toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1569,7 +1531,10 @@ class _OriginCharactersSection extends StatelessWidget {
           const Text('No characters', style: _mutedBodyTextStyle)
         else
           for (int i = 0; i < characters.length; i++) ...[
-            _OriginCharacterRow(character: characters[i]),
+            _OriginCharacterRow(
+              character: characters[i],
+              imageUrls: characterAvatarUrls,
+            ),
             if (i != characters.length - 1) const SizedBox(height: 20),
           ],
       ],
@@ -1578,9 +1543,10 @@ class _OriginCharactersSection extends StatelessWidget {
 }
 
 class _OriginCharacterRow extends StatelessWidget {
-  const _OriginCharacterRow({required this.character});
+  const _OriginCharacterRow({required this.character, required this.imageUrls});
 
   final OriginCharacter character;
+  final List<String> imageUrls;
 
   @override
   Widget build(BuildContext context) {
@@ -1596,7 +1562,12 @@ class _OriginCharacterRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _OriginCharacterPortrait(url: avatarUrl, name: character.name),
+        _OriginCharacterPortrait(
+          characterId: _characterStableId(character),
+          url: avatarUrl,
+          name: character.name,
+          imageUrls: imageUrls,
+        ),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -1642,49 +1613,98 @@ class _OriginCharacterRow extends StatelessWidget {
 }
 
 class _OriginCharacterPortrait extends StatelessWidget {
-  const _OriginCharacterPortrait({required this.url, required this.name});
+  const _OriginCharacterPortrait({
+    required this.characterId,
+    required this.url,
+    required this.name,
+    required this.imageUrls,
+  });
 
   static const double _width = 86;
+  static const double _borderRadius = GenesisAvatarRadii.character;
+  static const double _starSize = 20;
 
+  final String characterId;
   final String url;
   final String name;
+  final List<String> imageUrls;
 
   @override
   Widget build(BuildContext context) {
+    final resolvedUrl = selectGenesisImageUrl(
+      url,
+      logicalWidth: _width,
+      logicalHeight: _width,
+      devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+    ).trim();
     final fallback = GenesisAvatarFallback(
       name: name,
       width: _width,
       height: _width,
-      borderRadius: 8,
+      borderRadius: _borderRadius,
     );
-    final imageUrl = url.trim();
-    final image = imageUrl.isEmpty
+    final image = resolvedUrl.isEmpty
         ? fallback
-        : imageUrl.startsWith('assets/')
+        : resolvedUrl.startsWith('assets/')
         ? Image.asset(
-            imageUrl,
+            resolvedUrl,
             width: _width,
-            height: _width,
-            fit: BoxFit.cover,
+            fit: BoxFit.fitWidth,
+            alignment: Alignment.topCenter,
             errorBuilder: (context, error, stackTrace) => fallback,
           )
-        : Image.network(
-            imageUrl,
+        : CachedNetworkImage(
+            imageUrl: resolvedUrl,
             width: _width,
-            height: _width,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => fallback,
+            fit: BoxFit.fitWidth,
+            alignment: Alignment.topCenter,
+            fadeInDuration: Duration.zero,
+            fadeOutDuration: Duration.zero,
+            placeholderFadeInDuration: Duration.zero,
+            imageBuilder: (context, imageProvider) {
+              return Image(
+                image: imageProvider,
+                width: _width,
+                fit: BoxFit.fitWidth,
+                alignment: Alignment.topCenter,
+              );
+            },
+            placeholder: (context, url) =>
+                const SizedBox(width: _width, height: _width),
+            errorWidget: (context, url, error) => fallback,
           );
-    return Stack(
+    final initialIndex = imageUrls.indexOf(url.trim());
+    final portrait = Stack(
       clipBehavior: Clip.none,
       children: [
-        ClipRRect(borderRadius: BorderRadius.circular(8), child: image),
+        SizedBox(
+          width: _width,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(_borderRadius),
+            child: image,
+          ),
+        ),
         const Positioned(
-          top: -7,
-          right: -8,
-          child: Icon(Icons.auto_awesome, size: 20, color: Color(0xFFFF2442)),
+          top: -_starSize / 4 - 2,
+          right: -_starSize / 4 - 3,
+          child: Icon(
+            MyFlutterApp.redstarCharIcon,
+            size: _starSize,
+            color: Color(0xFFFF2442),
+          ),
         ),
       ],
+    );
+    if (resolvedUrl.isEmpty) return portrait;
+    return GestureDetector(
+      key: ValueKey('origin-character-portrait-$characterId'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showGenesisImageViewer(
+        context,
+        imageUrls: imageUrls,
+        initialIndex: initialIndex < 0 ? 0 : initialIndex,
+      ),
+      child: portrait,
     );
   }
 }
@@ -1708,10 +1728,41 @@ const _characterBodyTextStyle = TextStyle(
 const _mutedBodyTextStyle = TextStyle(
   fontSize: 13,
   height: 1.3,
-  fontWeight: FontWeight.w600,
+  fontWeight: FontWeight.w400,
   color: Color(0xFF999999),
   decoration: TextDecoration.none,
 );
+
+const _originTickContentLabelStyle = TextStyle(
+  fontSize: 13,
+  height: 1.6,
+  fontWeight: FontWeight.w600,
+  color: Color(0xFF111111),
+  decoration: TextDecoration.none,
+);
+
+const _originTickContentTextStyle = TextStyle(
+  fontSize: 13,
+  height: 1.6,
+  fontWeight: FontWeight.w400,
+  color: Color(0xFF444444),
+  decoration: TextDecoration.none,
+);
+
+const _originTickContentTimestampStyle = TextStyle(
+  fontSize: 13,
+  height: 1.4,
+  fontWeight: FontWeight.w400,
+  color: Color(0xFF111111),
+  decoration: TextDecoration.none,
+);
+
+String _characterStableId(OriginCharacter character) {
+  final explicitId = character.characterId.trim();
+  if (explicitId.isNotEmpty) return explicitId;
+  if (character.id > 0) return '${character.id}';
+  return character.name.trim();
+}
 
 List<String> _splitTags(String tags) {
   if (tags.trim().isEmpty) return const [];
@@ -2422,6 +2473,21 @@ String _mapString(Map<dynamic, dynamic> map, List<String> keys) {
     if (text.isNotEmpty) return text;
   }
   return '';
+}
+
+Map<String, Map<String, dynamic>> _originLocationsById(
+  List<OriginLocation> locations,
+) {
+  final out = <String, Map<String, dynamic>>{};
+  for (final location in locations) {
+    final locationId = location.locationId.trim();
+    if (locationId.isEmpty) continue;
+    out[locationId] = <String, dynamic>{
+      'location_name': location.name,
+      'name': location.name,
+    };
+  }
+  return out;
 }
 
 List<WorldChatroomMessage> _originLocationOpeningPreviewMessages(
