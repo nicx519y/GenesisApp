@@ -374,6 +374,9 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || _closing) return;
           _composerFocusNode.requestFocus();
+          unawaited(
+            SystemChannels.textInput.invokeMethod<void>('TextInput.show'),
+          );
         });
       }
     }

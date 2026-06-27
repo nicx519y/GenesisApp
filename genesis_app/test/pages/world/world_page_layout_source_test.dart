@@ -140,6 +140,21 @@ void main() {
     expect(source, isNot(contains('WorldSectionsSheetTabs')));
   });
 
+  test('world bottom sheet supports horizontal page switching', () {
+    final bottomSheet = worldBottomSheetSource.readAsStringSync();
+    final singleSectionSheet = bottomSheet.substring(
+      bottomSheet.indexOf('class WorldSingleSectionBottomSheet'),
+      bottomSheet.indexOf('class WorldSingleSectionSheetHeader'),
+    );
+
+    expect(singleSectionSheet, contains('PageController'));
+    expect(singleSectionSheet, contains('PageView.builder'));
+    expect(singleSectionSheet, contains('_kindForPage'));
+    expect(singleSectionSheet, contains('_pageForKind'));
+    expect(singleSectionSheet, contains('_handleSheetPageChanged'));
+    expect(singleSectionSheet, contains('_animateToSelectionPage'));
+  });
+
   test('world detail cover uses cached network image', () {
     final sections = worldSectionsSource.readAsStringSync();
     final cover = sections.substring(

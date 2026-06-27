@@ -128,7 +128,7 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
     required this.onLocationTap,
   });
 
-  final ValueListenable<WorldBottomSheetSelection> selectionListenable;
+  final ValueNotifier<WorldBottomSheetSelection> selectionListenable;
   final AppServices services;
   final WorldDetail initialWorld;
   final ValueListenable<WorldDetail?> worldListenable;
@@ -150,7 +150,10 @@ class WorldSingleSectionBottomSheetState
   static const double _contentDismissDragDistance = 48;
   static const double _contentDismissDragVelocity = 650;
 
+  late final PageController _pageController;
+  var _changingPageFromSelection = false;
   var _contentAtTop = true;
+  var _contentDragDx = 0.0;
   var _contentDragDy = 0.0;
   VelocityTracker? _contentVelocityTracker;
 
@@ -164,6 +167,9 @@ class WorldSingleSectionBottomSheetState
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(
+      initialPage: _pageForKind(_selection.kind),
+    );
     widget.worldListenable.addListener(_handleWorldDetailChanged);
     widget.selectionListenable.addListener(_handleSelectionChanged);
   }
@@ -198,6 +204,7 @@ class WorldSingleSectionBottomSheetState
   void dispose() {
     widget.worldListenable.removeListener(_handleWorldDetailChanged);
     widget.selectionListenable.removeListener(_handleSelectionChanged);
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -216,7 +223,53 @@ class WorldSingleSectionBottomSheetState
     }
     _contentAtTop = true;
     _resetContentDrag();
+    _animateToSelectionPage();
     if (mounted) setState(() {});
+  }
+
+  int _pageForKind(WorldBottomSheetKind kind) {
+    final index = worldBottomTagItems.indexWhere((item) => item.kind == kind);
+    return index < 0 ? 0 : index;
+  }
+
+  WorldBottomSheetKind _kindForPage(int page) {
+    if (page < 0 || page >= worldBottomTagItems.length) {
+      return WorldBottomSheetKind.detail;
+    }
+    return worldBottomTagItems[page].kind;
+  }
+
+  void _animateToSelectionPage() {
+    if (!_pageController.hasClients) return;
+    final targetPage = _pageForKind(_selection.kind);
+    final currentPage =
+        _pageController.page?.round() ?? _pageController.initialPage;
+    if (currentPage == targetPage) return;
+    _changingPageFromSelection = true;
+    unawaited(
+      _pageController
+          .animateToPage(
+            targetPage,
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+          )
+          .whenComplete(() => _changingPageFromSelection = false),
+    );
+  }
+
+  void _handleSheetPageChanged(int page) {
+    if (_changingPageFromSelection) return;
+    final kind = _kindForPage(page);
+    if (_selection.kind == kind) return;
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: worldBottomSheetPageName(kind),
+      object1: _currentWorld.worldId,
+    );
+    widget.selectionListenable.value = WorldBottomSheetSelection(
+      kind: kind,
+      eventsLatestRevision: _selection.eventsLatestRevision,
+    );
   }
 
   void _ensureEventsForCurrentWorld({bool forceFirstPageRefresh = false}) {
@@ -382,8 +435,8 @@ class WorldSingleSectionBottomSheetState
     );
   }
 
-  Widget _buildSheetContent() {
-    return switch (_selection.kind) {
+  Widget _buildSheetPage(WorldBottomSheetKind kind) {
+    return switch (kind) {
       WorldBottomSheetKind.detail => _buildDetailSectionPage(),
       WorldBottomSheetKind.locations => _buildLocationsSectionPage(),
       WorldBottomSheetKind.events => _buildEventsSectionPage(),
@@ -399,6 +452,7 @@ class WorldSingleSectionBottomSheetState
   }
 
   void _handleContentPointerDown(PointerDownEvent event) {
+    _contentDragDx = 0;
     _contentDragDy = 0;
     _contentVelocityTracker = VelocityTracker.withKind(event.kind)
       ..addPosition(event.timeStamp, event.localPosition);
@@ -406,6 +460,7 @@ class WorldSingleSectionBottomSheetState
 
   void _handleContentPointerMove(PointerMoveEvent event) {
     _contentVelocityTracker?.addPosition(event.timeStamp, event.localPosition);
+    _contentDragDx += event.delta.dx;
     final dragDelta = event.delta.dy;
     if (!_contentAtTop || dragDelta <= 0) {
       if (dragDelta < 0) _contentDragDy = 0;
@@ -418,8 +473,10 @@ class WorldSingleSectionBottomSheetState
     _contentVelocityTracker?.addPosition(event.timeStamp, event.localPosition);
     final velocity =
         _contentVelocityTracker?.getVelocity().pixelsPerSecond.dy ?? 0;
+    final isVerticalPull = _contentDragDy.abs() >= _contentDragDx.abs() * 1.2;
     final shouldClose =
         _contentAtTop &&
+        isVerticalPull &&
         (_contentDragDy >= _contentDismissDragDistance ||
             velocity >= _contentDismissDragVelocity);
     _resetContentDrag();
@@ -431,6 +488,7 @@ class WorldSingleSectionBottomSheetState
   }
 
   void _resetContentDrag() {
+    _contentDragDx = 0;
     _contentDragDy = 0;
     _contentVelocityTracker = null;
   }
@@ -454,7 +512,14 @@ class WorldSingleSectionBottomSheetState
         onNotification: _handleContentScrollNotification,
         child: ScrollConfiguration(
           behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
-          child: _buildSheetContent(),
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: worldBottomTagItems.length,
+            onPageChanged: _handleSheetPageChanged,
+            itemBuilder: (context, index) {
+              return _buildSheetPage(_kindForPage(index));
+            },
+          ),
         ),
       ),
     );

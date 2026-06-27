@@ -484,6 +484,50 @@ void main() {
     );
   });
 
+  testWidgets('reshows keyboard when image picker hides text input', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 900);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DiscussPostInput(
+            bizId: 'o_test_1',
+            requireLogin: false,
+            imagePicker: (limit) async {
+              tester.testTextInput.hide();
+              tester.view.viewInsets = FakeViewPadding.zero;
+              tester.binding.handleMetricsChanged();
+              return <DiscussPickedImage>[_pickedImage(0)];
+            },
+            imageUploader: (image) async => 'https://cdn.example.com/0.jpg',
+            submitter: (content, images) async => <String, dynamic>{},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Write a post').first);
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    await tester.tap(find.byKey(const ValueKey('discuss-image-picker-button')));
+    await tester.pump();
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(
+      find.byKey(const ValueKey('discuss-composer-sheet')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('discuss-image-thumb-0')), findsOneWidget);
+  });
+
   testWidgets('keeps composer above keyboard after images are added', (
     WidgetTester tester,
   ) async {
