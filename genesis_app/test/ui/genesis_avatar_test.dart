@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_avatar_radii.dart';
@@ -142,6 +143,55 @@ void main() {
 
     expect(find.text('TL'), findsNothing);
   });
+
+  testWidgets(
+    'GenesisCharacterAvatar keeps decorations while network image loads',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: GenesisCharacterAvatar(
+              url: 'https://cdn.example.com/character.webp',
+              name: 'Iris',
+              size: 40,
+              showStar: true,
+              showFallbackWhileLoading: false,
+              boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4)],
+              border: Border.all(color: Colors.red, width: 1),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('I'), findsNothing);
+      expect(find.byIcon(MyFlutterApp.redstarCharIcon), findsOneWidget);
+
+      final decoratedBoxes = tester.widgetList<DecoratedBox>(
+        find.byType(DecoratedBox),
+      );
+      final avatarDecoration = decoratedBoxes
+          .map((box) => box.decoration)
+          .whereType<BoxDecoration>()
+          .singleWhere((decoration) => decoration.border != null);
+      final shadowDecoration = decoratedBoxes
+          .map((box) => box.decoration)
+          .whereType<BoxDecoration>()
+          .singleWhere((decoration) => decoration.boxShadow != null);
+      final borderOverlay = find.ancestor(
+        of: find.byWidgetPredicate(
+          (widget) =>
+              widget is DecoratedBox &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration as BoxDecoration).border != null,
+        ),
+        matching: find.byType(Positioned),
+      );
+
+      expect(avatarDecoration.border, isNotNull);
+      expect(shadowDecoration.boxShadow, isNotEmpty);
+      expect(borderOverlay, findsOneWidget);
+    },
+  );
 
   testWidgets('GenesisAvatar can hide fallback when image is unavailable', (
     tester,

@@ -4,7 +4,7 @@ import '../../icons/my_flutter_app_icons.dart';
 import '../tokens/genesis_avatar_radii.dart';
 import 'genesis_avatar.dart';
 
-class GenesisCharacterAvatar extends StatefulWidget {
+class GenesisCharacterAvatar extends StatelessWidget {
   const GenesisCharacterAvatar({
     super.key,
     required this.url,
@@ -33,96 +33,58 @@ class GenesisCharacterAvatar extends StatefulWidget {
   final BoxBorder? border;
 
   @override
-  State<GenesisCharacterAvatar> createState() => _GenesisCharacterAvatarState();
-}
-
-class _GenesisCharacterAvatarState extends State<GenesisCharacterAvatar> {
-  late bool _hasVisibleAvatar;
-
-  bool get _shouldHideUntilImageReady {
-    final resolvedUrl = widget.url.trim();
-    if (!widget.showFallbackWhenUnavailable && resolvedUrl.isEmpty) {
-      return true;
-    }
-    return !widget.showFallbackWhileLoading &&
-        resolvedUrl.isNotEmpty &&
-        !resolvedUrl.startsWith('assets/');
-  }
-
-  bool get _initialVisibleAvatar => !_shouldHideUntilImageReady;
-
-  @override
-  void initState() {
-    super.initState();
-    _hasVisibleAvatar = _initialVisibleAvatar;
-  }
-
-  @override
-  void didUpdateWidget(covariant GenesisCharacterAvatar oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url ||
-        oldWidget.showFallbackWhileLoading != widget.showFallbackWhileLoading ||
-        oldWidget.showFallbackWhenUnavailable !=
-            widget.showFallbackWhenUnavailable) {
-      _hasVisibleAvatar = _initialVisibleAvatar;
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final resolvedUrl = widget.url.trim();
-    final showDecorations = _hasVisibleAvatar;
+    final resolvedUrl = url.trim();
     return SizedBox(
-      width: widget.size,
-      height: widget.size,
+      width: size,
+      height: size,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(widget.borderRadius),
-              boxShadow: showDecorations
-                  ? widget.boxShadow
-                  : const <BoxShadow>[],
-              border: showDecorations ? widget.border : null,
+              borderRadius: BorderRadius.circular(borderRadius),
+              boxShadow: boxShadow,
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(widget.borderRadius),
+              borderRadius: BorderRadius.circular(borderRadius),
               child: SizedBox(
-                width: widget.size,
-                height: widget.size,
+                width: size,
+                height: size,
                 child: GenesisAvatar(
                   url: resolvedUrl,
-                  name: widget.name,
-                  size: widget.size,
-                  borderRadius: widget.borderRadius,
-                  showFallbackWhileLoading: widget.showFallbackWhileLoading,
-                  showFallbackWhenUnavailable:
-                      widget.showFallbackWhenUnavailable,
-                  onVisibilityChanged: _handleAvatarVisibilityChanged,
+                  name: name,
+                  size: size,
+                  borderRadius: borderRadius,
+                  showFallbackWhileLoading: showFallbackWhileLoading,
+                  showFallbackWhenUnavailable: showFallbackWhenUnavailable,
                 ),
               ),
             ),
           ),
-          if (widget.showStar && showDecorations)
+          if (border != null)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(borderRadius),
+                    border: border,
+                  ),
+                ),
+              ),
+            ),
+          if (showStar)
             Positioned(
-              top: -widget.starSize / 4 - 2,
-              right: -widget.starSize / 4 - 3,
+              top: -starSize / 4 - 2,
+              right: -starSize / 4 - 3,
               child: Icon(
                 MyFlutterApp.redstarCharIcon,
-                size: widget.starSize,
-                color: widget.starColor,
+                size: starSize,
+                color: starColor,
               ),
             ),
         ],
       ),
     );
-  }
-
-  void _handleAvatarVisibilityChanged(bool isVisible) {
-    if (!mounted || _hasVisibleAvatar == isVisible) return;
-    setState(() {
-      _hasVisibleAvatar = isVisible;
-    });
   }
 }
