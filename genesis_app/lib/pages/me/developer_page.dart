@@ -12,6 +12,7 @@ import '../../app/debug_floating_button_visibility.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
+import '../../network/genesis_api.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../ui/genesis_ui.dart';
 import 'about_us_page.dart';
@@ -111,6 +112,10 @@ class DeveloperPageContent extends StatefulWidget {
 
 class _DeveloperPageContentState extends State<DeveloperPageContent> {
   static const double _itemGap = 8;
+  static const String _productionEndpointHost = 'api.worldo.ai';
+  static const String _testEndpointHost = 'dev.hushie.ai';
+  static final String _defaultEndpointHost =
+      AppEndpointOverrideStore.displayDomain(GenesisApi.defaultApiBaseUrl);
 
   late final Future<DeviceIdDiagnostics> _deviceIdDiagnosticsFuture;
   late final Future<AppVersionInfo> _appVersionFuture;
@@ -138,15 +143,26 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     _apiBaseUrlController = TextEditingController();
     _gatewayApiBaseUrlController = TextEditingController();
     _chatroomWsBaseUrlController = TextEditingController();
+    _apiBaseUrlController.addListener(_handleEndpointTextChanged);
+    _gatewayApiBaseUrlController.addListener(_handleEndpointTextChanged);
+    _chatroomWsBaseUrlController.addListener(_handleEndpointTextChanged);
     _loadEndpointOverrides();
   }
 
   @override
   void dispose() {
+    _apiBaseUrlController.removeListener(_handleEndpointTextChanged);
+    _gatewayApiBaseUrlController.removeListener(_handleEndpointTextChanged);
+    _chatroomWsBaseUrlController.removeListener(_handleEndpointTextChanged);
     _apiBaseUrlController.dispose();
     _gatewayApiBaseUrlController.dispose();
     _chatroomWsBaseUrlController.dispose();
     super.dispose();
+  }
+
+  void _handleEndpointTextChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _loadEndpointOverrides() async {
@@ -321,6 +337,29 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     Navigator.of(context).maybePop();
   }
 
+  bool get _isUsingTestEndpointHost {
+    return _effectiveEndpointHost(_apiBaseUrlController) == _testEndpointHost &&
+        _effectiveEndpointHost(_gatewayApiBaseUrlController) ==
+            _testEndpointHost &&
+        _effectiveEndpointHost(_chatroomWsBaseUrlController) ==
+            _testEndpointHost;
+  }
+
+  String _effectiveEndpointHost(TextEditingController controller) {
+    final value = controller.text.trim().toLowerCase();
+    return value.isEmpty ? _defaultEndpointHost : value;
+  }
+
+  void _switchEndpointEnvironment() {
+    if (_loadingEndpointOverrides || _savingEndpointOverrides) return;
+    final host = _isUsingTestEndpointHost
+        ? _productionEndpointHost
+        : _testEndpointHost;
+    _apiBaseUrlController.text = host;
+    _gatewayApiBaseUrlController.text = host;
+    _chatroomWsBaseUrlController.text = host;
+  }
+
   Widget _buildDeviceIdDiagnostics(DeviceIdDiagnostics? diagnostics) {
     final deviceId = _infoValue(diagnostics?.deviceId);
     if (diagnostics?.hasAndroidBreakdown != true) {
@@ -330,17 +369,17 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _DeveloperInfoBlock(
+        _DeveloperInfoSingleLineRow(
           title: 'ANDROID_ID',
           content: _infoValue(diagnostics?.androidId),
         ),
         const SizedBox(height: _itemGap),
-        _DeveloperInfoBlock(
+        _DeveloperInfoSingleLineRow(
           title: 'AAID',
           content: _infoValue(diagnostics?.aaid),
         ),
         const SizedBox(height: _itemGap),
-        _DeveloperInfoBlock(title: 'Device ID', content: deviceId),
+        _DeveloperInfoSingleLineRow(title: 'Device ID', content: deviceId),
       ],
     );
   }
@@ -393,13 +432,17 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             },
           ),
           const SizedBox(height: 18),
-          const _DeveloperSectionTitle('Endpoint overrides'),
+          _DeveloperEndpointHeader(
+            isTestEnvironment: _isUsingTestEndpointHost,
+            enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
+            onPressed: _switchEndpointEnvironment,
+          ),
           const SizedBox(height: 12),
           _DeveloperEndpointField(
             key: const ValueKey<String>('developer-api-base-url-field'),
             label: 'API HTTPS',
             scheme: 'https://',
-            hintText: 'api.worldo.ai',
+            hintText: _defaultEndpointHost,
             controller: _apiBaseUrlController,
             enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
             textInputAction: TextInputAction.next,
@@ -409,7 +452,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             key: const ValueKey<String>('developer-gateway-api-base-url-field'),
             label: 'Gateway HTTPS',
             scheme: 'https://',
-            hintText: 'api.worldo.ai',
+            hintText: _defaultEndpointHost,
             controller: _gatewayApiBaseUrlController,
             enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
             textInputAction: TextInputAction.next,
@@ -419,7 +462,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             key: const ValueKey<String>('developer-chatroom-ws-base-url-field'),
             label: 'Chat WSS',
             scheme: 'wss://',
-            hintText: 'api.worldo.ai',
+            hintText: _defaultEndpointHost,
             controller: _chatroomWsBaseUrlController,
             enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
             textInputAction: TextInputAction.next,
@@ -518,6 +561,52 @@ class _DeveloperSectionTitle extends StatelessWidget {
   }
 }
 
+class _DeveloperEndpointHeader extends StatelessWidget {
+  const _DeveloperEndpointHeader({
+    required this.isTestEnvironment,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final bool isTestEnvironment;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final actionText = isTestEnvironment ? '切换到正式环境' : '切换到测试环境';
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        const Expanded(child: _DeveloperSectionTitle('Endpoint overrides')),
+        const SizedBox(width: 8),
+        Flexible(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: enabled ? onPressed : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text(
+                actionText,
+                textAlign: TextAlign.right,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: enabled ? Colors.black : const Color(0xFFA8A8AD),
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                  letterSpacing: 0,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _DeveloperEndpointField extends StatelessWidget {
   const _DeveloperEndpointField({
     super.key,
@@ -605,6 +694,67 @@ class _DeveloperEndpointField extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _DeveloperInfoSingleLineRow extends StatelessWidget {
+  const _DeveloperInfoSingleLineRow({
+    required this.title,
+    required this.content,
+  });
+
+  final String title;
+  final String content;
+
+  static const double _titleWidth = 104;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: _titleWidth,
+          child: Text(
+            '$title:',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => _copyContent(context),
+            child: FittedBox(
+              alignment: Alignment.centerLeft,
+              fit: BoxFit.scaleDown,
+              child: Text(
+                content,
+                maxLines: 1,
+                softWrap: false,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF666666),
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _copyContent(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: content));
+    if (!context.mounted) return;
+    showGenesisToast(context, 'Copied');
   }
 }
 

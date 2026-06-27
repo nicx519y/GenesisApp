@@ -517,7 +517,7 @@ void main() {
                   'reply_cnt': 2,
                   'created_at': '2026-02-09T00:00:00Z',
                   'images': [
-                    'assets/images/map_default/map_background.webp',
+                    'assets/images/map_default/root_default.webp',
                     {'url': 'https://cdn.example.com/discuss/second.jpg'},
                   ],
                 },
@@ -538,7 +538,7 @@ void main() {
     expect(find.text('Post with thumbnails'), findsOneWidget);
     final firstImage = find.byKey(
       const ValueKey(
-        'origin-discuss-image-assets/images/map_default/map_background.webp',
+        'origin-discuss-image-assets/images/map_default/root_default.webp',
       ),
     );
     final secondImage = find.byKey(
@@ -570,7 +570,7 @@ void main() {
                   'reply_cnt': 2,
                   'created_at': '2026-02-09T00:00:00Z',
                   'images': [
-                    'assets/images/map_default/map_background.webp',
+                    'assets/images/map_default/root_default.webp',
                     'assets/images/map_default/l1_default.webp',
                   ],
                 },
@@ -598,7 +598,7 @@ void main() {
     await tester.tap(
       find.byKey(
         const ValueKey(
-          'origin-discuss-image-assets/images/map_default/map_background.webp',
+          'origin-discuss-image-assets/images/map_default/root_default.webp',
         ),
       ),
     );
@@ -628,7 +628,7 @@ void main() {
                   'reply_cnt': 2,
                   'created_at': '2026-02-09T00:00:00Z',
                   'images': [
-                    'assets/images/map_default/map_background.webp',
+                    'assets/images/map_default/root_default.webp',
                     'assets/images/map_default/l1_default.webp',
                   ],
                 },
@@ -649,7 +649,7 @@ void main() {
     await tester.tap(
       find.byKey(
         const ValueKey(
-          'origin-discuss-image-assets/images/map_default/map_background.webp',
+          'origin-discuss-image-assets/images/map_default/root_default.webp',
         ),
       ),
     );

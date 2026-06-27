@@ -5,7 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../icons/my_flutter_app_icons.dart';
+import '../ui/components/genesis_character_avatar.dart';
 import '../ui/tokens/genesis_avatar_radii.dart';
 import '../ui/tokens/genesis_colors.dart';
 import '../utils/genesis_image_resource.dart';
@@ -17,7 +17,7 @@ export 'world_location_list.dart';
 export 'world_point.dart';
 
 const String kWorldMapFallbackBackgroundAsset =
-    'assets/images/map_default/map_background.webp';
+    'assets/images/map_default/root_default.webp';
 const double _worldMapAvatarImageLogicalSize = 42;
 const double _worldMapPreviewImageLogicalWidth = 120;
 
@@ -295,11 +295,9 @@ class _WorldMapState extends State<WorldMap> {
                                                       height: viewport.height,
                                                       transform: transform,
                                                       messageBubble:
-                                                          _locationTrail.isEmpty
-                                                          ? null
-                                                          : widget
-                                                                .messageBubbles[p
-                                                                .sceneId],
+                                                          widget
+                                                              .messageBubbles[p
+                                                              .sceneId],
                                                       onPointerDown:
                                                           onOverlayPointerDown,
                                                       onTap: _pointTapHandler(
@@ -1990,16 +1988,13 @@ class _PositionedMapAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatarUrl = _selectWorldMapAvatarUrl(
-      user.avatarUrl,
-      devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
-    );
     return Positioned(
       left: left,
       top: top,
       child: _MapAvatarImage(
         key: ValueKey<String>('map-avatar-${_mapAvatarStableKey(user)}'),
-        url: avatarUrl,
+        url: user.avatarUrl,
+        name: (user.name ?? user.initials).trim(),
         showStar: user.showStar,
         isPlayerControlledRole: user.isPlayerControlledRole,
       ),
@@ -2011,11 +2006,13 @@ class _MapAvatarImage extends StatelessWidget {
   const _MapAvatarImage({
     super.key,
     required this.url,
+    required this.name,
     required this.showStar,
     required this.isPlayerControlledRole,
   });
 
   final String url;
+  final String name;
   final bool showStar;
   final bool isPlayerControlledRole;
 
@@ -2023,125 +2020,31 @@ class _MapAvatarImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedUrl = url.trim();
-    return SizedBox(
-      width: _size,
-      height: _size,
-      child: resolvedUrl.isEmpty
-          ? const SizedBox.expand()
-          : resolvedUrl.startsWith('assets/')
-          ? Image.asset(
-              resolvedUrl,
-              width: _size,
-              height: _size,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-              frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                if (!wasSynchronouslyLoaded && frame == null) {
-                  return const SizedBox.expand();
-                }
-                return _LoadedMapAvatar(
-                  showStar: showStar,
-                  isPlayerControlledRole: isPlayerControlledRole,
-                  child: child,
-                );
-              },
-              errorBuilder: (context, error, stackTrace) =>
-                  const SizedBox.expand(),
-            )
-          : CachedNetworkImage(
-              imageUrl: resolvedUrl,
-              width: _size,
-              height: _size,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
-              fadeInDuration: Duration.zero,
-              fadeOutDuration: Duration.zero,
-              placeholderFadeInDuration: Duration.zero,
-              imageBuilder: (context, imageProvider) => _LoadedMapAvatar(
-                showStar: showStar,
-                isPlayerControlledRole: isPlayerControlledRole,
-                child: Image(
-                  image: imageProvider,
-                  width: _size,
-                  height: _size,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
-              placeholder: (context, url) => const SizedBox.expand(),
-              errorWidget: (context, url, error) => const SizedBox.expand(),
-            ),
-    );
-  }
-}
-
-class _LoadedMapAvatar extends StatelessWidget {
-  const _LoadedMapAvatar({
-    required this.child,
-    required this.showStar,
-    required this.isPlayerControlledRole,
-  });
-
-  final Widget child;
-  final bool showStar;
-  final bool isPlayerControlledRole;
-
-  static const double _size = _worldMapAvatarImageLogicalSize;
-  static const double _borderRadius = GenesisAvatarRadii.character;
-  static const double _starSize = 12;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: _size,
-      height: _size,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: _size,
-            height: _size,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(_borderRadius),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.22),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
-                  blurRadius: 2,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            foregroundDecoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(_borderRadius),
-              border: Border.all(
-                color: worldMapAvatarBorderColorForTesting(
-                  isPlayerControlledRole: isPlayerControlledRole,
-                ),
-                width: 1,
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(_borderRadius),
-              child: child,
-            ),
-          ),
-          if (showStar)
-            Positioned(
-              top: -_starSize / 4 - 2,
-              right: -_starSize / 4 - 3,
-              child: const Icon(
-                MyFlutterApp.redstarCharIcon,
-                size: _starSize,
-                color: Color(0xFFFF2442),
-              ),
-            ),
-        ],
+    return GenesisCharacterAvatar(
+      url: url,
+      name: name,
+      size: _size,
+      borderRadius: GenesisAvatarRadii.character,
+      showStar: showStar,
+      showFallbackWhileLoading: false,
+      showFallbackWhenUnavailable: true,
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.22),
+          blurRadius: 8,
+          offset: const Offset(0, 4),
+        ),
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.12),
+          blurRadius: 2,
+          offset: const Offset(0, 1),
+        ),
+      ],
+      border: Border.all(
+        color: worldMapAvatarBorderColorForTesting(
+          isPlayerControlledRole: isPlayerControlledRole,
+        ),
+        width: 1,
       ),
     );
   }

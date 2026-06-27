@@ -14,6 +14,7 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
+import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/app/version/force_upgrade_gate.dart';
@@ -1750,8 +1751,8 @@ class _RecordingCreateOriginTransport implements HttpTransport {
         },
         'started_at': 'Day 1',
         'tick_duration_time': '30 days',
-        'cover': 'assets/images/map_default/map_background.webp',
-        'map_url': 'assets/images/map_default/map_background.webp',
+        'cover': 'assets/images/map_default/root_default.webp',
+        'map_url': 'assets/images/map_default/root_default.webp',
         'characters': [
           {
             'char_id': 'char_edit_1',
@@ -5528,6 +5529,40 @@ void main() {
     expect(find.text('LIVE YOUR WORLD'), findsOneWidget);
   });
 
+  testWidgets('signed-out Me top area restores debug button after ten taps', (
+    WidgetTester tester,
+  ) async {
+    hideGenesisDebugFloatingButton();
+    addTearDown(hideGenesisDebugFloatingButton);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SignedOutMeView(loggingInProvider: null, onLogin: (_) {}),
+        ),
+      ),
+    );
+
+    final unlockArea = find.byKey(
+      const ValueKey<String>('signed-out-debug-button-restore'),
+    );
+    expect(unlockArea, findsOneWidget);
+    expect(genesisDebugFloatingButtonVisible.value, isFalse);
+
+    for (var i = 0; i < 9; i += 1) {
+      await tester.tap(unlockArea);
+      await tester.pump();
+    }
+    expect(genesisDebugFloatingButtonVisible.value, isFalse);
+
+    await tester.tap(unlockArea);
+    await tester.pump();
+
+    expect(genesisDebugFloatingButtonVisible.value, isTrue);
+    expect(find.text('Debug button shown'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
   testWidgets(
     'tap Me shows signed-out view without local backend login state',
     (WidgetTester tester) async {
@@ -7721,7 +7756,7 @@ void main() {
     expect(metric.containsKey('starting_value'), isFalse);
     expect(metric.containsKey('start_time'), isFalse);
     expect(metric.containsKey('time_per_progress'), isFalse);
-    expect(body['cover'], 'assets/images/map_default/map_background.webp');
+    expect(body['cover'], 'assets/images/map_default/root_default.webp');
     final editedCharacters = body['characters'] as List;
     expect(editedCharacters.single['char_id'], 'char_edit_1');
     expect(editedCharacters.single['initial_location_id'], 'location_edit_1');
@@ -8232,14 +8267,76 @@ void main() {
     expect(find.text('AAID:'), findsOneWidget);
     final aaid = find.text('38400000-8cf0-11bd-b23e-10b96e40000d');
     expect(aaid, findsOneWidget);
-    expect(tester.widget<Text>(aaid).softWrap, isNot(false));
-    expect(tester.widget<Text>(aaid).maxLines, isNull);
+    expect(tester.widget<Text>(aaid).softWrap, isFalse);
+    expect(tester.widget<Text>(aaid).maxLines, 1);
     expect(
-      tester.getTopLeft(aaid).dx,
-      tester.getTopLeft(find.text('AAID:')).dx,
+      tester.getTopLeft(aaid).dy,
+      tester.getTopLeft(find.text('AAID:')).dy,
     );
     expect(find.text('Device ID:'), findsOneWidget);
     expect(find.text('resolved-device-id'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('android-id')).dy,
+      tester.getTopLeft(find.text('ANDROID_ID:')).dy,
+    );
+    expect(
+      tester.getTopLeft(find.text('resolved-device-id')).dy,
+      tester.getTopLeft(find.text('Device ID:')).dy,
+    );
+    expect(
+      tester.getTopLeft(find.text('AAID:')).dy,
+      isNot(tester.getTopLeft(find.text('ANDROID_ID:')).dy),
+    );
+  });
+
+  testWidgets('developer page switches endpoint environment inputs', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scrollable = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(
+      find.text('切换到正式环境'),
+      180,
+      scrollable: scrollable,
+    );
+
+    await tester.tap(find.text('切换到正式环境'));
+    await tester.pump();
+
+    String fieldValue(String key) {
+      return tester
+              .widget<TextField>(
+                find.descendant(
+                  of: find.byKey(ValueKey<String>(key)),
+                  matching: find.byType(TextField),
+                ),
+              )
+              .controller
+              ?.text ??
+          '';
+    }
+
+    expect(fieldValue('developer-api-base-url-field'), 'api.worldo.ai');
+    expect(fieldValue('developer-gateway-api-base-url-field'), 'api.worldo.ai');
+    expect(fieldValue('developer-chatroom-ws-base-url-field'), 'api.worldo.ai');
+    expect(find.text('切换到测试环境'), findsOneWidget);
+
+    await tester.tap(find.text('切换到测试环境'));
+    await tester.pump();
+
+    expect(fieldValue('developer-api-base-url-field'), 'dev.hushie.ai');
+    expect(fieldValue('developer-gateway-api-base-url-field'), 'dev.hushie.ai');
+    expect(fieldValue('developer-chatroom-ws-base-url-field'), 'dev.hushie.ai');
+    expect(find.text('切换到正式环境'), findsOneWidget);
   });
 
   testWidgets('developer page saves and clears endpoint overrides', (

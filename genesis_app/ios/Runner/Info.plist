@@ -49,6 +49,8 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Genesis needs photo library access so you can choose images for avatars and posts.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Worldo uses this permission to measure ad performance and attribution.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

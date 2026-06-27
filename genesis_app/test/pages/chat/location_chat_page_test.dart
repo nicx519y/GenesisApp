@@ -14,12 +14,12 @@ void main() {
     );
   });
 
-  test('location chat background keeps predata default CDN image remote', () {
+  test('location chat background maps predata default CDN image to asset', () {
     expect(
       resolveLocationChatBackgroundUrlForTesting(
         imageUrl: 'https://cdn-001.worldo.ai/predata/location_default.webp',
       ),
-      'https://cdn-001.worldo.ai/predata/location_default.webp',
+      'assets/images/map_default/location_default.webp',
     );
   });
 
