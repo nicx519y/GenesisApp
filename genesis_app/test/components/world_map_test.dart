@@ -198,6 +198,47 @@ void main() {
     expect(find.textContaining('Ava counts every crate'), findsOneWidget);
   });
 
+  testWidgets('world map pauses bubble playback while location chat is open', (
+    tester,
+  ) async {
+    const longText =
+        'Ava counts every crate in the storefront twice before sunrise, '
+        'then writes a sharper plan for the delivery route that keeps the '
+        'whole block supplied before noon.';
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      messageBubbles: const [
+        WorldMapMessageBubble(characterId: 'char_a', content: longText),
+      ],
+    );
+
+    await tester.pump(const Duration(seconds: 4));
+    expect(find.textContaining('whole block supplied'), findsOneWidget);
+
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      messageBubbles: const [
+        WorldMapMessageBubble(characterId: 'char_a', content: longText),
+      ],
+      messageBubblePlaybackPaused: true,
+    );
+    expect(find.textContaining('whole block supplied'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 10));
+    expect(find.textContaining('whole block supplied'), findsNothing);
+
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      messageBubbles: const [
+        WorldMapMessageBubble(characterId: 'char_a', content: longText),
+      ],
+    );
+    expect(find.textContaining('whole block supplied'), findsOneWidget);
+  });
+
   test('player controlled map avatar uses highlighted border', () {
     expect(
       worldMapAvatarBorderColorForTesting(isPlayerControlledRole: true),
@@ -1671,6 +1712,7 @@ Future<void> _pumpWorldMap(
   ValueChanged<bool>? onMapInteractionChanged,
   WorldMapMessageBubble? activeBubble,
   List<WorldMapMessageBubble> messageBubbles = const <WorldMapMessageBubble>[],
+  bool messageBubblePlaybackPaused = false,
 }) async {
   tester.view.physicalSize = const Size(430, 820);
   tester.view.devicePixelRatio = 1;
@@ -1699,6 +1741,7 @@ Future<void> _pumpWorldMap(
                 locationNodes: locationNodes,
                 activeBubble: activeBubble,
                 messageBubbles: messageBubbles,
+                messageBubblePlaybackPaused: messageBubblePlaybackPaused,
                 onDrillIntoLocation: onDrillIntoLocation,
                 onPointTap: onPointTap,
                 points:

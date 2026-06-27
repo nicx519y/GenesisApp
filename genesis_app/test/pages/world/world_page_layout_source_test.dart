@@ -168,6 +168,10 @@ void main() {
 
     expect(source, contains('worldMapBubbleCandidatesFor('));
     expect(source, contains('messageBubbles: _mapMessageBubbles'));
+    expect(
+      source,
+      contains('messageBubblePlaybackPaused: _activeChatLocationId.isNotEmpty'),
+    );
     expect(source, isNot(contains('messageBubbleIndex:')));
     expect(source, isNot(contains('messageBubbleVisible:')));
     expect(source, isNot(contains('WorldMapBubbleCoordinator')));

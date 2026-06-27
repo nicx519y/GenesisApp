@@ -76,6 +76,7 @@ class WorldMap extends StatefulWidget {
     this.onPointTap,
     this.activeBubble,
     this.messageBubbles = const <WorldMapMessageBubble>[],
+    this.messageBubblePlaybackPaused = false,
   });
 
   final List<WorldPoint> points;
@@ -97,6 +98,7 @@ class WorldMap extends StatefulWidget {
   final WorldPointTapCallback? onPointTap;
   final WorldMapMessageBubble? activeBubble;
   final List<WorldMapMessageBubble> messageBubbles;
+  final bool messageBubblePlaybackPaused;
 
   @override
   State<WorldMap> createState() => _WorldMapState();
@@ -137,6 +139,14 @@ class _WorldMapState extends State<WorldMap> {
   void didUpdateWidget(covariant WorldMap oldWidget) {
     super.didUpdateWidget(oldWidget);
     _debugPrintLocationTree('update');
+    if (oldWidget.messageBubblePlaybackPaused !=
+        widget.messageBubblePlaybackPaused) {
+      if (widget.messageBubblePlaybackPaused) {
+        _stopMessageBubblePlayback();
+      } else {
+        _ensureMessageBubblePlayback();
+      }
+    }
     if (!_hasDrillTree) {
       if (_locationTrail.isNotEmpty) {
         _locationTrail.clear();
@@ -188,9 +198,16 @@ class _WorldMapState extends State<WorldMap> {
     final visibleMessageBubbles = _visibleMessageBubblesForPoints(
       visiblePoints,
     );
-    _syncMessageBubblePlayback(visibleMessageBubbles);
+    if (widget.messageBubblePlaybackPaused) {
+      _stopMessageBubblePlayback();
+    } else {
+      _syncMessageBubblePlayback(visibleMessageBubbles);
+    }
     final activeBubble =
-        widget.activeBubble ?? _activeBubbleFromVisible(visibleMessageBubbles);
+        widget.activeBubble ??
+        (widget.messageBubblePlaybackPaused
+            ? null
+            : _activeBubbleFromVisible(visibleMessageBubbles));
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -604,7 +621,10 @@ class _WorldMapState extends State<WorldMap> {
         ? ''
         : pages[_messageBubblePageIndex % pages.length];
     if (page.isEmpty) return null;
-    return WorldMapMessageBubble(characterId: bubble.characterId, content: page);
+    return WorldMapMessageBubble(
+      characterId: bubble.characterId,
+      content: page,
+    );
   }
 
   void _syncMessageBubblePlayback(List<WorldMapMessageBubble> visibleBubbles) {
@@ -612,8 +632,6 @@ class _WorldMapState extends State<WorldMap> {
     if (signature.isEmpty) {
       _messageBubblePlaybackSignature = '';
       _visibleMessageBubblesForPlayback = const <WorldMapMessageBubble>[];
-      _messageBubblePlaybackIndex = 0;
-      _messageBubblePageIndex = 0;
       _messageBubbleVisible = false;
       _stopMessageBubblePlayback();
       return;
@@ -636,7 +654,8 @@ class _WorldMapState extends State<WorldMap> {
   }
 
   void _ensureMessageBubblePlayback() {
-    if (_messageBubblePlaybackTimer != null ||
+    if (widget.messageBubblePlaybackPaused ||
+        _messageBubblePlaybackTimer != null ||
         _messageBubblePlaybackSignature.isEmpty) {
       return;
     }

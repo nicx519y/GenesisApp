@@ -1236,6 +1236,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         locationNodes: locationNodes,
         listLocationNodes: listLocationNodes,
         messageBubbles: _mapMessageBubbles,
+        messageBubblePlaybackPaused: _activeChatLocationId.isNotEmpty,
         mapImageUrl: rootMapImageUrl,
         dimmed: pointMode,
         showPointsList: pointMode,
