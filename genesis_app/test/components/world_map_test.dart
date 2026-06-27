@@ -434,6 +434,85 @@ void main() {
     expect(tester.getTopLeft(avatar), initialAvatarTopLeft);
   });
 
+  testWidgets('world map zoom control changes scale and disables at limits', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      mapImageUrl: kMockV1SteamMapImage,
+      users: const [
+        UserAvatar(
+          'AA',
+          name: 'Ada',
+          avatarUrl: 'assets/images/default_list_image.png',
+        ),
+      ],
+    );
+
+    final zoomControl = find.byKey(
+      const ValueKey<String>('world-map-zoom-control'),
+    );
+    final zoomIn = find.byKey(const ValueKey<String>('world-map-zoom-in'));
+    final zoomOut = find.byKey(const ValueKey<String>('world-map-zoom-out'));
+    final avatar = find.byType(GenesisCharacterAvatar);
+    final initialAvatarTopLeft = tester.getTopLeft(avatar);
+
+    SvgPicture zoomInIcon() {
+      return tester.widget<SvgPicture>(
+        find.descendant(
+          of: zoomIn,
+          matching: _assetSvgFinder('assets/custom-icons/svg/map_zoom_in.svg'),
+        ),
+      );
+    }
+
+    SvgPicture zoomOutIcon() {
+      return tester.widget<SvgPicture>(
+        find.descendant(
+          of: zoomOut,
+          matching: _assetSvgFinder('assets/custom-icons/svg/map_zoom_out.svg'),
+        ),
+      );
+    }
+
+    expect(tester.getSize(zoomControl), const Size(30, 68));
+    expect(
+      tester.getTopLeft(zoomControl).dx,
+      closeTo(_mapSize.width - 42, 0.1),
+    );
+    expect(
+      tester.getBottomRight(zoomControl).dy,
+      closeTo(_mapSize.height - 30, 0.1),
+    );
+    final zoomControlBox = tester.widget<DecoratedBox>(zoomControl);
+    final zoomControlDecoration = zoomControlBox.decoration as BoxDecoration;
+    expect(zoomControlDecoration.color, const Color(0xE6FFFFFF));
+    expect(zoomControlDecoration.borderRadius, BorderRadius.circular(12));
+    expect(zoomInIcon().colorFilter, isNotNull);
+    expect(zoomOutIcon().colorFilter, isNotNull);
+
+    await tester.tap(zoomIn);
+    await tester.pump();
+
+    expect(tester.getTopLeft(avatar), isNot(initialAvatarTopLeft));
+    expect(zoomOutIcon().colorFilter, isNotNull);
+
+    await tester.tap(zoomIn);
+    await tester.pump();
+    await tester.tap(zoomIn);
+    await tester.pump();
+    await tester.tap(zoomIn);
+    await tester.pump();
+
+    final maxZoomAvatarTopLeft = tester.getTopLeft(avatar);
+    expect(zoomInIcon().colorFilter, isNotNull);
+
+    await tester.tap(zoomIn);
+    await tester.pump();
+
+    expect(tester.getTopLeft(avatar), maxZoomAvatarTopLeft);
+  });
+
   testWidgets('world map notifies parent scrolling on second pointer down', (
     tester,
   ) async {

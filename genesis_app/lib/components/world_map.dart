@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../ui/components/genesis_character_avatar.dart';
 import '../ui/tokens/genesis_avatar_radii.dart';
@@ -23,6 +24,15 @@ const double _worldMapPreviewImageLogicalWidth = 120;
 const Duration _worldMapBubbleDisplayDuration = Duration(seconds: 4);
 const Duration _worldMapBubbleGapDuration = Duration(milliseconds: 500);
 const int _worldMapBubblePageMaxCharacters = 144;
+const double _worldMapZoomControlRightGap = 12;
+const double _worldMapZoomControlBottomGap = 30;
+const double _worldMapZoomControlWidth = 30;
+const double _worldMapZoomControlHeight = 68;
+const double _worldMapZoomControlRadius = 12;
+const String _worldMapZoomInIconAsset =
+    'assets/custom-icons/svg/map_zoom_in.svg';
+const String _worldMapZoomOutIconAsset =
+    'assets/custom-icons/svg/map_zoom_out.svg';
 
 @visibleForTesting
 Color worldMapAvatarBorderColorForTesting({
@@ -105,6 +115,8 @@ class WorldMap extends StatefulWidget {
 }
 
 class _WorldMapState extends State<WorldMap> {
+  final GlobalKey<_ZoomableMapContentState> _zoomableMapContentKey =
+      GlobalKey<_ZoomableMapContentState>();
   ScrollController? _horizontalScrollController;
   ScrollController? _verticalScrollController;
   final List<_WorldMapLocationTrailEntry> _locationTrail =
@@ -116,6 +128,7 @@ class _WorldMapState extends State<WorldMap> {
   int _messageBubblePlaybackIndex = 0;
   int _messageBubblePageIndex = 0;
   bool _messageBubbleVisible = true;
+  double _mapZoomScale = _ZoomableMapContent.minScale;
   String _messageBubblePlaybackSignature = '';
   List<WorldMapMessageBubble> _visibleMessageBubblesForPlayback =
       const <WorldMapMessageBubble>[];
@@ -302,6 +315,7 @@ class _WorldMapState extends State<WorldMap> {
                                 width: viewport.width,
                                 height: viewport.height,
                                 child: _ZoomableMapContent(
+                                  key: _zoomableMapContentKey,
                                   background: _MapBackgroundDeck(
                                     currentUrl: backgroundUrl,
                                     previewUrl: backgroundPreviewUrl,
@@ -361,6 +375,7 @@ class _WorldMapState extends State<WorldMap> {
                                           ),
                                         ],
                                       ),
+                                  onScaleChanged: _handleMapZoomScaleChanged,
                                 ),
                               ),
                             ],
@@ -413,10 +428,32 @@ class _WorldMapState extends State<WorldMap> {
                   ),
                 ),
               ),
+            if (!widget.showPointsList)
+              Positioned(
+                right: _worldMapZoomControlRightGap,
+                bottom: _worldMapZoomControlBottomGap,
+                child: _MapZoomControl(
+                  canZoomIn:
+                      _mapZoomScale < _ZoomableMapContent.maxScale - 0.001,
+                  canZoomOut:
+                      _mapZoomScale > _ZoomableMapContent.minScale + 0.001,
+                  onZoomIn: () =>
+                      _zoomableMapContentKey.currentState?.zoomByControl(0.25),
+                  onZoomOut: () =>
+                      _zoomableMapContentKey.currentState?.zoomByControl(-0.25),
+                ),
+              ),
           ],
         );
       },
     );
+  }
+
+  void _handleMapZoomScaleChanged(double scale) {
+    if ((_mapZoomScale - scale).abs() < 0.001) return;
+    setState(() {
+      _mapZoomScale = scale;
+    });
   }
 
   VoidCallback? _pointTapHandler(WorldPoint point) {
@@ -1374,8 +1411,10 @@ typedef _MapOverlayBuilder =
 
 class _ZoomableMapContent extends StatefulWidget {
   const _ZoomableMapContent({
+    super.key,
     required this.background,
     required this.overlayBuilder,
+    required this.onScaleChanged,
   });
 
   static const double minScale = 1;
@@ -1384,6 +1423,7 @@ class _ZoomableMapContent extends StatefulWidget {
 
   final Widget background;
   final _MapOverlayBuilder overlayBuilder;
+  final ValueChanged<double> onScaleChanged;
 
   @override
   State<_ZoomableMapContent> createState() => _ZoomableMapContentState();
@@ -1403,9 +1443,20 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   double? _manualGestureStartDistance;
 
   @override
+  void initState() {
+    super.initState();
+    _transformationController.addListener(_notifyScaleChanged);
+  }
+
+  @override
   void dispose() {
+    _transformationController.removeListener(_notifyScaleChanged);
     _transformationController.dispose();
     super.dispose();
+  }
+
+  void _notifyScaleChanged() {
+    widget.onScaleChanged(_transformationController.value.getMaxScaleOnAxis());
   }
 
   bool get _isZoomed {
@@ -1578,47 +1629,176 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
     );
   }
 
+  void zoomByControl(double delta) {
+    final box = context.findRenderObject() as RenderBox?;
+    final size = box?.size ?? Size.zero;
+    if (size.isEmpty) return;
+
+    final matrix = _transformationController.value;
+    final values = matrix.storage;
+    final currentScale = matrix.getMaxScaleOnAxis();
+    final targetScale = (currentScale + delta)
+        .clamp(_ZoomableMapContent.minScale, _ZoomableMapContent.maxScale)
+        .toDouble();
+    if ((targetScale - currentScale).abs() < 0.001) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final translation = Offset(values[12], values[13]);
+    final contentCenter = (center - translation) / currentScale;
+    _setTransform(targetScale, center - contentCenter * targetScale);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: _handlePointerDown,
-      onPointerMove: _handlePointerMove,
-      onPointerUp: _handlePointerEnd,
-      onPointerCancel: _handlePointerEnd,
-      child: ClipRect(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            InteractiveViewer(
-              transformationController: _transformationController,
-              minScale: _ZoomableMapContent.minScale,
-              maxScale: _ZoomableMapContent.maxScale,
-              boundaryMargin: EdgeInsets.zero,
-              onInteractionStart: (details) {
-                if (details.pointerCount > 1 || _isZoomed) {
-                  _dispatchMapInteraction(true);
-                }
-              },
-              onInteractionUpdate: (details) {
-                if (details.pointerCount > 1 || _isZoomed) {
-                  _dispatchMapInteraction(true);
-                }
-              },
-              onInteractionEnd: (_) {
-                if (_activePointers.isEmpty) _dispatchMapInteraction(false);
-              },
-              child: SizedBox.expand(child: widget.background),
+    return ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: _handlePointerDown,
+            onPointerMove: _handlePointerMove,
+            onPointerUp: _handlePointerEnd,
+            onPointerCancel: _handlePointerEnd,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                InteractiveViewer(
+                  transformationController: _transformationController,
+                  minScale: _ZoomableMapContent.minScale,
+                  maxScale: _ZoomableMapContent.maxScale,
+                  boundaryMargin: EdgeInsets.zero,
+                  onInteractionStart: (details) {
+                    if (details.pointerCount > 1 || _isZoomed) {
+                      _dispatchMapInteraction(true);
+                    }
+                  },
+                  onInteractionUpdate: (details) {
+                    if (details.pointerCount > 1 || _isZoomed) {
+                      _dispatchMapInteraction(true);
+                    }
+                  },
+                  onInteractionEnd: (_) {
+                    if (_activePointers.isEmpty) {
+                      _dispatchMapInteraction(false);
+                    }
+                  },
+                  child: SizedBox.expand(child: widget.background),
+                ),
+                AnimatedBuilder(
+                  animation: _transformationController,
+                  builder: (context, _) => widget.overlayBuilder(
+                    context,
+                    _transformationController.value,
+                    _handleOverlayPointerDown,
+                  ),
+                ),
+              ],
             ),
-            AnimatedBuilder(
-              animation: _transformationController,
-              builder: (context, _) => widget.overlayBuilder(
-                context,
-                _transformationController.value,
-                _handleOverlayPointerDown,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapZoomControl extends StatelessWidget {
+  const _MapZoomControl({
+    required this.canZoomIn,
+    required this.canZoomOut,
+    required this.onZoomIn,
+    required this.onZoomOut,
+  });
+
+  final bool canZoomIn;
+  final bool canZoomOut;
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+
+  static const Color _enabledColor = Color(0xFF111111);
+  static const Color _disabledColor = Color(0xFFC7C7C7);
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: const ValueKey<String>('world-map-zoom-control'),
+      decoration: BoxDecoration(
+        color: const Color(0xE6FFFFFF),
+        borderRadius: BorderRadius.circular(_worldMapZoomControlRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_worldMapZoomControlRadius),
+        child: SizedBox(
+          width: _worldMapZoomControlWidth,
+          height: _worldMapZoomControlHeight,
+          child: Column(
+            children: [
+              Expanded(
+                child: _MapZoomButton(
+                  key: const ValueKey<String>('world-map-zoom-in'),
+                  iconAsset: _worldMapZoomInIconAsset,
+                  label: '放大地图',
+                  color: canZoomIn ? _enabledColor : _disabledColor,
+                  onTap: canZoomIn ? onZoomIn : null,
+                ),
               ),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFE6E6E6)),
+              Expanded(
+                child: _MapZoomButton(
+                  key: const ValueKey<String>('world-map-zoom-out'),
+                  iconAsset: _worldMapZoomOutIconAsset,
+                  label: '缩小地图',
+                  color: canZoomOut ? _enabledColor : _disabledColor,
+                  onTap: canZoomOut ? onZoomOut : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MapZoomButton extends StatelessWidget {
+  const _MapZoomButton({
+    super.key,
+    required this.iconAsset,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String iconAsset;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Center(
+            child: SvgPicture.asset(
+              iconAsset,
+              width: 16,
+              height: 16,
+              colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
             ),
-          ],
+          ),
         ),
       ),
     );
