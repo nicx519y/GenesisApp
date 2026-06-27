@@ -218,7 +218,7 @@ void main() {
     },
   );
 
-  test('strips markdown formatting from bubble content', () {
+  test('removes italic markdown content from bubble content', () {
     final candidates = worldMapBubbleCandidatesFor(
       currentTickNo: 1,
       characterPositions: const [
@@ -241,14 +241,13 @@ void main() {
             order: 1,
             locationId: 'loc_a',
             senderId: 'ai_char',
-            content:
-                '*Sam wipes the counter.* 「**Hello** [neighbor](https://x.test)!」',
+            content: '*Sam wipes the counter.* 「Musk. Sit down.」',
           ),
         ],
       },
     );
 
-    expect(candidates.single.content, 'Sam wipes the counter. Hello neighbor!');
+    expect(candidates.single.content, 'Musk. Sit down.');
   });
 }
 

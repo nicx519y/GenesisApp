@@ -132,6 +132,38 @@ void main() {
     expect(find.text('Ava checks the storefront.'), findsOneWidget);
   });
 
+  testWidgets('world map bubble keeps fixed width with adaptive height', (
+    tester,
+  ) async {
+    const bubbleBodyKey = ValueKey<String>('world-map-message-bubble-body');
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      activeBubble: const WorldMapMessageBubble(
+        characterId: 'char_a',
+        content: 'Short.',
+      ),
+    );
+
+    final shortSize = tester.getSize(find.byKey(bubbleBodyKey));
+
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      activeBubble: const WorldMapMessageBubble(
+        characterId: 'char_a',
+        content:
+            'Ava checks the storefront, counts every crate, and writes down '
+            'the route before the market opens.',
+      ),
+    );
+
+    final longSize = tester.getSize(find.byKey(bubbleBodyKey));
+    expect(shortSize.width, longSize.width);
+    expect(shortSize.width, 220);
+    expect(shortSize.height, lessThan(longSize.height));
+  });
+
   testWidgets('world map hides bubble when avatar is not visible', (
     tester,
   ) async {
@@ -176,7 +208,8 @@ void main() {
     const longText =
         'Ava counts every crate in the storefront twice before sunrise, '
         'then writes a sharper plan for the delivery route that keeps the '
-        'whole block supplied before noon.';
+        'whole block supplied before noon while the market trucks idle at '
+        'the corner and the night manager waits for one clean answer.';
     await _pumpWorldMap(
       tester,
       users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
@@ -186,13 +219,13 @@ void main() {
     );
 
     expect(find.textContaining('Ava counts every crate'), findsOneWidget);
-    expect(find.textContaining('whole block supplied'), findsNothing);
+    expect(find.textContaining('night manager waits'), findsNothing);
 
     await tester.pump(const Duration(seconds: 4));
-    expect(find.textContaining('whole block supplied'), findsOneWidget);
+    expect(find.textContaining('night manager waits'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 4));
-    expect(find.textContaining('whole block supplied'), findsNothing);
+    expect(find.textContaining('night manager waits'), findsNothing);
 
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.textContaining('Ava counts every crate'), findsOneWidget);
@@ -204,7 +237,8 @@ void main() {
     const longText =
         'Ava counts every crate in the storefront twice before sunrise, '
         'then writes a sharper plan for the delivery route that keeps the '
-        'whole block supplied before noon.';
+        'whole block supplied before noon while the market trucks idle at '
+        'the corner and the night manager waits for one clean answer.';
     await _pumpWorldMap(
       tester,
       users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
@@ -214,7 +248,7 @@ void main() {
     );
 
     await tester.pump(const Duration(seconds: 4));
-    expect(find.textContaining('whole block supplied'), findsOneWidget);
+    expect(find.textContaining('night manager waits'), findsOneWidget);
 
     await _pumpWorldMap(
       tester,
@@ -224,10 +258,10 @@ void main() {
       ],
       messageBubblePlaybackPaused: true,
     );
-    expect(find.textContaining('whole block supplied'), findsNothing);
+    expect(find.textContaining('night manager waits'), findsNothing);
 
     await tester.pump(const Duration(seconds: 10));
-    expect(find.textContaining('whole block supplied'), findsNothing);
+    expect(find.textContaining('night manager waits'), findsNothing);
 
     await _pumpWorldMap(
       tester,
@@ -236,7 +270,7 @@ void main() {
         WorldMapMessageBubble(characterId: 'char_a', content: longText),
       ],
     );
-    expect(find.textContaining('whole block supplied'), findsOneWidget);
+    expect(find.textContaining('night manager waits'), findsOneWidget);
   });
 
   test('player controlled map avatar uses highlighted border', () {

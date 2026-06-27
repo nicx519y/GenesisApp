@@ -22,7 +22,7 @@ const double _worldMapAvatarImageLogicalSize = 42;
 const double _worldMapPreviewImageLogicalWidth = 120;
 const Duration _worldMapBubbleDisplayDuration = Duration(seconds: 4);
 const Duration _worldMapBubbleGapDuration = Duration(milliseconds: 500);
-const int _worldMapBubblePageMaxCharacters = 96;
+const int _worldMapBubblePageMaxCharacters = 144;
 
 @visibleForTesting
 Color worldMapAvatarBorderColorForTesting({
@@ -2083,7 +2083,8 @@ class _PositionedMapMessageBubble extends StatelessWidget {
   static const double _avatarSize = 42;
   static const double _bubbleGap = 8;
   static const double _bubbleWidth = 220;
-  static const double _pointerSize = 10;
+  static const double _pointerWidth = 12;
+  static const double _pointerHeight = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -2095,13 +2096,13 @@ class _PositionedMapMessageBubble extends StatelessWidget {
 
     return Positioned(
       left: left.toDouble(),
-      top: avatarTop + _avatarSize + _bubbleGap - _pointerSize,
+      top: avatarTop + _avatarSize + _bubbleGap - _pointerHeight,
       width: _bubbleWidth,
       child: IgnorePointer(
         child: _MapMessageBubble(
           text: text,
           pointerLeft: (avatarLeft + _avatarSize / 2 - left.toDouble())
-              .clamp(_pointerSize * 1.5, _bubbleWidth - _pointerSize * 1.5)
+              .clamp(_pointerWidth * 1.5, _bubbleWidth - _pointerWidth * 1.5)
               .toDouble(),
         ),
       ),
@@ -2121,42 +2122,46 @@ class _MapMessageBubble extends StatelessWidget {
       clipBehavior: Clip.none,
       children: [
         Positioned(
-          left: pointerLeft - 7,
+          left: pointerLeft - 6,
           top: 0,
-          width: 14,
-          height: 14,
-          child: Transform.rotate(
-            angle: math.pi / 4,
-            child: const DecoratedBox(
-              decoration: BoxDecoration(color: Colors.white),
-            ),
+          width: 12,
+          height: 10,
+          child: CustomPaint(
+            painter: const _MapMessageBubblePointerPainter(color: Colors.white),
           ),
         ),
         Padding(
           padding: const EdgeInsets.only(top: 10),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.16),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+          child: SizedBox(
+            key: const ValueKey<String>('world-map-message-bubble-body'),
+            width: double.infinity,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.16),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
                 ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              child: Text(
-                text,
-                maxLines: 2,
-                overflow: TextOverflow.clip,
-                style: const TextStyle(
-                  color: Color(0xFF1F1F1F),
-                  fontSize: 11,
-                  height: 1.25,
-                  fontWeight: FontWeight.w400,
+                child: Text(
+                  text,
+                  maxLines: 3,
+                  overflow: TextOverflow.clip,
+                  style: const TextStyle(
+                    color: Color(0xFF1F1F1F),
+                    fontSize: 11,
+                    height: 1.25,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
               ),
             ),
@@ -2164,6 +2169,30 @@ class _MapMessageBubble extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _MapMessageBubblePointerPainter extends CustomPainter {
+  const _MapMessageBubblePointerPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    final path = Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _MapMessageBubblePointerPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 
