@@ -7,6 +7,17 @@ void main() {
     expect(originDetailSheetHorizontalPaddingForTesting, 12);
   });
 
+  test('origin detail sheet header sizing matches design', () {
+    expect(originDetailSheetHeaderHeightForTesting, 20);
+    expect(originDetailSheetHeaderBodyGapForTesting, 12);
+    expect(originDetailSheetHandleTopOffsetForTesting, 2);
+  });
+
+  test('origin detail sections use main ui spacing', () {
+    expect(originDetailSectionGapForTesting, 24);
+    expect(originDetailSectionTitleIconGapForTesting, 8);
+  });
+
   test('origin location opening preview keeps every initial dialogue line', () {
     final messages = originLocationOpeningPreviewMessagesForTesting(
       [
