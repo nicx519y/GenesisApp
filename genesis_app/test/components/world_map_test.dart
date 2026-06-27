@@ -132,6 +132,38 @@ void main() {
     expect(find.text('Ava checks the storefront.'), findsOneWidget);
   });
 
+  testWidgets('world map bubble keeps fixed width with adaptive height', (
+    tester,
+  ) async {
+    const bubbleBodyKey = ValueKey<String>('world-map-message-bubble-body');
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      activeBubble: const WorldMapMessageBubble(
+        characterId: 'char_a',
+        content: 'Short.',
+      ),
+    );
+
+    final shortSize = tester.getSize(find.byKey(bubbleBodyKey));
+
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      activeBubble: const WorldMapMessageBubble(
+        characterId: 'char_a',
+        content:
+            'Ava checks the storefront, counts every crate, and writes down '
+            'the route before the market opens.',
+      ),
+    );
+
+    final longSize = tester.getSize(find.byKey(bubbleBodyKey));
+    expect(shortSize.width, longSize.width);
+    expect(shortSize.width, 220);
+    expect(shortSize.height, lessThan(longSize.height));
+  });
+
   testWidgets('world map hides bubble when avatar is not visible', (
     tester,
   ) async {
@@ -145,6 +177,100 @@ void main() {
     );
 
     expect(find.text('Ben is elsewhere.'), findsNothing);
+  });
+
+  testWidgets('world map loops a single queued bubble with a gap', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      messageBubbles: const [
+        WorldMapMessageBubble(
+          characterId: 'char_a',
+          content: 'Ava checks the storefront.',
+        ),
+      ],
+    );
+
+    expect(find.text('Ava checks the storefront.'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 4));
+    expect(find.text('Ava checks the storefront.'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Ava checks the storefront.'), findsOneWidget);
+  });
+
+  testWidgets('world map paginates a long bubble before the playback gap', (
+    tester,
+  ) async {
+    const longText =
+        'Ava counts every crate in the storefront twice before sunrise, '
+        'then writes a sharper plan for the delivery route that keeps the '
+        'whole block supplied before noon while the market trucks idle at '
+        'the corner and the night manager waits for one clean answer.';
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      messageBubbles: const [
+        WorldMapMessageBubble(characterId: 'char_a', content: longText),
+      ],
+    );
+
+    expect(find.textContaining('Ava counts every crate'), findsOneWidget);
+    expect(find.textContaining('night manager waits'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 4));
+    expect(find.textContaining('night manager waits'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 4));
+    expect(find.textContaining('night manager waits'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.textContaining('Ava counts every crate'), findsOneWidget);
+  });
+
+  testWidgets('world map pauses bubble playback while location chat is open', (
+    tester,
+  ) async {
+    const longText =
+        'Ava counts every crate in the storefront twice before sunrise, '
+        'then writes a sharper plan for the delivery route that keeps the '
+        'whole block supplied before noon while the market trucks idle at '
+        'the corner and the night manager waits for one clean answer.';
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      messageBubbles: const [
+        WorldMapMessageBubble(characterId: 'char_a', content: longText),
+      ],
+    );
+
+    await tester.pump(const Duration(seconds: 4));
+    expect(find.textContaining('night manager waits'), findsOneWidget);
+
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      messageBubbles: const [
+        WorldMapMessageBubble(characterId: 'char_a', content: longText),
+      ],
+      messageBubblePlaybackPaused: true,
+    );
+    expect(find.textContaining('night manager waits'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 10));
+    expect(find.textContaining('night manager waits'), findsNothing);
+
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      messageBubbles: const [
+        WorldMapMessageBubble(characterId: 'char_a', content: longText),
+      ],
+    );
+    expect(find.textContaining('night manager waits'), findsOneWidget);
   });
 
   test('player controlled map avatar uses highlighted border', () {
@@ -306,6 +432,85 @@ void main() {
 
     expect(tester.getSize(avatar), initialAvatarSize);
     expect(tester.getTopLeft(avatar), initialAvatarTopLeft);
+  });
+
+  testWidgets('world map zoom control changes scale and disables at limits', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      mapImageUrl: kMockV1SteamMapImage,
+      users: const [
+        UserAvatar(
+          'AA',
+          name: 'Ada',
+          avatarUrl: 'assets/images/default_list_image.png',
+        ),
+      ],
+    );
+
+    final zoomControl = find.byKey(
+      const ValueKey<String>('world-map-zoom-control'),
+    );
+    final zoomIn = find.byKey(const ValueKey<String>('world-map-zoom-in'));
+    final zoomOut = find.byKey(const ValueKey<String>('world-map-zoom-out'));
+    final avatar = find.byType(GenesisCharacterAvatar);
+    final initialAvatarTopLeft = tester.getTopLeft(avatar);
+
+    SvgPicture zoomInIcon() {
+      return tester.widget<SvgPicture>(
+        find.descendant(
+          of: zoomIn,
+          matching: _assetSvgFinder('assets/custom-icons/svg/map_zoom_in.svg'),
+        ),
+      );
+    }
+
+    SvgPicture zoomOutIcon() {
+      return tester.widget<SvgPicture>(
+        find.descendant(
+          of: zoomOut,
+          matching: _assetSvgFinder('assets/custom-icons/svg/map_zoom_out.svg'),
+        ),
+      );
+    }
+
+    expect(tester.getSize(zoomControl), const Size(30, 68));
+    expect(
+      tester.getTopLeft(zoomControl).dx,
+      closeTo(_mapSize.width - 42, 0.1),
+    );
+    expect(
+      tester.getBottomRight(zoomControl).dy,
+      closeTo(_mapSize.height - 30, 0.1),
+    );
+    final zoomControlBox = tester.widget<DecoratedBox>(zoomControl);
+    final zoomControlDecoration = zoomControlBox.decoration as BoxDecoration;
+    expect(zoomControlDecoration.color, const Color(0xE6FFFFFF));
+    expect(zoomControlDecoration.borderRadius, BorderRadius.circular(12));
+    expect(zoomInIcon().colorFilter, isNotNull);
+    expect(zoomOutIcon().colorFilter, isNotNull);
+
+    await tester.tap(zoomIn);
+    await tester.pump();
+
+    expect(tester.getTopLeft(avatar), isNot(initialAvatarTopLeft));
+    expect(zoomOutIcon().colorFilter, isNotNull);
+
+    await tester.tap(zoomIn);
+    await tester.pump();
+    await tester.tap(zoomIn);
+    await tester.pump();
+    await tester.tap(zoomIn);
+    await tester.pump();
+
+    final maxZoomAvatarTopLeft = tester.getTopLeft(avatar);
+    expect(zoomInIcon().colorFilter, isNotNull);
+
+    await tester.tap(zoomIn);
+    await tester.pump();
+
+    expect(tester.getTopLeft(avatar), maxZoomAvatarTopLeft);
   });
 
   testWidgets('world map notifies parent scrolling on second pointer down', (
@@ -1619,6 +1824,8 @@ Future<void> _pumpWorldMap(
   VoidCallback? onDrillIntoLocation,
   ValueChanged<bool>? onMapInteractionChanged,
   WorldMapMessageBubble? activeBubble,
+  List<WorldMapMessageBubble> messageBubbles = const <WorldMapMessageBubble>[],
+  bool messageBubblePlaybackPaused = false,
 }) async {
   tester.view.physicalSize = const Size(430, 820);
   tester.view.devicePixelRatio = 1;
@@ -1646,6 +1853,8 @@ Future<void> _pumpWorldMap(
                 listPoints: listPoints,
                 locationNodes: locationNodes,
                 activeBubble: activeBubble,
+                messageBubbles: messageBubbles,
+                messageBubblePlaybackPaused: messageBubblePlaybackPaused,
                 onDrillIntoLocation: onDrillIntoLocation,
                 onPointTap: onPointTap,
                 points:

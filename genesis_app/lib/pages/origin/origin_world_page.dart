@@ -73,10 +73,10 @@ class OriginWorldPage extends StatefulWidget {
 const double originDetailSheetHorizontalPaddingForTesting = 12;
 
 @visibleForTesting
-const double originDetailSheetHeaderHeightForTesting = 20;
+const double originDetailSheetHeaderHeightForTesting = 30;
 
 @visibleForTesting
-const double originDetailSheetHeaderBodyGapForTesting = 12;
+const double originDetailSheetHeaderBodyGapForTesting = 0;
 
 @visibleForTesting
 const double originDetailSheetHandleTopOffsetForTesting = 2;
@@ -113,6 +113,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   bool _launching = false;
   bool _didResumePendingLaunch = false;
   bool _showLocationPage = false;
+  int _detailSheetCollapseRequest = 0;
   _OriginLocationChatDescriptor? _activeChatLocation;
   late final VoidCallback _removeLaunchOutcomeListener;
 
@@ -289,9 +290,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
           : 'worldo_map',
       object1: widget.oid,
     );
-    if (_showLocationPage != nextShowsLocationPage) {
-      setState(() => _showLocationPage = nextShowsLocationPage);
-    }
+    setState(() {
+      _showLocationPage = nextShowsLocationPage;
+      _detailSheetCollapseRequest += 1;
+    });
     SystemChrome.setSystemUIOverlayStyle(
       nextShowsLocationPage
           ? _transparentDarkStatusBarStyle
@@ -579,6 +581,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                   origin: origin,
                   baseStatusBarStyle: _baseStatusBarStyle,
                   minChildSize: minChildSize,
+                  collapseRequest: _detailSheetCollapseRequest,
                   onOriginChanged: _refreshOriginDetail,
                 ),
             bottomOverlay: _OriginBottomLaunchBar(

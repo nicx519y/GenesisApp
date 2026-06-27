@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../ui/components/genesis_character_avatar.dart';
 import '../ui/tokens/genesis_avatar_radii.dart';
@@ -20,6 +21,18 @@ const String kWorldMapFallbackBackgroundAsset =
     'assets/images/map_default/root_default.webp';
 const double _worldMapAvatarImageLogicalSize = 42;
 const double _worldMapPreviewImageLogicalWidth = 120;
+const Duration _worldMapBubbleDisplayDuration = Duration(seconds: 4);
+const Duration _worldMapBubbleGapDuration = Duration(milliseconds: 500);
+const int _worldMapBubblePageMaxCharacters = 144;
+const double _worldMapZoomControlRightGap = 12;
+const double _worldMapZoomControlBottomGap = 30;
+const double _worldMapZoomControlWidth = 30;
+const double _worldMapZoomControlHeight = 68;
+const double _worldMapZoomControlRadius = 12;
+const String _worldMapZoomInIconAsset =
+    'assets/custom-icons/svg/map_zoom_in.svg';
+const String _worldMapZoomOutIconAsset =
+    'assets/custom-icons/svg/map_zoom_out.svg';
 
 @visibleForTesting
 Color worldMapAvatarBorderColorForTesting({
@@ -73,7 +86,7 @@ class WorldMap extends StatefulWidget {
     this.onPointTap,
     this.activeBubble,
     this.messageBubbles = const <WorldMapMessageBubble>[],
-    this.messageBubbleIndex = 0,
+    this.messageBubblePlaybackPaused = false,
   });
 
   final List<WorldPoint> points;
@@ -95,13 +108,15 @@ class WorldMap extends StatefulWidget {
   final WorldPointTapCallback? onPointTap;
   final WorldMapMessageBubble? activeBubble;
   final List<WorldMapMessageBubble> messageBubbles;
-  final int messageBubbleIndex;
+  final bool messageBubblePlaybackPaused;
 
   @override
   State<WorldMap> createState() => _WorldMapState();
 }
 
 class _WorldMapState extends State<WorldMap> {
+  final GlobalKey<_ZoomableMapContentState> _zoomableMapContentKey =
+      GlobalKey<_ZoomableMapContentState>();
   ScrollController? _horizontalScrollController;
   ScrollController? _verticalScrollController;
   final List<_WorldMapLocationTrailEntry> _locationTrail =
@@ -109,6 +124,14 @@ class _WorldMapState extends State<WorldMap> {
   final Set<String> _pendingLocationTapKeys = <String>{};
   final Map<String, Size> _mapImageDimensionsByUrl = <String, Size>{};
   final Set<String> _pendingMapImageDimensionUrls = <String>{};
+  Timer? _messageBubblePlaybackTimer;
+  int _messageBubblePlaybackIndex = 0;
+  int _messageBubblePageIndex = 0;
+  bool _messageBubbleVisible = true;
+  double _mapZoomScale = _ZoomableMapContent.minScale;
+  String _messageBubblePlaybackSignature = '';
+  List<WorldMapMessageBubble> _visibleMessageBubblesForPlayback =
+      const <WorldMapMessageBubble>[];
   String _lastLoggedLocationTreeSignature = '';
   String _scrollControllerSignature = '';
   WorldMapHorizontalPanState? _lastHorizontalPanState;
@@ -129,6 +152,14 @@ class _WorldMapState extends State<WorldMap> {
   void didUpdateWidget(covariant WorldMap oldWidget) {
     super.didUpdateWidget(oldWidget);
     _debugPrintLocationTree('update');
+    if (oldWidget.messageBubblePlaybackPaused !=
+        widget.messageBubblePlaybackPaused) {
+      if (widget.messageBubblePlaybackPaused) {
+        _stopMessageBubblePlayback();
+      } else {
+        _ensureMessageBubblePlayback();
+      }
+    }
     if (!_hasDrillTree) {
       if (_locationTrail.isNotEmpty) {
         _locationTrail.clear();
@@ -144,6 +175,7 @@ class _WorldMapState extends State<WorldMap> {
 
   @override
   void dispose() {
+    _stopMessageBubblePlayback();
     _horizontalScrollController?.removeListener(_notifyHorizontalPanState);
     _horizontalScrollController?.dispose();
     _verticalScrollController?.dispose();
@@ -176,8 +208,19 @@ class _WorldMapState extends State<WorldMap> {
               .toList(growable: false)
         : widget.preloadMapImageUrls;
     final exitLocationLabel = currentNode?.point.name ?? '';
+    final visibleMessageBubbles = _visibleMessageBubblesForPoints(
+      visiblePoints,
+    );
+    if (widget.messageBubblePlaybackPaused) {
+      _stopMessageBubblePlayback();
+    } else {
+      _syncMessageBubblePlayback(visibleMessageBubbles);
+    }
     final activeBubble =
-        widget.activeBubble ?? _activeBubbleForPoints(visiblePoints);
+        widget.activeBubble ??
+        (widget.messageBubblePlaybackPaused
+            ? null
+            : _activeBubbleFromVisible(visibleMessageBubbles));
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -272,6 +315,7 @@ class _WorldMapState extends State<WorldMap> {
                                 width: viewport.width,
                                 height: viewport.height,
                                 child: _ZoomableMapContent(
+                                  key: _zoomableMapContentKey,
                                   background: _MapBackgroundDeck(
                                     currentUrl: backgroundUrl,
                                     previewUrl: backgroundPreviewUrl,
@@ -331,6 +375,7 @@ class _WorldMapState extends State<WorldMap> {
                                           ),
                                         ],
                                       ),
+                                  onScaleChanged: _handleMapZoomScaleChanged,
                                 ),
                               ),
                             ],
@@ -383,10 +428,32 @@ class _WorldMapState extends State<WorldMap> {
                   ),
                 ),
               ),
+            if (!widget.showPointsList)
+              Positioned(
+                right: _worldMapZoomControlRightGap,
+                bottom: _worldMapZoomControlBottomGap,
+                child: _MapZoomControl(
+                  canZoomIn:
+                      _mapZoomScale < _ZoomableMapContent.maxScale - 0.001,
+                  canZoomOut:
+                      _mapZoomScale > _ZoomableMapContent.minScale + 0.001,
+                  onZoomIn: () =>
+                      _zoomableMapContentKey.currentState?.zoomByControl(0.25),
+                  onZoomOut: () =>
+                      _zoomableMapContentKey.currentState?.zoomByControl(-0.25),
+                ),
+              ),
           ],
         );
       },
     );
+  }
+
+  void _handleMapZoomScaleChanged(double scale) {
+    if ((_mapZoomScale - scale).abs() < 0.001) return;
+    setState(() {
+      _mapZoomScale = scale;
+    });
   }
 
   VoidCallback? _pointTapHandler(WorldPoint point) {
@@ -558,8 +625,10 @@ class _WorldMapState extends State<WorldMap> {
     return singleLeaf?.point;
   }
 
-  WorldMapMessageBubble? _activeBubbleForPoints(List<WorldPoint> points) {
-    if (widget.messageBubbles.isEmpty) return null;
+  List<WorldMapMessageBubble> _visibleMessageBubblesForPoints(
+    List<WorldPoint> points,
+  ) {
+    if (widget.messageBubbles.isEmpty) return const <WorldMapMessageBubble>[];
     final visibleCharacterIds = <String>{};
     for (final point in points) {
       for (final user in point.users) {
@@ -567,17 +636,113 @@ class _WorldMapState extends State<WorldMap> {
         if (id.isNotEmpty) visibleCharacterIds.add(id);
       }
     }
-    if (visibleCharacterIds.isEmpty) return null;
-    final visibleBubbles = widget.messageBubbles
+    if (visibleCharacterIds.isEmpty) return const <WorldMapMessageBubble>[];
+    return widget.messageBubbles
         .where(
           (bubble) =>
               visibleCharacterIds.contains(bubble.characterId.trim()) &&
               bubble.content.trim().isNotEmpty,
         )
         .toList(growable: false);
+  }
+
+  WorldMapMessageBubble? _activeBubbleFromVisible(
+    List<WorldMapMessageBubble> visibleBubbles,
+  ) {
     if (visibleBubbles.isEmpty) return null;
-    final index = widget.messageBubbleIndex % visibleBubbles.length;
-    return visibleBubbles[index];
+    if (!_messageBubbleVisible) return null;
+    final index = _messageBubblePlaybackIndex % visibleBubbles.length;
+    final bubble = visibleBubbles[index];
+    final pages = _messageBubblePages(bubble.content);
+    final page = pages.isEmpty
+        ? ''
+        : pages[_messageBubblePageIndex % pages.length];
+    if (page.isEmpty) return null;
+    return WorldMapMessageBubble(
+      characterId: bubble.characterId,
+      content: page,
+    );
+  }
+
+  void _syncMessageBubblePlayback(List<WorldMapMessageBubble> visibleBubbles) {
+    final signature = _messageBubblePlaybackKey(visibleBubbles);
+    if (signature.isEmpty) {
+      _messageBubblePlaybackSignature = '';
+      _visibleMessageBubblesForPlayback = const <WorldMapMessageBubble>[];
+      _messageBubbleVisible = false;
+      _stopMessageBubblePlayback();
+      return;
+    }
+    if (_messageBubblePlaybackSignature != signature) {
+      _messageBubblePlaybackSignature = signature;
+      _visibleMessageBubblesForPlayback = visibleBubbles;
+      _messageBubblePlaybackIndex = 0;
+      _messageBubblePageIndex = 0;
+      _messageBubbleVisible = true;
+      _stopMessageBubblePlayback();
+    } else {
+      _visibleMessageBubblesForPlayback = visibleBubbles;
+    }
+    if (_messageBubblePlaybackIndex >= visibleBubbles.length) {
+      _messageBubblePlaybackIndex = 0;
+      _messageBubblePageIndex = 0;
+    }
+    _ensureMessageBubblePlayback();
+  }
+
+  void _ensureMessageBubblePlayback() {
+    if (widget.messageBubblePlaybackPaused ||
+        _messageBubblePlaybackTimer != null ||
+        _messageBubblePlaybackSignature.isEmpty) {
+      return;
+    }
+    final duration = _messageBubbleVisible
+        ? _worldMapBubbleDisplayDuration
+        : _worldMapBubbleGapDuration;
+    _messageBubblePlaybackTimer = Timer(duration, () {
+      _messageBubblePlaybackTimer = null;
+      if (!mounted || _messageBubblePlaybackSignature.isEmpty) return;
+      setState(() {
+        if (_messageBubbleVisible) {
+          final activeBubble = _activeBubbleForPlayback();
+          final pageCount = activeBubble == null
+              ? 1
+              : _messageBubblePages(activeBubble.content).length;
+          if (_messageBubblePageIndex + 1 < pageCount) {
+            _messageBubblePageIndex += 1;
+          } else {
+            _messageBubbleVisible = false;
+          }
+        } else {
+          _messageBubblePlaybackIndex += 1;
+          _messageBubblePageIndex = 0;
+          _messageBubbleVisible = true;
+        }
+      });
+      _ensureMessageBubblePlayback();
+    });
+  }
+
+  void _stopMessageBubblePlayback() {
+    _messageBubblePlaybackTimer?.cancel();
+    _messageBubblePlaybackTimer = null;
+  }
+
+  String _messageBubblePlaybackKey(List<WorldMapMessageBubble> bubbles) {
+    if (bubbles.isEmpty) return '';
+    return bubbles
+        .map((bubble) => '${bubble.characterId.trim()}\u{1f}${bubble.content}')
+        .join('\u{1e}');
+  }
+
+  List<String> _messageBubblePages(String content) {
+    return worldMapMessageBubblePagesForTesting(content);
+  }
+
+  WorldMapMessageBubble? _activeBubbleForPlayback() {
+    final bubbles = _visibleMessageBubblesForPlayback;
+    if (bubbles.isEmpty) return null;
+    return bubbles[_messageBubblePlaybackIndex % bubbles.length];
   }
 
   WorldMapMessageBubble? _bubbleForPoint(
@@ -1246,8 +1411,10 @@ typedef _MapOverlayBuilder =
 
 class _ZoomableMapContent extends StatefulWidget {
   const _ZoomableMapContent({
+    super.key,
     required this.background,
     required this.overlayBuilder,
+    required this.onScaleChanged,
   });
 
   static const double minScale = 1;
@@ -1256,6 +1423,7 @@ class _ZoomableMapContent extends StatefulWidget {
 
   final Widget background;
   final _MapOverlayBuilder overlayBuilder;
+  final ValueChanged<double> onScaleChanged;
 
   @override
   State<_ZoomableMapContent> createState() => _ZoomableMapContentState();
@@ -1275,9 +1443,20 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   double? _manualGestureStartDistance;
 
   @override
+  void initState() {
+    super.initState();
+    _transformationController.addListener(_notifyScaleChanged);
+  }
+
+  @override
   void dispose() {
+    _transformationController.removeListener(_notifyScaleChanged);
     _transformationController.dispose();
     super.dispose();
+  }
+
+  void _notifyScaleChanged() {
+    widget.onScaleChanged(_transformationController.value.getMaxScaleOnAxis());
   }
 
   bool get _isZoomed {
@@ -1450,47 +1629,176 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
     );
   }
 
+  void zoomByControl(double delta) {
+    final box = context.findRenderObject() as RenderBox?;
+    final size = box?.size ?? Size.zero;
+    if (size.isEmpty) return;
+
+    final matrix = _transformationController.value;
+    final values = matrix.storage;
+    final currentScale = matrix.getMaxScaleOnAxis();
+    final targetScale = (currentScale + delta)
+        .clamp(_ZoomableMapContent.minScale, _ZoomableMapContent.maxScale)
+        .toDouble();
+    if ((targetScale - currentScale).abs() < 0.001) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final translation = Offset(values[12], values[13]);
+    final contentCenter = (center - translation) / currentScale;
+    _setTransform(targetScale, center - contentCenter * targetScale);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: _handlePointerDown,
-      onPointerMove: _handlePointerMove,
-      onPointerUp: _handlePointerEnd,
-      onPointerCancel: _handlePointerEnd,
-      child: ClipRect(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            InteractiveViewer(
-              transformationController: _transformationController,
-              minScale: _ZoomableMapContent.minScale,
-              maxScale: _ZoomableMapContent.maxScale,
-              boundaryMargin: EdgeInsets.zero,
-              onInteractionStart: (details) {
-                if (details.pointerCount > 1 || _isZoomed) {
-                  _dispatchMapInteraction(true);
-                }
-              },
-              onInteractionUpdate: (details) {
-                if (details.pointerCount > 1 || _isZoomed) {
-                  _dispatchMapInteraction(true);
-                }
-              },
-              onInteractionEnd: (_) {
-                if (_activePointers.isEmpty) _dispatchMapInteraction(false);
-              },
-              child: SizedBox.expand(child: widget.background),
+    return ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: _handlePointerDown,
+            onPointerMove: _handlePointerMove,
+            onPointerUp: _handlePointerEnd,
+            onPointerCancel: _handlePointerEnd,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                InteractiveViewer(
+                  transformationController: _transformationController,
+                  minScale: _ZoomableMapContent.minScale,
+                  maxScale: _ZoomableMapContent.maxScale,
+                  boundaryMargin: EdgeInsets.zero,
+                  onInteractionStart: (details) {
+                    if (details.pointerCount > 1 || _isZoomed) {
+                      _dispatchMapInteraction(true);
+                    }
+                  },
+                  onInteractionUpdate: (details) {
+                    if (details.pointerCount > 1 || _isZoomed) {
+                      _dispatchMapInteraction(true);
+                    }
+                  },
+                  onInteractionEnd: (_) {
+                    if (_activePointers.isEmpty) {
+                      _dispatchMapInteraction(false);
+                    }
+                  },
+                  child: SizedBox.expand(child: widget.background),
+                ),
+                AnimatedBuilder(
+                  animation: _transformationController,
+                  builder: (context, _) => widget.overlayBuilder(
+                    context,
+                    _transformationController.value,
+                    _handleOverlayPointerDown,
+                  ),
+                ),
+              ],
             ),
-            AnimatedBuilder(
-              animation: _transformationController,
-              builder: (context, _) => widget.overlayBuilder(
-                context,
-                _transformationController.value,
-                _handleOverlayPointerDown,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapZoomControl extends StatelessWidget {
+  const _MapZoomControl({
+    required this.canZoomIn,
+    required this.canZoomOut,
+    required this.onZoomIn,
+    required this.onZoomOut,
+  });
+
+  final bool canZoomIn;
+  final bool canZoomOut;
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+
+  static const Color _enabledColor = Color(0xFF111111);
+  static const Color _disabledColor = Color(0xFFC7C7C7);
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: const ValueKey<String>('world-map-zoom-control'),
+      decoration: BoxDecoration(
+        color: const Color(0xE6FFFFFF),
+        borderRadius: BorderRadius.circular(_worldMapZoomControlRadius),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_worldMapZoomControlRadius),
+        child: SizedBox(
+          width: _worldMapZoomControlWidth,
+          height: _worldMapZoomControlHeight,
+          child: Column(
+            children: [
+              Expanded(
+                child: _MapZoomButton(
+                  key: const ValueKey<String>('world-map-zoom-in'),
+                  iconAsset: _worldMapZoomInIconAsset,
+                  label: '放大地图',
+                  color: canZoomIn ? _enabledColor : _disabledColor,
+                  onTap: canZoomIn ? onZoomIn : null,
+                ),
               ),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFE6E6E6)),
+              Expanded(
+                child: _MapZoomButton(
+                  key: const ValueKey<String>('world-map-zoom-out'),
+                  iconAsset: _worldMapZoomOutIconAsset,
+                  label: '缩小地图',
+                  color: canZoomOut ? _enabledColor : _disabledColor,
+                  onTap: canZoomOut ? onZoomOut : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MapZoomButton extends StatelessWidget {
+  const _MapZoomButton({
+    super.key,
+    required this.iconAsset,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String iconAsset;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: label,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Center(
+            child: SvgPicture.asset(
+              iconAsset,
+              width: 16,
+              height: 16,
+              colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1955,6 +2263,8 @@ class _PositionedMapMessageBubble extends StatelessWidget {
   static const double _avatarSize = 42;
   static const double _bubbleGap = 8;
   static const double _bubbleWidth = 220;
+  static const double _pointerWidth = 12;
+  static const double _pointerHeight = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -1966,48 +2276,120 @@ class _PositionedMapMessageBubble extends StatelessWidget {
 
     return Positioned(
       left: left.toDouble(),
-      top: avatarTop + _avatarSize + _bubbleGap,
+      top: avatarTop + _avatarSize + _bubbleGap - _pointerHeight,
       width: _bubbleWidth,
-      child: IgnorePointer(child: _MapMessageBubble(text: text)),
+      child: IgnorePointer(
+        child: _MapMessageBubble(
+          text: text,
+          pointerLeft: (avatarLeft + _avatarSize / 2 - left.toDouble())
+              .clamp(_pointerWidth * 1.5, _bubbleWidth - _pointerWidth * 1.5)
+              .toDouble(),
+        ),
+      ),
     );
   }
 }
 
 class _MapMessageBubble extends StatelessWidget {
-  const _MapMessageBubble({required this.text});
+  const _MapMessageBubble({required this.text, required this.pointerLeft});
 
   final String text;
+  final double pointerLeft;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.16),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        child: Text(
-          text,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF1F1F1F),
-            fontSize: 11,
-            height: 1.25,
-            fontWeight: FontWeight.w400,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          left: pointerLeft - 6,
+          top: 0,
+          width: 12,
+          height: 10,
+          child: CustomPaint(
+            painter: const _MapMessageBubblePointerPainter(color: Colors.white),
           ),
         ),
-      ),
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: SizedBox(
+            key: const ValueKey<String>('world-map-message-bubble-body'),
+            width: double.infinity,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.16),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
+                child: Text(
+                  text,
+                  maxLines: 3,
+                  overflow: TextOverflow.clip,
+                  style: const TextStyle(
+                    color: Color(0xFF1F1F1F),
+                    fontSize: 11,
+                    height: 1.25,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
+}
+
+class _MapMessageBubblePointerPainter extends CustomPainter {
+  const _MapMessageBubblePointerPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    final path = Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _MapMessageBubblePointerPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
+@visibleForTesting
+List<String> worldMapMessageBubblePagesForTesting(String content) {
+  final normalized = content.trim().replaceAll(RegExp(r'\s+'), ' ');
+  if (normalized.isEmpty) return const <String>[];
+  final pages = <String>[];
+  var remaining = normalized;
+  while (remaining.length > _worldMapBubblePageMaxCharacters) {
+    var split = remaining.lastIndexOf(' ', _worldMapBubblePageMaxCharacters);
+    if (split <= 0) split = _worldMapBubblePageMaxCharacters;
+    pages.add(remaining.substring(0, split).trim());
+    remaining = remaining.substring(split).trim();
+  }
+  if (remaining.isNotEmpty) pages.add(remaining);
+  return List<String>.unmodifiable(pages);
 }
 
 class _PointLabel extends StatelessWidget {

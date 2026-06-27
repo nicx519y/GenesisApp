@@ -51,7 +51,6 @@ class WorldPage extends StatefulWidget {
 
 class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   static const Duration _worldInfoPollInterval = Duration(seconds: 5);
-  static const Duration _mapBubblePlaybackInterval = Duration(seconds: 4);
   static const double _worldMainSwipeSystemGestureEdgeWidth = 24;
   static const double _worldMainSwipeMinDistance = 48;
   static const double _worldMainSwipeDirectionRatio = 1.25;
@@ -89,10 +88,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _tick1WaitDialogStarted = false;
   Timer? _worldInfoPollTimer;
   Future<void>? _worldInfoPollFuture;
-  Timer? _mapBubblePlaybackTimer;
   List<WorldMapBubbleCandidate> _mapBubbleCandidates =
       const <WorldMapBubbleCandidate>[];
-  int _mapBubblePlaybackIndex = 0;
   int? _pendingProgressTickCount;
   var _currentUid = '';
   var _currentUidRequested = false;
@@ -154,7 +151,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     GenesisSystemUiChrome.applyDefault();
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
-    _stopMapBubblePlayback();
     _stopWorldInfoPolling();
     final chatroom = _worldChatroom;
     _worldChatroom = null;
@@ -502,38 +498,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   void _replaceMapBubbleCandidates(List<WorldMapBubbleCandidate> candidates) {
     _mapBubbleCandidates = candidates;
-    if (_mapBubbleCandidates.isEmpty) {
-      _mapBubblePlaybackIndex = 0;
-      _stopMapBubblePlayback();
-      return;
-    }
-    if (_mapBubbleCandidates.length <= 1) {
-      _mapBubblePlaybackIndex = 0;
-      _stopMapBubblePlayback();
-      return;
-    }
-    if (_mapBubblePlaybackIndex >= _mapBubbleCandidates.length) {
-      _mapBubblePlaybackIndex = 0;
-    }
-    _ensureMapBubblePlayback();
-  }
-
-  void _ensureMapBubblePlayback() {
-    if (_mapBubblePlaybackTimer != null || _mapBubbleCandidates.length <= 1) {
-      return;
-    }
-    _mapBubblePlaybackTimer = Timer.periodic(_mapBubblePlaybackInterval, (_) {
-      if (!mounted || _mapBubbleCandidates.isEmpty) return;
-      setState(() {
-        _mapBubblePlaybackIndex =
-            (_mapBubblePlaybackIndex + 1) % _mapBubbleCandidates.length;
-      });
-    });
-  }
-
-  void _stopMapBubblePlayback() {
-    _mapBubblePlaybackTimer?.cancel();
-    _mapBubblePlaybackTimer = null;
   }
 
   List<WorldMapMessageBubble> get _mapMessageBubbles {
@@ -1379,7 +1343,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         locationNodes: locationNodes,
         listLocationNodes: listLocationNodes,
         messageBubbles: _mapMessageBubbles,
-        messageBubbleIndex: _mapBubblePlaybackIndex,
+        messageBubblePlaybackPaused: _activeChatLocationId.isNotEmpty,
         mapImageUrl: rootMapImageUrl,
         dimmed: pointMode,
         showPointsList: pointMode,

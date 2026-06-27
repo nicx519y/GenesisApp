@@ -5,6 +5,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.origin,
     required this.baseStatusBarStyle,
     required this.minChildSize,
+    required this.collapseRequest,
     required this.onOriginChanged,
   });
 
@@ -13,6 +14,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final OriginDetail origin;
   final SystemUiOverlayStyle baseStatusBarStyle;
   final double minChildSize;
+  final int collapseRequest;
   final VoidCallback onOriginChanged;
 
   @override
@@ -28,6 +30,7 @@ class _OriginDetailDraggableSheetState
   static const double _extentUpdateEpsilon = 0.001;
   static const _snapAnimationDuration = Duration(milliseconds: 260);
 
+  late final DraggableScrollableController _sheetController;
   late final OriginDiscussListController _discussController;
   var _currentUid = '';
   var _didLoadCurrentUid = false;
@@ -55,6 +58,7 @@ class _OriginDetailDraggableSheetState
   @override
   void initState() {
     super.initState();
+    _sheetController = DraggableScrollableController();
     _discussController = OriginDiscussListController();
     _configureDiscuss();
     unawaited(_discussController.loadInitialIfNeeded());
@@ -92,13 +96,35 @@ class _OriginDetailDraggableSheetState
         _statusBarStyleForExtent(context, _sheetExtent),
       );
     }
+    if (oldWidget.collapseRequest != widget.collapseRequest) {
+      _collapseToMinChildSize();
+    }
   }
 
   @override
   void dispose() {
     SystemChrome.setSystemUIOverlayStyle(widget.baseStatusBarStyle);
+    _sheetController.dispose();
     _discussController.dispose();
     super.dispose();
+  }
+
+  void _collapseToMinChildSize() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_sheetController.isAttached) return;
+      final targetExtent = _minChildSize;
+      if ((_sheetController.size - targetExtent).abs() <=
+          _extentUpdateEpsilon) {
+        return;
+      }
+      unawaited(
+        _sheetController.animateTo(
+          targetExtent,
+          duration: _snapAnimationDuration,
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    });
   }
 
   Future<void> _loadCurrentUid() async {
@@ -196,6 +222,7 @@ class _OriginDetailDraggableSheetState
       child: NotificationListener<DraggableScrollableNotification>(
         onNotification: _handleSheetNotification,
         child: DraggableScrollableSheet(
+          controller: _sheetController,
           initialChildSize: initialChildSize,
           minChildSize: minChildSize,
           maxChildSize: maxChildSize,

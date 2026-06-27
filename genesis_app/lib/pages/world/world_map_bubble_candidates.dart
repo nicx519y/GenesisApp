@@ -7,13 +7,13 @@ class WorldMapBubbleCandidate {
     required this.characterId,
     required this.characterLocationId,
     required this.message,
+    required this.content,
   });
 
   final String characterId;
   final String characterLocationId;
   final WorldChatroomMessage message;
-
-  String get content => message.content;
+  final String content;
 }
 
 List<WorldMapBubbleCandidate> worldMapBubbleCandidatesFor({
@@ -50,12 +50,14 @@ List<WorldMapBubbleCandidate> worldMapBubbleCandidatesFor({
       if (characterLocationId == null) continue;
       if (!_isBubbleMessageSenderType(message.senderType)) continue;
       if (message.streaming) continue;
-      if (message.content.trim().isEmpty) continue;
+      final content = worldMapBubbleDisplayContent(message.content);
+      if (content.isEmpty) continue;
       candidates.add(
         WorldMapBubbleCandidate(
           characterId: message.senderId,
           characterLocationId: characterLocationId,
           message: message,
+          content: content,
         ),
       );
     }
@@ -123,6 +125,32 @@ bool _isBubbleMessageSenderType(String senderType) {
       normalized != 'tick' &&
       normalized != 'user' &&
       normalized != 'player';
+}
+
+String worldMapBubbleDisplayContent(String raw) {
+  var text = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  text = _removeItalicMarkdownSpans(text);
+  text = text.replaceAllMapped(
+    RegExp(r'\\([\\`*_{}\[\]()#+\-.!|>])'),
+    (match) => match.group(1) ?? '',
+  );
+  text = text.replaceAll(RegExp(r'[「」]'), '');
+  text = text.replaceAll(RegExp(r'[ \t]+'), ' ');
+  text = text.replaceAll(RegExp(r' *\n+ *'), ' ');
+  text = text.replaceAllMapped(
+    RegExp(r'\s+([,.!?;:])'),
+    (match) => match.group(1) ?? '',
+  );
+  text = text.replaceAllMapped(
+    RegExp(r'([([{])\s+'),
+    (match) => match.group(1) ?? '',
+  );
+  text = text.replaceAll(RegExp(r'\\r\\n|\\n|\\r'), ' ');
+  return text.trim();
+}
+
+String _removeItalicMarkdownSpans(String input) {
+  return input.replaceAll(RegExp(r'\*[^*\n]+?\*'), ' ');
 }
 
 int _compareBubbleCandidates(

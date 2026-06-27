@@ -8,8 +8,8 @@ void main() {
   });
 
   test('origin detail sheet header sizing matches design', () {
-    expect(originDetailSheetHeaderHeightForTesting, 20);
-    expect(originDetailSheetHeaderBodyGapForTesting, 12);
+    expect(originDetailSheetHeaderHeightForTesting, 30);
+    expect(originDetailSheetHeaderBodyGapForTesting, 0);
     expect(originDetailSheetHandleTopOffsetForTesting, 2);
   });
 
