@@ -20,6 +20,9 @@ const String kWorldMapFallbackBackgroundAsset =
     'assets/images/map_default/root_default.webp';
 const double _worldMapAvatarImageLogicalSize = 42;
 const double _worldMapPreviewImageLogicalWidth = 120;
+const Duration _worldMapBubbleDisplayDuration = Duration(seconds: 4);
+const Duration _worldMapBubbleGapDuration = Duration(milliseconds: 500);
+const int _worldMapBubblePageMaxCharacters = 96;
 
 @visibleForTesting
 Color worldMapAvatarBorderColorForTesting({
@@ -73,7 +76,6 @@ class WorldMap extends StatefulWidget {
     this.onPointTap,
     this.activeBubble,
     this.messageBubbles = const <WorldMapMessageBubble>[],
-    this.messageBubbleIndex = 0,
   });
 
   final List<WorldPoint> points;
@@ -95,7 +97,6 @@ class WorldMap extends StatefulWidget {
   final WorldPointTapCallback? onPointTap;
   final WorldMapMessageBubble? activeBubble;
   final List<WorldMapMessageBubble> messageBubbles;
-  final int messageBubbleIndex;
 
   @override
   State<WorldMap> createState() => _WorldMapState();
@@ -109,6 +110,13 @@ class _WorldMapState extends State<WorldMap> {
   final Set<String> _pendingLocationTapKeys = <String>{};
   final Map<String, Size> _mapImageDimensionsByUrl = <String, Size>{};
   final Set<String> _pendingMapImageDimensionUrls = <String>{};
+  Timer? _messageBubblePlaybackTimer;
+  int _messageBubblePlaybackIndex = 0;
+  int _messageBubblePageIndex = 0;
+  bool _messageBubbleVisible = true;
+  String _messageBubblePlaybackSignature = '';
+  List<WorldMapMessageBubble> _visibleMessageBubblesForPlayback =
+      const <WorldMapMessageBubble>[];
   String _lastLoggedLocationTreeSignature = '';
   String _scrollControllerSignature = '';
   WorldMapHorizontalPanState? _lastHorizontalPanState;
@@ -144,6 +152,7 @@ class _WorldMapState extends State<WorldMap> {
 
   @override
   void dispose() {
+    _stopMessageBubblePlayback();
     _horizontalScrollController?.removeListener(_notifyHorizontalPanState);
     _horizontalScrollController?.dispose();
     _verticalScrollController?.dispose();
@@ -176,8 +185,12 @@ class _WorldMapState extends State<WorldMap> {
               .toList(growable: false)
         : widget.preloadMapImageUrls;
     final exitLocationLabel = currentNode?.point.name ?? '';
+    final visibleMessageBubbles = _visibleMessageBubblesForPoints(
+      visiblePoints,
+    );
+    _syncMessageBubblePlayback(visibleMessageBubbles);
     final activeBubble =
-        widget.activeBubble ?? _activeBubbleForPoints(visiblePoints);
+        widget.activeBubble ?? _activeBubbleFromVisible(visibleMessageBubbles);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -558,8 +571,10 @@ class _WorldMapState extends State<WorldMap> {
     return singleLeaf?.point;
   }
 
-  WorldMapMessageBubble? _activeBubbleForPoints(List<WorldPoint> points) {
-    if (widget.messageBubbles.isEmpty) return null;
+  List<WorldMapMessageBubble> _visibleMessageBubblesForPoints(
+    List<WorldPoint> points,
+  ) {
+    if (widget.messageBubbles.isEmpty) return const <WorldMapMessageBubble>[];
     final visibleCharacterIds = <String>{};
     for (final point in points) {
       for (final user in point.users) {
@@ -567,17 +582,111 @@ class _WorldMapState extends State<WorldMap> {
         if (id.isNotEmpty) visibleCharacterIds.add(id);
       }
     }
-    if (visibleCharacterIds.isEmpty) return null;
-    final visibleBubbles = widget.messageBubbles
+    if (visibleCharacterIds.isEmpty) return const <WorldMapMessageBubble>[];
+    return widget.messageBubbles
         .where(
           (bubble) =>
               visibleCharacterIds.contains(bubble.characterId.trim()) &&
               bubble.content.trim().isNotEmpty,
         )
         .toList(growable: false);
+  }
+
+  WorldMapMessageBubble? _activeBubbleFromVisible(
+    List<WorldMapMessageBubble> visibleBubbles,
+  ) {
     if (visibleBubbles.isEmpty) return null;
-    final index = widget.messageBubbleIndex % visibleBubbles.length;
-    return visibleBubbles[index];
+    if (!_messageBubbleVisible) return null;
+    final index = _messageBubblePlaybackIndex % visibleBubbles.length;
+    final bubble = visibleBubbles[index];
+    final pages = _messageBubblePages(bubble.content);
+    final page = pages.isEmpty
+        ? ''
+        : pages[_messageBubblePageIndex % pages.length];
+    if (page.isEmpty) return null;
+    return WorldMapMessageBubble(characterId: bubble.characterId, content: page);
+  }
+
+  void _syncMessageBubblePlayback(List<WorldMapMessageBubble> visibleBubbles) {
+    final signature = _messageBubblePlaybackKey(visibleBubbles);
+    if (signature.isEmpty) {
+      _messageBubblePlaybackSignature = '';
+      _visibleMessageBubblesForPlayback = const <WorldMapMessageBubble>[];
+      _messageBubblePlaybackIndex = 0;
+      _messageBubblePageIndex = 0;
+      _messageBubbleVisible = false;
+      _stopMessageBubblePlayback();
+      return;
+    }
+    if (_messageBubblePlaybackSignature != signature) {
+      _messageBubblePlaybackSignature = signature;
+      _visibleMessageBubblesForPlayback = visibleBubbles;
+      _messageBubblePlaybackIndex = 0;
+      _messageBubblePageIndex = 0;
+      _messageBubbleVisible = true;
+      _stopMessageBubblePlayback();
+    } else {
+      _visibleMessageBubblesForPlayback = visibleBubbles;
+    }
+    if (_messageBubblePlaybackIndex >= visibleBubbles.length) {
+      _messageBubblePlaybackIndex = 0;
+      _messageBubblePageIndex = 0;
+    }
+    _ensureMessageBubblePlayback();
+  }
+
+  void _ensureMessageBubblePlayback() {
+    if (_messageBubblePlaybackTimer != null ||
+        _messageBubblePlaybackSignature.isEmpty) {
+      return;
+    }
+    final duration = _messageBubbleVisible
+        ? _worldMapBubbleDisplayDuration
+        : _worldMapBubbleGapDuration;
+    _messageBubblePlaybackTimer = Timer(duration, () {
+      _messageBubblePlaybackTimer = null;
+      if (!mounted || _messageBubblePlaybackSignature.isEmpty) return;
+      setState(() {
+        if (_messageBubbleVisible) {
+          final activeBubble = _activeBubbleForPlayback();
+          final pageCount = activeBubble == null
+              ? 1
+              : _messageBubblePages(activeBubble.content).length;
+          if (_messageBubblePageIndex + 1 < pageCount) {
+            _messageBubblePageIndex += 1;
+          } else {
+            _messageBubbleVisible = false;
+          }
+        } else {
+          _messageBubblePlaybackIndex += 1;
+          _messageBubblePageIndex = 0;
+          _messageBubbleVisible = true;
+        }
+      });
+      _ensureMessageBubblePlayback();
+    });
+  }
+
+  void _stopMessageBubblePlayback() {
+    _messageBubblePlaybackTimer?.cancel();
+    _messageBubblePlaybackTimer = null;
+  }
+
+  String _messageBubblePlaybackKey(List<WorldMapMessageBubble> bubbles) {
+    if (bubbles.isEmpty) return '';
+    return bubbles
+        .map((bubble) => '${bubble.characterId.trim()}\u{1f}${bubble.content}')
+        .join('\u{1e}');
+  }
+
+  List<String> _messageBubblePages(String content) {
+    return worldMapMessageBubblePagesForTesting(content);
+  }
+
+  WorldMapMessageBubble? _activeBubbleForPlayback() {
+    final bubbles = _visibleMessageBubblesForPlayback;
+    if (bubbles.isEmpty) return null;
+    return bubbles[_messageBubblePlaybackIndex % bubbles.length];
   }
 
   WorldMapMessageBubble? _bubbleForPoint(
@@ -1955,6 +2064,7 @@ class _PositionedMapMessageBubble extends StatelessWidget {
   static const double _avatarSize = 42;
   static const double _bubbleGap = 8;
   static const double _bubbleWidth = 220;
+  static const double _pointerSize = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -1966,48 +2076,92 @@ class _PositionedMapMessageBubble extends StatelessWidget {
 
     return Positioned(
       left: left.toDouble(),
-      top: avatarTop + _avatarSize + _bubbleGap,
+      top: avatarTop + _avatarSize + _bubbleGap - _pointerSize,
       width: _bubbleWidth,
-      child: IgnorePointer(child: _MapMessageBubble(text: text)),
+      child: IgnorePointer(
+        child: _MapMessageBubble(
+          text: text,
+          pointerLeft: (avatarLeft + _avatarSize / 2 - left.toDouble())
+              .clamp(_pointerSize * 1.5, _bubbleWidth - _pointerSize * 1.5)
+              .toDouble(),
+        ),
+      ),
     );
   }
 }
 
 class _MapMessageBubble extends StatelessWidget {
-  const _MapMessageBubble({required this.text});
+  const _MapMessageBubble({required this.text, required this.pointerLeft});
 
   final String text;
+  final double pointerLeft;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.16),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        child: Text(
-          text,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF1F1F1F),
-            fontSize: 11,
-            height: 1.25,
-            fontWeight: FontWeight.w400,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          left: pointerLeft - 7,
+          top: 0,
+          width: 14,
+          height: 14,
+          child: Transform.rotate(
+            angle: math.pi / 4,
+            child: const DecoratedBox(
+              decoration: BoxDecoration(color: Colors.white),
+            ),
           ),
         ),
-      ),
+        Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.16),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              child: Text(
+                text,
+                maxLines: 2,
+                overflow: TextOverflow.clip,
+                style: const TextStyle(
+                  color: Color(0xFF1F1F1F),
+                  fontSize: 11,
+                  height: 1.25,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
+}
+
+@visibleForTesting
+List<String> worldMapMessageBubblePagesForTesting(String content) {
+  final normalized = content.trim().replaceAll(RegExp(r'\s+'), ' ');
+  if (normalized.isEmpty) return const <String>[];
+  final pages = <String>[];
+  var remaining = normalized;
+  while (remaining.length > _worldMapBubblePageMaxCharacters) {
+    var split = remaining.lastIndexOf(' ', _worldMapBubblePageMaxCharacters);
+    if (split <= 0) split = _worldMapBubblePageMaxCharacters;
+    pages.add(remaining.substring(0, split).trim());
+    remaining = remaining.substring(split).trim();
+  }
+  if (remaining.isNotEmpty) pages.add(remaining);
+  return List<String>.unmodifiable(pages);
 }
 
 class _PointLabel extends StatelessWidget {

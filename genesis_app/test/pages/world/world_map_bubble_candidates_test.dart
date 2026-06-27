@@ -181,6 +181,75 @@ void main() {
 
     expect(candidates.map((candidate) => candidate.content), ['visible']);
   });
+
+  test(
+    'does not infer current tick from message time when tick number is 0',
+    () {
+      final candidates = worldMapBubbleCandidatesFor(
+        currentTickNo: 2,
+        characterPositions: const [
+          {
+            'location_id': 'loc_a',
+            'character': {
+              'char_id': 'ai_char',
+              'name': 'AI',
+              'type': 'ai',
+              'player_uid': '',
+            },
+          },
+        ],
+        messagesByLocation: {
+          'loc_a': [
+            _message(
+              id: 1,
+              tickNo: 0,
+              round: '1',
+              order: 1,
+              locationId: 'loc_a',
+              senderId: 'ai_char',
+              content: 'wrong tick',
+              currentTime: 'Day 1, 16:00',
+            ),
+          ],
+        },
+      );
+
+      expect(candidates, isEmpty);
+    },
+  );
+
+  test('strips markdown formatting from bubble content', () {
+    final candidates = worldMapBubbleCandidatesFor(
+      currentTickNo: 1,
+      characterPositions: const [
+        {
+          'location_id': 'loc_a',
+          'character': {
+            'char_id': 'ai_char',
+            'name': 'AI',
+            'type': 'ai',
+            'player_uid': '',
+          },
+        },
+      ],
+      messagesByLocation: {
+        'loc_a': [
+          _message(
+            id: 1,
+            tickNo: 1,
+            round: '1',
+            order: 1,
+            locationId: 'loc_a',
+            senderId: 'ai_char',
+            content:
+                '*Sam wipes the counter.* 「**Hello** [neighbor](https://x.test)!」',
+          ),
+        ],
+      },
+    );
+
+    expect(candidates.single.content, 'Sam wipes the counter. Hello neighbor!');
+  });
 }
 
 WorldChatroomMessage _message({
@@ -193,6 +262,7 @@ WorldChatroomMessage _message({
   required String content,
   String senderType = 'character',
   DateTime? createdAt,
+  String currentTime = '',
   bool streaming = false,
 }) {
   return WorldChatroomMessage(
@@ -205,6 +275,7 @@ WorldChatroomMessage _message({
     senderId: senderId,
     senderName: senderId,
     content: content,
+    currentTime: currentTime,
     createdAt: createdAt ?? DateTime(2026, 6, 27, 8, id),
     streaming: streaming,
   );

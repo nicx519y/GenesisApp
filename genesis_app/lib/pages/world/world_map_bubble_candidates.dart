@@ -7,13 +7,13 @@ class WorldMapBubbleCandidate {
     required this.characterId,
     required this.characterLocationId,
     required this.message,
+    required this.content,
   });
 
   final String characterId;
   final String characterLocationId;
   final WorldChatroomMessage message;
-
-  String get content => message.content;
+  final String content;
 }
 
 List<WorldMapBubbleCandidate> worldMapBubbleCandidatesFor({
@@ -50,12 +50,14 @@ List<WorldMapBubbleCandidate> worldMapBubbleCandidatesFor({
       if (characterLocationId == null) continue;
       if (!_isBubbleMessageSenderType(message.senderType)) continue;
       if (message.streaming) continue;
-      if (message.content.trim().isEmpty) continue;
+      final content = worldMapBubbleDisplayContent(message.content);
+      if (content.isEmpty) continue;
       candidates.add(
         WorldMapBubbleCandidate(
           characterId: message.senderId,
           characterLocationId: characterLocationId,
           message: message,
+          content: content,
         ),
       );
     }
@@ -123,6 +125,72 @@ bool _isBubbleMessageSenderType(String senderType) {
       normalized != 'tick' &&
       normalized != 'user' &&
       normalized != 'player';
+}
+
+String worldMapBubbleDisplayContent(String raw) {
+  var text = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  text = text.replaceAll(
+    RegExp(r'(^|\n)[ \t]*(`{3,}|~{3,})[\s\S]*?(\n[ \t]*\2[ \t]*(?=\n|$)|$)'),
+    '\n',
+  );
+  text = text.replaceAll(RegExp(r'<!--[\s\S]*?-->'), ' ');
+  text = text
+      .split('\n')
+      .where((line) => !_isMapBubbleMarkdownLine(line))
+      .join('\n');
+  text = _replaceMarkdownLinks(text);
+  text = text.replaceAll(RegExp(r'[`*_~]+'), '');
+  text = text.replaceAllMapped(
+    RegExp(r'\\([\\`*_{}\[\]()#+\-.!|>])'),
+    (match) => match.group(1) ?? '',
+  );
+  text = text.replaceAll(RegExp(r'[「」]'), '');
+  text = text.replaceAll(RegExp(r'[ \t]+'), ' ');
+  text = text.replaceAll(RegExp(r' *\n+ *'), ' ');
+  text = text.replaceAllMapped(
+    RegExp(r'\s+([,.!?;:])'),
+    (match) => match.group(1) ?? '',
+  );
+  text = text.replaceAllMapped(
+    RegExp(r'([([{])\s+'),
+    (match) => match.group(1) ?? '',
+  );
+  text = text.replaceAll(RegExp(r'\\r\\n|\\n|\\r'), ' ');
+  return text.trim();
+}
+
+String _replaceMarkdownLinks(String input) {
+  var text = input;
+  text = text.replaceAllMapped(
+    RegExp(r'!\[([^\]\n]*)\]\([^)\n]*\)'),
+    (match) => match.group(1) ?? '',
+  );
+  text = text.replaceAllMapped(
+    RegExp(r'\[([^\]\n]+)\]\([^)\n]*\)'),
+    (match) => match.group(1) ?? '',
+  );
+  text = text.replaceAllMapped(
+    RegExp(r'!\[([^\]\n]*)\]\[[^\]\n]*\]'),
+    (match) => match.group(1) ?? '',
+  );
+  text = text.replaceAllMapped(
+    RegExp(r'\[([^\]\n]+)\]\[[^\]\n]*\]'),
+    (match) => match.group(1) ?? '',
+  );
+  return text;
+}
+
+bool _isMapBubbleMarkdownLine(String line) {
+  final trimmed = line.trim();
+  if (trimmed.isEmpty) return false;
+  return RegExp(r'^#{1,6}\s+').hasMatch(trimmed) ||
+      RegExp(r'^>\s*').hasMatch(trimmed) ||
+      RegExp(r'^[-*+]\s+').hasMatch(trimmed) ||
+      RegExp(r'^\d+[.)]\s+').hasMatch(trimmed) ||
+      RegExp(r'^[-*_]{3,}$').hasMatch(trimmed) ||
+      RegExp(r'^\[[^\]]+\]:\s*\S+').hasMatch(trimmed) ||
+      RegExp(r'^\|.*\|$').hasMatch(trimmed) ||
+      RegExp(r'^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$').hasMatch(trimmed);
 }
 
 int _compareBubbleCandidates(

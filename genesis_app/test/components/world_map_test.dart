@@ -147,6 +147,57 @@ void main() {
     expect(find.text('Ben is elsewhere.'), findsNothing);
   });
 
+  testWidgets('world map loops a single queued bubble with a gap', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      messageBubbles: const [
+        WorldMapMessageBubble(
+          characterId: 'char_a',
+          content: 'Ava checks the storefront.',
+        ),
+      ],
+    );
+
+    expect(find.text('Ava checks the storefront.'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 4));
+    expect(find.text('Ava checks the storefront.'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Ava checks the storefront.'), findsOneWidget);
+  });
+
+  testWidgets('world map paginates a long bubble before the playback gap', (
+    tester,
+  ) async {
+    const longText =
+        'Ava counts every crate in the storefront twice before sunrise, '
+        'then writes a sharper plan for the delivery route that keeps the '
+        'whole block supplied before noon.';
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      messageBubbles: const [
+        WorldMapMessageBubble(characterId: 'char_a', content: longText),
+      ],
+    );
+
+    expect(find.textContaining('Ava counts every crate'), findsOneWidget);
+    expect(find.textContaining('whole block supplied'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 4));
+    expect(find.textContaining('whole block supplied'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 4));
+    expect(find.textContaining('whole block supplied'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.textContaining('Ava counts every crate'), findsOneWidget);
+  });
+
   test('player controlled map avatar uses highlighted border', () {
     expect(
       worldMapAvatarBorderColorForTesting(isPlayerControlledRole: true),
@@ -1619,6 +1670,7 @@ Future<void> _pumpWorldMap(
   VoidCallback? onDrillIntoLocation,
   ValueChanged<bool>? onMapInteractionChanged,
   WorldMapMessageBubble? activeBubble,
+  List<WorldMapMessageBubble> messageBubbles = const <WorldMapMessageBubble>[],
 }) async {
   tester.view.physicalSize = const Size(430, 820);
   tester.view.devicePixelRatio = 1;
@@ -1646,6 +1698,7 @@ Future<void> _pumpWorldMap(
                 listPoints: listPoints,
                 locationNodes: locationNodes,
                 activeBubble: activeBubble,
+                messageBubbles: messageBubbles,
                 onDrillIntoLocation: onDrillIntoLocation,
                 onPointTap: onPointTap,
                 points:
