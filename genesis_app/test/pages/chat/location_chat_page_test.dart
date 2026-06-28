@@ -7,6 +7,12 @@ void main() {
   const fallbackAvatar = 'https://example.test/fallback-avatar.webp';
   const entityAvatar = 'https://example.test/entity-avatar.webp';
 
+  test('location chat panel hides the inactive more button by default', () {
+    const panel = LocationChatPanel(worldId: 'world-1', locationId: 'loc-1');
+
+    expect(panel.showMoreButton, isFalse);
+  });
+
   test('location chat background falls back to bundled default when empty', () {
     expect(
       resolveLocationChatBackgroundUrlForTesting(imageUrl: ''),

@@ -737,6 +737,49 @@ void main() {
     expect(text.textAlign, TextAlign.left);
   });
 
+  testWidgets('escaped newlines render in chat bubbles and narrator text', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              ChatMessageRow(
+                message: ChatMessageVm(
+                  localId: 'peer-1',
+                  senderId: 'peer',
+                  senderName: 'Peer',
+                  text: r'First\n\nSecond',
+                  isMe: false,
+                  status: 'sent',
+                ),
+                showDateDivider: false,
+              ),
+              ChatMessageRow(
+                message: ChatMessageVm(
+                  localId: 'nar-1',
+                  senderId: 'narrator',
+                  senderName: 'Narrator',
+                  text: r'Aside\n\nContinues',
+                  isMe: false,
+                  status: 'sent',
+                  senderType: 'narrator',
+                ),
+                showDateDivider: false,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('First\n\nSecond'), findsOneWidget);
+    expect(find.text('Aside\n\nContinues'), findsOneWidget);
+    expect(find.text('FirstnnSecond'), findsNothing);
+    expect(find.text('AsidennContinues'), findsNothing);
+  });
+
   testWidgets('message and narrator bubbles report long press starts', (
     WidgetTester tester,
   ) async {

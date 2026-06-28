@@ -409,7 +409,7 @@ class _LocationChatPanelSkeleton extends StatelessWidget {
               connected: false,
               connecting: true,
               onBack: onBack,
-              showMoreButton: true,
+              showMoreButton: false,
               style: style,
             ),
             Expanded(child: _LocationChatMessageSkeletonList(style: style)),

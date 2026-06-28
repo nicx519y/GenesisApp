@@ -1281,8 +1281,17 @@ List<InlineSpan> _inlineMarkdownSpans(String text, TextStyle baseStyle) {
   while (index < text.length) {
     final marker = text[index];
     if (marker == '\\' && index + 1 < text.length) {
-      buffer.write(text[index + 1]);
-      index += 2;
+      final escaped = text[index + 1];
+      if (escaped == 'r' &&
+          index + 3 < text.length &&
+          text[index + 2] == '\\' &&
+          text[index + 3] == 'n') {
+        buffer.write('\n');
+        index += 4;
+      } else {
+        buffer.write(escaped == 'n' ? '\n' : escaped);
+        index += 2;
+      }
       continue;
     }
     if (marker == '*' && !_isRepeatedMarker(text, index, marker)) {

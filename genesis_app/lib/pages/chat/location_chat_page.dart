@@ -100,7 +100,7 @@ class LocationChatPanel extends StatefulWidget {
     this.onInitialContentReady,
     this.composerReplacement,
     this.showConnectionStatus = true,
-    this.showMoreButton = true,
+    this.showMoreButton = false,
     this.systemUiOverlayStyle = kChatDarkHeaderSystemUiOverlayStyle,
     this.style,
     this.initialDraftText = '',
