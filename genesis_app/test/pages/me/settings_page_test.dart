@@ -40,16 +40,70 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('About us'), findsOneWidget);
+    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('Join Discord'), findsOneWidget);
     expect(find.text('Feedback'), findsOneWidget);
-    expect(find.text('Delete account'), findsOneWidget);
+    expect(find.text('Delete account'), findsNothing);
     expect(
-      tester.getTopLeft(find.text('Feedback')).dy,
+      tester.getTopLeft(find.text('Account')).dy,
       greaterThan(tester.getTopLeft(find.text('About us')).dy),
     );
     expect(
       tester.getTopLeft(find.text('Feedback')).dy,
-      lessThan(tester.getTopLeft(find.text('Delete account')).dy),
+      greaterThan(tester.getTopLeft(find.text('Account')).dy),
     );
+    expect(
+      tester.getTopLeft(find.text('Join Discord')).dy,
+      greaterThan(tester.getTopLeft(find.text('Feedback')).dy),
+    );
+
+    await tester.tap(find.text('Account'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Current login account:'), findsOneWidget);
+    final currentLoginAccountText = tester.widget<Text>(
+      find.text('Current login account:'),
+    );
+    expect(currentLoginAccountText.style?.fontSize, 16);
+    expect(find.text('Account Deletion Agreement'), findsOneWidget);
+    expect(
+      find.text('I have read the Account Deletion Agreement'),
+      findsOneWidget,
+    );
+    final agreementTextFinder = find.text(
+      'I have read the Account Deletion Agreement',
+    );
+    final agreementText = tester.widget<Text>(agreementTextFinder);
+    expect(agreementText.style?.fontSize, 14);
+    expect(
+      tester.getTopLeft(find.byType(Checkbox)).dx,
+      closeTo(tester.getTopLeft(find.text('Account Deletion Agreement')).dx, 1),
+    );
+    expect(
+      tester.getTopLeft(find.byType(Checkbox)).dx,
+      lessThan(tester.getTopLeft(agreementTextFinder).dx),
+    );
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Delete'));
+    await tester.pump();
+    expect(find.text('Agree to our terms to continue.'), findsOneWidget);
+
+    await tester.tap(find.byType(Checkbox));
+    await tester.pump();
+    final selectedCheckbox = tester.widget<Checkbox>(find.byType(Checkbox));
+    expect(selectedCheckbox.value, isTrue);
+    expect(selectedCheckbox.activeColor, const Color(0xFFFF4D4F));
+    await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Delete'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(GenesisActionBox<bool>), findsOneWidget);
+    expect(find.text('Delete your account?'), findsOneWidget);
+    expect(find.text('Delete'), findsWidgets);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+
     final logoutButtonTopBeforeKeyboard = tester
         .getTopLeft(find.widgetWithText(GenesisPrimaryButton, 'Log out'))
         .dy;

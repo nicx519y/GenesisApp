@@ -581,6 +581,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                 minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
+                  width: _primaryActionButtonWidth(context),
                   onPressed: _canUseSaveButton ? _onSave : null,
                 ),
               ),

@@ -70,6 +70,10 @@ const TextStyle _editSummaryLabelStyle = TextStyle(
   height: 1.2,
 );
 
+double _primaryActionButtonWidth(BuildContext context) {
+  return MediaQuery.sizeOf(context).width * 0.7;
+}
+
 class OriginDraftFlowPage extends StatefulWidget {
   const OriginDraftFlowPage({
     super.key,
@@ -460,6 +464,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                     minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
                     child: GenesisPrimaryButton(
                       label: submitLabel,
+                      width: _primaryActionButtonWidth(context),
                       onPressed: canUseSubmitButton
                           ? () => unawaited(_submit())
                           : null,

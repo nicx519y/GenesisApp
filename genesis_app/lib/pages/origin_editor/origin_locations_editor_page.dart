@@ -265,6 +265,7 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                 minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
+                  width: _primaryActionButtonWidth(context),
                   onPressed: _canUseSaveButton ? _saveLocations : null,
                 ),
               ),

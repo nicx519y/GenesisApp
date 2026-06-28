@@ -8151,27 +8151,31 @@ void main() {
     expect(find.text('End User License Agreement ("EULA")'), findsOneWidget);
   });
 
-  testWidgets('settings reveals developer page after ten blank taps', (
+  testWidgets('settings shows debug floating button after ten title taps', (
     WidgetTester tester,
   ) async {
+    hideGenesisDebugFloatingButton();
+    addTearDown(hideGenesisDebugFloatingButton);
+
     await tester.pumpWidget(const MaterialApp(home: SettingsPage()));
     await tester.pumpAndSettle();
 
     final unlockArea = find.byKey(
-      const ValueKey<String>('settings-developer-unlock-area'),
+      const ValueKey<String>('settings-debug-title-unlock-area'),
     );
-    expect(find.text('Developer page'), findsNothing);
+    expect(genesisDebugFloatingButtonVisible.value, isFalse);
 
     for (var i = 0; i < 9; i += 1) {
       await tester.tap(unlockArea);
       await tester.pump();
     }
-    expect(find.text('Developer page'), findsNothing);
+    expect(genesisDebugFloatingButtonVisible.value, isFalse);
 
     await tester.tap(unlockArea);
     await tester.pumpAndSettle();
 
-    expect(find.text('Developer page'), findsOneWidget);
+    expect(genesisDebugFloatingButtonVisible.value, isTrue);
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets(
@@ -8242,7 +8246,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final unlockArea = find.byKey(
-        const ValueKey<String>('settings-developer-unlock-area'),
+        const ValueKey<String>('settings-debug-title-unlock-area'),
       );
       for (var i = 0; i < 10; i += 1) {
         await tester.tap(unlockArea);

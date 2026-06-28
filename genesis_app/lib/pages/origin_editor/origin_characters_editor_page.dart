@@ -232,6 +232,7 @@ class _OriginCharactersEditorPageState
                 minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
+                  width: _primaryActionButtonWidth(context),
                   onPressed: _canUseSaveButton ? _saveCharacters : null,
                 ),
               ),

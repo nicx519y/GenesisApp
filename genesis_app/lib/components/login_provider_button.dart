@@ -189,7 +189,7 @@ class LoginProviderButton extends StatelessWidget {
                               color: foregroundColor.withValues(alpha: 0.75),
                             ),
                           )
-                        : _LoginProviderIcon(provider: provider),
+                        : LoginProviderIcon(provider: provider),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -213,8 +213,8 @@ class LoginProviderButton extends StatelessWidget {
   }
 }
 
-class _LoginProviderIcon extends StatelessWidget {
-  const _LoginProviderIcon({required this.provider});
+class LoginProviderIcon extends StatelessWidget {
+  const LoginProviderIcon({super.key, required this.provider});
 
   final IdentityProvider provider;
 

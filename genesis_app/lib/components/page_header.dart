@@ -77,11 +77,15 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.pageName,
     this.onBack,
     this.actions,
+    this.titleKey,
+    this.onTitleTap,
   });
 
   final String pageName;
   final VoidCallback? onBack;
   final List<Widget>? actions;
+  final Key? titleKey;
+  final VoidCallback? onTitleTap;
 
   @override
   Size get preferredSize => const Size.fromHeight(kGenesisTopBarHeight);
@@ -111,7 +115,12 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
         ),
       ),
-      title: PageTitleText(pageName: pageName),
+      title: GestureDetector(
+        key: titleKey,
+        behavior: HitTestBehavior.translucent,
+        onTap: onTitleTap,
+        child: PageTitleText(pageName: pageName),
+      ),
       actions: actions,
     );
   }

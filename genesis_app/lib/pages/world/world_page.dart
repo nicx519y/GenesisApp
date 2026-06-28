@@ -832,6 +832,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final loginUserInfo = <String, dynamic>{
       if (cachedUserInfo != null) ...cachedUserInfo,
       'uid': user.uid,
+      'login_provider': provider.name,
     };
     if (user.nickname.trim().isNotEmpty) {
       loginUserInfo['name'] = user.nickname;

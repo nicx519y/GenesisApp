@@ -403,6 +403,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     final loginUserInfo = <String, dynamic>{
       if (cachedUserInfo != null) ...cachedUserInfo,
       'uid': user.uid,
+      'login_provider': provider.name,
     };
     if (user.nickname.trim().isNotEmpty) {
       loginUserInfo['name'] = user.nickname;
