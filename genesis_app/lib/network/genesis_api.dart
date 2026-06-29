@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
@@ -195,23 +194,36 @@ class GenesisApi {
   Future<String> ensureUid() => _ensureUid();
 
   Future<String> _ensureUid() async {
-    final cached = await _sessionStore.readUid();
-    if (cached != null && cached.trim().isNotEmpty) return cached;
+    final cached = (await _sessionStore.readUid())?.trim() ?? '';
+    if (cached.isNotEmpty && !cached.startsWith('guest_')) return cached;
+    if (cached.startsWith('guest_')) await _sessionStore.clearUid();
     final user = await bindDevice();
-    return user.uid;
+    final uid = user.uid.trim();
+    if (uid.isNotEmpty) return uid;
+    throw ApiException(message: 'User uid is unavailable');
   }
 
   Future<User> bindDevice({String? did}) async {
     final deviceId = did ?? await _deviceIdService.getDeviceId();
-    final localUid = _guestUidFromDid(deviceId);
 
     try {
       final profileEnvelope = await v1.user.info();
       final profile = asJsonMap(profileEnvelope['user']);
       final uid = asString(
         profile['id'],
-        fallback: asString(profile['uid'], fallback: localUid),
-      );
+        fallback: asString(profile['uid']),
+      ).trim();
+      if (uid.isEmpty || uid.startsWith('guest_')) {
+        await _sessionStore.clearUid();
+        return User(
+          id: 0,
+          uid: '',
+          did: deviceId,
+          nickname: '',
+          avatar: '',
+          createdAt: null,
+        );
+      }
       final user = User(
         id: _stableInt(uid),
         uid: uid,
@@ -229,16 +241,15 @@ class GenesisApi {
       await _sessionStore.saveUid(user.uid);
       return user;
     } catch (_) {
-      final user = User(
-        id: _stableInt(localUid),
-        uid: localUid,
+      await _sessionStore.clearUid();
+      return User(
+        id: 0,
+        uid: '',
         did: deviceId,
-        nickname: 'Guest',
+        nickname: '',
         avatar: '',
         createdAt: null,
       );
-      await _sessionStore.saveUid(user.uid);
-      return user;
     }
   }
 
@@ -247,7 +258,10 @@ class GenesisApi {
       final profileEnvelope = await v1.user.info();
       final profile = asJsonMap(profileEnvelope['user']);
       final uid = asString(profile['id'], fallback: asString(profile['uid']));
-      if (uid.trim().isEmpty || uid.startsWith('guest_')) return false;
+      if (uid.trim().isEmpty || uid.startsWith('guest_')) {
+        await _sessionStore.clearUid();
+        return false;
+      }
       await _sessionStore.saveUid(uid);
       return true;
     } on ApiException catch (e) {
@@ -332,7 +346,6 @@ class GenesisApi {
       case IdentityProvider.google:
         return _loginWithGoogle(
           idToken: session.providerIdToken,
-          fallbackUid: session.identityUid,
           name: session.displayName,
           avatar: session.photoUrl,
         );
@@ -340,7 +353,6 @@ class GenesisApi {
         return loginWithApple(
           identityToken: session.providerIdToken,
           firebaseIdToken: session.firebaseIdToken,
-          fallbackUid: session.identityUid,
           name: session.displayName,
           avatar: session.photoUrl,
         );
@@ -349,7 +361,6 @@ class GenesisApi {
 
   Future<User> _loginWithGoogle({
     required String idToken,
-    String fallbackUid = '',
     String? nonce,
     String? name,
     String? avatar,
@@ -361,7 +372,7 @@ class GenesisApi {
       name: name,
       avatar: avatar,
     );
-    final user = await _persistLoginResponse(json, fallbackUid: fallbackUid);
+    final user = await _persistLoginResponse(json);
     debugPrint(
       '[Auth][GenesisApi] POST /api/v1/user/oauth/google success uid=${user.uid}',
     );
@@ -371,7 +382,6 @@ class GenesisApi {
   Future<User> loginWithApple({
     required String identityToken,
     required String firebaseIdToken,
-    String fallbackUid = '',
     String? name,
     String? avatar,
   }) async {
@@ -386,7 +396,7 @@ class GenesisApi {
       name: name,
       avatar: avatar,
     );
-    final user = await _persistLoginResponse(json, fallbackUid: fallbackUid);
+    final user = await _persistLoginResponse(json);
     debugPrint(
       '[Auth][GenesisApi] POST /api/v1/user/oauth/apple success uid=${user.uid}',
     );
@@ -405,14 +415,15 @@ class GenesisApi {
     debugPrint('[Auth][GenesisApi] POST /api/v1/user/delete success');
   }
 
-  Future<User> _persistLoginResponse(
-    Object? json, {
-    String fallbackUid = '',
-  }) async {
+  Future<User> _persistLoginResponse(Object? json) async {
     final map = asJsonMap(json);
     final userRaw = map['user'];
     final userMap = userRaw is Map ? asJsonMap(userRaw) : map;
-    final uid = _loginResponseUid(userMap, fallbackUid: fallbackUid);
+    final uid = _loginResponseUid(userMap);
+    if (uid.isEmpty || uid.startsWith('guest_')) {
+      await _sessionStore.clearUid();
+      throw ApiException(message: 'Login response missing user uid');
+    }
     final user = User(
       id: _stableInt(uid),
       uid: uid,
@@ -2228,23 +2239,14 @@ SearchUserSummary _userSummaryFromSearchItem(Map<String, dynamic> raw) {
   );
 }
 
-String _guestUidFromDid(String did) {
-  final digest = base64Url.encode(utf8.encode(did)).replaceAll('=', '');
-  final suffix = digest.length > 10 ? digest.substring(0, 10) : digest;
-  return 'guest_$suffix';
-}
-
-String _loginResponseUid(
-  Map<String, dynamic> userMap, {
-  required String fallbackUid,
-}) {
+String _loginResponseUid(Map<String, dynamic> userMap) {
   return asString(
     userMap['id'],
     fallback: asString(
       userMap['uid'],
       fallback: asString(
         userMap['user_id'],
-        fallback: asString(userMap['api_user_id'], fallback: fallbackUid),
+        fallback: asString(userMap['api_user_id']),
       ),
     ),
   ).trim();

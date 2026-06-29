@@ -45,9 +45,12 @@ class AppBootstrap {
       debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
     }
     final normalizedUid = uid?.trim() ?? '';
-    if (normalizedUid.isNotEmpty) {
+    if (normalizedUid.isNotEmpty && !normalizedUid.startsWith('guest_')) {
       GenesisTelemetry.setUserId(normalizedUid);
     } else {
+      if (normalizedUid.startsWith('guest_')) {
+        await services.sessionStore.clearUid();
+      }
       try {
         await services.api.bindDevice().timeout(_guestBindTimeout);
       } catch (e, st) {

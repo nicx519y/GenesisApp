@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../components/developer_debug_floating_button.dart';
+import 'agent_control/agent_control_host.dart';
 import 'debug_page_tracker.dart';
 import 'genesis_navigator.dart';
 import 'telemetry/genesis_telemetry.dart';
@@ -19,26 +20,28 @@ class GenesisApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppServicesScope(
       services: services ?? ServiceRegistry.build(),
-      child: MaterialApp(
-        title: 'Worldo',
-        debugShowCheckedModeBanner: false,
-        theme: GenesisTheme.light(),
-        initialRoute: RouteNames.home,
-        navigatorKey: genesisNavigatorKey,
-        navigatorObservers: [genesisRouteObserver],
-        onGenerateRoute: AppRouter.onGenerateRoute,
-        builder: (context, child) {
-          return GenesisTelemetryTapRegion(
-            child: GenesisBottomSystemBarBoundary(
-              child: ForceUpgradeGate(
-                child: DeveloperDebugFloatingButton(
-                  navigatorKey: genesisNavigatorKey,
-                  child: child ?? const SizedBox.shrink(),
+      child: AgentControlHost(
+        child: MaterialApp(
+          title: 'Worldo',
+          debugShowCheckedModeBanner: false,
+          theme: GenesisTheme.light(),
+          initialRoute: RouteNames.home,
+          navigatorKey: genesisNavigatorKey,
+          navigatorObservers: [genesisRouteObserver],
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          builder: (context, child) {
+            return GenesisTelemetryTapRegion(
+              child: GenesisBottomSystemBarBoundary(
+                child: ForceUpgradeGate(
+                  child: DeveloperDebugFloatingButton(
+                    navigatorKey: genesisNavigatorKey,
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
