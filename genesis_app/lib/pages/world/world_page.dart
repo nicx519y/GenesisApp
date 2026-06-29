@@ -83,6 +83,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _worldMainSwipeStartCanMapScrollRight = false;
   bool _worldMapCanScrollLeft = false;
   bool _worldMapCanScrollRight = false;
+  bool _mapBubbleMessagesReady = false;
   int _eventsLatestRevision = 0;
   int? _eventsTargetTickNumber;
   bool _tick1WaitDialogStarted = false;
@@ -366,6 +367,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _preloadedLocationMessageIds.clear();
     _preloadingLocationMessageFutures.clear();
     _preloadMessageCacheResetFuture = null;
+    _mapBubbleMessagesReady = false;
     if (mounted) {
       setState(() {
         _activeChatLocationId = '';
@@ -1048,6 +1050,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _preloadingLocationMessageFutures.removeWhere(
       (locationId, _) => !descriptors.containsKey(locationId),
     );
+    _mapBubbleMessagesReady = false;
     _scheduleLocationChatPrecache();
   }
 
@@ -1095,11 +1098,31 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final chatroom = _worldChatroom;
     if (chatroom == null || chatroom.identity == null) return;
     final resetFuture = _ensureLocationMessagePreloadReset(chatroom);
-    for (final descriptor in descriptors) {
-      unawaited(
-        _preloadLocationChatMessages(descriptor, resetFuture: resetFuture),
-      );
-    }
+    final preloadFuture = Future.wait<void>(
+      descriptors.map(
+        (descriptor) =>
+            _preloadLocationChatMessages(descriptor, resetFuture: resetFuture),
+      ),
+    );
+    unawaited(
+      preloadFuture.then((_) {
+        if (!mounted || !identical(_worldChatroom, chatroom)) return;
+        final expectedIds = descriptors
+            .map((descriptor) => descriptor.locationId.trim())
+            .where((locationId) => locationId.isNotEmpty)
+            .toSet();
+        if (!expectedIds.every(_preloadedLocationMessageIds.contains)) return;
+        setState(() {
+          _mapBubbleMessagesReady = true;
+          _replaceMapBubbleCandidates(
+            _buildMapBubbleCandidates(chatroom.state, _world),
+          );
+        });
+        _logLocationChatMetric(
+          'map bubble messages ready locations=${expectedIds.length}',
+        );
+      }),
+    );
   }
 
   Future<void> _ensureLocationMessagePreloadReset(
@@ -1343,7 +1366,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         listPoints: listPoints,
         locationNodes: locationNodes,
         listLocationNodes: listLocationNodes,
-        messageBubbles: _mapMessageBubbles,
+        messageBubbles: _activeChatLocationId.isEmpty && _mapBubbleMessagesReady
+            ? _mapMessageBubbles
+            : const <WorldMapMessageBubble>[],
         messageBubblePlaybackPaused: _activeChatLocationId.isNotEmpty,
         mapImageUrl: rootMapImageUrl,
         dimmed: pointMode,
