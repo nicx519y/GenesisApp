@@ -470,7 +470,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       children: [
         SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.62,
-          child: const _MyWorldsEmptyState(),
+          child: _MyWorldsEmptyState(useDefaultImage: _isSignedOut),
         ),
       ],
     );
@@ -487,7 +487,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
               key: const PageStorageKey<String>('home-feed-my-world'),
               controller: _scrollController,
               primary: false,
-              scrollCacheExtent: const ScrollCacheExtent.pixels(900),
+              cacheExtent: 900,
               padding: const EdgeInsets.only(top: 10, bottom: 36),
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
@@ -541,11 +541,18 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 }
 
 class _MyWorldsEmptyState extends StatelessWidget {
-  const _MyWorldsEmptyState();
+  const _MyWorldsEmptyState({required this.useDefaultImage});
+
+  static const defaultImageAsset = 'assets/images/default_list_image.png';
+  static const launchImageAsset =
+      'assets/images/my_worlds_empty_worldo_launch.jpg';
+
+  final bool useDefaultImage;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final imageAsset = useDefaultImage ? defaultImageAsset : launchImageAsset;
 
     return Align(
       alignment: const Alignment(0, -0.2),
@@ -555,7 +562,8 @@ class _MyWorldsEmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
-              'assets/images/my_worlds_empty_worldo_launch.jpg',
+              imageAsset,
+              key: ValueKey<String>('home-my-worlds-empty-image:$imageAsset'),
               width: MediaQuery.sizeOf(context).width.clamp(0, 360) * 0.82,
               fit: BoxFit.contain,
             ),

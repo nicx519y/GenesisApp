@@ -557,6 +557,18 @@ void main() {
     );
   });
 
+  test('world map defers image dimension rebuilds during build', () {
+    final source = File('lib/components/world_map.dart').readAsStringSync();
+
+    expect(source, contains('SchedulerPhase.persistentCallbacks'));
+    expect(source, contains('WidgetsBinding.instance.addPostFrameCallback'));
+    expect(source, isNot(contains('GlobalKey<_ZoomableMapContentState>')));
+    expect(
+      source,
+      isNot(contains('setState(() => _mapImageDimensionsByUrl[url] = size)')),
+    );
+  });
+
   testWidgets('world map uses fallback background when map URL is empty', (
     tester,
   ) async {
