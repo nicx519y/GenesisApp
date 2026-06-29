@@ -132,6 +132,24 @@ void main() {
     expect(const AppConfig().appChannel, 'default');
   });
 
+  test('AppConfig provides default agent control config', () {
+    expect(const AppConfig().agentControlEnabled, false);
+    expect(const AppConfig().agentControlPort, 17317);
+    expect(const AppConfig().agentControlToken, '');
+  });
+
+  test('AppConfig copies agent control config', () {
+    final config = const AppConfig().copyWith(
+      agentControlEnabled: true,
+      agentControlPort: 18080,
+      agentControlToken: 'secret',
+    );
+
+    expect(config.agentControlEnabled, true);
+    expect(config.agentControlPort, 18080);
+    expect(config.agentControlToken, 'secret');
+  });
+
   test('AppConfig provides default PostHog config', () {
     expect(
       const AppConfig().postHogProjectToken,
@@ -277,6 +295,93 @@ void main() {
     expect(user.uid, 'u_1');
   });
 
+  test('bindDevice does not persist guest uid when user info fails', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 500,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":500,"err_msg":"server error","data":{}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('guest_old');
+    final apiClient = ApiClient(
+      baseUrl: 'http://localhost:8080/api/',
+      defaultHeaders: const {
+        'content-type': 'application/json',
+        'accept': 'application/json',
+      },
+      transport: apiTransport,
+      responseProcessor: (r) => ApiClient.defaultResponseProcessor(r),
+    );
+    final healthClient = ApiClient(
+      baseUrl: 'http://localhost:8080/',
+      defaultHeaders: const {'accept': 'application/json'},
+      transport: healthTransport,
+      responseProcessor: (r) => ApiClient.defaultResponseProcessor(r),
+    );
+    final api = GenesisApi(
+      apiClient: apiClient,
+      healthClient: healthClient,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: sessionStore,
+    );
+
+    final user = await api.bindDevice(did: 'd1');
+
+    expect(user.uid, isEmpty);
+    expect(await sessionStore.readUid(), isNull);
+  });
+
+  test('ensureUid throws instead of generating guest uid', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 500,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":500,"err_msg":"server error","data":{}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+    final sessionStore = MemoryUserSessionStore();
+    final apiClient = ApiClient(
+      baseUrl: 'http://localhost:8080/api/',
+      defaultHeaders: const {
+        'content-type': 'application/json',
+        'accept': 'application/json',
+      },
+      transport: apiTransport,
+      responseProcessor: (r) => ApiClient.defaultResponseProcessor(r),
+    );
+    final healthClient = ApiClient(
+      baseUrl: 'http://localhost:8080/',
+      defaultHeaders: const {'accept': 'application/json'},
+      transport: healthTransport,
+      responseProcessor: (r) => ApiClient.defaultResponseProcessor(r),
+    );
+    final api = GenesisApi(
+      apiClient: apiClient,
+      healthClient: healthClient,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: sessionStore,
+    );
+
+    expect(api.ensureUid(), throwsA(isA<ApiException>()));
+    expect(await sessionStore.readUid(), isNull);
+  });
+
   test('updateUserPosition only posts player scene', () async {
     final apiTransport = _FakeTransport(
       handler: (request) {
@@ -364,6 +469,67 @@ void main() {
       expect(apiTransport.lastRequest!.uri.path, '/api/v1/user/info');
     },
   );
+
+  test('v1 err_no 1404 triggers page not found callback', () async {
+    final notFound = Completer<String>();
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":1404,"err_msg":"missing","data":{}}',
+      ),
+    );
+    final api = GenesisApi(
+      transport: apiTransport,
+      useMock: false,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: MemoryUserSessionStore(),
+      onPageNotFound: (message) async {
+        if (!notFound.isCompleted) notFound.complete(message);
+      },
+    );
+
+    await expectLater(
+      api.v1.user.info(),
+      throwsA(
+        isA<ApiException>()
+            .having((error) => error.code, 'code', 1404)
+            .having((error) => error.message, 'message', 'Page not found.'),
+      ),
+    );
+    expect(await notFound.future, 'Page not found.');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/user/info');
+  });
+
+  test('HTTP status 1404 triggers page not found callback', () async {
+    final notFound = Completer<String>();
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 1404,
+        headers: {'content-type': 'application/json'},
+        body: '{"error":"missing"}',
+      ),
+    );
+    final api = GenesisApi(
+      transport: apiTransport,
+      useMock: false,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: MemoryUserSessionStore(),
+      onPageNotFound: (message) async {
+        if (!notFound.isCompleted) notFound.complete(message);
+      },
+    );
+
+    await expectLater(
+      api.v1.user.info(),
+      throwsA(
+        isA<ApiException>()
+            .having((error) => error.statusCode, 'statusCode', 1404)
+            .having((error) => error.message, 'message', 'Page not found.'),
+      ),
+    );
+    expect(await notFound.future, 'Page not found.');
+  });
 
   test('getOrigins uses GET /v1/origin/list for default category', () async {
     final apiTransport = _FakeTransport(
@@ -1716,7 +1882,7 @@ void main() {
   });
 
   test(
-    'loginWithIdentity falls back to identity uid when backend omits user id',
+    'loginWithIdentity does not persist uid when backend omits user id',
     () async {
       final apiTransport = _FakeTransport(
         handler: (request) {
@@ -1743,25 +1909,24 @@ void main() {
         sessionStore: sessionStore,
       );
 
-      final user = await api.loginWithIdentity(
-        const AuthSession(
-          provider: IdentityProvider.apple,
-          providerIdToken: 'apple-token',
-          firebaseIdToken: 'firebase-token',
-          identityUid: 'firebase-uid',
-          email: 'ava@example.com',
-          displayName: 'Ava',
-          photoUrl: '',
+      await expectLater(
+        api.loginWithIdentity(
+          const AuthSession(
+            provider: IdentityProvider.apple,
+            providerIdToken: 'apple-token',
+            firebaseIdToken: 'firebase-token',
+            identityUid: 'firebase-uid',
+            email: 'ava@example.com',
+            displayName: 'Ava',
+            photoUrl: '',
+          ),
         ),
+        throwsA(isA<ApiException>()),
       );
 
-      expect(user.uid, 'firebase-uid');
-      expect(await sessionStore.readUid(), 'firebase-uid');
-      expect(await sessionStore.readAuthToken(), 'apple-backend-token');
-      expect(
-        await sessionStore.readUserInfo(),
-        containsPair('uid', 'firebase-uid'),
-      );
+      expect(await sessionStore.readUid(), isNull);
+      expect(await sessionStore.readAuthToken(), isNull);
+      expect(await sessionStore.readUserInfo(), isNull);
     },
   );
 

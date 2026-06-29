@@ -76,7 +76,23 @@ class ServiceRegistry {
     final identityAuth =
         identityAuthOverride ?? const FirebaseIdentityAuthService();
     final sessionRevision = sessionRevisionOverride ?? ValueNotifier<int>(0);
+    var handlingPageNotFound = false;
     var handlingSessionExpired = false;
+    Future<void> handlePageNotFound(String _) async {
+      if (handlingPageNotFound) return;
+      handlingPageNotFound = true;
+      try {
+        final navigator = genesisNavigatorKey.currentState;
+        navigator?.pushNamedAndRemoveUntil(
+          RouteNames.pageNotFound,
+          (_) => false,
+        );
+      } finally {
+        await Future<void>.delayed(const Duration(seconds: 1));
+        handlingPageNotFound = false;
+      }
+    }
+
     Future<void> handleSessionExpired(String _) async {
       if (handlingSessionExpired) return;
       handlingSessionExpired = true;
@@ -153,6 +169,7 @@ class ServiceRegistry {
       appHeaderProvider: appRequestHeaders.headers,
       gatewayRequestInterceptor: gatewayRequestInterceptor,
       onSessionExpired: handleSessionExpired,
+      onPageNotFound: handlePageNotFound,
     );
     final chatroom = ChatroomClient(
       wsBaseUrl: config.chatroomWsBaseUrl,

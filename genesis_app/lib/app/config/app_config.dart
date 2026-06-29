@@ -52,6 +52,18 @@ class AppConfig {
       'GENESIS_COLLECT_ENABLED',
       defaultValue: true,
     ),
+    this.agentControlEnabled = const bool.fromEnvironment(
+      'GENESIS_AGENT_CONTROL_ENABLED',
+      defaultValue: false,
+    ),
+    this.agentControlPort = const int.fromEnvironment(
+      'GENESIS_AGENT_CONTROL_PORT',
+      defaultValue: 17317,
+    ),
+    this.agentControlToken = const String.fromEnvironment(
+      'GENESIS_AGENT_CONTROL_TOKEN',
+      defaultValue: '',
+    ),
     this.appId = const String.fromEnvironment(
       'GENESIS_APP_ID',
       defaultValue: 'aitown',
@@ -78,6 +90,9 @@ class AppConfig {
   final bool postHogDebug;
   final String collectEndpoint;
   final bool collectEnabled;
+  final bool agentControlEnabled;
+  final int agentControlPort;
+  final String agentControlToken;
   final String appId;
   final String appChannel;
   final Duration chatroomHeartbeatInterval;
@@ -104,6 +119,9 @@ class AppConfig {
     bool? postHogDebug,
     String? collectEndpoint,
     bool? collectEnabled,
+    bool? agentControlEnabled,
+    int? agentControlPort,
+    String? agentControlToken,
     String? appId,
     String? appChannel,
     Duration? chatroomHeartbeatInterval,
@@ -124,6 +142,9 @@ class AppConfig {
       postHogDebug: postHogDebug ?? this.postHogDebug,
       collectEndpoint: collectEndpoint ?? this.collectEndpoint,
       collectEnabled: collectEnabled ?? this.collectEnabled,
+      agentControlEnabled: agentControlEnabled ?? this.agentControlEnabled,
+      agentControlPort: agentControlPort ?? this.agentControlPort,
+      agentControlToken: agentControlToken ?? this.agentControlToken,
       appId: appId ?? this.appId,
       appChannel: appChannel ?? this.appChannel,
       chatroomHeartbeatInterval:
