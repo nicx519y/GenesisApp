@@ -576,9 +576,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                   ),
                 ),
               ),
-              SafeArea(
-                top: false,
-                minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
+              _KeyboardHiddenBottomAction(
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
                   width: _primaryActionButtonWidth(context),

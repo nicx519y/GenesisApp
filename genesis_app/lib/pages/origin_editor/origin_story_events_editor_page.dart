@@ -147,8 +147,7 @@ class _OriginStoryEventsEditorPageState
                   ),
                 ),
               ),
-              SafeArea(
-                top: false,
+              _KeyboardHiddenBottomAction(
                 minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',

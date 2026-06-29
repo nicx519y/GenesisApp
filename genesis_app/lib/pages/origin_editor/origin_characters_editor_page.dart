@@ -227,9 +227,7 @@ class _OriginCharactersEditorPageState
                   ),
                 ),
               ),
-              SafeArea(
-                top: false,
-                minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
+              _KeyboardHiddenBottomAction(
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
                   width: _primaryActionButtonWidth(context),

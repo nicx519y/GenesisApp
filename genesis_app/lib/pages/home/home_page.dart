@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
@@ -34,27 +35,35 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  late Future<int> _initialTabIndexFuture;
+  int? _initialTabIndex;
+  Future<int>? _initialTabIndexFuture;
 
   @override
   void initState() {
     super.initState();
-    _initialTabIndexFuture = _initialTabIndex();
+    _resolveInitialTabIndex();
   }
 
   @override
   void didUpdateWidget(covariant HomePage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialTabIndex != widget.initialTabIndex) {
-      _initialTabIndexFuture = _initialTabIndex();
+      _resolveInitialTabIndex();
     }
   }
 
-  Future<int> _initialTabIndex() async {
+  void _resolveInitialTabIndex() {
     final requestedIndex = widget.initialTabIndex;
     if (requestedIndex != null) {
-      return requestedIndex.clamp(0, HomePage.tabs.length - 1);
+      _initialTabIndex = requestedIndex.clamp(0, HomePage.tabs.length - 1);
+      _initialTabIndexFuture = null;
+      return;
     }
+    _initialTabIndex = null;
+    _initialTabIndexFuture = _initialTabIndexFromSession();
+  }
+
+  Future<int> _initialTabIndexFromSession() async {
     return await _hasLocalLoginSession()
         ? HomePage.myWorldsTabIndex
         : HomePage.popularTabIndex;
@@ -71,6 +80,14 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final initialTabIndex = _initialTabIndex;
+    if (initialTabIndex != null) {
+      return _HomeTabScaffold(
+        initialIndex: initialTabIndex,
+        activationListenable: widget.activationListenable,
+      );
+    }
+
     return FutureBuilder<int>(
       future: _initialTabIndexFuture,
       builder: (context, snapshot) {
@@ -85,24 +102,40 @@ class _HomePageState extends State<HomePage> {
           );
         }
 
-        return DefaultTabController(
-          key: ValueKey<int>(initialIndex),
-          length: HomePage.tabs.length,
+        return _HomeTabScaffold(
           initialIndex: initialIndex,
-          child: Column(
-            children: [
-              const _HomeHeader(),
-              const SizedBox(height: 4),
-              const _HomeTabs(),
-              Expanded(
-                child: _HomeTabView(
-                  activationListenable: widget.activationListenable,
-                ),
-              ),
-            ],
-          ),
+          activationListenable: widget.activationListenable,
         );
       },
+    );
+  }
+}
+
+class _HomeTabScaffold extends StatelessWidget {
+  const _HomeTabScaffold({
+    required this.initialIndex,
+    required this.activationListenable,
+  });
+
+  final int initialIndex;
+  final ValueListenable<int>? activationListenable;
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      key: ValueKey<int>(initialIndex),
+      length: HomePage.tabs.length,
+      initialIndex: initialIndex,
+      child: Column(
+        children: [
+          const _HomeHeader(),
+          const SizedBox(height: 4),
+          const _HomeTabs(),
+          Expanded(
+            child: _HomeTabView(activationListenable: activationListenable),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -412,7 +445,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (!_hasRequested || _isInitialLoading) {
+    if (_isInitialLoading) {
       return const GenesisListLoadingSkeleton.worldList();
     }
 
@@ -454,7 +487,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
               key: const PageStorageKey<String>('home-feed-my-world'),
               controller: _scrollController,
               primary: false,
-              cacheExtent: 900,
+              scrollCacheExtent: const ScrollCacheExtent.pixels(900),
               padding: const EdgeInsets.only(top: 10, bottom: 36),
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
