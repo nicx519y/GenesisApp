@@ -3872,7 +3872,7 @@ void main() {
           find
               .byKey(
                 const ValueKey<String>(
-                  'home-my-worlds-empty-image:assets/images/default_list_image.png',
+                  'home-my-worlds-empty-image:assets/images/my_worlds_empty_worldo_launch.jpg',
                 ),
               )
               .evaluate()
@@ -3909,7 +3909,7 @@ void main() {
     );
   });
 
-  testWidgets('Home My World signed-out state uses default image', (
+  testWidgets('Home My World signed-out state uses launch image', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -3940,7 +3940,7 @@ void main() {
           find
               .byKey(
                 const ValueKey<String>(
-                  'home-my-worlds-empty-image:assets/images/default_list_image.png',
+                  'home-my-worlds-empty-image:assets/images/my_worlds_empty_worldo_launch.jpg',
                 ),
               )
               .evaluate()
@@ -3956,7 +3956,7 @@ void main() {
           'home-my-worlds-empty-image:assets/images/default_list_image.png',
         ),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(
@@ -3964,7 +3964,7 @@ void main() {
           'home-my-worlds-empty-image:assets/images/my_worlds_empty_worldo_launch.jpg',
         ),
       ),
-      findsNothing,
+      findsOneWidget,
     );
     expect(find.text('World tick narrator 1'), findsNothing);
     expect(

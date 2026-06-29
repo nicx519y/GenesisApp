@@ -470,7 +470,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       children: [
         SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.62,
-          child: _MyWorldsEmptyState(useDefaultImage: _isSignedOut),
+          child: const _MyWorldsEmptyState(),
         ),
       ],
     );
@@ -541,18 +541,14 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 }
 
 class _MyWorldsEmptyState extends StatelessWidget {
-  const _MyWorldsEmptyState({required this.useDefaultImage});
+  const _MyWorldsEmptyState();
 
-  static const defaultImageAsset = 'assets/images/default_list_image.png';
   static const launchImageAsset =
       'assets/images/my_worlds_empty_worldo_launch.jpg';
-
-  final bool useDefaultImage;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final imageAsset = useDefaultImage ? defaultImageAsset : launchImageAsset;
 
     return Align(
       alignment: const Alignment(0, -0.2),
@@ -562,8 +558,10 @@ class _MyWorldsEmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
-              imageAsset,
-              key: ValueKey<String>('home-my-worlds-empty-image:$imageAsset'),
+              launchImageAsset,
+              key: ValueKey<String>(
+                'home-my-worlds-empty-image:$launchImageAsset',
+              ),
               width: MediaQuery.sizeOf(context).width.clamp(0, 360) * 0.82,
               fit: BoxFit.contain,
             ),
