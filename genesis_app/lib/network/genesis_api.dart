@@ -60,6 +60,7 @@ class GenesisApi {
     RequestHeaderProvider? appHeaderProvider,
     GatewayRequestInterceptor? gatewayRequestInterceptor,
     Future<void> Function(String message)? onSessionExpired,
+    Future<void> Function(String message)? onPageNotFound,
   }) {
     final resolvedPlatformConfig =
         platformConfig ?? const DefaultPlatformConfig();
@@ -70,6 +71,7 @@ class GenesisApi {
     _appHeaderProvider =
         appHeaderProvider ?? AppRequestHeaderProvider().headers;
     _onSessionExpired = onSessionExpired;
+    _onPageNotFound = onPageNotFound;
     final resolvedTransport = _resolveTransport(
       transport: transport,
       useMock: useMock,
@@ -133,6 +135,7 @@ class GenesisApi {
   late final IdentityAuthService _identityAuthService;
   late final RequestHeaderProvider _appHeaderProvider;
   late final Future<void> Function(String message)? _onSessionExpired;
+  late final Future<void> Function(String message)? _onPageNotFound;
 
   static final Map<int, String> _originIdToWorldview = <int, String>{};
 
@@ -167,6 +170,7 @@ class GenesisApi {
 
   Object? _processGenesisResponse(ApiResponse response) {
     _throwIfSessionExpired(response);
+    _throwIfPageNotFound(response);
     return _defaultGenesisProcessor(response);
   }
 
@@ -180,6 +184,31 @@ class GenesisApi {
 
     const message = 'Your account is logged in on another device.';
     final handler = _onSessionExpired;
+    if (handler != null) unawaited(handler(message));
+    throw ApiException(
+      message: message,
+      code: errNo,
+      statusCode: response.statusCode,
+      responseBody: response.body,
+      responseHeaders: response.headers,
+      uri: response.uri,
+    );
+  }
+
+  void _throwIfPageNotFound(ApiResponse response) {
+    final data = response.data;
+    final int? errNo;
+    if (data is Map) {
+      final map = asJsonMap(data);
+      final errNoRaw = map.containsKey('err_no') ? map['err_no'] : map['errNo'];
+      errNo = asInt(errNoRaw);
+    } else {
+      errNo = null;
+    }
+    if (errNo != 1404 && response.statusCode != 1404) return;
+
+    const message = 'Page not found.';
+    final handler = _onPageNotFound;
     if (handler != null) unawaited(handler(message));
     throw ApiException(
       message: message,

@@ -470,6 +470,67 @@ void main() {
     },
   );
 
+  test('v1 err_no 1404 triggers page not found callback', () async {
+    final notFound = Completer<String>();
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":1404,"err_msg":"missing","data":{}}',
+      ),
+    );
+    final api = GenesisApi(
+      transport: apiTransport,
+      useMock: false,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: MemoryUserSessionStore(),
+      onPageNotFound: (message) async {
+        if (!notFound.isCompleted) notFound.complete(message);
+      },
+    );
+
+    await expectLater(
+      api.v1.user.info(),
+      throwsA(
+        isA<ApiException>()
+            .having((error) => error.code, 'code', 1404)
+            .having((error) => error.message, 'message', 'Page not found.'),
+      ),
+    );
+    expect(await notFound.future, 'Page not found.');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/user/info');
+  });
+
+  test('HTTP status 1404 triggers page not found callback', () async {
+    final notFound = Completer<String>();
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 1404,
+        headers: {'content-type': 'application/json'},
+        body: '{"error":"missing"}',
+      ),
+    );
+    final api = GenesisApi(
+      transport: apiTransport,
+      useMock: false,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: MemoryUserSessionStore(),
+      onPageNotFound: (message) async {
+        if (!notFound.isCompleted) notFound.complete(message);
+      },
+    );
+
+    await expectLater(
+      api.v1.user.info(),
+      throwsA(
+        isA<ApiException>()
+            .having((error) => error.statusCode, 'statusCode', 1404)
+            .having((error) => error.message, 'message', 'Page not found.'),
+      ),
+    );
+    expect(await notFound.future, 'Page not found.');
+  });
+
   test('getOrigins uses GET /v1/origin/list for default category', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
