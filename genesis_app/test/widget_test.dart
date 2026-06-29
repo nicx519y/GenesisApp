@@ -6657,6 +6657,29 @@ void main() {
     );
   });
 
+  testWidgets('basics save action hides while keyboard is visible', (
+    WidgetTester tester,
+  ) async {
+    addTearDown(tester.view.reset);
+
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, 'Save'), findsOneWidget);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, 'Save'), findsNothing);
+
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, 'Save'), findsOneWidget);
+  });
+
   testWidgets('saved valid create basics can be saved again', (
     WidgetTester tester,
   ) async {
@@ -7633,6 +7656,39 @@ void main() {
     expect(find.textContaining('Crystal City'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Creating...'), findsOneWidget);
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
+  });
+
+  testWidgets('edit publish action hides while keyboard is visible', (
+    WidgetTester tester,
+  ) async {
+    addTearDown(tester.view.reset);
+
+    final transport = _RecordingCreateOriginTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(home: EditOriginPage(originId: 'o_edit_1')),
+      ),
+    );
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50; i++) {
+        if (transport.requestsFor('/api/v1/origin/foredit').isNotEmpty) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, 'Publish'), findsOneWidget);
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, 'Publish'), findsNothing);
+
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FilledButton, 'Publish'), findsOneWidget);
   });
 
   testWidgets('edit flow loads origin detail and posts update after changes', (

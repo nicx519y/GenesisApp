@@ -74,6 +74,61 @@ double _primaryActionButtonWidth(BuildContext context) {
   return MediaQuery.sizeOf(context).width * 0.7;
 }
 
+bool _hasKeyboardViewInset() {
+  // Scaffold removes viewInsets from body MediaQuery, so read view metrics.
+  for (final view in WidgetsBinding.instance.platformDispatcher.views) {
+    if (view.viewInsets.bottom > 0) return true;
+  }
+  return false;
+}
+
+class _KeyboardHiddenBottomAction extends StatefulWidget {
+  const _KeyboardHiddenBottomAction({
+    required this.child,
+    this.minimum = const EdgeInsets.fromLTRB(24, 8, 24, 14),
+  });
+
+  final Widget child;
+  final EdgeInsets minimum;
+
+  @override
+  State<_KeyboardHiddenBottomAction> createState() =>
+      _KeyboardHiddenBottomActionState();
+}
+
+class _KeyboardHiddenBottomActionState
+    extends State<_KeyboardHiddenBottomAction>
+    with WidgetsBindingObserver {
+  late bool _keyboardVisible = _hasKeyboardViewInset();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() {
+    final nextKeyboardVisible = _hasKeyboardViewInset();
+    if (_keyboardVisible == nextKeyboardVisible) return;
+    setState(() => _keyboardVisible = nextKeyboardVisible);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final keyboardVisible =
+        _keyboardVisible || MediaQuery.viewInsetsOf(context).bottom > 0;
+    if (keyboardVisible) return const SizedBox.shrink();
+    return SafeArea(top: false, minimum: widget.minimum, child: widget.child);
+  }
+}
+
 class OriginDraftFlowPage extends StatefulWidget {
   const OriginDraftFlowPage({
     super.key,
@@ -459,9 +514,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                       ),
                     ),
                   ),
-                  SafeArea(
-                    top: false,
-                    minimum: const EdgeInsets.fromLTRB(24, 8, 24, 14),
+                  _KeyboardHiddenBottomAction(
                     child: GenesisPrimaryButton(
                       label: submitLabel,
                       width: _primaryActionButtonWidth(context),
