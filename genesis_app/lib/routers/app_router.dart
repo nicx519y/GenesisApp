@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../pages/app_shell_page.dart';
 import '../pages/create/create_origin_page.dart';
+import '../pages/common/page_not_found_page.dart';
 import '../pages/discuss/discuss_page.dart';
 import '../pages/discuss/post_detail_page.dart';
 import '../pages/edit/edit_origin_page.dart';
@@ -41,6 +42,7 @@ sealed class RouteNames {
   static const userInfo = '/user_info';
   static const follows = '/follows';
   static const legal = '/legal';
+  static const pageNotFound = '/page_not_found';
 }
 
 class _RouteArgs {
@@ -420,8 +422,9 @@ sealed class AppRouter {
       RouteNames.userInfo => 'UserInfoPage',
       RouteNames.follows => 'FollowsPage',
       RouteNames.legal => 'LegalDocumentPage',
+      RouteNames.pageNotFound => 'PageNotFoundPage',
       RouteNames.shell => 'AppShellPage',
-      _ => routeName?.trim().isNotEmpty == true ? routeName! : 'Unknown',
+      _ => 'PageNotFoundPage',
     };
   }
 
@@ -573,11 +576,20 @@ sealed class AppRouter {
           settings: settings,
           builder: (_) => LegalDocumentPage(document: args.document),
         );
+      case RouteNames.pageNotFound:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => const PageNotFoundPage(),
+        );
       case RouteNames.shell:
-      default:
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => const AppShellPage(initialIndex: 0),
+        );
+      default:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => const PageNotFoundPage(),
         );
     }
   }
