@@ -3804,6 +3804,44 @@ void main() {
     expect(find.text('#Origin 1'), findsWidgets);
   });
 
+  testWidgets('Home My Worlds signed-out initial frame shows empty state', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: null,
+          ),
+          child: const HomePage(initialTabIndex: HomePage.myWorldsTabIndex),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+      findsNothing,
+    );
+    expect(
+      find.text(
+        'Worldo is the blueprint. Launch to create a live World you can enter and grow.',
+      ),
+      findsOneWidget,
+    );
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+      findsNothing,
+    );
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+  });
+
   testWidgets('Home My World signed-out refresh keeps empty state', (
     WidgetTester tester,
   ) async {
