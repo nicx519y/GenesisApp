@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../icons/my_flutter_app_icons.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
@@ -119,15 +119,12 @@ class _CharacterTile extends StatelessWidget {
                     alignment: Alignment.topCenter,
                     errorBuilder: (context, error, stackTrace) => fallback,
                   )
-                : CachedNetworkImage(
+                : GenesisStaticNetworkImage(
                     imageUrl: url,
                     fit: BoxFit.cover,
                     alignment: Alignment.topCenter,
-                    fadeInDuration: Duration.zero,
-                    fadeOutDuration: Duration.zero,
-                    placeholderFadeInDuration: Duration.zero,
-                    placeholder: (context, url) => fallback,
-                    errorWidget: (context, url, error) => fallback,
+                    placeholder: (_) => fallback,
+                    errorWidget: (_, _) => fallback,
                   ),
           ),
         ),

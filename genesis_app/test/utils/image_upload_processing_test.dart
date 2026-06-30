@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/utils/image_format_guards.dart';
 import 'package:genesis_flutter_android/utils/image_upload_processing.dart';
 
 void main() {
@@ -40,6 +41,21 @@ void main() {
     expect(size.height, 400);
     expect(result.filename, 'wide.png');
     expect(result.contentType, 'image/png');
+  });
+
+  test('resizeImageToMaxWidth rejects GIF uploads', () async {
+    final bytes = Uint8List.fromList('GIF89a'.codeUnits);
+
+    await expectLater(
+      resizeImageToMaxWidth(
+        bytes: bytes,
+        filename: 'animated.gif',
+        contentType: 'image/gif',
+        maxWidth: 800,
+      ),
+      throwsA(isA<UnsupportedGifImageException>()),
+    );
+    expect(unsupportedGifImageMessage, 'GIF animations are not supported.');
   });
 }
 

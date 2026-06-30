@@ -71,14 +71,11 @@ class _OriginPreviewImage extends StatelessWidget {
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) => fallback,
                     )
-                  : Image.network(
-                      imageUrl,
+                  : GenesisStaticNetworkImage(
+                      imageUrl: imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => fallback,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return fallback;
-                      },
+                      placeholder: (_) => fallback,
+                      errorWidget: (_, _) => fallback,
                     ),
             ),
           ),
@@ -380,25 +377,13 @@ class _OriginCharacterPortrait extends StatelessWidget {
             alignment: Alignment.topCenter,
             errorBuilder: (context, error, stackTrace) => fallback,
           )
-        : CachedNetworkImage(
+        : GenesisStaticNetworkImage(
             imageUrl: resolvedUrl,
             width: _width,
             fit: BoxFit.fitWidth,
             alignment: Alignment.topCenter,
-            fadeInDuration: Duration.zero,
-            fadeOutDuration: Duration.zero,
-            placeholderFadeInDuration: Duration.zero,
-            imageBuilder: (context, imageProvider) {
-              return Image(
-                image: imageProvider,
-                width: _width,
-                fit: BoxFit.fitWidth,
-                alignment: Alignment.topCenter,
-              );
-            },
-            placeholder: (context, url) =>
-                const SizedBox(width: _width, height: _width),
-            errorWidget: (context, url, error) => fallback,
+            placeholder: (_) => const SizedBox(width: _width, height: _width),
+            errorWidget: (_, _) => fallback,
           );
     final initialIndex = imageUrls.indexOf(url.trim());
     final portrait = Stack(

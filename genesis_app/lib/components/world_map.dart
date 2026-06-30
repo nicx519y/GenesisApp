@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../ui/components/genesis_character_avatar.dart';
+import '../ui/components/genesis_static_network_image.dart';
 import '../ui/tokens/genesis_avatar_radii.dart';
 import '../ui/tokens/genesis_colors.dart';
 import '../utils/genesis_image_resource.dart';
@@ -1415,9 +1415,7 @@ class _MapBackgroundDeckState extends State<_MapBackgroundDeck> {
   }
 
   ImageProvider _avatarImageProvider(String url) {
-    return url.startsWith('assets/')
-        ? AssetImage(url)
-        : CachedNetworkImageProvider(url);
+    return url.startsWith('assets/') ? AssetImage(url) : NetworkImage(url);
   }
 
   @override
@@ -1933,21 +1931,16 @@ class _MapBackgroundState extends State<_MapBackground> {
           fallbackOnEmptyUrl: widget.fallbackOnEmptyUrl,
         ),
         if (_showFullImage)
-          Image.network(
-            trimmedUrl,
+          GenesisStaticNetworkImage(
+            imageUrl: trimmedUrl,
             fit: BoxFit.cover,
-            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-              if (wasSynchronouslyLoaded || frame != null) _notifyLoaded();
-              return child;
-            },
-            errorBuilder: (context, error, stackTrace) {
+            onImageLoaded: _notifyLoaded,
+            placeholder: (_) => const SizedBox.shrink(),
+            errorWidget: (context, error) {
               _notifyLoaded();
               return widget.fallbackOnEmptyUrl
                   ? const _FallbackMapBackground()
                   : const SizedBox.shrink();
-            },
-            loadingBuilder: (context, child, loadingProgress) {
-              return loadingProgress == null ? child : const SizedBox.shrink();
             },
           ),
       ],
@@ -1973,17 +1966,13 @@ class _MapBackgroundPreview extends StatelessWidget {
           : const _MapBackgroundPlaceholder();
     }
 
-    return Image.network(
-      trimmedUrl,
+    return GenesisStaticNetworkImage(
+      imageUrl: trimmedUrl,
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
+      placeholder: (_) => const _MapBackgroundPlaceholder(),
+      errorWidget: (context, error) {
         return fallbackOnEmptyUrl
             ? const _FallbackMapBackground()
-            : const _MapBackgroundPlaceholder();
-      },
-      loadingBuilder: (context, child, loadingProgress) {
-        return loadingProgress == null
-            ? child
             : const _MapBackgroundPlaceholder();
       },
     );

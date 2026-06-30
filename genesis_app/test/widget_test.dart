@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +13,7 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
@@ -6305,7 +6305,7 @@ void main() {
     expect(shellBuilds, 1);
     expect(
       tester
-          .widget<CachedNetworkImage>(
+          .widget<GenesisStaticNetworkImage>(
             find.byKey(const ValueKey('user-profile-avatar-image')),
           )
           .imageUrl,
@@ -6319,7 +6319,7 @@ void main() {
     expect(find.text('Cached User'), findsOneWidget);
     expect(
       tester
-          .widget<CachedNetworkImage>(
+          .widget<GenesisStaticNetworkImage>(
             find.byKey(const ValueKey('user-profile-avatar-image')),
           )
           .imageUrl,

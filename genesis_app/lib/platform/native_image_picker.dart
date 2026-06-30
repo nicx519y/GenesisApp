@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../utils/image_format_guards.dart';
+
 const MethodChannel _nativeDiscussImagePickerChannel = MethodChannel(
   'com.worldo.ai/discuss_image_picker',
 );
@@ -20,21 +22,55 @@ class DiscussPickedImage {
   final String contentType;
 }
 
+class GenesisImagePickResult {
+  const GenesisImagePickResult({
+    required this.images,
+    required this.rejectedUnsupportedGif,
+  });
+
+  final List<DiscussPickedImage> images;
+  final bool rejectedUnsupportedGif;
+}
+
 Future<List<DiscussPickedImage>> pickGenesisImages({required int limit}) async {
+  final result = await pickGenesisImageResult(limit: limit);
+  if (result.rejectedUnsupportedGif) {
+    throw const UnsupportedGifImageException();
+  }
+  return result.images;
+}
+
+Future<GenesisImagePickResult> pickGenesisImageResult({
+  required int limit,
+}) async {
   final picked = await pickGenesisImageFiles(limit: limit);
   final images = <DiscussPickedImage>[];
   Object? readError;
   StackTrace? readStackTrace;
+  var rejectedUnsupportedGif = false;
   for (final file in picked.take(limit)) {
     try {
+      final bytes = await file.readAsBytes();
+      final filename = imageFilename(file);
+      final contentType = file.mimeType ?? guessImageContentType(file.name);
+      throwIfGifImage(
+        bytes: bytes,
+        filename: filename,
+        contentType: contentType,
+      );
       images.add(
         DiscussPickedImage(
-          bytes: await file.readAsBytes(),
-          filename: imageFilename(file),
-          contentType: file.mimeType ?? guessImageContentType(file.name),
+          bytes: bytes,
+          filename: filename,
+          contentType: contentType,
         ),
       );
     } catch (error, stackTrace) {
+      if (error is UnsupportedGifImageException) {
+        rejectedUnsupportedGif = true;
+        debugPrint('Unsupported GIF image skipped: ${file.path}');
+        continue;
+      }
       readError = error;
       readStackTrace = stackTrace;
       debugPrint('Image read failed: $error\n$stackTrace');
@@ -46,7 +82,10 @@ Future<List<DiscussPickedImage>> pickGenesisImages({required int limit}) async {
       readStackTrace ?? StackTrace.current,
     );
   }
-  return images;
+  return GenesisImagePickResult(
+    images: images,
+    rejectedUnsupportedGif: rejectedUnsupportedGif,
+  );
 }
 
 Future<List<XFile>> pickGenesisImageFiles({required int limit}) async {

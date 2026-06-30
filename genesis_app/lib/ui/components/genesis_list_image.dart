@@ -1,6 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import 'genesis_static_network_image.dart';
 import '../tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
@@ -40,16 +40,13 @@ class GenesisListImage extends StatelessWidget {
                 fit: fit,
                 errorBuilder: (context, error, stackTrace) => _placeholder(),
               )
-            : CachedNetworkImage(
+            : GenesisStaticNetworkImage(
                 imageUrl: resolved,
                 width: _finite(width),
                 height: _finite(height),
                 fit: fit,
-                fadeInDuration: Duration.zero,
-                fadeOutDuration: Duration.zero,
-                placeholderFadeInDuration: Duration.zero,
-                placeholder: (context, url) => _placeholder(),
-                errorWidget: (context, url, error) => _placeholder(),
+                placeholder: (_) => _placeholder(),
+                errorWidget: (_, _) => _placeholder(),
               );
 
         return ClipRRect(

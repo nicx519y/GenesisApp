@@ -13,9 +13,11 @@ import '../../platform/native_image_picker.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
+import '../../utils/image_format_guards.dart';
 import '../../utils/image_upload_processing.dart';
 
-export '../../platform/native_image_picker.dart' show DiscussPickedImage;
+export '../../platform/native_image_picker.dart'
+    show DiscussPickedImage, GenesisImagePickResult;
 
 typedef DiscussPostSubmitter =
     Future<Map<String, dynamic>> Function(String content, List<String> images);
@@ -23,6 +25,8 @@ typedef DiscussComposerSubmitter =
     Future<void> Function(String content, List<String> images);
 typedef DiscussImagePicker =
     Future<List<DiscussPickedImage>> Function(int limit);
+typedef DiscussImageResultPicker =
+    Future<GenesisImagePickResult> Function(int limit);
 typedef DiscussImageUploader =
     Future<String> Function(DiscussPickedImage image);
 
@@ -90,6 +94,9 @@ Future<bool> showDiscussPostComposer({
         title: title,
         placeholder: placeholder,
         pickImages: imagePicker ?? (limit) => pickGenesisImages(limit: limit),
+        pickImageResult: imagePicker == null
+            ? (limit) => pickGenesisImageResult(limit: limit)
+            : null,
         uploadImage:
             imageUploader ??
             (image) async {
@@ -133,7 +140,7 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
       context: context,
       title: widget.title,
       placeholder: widget.placeholder,
-      imagePicker: widget.imagePicker ?? _pickImages,
+      imagePicker: widget.imagePicker,
       imageUploader: widget.imageUploader ?? _uploadImage,
       submitter: _submit,
       requireLogin: widget.requireLogin,
@@ -157,10 +164,6 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
       content: content,
       images: images,
     );
-  }
-
-  Future<List<DiscussPickedImage>> _pickImages(int limit) async {
-    return pickGenesisImages(limit: limit);
   }
 
   Future<String> _uploadImage(DiscussPickedImage image) async {
@@ -216,6 +219,7 @@ class _DiscussComposerSheet extends StatefulWidget {
     required this.title,
     required this.placeholder,
     required this.pickImages,
+    this.pickImageResult,
     required this.uploadImage,
     required this.onSubmit,
   });
@@ -223,6 +227,7 @@ class _DiscussComposerSheet extends StatefulWidget {
   final String title;
   final String placeholder;
   final DiscussImagePicker pickImages;
+  final DiscussImageResultPicker? pickImageResult;
   final DiscussImageUploader uploadImage;
   final Future<void> Function(String content, List<String> images) onSubmit;
 
@@ -353,13 +358,21 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     final available = discussPostMaxImages - _images.length;
     List<DiscussPickedImage>? picked;
     Object? pickError;
+    var rejectedUnsupportedGif = false;
     setState(() {
       _pickerOpen = true;
     });
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
     try {
-      picked = await widget.pickImages(available);
+      final pickImageResult = widget.pickImageResult;
+      if (pickImageResult != null) {
+        final result = await pickImageResult(available);
+        picked = result.images;
+        rejectedUnsupportedGif = result.rejectedUnsupportedGif;
+      } else {
+        picked = await widget.pickImages(available);
+      }
     } catch (error, stackTrace) {
       pickError = error;
       debugPrint('Discuss image selection failed: $error\n$stackTrace');
@@ -384,6 +397,9 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     if (pickError != null) {
       showGenesisToast(context, _imagePickErrorText(pickError));
       return;
+    }
+    if (rejectedUnsupportedGif) {
+      showGenesisToast(context, unsupportedGifImageMessage);
     }
     if (picked == null || picked.isEmpty) return;
 
@@ -865,6 +881,9 @@ class _DiscussImageTile extends StatelessWidget {
 }
 
 String _imagePickErrorText(Object error) {
+  if (error is UnsupportedGifImageException) {
+    return unsupportedGifImageMessage;
+  }
   if (error is PlatformException) {
     final code = error.code.toLowerCase();
     if (code.contains('denied') || code.contains('permission')) {

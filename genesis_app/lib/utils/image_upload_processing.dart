@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'image_format_guards.dart';
+
 class ProcessedUploadImage {
   const ProcessedUploadImage({
     required this.bytes,
@@ -20,6 +22,7 @@ Future<ProcessedUploadImage> resizeImageToMaxWidth({
   required String contentType,
   required int maxWidth,
 }) async {
+  throwIfGifImage(bytes: bytes, filename: filename, contentType: contentType);
   if (maxWidth <= 0) {
     return ProcessedUploadImage(
       bytes: bytes,

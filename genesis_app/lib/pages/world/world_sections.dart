@@ -3,7 +3,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../components/ai_content_disclaimer.dart';
@@ -15,6 +14,7 @@ import '../../icons/my_flutter_app_icons.dart';
 import '../../network/models/world.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_image_resource.dart';
@@ -347,14 +347,11 @@ class WorldDetailCoverImage extends StatelessWidget {
                           errorBuilder: (context, error, stackTrace) =>
                               fallback,
                         )
-                      : CachedNetworkImage(
+                      : GenesisStaticNetworkImage(
                           imageUrl: imageUrl,
                           fit: BoxFit.cover,
-                          fadeInDuration: Duration.zero,
-                          fadeOutDuration: Duration.zero,
-                          placeholderFadeInDuration: Duration.zero,
-                          placeholder: (context, url) => fallback,
-                          errorWidget: (context, url, error) => fallback,
+                          placeholder: (_) => fallback,
+                          errorWidget: (_, _) => fallback,
                         );
                 },
               ),

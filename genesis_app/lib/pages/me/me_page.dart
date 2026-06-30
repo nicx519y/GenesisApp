@@ -21,6 +21,7 @@ import '../../platform/auth/auth_session.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
+import '../../utils/image_format_guards.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import 'settings_page.dart';
 
@@ -610,6 +611,15 @@ class _MePageState extends State<MePage> {
       final image = await ImagePicker().pickImage(source: ImageSource.gallery);
       if (image == null) return;
       bytes = await image.readAsBytes();
+      throwIfGifImage(
+        bytes: bytes,
+        filename: image.name,
+        contentType: image.mimeType ?? '',
+      );
+    } on UnsupportedGifImageException {
+      if (!mounted) return;
+      showGenesisToast(context, unsupportedGifImageMessage);
+      return;
     } catch (_) {
       if (!mounted) return;
       showGenesisToast(context, 'Image pick failed');

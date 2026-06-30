@@ -151,15 +151,14 @@ void main() {
     expect(singleSectionSheet, contains('_animateToSelectionPage'));
   });
 
-  test('world detail cover uses cached network image', () {
+  test('world detail cover uses static network image', () {
     final sections = worldSectionsSource.readAsStringSync();
     final cover = sections.substring(
       sections.indexOf('class WorldDetailCoverImage'),
       sections.indexOf('class WorldStatusSection'),
     );
 
-    expect(cover, contains('CachedNetworkImage('));
-    expect(cover, contains('fadeInDuration: Duration.zero'));
+    expect(cover, contains('GenesisStaticNetworkImage('));
     expect(cover, isNot(contains('Image.network(')));
   });
 
