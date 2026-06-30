@@ -3753,7 +3753,7 @@ void main() {
         false,
       );
       expect(worldRequests.single.uri.queryParameters['pn'], '1');
-      expect(worldRequests.single.uri.queryParameters['rn'], '20');
+      expect(worldRequests.single.uri.queryParameters['rn'], '10');
       expect(worldRequests.single.uri.queryParameters['scene'], 'mine');
       expect(find.text('World tick narrator 1'), findsOneWidget);
       expect(find.text('Legacy world progress summary 1'), findsNothing);
@@ -3765,7 +3765,7 @@ void main() {
       expect(originRequests, hasLength(1));
       expect(originRequests.single.uri.queryParameters['scene'], 'popular');
       expect(originRequests.single.uri.queryParameters['pn'], '1');
-      expect(originRequests.single.uri.queryParameters['rn'], '20');
+      expect(originRequests.single.uri.queryParameters['rn'], '10');
       expect(find.text('#Origin 1'), findsWidgets);
 
       final discussRequests = transport.requestsFor('/api/v1/discuss/list');
@@ -3800,7 +3800,7 @@ void main() {
     final originRequests = transport.requestsFor('/api/v1/origin/list');
     expect(originRequests, hasLength(1));
     expect(originRequests.single.uri.queryParameters['pn'], '1');
-    expect(originRequests.single.uri.queryParameters['rn'], '20');
+    expect(originRequests.single.uri.queryParameters['rn'], '10');
     expect(find.text('#Origin 1'), findsWidgets);
   });
 
@@ -5545,7 +5545,7 @@ void main() {
     expect(worldRequests[1].uri.queryParameters.containsKey('uid'), false);
     expect(worldRequests[1].uri.queryParameters['scene'], 'mine');
     expect(worldRequests[1].uri.queryParameters['pn'], '2');
-    expect(worldRequests[1].uri.queryParameters['rn'], '20');
+    expect(worldRequests[1].uri.queryParameters['rn'], '10');
   });
 
   testWidgets('Origin pull refresh reloads first page', (

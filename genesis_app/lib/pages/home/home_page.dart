@@ -218,7 +218,7 @@ class _MyWorldFeed extends StatefulWidget {
 
 class _MyWorldFeedState extends State<_MyWorldFeed>
     with AutomaticKeepAliveClientMixin<_MyWorldFeed> {
-  static const _pageSize = 20;
+  static const _pageSize = 10;
   static const _loadMoreThreshold = 700.0;
 
   TabController? _tabController;
@@ -623,7 +623,7 @@ class _PopularOriginFeed extends StatefulWidget {
 
 class _PopularOriginFeedState extends State<_PopularOriginFeed>
     with AutomaticKeepAliveClientMixin<_PopularOriginFeed> {
-  static const _pageSize = 20;
+  static const _pageSize = 10;
   static const _loadMoreThreshold = 700.0;
 
   TabController? _tabController;
