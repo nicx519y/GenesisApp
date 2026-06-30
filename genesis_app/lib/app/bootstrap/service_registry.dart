@@ -149,7 +149,6 @@ class ServiceRegistry {
         keyStore: const NativeGatewayDeviceKeyStore(),
         transport: httpTransport,
       );
-      unawaited(_prepareGatewayAuth(gatewayAuthCoordinator));
       gatewayRequestInterceptor = GatewayRequestInterceptor(
         coordinator: gatewayAuthCoordinator,
       );
@@ -235,15 +234,5 @@ class ServiceRegistry {
       sessionRevisionOverride: current.sessionRevision,
       chatroomMessagesOverride: current.chatroomMessages,
     );
-  }
-
-  static Future<void> _prepareGatewayAuth(
-    GatewayAuthCoordinator coordinator,
-  ) async {
-    try {
-      await coordinator.prepare();
-    } catch (error) {
-      debugPrint('[GatewayAuth] prepare failed: $error');
-    }
   }
 }

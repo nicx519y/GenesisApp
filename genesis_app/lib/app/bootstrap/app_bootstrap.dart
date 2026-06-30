@@ -11,6 +11,8 @@ class AppBootstrap {
   const AppBootstrap._();
 
   static const _firebaseInitializeTimeout = Duration(seconds: 4);
+  static const _gatewayPrepareTimeout = Duration(seconds: 8);
+  static const _networkPermissionPrimeTimeout = Duration(seconds: 15);
   static const _sessionReadTimeout = Duration(seconds: 2);
   static const _guestBindTimeout = Duration(seconds: 8);
 
@@ -27,6 +29,17 @@ class AppBootstrap {
     return services;
   }
 
+  static Future<void> primeNetworkPermission(AppServices services) async {
+    try {
+      await services.api.v1.origin.homeNav().timeout(
+        _networkPermissionPrimeTimeout,
+      );
+    } catch (e, st) {
+      debugPrint('[Auth][Bootstrap] network permission prime failed: $e');
+      debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
+    }
+  }
+
   static Future<void> warmUp(AppServices services) async {
     try {
       await Firebase.initializeApp().timeout(_firebaseInitializeTimeout);
@@ -35,6 +48,13 @@ class AppBootstrap {
     } catch (e, st) {
       debugPrint('[Auth][Firebase] initialize failed: $e');
       debugPrint('[Auth][Firebase] stacktrace:\n$st');
+    }
+
+    try {
+      await services.gatewayAuth?.prepare().timeout(_gatewayPrepareTimeout);
+    } catch (e, st) {
+      debugPrint('[GatewayAuth] warm-up prepare failed: $e');
+      debugPrint('[GatewayAuth] stacktrace:\n$st');
     }
 
     String? uid;
