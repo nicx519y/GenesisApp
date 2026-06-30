@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import '../../pages/create/create_form_widgets.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 
+const int originCharacterNameMaxLength = 30;
+const int originCharacterIdentityMaxLength = 100;
+const int originCharacterBioMaxLength = 500;
+
 class OriginCharacterForm {
   OriginCharacterForm({
     required this.charId,
@@ -185,7 +189,7 @@ class OriginCharacterFormFields extends StatelessWidget {
                     label: 'Name *',
                     controller: form.name,
                     hintText: _placeholder('Enter name...'),
-                    maxLength: 30,
+                    maxLength: originCharacterNameMaxLength,
                     labelSize: labelSize,
                     labelFontWeight: labelFontWeight,
                     labelInputGap: labelInputGap,
@@ -201,7 +205,7 @@ class OriginCharacterFormFields extends StatelessWidget {
                       hintText: _placeholder(
                         'eg. A hometown kid back for one real shot',
                       ),
-                      maxLength: 100,
+                      maxLength: originCharacterIdentityMaxLength,
                       note: showFieldNotes
                           ? "The character's role in the worldo."
                           : null,
@@ -244,7 +248,7 @@ class OriginCharacterFormFields extends StatelessWidget {
             label: 'Identity *',
             controller: form.identity,
             hintText: _placeholder('eg. A hometown kid back for one real shot'),
-            maxLength: 100,
+            maxLength: originCharacterIdentityMaxLength,
             note: showFieldNotes ? "The character's role in the worldo." : null,
             labelSize: labelSize,
             labelFontWeight: labelFontWeight,
@@ -301,7 +305,7 @@ class OriginCharacterFormFields extends StatelessWidget {
           hintText: _placeholder(
             'eg. Left town years ago; returned to a boarded-up Main Street for one chance.',
           ),
-          maxLength: 500,
+          maxLength: originCharacterBioMaxLength,
           note: showFieldNotes
               ? "The character's background and relationships."
               : null,

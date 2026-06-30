@@ -25,6 +25,7 @@ import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
+import 'package:genesis_flutter_android/components/origin/origin_role_launch_sheet.dart';
 import 'package:genesis_flutter_android/components/me/signed_out_me_view.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
@@ -4877,6 +4878,44 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('Origin detail profile fill respects custom role length limits', (
+    WidgetTester tester,
+  ) async {
+    final longName = 'N' * 40;
+    final longIdentity = 'I' * 120;
+    final longBio = 'B' * 520;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OriginRoleLaunchSheet(
+            characters: const <OriginCharacter>[],
+            onFillFromProfile: () async {
+              return OriginCustomRoleDraft(
+                name: longName,
+                identity: longIdentity,
+                bio: longBio,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Custom'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Fill from my profile'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fill from my profile'));
+    await tester.pump();
+
+    final fields = find.byType(TextField);
+    expect(tester.widget<TextField>(fields.at(0)).controller?.text, 'N' * 30);
+    expect(tester.widget<TextField>(fields.at(1)).controller?.text, 'I' * 100);
+    expect(tester.widget<TextField>(fields.at(2)).controller?.text, 'B' * 500);
+  });
+
   testWidgets('Origin detail profile fill asks for login when signed out', (
     WidgetTester tester,
   ) async {
@@ -6693,6 +6732,41 @@ void main() {
       }),
       const Color(0xFFBFD8CD),
     );
+  });
+
+  testWidgets('metric value range fields limit input to 10 without counters', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    Finder fieldWithHint(String hint) {
+      return find.byWidgetPredicate(
+        (widget) => widget is TextField && widget.decoration?.hintText == hint,
+        description: 'TextField with hint "$hint"',
+      );
+    }
+
+    for (final hint in const ['Starting', 'Delta Min', 'Delta Max']) {
+      final field = tester.widget<TextField>(fieldWithHint(hint));
+      expect(field.maxLength, 10);
+
+      await tester.enterText(fieldWithHint(hint), '123456789012345');
+      await tester.pump();
+
+      final editable = tester.widget<EditableText>(
+        find.descendant(
+          of: fieldWithHint(hint),
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(editable.controller.text, '1234567890');
+    }
+
+    expect(find.text('0 / 10'), findsNothing);
+    expect(find.text('10 / 10'), findsNothing);
   });
 
   testWidgets('basics save action hides while keyboard is visible', (

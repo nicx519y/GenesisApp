@@ -179,9 +179,24 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
       final identity = draft.identity.trim();
       final bio = draft.bio.trim();
       final avatar = draft.avatarUrl.trim();
-      if (name.isNotEmpty) _customForm.name.text = name;
-      if (identity.isNotEmpty) _customForm.identity.text = identity;
-      if (bio.isNotEmpty) _customForm.bio.text = bio;
+      if (name.isNotEmpty) {
+        _customForm.name.text = _limitProfileFill(
+          name,
+          originCharacterNameMaxLength,
+        );
+      }
+      if (identity.isNotEmpty) {
+        _customForm.identity.text = _limitProfileFill(
+          identity,
+          originCharacterIdentityMaxLength,
+        );
+      }
+      if (bio.isNotEmpty) {
+        _customForm.bio.text = _limitProfileFill(
+          bio,
+          originCharacterBioMaxLength,
+        );
+      }
       _customForm.avatarUrl.text = avatar;
     } finally {
       if (mounted) setState(() => _fillingProfile = false);
@@ -708,4 +723,10 @@ String _characterRoleId(OriginCharacter character) {
   if (explicitId.isNotEmpty) return explicitId;
   if (character.id > 0) return '${character.id}';
   return character.name.trim();
+}
+
+String _limitProfileFill(String value, int maxLength) {
+  final characters = value.characters;
+  if (characters.length <= maxLength) return value;
+  return characters.take(maxLength).toString();
 }
