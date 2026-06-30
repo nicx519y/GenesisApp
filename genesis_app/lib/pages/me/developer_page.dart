@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/network/gateway_auth.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 
+import '../../app/agent_control/agent_control_status.dart';
 import '../../app/config/app_endpoint_overrides.dart';
 import '../../app/config/app_config.dart';
 import '../../app/debug_floating_button_visibility.dart';
@@ -389,6 +390,26 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     return trimmed.isEmpty ? 'unknown' : trimmed;
   }
 
+  String _formatAgentControlStatus(AgentControlStatus status) {
+    final parts = <String>[status.label];
+    final port = status.port;
+    if (status.running && port != null) {
+      parts.add('${status.host}:$port');
+    }
+    if (status.enabled) {
+      parts.add(
+        status.tokenConfigured ? 'token configured' : 'generated token',
+      );
+      final preview = status.tokenPreview;
+      if (preview != null) parts.add(preview);
+    }
+    final error = status.lastError;
+    if (error != null && error.trim().isNotEmpty) {
+      parts.add(error);
+    }
+    return parts.join(' / ');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -428,6 +449,16 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
               return _DeveloperInfoRow(
                 title: 'Current Page',
                 content: pageName,
+              );
+            },
+          ),
+          const SizedBox(height: _itemGap),
+          ValueListenableBuilder<AgentControlStatus>(
+            valueListenable: agentControlStatus,
+            builder: (context, status, _) {
+              return _DeveloperInfoRow(
+                title: 'Agent CLI',
+                content: _formatAgentControlStatus(status),
               );
             },
           ),

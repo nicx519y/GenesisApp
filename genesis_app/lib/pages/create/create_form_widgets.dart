@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -11,8 +10,10 @@ import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_upload_progress_overlay.dart';
 import '../../components/common/local_image_crop_page.dart';
 import '../../platform/native_image_picker.dart';
+import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
+import '../../utils/image_format_guards.dart';
 
 const Color createFormGreen = Color(0xFF338960);
 const Color createFormFieldFill = Color(0xFFF4F4F6);
@@ -648,6 +649,9 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       widget.onChanged();
       _startProgressTimer(crop.bytes.length);
       unawaited(_uploadCroppedImage(context, crop, previousUrl));
+    } on UnsupportedGifImageException {
+      if (!context.mounted) return;
+      _showMessage(unsupportedGifImageMessage);
     } catch (_) {
       if (!context.mounted) return;
       _showMessage('Image upload failed.');
@@ -835,36 +839,26 @@ class _Preview extends StatelessWidget {
                   return const _PreviewErrorIcon();
                 },
               )
-            : CachedNetworkImage(
+            : GenesisStaticNetworkImage(
                 imageUrl: selectedUrl,
                 width: double.infinity,
                 height: double.infinity,
                 fit: BoxFit.cover,
                 alignment: alignment,
-                fadeInDuration: Duration.zero,
-                fadeOutDuration: Duration.zero,
-                placeholderFadeInDuration: Duration.zero,
-                imageBuilder: (_, imageProvider) {
+                onImageLoaded: () {
                   debugPrint(
-                    '[CreateUploadBox] cached image ready: "$selectedUrl"',
-                  );
-                  return Image(
-                    image: imageProvider,
-                    width: double.infinity,
-                    height: double.infinity,
-                    fit: BoxFit.cover,
-                    alignment: alignment,
+                    '[CreateUploadBox] static image ready: "$selectedUrl"',
                   );
                 },
-                placeholder: (_, __) {
+                placeholder: (_) {
                   debugPrint(
-                    '[CreateUploadBox] cached image loading: "$selectedUrl"',
+                    '[CreateUploadBox] static image loading: "$selectedUrl"',
                   );
                   return const _PreviewPlaceholder(showSpinner: false);
                 },
-                errorWidget: (_, __, error) {
+                errorWidget: (_, error) {
                   debugPrint(
-                    '[CreateUploadBox] cached image failed: '
+                    '[CreateUploadBox] static image failed: '
                     'url="$selectedUrl", error="$error"',
                   );
                   return const _PreviewErrorIcon();

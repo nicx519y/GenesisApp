@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../utils/genesis_image_resource.dart';
+import '../../ui/components/genesis_static_network_image.dart';
 import 'genesis_modal_routes.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_safe_area.dart';
@@ -474,14 +475,11 @@ class _ImageByUrl extends StatelessWidget {
           );
         }
         return SizedBox.expand(
-          child: Image.network(
-            imageUrl,
+          child: GenesisStaticNetworkImage(
+            imageUrl: imageUrl,
             fit: fit,
-            errorBuilder: (context, error, stackTrace) => fallback,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return fallback;
-            },
+            placeholder: (_) => fallback,
+            errorWidget: (_, _) => fallback,
           ),
         );
       },

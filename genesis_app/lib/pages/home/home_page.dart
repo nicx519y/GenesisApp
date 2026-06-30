@@ -19,6 +19,11 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../ui/tokens/genesis_colors.dart';
+import 'home_feed_cache_store.dart';
+
+void _ignoreHomeFeedCacheWrite(Future<void> write) {
+  unawaited(write.catchError((_) {}));
+}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, this.initialTabIndex, this.activationListenable});
@@ -35,6 +40,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  static int? _lastResolvedInitialTabIndex;
+
   int? _initialTabIndex;
   Future<int>? _initialTabIndexFuture;
 
@@ -59,14 +66,31 @@ class _HomePageState extends State<HomePage> {
       _initialTabIndexFuture = null;
       return;
     }
+    final cachedIndex = _lastResolvedInitialTabIndex;
+    if (cachedIndex != null) {
+      _initialTabIndex = cachedIndex;
+      _initialTabIndexFuture = null;
+      unawaited(_refreshInitialTabIndexFromSession());
+      return;
+    }
     _initialTabIndex = null;
     _initialTabIndexFuture = _initialTabIndexFromSession();
   }
 
   Future<int> _initialTabIndexFromSession() async {
-    return await _hasLocalLoginSession()
+    final index = await _hasLocalLoginSession()
         ? HomePage.myWorldsTabIndex
         : HomePage.popularTabIndex;
+    _lastResolvedInitialTabIndex = index;
+    return index;
+  }
+
+  Future<void> _refreshInitialTabIndexFromSession() async {
+    final index = await _initialTabIndexFromSession();
+    if (!mounted || _initialTabIndex == index) return;
+    setState(() {
+      _initialTabIndex = index;
+    });
   }
 
   Future<bool> _hasLocalLoginSession() async {
@@ -218,16 +242,19 @@ class _MyWorldFeed extends StatefulWidget {
 
 class _MyWorldFeedState extends State<_MyWorldFeed>
     with AutomaticKeepAliveClientMixin<_MyWorldFeed> {
-  static const _pageSize = 20;
+  static const _pageSize = 10;
   static const _loadMoreThreshold = 700.0;
 
   TabController? _tabController;
   final ScrollController _scrollController = ScrollController();
   final List<WorldListItem> _items = <WorldListItem>[];
+  Future<bool>? _cacheLoadFuture;
   var _nextPage = 1;
   var _total = 0;
   var _hasMore = true;
   var _hasRequested = false;
+  var _hasAttemptedCachePreload = false;
+  var _hasLoadedCachedPage = false;
   var _scrollListenerAttached = false;
   var _isInitialLoading = false;
   var _isLoadingMore = false;
@@ -256,6 +283,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _scrollController.addListener(_handleScroll);
       _scrollListenerAttached = true;
     }
+    _preloadCachedItemsIfNeeded();
     _requestIfCurrentTab();
   }
 
@@ -286,8 +314,11 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _items.clear();
     _nextPage = 1;
     _total = 0;
+    _cacheLoadFuture = null;
     _hasMore = true;
     _hasRequested = false;
+    _hasAttemptedCachePreload = false;
+    _hasLoadedCachedPage = false;
     _isInitialLoading = false;
     _isLoadingMore = false;
     _isRefreshing = false;
@@ -325,7 +356,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       actionType: 'pageview',
       action: 'home_my_worlds',
     );
-    _refreshItems();
+    unawaited(_requestInitialItems());
   }
 
   void _handleScroll() {
@@ -334,6 +365,78 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       return;
     }
     _loadNextPage();
+  }
+
+  void _preloadCachedItemsIfNeeded() {
+    if (_hasAttemptedCachePreload) return;
+    _hasAttemptedCachePreload = true;
+    if (mounted && _items.isEmpty) {
+      setState(() {
+        _isInitialLoading = true;
+      });
+    }
+    unawaited(_loadCachedItemsOnce());
+  }
+
+  Future<void> _requestInitialItems() async {
+    if (mounted && _items.isEmpty) {
+      setState(() {
+        _isInitialLoading = true;
+      });
+    }
+    final didLoadCache = await _loadCachedItemsOnce();
+    if (!mounted) return;
+    if (!didLoadCache && _items.isEmpty) {
+      setState(() {
+        _isInitialLoading = true;
+      });
+    }
+    unawaited(_refreshItems(force: true));
+  }
+
+  Future<HomeFeedCacheStore?> _cacheStoreForActiveSession() async {
+    final services = AppServicesScope.of(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (uid.isEmpty || uid.startsWith('guest_')) return null;
+    final authToken =
+        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    if (authToken.isEmpty) return null;
+    return HomeFeedCacheStore(ownerUid: uid);
+  }
+
+  Future<bool> _loadCachedItemsOnce() {
+    return _cacheLoadFuture ??= _loadCachedItemsIfAvailable();
+  }
+
+  Future<bool> _loadCachedItemsIfAvailable() async {
+    final cacheStore = await _cacheStoreForActiveSession();
+    final data = await cacheStore?.load(HomeFeedCacheKind.myWorlds);
+    if (!mounted) return false;
+    if (data == null) {
+      if (!_hasRequested) {
+        setState(() {
+          _isInitialLoading = false;
+        });
+      }
+      return false;
+    }
+
+    final page = _parseWorldListPage(data);
+    setState(() {
+      _items
+        ..clear()
+        ..addAll(page.items);
+      _total = page.total;
+      _nextPage = 2;
+      _hasMore = _items.length < _total && page.items.isNotEmpty;
+      _hasLoadedCachedPage = true;
+      _error = null;
+      _isInitialLoading = false;
+      _isLoadingMore = false;
+      _isRefreshing = false;
+      _isSignedOut = false;
+    });
+    return true;
   }
 
   Future<_WorldListPage> _fetchPage(int page) async {
@@ -347,6 +450,17 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       pn: page,
       rn: _pageSize,
     );
+    if (page == 1) {
+      _ignoreHomeFeedCacheWrite(
+        HomeFeedCacheStore(
+          ownerUid: uid,
+        ).save(HomeFeedCacheKind.myWorlds, data),
+      );
+    }
+    return _parseWorldListPage(data);
+  }
+
+  _WorldListPage _parseWorldListPage(Map<String, dynamic> data) {
     final list = data['list'];
     final items = list is List
         ? list
@@ -357,8 +471,8 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     return _WorldListPage(items: items, total: asInt(data['total']));
   }
 
-  Future<void> _refreshItems() async {
-    if (_isInitialLoading || _isRefreshing) return;
+  Future<void> _refreshItems({bool force = false}) async {
+    if ((!force && _isInitialLoading) || _isRefreshing) return;
     if (!await _hasLocalLoginSession()) {
       if (!mounted) return;
       setState(() {
@@ -378,7 +492,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     setState(() {
       _error = null;
       _isSignedOut = false;
-      _isInitialLoading = _items.isEmpty;
+      _isInitialLoading = _items.isEmpty && !_hasLoadedCachedPage;
       _isRefreshing = true;
     });
 
@@ -487,7 +601,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
               key: const PageStorageKey<String>('home-feed-my-world'),
               controller: _scrollController,
               primary: false,
-              scrollCacheExtent: const ScrollCacheExtent.pixels(900),
+              cacheExtent: 900,
               padding: const EdgeInsets.only(top: 10, bottom: 36),
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
@@ -543,6 +657,9 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 class _MyWorldsEmptyState extends StatelessWidget {
   const _MyWorldsEmptyState();
 
+  static const launchImageAsset =
+      'assets/images/my_worlds_empty_worldo_launch.jpg';
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -555,7 +672,10 @@ class _MyWorldsEmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
-              'assets/images/my_worlds_empty_worldo_launch.jpg',
+              launchImageAsset,
+              key: ValueKey<String>(
+                'home-my-worlds-empty-image:$launchImageAsset',
+              ),
               width: MediaQuery.sizeOf(context).width.clamp(0, 360) * 0.82,
               fit: BoxFit.contain,
             ),
@@ -617,7 +737,7 @@ class _PopularOriginFeed extends StatefulWidget {
 
 class _PopularOriginFeedState extends State<_PopularOriginFeed>
     with AutomaticKeepAliveClientMixin<_PopularOriginFeed> {
-  static const _pageSize = 20;
+  static const _pageSize = 10;
   static const _loadMoreThreshold = 700.0;
 
   TabController? _tabController;
@@ -625,10 +745,13 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   final List<OriginListItem> _items = <OriginListItem>[];
   final Map<String, List<OriginDiscussPreviewItem>> _discussPreviews =
       <String, List<OriginDiscussPreviewItem>>{};
+  Future<bool>? _cacheLoadFuture;
   var _nextPage = 1;
   var _total = 0;
   var _hasMore = true;
   var _hasRequested = false;
+  var _hasAttemptedCachePreload = false;
+  var _hasLoadedCachedPage = false;
   var _scrollListenerAttached = false;
   var _isInitialLoading = false;
   var _isLoadingMore = false;
@@ -656,6 +779,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
       _scrollController.addListener(_handleScroll);
       _scrollListenerAttached = true;
     }
+    _preloadCachedItemsIfNeeded();
     _requestIfCurrentTab();
   }
 
@@ -687,8 +811,11 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
     _discussPreviews.clear();
     _nextPage = 1;
     _total = 0;
+    _cacheLoadFuture = null;
     _hasMore = true;
     _hasRequested = false;
+    _hasAttemptedCachePreload = false;
+    _hasLoadedCachedPage = false;
     _isInitialLoading = false;
     _isLoadingMore = false;
     _isRefreshing = false;
@@ -719,7 +846,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
     }
     _hasRequested = true;
     GenesisTelemetry.collectLog(actionType: 'pageview', action: 'home_popular');
-    _refreshItems();
+    unawaited(_requestInitialItems());
   }
 
   void _handleScroll() {
@@ -730,10 +857,108 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
     _loadNextPage();
   }
 
+  void _preloadCachedItemsIfNeeded() {
+    if (_hasAttemptedCachePreload) return;
+    _hasAttemptedCachePreload = true;
+    if (mounted && _items.isEmpty) {
+      setState(() {
+        _isInitialLoading = true;
+      });
+    }
+    unawaited(_loadCachedItemsOnce());
+  }
+
+  Future<void> _requestInitialItems() async {
+    if (mounted && _items.isEmpty) {
+      setState(() {
+        _isInitialLoading = true;
+      });
+    }
+    final didLoadCache = await _loadCachedItemsOnce();
+    if (!mounted) return;
+    if (!didLoadCache && _items.isEmpty) {
+      setState(() {
+        _isInitialLoading = true;
+      });
+    }
+    unawaited(_refreshItems(force: true));
+  }
+
+  Future<HomeFeedCacheStore> _cacheStoreForCurrentOwner() async {
+    final services = AppServicesScope.of(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    return HomeFeedCacheStore(
+      ownerUid: uid.isEmpty ? HomeFeedCacheStore.anonymousOwnerUid : uid,
+    );
+  }
+
+  Future<bool> _loadCachedItemsOnce() {
+    return _cacheLoadFuture ??= _loadCachedItemsIfAvailable();
+  }
+
+  Future<bool> _loadCachedItemsIfAvailable() async {
+    final cacheStore = await _cacheStoreForCurrentOwner();
+    final data = await cacheStore.load(HomeFeedCacheKind.popular);
+    if (!mounted) return false;
+    if (data == null) {
+      if (!_hasRequested) {
+        setState(() {
+          _isInitialLoading = false;
+        });
+      }
+      return false;
+    }
+
+    final page = await _parseOriginListPage(
+      data,
+      loadMissingDiscussPreviews: false,
+    );
+    if (!mounted) return false;
+    setState(() {
+      _items
+        ..clear()
+        ..addAll(page.items);
+      _discussPreviews
+        ..clear()
+        ..addAll(page.discussPreviews);
+      _total = page.total;
+      _nextPage = 2;
+      _hasMore = _items.length < _total && page.items.isNotEmpty;
+      _hasLoadedCachedPage = true;
+      _error = null;
+      _isInitialLoading = false;
+      _isLoadingMore = false;
+      _isRefreshing = false;
+    });
+    return true;
+  }
+
   Future<_OriginListPage> _fetchPage(int page) async {
-    final data = await AppServicesScope.of(
-      context,
-    ).api.v1.origin.list(scene: 'popular', pn: page, rn: _pageSize);
+    final services = AppServicesScope.of(context);
+    HomeFeedCacheStore? cacheStore;
+    if (page == 1) {
+      final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+      cacheStore = HomeFeedCacheStore(
+        ownerUid: uid.isEmpty ? HomeFeedCacheStore.anonymousOwnerUid : uid,
+      );
+    }
+    final data = await services.api.v1.origin.list(
+      scene: 'popular',
+      pn: page,
+      rn: _pageSize,
+    );
+    if (cacheStore != null) {
+      _ignoreHomeFeedCacheWrite(
+        cacheStore.save(HomeFeedCacheKind.popular, data),
+      );
+    }
+    return _parseOriginListPage(data, loadMissingDiscussPreviews: true);
+  }
+
+  Future<_OriginListPage> _parseOriginListPage(
+    Map<String, dynamic> data, {
+    required bool loadMissingDiscussPreviews,
+  }) async {
     final list = data['list'];
     final rawItems = list is List
         ? list.whereType<Map>().map((raw) => asJsonMap(raw)).toList()
@@ -750,7 +975,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
       }
     }
     final total = asInt(data['total']);
-    if (mounted) {
+    if (loadMissingDiscussPreviews && mounted) {
       final missingItems = items
           .where((item) => !discussPreviews.containsKey(item.oid))
           .toList(growable: false);
@@ -803,11 +1028,11 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
     return Map<String, List<OriginDiscussPreviewItem>>.fromEntries(entries);
   }
 
-  Future<void> _refreshItems() async {
-    if (_isInitialLoading || _isRefreshing) return;
+  Future<void> _refreshItems({bool force = false}) async {
+    if ((!force && _isInitialLoading) || _isRefreshing) return;
     setState(() {
       _error = null;
-      _isInitialLoading = _items.isEmpty;
+      _isInitialLoading = _items.isEmpty && !_hasLoadedCachedPage;
       _isRefreshing = true;
     });
 
@@ -869,7 +1094,8 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (!_hasRequested || _isInitialLoading) {
+    if (_items.isEmpty &&
+        (_isInitialLoading || (!_hasRequested && !_hasLoadedCachedPage))) {
       return const GenesisListLoadingSkeleton.popularOriginList();
     }
 

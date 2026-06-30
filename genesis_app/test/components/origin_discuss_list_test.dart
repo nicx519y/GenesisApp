@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
@@ -12,6 +11,7 @@ import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
@@ -378,7 +378,7 @@ void main() {
     expect(find.text('Updated 1'), findsOneWidget);
   });
 
-  testWidgets('renders network avatars with CachedNetworkImage', (
+  testWidgets('renders network avatars with static network image', (
     tester,
   ) async {
     final controller = OriginDiscussListController()
@@ -404,8 +404,8 @@ void main() {
     await controller.loadInitialIfNeeded();
     await tester.pumpWidget(_host(controller));
 
-    final avatar = tester.widget<CachedNetworkImage>(
-      find.byType(CachedNetworkImage).first,
+    final avatar = tester.widget<GenesisStaticNetworkImage>(
+      find.byType(GenesisStaticNetworkImage).first,
     );
     expect(avatar.imageUrl, 'https://cdn.example.com/users/u_1.png');
   });

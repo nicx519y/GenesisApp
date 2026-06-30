@@ -1,9 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_avatar_radii.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 
@@ -112,17 +112,14 @@ void main() {
       ),
     );
 
-    final image = tester.widget<CachedNetworkImage>(
-      find.byType(CachedNetworkImage),
+    final image = tester.widget<GenesisStaticNetworkImage>(
+      find.byType(GenesisStaticNetworkImage),
     );
     expect(
       image.imageUrl,
       'https://cdn.example.com/avatar_800_600.webp'
       '?x-oss-process=image/resize,w_720,image/format,webp',
     );
-    expect(image.fadeInDuration, Duration.zero);
-    expect(image.fadeOutDuration, Duration.zero);
-    expect(image.placeholderFadeInDuration, Duration.zero);
   });
 
   testWidgets('GenesisAvatar can hide fallback while network image loads', (

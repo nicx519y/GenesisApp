@@ -4,6 +4,33 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 
 void main() {
+  testWidgets('page not found route shows text without retry', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        initialRoute: RouteNames.pageNotFound,
+        onGenerateRoute: AppRouter.onGenerateRoute,
+      ),
+    );
+
+    expect(find.text('Page not found.'), findsOneWidget);
+    expect(find.text('Retry'), findsNothing);
+  });
+
+  testWidgets('unknown route falls back to page not found', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        initialRoute: '/missing',
+        onGenerateRoute: AppRouter.onGenerateRoute,
+      ),
+    );
+
+    expect(find.text('Page not found.'), findsOneWidget);
+  });
+
   testWidgets('location chat route fades during iOS transitions', (
     WidgetTester tester,
   ) async {

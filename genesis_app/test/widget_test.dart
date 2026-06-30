@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +13,7 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
@@ -3754,7 +3754,7 @@ void main() {
         false,
       );
       expect(worldRequests.single.uri.queryParameters['pn'], '1');
-      expect(worldRequests.single.uri.queryParameters['rn'], '20');
+      expect(worldRequests.single.uri.queryParameters['rn'], '10');
       expect(worldRequests.single.uri.queryParameters['scene'], 'mine');
       expect(find.text('World tick narrator 1'), findsOneWidget);
       expect(find.text('Legacy world progress summary 1'), findsNothing);
@@ -3766,7 +3766,7 @@ void main() {
       expect(originRequests, hasLength(1));
       expect(originRequests.single.uri.queryParameters['scene'], 'popular');
       expect(originRequests.single.uri.queryParameters['pn'], '1');
-      expect(originRequests.single.uri.queryParameters['rn'], '20');
+      expect(originRequests.single.uri.queryParameters['rn'], '10');
       expect(find.text('#Origin 1'), findsWidgets);
 
       final discussRequests = transport.requestsFor('/api/v1/discuss/list');
@@ -3801,7 +3801,7 @@ void main() {
     final originRequests = transport.requestsFor('/api/v1/origin/list');
     expect(originRequests, hasLength(1));
     expect(originRequests.single.uri.queryParameters['pn'], '1');
-    expect(originRequests.single.uri.queryParameters['rn'], '20');
+    expect(originRequests.single.uri.queryParameters['rn'], '10');
     expect(find.text('#Origin 1'), findsWidgets);
   });
 
@@ -3843,7 +3843,7 @@ void main() {
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
   });
 
-  testWidgets('Home My World signed-out refresh keeps empty state', (
+  testWidgets('Home My World signed-out tab keeps empty state', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -3859,31 +3859,120 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('My World'));
-    await tester.pumpAndSettle();
+    for (
+      var i = 0;
+      i < 10 && transport.requestsFor('/api/v1/origin/list').isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.tap(find.text('My Worlds'));
+    for (
+      var i = 0;
+      i < 10 &&
+          find
+              .byKey(
+                const ValueKey<String>(
+                  'home-my-worlds-empty-image:assets/images/my_worlds_empty_worldo_launch.jpg',
+                ),
+              )
+              .evaluate()
+              .isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
-    expect(find.text('No data'), findsOneWidget);
+    expect(
+      find.text(
+        'Worldo is the blueprint. Launch to create a live World you can enter and grow.',
+      ),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
       findsNothing,
     );
 
-    final refreshFuture = tester
-        .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
-        .show();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-    expect(find.text('No data'), findsOneWidget);
+    expect(
+      find.text(
+        'Worldo is the blueprint. Launch to create a live World you can enter and grow.',
+      ),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
       findsNothing,
     );
+  });
 
-    await refreshFuture;
-    await tester.pumpAndSettle();
+  testWidgets('Home My World signed-out state uses launch image', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: null,
+          ),
+          child: const HomePage(),
+        ),
+      ),
+    );
+    for (
+      var i = 0;
+      i < 10 && transport.requestsFor('/api/v1/origin/list').isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.tap(find.text('My Worlds'));
+    await tester.pump();
+    for (
+      var i = 0;
+      i < 10 &&
+          find
+              .byKey(
+                const ValueKey<String>(
+                  'home-my-worlds-empty-image:assets/images/my_worlds_empty_worldo_launch.jpg',
+                ),
+              )
+              .evaluate()
+              .isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'home-my-worlds-empty-image:assets/images/default_list_image.png',
+        ),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'home-my-worlds-empty-image:assets/images/my_worlds_empty_worldo_launch.jpg',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('World tick narrator 1'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+      findsNothing,
+    );
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
   });
 
   testWidgets('Origin list item opens origin detail with current oid', (
@@ -5495,7 +5584,7 @@ void main() {
     expect(worldRequests[1].uri.queryParameters.containsKey('uid'), false);
     expect(worldRequests[1].uri.queryParameters['scene'], 'mine');
     expect(worldRequests[1].uri.queryParameters['pn'], '2');
-    expect(worldRequests[1].uri.queryParameters['rn'], '20');
+    expect(worldRequests[1].uri.queryParameters['rn'], '10');
   });
 
   testWidgets('Origin pull refresh reloads first page', (
@@ -6255,7 +6344,7 @@ void main() {
     expect(shellBuilds, 1);
     expect(
       tester
-          .widget<CachedNetworkImage>(
+          .widget<GenesisStaticNetworkImage>(
             find.byKey(const ValueKey('user-profile-avatar-image')),
           )
           .imageUrl,
@@ -6269,7 +6358,7 @@ void main() {
     expect(find.text('Cached User'), findsOneWidget);
     expect(
       tester
-          .widget<CachedNetworkImage>(
+          .widget<GenesisStaticNetworkImage>(
             find.byKey(const ValueKey('user-profile-avatar-image')),
           )
           .imageUrl,

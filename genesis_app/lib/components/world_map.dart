@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../ui/components/genesis_character_avatar.dart';
+import '../ui/components/genesis_static_network_image.dart';
 import '../ui/tokens/genesis_avatar_radii.dart';
 import '../ui/tokens/genesis_colors.dart';
 import '../utils/genesis_image_resource.dart';
@@ -115,8 +116,6 @@ class WorldMap extends StatefulWidget {
 }
 
 class _WorldMapState extends State<WorldMap> {
-  final GlobalKey<_ZoomableMapContentState> _zoomableMapContentKey =
-      GlobalKey<_ZoomableMapContentState>();
   ScrollController? _horizontalScrollController;
   ScrollController? _verticalScrollController;
   final List<_WorldMapLocationTrailEntry> _locationTrail =
@@ -135,6 +134,8 @@ class _WorldMapState extends State<WorldMap> {
   String _lastLoggedLocationTreeSignature = '';
   String _scrollControllerSignature = '';
   WorldMapHorizontalPanState? _lastHorizontalPanState;
+  Object? _activeZoomControlToken;
+  void Function(double delta)? _zoomByControl;
   _MapTransitionSpec _mapTransition = const _MapTransitionSpec(
     origin: Alignment.center,
     direction: _MapTransitionDirection.drillIn,
@@ -315,7 +316,6 @@ class _WorldMapState extends State<WorldMap> {
                                 width: viewport.width,
                                 height: viewport.height,
                                 child: _ZoomableMapContent(
-                                  key: _zoomableMapContentKey,
                                   background: _MapBackgroundDeck(
                                     currentUrl: backgroundUrl,
                                     previewUrl: backgroundPreviewUrl,
@@ -376,6 +376,8 @@ class _WorldMapState extends State<WorldMap> {
                                         ],
                                       ),
                                   onScaleChanged: _handleMapZoomScaleChanged,
+                                  onZoomControlChanged:
+                                      _handleZoomControlChanged,
                                 ),
                               ),
                             ],
@@ -437,10 +439,8 @@ class _WorldMapState extends State<WorldMap> {
                       _mapZoomScale < _ZoomableMapContent.maxScale - 0.001,
                   canZoomOut:
                       _mapZoomScale > _ZoomableMapContent.minScale + 0.001,
-                  onZoomIn: () =>
-                      _zoomableMapContentKey.currentState?.zoomByControl(0.25),
-                  onZoomOut: () =>
-                      _zoomableMapContentKey.currentState?.zoomByControl(-0.25),
+                  onZoomIn: () => _zoomByControl?.call(0.25),
+                  onZoomOut: () => _zoomByControl?.call(-0.25),
                 ),
               ),
           ],
@@ -454,6 +454,22 @@ class _WorldMapState extends State<WorldMap> {
     setState(() {
       _mapZoomScale = scale;
     });
+  }
+
+  void _handleZoomControlChanged(
+    Object token,
+    void Function(double delta)? zoomByControl,
+  ) {
+    if (zoomByControl == null) {
+      if (identical(_activeZoomControlToken, token)) {
+        _activeZoomControlToken = null;
+        _zoomByControl = null;
+      }
+      return;
+    }
+
+    _activeZoomControlToken = token;
+    _zoomByControl = zoomByControl;
   }
 
   VoidCallback? _pointTapHandler(WorldPoint point) {
@@ -951,11 +967,7 @@ class _WorldMapState extends State<WorldMap> {
         final image = imageInfo.image;
         final size = Size(image.width.toDouble(), image.height.toDouble());
         if (size.isEmpty) return;
-        if (!mounted) {
-          _mapImageDimensionsByUrl[url] = size;
-          return;
-        }
-        setState(() => _mapImageDimensionsByUrl[url] = size);
+        _applyResolvedMapImageDimensions(url, size);
       },
       onError: (error, stackTrace) {
         stream.removeListener(listener);
@@ -966,6 +978,23 @@ class _WorldMapState extends State<WorldMap> {
       },
     );
     stream.addListener(listener);
+  }
+
+  void _applyResolvedMapImageDimensions(String url, Size size) {
+    final previousSize = _mapImageDimensionsByUrl[url];
+    if (previousSize == size) return;
+    _mapImageDimensionsByUrl[url] = size;
+    if (!mounted) return;
+
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+      return;
+    }
+
+    setState(() {});
   }
 
   void _debugPrintLocationTree(String reason) {
@@ -1386,9 +1415,7 @@ class _MapBackgroundDeckState extends State<_MapBackgroundDeck> {
   }
 
   ImageProvider _avatarImageProvider(String url) {
-    return url.startsWith('assets/')
-        ? AssetImage(url)
-        : CachedNetworkImageProvider(url);
+    return url.startsWith('assets/') ? AssetImage(url) : NetworkImage(url);
   }
 
   @override
@@ -1408,13 +1435,15 @@ typedef _MapOverlayBuilder =
       Matrix4 transform,
       ValueChanged<PointerDownEvent> onOverlayPointerDown,
     );
+typedef _ZoomControlChanged =
+    void Function(Object token, void Function(double delta)? zoomByControl);
 
 class _ZoomableMapContent extends StatefulWidget {
   const _ZoomableMapContent({
-    super.key,
     required this.background,
     required this.overlayBuilder,
     required this.onScaleChanged,
+    required this.onZoomControlChanged,
   });
 
   static const double minScale = 1;
@@ -1424,6 +1453,7 @@ class _ZoomableMapContent extends StatefulWidget {
   final Widget background;
   final _MapOverlayBuilder overlayBuilder;
   final ValueChanged<double> onScaleChanged;
+  final _ZoomControlChanged onZoomControlChanged;
 
   @override
   State<_ZoomableMapContent> createState() => _ZoomableMapContentState();
@@ -1432,6 +1462,7 @@ class _ZoomableMapContent extends StatefulWidget {
 class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   late final TransformationController _transformationController =
       TransformationController();
+  final Object _zoomControlToken = Object();
   final Set<int> _activePointers = <int>{};
   final Set<int> _overlayPointers = <int>{};
   final Map<int, Offset> _activePointerPositions = <int, Offset>{};
@@ -1446,10 +1477,21 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   void initState() {
     super.initState();
     _transformationController.addListener(_notifyScaleChanged);
+    widget.onZoomControlChanged(_zoomControlToken, zoomByControl);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ZoomableMapContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.onZoomControlChanged != widget.onZoomControlChanged) {
+      oldWidget.onZoomControlChanged(_zoomControlToken, null);
+      widget.onZoomControlChanged(_zoomControlToken, zoomByControl);
+    }
   }
 
   @override
   void dispose() {
+    widget.onZoomControlChanged(_zoomControlToken, null);
     _transformationController.removeListener(_notifyScaleChanged);
     _transformationController.dispose();
     super.dispose();
@@ -1889,21 +1931,16 @@ class _MapBackgroundState extends State<_MapBackground> {
           fallbackOnEmptyUrl: widget.fallbackOnEmptyUrl,
         ),
         if (_showFullImage)
-          Image.network(
-            trimmedUrl,
+          GenesisStaticNetworkImage(
+            imageUrl: trimmedUrl,
             fit: BoxFit.cover,
-            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-              if (wasSynchronouslyLoaded || frame != null) _notifyLoaded();
-              return child;
-            },
-            errorBuilder: (context, error, stackTrace) {
+            onImageLoaded: _notifyLoaded,
+            placeholder: (_) => const SizedBox.shrink(),
+            errorWidget: (context, error) {
               _notifyLoaded();
               return widget.fallbackOnEmptyUrl
                   ? const _FallbackMapBackground()
                   : const SizedBox.shrink();
-            },
-            loadingBuilder: (context, child, loadingProgress) {
-              return loadingProgress == null ? child : const SizedBox.shrink();
             },
           ),
       ],
@@ -1929,17 +1966,13 @@ class _MapBackgroundPreview extends StatelessWidget {
           : const _MapBackgroundPlaceholder();
     }
 
-    return Image.network(
-      trimmedUrl,
+    return GenesisStaticNetworkImage(
+      imageUrl: trimmedUrl,
       fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) {
+      placeholder: (_) => const _MapBackgroundPlaceholder(),
+      errorWidget: (context, error) {
         return fallbackOnEmptyUrl
             ? const _FallbackMapBackground()
-            : const _MapBackgroundPlaceholder();
-      },
-      loadingBuilder: (context, child, loadingProgress) {
-        return loadingProgress == null
-            ? child
             : const _MapBackgroundPlaceholder();
       },
     );

@@ -12,9 +12,28 @@ void main() {
       ),
       platformResolver: () => 'android',
       systemUserAgentLoader: () async => 'Android 15',
+      systemLanguageLoader: () async => 'zh-CN',
     );
 
-    expect(await provider.headers(), {'user-agent': 'Android 15'});
+    expect(await provider.headers(), {
+      'user-agent': 'Android 15',
+      'x-system-language': 'zh-CN',
+    });
+  });
+
+  test('omits blank or unavailable system header values', () async {
+    final provider = AppRequestHeaderProvider(
+      appVersionLoader: () async => const AppVersionInfo(
+        packageName: 'com.worldo.ai',
+        versionName: '0.1.0',
+        versionCode: '1',
+      ),
+      platformResolver: () => 'android',
+      systemUserAgentLoader: () async => ' ',
+      systemLanguageLoader: () async => throw StateError('unavailable'),
+    );
+
+    expect(await provider.headers(), isEmpty);
   });
 
   test('builds encrypted Gateway identity for Android metadata', () async {

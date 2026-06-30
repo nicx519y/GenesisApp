@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,6 +21,7 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/components/genesis_static_network_image.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 
@@ -2036,16 +2036,7 @@ class _LocationChatBackground extends StatelessWidget {
               logicalHeight: constraints.maxHeight,
               devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
             );
-            return Image(
-              image: _locationChatBackgroundProvider(url),
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-              width: double.infinity,
-              height: double.infinity,
-              errorBuilder: (context, error, stackTrace) {
-                return const SizedBox.expand();
-              },
-            );
+            return _LocationChatBackgroundImage(url: url);
           },
         ),
       ),
@@ -2072,11 +2063,34 @@ String _resolveLocationChatBackgroundUrl(
   return _locationChatDefaultBackgroundAsset;
 }
 
-ImageProvider _locationChatBackgroundProvider(String url) {
-  final resolved = url.trim();
-  return resolved.startsWith('assets/')
-      ? AssetImage(resolved)
-      : CachedNetworkImageProvider(resolved);
+class _LocationChatBackgroundImage extends StatelessWidget {
+  const _LocationChatBackgroundImage({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolved = url.trim();
+    if (resolved.startsWith('assets/')) {
+      return Image.asset(
+        resolved,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (context, error, stackTrace) {
+          return const SizedBox.expand();
+        },
+      );
+    }
+    return GenesisStaticNetworkImage(
+      imageUrl: resolved,
+      fit: BoxFit.cover,
+      alignment: Alignment.center,
+      placeholder: (_) => const SizedBox.expand(),
+      errorWidget: (_, _) => const SizedBox.expand(),
+    );
+  }
 }
 
 @visibleForTesting

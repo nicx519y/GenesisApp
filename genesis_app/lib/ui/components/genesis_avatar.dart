@@ -1,6 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import 'genesis_static_network_image.dart';
 import '../tokens/genesis_avatar_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
@@ -87,34 +87,24 @@ class GenesisAvatar extends StatelessWidget {
               return showFallbackWhenUnavailable ? fallback : hiddenPlaceholder;
             },
           )
-        : CachedNetworkImage(
+        : GenesisStaticNetworkImage(
             key: imageKey,
             imageUrl: resolvedUrl,
             width: imageWidth,
             height: imageHeight,
             fit: fit,
             alignment: alignment,
-            fadeInDuration: Duration.zero,
-            fadeOutDuration: Duration.zero,
-            placeholderFadeInDuration: Duration.zero,
-            imageBuilder: (context, imageProvider) {
+            onImageLoaded: () {
               _notifyAvatarVisibility(onVisibilityChanged, true);
-              return Image(
-                image: imageProvider,
-                width: imageWidth,
-                height: imageHeight,
-                fit: fit,
-                alignment: alignment,
-              );
             },
-            placeholder: (context, url) {
+            placeholder: (context) {
               _notifyAvatarVisibility(
                 onVisibilityChanged,
                 showFallbackWhileLoading,
               );
               return showFallbackWhileLoading ? fallback : hiddenPlaceholder;
             },
-            errorWidget: (context, url, error) {
+            errorWidget: (context, error) {
               _notifyAvatarVisibility(
                 onVisibilityChanged,
                 showFallbackWhenUnavailable,
