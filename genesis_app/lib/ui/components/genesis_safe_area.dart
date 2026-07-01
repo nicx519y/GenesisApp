@@ -182,18 +182,12 @@ class GenesisBottomSafePadding extends StatelessWidget {
 
   final Widget child;
   final double minimum;
-  static const double _iosBottomPaddingFactor = 1 / 3;
 
   @override
   Widget build(BuildContext context) {
-    final rawBottomPadding = MediaQuery.viewPaddingOf(context).bottom;
-    final adjustedBottomPadding =
-        Theme.of(context).platform == TargetPlatform.iOS
-        ? rawBottomPadding * _iosBottomPaddingFactor
-        : rawBottomPadding;
     return Padding(
       padding: EdgeInsets.only(
-        bottom: math.max(adjustedBottomPadding, minimum),
+        bottom: GenesisSafeAreaInsets.bottom(context, minimum: minimum),
       ),
       child: child,
     );

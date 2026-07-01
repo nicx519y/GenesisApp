@@ -760,7 +760,6 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: ThemeData(platform: TargetPlatform.android),
         home: MediaQuery(
           data: const MediaQueryData(
             padding: EdgeInsets.zero,
@@ -789,42 +788,6 @@ void main() {
       ),
     );
     expect(padding.padding, const EdgeInsets.only(bottom: 30));
-  });
-
-  testWidgets('GenesisBottomNavigation reduces iOS bottom padding', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(platform: TargetPlatform.iOS),
-        home: MediaQuery(
-          data: const MediaQueryData(
-            padding: EdgeInsets.zero,
-            viewPadding: EdgeInsets.only(bottom: 30),
-          ),
-          child: Scaffold(
-            bottomNavigationBar: GenesisBottomNavigation(
-              currentIndex: 0,
-              onTap: (_) {},
-              items: const [
-                GenesisBottomNavigationItem(
-                  label: 'Home',
-                  icon: Icons.home_outlined,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-
-    final padding = tester.widget<Padding>(
-      find.descendant(
-        of: find.byType(GenesisBottomNavigation),
-        matching: find.byType(Padding),
-      ),
-    );
-    expect(padding.padding, const EdgeInsets.only(bottom: 10));
   });
 
   testWidgets('GenesisBottomSystemBarBoundary excludes three-button area', (
