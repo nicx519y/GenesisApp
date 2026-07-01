@@ -1,12 +1,37 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_upload_progress_overlay.dart';
 import 'package:genesis_flutter_android/components/discuss/discuss_post_input.dart';
+import 'package:image/image.dart' as img;
 
 void main() {
+  setUp(() {
+    debugDiscussImageProcessorOverride = _testPrepareDiscussImageForUpload;
+  });
+
+  tearDown(() {
+    debugDiscussImageProcessorOverride = null;
+  });
+
+  test('estimates compression progress from original image size', () {
+    final halfwayProgress = estimateDiscussCompressionProgressForTesting(
+      byteCount: 4 * 1024 * 1024,
+      elapsed: const Duration(seconds: 1),
+    );
+    expect(halfwayProgress, closeTo(0.05, 0.01));
+
+    final cappedProgress = estimateDiscussCompressionProgressForTesting(
+      byteCount: 4 * 1024 * 1024,
+      elapsed: const Duration(seconds: 5),
+    );
+    expect(cappedProgress, lessThan(0.10));
+    expect(cappedProgress, greaterThan(0.09));
+  });
+
   testWidgets('keeps status bar white while composer opens and closes', (
     WidgetTester tester,
   ) async {
@@ -271,6 +296,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
+    await _pumpUntil(tester, () => uploadCompleters.length == 6);
     expect(uploadCompleters, hasLength(6));
     for (var i = 0; i < discussPostMaxImages; i++) {
       expect(find.byKey(ValueKey('discuss-image-thumb-$i')), findsOneWidget);
@@ -322,6 +348,52 @@ void main() {
         'https://cdn.example.com/$i.jpg',
     ]);
     expect(find.text('New post'), findsNothing);
+  });
+
+  testWidgets('shows selected thumbnails with compression progress', (
+    WidgetTester tester,
+  ) async {
+    final pickerCompleter = Completer<List<DiscussPickedImage>>();
+    final uploadCompleter = Completer<String>();
+    var uploadCallCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DiscussPostInput(
+            bizId: 'o_test_1',
+            requireLogin: false,
+            imagePicker: (limit) => pickerCompleter.future,
+            imageUploader: (image) {
+              uploadCallCount += 1;
+              return uploadCompleter.future;
+            },
+            submitter: (content, images) async => <String, dynamic>{},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Write a post').first);
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('discuss-image-picker-button')));
+    await tester.pump();
+    await tester.pump();
+
+    pickerCompleter.complete(<DiscussPickedImage>[_pickedImage(0)]);
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('discuss-image-thumb-0')), findsOneWidget);
+    await _pumpUntil(tester, () => uploadCallCount == 1);
+    expect(uploadCallCount, 1);
+    await tester.pump();
+    expect(find.text('10%'), findsOneWidget);
+
+    uploadCompleter.complete('https://cdn.example.com/0.jpg');
+    await tester.pumpAndSettle();
   });
 
   testWidgets('shows add tile below limit and removes selected images', (
@@ -425,7 +497,7 @@ void main() {
 
     expect(pickCount, 2);
     expect(requestedLimits, <int>[6, 1]);
-    expect(uploadedFilenames, contains('image_99.png'));
+    expect(uploadedFilenames, contains('image_99.jpg'));
     expect(find.byKey(const ValueKey('discuss-image-thumb-6')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('discuss-image-add-button')),
@@ -721,78 +793,41 @@ void main() {
 
 DiscussPickedImage _pickedImage(int index) {
   return DiscussPickedImage(
-    bytes: Uint8List.fromList(_transparentPng),
+    bytes: _opaquePng(),
     filename: 'image_$index.png',
     contentType: 'image/png',
   );
 }
 
-const _transparentPng = <int>[
-  0x89,
-  0x50,
-  0x4E,
-  0x47,
-  0x0D,
-  0x0A,
-  0x1A,
-  0x0A,
-  0x00,
-  0x00,
-  0x00,
-  0x0D,
-  0x49,
-  0x48,
-  0x44,
-  0x52,
-  0x00,
-  0x00,
-  0x00,
-  0x01,
-  0x00,
-  0x00,
-  0x00,
-  0x01,
-  0x08,
-  0x06,
-  0x00,
-  0x00,
-  0x00,
-  0x1F,
-  0x15,
-  0xC4,
-  0x89,
-  0x00,
-  0x00,
-  0x00,
-  0x0A,
-  0x49,
-  0x44,
-  0x41,
-  0x54,
-  0x78,
-  0x9C,
-  0x63,
-  0x00,
-  0x01,
-  0x00,
-  0x00,
-  0x05,
-  0x00,
-  0x01,
-  0x0D,
-  0x0A,
-  0x2D,
-  0xB4,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x49,
-  0x45,
-  0x4E,
-  0x44,
-  0xAE,
-  0x42,
-  0x60,
-  0x82,
-];
+Uint8List _opaquePng() {
+  final image = img.Image(width: 1, height: 1);
+  image.setPixelRgba(0, 0, 25, 139, 100, 255);
+  return Uint8List.fromList(img.encodePng(image));
+}
+
+Future<void> _pumpUntil(
+  WidgetTester tester,
+  bool Function() condition, {
+  int maxPumps = 20,
+}) async {
+  for (var index = 0; index < maxPumps; index += 1) {
+    if (condition()) return;
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
+Future<Map<String, Object>> _testPrepareDiscussImageForUpload(
+  Map<String, Object> request,
+) async {
+  final decoded = img.decodeImage(request['bytes']! as Uint8List);
+  if (decoded == null) {
+    throw StateError('Image decode failed');
+  }
+  final filename = request['filename']! as String;
+  final base = filename.replaceFirst(RegExp(r'\.[^.]+$'), '');
+  return <String, Object>{
+    'bytes': Uint8List.fromList(img.encodeJpg(decoded, quality: 85)),
+    'filename': '${base.isEmpty ? 'upload' : base}.jpg',
+    'content_type': 'image/jpeg',
+  };
+}

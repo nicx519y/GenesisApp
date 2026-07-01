@@ -23,6 +23,8 @@ import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/image_format_guards.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/text/genesis_text_input_formatters.dart';
+import '../../ui/tokens/genesis_typography.dart';
 import 'settings_page.dart';
 
 class MePage extends StatefulWidget {
@@ -1062,7 +1064,9 @@ class _NickNameDialogState extends State<_NickNameDialog> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.initialValue);
+    _controller = TextEditingController(
+      text: genesisDisplaySafeText(widget.initialValue),
+    );
   }
 
   @override
@@ -1082,6 +1086,8 @@ class _NickNameDialogState extends State<_NickNameDialog> {
         controller: _controller,
         autofocus: true,
         textInputAction: TextInputAction.done,
+        inputFormatters: const [GenesisDisplaySafeTextInputFormatter()],
+        style: GenesisTypography.withFallback(const TextStyle()),
         // decoration: const InputDecoration(labelText: 'Nick Name'),
         onSubmitted: (value) => Navigator.of(context).pop(value),
       ),

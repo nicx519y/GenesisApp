@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../text/genesis_text_input_formatters.dart';
 import '../tokens/genesis_spacing.dart';
+import '../tokens/genesis_typography.dart';
 import '../theme/genesis_ui_theme.dart';
 
 const genesisSearchFieldHeight = 38.0;
@@ -52,8 +54,12 @@ class GenesisSearchField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final uiTheme = GenesisUiTheme.of(context);
-    final effectiveHintStyle = hintStyle ?? uiTheme.searchHintStyle;
-    final effectiveTextStyle = textStyle ?? uiTheme.searchTextStyle;
+    final effectiveHintStyle = GenesisTypography.withFallback(
+      hintStyle ?? uiTheme.searchHintStyle,
+    );
+    final effectiveTextStyle = GenesisTypography.withFallback(
+      textStyle ?? uiTheme.searchTextStyle,
+    );
     final editable = controller != null;
     final child = Container(
       height: height,
@@ -89,6 +95,9 @@ class GenesisSearchField extends StatelessWidget {
                     textInputAction: textInputAction,
                     readOnly: readOnly,
                     autofocus: autofocus,
+                    inputFormatters: const [
+                      GenesisDisplaySafeTextInputFormatter(),
+                    ],
                     onTapOutside: (_) =>
                         FocusManager.instance.primaryFocus?.unfocus(),
                     maxLines: 1,

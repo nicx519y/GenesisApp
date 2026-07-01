@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 void main() {
   testWidgets('chat message list can render an oldest-edge notice', (
@@ -405,6 +406,114 @@ void main() {
     );
     expect(_textHasItalicFragment(bubbleText, 'quietly'), isTrue);
     expect(_textFragmentColor(bubbleText, 'quietly'), const Color(0xFF888888));
+  });
+
+  testWidgets(
+    'chat message bubble uses decorative unicode visual fallback text',
+    (WidgetTester tester) async {
+      const raw = '☛ ˙۵ও⃢♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀〬𓈒ֹ⁠꙳';
+      const rendered = '☛ ˙۵▤▤▤♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀°ₒ✩';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatMessageBubble(
+              message: ChatMessageVm(
+                localId: 'unicode-message',
+                senderId: 'me',
+                senderName: 'Me',
+                text: raw,
+                isMe: true,
+                status: 'sent',
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final text = tester.widget<Text>(
+        find.descendant(
+          of: find.byType(ChatMessageBubble),
+          matching: find.byType(Text),
+        ),
+      );
+      expect(text.textSpan?.toPlainText(), rendered);
+      expect(text.textSpan?.style?.fontFamily, isNull);
+      expect(
+        text.textSpan?.style?.fontFamilyFallback,
+        GenesisTypography.fallbackFontFamilies,
+      );
+    },
+  );
+
+  testWidgets('chat message bubble uses soft markdown emphasis on iOS', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'peer',
+              senderName: 'Peer',
+              text: 'hello *quietly*',
+              isMe: false,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    final style = _firstSkewedWidgetFragmentStyle(
+      tester.widgetList<Text>(
+        find.descendant(
+          of: find.byType(ChatMessageBubble),
+          matching: find.byType(Text),
+        ),
+      ),
+      'quietly',
+    );
+    expect(style?.fontStyle, FontStyle.normal);
+    expect(style?.color, const Color(0xFF888888));
+  });
+
+  testWidgets('chat message bubble skews iOS markdown emphasis per token', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'peer',
+              senderName: 'Peer',
+              text: 'hello *quietly now*',
+              isMe: false,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    final pieces = _skewedWidgetFragmentTexts(
+      tester.widgetList<Text>(
+        find.descendant(
+          of: find.byType(ChatMessageBubble),
+          matching: find.byType(Text),
+        ),
+      ),
+    );
+
+    expect(pieces, containsAll(<String>['quietly', 'now']));
+    expect(pieces, isNot(contains('quietly now')));
   });
 
   testWidgets('chat rows reserve matching avatar space on both sides', (
@@ -991,6 +1100,40 @@ void main() {
     expect(sendCount, 1);
   });
 
+  testWidgets('chat composer uses decorative unicode visual fallback input', (
+    WidgetTester tester,
+  ) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+    const raw = '☛ ˙۵ও⃢♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀〬𓈒ֹ⁠꙳';
+    const rendered = '☛ ˙۵▤▤▤♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀°ₒ✩';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatComposer(
+            controller: controller,
+            inputEnabled: true,
+            sendEnabled: true,
+            sending: false,
+            onSend: () async {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), raw);
+    await tester.pump();
+
+    expect(controller.text, rendered);
+    final input = tester.widget<TextField>(find.byType(TextField));
+    expect(input.style?.fontFamily, isNull);
+    expect(
+      input.style?.fontFamilyFallback,
+      GenesisTypography.fallbackFontFamilies,
+    );
+  });
+
   testWidgets('chat composer send button keeps text field focused', (
     WidgetTester tester,
   ) async {
@@ -1187,15 +1330,90 @@ bool _textHasItalicFragment(Text text, String value) {
 }
 
 Color? _textFragmentColor(Text text, String value) {
+  return _textFragmentStyle(text, value)?.color;
+}
+
+TextStyle? _textFragmentStyle(Text text, String value) {
   final span = text.textSpan;
   if (span == null) return null;
-  Color? color;
+  TextStyle? style;
   span.visitChildren((child) {
     if (child is TextSpan && child.text == value) {
-      color = child.style?.color;
+      style = child.style;
       return false;
     }
     return true;
   });
-  return color;
+  return style;
+}
+
+TextStyle? _firstSkewedWidgetFragmentStyle(Iterable<Text> texts, String value) {
+  for (final text in texts) {
+    final style = _skewedWidgetFragmentStyle(text.textSpan, value);
+    if (style != null) return style;
+  }
+  return null;
+}
+
+List<String> _skewedWidgetFragmentTexts(Iterable<Text> texts) {
+  final values = <String>[];
+  for (final text in texts) {
+    _collectSkewedWidgetFragmentTexts(text.textSpan, values);
+  }
+  return values;
+}
+
+void _collectSkewedWidgetFragmentTexts(InlineSpan? span, List<String> values) {
+  if (span == null) return;
+  span.visitChildren((child) {
+    if (child is WidgetSpan) {
+      final value = _skewedTextValue(child.child);
+      if (value != null) values.add(value);
+    }
+    return true;
+  });
+}
+
+TextStyle? _skewedWidgetFragmentStyle(InlineSpan? span, String value) {
+  if (span == null) return null;
+  TextStyle? style;
+  span.visitChildren((child) {
+    if (child is WidgetSpan) {
+      final childStyle = _skewedTextStyle(child.child, value);
+      if (childStyle != null) {
+        style = childStyle;
+        return false;
+      }
+    }
+    return true;
+  });
+  return style;
+}
+
+String? _skewedTextValue(Widget widget) {
+  if (widget is! Transform) return null;
+  if (!_matchesIosInlineEmphasisSkew(widget.transform)) return null;
+  final child = widget.child;
+  if (child is Text) return child.data;
+  return null;
+}
+
+TextStyle? _skewedTextStyle(Widget widget, String value) {
+  if (widget is! Transform) return null;
+  if (!_matchesIosInlineEmphasisSkew(widget.transform)) return null;
+  final child = widget.child;
+  if (child is Text && child.data == value) {
+    return child.style;
+  }
+  return null;
+}
+
+bool _matchesIosInlineEmphasisSkew(Matrix4 transform) {
+  final expected = Matrix4.skewX(GenesisTypography.iosInlineEmphasisSkew);
+  for (var index = 0; index < transform.storage.length; index += 1) {
+    if ((transform.storage[index] - expected.storage[index]).abs() > 0.0001) {
+      return false;
+    }
+  }
+  return true;
 }
