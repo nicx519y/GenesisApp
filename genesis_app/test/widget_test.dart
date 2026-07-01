@@ -8559,6 +8559,25 @@ void main() {
   testWidgets('developer page shows android device id diagnostics', (
     WidgetTester tester,
   ) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      GenesisMethodChannels.device,
+      (call) async {
+        if (call.method == GenesisMethodChannels.getAppVersion) {
+          return {
+            'versionName': '0.2.2',
+            'versionCode': 2022,
+            'packageName': 'com.worldo.ai',
+          };
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        GenesisMethodChannels.device,
+        null,
+      );
+    });
     final services = await _testServices(
       deviceIdService: const _FakeDeviceIdDiagnosticsService(),
     );
@@ -8589,6 +8608,7 @@ void main() {
     );
     expect(find.text('Device ID:'), findsOneWidget);
     expect(find.text('resolved-device-id'), findsOneWidget);
+    expect(find.text('0.2.2/2022'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('android-id')).dy,
       tester.getTopLeft(find.text('ANDROID_ID:')).dy,

@@ -390,6 +390,15 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     return trimmed.isEmpty ? 'unknown' : trimmed;
   }
 
+  String _versionLabel(AppVersionInfo? versionInfo) {
+    final versionName = versionInfo?.versionName.trim() ?? '';
+    final versionCode = versionInfo?.versionCode.trim() ?? '';
+    final base = AboutUsPage.versionLabel(
+      versionName,
+    ).replaceFirst(RegExp('^v'), '');
+    return versionCode.isEmpty ? base : '$base/$versionCode';
+  }
+
   String _formatAgentControlStatus(AgentControlStatus status) {
     final parts = <String>[status.label];
     final port = status.port;
@@ -435,7 +444,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             future: _appVersionFuture,
             builder: (context, snapshot) {
               final value = snapshot.connectionState == ConnectionState.done
-                  ? AboutUsPage.versionLabel(snapshot.data?.versionName ?? '')
+                  ? _versionLabel(snapshot.data)
                   : 'Loading...';
               return _DeveloperInfoRow(title: 'Version', content: value);
             },
