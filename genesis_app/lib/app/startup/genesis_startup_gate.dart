@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../components/common/genesis_modal_routes.dart';
@@ -81,11 +82,13 @@ class _GenesisStartupGateState extends State<GenesisStartupGate>
         AppTrackingAuthorizationStatus.notSupported;
     try {
       GenesisSystemUiChrome.applyDefault();
-      await widget.ensureFirebasePerformanceMonitoring();
-      await widget.primeNetworkPermission(widget.services);
-      await _waitForSystemDialogToClose();
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        await widget.primeNetworkPermission(widget.services);
+        await _waitForSystemDialogToClose();
+      }
       trackingAuthorizationStatus = await widget.requestTrackingAuthorization();
       await _waitForSystemDialogToClose();
+      await widget.ensureFirebasePerformanceMonitoring();
       await GenesisTelemetry.initialize(
         config: widget.config,
         deviceIdService: widget.services.deviceId,

@@ -51,7 +51,9 @@ class AppBootstrap {
 
   static Future<void> _initializeFirebasePerformanceMonitoring() async {
     try {
-      await Firebase.initializeApp().timeout(_firebaseInitializeTimeout);
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp().timeout(_firebaseInitializeTimeout);
+      }
       await FirebasePerformanceMonitoring.enable();
     } catch (e, st) {
       _firebasePerformanceInitialization = null;
