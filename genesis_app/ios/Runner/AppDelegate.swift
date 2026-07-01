@@ -81,6 +81,8 @@ import UniformTypeIdentifiers
         result(self.appVersionInfo())
       case "getSystemUserAgent":
         result("\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)")
+      case "getTimeZone":
+        result(TimeZone.current.identifier)
       case "requestTrackingAuthorization":
         self.requestTrackingAuthorization(result: result)
       case "trackingAuthorizationStatus":

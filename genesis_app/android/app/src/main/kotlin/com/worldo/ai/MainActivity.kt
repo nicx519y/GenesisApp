@@ -32,6 +32,7 @@ import java.security.PublicKey
 import java.security.Signature
 import java.security.spec.ECGenParameterSpec
 import java.util.Locale
+import java.util.TimeZone
 import java.util.UUID
 
 class MainActivity : FlutterActivity() {
@@ -113,6 +114,9 @@ class MainActivity : FlutterActivity() {
                 }
                 "getSystemUserAgent" -> {
                     result.success("Android ${Build.VERSION.RELEASE}")
+                }
+                "getTimeZone" -> {
+                    result.success(TimeZone.getDefault().id)
                 }
                 "openExternalUrl" -> {
                     val url = call.argument<String>("url") ?: ""

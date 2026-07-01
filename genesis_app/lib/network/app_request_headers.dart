@@ -12,6 +12,7 @@ typedef AppVersionInfoLoader = Future<AppVersionInfo> Function();
 typedef AppPlatformResolver = String? Function();
 typedef SystemUserAgentLoader = Future<String> Function();
 typedef SystemLanguageLoader = Future<String> Function();
+typedef AppTimeZoneLoader = Future<String> Function();
 
 const Set<String> legacyAppPublicHeaderNames = {
   'app-platform',
@@ -34,6 +35,7 @@ class AppRequestHeaderProvider {
     AppPlatformResolver? platformResolver,
     SystemUserAgentLoader? systemUserAgentLoader,
     SystemLanguageLoader? systemLanguageLoader,
+    AppTimeZoneLoader? appTimeZoneLoader,
     String hmacKey = const String.fromEnvironment(
       'GENESIS_APP_ID_HMAC_KEY',
       defaultValue: 'genesis-app-id-v1',
@@ -42,20 +44,27 @@ class AppRequestHeaderProvider {
        _platformResolver = platformResolver ?? resolveCurrentPlatform,
        _systemUserAgentLoader = systemUserAgentLoader ?? _loadSystemUserAgent,
        _systemLanguageLoader = systemLanguageLoader ?? _loadSystemLanguage,
+       _appTimeZoneLoader = appTimeZoneLoader ?? _loadAppTimeZone,
        _hmacKey = hmacKey;
 
   final AppVersionInfoLoader _appVersionLoader;
   final AppPlatformResolver _platformResolver;
   final SystemUserAgentLoader _systemUserAgentLoader;
   final SystemLanguageLoader _systemLanguageLoader;
+  final AppTimeZoneLoader _appTimeZoneLoader;
   final String _hmacKey;
 
   Future<Map<String, String>> headers() async {
+    final versionInfo = await _safeLoadAppVersion();
     final userAgent = await _safeLoadHeaderValue(_systemUserAgentLoader);
     final systemLanguage = await _safeLoadHeaderValue(_systemLanguageLoader);
+    final appTimeZone = await _safeLoadHeaderValue(_appTimeZoneLoader);
+    final versionCode = versionInfo.versionCode.trim();
     return <String, String>{
       if (userAgent.isNotEmpty) 'user-agent': userAgent,
       if (systemLanguage.isNotEmpty) 'x-system-language': systemLanguage,
+      if (versionCode.isNotEmpty) 'x-app-version-code': versionCode,
+      if (appTimeZone.isNotEmpty) 'x-app-timezone': appTimeZone,
     };
   }
 
@@ -101,6 +110,21 @@ class AppRequestHeaderProvider {
   static Future<String> _loadSystemLanguage() async {
     final locale = ui.PlatformDispatcher.instance.locale;
     return locale.toLanguageTag();
+  }
+
+  static Future<String> _loadAppTimeZone() async {
+    final value = await GenesisMethodChannels.device.invokeMethod<String>(
+      GenesisMethodChannels.getTimeZone,
+    );
+    return value ?? '';
+  }
+
+  Future<AppVersionInfo> _safeLoadAppVersion() async {
+    try {
+      return await _appVersionLoader();
+    } catch (_) {
+      return const AppVersionInfo();
+    }
   }
 
   static Future<String> _safeLoadHeaderValue(

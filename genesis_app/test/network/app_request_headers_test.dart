@@ -13,15 +13,18 @@ void main() {
       platformResolver: () => 'android',
       systemUserAgentLoader: () async => 'Android 15',
       systemLanguageLoader: () async => 'zh-CN',
+      appTimeZoneLoader: () async => 'Asia/Shanghai',
     );
 
     expect(await provider.headers(), {
       'user-agent': 'Android 15',
       'x-system-language': 'zh-CN',
+      'x-app-version-code': '1',
+      'x-app-timezone': 'Asia/Shanghai',
     });
   });
 
-  test('omits blank or unavailable system header values', () async {
+  test('omits blank or unavailable optional header values', () async {
     final provider = AppRequestHeaderProvider(
       appVersionLoader: () async => const AppVersionInfo(
         packageName: 'com.worldo.ai',
@@ -31,9 +34,10 @@ void main() {
       platformResolver: () => 'android',
       systemUserAgentLoader: () async => ' ',
       systemLanguageLoader: () async => throw StateError('unavailable'),
+      appTimeZoneLoader: () async => '',
     );
 
-    expect(await provider.headers(), isEmpty);
+    expect(await provider.headers(), {'x-app-version-code': '1'});
   });
 
   test('builds encrypted Gateway identity for Android metadata', () async {
