@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/local_image_crop_page.dart';
@@ -1057,6 +1058,8 @@ class _NickNameDialog extends StatefulWidget {
 }
 
 class _NickNameDialogState extends State<_NickNameDialog> {
+  static const int _maxLength = 30;
+
   late final TextEditingController _controller;
 
   @override
@@ -1073,28 +1076,83 @@ class _NickNameDialogState extends State<_NickNameDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text(
-        'Edit Nick Name',
-        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
-      ),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        textInputAction: TextInputAction.done,
-        // decoration: const InputDecoration(labelText: 'Nick Name'),
-        onSubmitted: (value) => Navigator.of(context).pop(value),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+    return GenesisActionBox<String>(
+      title: 'Edit name',
+      titleHeight: 126,
+      titleContentSpacing: 24,
+      titleContent: Transform.translate(
+        offset: const Offset(0, 4),
+        child: _NickNameInput(
+          controller: _controller,
+          maxLength: _maxLength,
+          onChanged: () => setState(() {}),
+          onSubmitted: (value) => Navigator.of(context).pop(value),
         ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(_controller.text),
-          child: const Text('OK'),
-        ),
-      ],
+      ),
+      actions: const [GenesisActionBoxAction<String>(label: 'OK', value: 'ok')],
+      onActionSelected: (_) => Navigator.of(context).pop(_controller.text),
+      onCancel: () => Navigator.of(context).pop(),
+    );
+  }
+}
+
+class _NickNameInput extends StatelessWidget {
+  const _NickNameInput({
+    required this.controller,
+    required this.maxLength,
+    required this.onChanged,
+    required this.onSubmitted,
+  });
+
+  final TextEditingController controller;
+  final int maxLength;
+  final VoidCallback onChanged;
+  final ValueChanged<String> onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    const border = UnderlineInputBorder(
+      borderSide: BorderSide(color: Color(0xFFD8D8DE)),
+    );
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          TextField(
+            key: const ValueKey<String>('me-edit-nickname-input'),
+            controller: controller,
+            autofocus: true,
+            maxLines: 1,
+            maxLength: maxLength,
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(
+              isDense: true,
+              counterText: '',
+              enabledBorder: border,
+              focusedBorder: border,
+              contentPadding: EdgeInsets.only(bottom: 5),
+            ),
+            style: const TextStyle(
+              color: Color(0xFF111111),
+              fontSize: 14,
+              height: 1.2,
+            ),
+            onChanged: (_) => onChanged(),
+            onSubmitted: onSubmitted,
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '${controller.text.characters.length}/$maxLength',
+            style: const TextStyle(
+              color: Color(0xFF8C8C8C),
+              fontSize: 11,
+              height: 1.1,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

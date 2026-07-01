@@ -178,7 +178,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
             note: widget.note,
             counter: widget.maxLength == null || !widget.showCounter
                 ? null
-                : '${widget.controller.text.length} / ${widget.maxLength}',
+                : '${widget.controller.text.characters.length} / ${widget.maxLength}',
           ),
         ],
       ],

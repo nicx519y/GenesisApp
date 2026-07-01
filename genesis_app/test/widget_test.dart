@@ -22,6 +22,7 @@ import 'package:genesis_flutter_android/main.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/copyable_id_label.dart';
 import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
+import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
@@ -6823,6 +6824,25 @@ void main() {
     );
   });
 
+  testWidgets('create text counters use user-perceived characters', (
+    WidgetTester tester,
+  ) async {
+    await CreateOriginDraftStore.clear();
+
+    await tester.pumpWidget(const MaterialApp(home: CreateBasicsPage()));
+    await tester.pumpAndSettle();
+
+    const decoratedName = '☛ ˙۵ও⃢♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀〬𓈒ֹ⁠꙳';
+    await tester.enterText(
+      find.widgetWithText(TextField, 'eg. Main Street'),
+      decoratedName,
+    );
+    await tester.pump();
+
+    expect(find.text('23 / 30'), findsOneWidget);
+    expect(find.text('31 / 30'), findsNothing);
+  });
+
   testWidgets('metric value range fields limit input to 10 without counters', (
     WidgetTester tester,
   ) async {
@@ -8938,28 +8958,73 @@ void main() {
     (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          home: AppServicesScope(
-            services: await _testServices(),
-            child: const MePage(),
+          home: Scaffold(
+            body: AppServicesScope(
+              services: await _testServices(
+                initialAuthToken: 'token',
+                initialUserInfo: {
+                  'uid': 'u_mock',
+                  'name': 'Mock User',
+                  'avatar': '',
+                  'follower_cnt': 12,
+                  'following_cnt': 8,
+                },
+              ),
+              child: const MePage(),
+            ),
           ),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('8'), findsOneWidget);
-      expect(find.text('Following'), findsOneWidget);
-      expect(find.text('12'), findsOneWidget);
-      expect(find.text('Followers'), findsOneWidget);
+      expect(find.byIcon(Icons.edit), findsWidgets);
 
       await tester.tap(find.byIcon(Icons.edit).last);
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Edit Nick Name'), findsOneWidget);
-      await tester.enterText(find.byType(TextField), 'Updated Nick');
+      expect(find.text('Edit name'), findsOneWidget);
+      expect(find.byType(GenesisActionBox<String>), findsOneWidget);
+      expect(find.text('9/30'), findsOneWidget);
+
+      final inputFinder = find.byKey(
+        const ValueKey<String>('me-edit-nickname-input'),
+      );
+      expect(
+        tester.getTopLeft(inputFinder).dy -
+            tester.getBottomLeft(find.text('Edit name')).dy,
+        greaterThanOrEqualTo(24),
+      );
+      expect(
+        tester
+                .getBottomLeft(
+                  find.byKey(const ValueKey('genesis-action-box-title-row')),
+                )
+                .dy -
+            tester.getBottomLeft(find.text('9/30')).dy,
+        closeTo(20, 1),
+      );
+      final input = tester.widget<TextField>(inputFinder);
+      expect(input.maxLines, 1);
+      expect(input.maxLength, 30);
+      expect(input.decoration?.enabledBorder, isA<UnderlineInputBorder>());
+      expect(input.decoration?.focusedBorder, isA<UnderlineInputBorder>());
+      expect(input.decoration?.counterText, '');
+
+      await tester.enterText(inputFinder, '${'Updated Nick'}${'X' * 40}');
+      await tester.pump();
+
+      final editable = tester.widget<EditableText>(
+        find.descendant(of: inputFinder, matching: find.byType(EditableText)),
+      );
+      expect(editable.controller.text, '${'Updated Nick'}${'X' * 18}');
+      expect(find.text('30/30'), findsOneWidget);
       await tester.tap(find.text('OK'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('Updated Nick'), findsOneWidget);
+      expect(find.text('${'Updated Nick'}${'X' * 18}'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
