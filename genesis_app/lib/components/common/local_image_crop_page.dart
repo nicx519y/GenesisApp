@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../utils/image_upload_processing.dart';
 import 'genesis_center_toast.dart';
 
 class LocalImageCropPage extends StatefulWidget {
@@ -401,12 +402,17 @@ class _LocalImageCropPageState extends State<LocalImageCropPage> {
     if (bytes == null || bytes.isEmpty) {
       throw StateError('Crop failed');
     }
-    return LocalImageCropResult(
+    final uploadImage = await prepareImageForUpload(
       bytes: bytes,
-      width: targetSize.width,
-      height: targetSize.height,
       filename: widget.filename,
       contentType: widget.contentType,
+    );
+    return LocalImageCropResult(
+      bytes: uploadImage.bytes,
+      width: targetSize.width,
+      height: targetSize.height,
+      filename: uploadImage.filename,
+      contentType: uploadImage.contentType,
     );
   }
 

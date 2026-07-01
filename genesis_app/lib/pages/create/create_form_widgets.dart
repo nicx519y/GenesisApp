@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show TextInputFormatter;
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
@@ -11,7 +12,9 @@ import '../../components/common/genesis_upload_progress_overlay.dart';
 import '../../components/common/local_image_crop_page.dart';
 import '../../platform/native_image_picker.dart';
 import '../../ui/components/genesis_static_network_image.dart';
+import '../../ui/text/genesis_text_input_formatters.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
+import '../../ui/tokens/genesis_typography.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/image_format_guards.dart';
 
@@ -57,6 +60,9 @@ class CreateTextFieldBlock extends StatefulWidget {
     this.onEditingComplete,
     this.onSubmitted,
     this.scrollPadding,
+    this.inputFormatters = const [],
+    this.focusNode,
+    this.nextFocusNode,
   });
 
   final String label;
@@ -76,24 +82,65 @@ class CreateTextFieldBlock extends StatefulWidget {
   final VoidCallback? onEditingComplete;
   final ValueChanged<String>? onSubmitted;
   final EdgeInsets? scrollPadding;
+  final List<TextInputFormatter> inputFormatters;
+  final FocusNode? focusNode;
+  final FocusNode? nextFocusNode;
 
   @override
   State<CreateTextFieldBlock> createState() => _CreateTextFieldBlockState();
 }
 
 class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
-  late final FocusNode _focusNode;
+  late final FocusNode _internalFocusNode;
 
   @override
   void initState() {
     super.initState();
-    _focusNode = FocusNode();
+    _internalFocusNode = FocusNode();
+    widget.controller.addListener(_normalizeControllerText);
+    _normalizeControllerText();
+  }
+
+  @override
+  void didUpdateWidget(covariant CreateTextFieldBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_normalizeControllerText);
+      widget.controller.addListener(_normalizeControllerText);
+      _normalizeControllerText();
+    }
   }
 
   @override
   void dispose() {
-    _focusNode.dispose();
+    widget.controller.removeListener(_normalizeControllerText);
+    _internalFocusNode.dispose();
     super.dispose();
+  }
+
+  void _normalizeControllerText() {
+    final value = widget.controller.value;
+    final sanitized = genesisDisplaySafeTextEditingValue(value);
+    if (sanitized == value) return;
+    widget.controller.value = sanitized;
+  }
+
+  void _handleEditingComplete() {
+    final customHandler = widget.onEditingComplete;
+    if (customHandler != null) {
+      customHandler();
+      return;
+    }
+
+    final nextFocusNode = widget.nextFocusNode;
+    if (nextFocusNode != null && nextFocusNode.canRequestFocus) {
+      nextFocusNode.requestFocus();
+      return;
+    }
+
+    if (!_focusNode.nextFocus()) {
+      _focusNode.unfocus();
+    }
   }
 
   @override
@@ -142,16 +189,23 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                     onChanged: widget.onChanged,
                     onTapOutside: (_) =>
                         FocusManager.instance.primaryFocus?.unfocus(),
-                    textInputAction: widget.textInputAction,
-                    onEditingComplete: widget.onEditingComplete,
+                    textInputAction:
+                        widget.textInputAction ?? TextInputAction.done,
+                    onEditingComplete: _handleEditingComplete,
                     onSubmitted: widget.onSubmitted,
+                    inputFormatters: [
+                      const GenesisDisplaySafeTextInputFormatter(),
+                      ...widget.inputFormatters,
+                    ],
                     maxLength: widget.maxLength,
                     minLines: widget.minLines,
                     maxLines: widget.maxLines,
-                    style: const TextStyle(
-                      color: createFormText,
-                      fontSize: 14,
-                      height: 1.42,
+                    style: GenesisTypography.withFallback(
+                      const TextStyle(
+                        color: createFormText,
+                        fontSize: 14,
+                        height: 1.42,
+                      ),
                     ),
                     decoration: InputDecoration(
                       border: InputBorder.none,
@@ -159,11 +213,13 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                       hintText: widget.hintText,
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
-                      hintStyle: const TextStyle(
-                        color: createFormHint,
-                        fontSize: 14,
-                        letterSpacing: 0,
-                        height: 1.42,
+                      hintStyle: GenesisTypography.withFallback(
+                        const TextStyle(
+                          color: createFormHint,
+                          fontSize: 14,
+                          letterSpacing: 0,
+                          height: 1.42,
+                        ),
                       ),
                     ),
                   ),
@@ -192,6 +248,8 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
 
   bool get _isSingleLine =>
       (widget.maxLines ?? widget.minLines) == 1 && widget.minLines == 1;
+
+  FocusNode get _focusNode => widget.focusNode ?? _internalFocusNode;
 }
 
 class _CreateFieldSupportLine extends StatelessWidget {
@@ -271,13 +329,17 @@ class _CreateFormNoteText extends StatelessWidget {
       return Text(note, softWrap: true, style: baseStyle);
     }
 
+    final platform = Theme.of(context).platform;
     return RichText(
-      text: TextSpan(style: baseStyle, children: _markdownSpans(note)),
+      text: TextSpan(
+        style: baseStyle,
+        children: _markdownSpans(note, platform),
+      ),
     );
   }
 
-  List<TextSpan> _markdownSpans(String value) {
-    final spans = <TextSpan>[];
+  List<InlineSpan> _markdownSpans(String value, TargetPlatform platform) {
+    final spans = <InlineSpan>[];
     var index = 0;
     while (index < value.length) {
       final boldStart = value.indexOf('**', index);
@@ -310,11 +372,8 @@ class _CreateFormNoteText extends StatelessWidget {
           spans.add(TextSpan(text: value.substring(nextStart)));
           break;
         }
-        spans.add(
-          TextSpan(
-            text: value.substring(nextStart + 1, end),
-            style: const TextStyle(fontStyle: FontStyle.italic),
-          ),
+        spans.addAll(
+          _inlineEmphasisSpans(value.substring(nextStart + 1, end), platform),
         );
         index = end + 1;
       }
@@ -332,6 +391,59 @@ class _CreateFormNoteText extends StatelessWidget {
         ? boldStart
         : normalizedItalicStart;
   }
+}
+
+List<InlineSpan> _inlineEmphasisSpans(String text, TargetPlatform platform) {
+  final style = GenesisTypography.inlineEmphasis(
+    const TextStyle(),
+    platform: platform,
+  );
+  if (platform != TargetPlatform.iOS) {
+    return <InlineSpan>[TextSpan(text: text, style: style)];
+  }
+
+  return _emphasisTextPieces(text)
+      .map(
+        (piece) => piece.trim().isEmpty
+            ? TextSpan(text: piece, style: style)
+            : _skewedInlineEmphasisSpan(piece, style),
+      )
+      .toList(growable: false);
+}
+
+InlineSpan _skewedInlineEmphasisSpan(String text, TextStyle style) {
+  return WidgetSpan(
+    alignment: PlaceholderAlignment.baseline,
+    baseline: TextBaseline.alphabetic,
+    child: Transform(
+      alignment: Alignment.center,
+      transform: Matrix4.skewX(GenesisTypography.iosInlineEmphasisSkew),
+      transformHitTests: false,
+      child: Text(text, style: style),
+    ),
+  );
+}
+
+List<String> _emphasisTextPieces(String text) {
+  final pieces = <String>[];
+  for (final match in RegExp(r'\s+|[^\s]+').allMatches(text)) {
+    final piece = match.group(0)!;
+    if (piece.trim().isEmpty || !_shouldSplitEmphasisPiece(piece)) {
+      pieces.add(piece);
+      continue;
+    }
+    pieces.addAll(piece.runes.map(String.fromCharCode));
+  }
+  return pieces;
+}
+
+bool _shouldSplitEmphasisPiece(String piece) {
+  var runeCount = 0;
+  for (final rune in piece.runes) {
+    runeCount += 1;
+    if (rune > 0x7F || runeCount > 16) return true;
+  }
+  return false;
 }
 
 const int _valueNotFound = -1;

@@ -12,6 +12,8 @@ import '../../../icons/my_flutter_app_icons.dart';
 import '../../../ui/components/genesis_avatar.dart';
 import '../../../ui/components/genesis_safe_area.dart';
 import '../../../ui/tokens/genesis_colors.dart';
+import '../../../ui/tokens/genesis_typography.dart';
+import '../../../ui/text/genesis_text_input_formatters.dart';
 import 'chat_ui_style_config.dart';
 
 export 'chat_ui_style_config.dart';
@@ -427,7 +429,12 @@ class ChatComposer extends StatelessWidget {
                                 if (sendEnabled) unawaited(onSend());
                               }
                             : null,
-                        style: style.inputTextStyle,
+                        inputFormatters: const [
+                          GenesisDisplaySafeTextInputFormatter(),
+                        ],
+                        style: GenesisTypography.withFallback(
+                          style.inputTextStyle,
+                        ),
                         decoration: InputDecoration(
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(
@@ -1258,8 +1265,17 @@ class _InlineMarkdownText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final platform = Theme.of(context).platform;
+    final textStyle = GenesisTypography.withFallback(style);
     return Text.rich(
-      TextSpan(style: style, children: _inlineMarkdownSpans(text, style)),
+      TextSpan(
+        style: textStyle,
+        children: _inlineMarkdownSpans(
+          genesisDisplaySafeText(text),
+          textStyle,
+          platform,
+        ),
+      ),
       maxLines: maxLines,
       overflow: overflow,
       textAlign: textAlign,
@@ -1267,7 +1283,11 @@ class _InlineMarkdownText extends StatelessWidget {
   }
 }
 
-List<InlineSpan> _inlineMarkdownSpans(String text, TextStyle baseStyle) {
+List<InlineSpan> _inlineMarkdownSpans(
+  String text,
+  TextStyle baseStyle,
+  TargetPlatform platform,
+) {
   final spans = <InlineSpan>[];
   final buffer = StringBuffer();
   var index = 0;
@@ -1298,13 +1318,12 @@ List<InlineSpan> _inlineMarkdownSpans(String text, TextStyle baseStyle) {
       final end = _findInlineItalicEnd(text, index + 1, marker);
       if (end != -1 && end > index + 1) {
         flushPlain();
-        spans.add(
-          TextSpan(
-            text: text.substring(index + 1, end),
-            style: baseStyle.copyWith(
-              color: const Color(0xFF888888),
-              fontStyle: FontStyle.italic,
-            ),
+        spans.addAll(
+          _inlineEmphasisSpans(
+            text.substring(index + 1, end),
+            baseStyle,
+            platform,
+            color: const Color(0xFF888888),
           ),
         );
         index = end + 1;
@@ -1317,6 +1336,65 @@ List<InlineSpan> _inlineMarkdownSpans(String text, TextStyle baseStyle) {
 
   flushPlain();
   return spans;
+}
+
+List<InlineSpan> _inlineEmphasisSpans(
+  String text,
+  TextStyle baseStyle,
+  TargetPlatform platform, {
+  Color? color,
+}) {
+  final style = GenesisTypography.inlineEmphasis(
+    baseStyle,
+    platform: platform,
+    color: color,
+  );
+  if (platform != TargetPlatform.iOS) {
+    return <InlineSpan>[TextSpan(text: text, style: style)];
+  }
+
+  return _emphasisTextPieces(text)
+      .map(
+        (piece) => piece.trim().isEmpty
+            ? TextSpan(text: piece, style: style)
+            : _skewedInlineEmphasisSpan(piece, style),
+      )
+      .toList(growable: false);
+}
+
+InlineSpan _skewedInlineEmphasisSpan(String text, TextStyle style) {
+  return WidgetSpan(
+    alignment: PlaceholderAlignment.baseline,
+    baseline: TextBaseline.alphabetic,
+    child: Transform(
+      alignment: Alignment.center,
+      transform: Matrix4.skewX(GenesisTypography.iosInlineEmphasisSkew),
+      transformHitTests: false,
+      child: Text(text, style: style),
+    ),
+  );
+}
+
+List<String> _emphasisTextPieces(String text) {
+  final pieces = <String>[];
+  for (final match in RegExp(r'\s+|[^\s]+').allMatches(text)) {
+    final piece = match.group(0)!;
+    if (piece.trim().isEmpty || !_shouldSplitEmphasisPiece(piece)) {
+      pieces.add(piece);
+      continue;
+    }
+    pieces.addAll(piece.runes.map(String.fromCharCode));
+  }
+  return pieces;
+}
+
+bool _shouldSplitEmphasisPiece(String piece) {
+  var runeCount = 0;
+  for (final rune in piece.runes) {
+    runeCount += 1;
+    if (rune > 0x7F || runeCount > 16) return true;
+  }
+  return false;
 }
 
 bool _isRepeatedMarker(String text, int index, String marker) {

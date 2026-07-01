@@ -211,6 +211,9 @@ class _OriginCharactersEditorPageState
                         _CharacterCard(
                           index: i + 1,
                           form: _forms[i],
+                          nextFocusNode: i + 1 < _forms.length
+                              ? _forms[i + 1].focusNodes.name
+                              : null,
                           onChanged: _onFormChanged,
                           onDelete: () {
                             _requestRemoveCharacter(i);

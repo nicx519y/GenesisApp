@@ -16,7 +16,8 @@ class OriginCharacterForm {
     required this.personality,
     required this.bio,
     required this.goal,
-  });
+    OriginCharacterFormFocusNodes? focusNodes,
+  }) : focusNodes = focusNodes ?? OriginCharacterFormFocusNodes();
 
   factory OriginCharacterForm.empty({required String charId}) {
     return OriginCharacterForm(
@@ -57,6 +58,7 @@ class OriginCharacterForm {
   final TextEditingController personality;
   final TextEditingController bio;
   final TextEditingController goal;
+  final OriginCharacterFormFocusNodes focusNodes;
 
   List<TextEditingController> get controllers {
     return <TextEditingController>[
@@ -73,6 +75,7 @@ class OriginCharacterForm {
     for (final controller in controllers) {
       controller.dispose();
     }
+    focusNodes.dispose();
   }
 
   void addListener(VoidCallback listener) {
@@ -95,6 +98,24 @@ class OriginCharacterForm {
     for (final controller in controllers) {
       controller.clear();
     }
+  }
+}
+
+class OriginCharacterFormFocusNodes {
+  OriginCharacterFormFocusNodes();
+
+  final FocusNode name = FocusNode();
+  final FocusNode identity = FocusNode();
+  final FocusNode personality = FocusNode();
+  final FocusNode goal = FocusNode();
+  final FocusNode bio = FocusNode();
+
+  void dispose() {
+    name.dispose();
+    identity.dispose();
+    personality.dispose();
+    goal.dispose();
+    bio.dispose();
   }
 }
 
@@ -125,6 +146,7 @@ class OriginCharacterFormFields extends StatelessWidget {
     this.showFieldNotes = false,
     this.showPlaceholders = true,
     this.textFieldScrollPadding,
+    this.nextFocusNode,
   });
 
   final OriginCharacterForm form;
@@ -156,6 +178,7 @@ class OriginCharacterFormFields extends StatelessWidget {
   final bool showFieldNotes;
   final bool showPlaceholders;
   final EdgeInsets? textFieldScrollPadding;
+  final FocusNode? nextFocusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -195,6 +218,8 @@ class OriginCharacterFormFields extends StatelessWidget {
                     labelInputGap: labelInputGap,
                     maxLines: 1,
                     scrollPadding: textFieldScrollPadding,
+                    focusNode: form.focusNodes.name,
+                    nextFocusNode: form.focusNodes.identity,
                     onChanged: (_) => onChanged(),
                   ),
                   if (!identityBelowAvatarRow) ...[
@@ -214,6 +239,8 @@ class OriginCharacterFormFields extends StatelessWidget {
                       labelInputGap: labelInputGap,
                       maxLines: 3,
                       scrollPadding: textFieldScrollPadding,
+                      focusNode: form.focusNodes.identity,
+                      nextFocusNode: _nextAfterIdentity,
                       onChanged: (_) => onChanged(),
                     ),
                   ],
@@ -234,6 +261,8 @@ class OriginCharacterFormFields extends StatelessWidget {
                       labelInputGap: labelInputGap,
                       maxLines: 3,
                       scrollPadding: textFieldScrollPadding,
+                      focusNode: form.focusNodes.personality,
+                      nextFocusNode: _nextAfterPersonality,
                       onChanged: (_) => onChanged(),
                     ),
                   ],
@@ -255,6 +284,8 @@ class OriginCharacterFormFields extends StatelessWidget {
             labelInputGap: labelInputGap,
             maxLines: 3,
             scrollPadding: textFieldScrollPadding,
+            focusNode: form.focusNodes.identity,
+            nextFocusNode: _nextAfterIdentity,
             onChanged: (_) => onChanged(),
           ),
           if (showPersonality) ...[
@@ -274,6 +305,8 @@ class OriginCharacterFormFields extends StatelessWidget {
               labelInputGap: labelInputGap,
               maxLines: 3,
               scrollPadding: textFieldScrollPadding,
+              focusNode: form.focusNodes.personality,
+              nextFocusNode: _nextAfterPersonality,
               onChanged: (_) => onChanged(),
             ),
           ],
@@ -295,6 +328,8 @@ class OriginCharacterFormFields extends StatelessWidget {
             labelFontWeight: labelFontWeight,
             labelInputGap: labelInputGap,
             scrollPadding: textFieldScrollPadding,
+            focusNode: form.focusNodes.goal,
+            nextFocusNode: form.focusNodes.bio,
             onChanged: (_) => onChanged(),
           ),
           SizedBox(height: sectionGap),
@@ -315,6 +350,8 @@ class OriginCharacterFormFields extends StatelessWidget {
           labelFontWeight: labelFontWeight,
           labelInputGap: labelInputGap,
           scrollPadding: textFieldScrollPadding,
+          focusNode: form.focusNodes.bio,
+          nextFocusNode: nextFocusNode,
           onChanged: (_) => onChanged(),
         ),
       ],
@@ -323,5 +360,16 @@ class OriginCharacterFormFields extends StatelessWidget {
 
   String _placeholder(String value) {
     return showPlaceholders ? value : '';
+  }
+
+  FocusNode get _nextAfterIdentity {
+    if (showPersonality) return form.focusNodes.personality;
+    if (showGoal) return form.focusNodes.goal;
+    return form.focusNodes.bio;
+  }
+
+  FocusNode get _nextAfterPersonality {
+    if (showGoal) return form.focusNodes.goal;
+    return form.focusNodes.bio;
   }
 }

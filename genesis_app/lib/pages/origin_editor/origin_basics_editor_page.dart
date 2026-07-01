@@ -27,6 +27,17 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
       TextEditingController();
   final TextEditingController _minValueController = TextEditingController();
   final TextEditingController _maxValueController = TextEditingController();
+  final FocusNode _originNameFocusNode = FocusNode();
+  final FocusNode _worldViewFocusNode = FocusNode();
+  final FocusNode _worldLogicFocusNode = FocusNode();
+  final FocusNode _worldStartTimeFocusNode = FocusNode();
+  final FocusNode _timeProgressCustomFocusNode = FocusNode();
+  final FocusNode _progressMetricFocusNode = FocusNode();
+  final FocusNode _labelNoteFocusNode = FocusNode();
+  final FocusNode _unitFocusNode = FocusNode();
+  final FocusNode _startingValueFocusNode = FocusNode();
+  final FocusNode _minValueFocusNode = FocusNode();
+  final FocusNode _maxValueFocusNode = FocusNode();
 
   bool _isSaving = false;
   String _metricMode = 'qualitative';
@@ -334,6 +345,17 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
     _startingValueController.dispose();
     _minValueController.dispose();
     _maxValueController.dispose();
+    _originNameFocusNode.dispose();
+    _worldViewFocusNode.dispose();
+    _worldLogicFocusNode.dispose();
+    _worldStartTimeFocusNode.dispose();
+    _timeProgressCustomFocusNode.dispose();
+    _progressMetricFocusNode.dispose();
+    _labelNoteFocusNode.dispose();
+    _unitFocusNode.dispose();
+    _startingValueFocusNode.dispose();
+    _minValueFocusNode.dispose();
+    _maxValueFocusNode.dispose();
     super.dispose();
   }
 
@@ -361,6 +383,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         maxLength: 30,
                         maxLines: 1,
                         labelInputGap: _fieldLabelInputGap,
+                        focusNode: _originNameFocusNode,
+                        nextFocusNode: _worldViewFocusNode,
                         prefix: const Text(
                           '#',
                           style: TextStyle(
@@ -382,6 +406,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             'The public hook players see first — the setting, the core conflict, and what makes it intriguing.',
                         minLines: 4,
                         labelInputGap: _fieldLabelInputGap,
+                        focusNode: _worldViewFocusNode,
+                        nextFocusNode: _worldLogicFocusNode,
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
@@ -430,6 +456,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             'The hidden rules and backstory that drive the story — agendas, mechanics, and secret limits.',
                         minLines: 5,
                         labelInputGap: _fieldLabelInputGap,
+                        focusNode: _worldLogicFocusNode,
+                        nextFocusNode: _worldStartTimeFocusNode,
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
@@ -458,6 +486,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         maxLength: 30,
                         showCounter: false,
                         maxLines: 1,
+                        focusNode: _worldStartTimeFocusNode,
+                        nextFocusNode: _timeProgressCustomFocusNode,
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
@@ -475,6 +505,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         maxLength: 10,
                         showCounter: false,
                         maxLines: 1,
+                        focusNode: _timeProgressCustomFocusNode,
+                        nextFocusNode: _progressMetricFocusNode,
                         prefix: const Text(
                           'Custom',
                           style: TextStyle(
@@ -510,6 +542,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         maxLength: 20,
                         showCounter: false,
                         maxLines: 1,
+                        focusNode: _progressMetricFocusNode,
+                        nextFocusNode: _labelNoteFocusNode,
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
@@ -522,6 +556,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         maxLength: 50,
                         showCounter: false,
                         maxLines: 1,
+                        focusNode: _labelNoteFocusNode,
+                        nextFocusNode: _unitFocusNode,
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
@@ -534,6 +570,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         maxLength: 10,
                         showCounter: false,
                         maxLines: 1,
+                        focusNode: _unitFocusNode,
+                        nextFocusNode: _startingValueFocusNode,
                         onChanged: (_) => _onFormChanged(),
                       ),
                       const SizedBox(height: _fieldGroupGap),
@@ -549,6 +587,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                               maxLength: 10,
                               showCounter: false,
                               maxLines: 1,
+                              focusNode: _startingValueFocusNode,
+                              nextFocusNode: _minValueFocusNode,
                               onChanged: (_) => _onFormChanged(),
                             ),
                           ),
@@ -561,6 +601,8 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                               maxLength: 10,
                               showCounter: false,
                               maxLines: 1,
+                              focusNode: _minValueFocusNode,
+                              nextFocusNode: _maxValueFocusNode,
                               onChanged: (_) => _onFormChanged(),
                             ),
                           ),
@@ -573,6 +615,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                               maxLength: 10,
                               showCounter: false,
                               maxLines: 1,
+                              focusNode: _maxValueFocusNode,
                               onChanged: (_) => _onFormChanged(),
                             ),
                           ),

@@ -132,6 +132,9 @@ class _GenesisStartupGateState extends State<GenesisStartupGate>
       title: 'Worldo',
       debugShowCheckedModeBanner: false,
       theme: GenesisTheme.light(),
+      builder: (context, child) {
+        return child ?? const SizedBox.shrink();
+      },
       home: const _GenesisStartupSplashPage(),
     );
   }

@@ -240,6 +240,9 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
                         _LocationCard(
                           index: i + 1,
                           form: _forms[i],
+                          nextFocusNode: i + 1 < _forms.length
+                              ? _forms[i + 1].nameFocusNode
+                              : null,
                           characters: _finalCharacters,
                           onChanged: _onFormChanged,
                           onPickCharacters: () => _openCharacterPicker(i),

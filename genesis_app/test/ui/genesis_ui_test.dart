@@ -27,6 +27,65 @@ void main() {
       materialApp.theme?.textTheme.bodyMedium?.fontSize,
       GenesisTypography.body.fontSize,
     );
+    expect(materialApp.theme?.textTheme.bodyMedium?.fontFamilyFallback, isNull);
+    expect(
+      materialApp.theme?.textTheme.bodyMedium?.fontFamily,
+      isNot('NotoSans'),
+    );
+  });
+
+  test('GenesisTypography keeps extended unicode fallback fonts', () {
+    expect(
+      GenesisTypography.fallbackFontFamilies,
+      containsAllInOrder(<String>[
+        'NotoSans',
+        'NotoSansArabic',
+        'NotoSansBengali',
+        'NotoSansHebrew',
+        'NotoSansMath',
+        'NotoSansMono',
+        'NotoSansEgyptianHieroglyphs',
+        'Apple Color Emoji',
+        'Noto Color Emoji',
+        'NotoSansSymbols2',
+      ]),
+    );
+
+    for (final style in <TextStyle>[
+      GenesisTypography.pageTitle,
+      GenesisTypography.body,
+      GenesisTypography.bodyStrong,
+      GenesisTypography.supporting,
+      GenesisTypography.tabLabel,
+    ]) {
+      expect(style.fontFamily, isNull);
+      expect(style.fontFamilyFallback, isNull);
+    }
+  });
+
+  testWidgets('GenesisTextFallback merges fallback into explicit Text styles', (
+    tester,
+  ) async {
+    const styledText = '☛ ˙۵ও⃢♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀〬𓈒ֹ⁠꙳';
+
+    await tester.pumpWidget(
+      const Directionality(
+        textDirection: TextDirection.ltr,
+        child: GenesisTextFallback(
+          child: Text(
+            styledText,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ),
+    );
+
+    final richText = tester.widget<RichText>(find.byType(RichText));
+    expect(richText.text.style?.fontFamily, isNull);
+    expect(
+      richText.text.style?.fontFamilyFallback,
+      GenesisTypography.fallbackFontFamilies,
+    );
   });
 
   testWidgets('Genesis UI components read styles from GenesisUiTheme', (
@@ -97,6 +156,45 @@ void main() {
     expect(placeholder.overflow, TextOverflow.ellipsis);
     expect(placeholder.softWrap, isFalse);
   });
+
+  testWidgets(
+    'GenesisSearchField uses decorative unicode visual fallback input',
+    (tester) async {
+      final controller = TextEditingController();
+      addTearDown(controller.dispose);
+      const raw = '☛ ˙۵ও⃢♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀〬𓈒ֹ⁠꙳';
+      const rendered = '☛ ˙۵▤▤▤♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀°ₒ✩';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GenesisTheme.light(),
+          home: Scaffold(
+            body: GenesisSearchField(
+              controller: controller,
+              hintText: 'Search',
+              textStyle: const TextStyle(fontSize: 16),
+              hintStyle: const TextStyle(fontSize: 16),
+            ),
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), raw);
+      await tester.pump();
+
+      expect(controller.text, rendered);
+      final input = tester.widget<TextField>(find.byType(TextField));
+      expect(input.style?.fontFamily, isNull);
+      expect(
+        input.style?.fontFamilyFallback,
+        GenesisTypography.fallbackFontFamilies,
+      );
+      expect(
+        input.decoration?.hintStyle?.fontFamilyFallback,
+        GenesisTypography.fallbackFontFamilies,
+      );
+    },
+  );
 
   testWidgets('GenesisPageHeader composes title and search field', (
     tester,

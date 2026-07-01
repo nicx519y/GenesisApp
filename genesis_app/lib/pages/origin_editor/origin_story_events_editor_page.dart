@@ -15,6 +15,7 @@ class _OriginStoryEventsEditorPageState
   static const int _maxEvents = 10;
   final List<TextEditingController> _eventControllers =
       <TextEditingController>[];
+  final List<FocusNode> _eventFocusNodes = <FocusNode>[];
 
   bool _isSaving = false;
 
@@ -31,6 +32,7 @@ class _OriginStoryEventsEditorPageState
         : draft.storyEvents;
     for (final event in source) {
       _eventControllers.add(TextEditingController(text: event.event));
+      _eventFocusNodes.add(FocusNode());
     }
     if (!mounted) return;
     setState(() {});
@@ -41,7 +43,10 @@ class _OriginStoryEventsEditorPageState
       _showError('You can add up to $_maxEvents events.');
       return;
     }
-    setState(() => _eventControllers.add(TextEditingController()));
+    setState(() {
+      _eventControllers.add(TextEditingController());
+      _eventFocusNodes.add(FocusNode());
+    });
     _onFormChanged();
   }
 
@@ -54,7 +59,9 @@ class _OriginStoryEventsEditorPageState
       _eventControllers[index].clear();
     } else {
       final controller = _eventControllers.removeAt(index);
+      final focusNode = _eventFocusNodes.removeAt(index);
       controller.dispose();
+      focusNode.dispose();
     }
     _onFormChanged();
   }
@@ -98,6 +105,9 @@ class _OriginStoryEventsEditorPageState
     for (final controller in _eventControllers) {
       controller.dispose();
     }
+    for (final focusNode in _eventFocusNodes) {
+      focusNode.dispose();
+    }
     super.dispose();
   }
 
@@ -134,6 +144,10 @@ class _OriginStoryEventsEditorPageState
                         _StoryEventCard(
                           index: i + 1,
                           controller: _eventControllers[i],
+                          focusNode: _eventFocusNodes[i],
+                          nextFocusNode: i + 1 < _eventFocusNodes.length
+                              ? _eventFocusNodes[i + 1]
+                              : null,
                           onChanged: _onFormChanged,
                           onDelete: () {
                             _requestRemoveEvent(i);
@@ -321,12 +335,14 @@ class _CharacterCard extends StatelessWidget {
   const _CharacterCard({
     required this.index,
     required this.form,
+    required this.nextFocusNode,
     required this.onChanged,
     required this.onDelete,
   });
 
   final int index;
   final OriginCharacterForm form;
+  final FocusNode? nextFocusNode;
   final VoidCallback onChanged;
   final VoidCallback onDelete;
 
@@ -339,6 +355,7 @@ class _CharacterCard extends StatelessWidget {
         form: form,
         onChanged: onChanged,
         showFieldNotes: true,
+        nextFocusNode: nextFocusNode,
       ),
     );
   }
@@ -348,6 +365,7 @@ class _LocationCard extends StatelessWidget {
   const _LocationCard({
     required this.index,
     required this.form,
+    required this.nextFocusNode,
     required this.characters,
     required this.onChanged,
     required this.onPickCharacters,
@@ -357,6 +375,7 @@ class _LocationCard extends StatelessWidget {
 
   final int index;
   final _LocationForm form;
+  final FocusNode? nextFocusNode;
   final List<CharacterDraft> characters;
   final VoidCallback onChanged;
   final VoidCallback onPickCharacters;
@@ -394,6 +413,8 @@ class _LocationCard extends StatelessWidget {
                   maxLength: 25,
                   maxLines: 1,
                   labelInputGap: 8,
+                  focusNode: form.nameFocusNode,
+                  nextFocusNode: form.descriptionFocusNode,
                   onChanged: (_) => onChanged(),
                 ),
               ),
@@ -408,6 +429,8 @@ class _LocationCard extends StatelessWidget {
             note: "A short description shown in the worldo's location list.",
             minLines: 3,
             labelInputGap: 8,
+            focusNode: form.descriptionFocusNode,
+            nextFocusNode: nextFocusNode,
             onChanged: (_) => onChanged(),
           ),
           const SizedBox(height: 12),
@@ -851,12 +874,16 @@ class _LocationForm {
   final TextEditingController imageUrl;
   final TextEditingController name;
   final TextEditingController description;
+  final FocusNode nameFocusNode = FocusNode();
+  final FocusNode descriptionFocusNode = FocusNode();
   List<String> selectedCharacterIds;
 
   void dispose() {
     imageUrl.dispose();
     name.dispose();
     description.dispose();
+    nameFocusNode.dispose();
+    descriptionFocusNode.dispose();
   }
 
   bool get hasContent {
@@ -880,12 +907,16 @@ class _StoryEventCard extends StatelessWidget {
   const _StoryEventCard({
     required this.index,
     required this.controller,
+    required this.focusNode,
+    required this.nextFocusNode,
     required this.onChanged,
     required this.onDelete,
   });
 
   final int index;
   final TextEditingController controller;
+  final FocusNode focusNode;
+  final FocusNode? nextFocusNode;
   final VoidCallback onChanged;
   final VoidCallback onDelete;
 
@@ -907,6 +938,8 @@ class _StoryEventCard extends StatelessWidget {
             note: 'A key story beat the AI uses to steer the storyline.',
             minLines: 5,
             labelSize: 0,
+            focusNode: focusNode,
+            nextFocusNode: nextFocusNode,
             onChanged: (_) => onChanged(),
           ),
         ],

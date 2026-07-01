@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -29,6 +30,11 @@ typedef DiscussImageResultPicker =
     Future<GenesisImagePickResult> Function(int limit);
 typedef DiscussImageUploader =
     Future<String> Function(DiscussPickedImage image);
+typedef DiscussImageProcessorForTesting =
+    Future<Map<String, Object>> Function(Map<String, Object> request);
+
+@visibleForTesting
+DiscussImageProcessorForTesting? debugDiscussImageProcessorOverride;
 
 const int discussPostMaxImages = 6;
 const int _discussComposerMinTextLines = 3;
@@ -40,9 +46,17 @@ const Duration _discussComposerSheetDismissDuration = Duration(
   milliseconds: 160,
 );
 const Duration _discussUploadProgressTick = Duration(milliseconds: 270);
+const int _discussCompressionProgressBytesPerSecond = 2 * 1024 * 1024;
 const int _discussUploadProgressBytesPerSecond = 50 * 1024;
+const double _discussCompressionProgress = 0.10;
 const double _discussUploadProgressCap = 0.92;
 const int _discussUploadMaxWidth = 800;
+const Duration _discussCompressionProgressMinDuration = Duration(
+  milliseconds: 450,
+);
+const Duration _discussCompressionProgressMaxDuration = Duration(
+  milliseconds: 2600,
+);
 
 class DiscussPostInput extends StatefulWidget {
   const DiscussPostInput({
@@ -101,16 +115,10 @@ Future<bool> showDiscussPostComposer({
             imageUploader ??
             (image) async {
               final api = AppServicesScope.read(sheetContext).api;
-              final uploadImage = await resizeImageToMaxWidth(
+              final uploaded = await api.v1.upload.image(
                 bytes: image.bytes,
                 filename: image.filename,
                 contentType: image.contentType,
-                maxWidth: _discussUploadMaxWidth,
-              );
-              final uploaded = await api.v1.upload.image(
-                bytes: uploadImage.bytes,
-                filename: uploadImage.filename,
-                contentType: uploadImage.contentType,
               );
               final url = GenesisImageResourceRegistry.resolve(
                 uploaded,
@@ -168,16 +176,10 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
 
   Future<String> _uploadImage(DiscussPickedImage image) async {
     final api = AppServicesScope.read(context).api;
-    final uploadImage = await resizeImageToMaxWidth(
+    final uploaded = await api.v1.upload.image(
       bytes: image.bytes,
       filename: image.filename,
       contentType: image.contentType,
-      maxWidth: _discussUploadMaxWidth,
-    );
-    final uploaded = await api.v1.upload.image(
-      bytes: uploadImage.bytes,
-      filename: uploadImage.filename,
-      contentType: uploadImage.contentType,
     );
     final url = GenesisImageResourceRegistry.resolve(uploaded).displayUrl;
     if (url.isEmpty) throw StateError('Upload returned an empty URL');
@@ -406,20 +408,66 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     final selected = picked.take(available).toList(growable: false);
     final added = <_DiscussImageAttachment>[];
     for (final image in selected) {
-      added.add(_DiscussImageAttachment(id: _nextImageId++, image: image));
+      final attachment = _DiscussImageAttachment(
+        id: _nextImageId++,
+        image: image,
+      );
+      attachment.uploadFuture = _uploadAttachmentAfterThumbnailFrame(
+        attachment,
+      );
+      added.add(attachment);
     }
     setState(() => _images.addAll(added));
+  }
 
-    for (final attachment in added) {
-      final uploadFuture = _uploadAttachment(attachment);
-      attachment.uploadFuture = uploadFuture;
-      _startAttachmentProgressTimer(attachment);
-    }
+  Future<void> _uploadAttachmentAfterThumbnailFrame(
+    _DiscussImageAttachment attachment,
+  ) async {
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted || !_images.contains(attachment)) return;
+    await _uploadAttachment(attachment);
   }
 
   Future<void> _uploadAttachment(_DiscussImageAttachment attachment) async {
     try {
-      final url = await widget.uploadImage(attachment.image);
+      _startAttachmentCompressionProgressTimer(
+        attachment,
+        byteCount: attachment.image.bytes.length,
+      );
+      final processingRequest = <String, Object>{
+        'bytes': attachment.image.bytes,
+        'filename': attachment.image.filename,
+        'content_type': attachment.image.contentType,
+        'max_width': _discussUploadMaxWidth,
+      };
+      final imageProcessor = debugDiscussImageProcessorOverride;
+      final uploadImage = imageProcessor == null
+          ? await compute(
+              _prepareDiscussImageForUpload,
+              processingRequest,
+              debugLabel: 'discuss-image-upload-processing',
+            )
+          : await imageProcessor(processingRequest);
+      attachment.progressTimer?.cancel();
+      attachment.progressTimer = null;
+      if (!mounted || !_images.contains(attachment)) return;
+      setState(() {
+        attachment.progress = _discussCompressionProgress;
+      });
+      final uploadBytes = uploadImage['bytes']! as Uint8List;
+      final uploadFilename = uploadImage['filename']! as String;
+      final uploadContentType = uploadImage['content_type']! as String;
+      _startAttachmentUploadProgressTimer(
+        attachment,
+        byteCount: uploadBytes.length,
+      );
+      final url = await widget.uploadImage(
+        DiscussPickedImage(
+          bytes: uploadBytes,
+          filename: uploadFilename,
+          contentType: uploadContentType,
+        ),
+      );
       if (!mounted || !_images.contains(attachment)) return;
       attachment.progressTimer?.cancel();
       setState(() {
@@ -445,9 +493,31 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     setState(() => _images.remove(image));
   }
 
-  void _startAttachmentProgressTimer(_DiscussImageAttachment attachment) {
+  void _startAttachmentCompressionProgressTimer(
+    _DiscussImageAttachment attachment, {
+    required int byteCount,
+  }) {
     attachment.progressTimer?.cancel();
-    final byteCount = attachment.image.bytes.length;
+    final stopwatch = Stopwatch()..start();
+    attachment.progressTimer = Timer.periodic(_discussUploadProgressTick, (_) {
+      if (!mounted || !_images.contains(attachment) || !attachment.uploading) {
+        attachment.progressTimer?.cancel();
+        return;
+      }
+      setState(() {
+        attachment.progress = estimateDiscussCompressionProgressForTesting(
+          byteCount: byteCount,
+          elapsed: stopwatch.elapsed,
+        );
+      });
+    });
+  }
+
+  void _startAttachmentUploadProgressTimer(
+    _DiscussImageAttachment attachment, {
+    required int byteCount,
+  }) {
+    attachment.progressTimer?.cancel();
     final stopwatch = Stopwatch()..start();
     attachment.progressTimer = Timer.periodic(_discussUploadProgressTick, (_) {
       if (!mounted || !_images.contains(attachment) || !attachment.uploading) {
@@ -471,8 +541,12 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     final estimatedDurationMs =
         estimatedBytes / _discussUploadProgressBytesPerSecond * 1000;
     if (estimatedDurationMs <= 0) return _discussUploadProgressCap;
-    return (elapsed.inMilliseconds / estimatedDurationMs)
-        .clamp(0.0, _discussUploadProgressCap)
+    final uploadProgress =
+        elapsed.inMilliseconds /
+        estimatedDurationMs *
+        (_discussUploadProgressCap - _discussCompressionProgress);
+    return (_discussCompressionProgress + uploadProgress)
+        .clamp(_discussCompressionProgress, _discussUploadProgressCap)
         .toDouble();
   }
 
@@ -708,6 +782,49 @@ class _DiscussImageAttachment {
   double progress = 0;
   bool uploading = true;
   bool failed = false;
+}
+
+Future<Map<String, Object>> _prepareDiscussImageForUpload(
+  Map<String, Object> request,
+) async {
+  final result = await resizeImageToMaxWidth(
+    bytes: request['bytes']! as Uint8List,
+    filename: request['filename']! as String,
+    contentType: request['content_type']! as String,
+    maxWidth: request['max_width']! as int,
+  );
+  return <String, Object>{
+    'bytes': result.bytes,
+    'filename': result.filename,
+    'content_type': result.contentType,
+  };
+}
+
+@visibleForTesting
+double estimateDiscussCompressionProgressForTesting({
+  required int byteCount,
+  required Duration elapsed,
+}) {
+  final estimatedDurationMs = _estimatedDiscussCompressionDurationMs(byteCount);
+  if (estimatedDurationMs <= 0) return _discussCompressionProgress * 0.95;
+  final progress =
+      elapsed.inMilliseconds /
+      estimatedDurationMs *
+      _discussCompressionProgress;
+  return progress.clamp(0.0, _discussCompressionProgress * 0.95).toDouble();
+}
+
+int _estimatedDiscussCompressionDurationMs(int byteCount) {
+  final estimatedBytes = byteCount <= 0 ? 1 : byteCount;
+  final estimatedMs =
+      estimatedBytes / _discussCompressionProgressBytesPerSecond * 1000;
+  return estimatedMs
+      .round()
+      .clamp(
+        _discussCompressionProgressMinDuration.inMilliseconds,
+        _discussCompressionProgressMaxDuration.inMilliseconds,
+      )
+      .toInt();
 }
 
 class _DiscussImageStrip extends StatelessWidget {
