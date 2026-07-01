@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_details_shell.dart';
@@ -103,6 +104,52 @@ void main() {
     expect(third.dy, first.dy);
     expect(second.dx, greaterThan(first.dx));
     expect(third.dx, greaterThan(second.dx));
+  });
+
+  testWidgets('world map wraps Chinese labels after six characters', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [
+        WorldPoint(
+          id: 'silicon-valley',
+          name: '中国',
+          type: WorldPointType.portal,
+          position: Offset(0.35, 0.35),
+          users: [],
+        ),
+        WorldPoint(
+          id: 'seattle',
+          name: '西雅图',
+          type: WorldPointType.camp,
+          position: Offset(0.65, 0.35),
+          users: [],
+        ),
+        WorldPoint(
+          id: 'startup-street',
+          name: '中关村创业大街中心',
+          type: WorldPointType.shop,
+          position: Offset(0.5, 0.55),
+          users: [],
+        ),
+      ],
+    );
+
+    final china = tester.renderObject<RenderParagraph>(find.text('中国'));
+    final seattle = tester.renderObject<RenderParagraph>(find.text('西雅图'));
+    final startupStreet = tester.renderObject<RenderParagraph>(
+      find.text('中关村创业大街中心'),
+    );
+
+    expect(china.didExceedMaxLines, isFalse);
+    expect(seattle.didExceedMaxLines, isFalse);
+    expect(startupStreet.didExceedMaxLines, isFalse);
+    expect(china.size.height, lessThanOrEqualTo(12.0));
+    expect(seattle.size.height, lessThanOrEqualTo(12.0));
+    expect(startupStreet.size.width, lessThanOrEqualTo(90.0));
+    expect(startupStreet.size.height, greaterThan(12.0));
   });
 
   testWidgets('world map renders generated avatar when avatar URL is empty', (

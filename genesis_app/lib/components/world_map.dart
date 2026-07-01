@@ -2021,7 +2021,14 @@ class _WorldPointPositioned extends StatelessWidget {
   final ValueChanged<PointerDownEvent> onPointerDown;
   final VoidCallback? onTap;
 
-  static const double _labelHeight = 20;
+  static const double _labelLineHeight = 12;
+  static const double _labelHorizontalPadding = 6;
+  static const double _labelVerticalPadding = 8;
+  static const double _wideLabelRuneWidth = 14;
+  static const double _narrowLabelRuneWidth = 6;
+  static const double _maxLabelTextWidth = 90;
+  static const double _maxLabelBoxWidth =
+      _maxLabelTextWidth + _labelHorizontalPadding;
   static const double _pointSize = 8;
   static const double _avatarSize = 42;
   static const double _avatarSpacing = 4;
@@ -2031,16 +2038,47 @@ class _WorldPointPositioned extends StatelessWidget {
   double _markerWidth(int userCount) {
     final count = userCount;
     final avatarWidth = _avatarGroupWidth(count);
-    final estimatedCharWidth = 10.0;
-    final labelWidth = (point.name.runes.length * estimatedCharWidth + 12)
-        .clamp(_labelHeight, width)
-        .toDouble();
-    return math.max(math.max(_pointSize, avatarWidth), labelWidth);
+    final labelMaxWidth = _labelMaxWidth();
+    return math.max(math.max(_pointSize, avatarWidth), labelMaxWidth);
+  }
+
+  double _labelHeight(String text) {
+    final estimatedTextWidth = _estimatedLabelTextWidth(text);
+    final lineCount = math.max(
+      1,
+      (estimatedTextWidth / _maxLabelTextWidth).ceil(),
+    );
+    return lineCount * _labelLineHeight + _labelVerticalPadding;
+  }
+
+  double _labelMaxWidth() {
+    return math.min(_maxLabelBoxWidth, width);
+  }
+
+  double _estimatedLabelTextWidth(String text) {
+    var width = 0.0;
+    for (final rune in text.runes) {
+      width += _isWideLabelRune(rune)
+          ? _wideLabelRuneWidth
+          : _narrowLabelRuneWidth;
+    }
+    return width;
+  }
+
+  bool _isWideLabelRune(int rune) {
+    return (rune >= 0x1100 && rune <= 0x11FF) ||
+        (rune >= 0x2E80 && rune <= 0xA4CF) ||
+        (rune >= 0xAC00 && rune <= 0xD7AF) ||
+        (rune >= 0xF900 && rune <= 0xFAFF) ||
+        (rune >= 0xFE10 && rune <= 0xFE6F) ||
+        (rune >= 0xFF00 && rune <= 0xFFEF) ||
+        (rune >= 0x20000 && rune <= 0x3FFFD);
   }
 
   double _markerHeight(int userCount) {
     final count = userCount;
-    final pointCenterY = _labelHeight + _labelToPointSpacing + _pointSize / 2;
+    final pointCenterY =
+        _labelHeight(point.name) + _labelToPointSpacing + _pointSize / 2;
     if (count <= 0) return pointCenterY + _pointSize / 2;
     if (count < 4) return pointCenterY + _avatarTopGap + _avatarSize;
     if (count == 4) {
@@ -2072,9 +2110,11 @@ class _WorldPointPositioned extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final users = point.users;
+    final labelMaxWidth = _labelMaxWidth();
     final markerWidth = _markerWidth(users.length);
     final markerHeight = _markerHeight(users.length);
-    final pointCenterY = _labelHeight + _labelToPointSpacing + _pointSize / 2;
+    final pointCenterY =
+        _labelHeight(point.name) + _labelToPointSpacing + _pointSize / 2;
 
     final baseX = (point.position.dx * width).clamp(0, width).toDouble();
     final baseY = (point.position.dy * height).clamp(0, height).toDouble();
@@ -2099,6 +2139,7 @@ class _WorldPointPositioned extends StatelessWidget {
       child: _WorldPointMarker(
         point: point,
         users: users,
+        labelMaxWidth: labelMaxWidth,
         markerWidth: markerWidth,
         markerHeight: markerHeight,
         pointCenterY: pointCenterY,
@@ -2124,6 +2165,7 @@ class _WorldPointMarker extends StatelessWidget {
   const _WorldPointMarker({
     required this.point,
     required this.users,
+    required this.labelMaxWidth,
     required this.markerWidth,
     required this.markerHeight,
     required this.pointCenterY,
@@ -2134,6 +2176,7 @@ class _WorldPointMarker extends StatelessWidget {
 
   final WorldPoint point;
   final List<UserAvatar> users;
+  final double labelMaxWidth;
   final double markerWidth;
   final double markerHeight;
   final double pointCenterY;
@@ -2183,7 +2226,7 @@ class _WorldPointMarker extends StatelessWidget {
                 right: 0,
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: markerWidth),
+                    constraints: BoxConstraints(maxWidth: labelMaxWidth),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.4),
@@ -2198,7 +2241,7 @@ class _WorldPointMarker extends StatelessWidget {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
+                          horizontal: 3,
                           vertical: 4,
                         ),
                         child: _PointLabel(point: point, color: Colors.white),
@@ -2436,9 +2479,7 @@ class _PointLabel extends StatelessWidget {
     return Text(
       point.name,
       textAlign: TextAlign.center,
-      maxLines: 1,
-      softWrap: false,
-      overflow: TextOverflow.ellipsis,
+      softWrap: true,
       style: TextStyle(
         fontSize: 10,
         height: 1.2,
