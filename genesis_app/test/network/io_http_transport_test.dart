@@ -15,10 +15,12 @@ void main() {
       expect(request.uri.path, '/api/v1/search');
       expect(request.uri.queryParameters['keyword'], 'worldo');
       await utf8.decodeStream(request);
+      final responseBody = utf8.encode('{"ok":true}');
       request.response
         ..statusCode = 201
         ..headers.contentType = ContentType.json
-        ..write('{"ok":true}');
+        ..contentLength = responseBody.length
+        ..add(responseBody);
       await request.response.close();
     });
 

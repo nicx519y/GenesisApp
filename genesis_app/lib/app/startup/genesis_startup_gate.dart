@@ -24,6 +24,8 @@ class GenesisStartupGate extends StatefulWidget {
     required this.appVersion,
     required this.startedAt,
     this.primeNetworkPermission = AppBootstrap.primeNetworkPermission,
+    this.ensureFirebasePerformanceMonitoring =
+        AppBootstrap.ensureFirebasePerformanceMonitoring,
     this.requestTrackingAuthorization =
         AppTrackingTransparencyService.requestAuthorization,
     this.warmUp = AppBootstrap.warmUp,
@@ -34,6 +36,7 @@ class GenesisStartupGate extends StatefulWidget {
   final AppVersionInfo appVersion;
   final DateTime startedAt;
   final Future<void> Function(AppServices services) primeNetworkPermission;
+  final Future<void> Function() ensureFirebasePerformanceMonitoring;
   final TrackingAuthorizationRequester requestTrackingAuthorization;
   final Future<void> Function(AppServices services) warmUp;
 
@@ -78,6 +81,7 @@ class _GenesisStartupGateState extends State<GenesisStartupGate>
         AppTrackingAuthorizationStatus.notSupported;
     try {
       GenesisSystemUiChrome.applyDefault();
+      await widget.ensureFirebasePerformanceMonitoring();
       await widget.primeNetworkPermission(widget.services);
       await _waitForSystemDialogToClose();
       trackingAuthorizationStatus = await widget.requestTrackingAuthorization();

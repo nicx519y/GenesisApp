@@ -54,6 +54,7 @@ Future<void> main() async {
     }
 
     await prepareBeforeRunApp();
+    await AppBootstrap.ensureFirebasePerformanceMonitoring();
     runApp(GenesisApp(services: services));
     unawaited(AppBootstrap.warmUp(services));
   }

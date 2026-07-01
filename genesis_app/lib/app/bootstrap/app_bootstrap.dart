@@ -15,6 +15,7 @@ class AppBootstrap {
   static const _networkPermissionPrimeTimeout = Duration(seconds: 15);
   static const _sessionReadTimeout = Duration(seconds: 2);
   static const _guestBindTimeout = Duration(seconds: 8);
+  static Future<void>? _firebasePerformanceInitialization;
 
   static AppServices createInitialServices({
     AppConfig config = const AppConfig(),
@@ -40,15 +41,28 @@ class AppBootstrap {
     }
   }
 
-  static Future<void> warmUp(AppServices services) async {
+  static Future<void> ensureFirebasePerformanceMonitoring() {
+    final inFlight = _firebasePerformanceInitialization;
+    if (inFlight != null) return inFlight;
+    final future = _initializeFirebasePerformanceMonitoring();
+    _firebasePerformanceInitialization = future;
+    return future;
+  }
+
+  static Future<void> _initializeFirebasePerformanceMonitoring() async {
     try {
       await Firebase.initializeApp().timeout(_firebaseInitializeTimeout);
-      await FirebaseCrashReporting.enable();
       await FirebasePerformanceMonitoring.enable();
     } catch (e, st) {
+      _firebasePerformanceInitialization = null;
       debugPrint('[Auth][Firebase] initialize failed: $e');
       debugPrint('[Auth][Firebase] stacktrace:\n$st');
     }
+  }
+
+  static Future<void> warmUp(AppServices services) async {
+    await ensureFirebasePerformanceMonitoring();
+    await FirebaseCrashReporting.enable();
 
     try {
       await services.gatewayAuth?.prepare().timeout(_gatewayPrepareTimeout);

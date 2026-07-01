@@ -23,9 +23,11 @@ class TransportResponse {
     required this.statusCode,
     required this.headers,
     required this.body,
+    this.responsePayloadSizeBytes,
   });
 
   final int statusCode;
   final Map<String, String> headers;
   final String body;
+  final int? responsePayloadSizeBytes;
 }

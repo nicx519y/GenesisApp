@@ -69,6 +69,9 @@ class IoHttpTransport implements HttpTransport {
         statusCode: httpResponse.statusCode,
         headers: headers,
         body: body,
+        responsePayloadSizeBytes:
+            _responsePayloadSizeFromHeaders(headers) ??
+            _nonNegativeContentLength(httpResponse.contentLength),
       );
       _recordPerformanceMetricResponse(metric, response);
       return response;
@@ -219,7 +222,8 @@ void _recordPerformanceMetricResponse(
   try {
     metric.httpResponseCode = response.statusCode;
     metric.responseContentType = _headerValue(response.headers, 'content-type');
-    metric.responsePayloadSize = utf8.encode(response.body).length;
+    metric.responsePayloadSize =
+        response.responsePayloadSizeBytes ?? utf8.encode(response.body).length;
   } catch (_) {}
 }
 
@@ -240,4 +244,16 @@ String? _headerValue(Map<String, String> headers, String name) {
     }
   }
   return null;
+}
+
+int? _responsePayloadSizeFromHeaders(Map<String, String> headers) {
+  final raw = _headerValue(headers, 'content-length')?.trim();
+  if (raw == null || raw.isEmpty) return null;
+  final value = int.tryParse(raw);
+  return _nonNegativeContentLength(value);
+}
+
+int? _nonNegativeContentLength(int? value) {
+  if (value == null || value < 0) return null;
+  return value;
 }
