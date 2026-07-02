@@ -50,6 +50,10 @@ class IoHttpTransport implements HttpTransport {
 
       if (request.bodyBytes != null) {
         httpRequest.add(request.bodyBytes!);
+        request.onSendProgress?.call(
+          request.bodyBytes!.length,
+          request.bodyBytes!.length,
+        );
       }
 
       final httpResponse = await httpRequest.close().timeout(

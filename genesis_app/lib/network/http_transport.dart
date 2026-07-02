@@ -2,6 +2,8 @@ abstract class HttpTransport {
   Future<TransportResponse> send(TransportRequest request);
 }
 
+typedef NetworkProgressCallback = void Function(int sentBytes, int totalBytes);
+
 class TransportRequest {
   const TransportRequest({
     required this.method,
@@ -9,6 +11,7 @@ class TransportRequest {
     required this.headers,
     required this.bodyBytes,
     required this.timeoutMs,
+    this.onSendProgress,
   });
 
   final String method;
@@ -16,6 +19,7 @@ class TransportRequest {
   final Map<String, String> headers;
   final List<int>? bodyBytes;
   final int timeoutMs;
+  final NetworkProgressCallback? onSendProgress;
 }
 
 class TransportResponse {

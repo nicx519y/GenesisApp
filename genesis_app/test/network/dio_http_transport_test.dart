@@ -3,9 +3,11 @@ import 'dart:io';
 
 import 'package:firebase_performance/firebase_performance.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/dio_http_transport.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/io_http_transport.dart';
+import 'package:genesis_flutter_android/network/multipart_body.dart';
 
 void main() {
   test('sends request and maps response without throwing on status', () async {
@@ -89,6 +91,64 @@ void main() {
 
     expect(response.statusCode, 401);
     expect(response.body, 'unauthorized');
+  });
+
+  test('sends multipart body bytes unchanged through ApiClient', () async {
+    final expectedBody = MultipartBody.singleFile(
+      boundary: 'test-boundary',
+      bytes: utf8.encode('image-bytes'),
+      filename: 'avatar.png',
+      contentType: 'image/png',
+      fields: const {'scene': 'avatar'},
+    ).toBytes();
+
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    server.listen((request) async {
+      expect(request.method, 'POST');
+      expect(request.uri.path, '/api/v1/upload/image');
+      expect(
+        request.headers.value('content-type'),
+        'multipart/form-data; boundary=test-boundary',
+      );
+      expect(
+        await request.fold<List<int>>(<int>[], (out, chunk) {
+          out.addAll(chunk);
+          return out;
+        }),
+        expectedBody,
+      );
+      request.response
+        ..statusCode = 200
+        ..headers.contentType = ContentType.json
+        ..write('{"err_no":0,"data":{"xl_url":"https://cdn/x.webp"}}');
+      await request.response.close();
+    });
+
+    final client = ApiClient(
+      baseUrl: 'http://127.0.0.1:${server.port}/api/',
+      transport: DioHttpTransport(performanceMetricUrlFilter: (_) => false),
+    );
+    final progressEvents = <({int sentBytes, int totalBytes})>[];
+
+    final response = await client.post<Object?>(
+      'v1/upload/image',
+      body: MultipartBody.singleFile(
+        boundary: 'test-boundary',
+        bytes: utf8.encode('image-bytes'),
+        filename: 'avatar.png',
+        contentType: 'image/png',
+        fields: const {'scene': 'avatar'},
+      ),
+      onSendProgress: (sentBytes, totalBytes) {
+        progressEvents.add((sentBytes: sentBytes, totalBytes: totalBytes));
+      },
+    );
+
+    expect(response, isA<Map<String, dynamic>>());
+    expect(progressEvents, isNotEmpty);
+    expect(progressEvents.last.sentBytes, expectedBody.length);
+    expect(progressEvents.last.totalBytes, expectedBody.length);
   });
 }
 

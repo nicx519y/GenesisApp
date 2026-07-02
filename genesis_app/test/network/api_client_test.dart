@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
+import 'package:genesis_flutter_android/network/multipart_body.dart';
 
 class _FakeTransport implements HttpTransport {
   _FakeTransport({required this.handler});
@@ -131,5 +132,41 @@ void main() {
 
     final v = await client.get<int>('/ping');
     expect(v, 123);
+  });
+
+  test('prepares multipart body and content type', () async {
+    final transport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"ok":true}',
+      ),
+    );
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+    );
+
+    await client.post<Object?>(
+      '/upload',
+      body: MultipartBody.singleFile(
+        boundary: 'test-boundary',
+        fields: const {'biz_type': 'avatar'},
+        bytes: 'abc'.codeUnits,
+        filename: 'a.txt',
+        contentType: 'text/plain',
+      ),
+    );
+
+    expect(
+      transport.lastRequest!.headers['content-type'],
+      'multipart/form-data; boundary=test-boundary',
+    );
+    final body = String.fromCharCodes(transport.lastRequest!.bodyBytes!);
+    expect(body, contains('--test-boundary'));
+    expect(body, contains('name="biz_type"'));
+    expect(body, contains('filename="a.txt"'));
+    expect(body, contains('Content-Type: text/plain'));
+    expect(body, contains('abc'));
   });
 }

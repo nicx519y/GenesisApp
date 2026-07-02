@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
@@ -29,7 +30,8 @@ class DioHttpTransport implements HttpTransport {
       final timeout = Duration(milliseconds: request.timeoutMs);
       final response = await _dio.request<Object?>(
         request.uri.toString(),
-        data: request.bodyBytes,
+        data: _requestBodyData(request.bodyBytes),
+        onSendProgress: request.onSendProgress,
         options: Options(
           method: request.method,
           headers: request.headers,
@@ -81,6 +83,12 @@ class DioHttpTransport implements HttpTransport {
       return null;
     }
   }
+}
+
+Object? _requestBodyData(List<int>? bodyBytes) {
+  if (bodyBytes == null) return null;
+  if (bodyBytes is Uint8List) return bodyBytes;
+  return Uint8List.fromList(bodyBytes);
 }
 
 Dio _createDio(String? proxy) {

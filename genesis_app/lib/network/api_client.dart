@@ -4,6 +4,7 @@ import '../app/telemetry/genesis_telemetry.dart';
 import 'api_exception.dart';
 import 'http_transport.dart';
 import 'io_http_transport.dart';
+import 'multipart_body.dart';
 
 class ApiResponse {
   const ApiResponse({
@@ -81,6 +82,7 @@ class ApiClient {
     Map<String, Object?>? query,
     Map<String, String>? headers,
     ApiResponseProcessor? responseProcessor,
+    NetworkProgressCallback? onSendProgress,
   }) {
     return request<T>(
       'GET',
@@ -88,6 +90,7 @@ class ApiClient {
       query: query,
       headers: headers,
       responseProcessor: responseProcessor,
+      onSendProgress: onSendProgress,
     );
   }
 
@@ -97,6 +100,7 @@ class ApiClient {
     Object? body,
     Map<String, String>? headers,
     ApiResponseProcessor? responseProcessor,
+    NetworkProgressCallback? onSendProgress,
   }) {
     return request<T>(
       'POST',
@@ -105,6 +109,7 @@ class ApiClient {
       body: body,
       headers: headers,
       responseProcessor: responseProcessor,
+      onSendProgress: onSendProgress,
     );
   }
 
@@ -114,6 +119,7 @@ class ApiClient {
     Object? body,
     Map<String, String>? headers,
     ApiResponseProcessor? responseProcessor,
+    NetworkProgressCallback? onSendProgress,
   }) {
     return request<T>(
       'PUT',
@@ -122,6 +128,7 @@ class ApiClient {
       body: body,
       headers: headers,
       responseProcessor: responseProcessor,
+      onSendProgress: onSendProgress,
     );
   }
 
@@ -131,6 +138,7 @@ class ApiClient {
     Object? body,
     Map<String, String>? headers,
     ApiResponseProcessor? responseProcessor,
+    NetworkProgressCallback? onSendProgress,
   }) {
     return request<T>(
       'DELETE',
@@ -139,6 +147,7 @@ class ApiClient {
       body: body,
       headers: headers,
       responseProcessor: responseProcessor,
+      onSendProgress: onSendProgress,
     );
   }
 
@@ -149,6 +158,7 @@ class ApiClient {
     Object? body,
     Map<String, String>? headers,
     ApiResponseProcessor? responseProcessor,
+    NetworkProgressCallback? onSendProgress,
   }) async {
     final stopwatch = Stopwatch()..start();
     final uri = _resolveUri(path, query);
@@ -167,6 +177,7 @@ class ApiClient {
       headers: mergedHeaders,
       bodyBytes: prepared.bodyBytes,
       timeoutMs: _timeoutMs,
+      onSendProgress: onSendProgress,
     );
 
     TransportResponse transportResponse;
@@ -327,6 +338,11 @@ class _PreparedBody {
 
 _PreparedBody _prepareBody(Object? body, Map<String, String> headers) {
   if (body == null) return const _PreparedBody(bodyBytes: null);
+
+  if (body is MultipartBody) {
+    headers['content-type'] = body.contentType;
+    return _PreparedBody(bodyBytes: body.toBytes());
+  }
 
   if (body is List<int>) return _PreparedBody(bodyBytes: body);
 

@@ -34,9 +34,6 @@ const TextStyle createFormSupportTextStyle = TextStyle(
   fontSize: 12,
   height: 1.25,
 );
-const Duration _createUploadProgressTick = Duration(milliseconds: 270);
-const int _createUploadProgressBytesPerSecond = 50 * 1024;
-const double _createUploadProgressCap = 0.92;
 
 final Object createFormTextFieldTapRegionGroup = Object();
 
@@ -607,8 +604,8 @@ class CreateUploadBox extends StatefulWidget {
 
 class _CreateUploadBoxState extends State<CreateUploadBox> {
   Uint8List? _previewBytes;
-  Timer? _progressTimer;
   bool _isUploading = false;
+  bool _isUploadProcessing = false;
   double _uploadProgress = 0;
 
   @override
@@ -623,9 +620,9 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_handleControllerChanged);
       widget.controller.addListener(_handleControllerChanged);
-      _progressTimer?.cancel();
       _previewBytes = null;
       _isUploading = false;
+      _isUploadProcessing = false;
       _uploadProgress = 0;
     }
   }
@@ -633,16 +630,15 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
   @override
   void dispose() {
     widget.controller.removeListener(_handleControllerChanged);
-    _progressTimer?.cancel();
     super.dispose();
   }
 
   void _handleControllerChanged() {
     if (!mounted || _isUploading) return;
     if (_previewBytes != null) {
-      _progressTimer?.cancel();
       setState(() {
         _previewBytes = null;
+        _isUploadProcessing = false;
         _uploadProgress = 0;
       });
       return;
@@ -686,6 +682,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
                     imageUrl: imageUrl,
                     imageBytes: _previewBytes,
                     isUploading: _isUploading,
+                    isProcessing: _isUploadProcessing,
                     progress: _uploadProgress,
                     alignment: widget.previewAlignment,
                   ),
@@ -721,10 +718,10 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
   }
 
   void _removeImage() {
-    _progressTimer?.cancel();
     setState(() {
       _previewBytes = null;
       _isUploading = false;
+      _isUploadProcessing = false;
       _uploadProgress = 0;
     });
     widget.controller.clear();
@@ -755,11 +752,11 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       setState(() {
         _previewBytes = crop.bytes;
         _isUploading = true;
-        _uploadProgress = 0;
+        _isUploadProcessing = false;
+        _uploadProgress = 0.02;
       });
       widget.controller.clear();
       widget.onChanged();
-      _startProgressTimer(crop.bytes.length);
       unawaited(_uploadCroppedImage(context, crop, previousUrl));
     } on UnsupportedGifImageException {
       if (!context.mounted) return;
@@ -793,14 +790,23 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
         bytes: crop.bytes,
         filename: crop.filename,
         contentType: crop.contentType,
+        onSendProgress: (sentBytes, totalBytes) {
+          if (!mounted || !_isUploading) return;
+          final total = totalBytes <= 0 ? 1 : totalBytes;
+          final isProcessing = totalBytes > 0 && sentBytes >= totalBytes;
+          setState(() {
+            _isUploadProcessing = isProcessing;
+            _uploadProgress = (sentBytes / total).clamp(0.0, 1.0).toDouble();
+          });
+        },
       );
       if (!mounted) return;
       final url = GenesisImageResourceRegistry.resolve(uploaded).displayUrl;
       if (url.isEmpty) {
         throw StateError('Upload returned an empty URL');
       }
-      _progressTimer?.cancel();
       setState(() {
+        _isUploadProcessing = false;
         _uploadProgress = 1;
       });
       widget.controller.text = url;
@@ -810,9 +816,9 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       widget.onChanged();
     } catch (_) {
       if (!mounted) return;
-      _progressTimer?.cancel();
       setState(() {
         _isUploading = false;
+        _isUploadProcessing = false;
         _uploadProgress = 0;
         _previewBytes = null;
       });
@@ -820,33 +826,6 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       widget.onChanged();
       _showMessage('Image upload failed.');
     }
-  }
-
-  void _startProgressTimer(int byteCount) {
-    _progressTimer?.cancel();
-    final stopwatch = Stopwatch()..start();
-    _progressTimer = Timer.periodic(_createUploadProgressTick, (_) {
-      if (!mounted || !_isUploading) return;
-      setState(() {
-        _uploadProgress = _estimatedCreateUploadProgress(
-          byteCount: byteCount,
-          elapsed: stopwatch.elapsed,
-        );
-      });
-    });
-  }
-
-  double _estimatedCreateUploadProgress({
-    required int byteCount,
-    required Duration elapsed,
-  }) {
-    final estimatedBytes = byteCount <= 0 ? 1 : byteCount;
-    final estimatedDurationMs =
-        estimatedBytes / _createUploadProgressBytesPerSecond * 1000;
-    if (estimatedDurationMs <= 0) return _createUploadProgressCap;
-    return (elapsed.inMilliseconds / estimatedDurationMs)
-        .clamp(0.0, _createUploadProgressCap)
-        .toDouble();
   }
 
   String _pngFilenameFor(String filename) {
@@ -904,6 +883,7 @@ class _Preview extends StatelessWidget {
     required this.imageUrl,
     required this.imageBytes,
     required this.isUploading,
+    required this.isProcessing,
     required this.progress,
     required this.alignment,
   });
@@ -911,6 +891,7 @@ class _Preview extends StatelessWidget {
   final String imageUrl;
   final Uint8List? imageBytes;
   final bool isUploading;
+  final bool isProcessing;
   final double progress;
   final Alignment alignment;
 
@@ -980,7 +961,11 @@ class _Preview extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             image,
-            if (isUploading) GenesisUploadProgressOverlay(progress: progress),
+            if (isUploading)
+              GenesisUploadProgressOverlay(
+                progress: progress,
+                processing: isProcessing,
+              ),
           ],
         );
       },
