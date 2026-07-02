@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
-import '../../app/debug_floating_button_visibility.dart';
+import '../../app/debug_floating_button_unlock.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_content_submission_dialog.dart';
@@ -93,8 +95,7 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
     _debugUnlockTapCount = 0;
-    showGenesisDebugFloatingButton();
-    showGenesisToast(context, 'Debug button shown');
+    unawaited(requestGenesisDebugFloatingButtonUnlock(context));
   }
 
   @override

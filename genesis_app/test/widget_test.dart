@@ -13,6 +13,7 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
+import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
@@ -5763,6 +5764,28 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
+  testWidgets('signed-out Me debug unlock only listens on logo', (
+    WidgetTester tester,
+  ) async {
+    hideGenesisDebugFloatingButton();
+    addTearDown(hideGenesisDebugFloatingButton);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SignedOutMeView(loggingInProvider: null, onLogin: (_) {}),
+        ),
+      ),
+    );
+
+    for (var i = 0; i < 10; i += 1) {
+      await tester.tap(find.text('LIVE YOUR WORLD'));
+      await tester.pump();
+    }
+
+    expect(genesisDebugFloatingButtonVisible.value, isFalse);
+  });
+
   testWidgets(
     'tap Me shows signed-out view without local backend login state',
     (WidgetTester tester) async {
@@ -8452,6 +8475,81 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(genesisDebugFloatingButtonVisible.value, isTrue);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('release debug unlock requires password', (
+    WidgetTester tester,
+  ) async {
+    hideGenesisDebugFloatingButton();
+    addTearDown(hideGenesisDebugFloatingButton);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            return TextButton(
+              onPressed: () => unawaited(
+                requestGenesisDebugFloatingButtonUnlock(
+                  context,
+                  isDebugBuild: false,
+                ),
+              ),
+              child: const Text('Unlock debug'),
+            );
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Unlock debug'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('debug-password-input')),
+      findsOneWidget,
+    );
+    expect(genesisDebugFloatingButtonVisible.value, isFalse);
+
+    await tester.tapAt(const Offset(4, 4));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('debug-password-input')),
+      findsOneWidget,
+    );
+    expect(genesisDebugFloatingButtonVisible.value, isFalse);
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('debug-password-input')),
+      '1234',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('debug-password-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('debug-password-input')),
+      findsOneWidget,
+    );
+    expect(genesisDebugFloatingButtonVisible.value, isFalse);
+
+    await tester.enterText(
+      find.byKey(const ValueKey<String>('debug-password-input')),
+      '6688',
+    );
+    await tester.tap(
+      find.byKey(const ValueKey<String>('debug-password-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('debug-password-input')),
+      findsNothing,
+    );
+    expect(genesisDebugFloatingButtonVisible.value, isTrue);
+
     await tester.pump(const Duration(seconds: 2));
   });
 
