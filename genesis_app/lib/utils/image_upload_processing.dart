@@ -5,7 +5,7 @@ import 'package:image/image.dart' as img;
 
 import 'image_format_guards.dart';
 
-const int uploadJpegQuality = 85;
+const int uploadJpegQuality = 90;
 
 class ProcessedUploadImage {
   const ProcessedUploadImage({
