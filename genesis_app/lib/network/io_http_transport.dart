@@ -28,9 +28,9 @@ class IoHttpTransport implements HttpTransport {
     HttpRequestPerformanceMetricUrlFilter? performanceMetricUrlFilter,
   }) : _client = client ?? createProxyAwareHttpClient(proxy),
        _performanceMetricFactory =
-           performanceMetricFactory ?? _createFirebasePerformanceMetric,
+           performanceMetricFactory ?? createFirebasePerformanceMetric,
        _performanceMetricUrlFilter =
-           performanceMetricUrlFilter ?? _isBusinessPerformanceMetricUrl;
+           performanceMetricUrlFilter ?? isBusinessPerformanceMetricUrl;
 
   final HttpClient _client;
   final HttpRequestPerformanceMetricFactory _performanceMetricFactory;
@@ -70,13 +70,13 @@ class IoHttpTransport implements HttpTransport {
         headers: headers,
         body: body,
         responsePayloadSizeBytes:
-            _responsePayloadSizeFromHeaders(headers) ??
-            _nonNegativeContentLength(httpResponse.contentLength),
+            responsePayloadSizeFromHeaders(headers) ??
+            nonNegativeContentLength(httpResponse.contentLength),
       );
-      _recordPerformanceMetricResponse(metric, response);
+      recordPerformanceMetricResponse(metric, response);
       return response;
     } finally {
-      await _stopPerformanceMetric(metric);
+      await stopPerformanceMetric(metric);
     }
   }
 
@@ -85,11 +85,11 @@ class IoHttpTransport implements HttpTransport {
   ) async {
     HttpRequestPerformanceMetric? metric;
     try {
-      final method = _firebaseHttpMethodFor(request.method);
+      final method = firebaseHttpMethodFor(request.method);
       if (method == null) return null;
       if (!_performanceMetricUrlFilter(request.uri)) return null;
       metric = _performanceMetricFactory(
-        _firebaseMetricUrl(request.uri),
+        firebaseMetricUrl(request.uri),
         method,
       );
       if (metric == null) return null;
@@ -97,7 +97,7 @@ class IoHttpTransport implements HttpTransport {
       await metric.start();
       return metric;
     } catch (_) {
-      await _stopPerformanceMetric(metric);
+      await stopPerformanceMetric(metric);
       return null;
     }
   }
@@ -140,7 +140,7 @@ class _FirebaseHttpRequestPerformanceMetric
   }
 }
 
-HttpRequestPerformanceMetric _createFirebasePerformanceMetric(
+HttpRequestPerformanceMetric createFirebasePerformanceMetric(
   String url,
   HttpMethod method,
 ) {
@@ -171,7 +171,7 @@ String? _normalizeProxyAddress(String? proxy) {
   return '${parsed.host}:${parsed.port}';
 }
 
-HttpMethod? _firebaseHttpMethodFor(String method) {
+HttpMethod? firebaseHttpMethodFor(String method) {
   switch (method.trim().toUpperCase()) {
     case 'CONNECT':
       return HttpMethod.Connect;
@@ -195,7 +195,7 @@ HttpMethod? _firebaseHttpMethodFor(String method) {
   return null;
 }
 
-String _firebaseMetricUrl(Uri uri) {
+String firebaseMetricUrl(Uri uri) {
   return Uri(
     scheme: uri.scheme,
     userInfo: uri.userInfo,
@@ -205,7 +205,7 @@ String _firebaseMetricUrl(Uri uri) {
   ).toString();
 }
 
-bool _isBusinessPerformanceMetricUrl(Uri uri) {
+bool isBusinessPerformanceMetricUrl(Uri uri) {
   switch (uri.host.toLowerCase()) {
     case 'api.worldo.ai':
     case 'dev.hushie.ai':
@@ -214,29 +214,27 @@ bool _isBusinessPerformanceMetricUrl(Uri uri) {
   return false;
 }
 
-void _recordPerformanceMetricResponse(
+void recordPerformanceMetricResponse(
   HttpRequestPerformanceMetric? metric,
   TransportResponse response,
 ) {
   if (metric == null) return;
   try {
     metric.httpResponseCode = response.statusCode;
-    metric.responseContentType = _headerValue(response.headers, 'content-type');
+    metric.responseContentType = headerValue(response.headers, 'content-type');
     metric.responsePayloadSize =
         response.responsePayloadSizeBytes ?? utf8.encode(response.body).length;
   } catch (_) {}
 }
 
-Future<void> _stopPerformanceMetric(
-  HttpRequestPerformanceMetric? metric,
-) async {
+Future<void> stopPerformanceMetric(HttpRequestPerformanceMetric? metric) async {
   if (metric == null) return;
   try {
     await metric.stop();
   } catch (_) {}
 }
 
-String? _headerValue(Map<String, String> headers, String name) {
+String? headerValue(Map<String, String> headers, String name) {
   final normalizedName = name.toLowerCase();
   for (final entry in headers.entries) {
     if (entry.key.toLowerCase() == normalizedName) {
@@ -246,14 +244,14 @@ String? _headerValue(Map<String, String> headers, String name) {
   return null;
 }
 
-int? _responsePayloadSizeFromHeaders(Map<String, String> headers) {
-  final raw = _headerValue(headers, 'content-length')?.trim();
+int? responsePayloadSizeFromHeaders(Map<String, String> headers) {
+  final raw = headerValue(headers, 'content-length')?.trim();
   if (raw == null || raw.isEmpty) return null;
   final value = int.tryParse(raw);
-  return _nonNegativeContentLength(value);
+  return nonNegativeContentLength(value);
 }
 
-int? _nonNegativeContentLength(int? value) {
+int? nonNegativeContentLength(int? value) {
   if (value == null || value < 0) return null;
   return value;
 }
