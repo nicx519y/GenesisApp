@@ -29,10 +29,16 @@
 
       <section class="workspace split-workspace">
         <sl-card class="work-card queue-card">
-          <div slot="header" class="panel-heading">
-            <h2>Queue Compare</h2>
-          </div>
-          <sl-tab-group id="locationTabGroup" class="location-tab-group"></sl-tab-group>
+          <sl-tab-group id="queueMainTabGroup" class="queue-main-tab-group">
+            <sl-tab slot="nav" panel="queueCompare">Queue Compare</sl-tab>
+            <sl-tab slot="nav" panel="errors">Errors</sl-tab>
+            <sl-tab-panel name="queueCompare">
+              <sl-tab-group id="locationTabGroup" class="location-tab-group"></sl-tab-group>
+            </sl-tab-panel>
+            <sl-tab-panel name="errors">
+              <div id="queueErrors" class="panel-scroll errors-scroll"></div>
+            </sl-tab-panel>
+          </sl-tab-group>
         </sl-card>
 
         <sl-card class="work-card network-card">

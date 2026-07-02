@@ -5,8 +5,16 @@ const state = {
   activeLocationId: "",
   appActiveLocationId: "",
   activeWorldId: "",
+  activeQueueMainTab: "queueCompare",
   activeNetworkTab: "http",
   networkSinceCursor: 0,
+  queueErrors: [],
+  queueErrorMap: new Map(),
+  queueFocusKey: "",
+  messageSourceIndex: new Map(),
+  messageSourceIndexSignature: "",
+  networkFocusKey: "",
+  networkMessageFocusKey: "",
   expandedNetworkRows: new Set(),
   virtualListSeq: 0,
   virtualListIds: new Map(),
@@ -20,7 +28,9 @@ const state = {
 
 const statusEl = document.getElementById("connectionStatus");
 const summaryGrid = document.getElementById("summaryGrid");
+const queueMainTabGroup = document.getElementById("queueMainTabGroup");
 const locationTabGroup = document.getElementById("locationTabGroup");
+const queueErrors = document.getElementById("queueErrors");
 const networkTabGroup = document.getElementById("networkTabGroup");
 const websocketFrames = document.getElementById("websocketFrames");
 const httpMessages = document.getElementById("httpMessages");
@@ -28,6 +38,15 @@ const httpMessages = document.getElementById("httpMessages");
 document.getElementById("refreshButton").addEventListener("click", refreshAll);
 document.getElementById("clearButton").addEventListener("click", clearEvents);
 document.getElementById("exportButton").addEventListener("click", exportJson);
+
+queueMainTabGroup.addEventListener("sl-tab-show", (event) => {
+  const tabName = `${event.detail.name || ""}`.trim();
+  if (!tabName || tabName === state.activeQueueMainTab) return;
+  state.activeQueueMainTab = tabName;
+  renderQueueTabs();
+  renderQueueErrors();
+  queueMicrotask(mountVirtualLists);
+});
 
 locationTabGroup.addEventListener("sl-tab-show", (event) => {
   const locationId = `${event.detail.name || ""}`.trim();
@@ -50,6 +69,14 @@ window.addEventListener("resize", () => {
   for (const container of document.querySelectorAll(".virtual-list")) {
     scheduleVirtualListRender(container, {preserveAnchor: true});
   }
+});
+
+queueErrors.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const row = event.target.closest("[data-queue-error-key]");
+  if (!row) return;
+  event.preventDefault();
+  jumpToQueueError(row.dataset.queueErrorKey || "");
 });
 
 function rpc(method, params = {}) {
@@ -113,6 +140,13 @@ async function clearEvents() {
     state.cursor = 0;
     state.events = [];
     state.activeLocationId = "";
+    state.queueErrors = [];
+    state.queueErrorMap.clear();
+    state.queueFocusKey = "";
+    state.messageSourceIndex.clear();
+    state.messageSourceIndexSignature = "";
+    state.networkFocusKey = "";
+    state.networkMessageFocusKey = "";
     setStatus(state.snapshot);
     render();
   } catch (error) {
@@ -145,8 +179,11 @@ function setStatus(snapshot) {
 function render() {
   saveVirtualScrollPositions();
   syncActiveWorld();
+  rebuildMessageSourceIndex();
+  computeQueueErrors();
   renderSummary();
   renderQueueTabs();
+  renderQueueErrors();
   renderWebSocketFrames();
   renderHttpMessages();
   queueMicrotask(mountVirtualLists);
@@ -279,9 +316,206 @@ function renderQueueColumnsInto(container, locationId) {
     columns.className = "columns";
     container.append(columns);
   }
-  renderColumnInto(columns, "disk", "Disk Cache", storage?.messages || [], `${world.worldId}:${locationId}:disk`);
-  renderColumnInto(columns, "memory", "Memory Cache", service?.messages || [], `${world.worldId}:${locationId}:memory`);
-  renderColumnInto(columns, "render", "Render VM", panel?.renderMessages || [], `${world.worldId}:${locationId}:render`);
+  renderColumnInto(
+    columns,
+    "disk",
+    "Disk Cache",
+    annotateQueueMessages(storage?.messages || [], world.worldId, locationId, "disk"),
+    `${world.worldId}:${locationId}:disk`
+  );
+  renderColumnInto(
+    columns,
+    "memory",
+    "Memory Cache",
+    annotateQueueMessages(service?.messages || [], world.worldId, locationId, "memory"),
+    `${world.worldId}:${locationId}:memory`
+  );
+  renderColumnInto(
+    columns,
+    "render",
+    "Render VM",
+    annotateQueueMessages(panel?.renderMessages || [], world.worldId, locationId, "render"),
+    `${world.worldId}:${locationId}:render`
+  );
+}
+
+function renderQueueErrors() {
+  if (state.activeQueueMainTab !== "errors") {
+    clearElement(queueErrors);
+    return;
+  }
+  renderVirtualListInto(queueErrors, {
+    items: state.queueErrors,
+    className: "errors-virtual-list",
+    key: `queue-errors:${state.activeWorldId}`,
+    emptyHtml: `<p class="muted empty-state">No queue continuity errors.</p>`,
+    getItemHeight: () => 96,
+    getItemKey: queueErrorKey,
+    renderItem: renderQueueError
+  });
+}
+
+function computeQueueErrors() {
+  const world = currentWorldSnapshot();
+  const snapshots = state.snapshot?.snapshots || {};
+  const errors = [];
+  const errorMap = new Map();
+  const errorDedupMap = new Map();
+  for (const location of leafLocations()) {
+    const storage = findSnapshotForLocation(snapshots.storage || {}, location.id, world.worldId);
+    const service = findSnapshotForLocation(snapshots.service || {}, location.id, world.worldId);
+    collectQueueContinuityErrors({
+      errors,
+      errorMap,
+      errorDedupMap,
+      worldId: world.worldId,
+      locationId: location.id,
+      locationName: location.name || location.id,
+      queueLayer: "disk",
+      queueLabel: "Disk Cache",
+      messages: storage?.messages || []
+    });
+    collectQueueContinuityErrors({
+      errors,
+      errorMap,
+      errorDedupMap,
+      worldId: world.worldId,
+      locationId: location.id,
+      locationName: location.name || location.id,
+      queueLayer: "memory",
+      queueLabel: "Memory Cache",
+      messages: service?.messages || []
+    });
+  }
+  state.queueErrors = errors;
+  state.queueErrorMap = errorMap;
+  updateQueueErrorTabCount(errors.length);
+}
+
+function updateQueueErrorTabCount(count) {
+  const tab = queueMainTabGroup.querySelector('sl-tab[panel="errors"]');
+  if (!tab) return;
+  const label = count > 0 ? `Errors (${count})` : "Errors";
+  if (tab.textContent !== label) tab.textContent = label;
+  tab.classList.toggle("has-errors", count > 0);
+}
+
+function collectQueueContinuityErrors({
+  errors,
+  errorMap,
+  errorDedupMap,
+  worldId,
+  locationId,
+  locationName,
+  queueLayer,
+  queueLabel,
+  messages
+}) {
+  let previous = null;
+  for (const message of messages) {
+    if (isTickMessage(message)) continue;
+    const currentId = numericLocationMsgId(message);
+    if (!Number.isFinite(currentId) || currentId <= 0) continue;
+    if (previous && currentId !== previous.locationMessageId + 1) {
+      const errorType = currentId <= previous.locationMessageId
+        ? "location_message_id_order_or_duplicate"
+        : "location_message_id_gap";
+      const error = {
+        id: [
+          worldId,
+          locationId,
+          queueLayer,
+          previous.locationMessageId,
+          currentId,
+          messageGlobalId(message)
+        ].join("|"),
+        worldId: worldId || "",
+        wid: worldId || "-",
+        locationId,
+        locationName,
+        queueLayer,
+        queueLabel,
+        errorType,
+        previousLocationMessageId: previous.locationMessageId,
+        currentLocationMessageId: currentId,
+        expectedLocationMessageId: previous.locationMessageId + 1,
+        previousGlobalMessageId: previous.globalMessageId,
+        currentGlobalMessageId: messageGlobalId(message),
+        previousRowKey: messageRowKey(previous.message, 0),
+        currentRowKey: messageRowKey(message, 0),
+        previousMessageType: messageType(previous.message),
+        currentMessageType: messageType(message),
+        previousMessageContent: messageContent(previous.message),
+        currentMessageContent: messageContent(message)
+      };
+      const dedupKey = queueErrorDedupKey(error);
+      if (!errorDedupMap.has(dedupKey)) {
+        errorDedupMap.set(dedupKey, error);
+        errors.push(error);
+      }
+      errorMap.set(
+        queueErrorMarkerKey(worldId, locationId, queueLayer, previous.message),
+        {...error, markerRole: "previous"}
+      );
+      errorMap.set(
+        queueErrorMarkerKey(worldId, locationId, queueLayer, message),
+        {...error, markerRole: "current"}
+      );
+    }
+    previous = {
+      message,
+      locationMessageId: currentId,
+      globalMessageId: messageGlobalId(message)
+    };
+  }
+}
+
+function queueErrorDedupKey(error) {
+  const globalMessageId = `${error.currentGlobalMessageId || ""}`.trim();
+  if (globalMessageId) return `global:${globalMessageId}`;
+  return `error:${queueErrorKey(error)}`;
+}
+
+function annotateQueueMessages(messages, worldId, locationId, queueLayer) {
+  return messages.map((message) => {
+    const error = state.queueErrorMap.get(
+      queueErrorMarkerKey(worldId, locationId, queueLayer, message)
+    );
+    const focusKey = queueMessageFocusKey(
+      worldId,
+      locationId,
+      queueLayer,
+      messageRowKey(message, 0)
+    );
+    const isFocused = Boolean(state.queueFocusKey && focusKey === state.queueFocusKey);
+    const sourceKeys = messageSourceKeys(message, {worldId, locationId});
+    if (!error && !isFocused && !sourceKeys.length) return message;
+    return {
+      ...message,
+      __queueError: error,
+      __queueFocus: isFocused,
+      __messageSourceKeys: sourceKeys
+    };
+  });
+}
+
+function queueMessageFocusKey(worldId, locationId, queueLayer, rowKey) {
+  return [
+    worldId || "",
+    locationId || "",
+    queueLayer || "",
+    rowKey || ""
+  ].join("|");
+}
+
+function queueErrorMarkerKey(worldId, locationId, queueLayer, message) {
+  return [
+    worldId || "",
+    locationId || "",
+    queueLayer || "",
+    messageLocationMsgId(message) || "",
+    messageGlobalId(message) || messageRowKey(message, 0)
+  ].join("|");
 }
 
 function renderWebSocketFrames() {
@@ -299,6 +533,131 @@ function renderWebSocketFrames() {
     getItemKey: networkRowId,
     renderItem: renderWebSocketFrame
   });
+}
+
+function rebuildMessageSourceIndex() {
+  const lastCursor = Number(state.events[state.events.length - 1]?.cursor || 0);
+  const signature = [
+    state.activeWorldId,
+    state.networkSinceCursor,
+    state.events.length,
+    lastCursor
+  ].join("|");
+  if (signature === state.messageSourceIndexSignature) return;
+
+  const index = new Map();
+  for (const event of networkEvents("http", 500)) {
+    const rowId = networkRowId(event);
+    const details = event.details || {};
+    const messages = Array.isArray(details.messages) ? details.messages : [];
+    for (const message of messages) {
+      addMessageSourceHit(index, message, event, {
+        source: "http",
+        rowId,
+        eventCursor: Number(event.cursor || 0),
+        messageRowKey: messageRowKey(message, 0)
+      });
+    }
+  }
+
+  for (const event of networkEvents("websocket", 500)) {
+    const rowId = networkRowId(event);
+    const payloadMessages = extractMessageLikeObjects(event.details?.payload);
+    for (const message of payloadMessages) {
+      addMessageSourceHit(index, message, event, {
+        source: "websocket",
+        rowId,
+        eventCursor: Number(event.cursor || 0),
+        messageRowKey: messageRowKey(message, 0)
+      });
+    }
+  }
+
+  state.messageSourceIndex = index;
+  state.messageSourceIndexSignature = signature;
+}
+
+function addMessageSourceHit(index, message, event, hit) {
+  for (const key of messageSourceKeys(message, event)) {
+    const bucket = index.get(key) || {http: [], websocket: []};
+    bucket[hit.source].push(hit);
+    index.set(key, bucket);
+  }
+}
+
+function messageSourceKeys(message, context = {}) {
+  const worldId = firstNonEmpty(message?.worldId, message?.world_id, context.worldId);
+  const locationIds = uniqueStrings([
+    firstNonEmpty(message?.locationId, message?.location_id),
+    firstNonEmpty(context.locationId)
+  ]);
+  const globalId = messageGlobalId(message);
+  const locationMsgId = messageLocationMsgId(message);
+  const queueMsgId = firstNonEmpty(message?.queueMsgId, message?.queue_msg_id);
+  const clientMsgId = firstNonEmpty(message?.clientMsgId, message?.client_msg_id);
+  const msgId = firstNonEmpty(message?.msgId, message?.msg_id, message?.messageId, message?.message_id);
+  const keys = [];
+  if (globalId) keys.push(`global:${globalId}`);
+  if (worldId) {
+    for (const locationId of locationIds) {
+      if (locationMsgId) keys.push(`loc:${worldId}:${locationId}:${locationMsgId}`);
+      if (queueMsgId) keys.push(`queue:${worldId}:${locationId}:${queueMsgId}`);
+    }
+  }
+  if (clientMsgId) keys.push(`client:${clientMsgId}`);
+  if (msgId) keys.push(`msg:${msgId}`);
+  return uniqueStrings(keys);
+}
+
+function extractMessageLikeObjects(value, results = [], depth = 0) {
+  if (depth > 8 || results.length >= 80) return results;
+  if (!value || typeof value !== "object") return results;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      extractMessageLikeObjects(item, results, depth + 1);
+      if (results.length >= 80) break;
+    }
+    return results;
+  }
+
+  if (isIndexableWebSocketMessage(value)) {
+    results.push(value);
+  }
+  for (const child of Object.values(value)) {
+    extractMessageLikeObjects(child, results, depth + 1);
+    if (results.length >= 80) break;
+  }
+  return results;
+}
+
+function isIndexableWebSocketMessage(value) {
+  const globalId = messageGlobalId(value);
+  const locationMsgId = messageLocationMsgId(value);
+  if (globalId || locationMsgId) return true;
+  const clientMsgId = `${value?.clientMsgId ?? value?.client_msg_id ?? ""}`.trim();
+  const msgId = `${value?.msgId ?? value?.msg_id ?? value?.messageId ?? value?.message_id ?? ""}`.trim();
+  if (!clientMsgId && !msgId) return false;
+  return Boolean(
+    value?.senderType ||
+    value?.sender_type ||
+    value?.content ||
+    value?.contentPreview ||
+    value?.content_preview ||
+    value?.text ||
+    value?.status
+  );
+}
+
+function uniqueStrings(values) {
+  const result = [];
+  const seen = new Set();
+  for (const value of values) {
+    const normalized = `${value || ""}`.trim();
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
 }
 
 function renderHttpMessages() {
@@ -343,6 +702,11 @@ function syncActiveWorld() {
   }
   if (state.activeWorldId === worldId) return;
   state.activeWorldId = worldId;
+  state.queueFocusKey = "";
+  state.networkFocusKey = "";
+  state.networkMessageFocusKey = "";
+  state.messageSourceIndex.clear();
+  state.messageSourceIndexSignature = "";
   state.expandedNetworkRows.clear();
   state.networkSinceCursor =
     Number(latestWorldEventFor(worldId)?.cursor || state.cursor || 0);
@@ -470,8 +834,9 @@ function renderWebSocketFrame(event) {
   const rawLength = `${details.raw || ""}`.length;
   const rowId = networkRowId(event);
   const open = networkRowOpen(event);
+  const focused = state.networkFocusKey === rowId;
   return `
-    <article class="network-event ${escapeHtml(direction)} ${open ? "open" : ""}" data-network-row-id="${escapeAttribute(rowId)}">
+    <article class="network-event ${escapeHtml(direction)} ${open ? "open" : ""} ${focused ? "network-focus-row" : ""}" data-network-row-id="${escapeAttribute(rowId)}">
       <button class="network-summary" type="button" data-network-toggle="${escapeAttribute(rowId)}">
         <span class="direction ${escapeHtml(direction)}">${escapeHtml(direction)}</span>
         <span class="network-time">${escapeHtml(time)}</span>
@@ -499,8 +864,10 @@ function renderHttpPull(event) {
   const time = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : "";
   const rowId = networkRowId(event);
   const open = networkRowOpen(event);
+  const focused = state.networkFocusKey === rowId;
+  const renderedMessages = annotateNetworkResponseMessages(rowId, messages);
   return `
-    <article class="network-event http-pull ${open ? "open" : ""}" data-network-row-id="${escapeAttribute(rowId)}">
+    <article class="network-event http-pull ${open ? "open" : ""} ${focused ? "network-focus-row" : ""}" data-network-row-id="${escapeAttribute(rowId)}">
       <button class="network-summary" type="button" data-network-toggle="${escapeAttribute(rowId)}">
         <span class="direction http">https</span>
         <span class="network-time">${escapeHtml(time)}</span>
@@ -519,8 +886,8 @@ function renderHttpPull(event) {
           <section class="network-response-pane network-response-messages">
             <h4>Messages · ${escapeHtml(messages.length)}</h4>
             <div class="message-list network-response-list">
-              ${messages.length ? virtualList({
-                  items: messages,
+              ${renderedMessages.length ? virtualList({
+                  items: renderedMessages,
                   className: "message-virtual-list network-message-virtual-list",
                   key: `network-response:${rowId}`,
                   getItemHeight: () => 58,
@@ -533,6 +900,14 @@ function renderHttpPull(event) {
       ` : ""}
     </article>
   `;
+}
+
+function annotateNetworkResponseMessages(rowId, messages) {
+  return messages.map((message) => {
+    const focusKey = networkMessageFocusKey(rowId, messageRowKey(message, 0));
+    if (focusKey !== state.networkMessageFocusKey) return message;
+    return {...message, __networkFocus: true};
+  });
 }
 
 function renderColumn(title, messages, key) {
@@ -579,17 +954,71 @@ function renderColumnInto(parent, columnKey, title, messages, key) {
 
 function renderMessage(message) {
   const id = isTickMessage(message) ? "" : messageLocationMsgId(message);
-  const kind = message.senderType || message.status || "";
-  const text = message.contentPreview || "";
+  const kind = messageType(message);
+  const text = messageContent(message);
+  const error = message.__queueError || null;
+  const sourceKeys = Array.isArray(message.__messageSourceKeys)
+    ? message.__messageSourceKeys
+    : [];
+  const issueTitle = error
+    ? `${error.queueLabel}: expected ${error.expectedLocationMessageId}, got ${error.currentLocationMessageId}`
+    : "";
   return `
-    <div class="message-row ${isTickMessage(message) ? "tick-message" : ""}">
+    <div
+      class="message-row ${isTickMessage(message) ? "tick-message" : ""} ${error ? "queue-gap-row" : ""} ${message.__queueFocus ? "queue-focus-row" : ""} ${message.__networkFocus ? "network-message-focus-row" : ""}"
+      ${sourceKeys.length ? `data-message-source-keys="${escapeAttribute(encodeSourceKeys(sourceKeys))}"` : ""}
+    >
       <div class="message-id">${escapeHtml(id)}</div>
       <div class="message-text">
-        <strong>${escapeHtml(kind)}</strong>
+        <strong>
+          ${error ? `<span class="queue-gap-icon" title="${escapeAttribute(issueTitle)}">!</span>` : ""}
+          ${escapeHtml(kind)}
+        </strong>
         <div>${escapeHtml(text)}</div>
       </div>
     </div>
   `;
+}
+
+function renderQueueError(error) {
+  return `
+    <article
+      class="queue-error-row"
+      role="button"
+      tabindex="0"
+      data-queue-error-key="${escapeAttribute(queueErrorKey(error))}"
+      title="Jump to Queue Compare"
+    >
+      <div class="queue-error-main">
+        <span class="queue-gap-icon">!</span>
+        <strong>${escapeHtml(error.errorType)}</strong>
+        <span>${escapeHtml(error.queueLabel)}</span>
+        <span>${escapeHtml(error.locationName || error.locationId)}</span>
+      </div>
+      <div class="queue-error-meta">
+        <span>wid: <b>${escapeHtml(error.wid)}</b></span>
+        <span>location: <b>${escapeHtml(error.locationId)}</b></span>
+        <span>prev loc_msg_id: <b>${escapeHtml(error.previousLocationMessageId)}</b></span>
+        <span>current loc_msg_id: <b>${escapeHtml(error.currentLocationMessageId)}</b></span>
+        <span>expected: <b>${escapeHtml(error.expectedLocationMessageId)}</b></span>
+        <span>prev global_message_id: <b>${escapeHtml(error.previousGlobalMessageId || "-")}</b></span>
+        <span>current global_message_id: <b>${escapeHtml(error.currentGlobalMessageId || "-")}</b></span>
+        <span>type: <b>${escapeHtml(error.currentMessageType || "-")}</b></span>
+      </div>
+      <div class="queue-error-content">${escapeHtml(error.currentMessageContent || "")}</div>
+      <div class="queue-error-content previous">previous: ${escapeHtml(error.previousMessageContent || "")}</div>
+    </article>
+  `;
+}
+
+function queueErrorKey(error) {
+  return error.id || [
+    error.wid,
+    error.locationId,
+    error.queueLayer,
+    error.previousLocationMessageId,
+    error.currentLocationMessageId
+  ].join("|");
 }
 
 function compareIssues(storage, service, panel) {
@@ -632,16 +1061,51 @@ function messageLocationMsgId(message) {
   return "";
 }
 
+function numericLocationMsgId(message) {
+  const value = Number(messageLocationMsgId(message));
+  return Number.isFinite(value) ? value : NaN;
+}
+
+function messageGlobalId(message) {
+  const candidates = [
+    message?.global_message_id,
+    message?.global_msg_id,
+    message?.globalMsgId,
+    message?.globalMessageId
+  ];
+  for (const value of candidates) {
+    const normalized = `${value ?? ""}`.trim();
+    if (normalized && normalized !== "0") return normalized;
+  }
+  return "";
+}
+
+function messageType(message) {
+  return `${message?.senderType ?? message?.sender_type ?? message?.status ?? ""}`.trim();
+}
+
+function messageContent(message) {
+  return `${message?.contentPreview ?? message?.content_preview ?? message?.content ?? message?.text ?? ""}`.trim();
+}
+
 function messageRowKey(message, index) {
   const id = messageLocationMsgId(message);
   if (id) return `loc:${id}`;
-  const msgId = `${message?.msgId ?? message?.msg_id ?? ""}`.trim();
+  const msgId = firstNonEmpty(message?.msgId, message?.msg_id, message?.messageId, message?.message_id);
   if (msgId) return `msg:${msgId}`;
-  const clientMsgId = `${message?.clientMsgId ?? message?.client_msg_id ?? ""}`.trim();
+  const clientMsgId = firstNonEmpty(message?.clientMsgId, message?.client_msg_id);
   if (clientMsgId) return `client:${clientMsgId}`;
   const time = `${message?.currentTime ?? message?.current_time ?? message?.ts ?? ""}`.trim();
   const kind = `${message?.senderType ?? message?.sender_type ?? message?.status ?? ""}`.trim();
   return `${index}:${kind}:${time}:${message?.contentPreview || ""}`;
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    const normalized = `${value ?? ""}`.trim();
+    if (normalized && normalized !== "0") return normalized;
+  }
+  return "";
 }
 
 function networkRowId(event) {
@@ -1036,6 +1500,18 @@ function findVirtualEnd(offsets, heights, target) {
 }
 
 function handleVirtualListClick(event) {
+  const queueErrorRow = event.target.closest("[data-queue-error-key]");
+  if (queueErrorRow) {
+    jumpToQueueError(queueErrorRow.dataset.queueErrorKey || "");
+    return;
+  }
+
+  const sourceMessage = event.target.closest("[data-message-source-keys]");
+  if (sourceMessage) {
+    jumpToNetworkSource(sourceMessage.dataset.messageSourceKeys || "");
+    return;
+  }
+
   const toggle = event.target.closest("[data-network-toggle]");
   if (!toggle) return;
   const rowId = toggle.dataset.networkToggle || "";
@@ -1047,6 +1523,158 @@ function handleVirtualListClick(event) {
   }
   state.virtualLists.get(event.currentTarget.dataset.virtualId || "")?.itemHeights.clear();
   renderVirtualList(event.currentTarget);
+}
+
+function jumpToNetworkSource(sourceKeysValue) {
+  const hit = resolveNetworkSourceHit(sourceKeysValue);
+  if (!hit) return;
+
+  state.activeNetworkTab = hit.source;
+  state.networkFocusKey = hit.rowId;
+  state.networkMessageFocusKey = hit.source === "http" && hit.messageRowKey
+    ? networkMessageFocusKey(hit.rowId, hit.messageRowKey)
+    : "";
+  state.expandedNetworkRows.add(hit.rowId);
+
+  if (typeof networkTabGroup.show === "function") {
+    networkTabGroup.show(hit.source);
+  }
+  renderWebSocketFrames();
+  renderHttpMessages();
+
+  queueMicrotask(() => {
+    mountVirtualLists();
+    requestAnimationFrame(() => scrollToNetworkHit(hit));
+  });
+}
+
+function resolveNetworkSourceHit(sourceKeysValue) {
+  const keys = `${sourceKeysValue || ""}`
+    .split(",")
+    .map((item) => decodeSourceKey(item))
+    .filter(Boolean);
+  for (const key of keys) {
+    const hit = state.messageSourceIndex.get(key)?.http?.[0];
+    if (hit) return hit;
+  }
+  for (const key of keys) {
+    const hit = state.messageSourceIndex.get(key)?.websocket?.[0];
+    if (hit) return hit;
+  }
+  return null;
+}
+
+function encodeSourceKeys(keys) {
+  return keys.map((key) => encodeURIComponent(key)).join(",");
+}
+
+function decodeSourceKey(value) {
+  try {
+    return decodeURIComponent(`${value || ""}`.trim());
+  } catch (_) {
+    return "";
+  }
+}
+
+function networkMessageFocusKey(rowId, messageRowKeyValue) {
+  return `${rowId || ""}|${messageRowKeyValue || ""}`;
+}
+
+function scrollToNetworkHit(hit) {
+  const container = document.querySelector(
+    `.virtual-list[data-virtual-key="${cssEscape(`network:${state.activeWorldId}:${hit.source}`)}"]`
+  );
+  if (!container) return false;
+  const scrolled = scrollVirtualListToItem(container, hit.rowId);
+  requestAnimationFrame(() => {
+    const item = container.querySelector(
+      `.virtual-item[data-virtual-key="${cssEscape(hit.rowId)}"]`
+    );
+    item?.querySelector(".network-event")?.classList.add("network-focus-pulse");
+    if (hit.source !== "http" || !hit.messageRowKey) return;
+    const responseList = item?.querySelector(
+      `.virtual-list[data-virtual-key="${cssEscape(`network-response:${hit.rowId}`)}"]`
+    );
+    if (!responseList) return;
+    scrollVirtualListToItem(responseList, hit.messageRowKey);
+  });
+  return scrolled;
+}
+
+function jumpToQueueError(errorKey) {
+  const error = state.queueErrors.find((item) => queueErrorKey(item) === errorKey);
+  if (!error) return;
+
+  const worldId = `${error.worldId || (error.wid === "-" ? "" : error.wid) || ""}`;
+  const targetRowKey = `${error.currentRowKey || `loc:${error.currentLocationMessageId}`}`;
+  state.activeQueueMainTab = "queueCompare";
+  state.activeLocationId = error.locationId;
+  state.queueFocusKey = queueMessageFocusKey(
+    worldId,
+    error.locationId,
+    error.queueLayer,
+    targetRowKey
+  );
+
+  if (typeof queueMainTabGroup.show === "function") {
+    queueMainTabGroup.show("queueCompare");
+  }
+  renderQueueTabs();
+
+  queueMicrotask(() => {
+    if (typeof locationTabGroup.show === "function") {
+      locationTabGroup.show(error.locationId);
+    }
+    renderActiveQueuePanel();
+    queueMicrotask(() => {
+      mountVirtualLists();
+      requestAnimationFrame(() => scrollToQueueMessage(error, targetRowKey));
+    });
+  });
+}
+
+function scrollToQueueMessage(error, targetRowKey) {
+  const worldId = `${error.worldId || (error.wid === "-" ? "" : error.wid) || ""}`;
+  const listKey = `queue:${worldId}:${error.locationId}:${error.queueLayer}`;
+  const container = document.querySelector(
+    `.virtual-list[data-virtual-key="${cssEscape(listKey)}"]`
+  );
+  if (!container) return false;
+  return scrollVirtualListToItem(container, targetRowKey);
+}
+
+function scrollVirtualListToItem(container, targetKey) {
+  const config = state.virtualLists.get(container.dataset.virtualId || "");
+  if (!config) return false;
+  const items = config.items || [];
+  const index = items.findIndex((item, itemIndex) => (
+    virtualItemKey(config, item, itemIndex) === targetKey
+  ));
+  if (index < 0) return false;
+
+  const heights = items.map((item, itemIndex) => itemHeight(config, item, itemIndex));
+  let offset = 0;
+  for (let itemIndex = 0; itemIndex < index; itemIndex += 1) {
+    offset += heights[itemIndex];
+  }
+  const targetHeight = heights[index] || 1;
+  const targetScrollTop = Math.max(
+    0,
+    offset - Math.max(0, (container.clientHeight - targetHeight) / 2)
+  );
+  container.__virtualPendingScrollTop = targetScrollTop;
+  if (config.key) {
+    state.virtualScrollTops.set(config.key, targetScrollTop);
+  }
+  renderVirtualList(container);
+  requestAnimationFrame(() => {
+    const item = container.querySelector(
+      `.virtual-item[data-virtual-key="${cssEscape(targetKey)}"]`
+    );
+    const row = item?.querySelector(".message-row");
+    row?.classList.add("queue-focus-pulse");
+  });
+  return true;
 }
 
 function setHtmlIfChanged(element, html) {
