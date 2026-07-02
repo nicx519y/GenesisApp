@@ -152,6 +152,8 @@ class GatewayRequestInterceptor {
       bodyBytes: request.bodyBytes,
       timeoutMs: request.timeoutMs,
       onSendProgress: request.onSendProgress,
+      onReceiveProgress: request.onReceiveProgress,
+      cancellationToken: request.cancellationToken,
     );
   }
 }
@@ -236,6 +238,8 @@ class GatewayRequestSigner {
       bodyBytes: request.bodyBytes,
       timeoutMs: request.timeoutMs,
       onSendProgress: request.onSendProgress,
+      onReceiveProgress: request.onReceiveProgress,
+      cancellationToken: request.cancellationToken,
     );
   }
 }

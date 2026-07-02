@@ -121,6 +121,47 @@ void main() {
     expect(response.statusCode, 200);
     expect(response.body, 'ok');
   });
+
+  test('reports receive progress and keeps raw response bytes', () async {
+    final responseBody = <int>[0, 1, 2, 250, 255];
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    server.listen((request) async {
+      request.response
+        ..statusCode = 200
+        ..headers.contentType = ContentType.binary
+        ..contentLength = responseBody.length;
+      request.response.add(responseBody.sublist(0, 2));
+      await request.response.flush();
+      request.response.add(responseBody.sublist(2));
+      await request.response.close();
+    });
+
+    final progressEvents = <({int receivedBytes, int totalBytes})>[];
+    final transport = IoHttpTransport(performanceMetricUrlFilter: (_) => false);
+
+    final response = await transport.send(
+      TransportRequest(
+        method: 'GET',
+        uri: Uri.parse('http://127.0.0.1:${server.port}/asset.bin'),
+        headers: const {},
+        bodyBytes: null,
+        timeoutMs: 5000,
+        onReceiveProgress: (receivedBytes, totalBytes) {
+          progressEvents.add((
+            receivedBytes: receivedBytes,
+            totalBytes: totalBytes,
+          ));
+        },
+      ),
+    );
+
+    expect(response.statusCode, 200);
+    expect(response.bodyBytes, responseBody);
+    expect(progressEvents, isNotEmpty);
+    expect(progressEvents.last.receivedBytes, responseBody.length);
+    expect(progressEvents.last.totalBytes, responseBody.length);
+  });
 }
 
 class _FakePerformanceMetric implements HttpRequestPerformanceMetric {

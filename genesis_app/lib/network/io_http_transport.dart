@@ -38,48 +38,64 @@ class IoHttpTransport implements HttpTransport {
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
+    request.cancellationToken?.throwIfCancelled();
     final metric = await _startPerformanceMetric(request);
+    HttpClientRequest? httpRequest;
+    void Function()? removeCancelListener;
     try {
-      final httpRequest = await _client
+      httpRequest = await _client
           .openUrl(request.method, request.uri)
           .timeout(Duration(milliseconds: request.timeoutMs));
+      removeCancelListener = request.cancellationToken?.addCancelListener(() {
+        httpRequest?.abort(const NetworkRequestCancelledException());
+      });
+      request.cancellationToken?.throwIfCancelled();
+      final openedRequest = httpRequest;
 
       request.headers.forEach((key, value) {
-        httpRequest.headers.set(key, value);
+        openedRequest.headers.set(key, value);
       });
 
       if (request.bodyBytes != null) {
-        httpRequest.add(request.bodyBytes!);
+        openedRequest.add(request.bodyBytes!);
         request.onSendProgress?.call(
           request.bodyBytes!.length,
           request.bodyBytes!.length,
         );
       }
 
-      final httpResponse = await httpRequest.close().timeout(
+      final httpResponse = await openedRequest.close().timeout(
         Duration(milliseconds: request.timeoutMs),
       );
+      request.cancellationToken?.throwIfCancelled();
 
       final headers = <String, String>{};
       httpResponse.headers.forEach((name, values) {
         headers[name] = values.join(',');
       });
 
-      final body = await utf8
-          .decodeStream(httpResponse)
-          .timeout(Duration(milliseconds: request.timeoutMs));
+      final bodyBytes = await _readResponseBytes(
+        httpResponse,
+        timeout: Duration(milliseconds: request.timeoutMs),
+        onReceiveProgress: request.onReceiveProgress,
+        cancellationToken: request.cancellationToken,
+      );
+      final body = utf8.decode(bodyBytes, allowMalformed: true);
 
       final response = TransportResponse(
         statusCode: httpResponse.statusCode,
         headers: headers,
         body: body,
+        bodyBytes: bodyBytes,
         responsePayloadSizeBytes:
             responsePayloadSizeFromHeaders(headers) ??
-            nonNegativeContentLength(httpResponse.contentLength),
+            nonNegativeContentLength(httpResponse.contentLength) ??
+            bodyBytes.length,
       );
       recordPerformanceMetricResponse(metric, response);
       return response;
     } finally {
+      removeCancelListener?.call();
       await stopPerformanceMetric(metric);
     }
   }
@@ -105,6 +121,23 @@ class IoHttpTransport implements HttpTransport {
       return null;
     }
   }
+}
+
+Future<List<int>> _readResponseBytes(
+  HttpClientResponse response, {
+  required Duration timeout,
+  required NetworkProgressCallback? onReceiveProgress,
+  required NetworkCancellationToken? cancellationToken,
+}) async {
+  final out = <int>[];
+  final totalBytes = nonNegativeContentLength(response.contentLength) ?? -1;
+  await for (final chunk in response.timeout(timeout)) {
+    cancellationToken?.throwIfCancelled();
+    out.addAll(chunk);
+    onReceiveProgress?.call(out.length, totalBytes);
+  }
+  cancellationToken?.throwIfCancelled();
+  return out;
 }
 
 class _FirebaseHttpRequestPerformanceMetric
@@ -227,7 +260,10 @@ void recordPerformanceMetricResponse(
     metric.httpResponseCode = response.statusCode;
     metric.responseContentType = headerValue(response.headers, 'content-type');
     metric.responsePayloadSize =
-        response.responsePayloadSizeBytes ?? utf8.encode(response.body).length;
+        response.responsePayloadSizeBytes ??
+        (response.bodyBytes.isEmpty
+            ? utf8.encode(response.body).length
+            : response.bodyBytes.length);
   } catch (_) {}
 }
 

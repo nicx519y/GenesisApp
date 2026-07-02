@@ -25,13 +25,24 @@ class DioHttpTransport implements HttpTransport {
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
+    request.cancellationToken?.throwIfCancelled();
     final metric = await _startPerformanceMetric(request);
+    final dioCancelToken = CancelToken();
+    final removeCancelListener = request.cancellationToken?.addCancelListener(
+      () {
+        if (!dioCancelToken.isCancelled) {
+          dioCancelToken.cancel(const NetworkRequestCancelledException());
+        }
+      },
+    );
     try {
       final timeout = Duration(milliseconds: request.timeoutMs);
       final response = await _dio.request<Object?>(
         request.uri.toString(),
         data: _requestBodyData(request.bodyBytes),
+        cancelToken: dioCancelToken,
         onSendProgress: request.onSendProgress,
+        onReceiveProgress: request.onReceiveProgress,
         options: Options(
           method: request.method,
           headers: request.headers,
@@ -51,13 +62,20 @@ class DioHttpTransport implements HttpTransport {
       final transportResponse = TransportResponse(
         statusCode: response.statusCode ?? 0,
         headers: headers,
-        body: utf8.decode(bodyBytes),
+        body: utf8.decode(bodyBytes, allowMalformed: true),
+        bodyBytes: bodyBytes,
         responsePayloadSizeBytes:
             responsePayloadSizeFromHeaders(headers) ?? bodyBytes.length,
       );
       recordPerformanceMetricResponse(metric, transportResponse);
       return transportResponse;
+    } on DioException catch (error) {
+      if (CancelToken.isCancel(error)) {
+        throw const NetworkRequestCancelledException();
+      }
+      rethrow;
     } finally {
+      removeCancelListener?.call();
       await stopPerformanceMetric(metric);
     }
   }

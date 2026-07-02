@@ -169,4 +169,81 @@ void main() {
     expect(body, contains('Content-Type: text/plain'));
     expect(body, contains('abc'));
   });
+
+  test('returns text and bytes without forcing json decoding', () async {
+    var response = const TransportResponse(
+      statusCode: 200,
+      headers: {'content-type': 'application/json'},
+      body: '{"ok":true}',
+    );
+    final transport = _FakeTransport(handler: (_) => response);
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+    );
+
+    expect(await client.getText('/text'), '{"ok":true}');
+
+    response = const TransportResponse(
+      statusCode: 200,
+      headers: {'content-type': 'application/octet-stream'},
+      body: '',
+      bodyBytes: <int>[0, 255, 1, 2],
+    );
+
+    expect(await client.getBytes('/file'), <int>[0, 255, 1, 2]);
+  });
+
+  test('wires receive progress and cancellation token to transport', () async {
+    final progressEvents = <({int receivedBytes, int totalBytes})>[];
+    final token = NetworkCancellationToken();
+    final transport = _FakeTransport(
+      handler: (request) {
+        request.onReceiveProgress?.call(3, 9);
+        return const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/octet-stream'},
+          body: 'abc',
+          bodyBytes: <int>[97, 98, 99],
+        );
+      },
+    );
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+    );
+
+    await client.downloadBytes(
+      '/file',
+      onReceiveProgress: (receivedBytes, totalBytes) {
+        progressEvents.add((
+          receivedBytes: receivedBytes,
+          totalBytes: totalBytes,
+        ));
+      },
+      cancellationToken: token,
+    );
+
+    expect(transport.lastRequest!.cancellationToken, same(token));
+    expect(progressEvents, [(receivedBytes: 3, totalBytes: 9)]);
+  });
+
+  test('propagates request cancellation without wrapping as ApiException', () {
+    final token = NetworkCancellationToken()..cancel();
+    final transport = _FakeTransport(
+      handler: (request) {
+        request.cancellationToken?.throwIfCancelled();
+        return const TransportResponse(statusCode: 200, headers: {}, body: '');
+      },
+    );
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+    );
+
+    expect(
+      () => client.getBytes('/file', cancellationToken: token),
+      throwsA(isA<NetworkRequestCancelledException>()),
+    );
+  });
 }

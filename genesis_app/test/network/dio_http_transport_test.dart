@@ -150,6 +150,46 @@ void main() {
     expect(progressEvents.last.sentBytes, expectedBody.length);
     expect(progressEvents.last.totalBytes, expectedBody.length);
   });
+
+  test(
+    'reports receive progress and returns raw bytes through ApiClient',
+    () async {
+      final responseBody = <int>[0, 1, 2, 250, 255];
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      server.listen((request) async {
+        request.response
+          ..statusCode = 200
+          ..headers.contentType = ContentType.binary
+          ..contentLength = responseBody.length;
+        request.response.add(responseBody.sublist(0, 2));
+        await request.response.flush();
+        request.response.add(responseBody.sublist(2));
+        await request.response.close();
+      });
+
+      final client = ApiClient(
+        baseUrl: 'http://127.0.0.1:${server.port}/',
+        transport: DioHttpTransport(performanceMetricUrlFilter: (_) => false),
+      );
+      final progressEvents = <({int receivedBytes, int totalBytes})>[];
+
+      final bytes = await client.getBytes(
+        '/asset.bin',
+        onReceiveProgress: (receivedBytes, totalBytes) {
+          progressEvents.add((
+            receivedBytes: receivedBytes,
+            totalBytes: totalBytes,
+          ));
+        },
+      );
+
+      expect(bytes, responseBody);
+      expect(progressEvents, isNotEmpty);
+      expect(progressEvents.last.receivedBytes, responseBody.length);
+      expect(progressEvents.last.totalBytes, responseBody.length);
+    },
+  );
 }
 
 class _FakePerformanceMetric implements HttpRequestPerformanceMetric {

@@ -11,6 +11,7 @@ class ApiResponse {
     required this.statusCode,
     required this.headers,
     required this.body,
+    required this.bodyBytes,
     required this.data,
     required this.uri,
   });
@@ -18,9 +19,12 @@ class ApiResponse {
   final int statusCode;
   final Map<String, String> headers;
   final String body;
+  final List<int> bodyBytes;
   final Object? data;
   final Uri uri;
 }
+
+enum ApiResponseType { json, text, bytes }
 
 typedef ApiResponseProcessor = Object? Function(ApiResponse response);
 typedef RequestHeaderProvider = Future<Map<String, String>> Function();
@@ -83,6 +87,8 @@ class ApiClient {
     Map<String, String>? headers,
     ApiResponseProcessor? responseProcessor,
     NetworkProgressCallback? onSendProgress,
+    NetworkProgressCallback? onReceiveProgress,
+    NetworkCancellationToken? cancellationToken,
   }) {
     return request<T>(
       'GET',
@@ -91,6 +97,60 @@ class ApiClient {
       headers: headers,
       responseProcessor: responseProcessor,
       onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+      cancellationToken: cancellationToken,
+    );
+  }
+
+  Future<List<int>> getBytes(
+    String path, {
+    Map<String, Object?>? query,
+    Map<String, String>? headers,
+    NetworkProgressCallback? onReceiveProgress,
+    NetworkCancellationToken? cancellationToken,
+  }) {
+    return request<List<int>>(
+      'GET',
+      path,
+      query: query,
+      headers: headers,
+      responseType: ApiResponseType.bytes,
+      onReceiveProgress: onReceiveProgress,
+      cancellationToken: cancellationToken,
+    );
+  }
+
+  Future<String> getText(
+    String path, {
+    Map<String, Object?>? query,
+    Map<String, String>? headers,
+    NetworkProgressCallback? onReceiveProgress,
+    NetworkCancellationToken? cancellationToken,
+  }) {
+    return request<String>(
+      'GET',
+      path,
+      query: query,
+      headers: headers,
+      responseType: ApiResponseType.text,
+      onReceiveProgress: onReceiveProgress,
+      cancellationToken: cancellationToken,
+    );
+  }
+
+  Future<List<int>> downloadBytes(
+    String path, {
+    Map<String, Object?>? query,
+    Map<String, String>? headers,
+    NetworkProgressCallback? onReceiveProgress,
+    NetworkCancellationToken? cancellationToken,
+  }) {
+    return getBytes(
+      path,
+      query: query,
+      headers: headers,
+      onReceiveProgress: onReceiveProgress,
+      cancellationToken: cancellationToken,
     );
   }
 
@@ -101,6 +161,8 @@ class ApiClient {
     Map<String, String>? headers,
     ApiResponseProcessor? responseProcessor,
     NetworkProgressCallback? onSendProgress,
+    NetworkProgressCallback? onReceiveProgress,
+    NetworkCancellationToken? cancellationToken,
   }) {
     return request<T>(
       'POST',
@@ -110,6 +172,8 @@ class ApiClient {
       headers: headers,
       responseProcessor: responseProcessor,
       onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+      cancellationToken: cancellationToken,
     );
   }
 
@@ -120,6 +184,8 @@ class ApiClient {
     Map<String, String>? headers,
     ApiResponseProcessor? responseProcessor,
     NetworkProgressCallback? onSendProgress,
+    NetworkProgressCallback? onReceiveProgress,
+    NetworkCancellationToken? cancellationToken,
   }) {
     return request<T>(
       'PUT',
@@ -129,6 +195,8 @@ class ApiClient {
       headers: headers,
       responseProcessor: responseProcessor,
       onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+      cancellationToken: cancellationToken,
     );
   }
 
@@ -139,6 +207,8 @@ class ApiClient {
     Map<String, String>? headers,
     ApiResponseProcessor? responseProcessor,
     NetworkProgressCallback? onSendProgress,
+    NetworkProgressCallback? onReceiveProgress,
+    NetworkCancellationToken? cancellationToken,
   }) {
     return request<T>(
       'DELETE',
@@ -148,6 +218,8 @@ class ApiClient {
       headers: headers,
       responseProcessor: responseProcessor,
       onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+      cancellationToken: cancellationToken,
     );
   }
 
@@ -159,6 +231,9 @@ class ApiClient {
     Map<String, String>? headers,
     ApiResponseProcessor? responseProcessor,
     NetworkProgressCallback? onSendProgress,
+    NetworkProgressCallback? onReceiveProgress,
+    NetworkCancellationToken? cancellationToken,
+    ApiResponseType responseType = ApiResponseType.json,
   }) async {
     final stopwatch = Stopwatch()..start();
     final uri = _resolveUri(path, query);
@@ -178,6 +253,8 @@ class ApiClient {
       bodyBytes: prepared.bodyBytes,
       timeoutMs: _timeoutMs,
       onSendProgress: onSendProgress,
+      onReceiveProgress: onReceiveProgress,
+      cancellationToken: cancellationToken,
     );
 
     TransportResponse transportResponse;
@@ -186,6 +263,15 @@ class ApiClient {
       transportResponse = interceptor == null
           ? await _send(request)
           : await interceptor(request, _send);
+    } on NetworkRequestCancelledException catch (e) {
+      stopwatch.stop();
+      _recordHttpTelemetry(
+        request: request,
+        duration: stopwatch.elapsed,
+        outcome: 'cancelled',
+        errorType: e.runtimeType.toString(),
+      );
+      rethrow;
     } on ApiException {
       stopwatch.stop();
       _recordHttpTelemetry(
@@ -205,11 +291,19 @@ class ApiClient {
       throw ApiException(message: 'Request failed', error: e, uri: uri);
     }
 
-    final decoded = _tryDecodeJson(transportResponse.body);
+    final bodyBytes = transportResponse.bodyBytes.isEmpty
+        ? utf8.encode(transportResponse.body)
+        : transportResponse.bodyBytes;
+    final decoded = _decodeResponseData(
+      responseType: responseType,
+      body: transportResponse.body,
+      bodyBytes: bodyBytes,
+    );
     final apiResponse = ApiResponse(
       statusCode: transportResponse.statusCode,
       headers: transportResponse.headers,
       body: transportResponse.body,
+      bodyBytes: bodyBytes,
       data: decoded,
       uri: uri,
     );
@@ -327,6 +421,21 @@ Object? _tryDecodeJson(String input) {
     return jsonDecode(trimmed);
   } catch (_) {
     return input;
+  }
+}
+
+Object? _decodeResponseData({
+  required ApiResponseType responseType,
+  required String body,
+  required List<int> bodyBytes,
+}) {
+  switch (responseType) {
+    case ApiResponseType.json:
+      return _tryDecodeJson(body);
+    case ApiResponseType.text:
+      return body;
+    case ApiResponseType.bytes:
+      return bodyBytes;
   }
 }
 
