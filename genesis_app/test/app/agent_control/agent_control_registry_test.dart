@@ -135,4 +135,23 @@ void main() {
     expect(response.ok, false);
     expect(response.error?['code'], 'route_not_allowed');
   });
+
+  test('returns location chat debug snapshot in disabled mode', () async {
+    final response = await registry.execute(
+      const AgentControlRequest(
+        id: '1',
+        method: 'debug.locationChat.snapshot',
+        params: {},
+        timeoutMs: 1000,
+        dryRun: false,
+      ),
+      context,
+    );
+
+    expect(response.ok, true);
+    final result = response.result as Map<String, Object?>;
+    expect(result['available'], true);
+    expect(result['enabled'], false);
+    expect(result['events'], isEmpty);
+  });
 }

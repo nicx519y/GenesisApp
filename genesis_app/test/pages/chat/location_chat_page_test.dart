@@ -111,4 +111,84 @@ void main() {
       ['Alice', 'Guide'],
     );
   });
+
+  test(
+    'visible location chat messages keep latest continuous location id suffix',
+    () {
+      final visible = visibleLocationChatMessagesForTesting([
+        _message(messageId: 10, locationMessageId: 1, content: 'old 1'),
+        _message(messageId: 20, locationMessageId: 2, content: 'old 2'),
+        _message(
+          messageId: 30,
+          locationMessageId: 0,
+          senderType: 'tick',
+          content: 'tick before gap',
+        ),
+        _message(messageId: 40, locationMessageId: 4, content: 'new 4'),
+        _message(
+          messageId: 45,
+          locationMessageId: 0,
+          senderType: 'tick',
+          content: 'tick in visible range',
+        ),
+        _message(messageId: 50, locationMessageId: 5, content: 'new 5'),
+      ]);
+
+      expect(visible.map((message) => message.messageId), [40, 45, 50]);
+      expect(
+        locationChatMessageGapFillCursorForTesting([
+          _message(messageId: 10, locationMessageId: 1, content: 'old 1'),
+          _message(messageId: 40, locationMessageId: 4, content: 'new 4'),
+          _message(messageId: 50, locationMessageId: 5, content: 'new 5'),
+        ]),
+        4,
+      );
+    },
+  );
+
+  test(
+    'visible location chat messages render all continuous location messages',
+    () {
+      final source = [
+        _message(messageId: 10, locationMessageId: 1, content: 'one'),
+        _message(
+          messageId: 15,
+          locationMessageId: 0,
+          senderType: 'tick',
+          content: 'tick',
+        ),
+        _message(messageId: 20, locationMessageId: 2, content: 'two'),
+        _message(messageId: 30, locationMessageId: 3, content: 'three'),
+      ];
+
+      expect(
+        visibleLocationChatMessagesForTesting(
+          source,
+        ).map((message) => message.messageId),
+        [10, 15, 20, 30],
+      );
+      expect(locationChatMessageGapFillCursorForTesting(source), 0);
+    },
+  );
+}
+
+WorldChatroomMessage _message({
+  required int messageId,
+  required int locationMessageId,
+  required String content,
+  String senderType = 'user',
+}) {
+  return WorldChatroomMessage(
+    messageId: messageId,
+    locationMessageId: locationMessageId,
+    conversationRoundId: '$messageId',
+    roundOrder: 0,
+    tickNo: senderType == 'tick' ? messageId : 0,
+    locationId: 'loc-1',
+    senderType: senderType,
+    senderId: senderType == 'tick' ? 'tick' : 'u_peer',
+    senderName: senderType == 'tick' ? 'Time' : 'Peer',
+    content: content,
+    createdAt: null,
+  );
 }

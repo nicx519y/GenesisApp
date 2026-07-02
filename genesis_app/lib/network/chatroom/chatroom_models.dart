@@ -26,7 +26,9 @@ class ChatroomEnvelope {
     this.errNo = '',
     this.errMsg = '',
     this.currentTime = '',
+    this.globalMsgId,
     this.msgId,
+    this.locationMsgId,
     this.conversationRoundId,
     this.clientMsgId = '',
     this.broadcast,
@@ -44,7 +46,9 @@ class ChatroomEnvelope {
   final String errNo;
   final String errMsg;
   final String currentTime;
+  final int? globalMsgId;
   final int? msgId;
+  final int? locationMsgId;
   final int? conversationRoundId;
   final String clientMsgId;
   final bool? broadcast;
@@ -63,7 +67,13 @@ class ChatroomEnvelope {
       errNo: asString(json['err_no']),
       errMsg: asString(json['err_msg']),
       currentTime: asString(json['current_time']),
+      globalMsgId: json['global_msg_id'] == null
+          ? null
+          : asInt(json['global_msg_id']),
       msgId: json['msg_id'] == null ? null : asInt(json['msg_id']),
+      locationMsgId: json['location_msg_id'] == null
+          ? null
+          : asInt(json['location_msg_id']),
       conversationRoundId: json['conversation_round_id'] == null
           ? null
           : asInt(json['conversation_round_id']),
@@ -102,23 +112,26 @@ class ChatroomEnvelope {
   Map<String, dynamic> get mergedPayload {
     final merged = <String, dynamic>{...payload};
 
+    if (ts != null) merged['ts'] = ts;
     if (worldId.isNotEmpty) merged['world_id'] = worldId;
     if (sessionId.isNotEmpty) merged['session_id'] = sessionId;
     if (locationId.isNotEmpty) merged['location_id'] = locationId;
     if (userId.isNotEmpty) merged['user_id'] = userId;
     if (senderId.isNotEmpty) merged['sender_id'] = senderId;
     if (senderName.isNotEmpty) merged['sender_name'] = senderName;
-    if (errNo.isNotEmpty) merged['code'] = errNo;
-    if (errMsg.isNotEmpty) merged['code_msg'] = errMsg;
+    if (errNo.isNotEmpty) merged['err_no'] = errNo;
+    if (errMsg.isNotEmpty) merged['err_msg'] = errMsg;
     if (currentTime.isNotEmpty) merged['current_time'] = currentTime;
-    if (msgId != null) merged['message_id'] = msgId;
+    if (globalMsgId != null) merged['global_msg_id'] = globalMsgId;
+    if (msgId != null) merged['msg_id'] = msgId;
+    if (locationMsgId != null) merged['location_msg_id'] = locationMsgId;
     if (conversationRoundId != null) {
       merged['conversation_round_id'] = conversationRoundId;
     }
     if (clientMsgId.isNotEmpty) merged['client_msg_id'] = clientMsgId;
     if (broadcast != null) merged['broadcast'] = broadcast;
-    merged.putIfAbsent('code', () => 0);
-    merged.putIfAbsent('code_msg', () => '');
+    merged.putIfAbsent('err_no', () => '');
+    merged.putIfAbsent('err_msg', () => '');
     return merged;
   }
 }
@@ -204,9 +217,7 @@ class ChatroomFailureEvent extends ChatroomEvent implements Exception {
   }) {
     return ChatroomFailureEvent(
       code: event.code.toString(),
-      message: event.codeMsg.isEmpty
-          ? 'Something went wrong'
-          : event.codeMsg,
+      message: event.codeMsg.isEmpty ? 'Something went wrong' : event.codeMsg,
       sourceType: sourceType.isEmpty ? chatroomEventType(event) : sourceType,
       requestType: requestType,
       cause: cause ?? event,
@@ -261,12 +272,16 @@ class ChatroomAck extends ChatroomPayloadEvent {
     required super.code,
     required super.codeMsg,
     required super.ts,
+    this.globalMessageId = 0,
     required this.messageId,
+    this.locationMessageId = 0,
     required this.conversationRoundId,
     required this.clientMsgId,
   });
 
+  final int globalMessageId;
   final int messageId;
+  final int locationMessageId;
   final String conversationRoundId;
   final String clientMsgId;
 
@@ -276,10 +291,12 @@ class ChatroomAck extends ChatroomPayloadEvent {
       worldId: _worldId(payload),
       locationId: asString(payload['location_id']),
       userId: asString(payload['user_id']),
-      code: asInt(payload['code']),
-      codeMsg: asString(payload['code_msg']),
+      code: _wsCode(payload),
+      codeMsg: asString(payload['err_msg']),
       ts: asDateTime(payload['ts']),
-      messageId: asInt(payload['message_id']),
+      globalMessageId: asInt(payload['global_msg_id']),
+      messageId: asInt(payload['msg_id']),
+      locationMessageId: asInt(payload['location_msg_id']),
       conversationRoundId: asString(payload['conversation_round_id']),
       clientMsgId: asString(payload['client_msg_id']),
     );
@@ -295,7 +312,9 @@ sealed class ChatroomMessageEvent extends ChatroomPayloadEvent {
     required super.code,
     required super.codeMsg,
     required super.ts,
+    this.globalMessageId = 0,
     required this.messageId,
+    this.locationMessageId = 0,
     required this.conversationRoundId,
     required this.roundOrder,
     required this.senderType,
@@ -305,7 +324,9 @@ sealed class ChatroomMessageEvent extends ChatroomPayloadEvent {
     required this.broadcast,
   });
 
+  final int globalMessageId;
   final int messageId;
+  final int locationMessageId;
   final String conversationRoundId;
   final int roundOrder;
   final String senderType;
@@ -324,7 +345,9 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
     required super.code,
     required super.codeMsg,
     required super.ts,
+    super.globalMessageId,
     required super.messageId,
+    super.locationMessageId,
     required super.conversationRoundId,
     required super.roundOrder,
     required super.senderType,
@@ -348,20 +371,22 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
       worldId: _worldId(payload),
       locationId: asString(payload['location_id']),
       userId: asString(payload['user_id']),
-      code: asInt(payload['code']),
-      codeMsg: asString(payload['code_msg']),
+      code: _wsCode(payload),
+      codeMsg: asString(payload['err_msg']),
       ts: asDateTime(payload['ts'] ?? envelope.ts),
-      messageId: asInt(payload['message_id']),
+      globalMessageId: asInt(payload['global_msg_id']),
+      messageId: asInt(payload['msg_id']),
+      locationMessageId: asInt(payload['location_msg_id']),
       conversationRoundId: asString(payload['conversation_round_id']),
-      roundOrder: asInt(payload['round_order']),
-      senderType: asString(payload['sender_type']),
+      roundOrder: 0,
+      senderType: asString(payload['sender_type'], fallback: 'user'),
       senderId: asString(payload['sender_id']),
       senderName: asString(payload['sender_name']),
       content: asString(payload['content']),
       currentTime: asString(payload['current_time']),
       broadcast: asBool(payload['broadcast']),
       clientMsgId: asString(payload['client_msg_id']),
-      createdAt: asDateTime(payload['created_at']),
+      createdAt: asDateTime(payload['ts'] ?? envelope.ts),
     );
   }
 }
@@ -375,7 +400,9 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
     required super.code,
     required super.codeMsg,
     required super.ts,
+    super.globalMessageId,
     required super.messageId,
+    super.locationMessageId,
     required super.conversationRoundId,
     required super.roundOrder,
     required super.senderType,
@@ -397,19 +424,21 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
       worldId: _worldId(payload),
       locationId: asString(payload['location_id']),
       userId: asString(payload['user_id']),
-      code: asInt(payload['code']),
-      codeMsg: asString(payload['code_msg']),
+      code: _wsCode(payload),
+      codeMsg: asString(payload['err_msg']),
       ts: asDateTime(payload['ts'] ?? envelope.ts),
-      messageId: asInt(payload['message_id']),
+      globalMessageId: asInt(payload['global_msg_id']),
+      messageId: asInt(payload['msg_id']),
+      locationMessageId: asInt(payload['location_msg_id']),
       conversationRoundId: asString(payload['conversation_round_id']),
-      roundOrder: asInt(payload['round_order']),
+      roundOrder: 0,
       senderType: asString(payload['sender_type'], fallback: 'narrator'),
       senderId: asString(payload['sender_id']),
       senderName: asString(payload['sender_name'], fallback: 'Narrator'),
       content: asString(payload['content']),
       currentTime: asString(payload['current_time']),
       broadcast: asBool(payload['broadcast']),
-      createdAt: asDateTime(payload['created_at']),
+      createdAt: asDateTime(payload['ts'] ?? envelope.ts),
     );
   }
 }
@@ -423,7 +452,9 @@ class ChatroomTickAdvanceMessage extends ChatroomMessageEvent {
     required super.code,
     required super.codeMsg,
     required super.ts,
+    super.globalMessageId,
     required super.messageId,
+    super.locationMessageId,
     required super.conversationRoundId,
     required super.roundOrder,
     required super.senderType,
@@ -446,12 +477,14 @@ class ChatroomTickAdvanceMessage extends ChatroomMessageEvent {
       worldId: _worldId(payload),
       locationId: asString(payload['location_id']),
       userId: asString(payload['user_id']),
-      code: asInt(payload['code']),
-      codeMsg: asString(payload['code_msg']),
+      code: _wsCode(payload),
+      codeMsg: asString(payload['err_msg']),
       ts: asDateTime(payload['ts'] ?? envelope.ts),
-      messageId: asInt(payload['message_id']),
+      globalMessageId: asInt(payload['global_msg_id']),
+      messageId: asInt(payload['msg_id']),
+      locationMessageId: asInt(payload['location_msg_id']),
       conversationRoundId: asString(payload['conversation_round_id']),
-      roundOrder: asInt(payload['round_order']),
+      roundOrder: 0,
       senderType: 'tick',
       senderId: 'tick',
       senderName: 'Time',
@@ -467,7 +500,9 @@ class ChatroomAiStreamStart extends ChatroomEvent {
   const ChatroomAiStreamStart({
     required this.sessionId,
     required this.locationId,
+    this.globalMessageId = 0,
     required this.messageId,
+    this.locationMessageId = 0,
     required this.conversationRoundId,
     required this.roundOrder,
     required this.senderType,
@@ -478,7 +513,9 @@ class ChatroomAiStreamStart extends ChatroomEvent {
 
   final String sessionId;
   final String locationId;
+  final int globalMessageId;
   final int messageId;
+  final int locationMessageId;
   final String conversationRoundId;
   final int roundOrder;
   final String senderType;
@@ -492,9 +529,11 @@ class ChatroomAiStreamStart extends ChatroomEvent {
     return ChatroomAiStreamStart(
       sessionId: asString(payload['session_id']),
       locationId: asString(payload['location_id']),
-      messageId: asInt(payload['message_id']),
+      globalMessageId: asInt(payload['global_msg_id']),
+      messageId: asInt(payload['msg_id']),
+      locationMessageId: asInt(payload['location_msg_id']),
       conversationRoundId: roundId,
-      roundOrder: asInt(payload['round_order']),
+      roundOrder: 0,
       senderType: asString(payload['sender_type'], fallback: 'character'),
       senderId: asString(payload['sender_id']),
       senderName: asString(payload['sender_name'], fallback: 'AI'),
@@ -507,9 +546,12 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
   const ChatroomAiStreamChunk({
     required this.sessionId,
     required this.locationId,
+    this.globalMessageId = 0,
     required this.messageId,
+    this.locationMessageId = 0,
     required this.conversationRoundId,
     required this.senderId,
+    required this.seq,
     required this.chunk,
     required this.isDelta,
     required this.currentTime,
@@ -517,9 +559,12 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
 
   final String sessionId;
   final String locationId;
+  final int globalMessageId;
   final int messageId;
+  final int locationMessageId;
   final String conversationRoundId;
   final String senderId;
+  final int seq;
   final String chunk;
   final bool isDelta;
   final String currentTime;
@@ -529,11 +574,14 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
     return ChatroomAiStreamChunk(
       sessionId: asString(payload['session_id']),
       locationId: asString(payload['location_id']),
-      messageId: asInt(payload['message_id']),
+      globalMessageId: asInt(payload['global_msg_id']),
+      messageId: asInt(payload['msg_id']),
+      locationMessageId: asInt(payload['location_msg_id']),
       conversationRoundId: asString(payload['conversation_round_id']),
       senderId: asString(payload['sender_id']),
-      chunk: asString(payload['chunk'], fallback: asString(payload['content'])),
-      isDelta: asBool(payload['is_delta'], fallback: true),
+      seq: asInt(payload['seq']),
+      chunk: asString(payload['content']),
+      isDelta: true,
       currentTime: asString(payload['current_time']),
     );
   }
@@ -543,7 +591,9 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
   const ChatroomAiStreamEnd({
     required this.sessionId,
     required this.locationId,
+    this.globalMessageId = 0,
     required this.messageId,
+    this.locationMessageId = 0,
     required this.conversationRoundId,
     required this.senderId,
     required this.content,
@@ -553,7 +603,9 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
 
   final String sessionId;
   final String locationId;
+  final int globalMessageId;
   final int messageId;
+  final int locationMessageId;
   final String conversationRoundId;
   final String senderId;
   final String content;
@@ -565,11 +617,13 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
     return ChatroomAiStreamEnd(
       sessionId: asString(payload['session_id']),
       locationId: asString(payload['location_id']),
-      messageId: asInt(payload['message_id']),
+      globalMessageId: asInt(payload['global_msg_id']),
+      messageId: asInt(payload['msg_id']),
+      locationMessageId: asInt(payload['location_msg_id']),
       conversationRoundId: asString(payload['conversation_round_id']),
       senderId: asString(payload['sender_id']),
       content: asString(payload['content']),
-      createdAt: asDateTime(payload['created_at']),
+      createdAt: asDateTime(payload['ts'] ?? envelope.ts),
       currentTime: asString(payload['current_time']),
     );
   }
@@ -606,7 +660,7 @@ class ChatroomWorldNotification extends ChatroomEvent {
       summary: asString(payload['summary']),
       detailUrl: asString(payload['detail_url']),
       ts: asDateTime(payload['ts'] ?? envelope.ts),
-      broadcast: false,
+      broadcast: asBool(payload['broadcast']),
     );
   }
 }
@@ -639,14 +693,8 @@ class ChatroomErrorEvent extends ChatroomEvent implements Exception {
       conversationRoundId: asString(payload['conversation_round_id']),
       senderId: asString(payload['sender_id']),
       sourceType: sourceType,
-      code: asString(
-        payload['code'],
-        fallback: asString(payload['error_code'], fallback: 'error'),
-      ),
-      message: asString(
-        payload['code_msg'],
-        fallback: asString(payload['message']),
-      ),
+      code: asString(payload['err_no'], fallback: 'error'),
+      message: asString(payload['err_msg']),
     );
   }
 
@@ -755,8 +803,8 @@ String chatroomEventType(ChatroomEvent event) {
       return e.sourceType;
     case ChatroomFailureEvent e:
       return e.sourceType;
-    case ChatroomWorldNotification():
-      return 'world_change';
+    case ChatroomWorldNotification e:
+      return e.eventType;
     case ChatroomUserMessage():
       return 'user_message';
     case ChatroomNarratorMessage():
@@ -779,4 +827,10 @@ Map<String, dynamic> _optionalJsonMap(Object? value) {
 
 String _worldId(Map<String, dynamic> payload) {
   return asString(payload['world_id']);
+}
+
+int _wsCode(Map<String, dynamic> payload) {
+  final raw = payload['err_no'];
+  if (raw == null || asString(raw).isEmpty) return 0;
+  return asInt(raw);
 }

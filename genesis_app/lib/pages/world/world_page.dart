@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
+import '../../app/debug/location_chat_debug_slice.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
@@ -681,8 +682,19 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _pendingProgressTickCount = null;
     if (_openEventsAfterTickDone) {
       _openEventsAfterTickDone = false;
-      _showOrSelectEventsAfterTick();
+      if (!_shouldSuppressAutoEventsAfterTick) {
+        _showOrSelectEventsAfterTick();
+      }
     }
+  }
+
+  bool get _shouldSuppressAutoEventsAfterTick {
+    if (_activeChatLocationId.isNotEmpty ||
+        _locationChatPageCache.activeLocationId.isNotEmpty) {
+      return true;
+    }
+    final route = ModalRoute.of(context);
+    return route != null && !route.isCurrent;
   }
 
   void _showOrSelectEventsAfterTick() {
@@ -947,6 +959,15 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       'previous=${previousActiveId.isEmpty ? 'none' : previousActiveId} '
       'aliases=${descriptor.localMessageLocationIds.join(',')}',
     );
+    _recordWorldLocationChatDebug(
+      action: 'openStart',
+      locationId: locationId,
+      details: {
+        'cached': wasCached,
+        'previousActiveId': previousActiveId,
+        'descriptor': _debugDescriptor(descriptor),
+      },
+    );
     if (previousActiveId.isNotEmpty && previousActiveId != locationId) {
       if (!descriptor.isLeafLocation) {
         unawaited(_leaveCachedLocationChat(previousActiveId));
@@ -964,6 +985,15 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       'previous=${previousActiveId.isEmpty ? 'none' : previousActiveId} '
       'active=$_activeChatLocationId elapsed=${stopwatch?.elapsedMilliseconds}ms',
     );
+    _recordWorldLocationChatDebug(
+      action: 'openDone',
+      locationId: locationId,
+      details: {
+        'cached': wasCached,
+        'previousActiveId': previousActiveId,
+        'elapsedMs': stopwatch?.elapsedMilliseconds,
+      },
+    );
   }
 
   Future<void> _hydrateActiveLocationChatMessages(
@@ -979,12 +1009,25 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         'active hydrate skipped location=${descriptor.locationId} '
         'hasChatroom=${chatroom != null} hasIdentity=${identity != null}',
       );
+      _recordWorldLocationChatDebug(
+        action: 'activeHydrateSkipped',
+        locationId: descriptor.locationId,
+        details: {
+          'hasChatroom': chatroom != null,
+          'hasIdentity': identity != null,
+        },
+      );
       return;
     }
     final ownerUid = worldFirstNonEmpty([identity.userId, identity.senderId]);
     if (ownerUid.isEmpty) {
       _logLocationChatMetric(
         'active hydrate skipped location=${descriptor.locationId} noOwner',
+      );
+      _recordWorldLocationChatDebug(
+        action: 'activeHydrateSkipped',
+        locationId: descriptor.locationId,
+        details: {'reason': 'noOwner'},
       );
       return;
     }
@@ -1004,6 +1047,17 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       'stateCount=${chatroom.state.messagesByLocation[descriptor.locationId]?.length ?? 0} '
       'elapsed=${stopwatch?.elapsedMilliseconds}ms',
     );
+    _recordWorldLocationChatDebug(
+      action: 'activeHydrateDone',
+      locationId: descriptor.locationId,
+      details: {
+        'aliases': descriptor.localMessageLocationIds,
+        'stateCount':
+            chatroom.state.messagesByLocation[descriptor.locationId]?.length ??
+            0,
+        'elapsedMs': stopwatch?.elapsedMilliseconds,
+      },
+    );
   }
 
   void _closeCachedLocationChat() {
@@ -1015,6 +1069,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _activeChatLocationId = '';
       _locationChatPageCache.deactivate();
     });
+    _recordWorldLocationChatDebug(
+      action: 'close',
+      locationId: locationId,
+      details: {'cachedPanelCount': _locationChatPageCache.cachedPanelCount},
+    );
     _syncWorldStatusBarForMainTab();
   }
 
@@ -1039,6 +1098,18 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final descriptors = _locationChatDescriptorsForWorld(world);
     _locationChatDescriptors = descriptors;
     _locationChatPageCache.syncDescriptors(descriptors);
+    _recordWorldLocationChatDebug(
+      action: 'syncDescriptors',
+      details: {
+        'count': descriptors.length,
+        'leafCount': descriptors.values
+            .where((descriptor) => descriptor.isLeafLocation)
+            .length,
+        'descriptors': descriptors.values
+            .map(_debugDescriptor)
+            .toList(growable: false),
+      },
+    );
     if (!_locationChatDescriptors.containsKey(_activeChatLocationId)) {
       _activeChatLocationId = '';
       _locationChatPageCache.deactivate();
@@ -1094,6 +1165,14 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       'cached=${_locationChatPageCache.cachedPanelCount} '
       'preloaded=${_preloadedLocationMessageIds.length}',
     );
+    _recordWorldLocationChatDebug(
+      action: 'precacheScheduled',
+      details: {
+        'count': descriptors.length,
+        'cachedPanelCount': _locationChatPageCache.cachedPanelCount,
+        'preloadedCount': _preloadedLocationMessageIds.length,
+      },
+    );
     if (descriptors.isEmpty) return;
     final chatroom = _worldChatroom;
     if (chatroom == null || chatroom.identity == null) return;
@@ -1121,6 +1200,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         _logLocationChatMetric(
           'map bubble messages ready locations=${expectedIds.length}',
         );
+        _recordWorldLocationChatDebug(
+          action: 'mapBubbleMessagesReady',
+          details: {
+            'locations': expectedIds.toList(growable: false),
+            'candidateCount': _mapBubbleCandidates.length,
+          },
+        );
       }),
     );
   }
@@ -1131,16 +1217,22 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final existing = _preloadMessageCacheResetFuture;
     if (existing != null) return existing;
     _logLocationChatMetric('message preload cache reset start');
+    _recordWorldLocationChatDebug(action: 'preloadResetStart');
     final future = chatroom
         .clearCachedMessages()
         .then((_) {
           if (!identical(_worldChatroom, chatroom)) return;
           _preloadedLocationMessageIds.clear();
           _logLocationChatMetric('message preload cache reset done');
+          _recordWorldLocationChatDebug(action: 'preloadResetDone');
         })
         .catchError((Object error) {
           _logLocationChatMetric(
             'message preload cache reset failed error=$error',
+          );
+          _recordWorldLocationChatDebug(
+            action: 'preloadResetFailed',
+            details: {'error': '$error'},
           );
           throw error;
         });
@@ -1171,6 +1263,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       'message preload start location=$locationId '
       'aliases=${descriptor.localMessageLocationIds.join(',')}',
     );
+    _recordWorldLocationChatDebug(
+      action: 'preloadStart',
+      locationId: locationId,
+      details: {'aliases': descriptor.localMessageLocationIds},
+    );
     final future = resolvedResetFuture
         .then(
           (_) => chatroom.refreshLatestMessages(
@@ -1190,10 +1287,24 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             'loaded=${messages.length} '
             'stateCount=${chatroom.state.messagesByLocation[locationId]?.length ?? 0}',
           );
+          _recordWorldLocationChatDebug(
+            action: 'preloadDone',
+            locationId: locationId,
+            details: {
+              'loaded': messages.length,
+              'stateCount':
+                  chatroom.state.messagesByLocation[locationId]?.length ?? 0,
+            },
+          );
         })
         .catchError((Object error) {
           _logLocationChatMetric(
             'message preload failed location=$locationId error=$error',
+          );
+          _recordWorldLocationChatDebug(
+            action: 'preloadFailed',
+            locationId: locationId,
+            details: {'error': '$error'},
           );
         })
         .whenComplete(() {
@@ -1208,6 +1319,66 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   void _logLocationChatMetric(String message) {
     if (!_locationChatMetricsEnabled) return;
     debugPrint('[World][LocationChatCache] $message');
+  }
+
+  void _recordWorldLocationChatDebug({
+    required String action,
+    String locationId = '',
+    Map<String, Object?> details = const <String, Object?>{},
+  }) {
+    if (!LocationChatDebugSlice.enabled) return;
+    final activeLocationId = _activeChatLocationId.trim();
+    LocationChatDebugSlice.recordEvent(
+      source: 'world',
+      action: action,
+      worldId: widget.wid,
+      locationId: locationId,
+      details: <String, Object?>{
+        ...details,
+        'activeLocationId': activeLocationId,
+        'cacheActiveLocationId': _locationChatPageCache.activeLocationId,
+        'cachedPanelCount': _locationChatPageCache.cachedPanelCount,
+        'preloadedLocationIds': _preloadedLocationMessageIds.toList(
+          growable: false,
+        ),
+        'preloadingLocationIds': _preloadingLocationMessageFutures.keys.toList(
+          growable: false,
+        ),
+        'mapBubbleMessagesReady': _mapBubbleMessagesReady,
+      },
+      snapshotKey: widget.wid,
+      snapshot: <String, Object?>{
+        'worldId': widget.wid,
+        'activeLocationId': activeLocationId,
+        'cacheActiveLocationId': _locationChatPageCache.activeLocationId,
+        'cachedPanelCount': _locationChatPageCache.cachedPanelCount,
+        'preloadedLocationIds': _preloadedLocationMessageIds.toList(
+          growable: false,
+        ),
+        'preloadingLocationIds': _preloadingLocationMessageFutures.keys.toList(
+          growable: false,
+        ),
+        'mapBubbleMessagesReady': _mapBubbleMessagesReady,
+        'descriptorCount': _locationChatDescriptors.length,
+        'descriptors': _locationChatDescriptors.values
+            .map(_debugDescriptor)
+            .toList(growable: false),
+      },
+    );
+  }
+
+  Map<String, Object?> _debugDescriptor(
+    WorldLocationChatPanelDescriptor descriptor,
+  ) {
+    return <String, Object?>{
+      'locationId': descriptor.locationId,
+      'locationName': descriptor.locationName,
+      'isLeafLocation': descriptor.isLeafLocation,
+      'localMessageLocationIds': descriptor.localMessageLocationIds,
+      'hasBackgroundImage': descriptor.backgroundImageUrl.trim().isNotEmpty,
+      'ready': _locationChatPageCache.isReady(descriptor.locationId),
+      'cached': _locationChatPageCache.hasPanel(descriptor.locationId),
+    };
   }
 
   void _showMapTab() {
@@ -1276,7 +1447,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             _eventsAfterCurrentBottomSheetClosedTargetTickNumber;
         _openEventsAfterCurrentBottomSheetClosed = false;
         _eventsAfterCurrentBottomSheetClosedTargetTickNumber = null;
-        if (openEvents && mounted) {
+        if (openEvents && mounted && !_shouldSuppressAutoEventsAfterTick) {
           _openWorldBottomSheet(
             WorldBottomSheetKind.events,
             scrollEventsToLatest: true,
@@ -1474,6 +1645,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 onBack: _closeCachedLocationChat,
                 onPanelReady: (locationId) {
                   _locationChatPageCache.markReady(locationId);
+                  _recordWorldLocationChatDebug(
+                    action: 'panelReady',
+                    locationId: locationId,
+                  );
                   if (mounted) setState(() {});
                 },
               ),

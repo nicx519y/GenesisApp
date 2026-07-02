@@ -90,6 +90,7 @@ class ChatMessageVm {
     required this.localId,
     this.clientMsgId = '',
     this.messageId,
+    this.locationMessageId = 0,
     this.roundId = '',
     this.tickNo = 0,
     required this.senderId,
@@ -119,6 +120,7 @@ class ChatMessageVm {
   final String localId;
   final String clientMsgId;
   int? messageId;
+  int locationMessageId;
   String roundId;
   int tickNo;
   final String senderId;

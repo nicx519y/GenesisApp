@@ -11967,32 +11967,36 @@ void main() {
     },
   );
 
-  test('location chat visible messages keep only latest consecutive tick', () {
-    WorldChatroomMessage message(int id, String senderType) {
-      return WorldChatroomMessage(
-        messageId: id,
-        conversationRoundId: '$id',
-        roundOrder: 0,
-        tickNo: senderType == 'tick' ? id : 0,
-        locationId: 'loc-1',
-        senderType: senderType,
-        senderId: senderType == 'tick' ? 'tick' : 'u_peer',
-        senderName: senderType == 'tick' ? 'Time' : 'Peer',
-        content: 'message $id',
-        createdAt: null,
-      );
-    }
+  test(
+    'location chat visible messages keep tick messages in message id order',
+    () {
+      WorldChatroomMessage message(int id, String senderType) {
+        return WorldChatroomMessage(
+          messageId: id,
+          locationMessageId: senderType == 'tick' ? 0 : (id == 4 ? 2 : id),
+          conversationRoundId: '$id',
+          roundOrder: 0,
+          tickNo: senderType == 'tick' ? id : 0,
+          locationId: 'loc-1',
+          senderType: senderType,
+          senderId: senderType == 'tick' ? 'tick' : 'u_peer',
+          senderName: senderType == 'tick' ? 'Time' : 'Peer',
+          content: 'message $id',
+          createdAt: null,
+        );
+      }
 
-    final visible = visibleLocationChatMessagesForTesting([
-      message(1, 'user'),
-      message(2, 'tick'),
-      message(3, 'tick'),
-      message(4, 'user'),
-      message(5, 'tick'),
-    ]);
+      final visible = visibleLocationChatMessagesForTesting([
+        message(1, 'user'),
+        message(2, 'tick'),
+        message(3, 'tick'),
+        message(4, 'user'),
+        message(5, 'tick'),
+      ]);
 
-    expect(visible.map((message) => message.messageId), [1, 3, 4, 5]);
-  });
+      expect(visible.map((message) => message.messageId), [1, 2, 3, 4, 5]);
+    },
+  );
 
   testWidgets('location chat first render starts at message list bottom', (
     WidgetTester tester,

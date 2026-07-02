@@ -5,23 +5,6 @@ import 'genesis_colors.dart';
 abstract final class GenesisTypography {
   static const double iosInlineEmphasisSkew = -0.16;
 
-  static const List<String> fallbackFontFamilies = <String>[
-    'NotoSans',
-    'NotoSansArabic',
-    'NotoSansBengali',
-    'NotoSansHebrew',
-    'NotoSansMath',
-    'NotoSansMono',
-    'NotoSansEgyptianHieroglyphs',
-    'Apple Color Emoji',
-    'Noto Color Emoji',
-    'Segoe UI Emoji',
-    'NotoSansSymbols2',
-    'Noto Sans CJK SC',
-    'PingFang SC',
-    'Droid Sans Fallback',
-  ];
-
   static const TextStyle pageTitle = TextStyle(
     color: GenesisColors.textPrimary,
     fontSize: 18,
@@ -59,12 +42,7 @@ abstract final class GenesisTypography {
   );
 
   static TextStyle withFallback(TextStyle style) {
-    if (style.fontFamilyFallback != null) {
-      return style;
-    }
-    return style.copyWith(
-      fontFamilyFallback: style.fontFamilyFallback ?? fallbackFontFamilies,
-    );
+    return style;
   }
 
   static TextStyle inlineEmphasis(

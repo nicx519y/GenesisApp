@@ -48,10 +48,27 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
     final databasePath = await getDatabasesPath();
     final db = await openDatabase(
       '$databasePath/genesis_chatroom_messages.db',
-      version: 1,
+      version: 3,
       onCreate: (db, _) async {
         await db.execute(_createChatroomMessagesSql);
         await db.execute(_createChatroomMessagesIndexSql);
+        await db.execute(_createChatroomMessagesLocationUniqueSql);
+      },
+      onUpgrade: (db, oldVersion, _) async {
+        if (oldVersion < 2) {
+          await db.execute(
+            'ALTER TABLE chatroom_messages '
+            'ADD COLUMN global_msg_id INTEGER NOT NULL DEFAULT 0',
+          );
+          await db.execute(
+            'ALTER TABLE chatroom_messages '
+            'ADD COLUMN location_msg_id INTEGER NOT NULL DEFAULT 0',
+          );
+        }
+        if (oldVersion < 3) {
+          await db.execute(_createChatroomMessagesIndexSql);
+          await db.execute(_createChatroomMessagesLocationUniqueSql);
+        }
       },
     );
     _database = db;
@@ -70,7 +87,7 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
       'chatroom_messages',
       where: 'owner_uid = ? AND world_id = ? AND location_id = ?',
       whereArgs: [ownerUid, worldId, locationId],
-      orderBy: 'created_at DESC, msg_id DESC',
+      orderBy: _locationQueueOrderByDescending,
       limit: limit,
     );
     final messages = rows
@@ -93,9 +110,10 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
     final rows = await db.query(
       'chatroom_messages',
       where:
-          'owner_uid = ? AND world_id = ? AND location_id = ? AND msg_id < ?',
+          'owner_uid = ? AND world_id = ? AND location_id = ? '
+          'AND $_locationQueueIdSql < ?',
       whereArgs: [ownerUid, worldId, locationId, beforeMessageId],
-      orderBy: 'created_at DESC, msg_id DESC',
+      orderBy: _locationQueueOrderByDescending,
       limit: limit,
     );
     final messages = rows
@@ -167,15 +185,19 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
     Map<String, dynamic> message,
   ) async {
     final messageId = _messageId(message);
+    final locationMessageId = _locationMessageId(message);
+    final locationQueueMessageId = _locationQueueMessageId(message);
     final resolvedLocationId = locationId.trim().isNotEmpty
         ? locationId.trim()
         : asString(message['location_id']).trim();
-    if (messageId <= 0 || resolvedLocationId.isEmpty) return;
+    if (locationQueueMessageId <= 0 || resolvedLocationId.isEmpty) return;
     await executor.insert('chatroom_messages', {
       'owner_uid': ownerUid,
       'world_id': worldId,
       'location_id': resolvedLocationId,
+      'global_msg_id': _globalMessageId(message),
       'msg_id': messageId,
+      'location_msg_id': locationMessageId,
       'raw_json': jsonEncode(message),
       'created_at': _messageSortValue(message),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -191,10 +213,10 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
     if (maxMessages <= 0) return;
     final rows = await executor.query(
       'chatroom_messages',
-      columns: const ['msg_id'],
+      columns: const ['msg_id', 'location_msg_id'],
       where: 'owner_uid = ? AND world_id = ? AND location_id = ?',
       whereArgs: [ownerUid, worldId, locationId],
-      orderBy: 'created_at DESC, msg_id DESC',
+      orderBy: _locationQueueOrderByDescending,
       limit: 1000000,
       offset: maxMessages,
     );
@@ -202,8 +224,15 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
       await executor.delete(
         'chatroom_messages',
         where:
-            'owner_uid = ? AND world_id = ? AND location_id = ? AND msg_id = ?',
-        whereArgs: [ownerUid, worldId, locationId, row['msg_id']],
+            'owner_uid = ? AND world_id = ? AND location_id = ? '
+            'AND location_msg_id = ? AND msg_id = ?',
+        whereArgs: [
+          ownerUid,
+          worldId,
+          locationId,
+          row['location_msg_id'],
+          row['msg_id'],
+        ],
       );
     }
   }
@@ -222,7 +251,8 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
     final descending = _sortMessageJson(
       _bucket(ownerUid, worldId, locationId).values,
     ).reversed.toList(growable: false);
-    return _sortMessageJson(descending.take(limit));
+    final messages = _sortMessageJson(descending.take(limit));
+    return messages;
   }
 
   @override
@@ -235,13 +265,12 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
   }) async {
     if (beforeMessageId <= 0) return const <Map<String, dynamic>>[];
     final descending = _sortMessageJson(
-      _bucket(
-        ownerUid,
-        worldId,
-        locationId,
-      ).values.where((message) => _messageId(message) < beforeMessageId),
+      _bucket(ownerUid, worldId, locationId).values.where(
+        (message) => _locationQueueMessageId(message) < beforeMessageId,
+      ),
     ).reversed.toList(growable: false);
-    return _sortMessageJson(descending.take(limit));
+    final messages = _sortMessageJson(descending.take(limit));
+    return messages;
   }
 
   @override
@@ -254,9 +283,9 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
   }) async {
     final bucket = _bucket(ownerUid, worldId, locationId);
     for (final message in messages) {
-      final messageId = _messageId(message);
-      if (messageId <= 0) continue;
-      bucket[messageId] = Map<String, dynamic>.from(message);
+      final queueMessageId = _locationQueueMessageId(message);
+      if (queueMessageId <= 0) continue;
+      bucket[queueMessageId] = Map<String, dynamic>.from(message);
     }
     _prune(bucket, maxMessagesPerLocation);
   }
@@ -269,10 +298,10 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
     required Map<String, dynamic> message,
     int maxMessagesPerLocation = 200,
   }) async {
-    final messageId = _messageId(message);
-    if (messageId <= 0) return;
+    final queueMessageId = _locationQueueMessageId(message);
+    if (queueMessageId <= 0) return;
     final bucket = _bucket(ownerUid, worldId, locationId);
-    bucket[messageId] = Map<String, dynamic>.from(message);
+    bucket[queueMessageId] = Map<String, dynamic>.from(message);
     _prune(bucket, maxMessagesPerLocation);
   }
 
@@ -296,8 +325,8 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
     if (maxMessages <= 0 || bucket.length <= maxMessages) return;
     final keep = _sortMessageJson(
       bucket.values,
-    ).reversed.take(maxMessages).map(_messageId).toSet();
-    bucket.removeWhere((messageId, _) => !keep.contains(messageId));
+    ).reversed.take(maxMessages).map(_locationQueueMessageId).toSet();
+    bucket.removeWhere((queueMessageId, _) => !keep.contains(queueMessageId));
   }
 }
 
@@ -306,21 +335,39 @@ const _createChatroomMessagesSql = '''
     owner_uid TEXT NOT NULL,
     world_id TEXT NOT NULL,
     location_id TEXT NOT NULL,
+    global_msg_id INTEGER NOT NULL DEFAULT 0,
     msg_id INTEGER NOT NULL,
+    location_msg_id INTEGER NOT NULL DEFAULT 0,
     raw_json TEXT NOT NULL,
     created_at INTEGER NOT NULL,
-    PRIMARY KEY(owner_uid, world_id, location_id, msg_id)
+    PRIMARY KEY(owner_uid, world_id, location_id, location_msg_id, msg_id)
   )
 ''';
 
 const _createChatroomMessagesIndexSql = '''
   CREATE INDEX IF NOT EXISTS idx_chatroom_messages_location_created
-  ON chatroom_messages(owner_uid, world_id, location_id, created_at, msg_id)
+  ON chatroom_messages(owner_uid, world_id, location_id, location_msg_id, msg_id)
 ''';
+
+const _createChatroomMessagesLocationUniqueSql = '''
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_chatroom_messages_location_msg
+  ON chatroom_messages(owner_uid, world_id, location_id, location_msg_id)
+  WHERE location_msg_id > 0
+''';
+
+const _locationQueueIdSql = '''
+  CASE WHEN location_msg_id > 0 THEN location_msg_id ELSE msg_id END
+''';
+
+const _locationQueueOrderByDescending =
+    '$_locationQueueIdSql DESC, msg_id DESC';
 
 Map<String, dynamic>? _messageFromRow(Map<String, Object?> row) {
   try {
-    return asJsonMap(jsonDecode('${row['raw_json']}'));
+    final message = asJsonMap(jsonDecode('${row['raw_json']}'));
+    message.putIfAbsent('global_msg_id', () => asInt(row['global_msg_id']));
+    message.putIfAbsent('location_msg_id', () => asInt(row['location_msg_id']));
+    return message;
   } catch (_) {
     return null;
   }
@@ -333,8 +380,10 @@ List<Map<String, dynamic>> _sortMessageJson(
       .map((message) => Map<String, dynamic>.from(message))
       .toList(growable: false);
   sorted.sort((a, b) {
-    final byTime = _messageSortValue(a).compareTo(_messageSortValue(b));
-    if (byTime != 0) return byTime;
+    final byLocationMessage = _locationQueueMessageId(
+      a,
+    ).compareTo(_locationQueueMessageId(b));
+    if (byLocationMessage != 0) return byLocationMessage;
     return _messageId(a).compareTo(_messageId(b));
   });
   return sorted;
@@ -342,6 +391,25 @@ List<Map<String, dynamic>> _sortMessageJson(
 
 int _messageId(Map<String, dynamic> message) {
   return asInt(message['msg_id'], fallback: asInt(message['message_id']));
+}
+
+int _globalMessageId(Map<String, dynamic> message) {
+  return asInt(
+    message['global_msg_id'],
+    fallback: asInt(message['global_message_id']),
+  );
+}
+
+int _locationMessageId(Map<String, dynamic> message) {
+  return asInt(
+    message['location_msg_id'],
+    fallback: asInt(message['location_message_id']),
+  );
+}
+
+int _locationQueueMessageId(Map<String, dynamic> message) {
+  final locationMessageId = _locationMessageId(message);
+  return locationMessageId > 0 ? locationMessageId : _messageId(message);
 }
 
 int _messageSortValue(Map<String, dynamic> message) {

@@ -18,6 +18,7 @@ import 'models/world_message.dart';
 import 'http_transport.dart';
 import 'v1/genesis_v1_api.dart';
 import '../app/config/platform_config.dart';
+import '../app/debug/location_chat_debug_http.dart';
 import '../platform/auth/auth_session.dart';
 import '../platform/auth/google_firebase_auth_service.dart';
 import '../platform/auth/identity_auth_service.dart';
@@ -117,7 +118,9 @@ class GenesisApi {
             'accept': 'application/json',
           },
           requestHeaderProvider: _runtimeRequestHeaders,
-          requestInterceptor: gatewayRequestInterceptor?.call,
+          requestInterceptor: LocationChatDebugHttp.wrapChatroomHttpInterceptor(
+            gatewayRequestInterceptor?.call,
+          ),
           transport: resolvedTransport,
           responseProcessor: _processGenesisResponse,
         );

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
+import '../../app/debug/location_chat_debug_slice.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
@@ -174,6 +175,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _initialBottomScrollDidJump = false;
   bool _composerFocusBottomPinActive = false;
   bool _composerFocusBottomScheduled = false;
+  final Set<String> _messageGapFillKeys = <String>{};
   double _edgeSwipeBackDragDistance = 0;
   bool _edgeSwipeBackTriggered = false;
 
@@ -203,6 +205,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _recordPanelDebug(action: 'dispose', activeOverride: false);
     final service = _service;
     if (_ownsService && service != null) {
       unawaited(service.disconnect().catchError((Object _) {}));
@@ -239,6 +242,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           _loadingOlderMessages = false;
           _initialContentReadyNotified = false;
           _initialLatestMessagesRefresh = null;
+          _messageGapFillKeys.clear();
           _prepareConnection();
           _startInitialBottomScroll();
         }),
@@ -293,6 +297,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       'active=${widget.active} '
       'openingPreviewCount=${widget.openingPreviewMessages.length}',
     );
+    _recordPanelDebug(
+      action: 'prepareConnection',
+      details: {
+        'providedService': provided != null,
+        'active': widget.active,
+        'openingPreviewCount': widget.openingPreviewMessages.length,
+      },
+    );
     if (!widget.active && widget.openingPreviewMessages.isNotEmpty) {
       _showOpeningPreviewMessages();
       return;
@@ -322,6 +334,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       'opening preview shown count=${widget.openingPreviewMessages.length} '
       'changed=$changedMessages',
     );
+    _recordPanelDebug(
+      action: 'openingPreviewShown',
+      details: {
+        'count': widget.openingPreviewMessages.length,
+        'changed': changedMessages,
+      },
+    );
     if (changedMessages && mounted) setState(() {});
     _notifyInitialContentReady();
   }
@@ -345,6 +364,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _logPanelMetric(
       'activateConnection providedService=${provided != null} '
       'joined=$_joinedLocation',
+    );
+    _recordPanelDebug(
+      action: 'activateConnection',
+      details: {'providedService': provided != null, 'joined': _joinedLocation},
     );
     if (provided != null) {
       _service = provided;
@@ -403,6 +426,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         // Hidden cached panels should not surface leave failures.
       }
     }
+    _recordPanelDebug(
+      action: 'deactivateConnection',
+      details: {
+        'wasJoinedLocation': wasJoinedLocation,
+        'shouldLeave': shouldLeave,
+      },
+    );
     if (mounted) setState(() {});
   }
 
@@ -467,8 +497,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       if (_myUserId.isEmpty) _rememberMyUserId(_mySenderId);
       await service.join(locationId: widget.locationId);
       _joinedLocation = true;
+      _recordPanelDebug(action: 'joinDone');
     } catch (e) {
       _joinedLocation = false;
+      _recordPanelDebug(action: 'joinFailed', details: {'error': '$e'});
       if (!mounted) return;
       setState(() {
         _messages.add(ChatMessageVm.system('Join failed: $e'));
@@ -505,6 +537,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       'hydrateLocal start serviceOwner=${serviceOwnerUid.isNotEmpty} '
       'aliases=${widget.localMessageLocationIds.join(',')}',
     );
+    _recordPanelDebug(
+      action: 'hydrateLocalStart',
+      details: {
+        'serviceOwner': serviceOwnerUid.isNotEmpty,
+        'aliases': widget.localMessageLocationIds,
+      },
+    );
     if (serviceOwnerUid.isNotEmpty) {
       await service.hydrateLocalMessages(
         worldId: widget.worldId,
@@ -519,6 +558,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         'vmCount=${_messages.length} '
         'elapsed=${stopwatch?.elapsedMilliseconds}ms',
       );
+      _recordPanelDebug(
+        action: 'hydrateLocalDone',
+        details: {
+          'ownerSource': 'service',
+          'elapsedMs': stopwatch?.elapsedMilliseconds,
+        },
+      );
       _notifyReadyOrRefreshLatestMessages(service);
       return;
     }
@@ -530,6 +576,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     if (ownerUid.isEmpty) {
       _logPanelMetric(
         'hydrateLocal skipped noOwner elapsed=${stopwatch?.elapsedMilliseconds}ms',
+      );
+      _recordPanelDebug(
+        action: 'hydrateLocalSkipped',
+        details: {
+          'reason': 'noOwner',
+          'elapsedMs': stopwatch?.elapsedMilliseconds,
+        },
       );
       _notifyInitialContentReady();
       return;
@@ -546,6 +599,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       'sourceCount=${_chatroomState.messagesByLocation[widget.locationId]?.length ?? 0} '
       'vmCount=${_messages.length} '
       'elapsed=${stopwatch?.elapsedMilliseconds}ms',
+    );
+    _recordPanelDebug(
+      action: 'hydrateLocalDone',
+      details: {
+        'ownerSource': 'session',
+        'elapsedMs': stopwatch?.elapsedMilliseconds,
+      },
     );
     _notifyReadyOrRefreshLatestMessages(service);
   }
@@ -619,6 +679,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final nextSource =
         state.messagesByLocation[widget.locationId] ??
         const <WorldChatroomMessage>[];
+    _requestVisibleMessageGapFillIfNeeded(nextSource);
     final beforeVmCount = _messages.length;
     final reconcileStopwatch = _panelMetricsEnabled
         ? (Stopwatch()..start())
@@ -651,6 +712,23 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       'joining=${state.joining} connected=${state.connected} '
       'rebuild=$shouldRebuild '
       'reconcile=${reconcileStopwatch?.elapsedMilliseconds}ms',
+    );
+    _recordPanelDebug(
+      action: 'stateReceived',
+      sourceMessages: nextSource,
+      details: {
+        'previousSourceCount': previousSource.length,
+        'nextSourceCount': nextSource.length,
+        'beforeVmCount': beforeVmCount,
+        'afterVmCount': _messages.length,
+        'changedMessages': changedMessages,
+        'joined': state.joinedLocationId == widget.locationId,
+        'joining': state.joining,
+        'connected': state.connected,
+        'rebuild': shouldRebuild,
+        'reconcileMs': reconcileStopwatch?.elapsedMilliseconds,
+        'unseenIncomingCount': _unseenIncomingCount,
+      },
     );
     if (nextSource.isNotEmpty) _notifyInitialContentReady();
     if (changedMessages && _initialBottomScrollPending) {
@@ -733,9 +811,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _logPanelMetric(
       'initialContentReady scheduled vmCount=${_messages.length}',
     );
+    _recordPanelDebug(action: 'initialContentReadyScheduled');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _logPanelMetric('initialContentReady fired vmCount=${_messages.length}');
+      _recordPanelDebug(action: 'initialContentReadyFired');
       widget.onInitialContentReady?.call();
     });
   }
@@ -747,6 +827,48 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     debugPrint(
       '[LocationChatPanel][${widget.locationId}] '
       '+${_panelStopwatch.elapsedMilliseconds}ms $message',
+    );
+  }
+
+  void _recordPanelDebug({
+    required String action,
+    List<WorldChatroomMessage>? sourceMessages,
+    Map<String, Object?> details = const <String, Object?>{},
+    bool? activeOverride,
+  }) {
+    if (!LocationChatDebugSlice.enabled) return;
+    final source =
+        sourceMessages ??
+        _chatroomState.messagesByLocation[widget.locationId] ??
+        const <WorldChatroomMessage>[];
+    final hasClients = _scrollController.hasClients;
+    LocationChatDebugSlice.recordPanel(
+      action: action,
+      worldId: widget.worldId,
+      locationId: widget.locationId,
+      locationName: widget.locationName ?? '',
+      active: activeOverride ?? widget.active,
+      isLeafLocation: widget.isLeafLocation,
+      state: _chatroomState,
+      sourceMessages: source,
+      renderMessages: _messages,
+      details: details,
+      hasMoreOlderMessages: _hasMoreOlderMessages,
+      loadingOlderMessages: _loadingOlderMessages,
+      unseenIncomingCount: _unseenIncomingCount,
+      awaitingAiResponse: _awaitingAiResponse,
+      scroll: {
+        'hasClients': hasClients,
+        'pixels': hasClients ? _scrollController.position.pixels : 0,
+        'maxScrollExtent': hasClients
+            ? _scrollController.position.maxScrollExtent
+            : 0,
+        'isAtBottom': _isAtBottom(),
+        'initialBottomScrollPending': _initialBottomScrollPending,
+        'initialBottomScrollScheduled': _initialBottomScrollScheduled,
+        'composerFocusBottomPinActive': _composerFocusBottomPinActive,
+        'keepBottomAfterLayoutScheduled': _keepBottomAfterLayoutScheduled,
+      },
     );
   }
 
@@ -810,6 +932,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         }
         usedLocalIds.add(existing.localId);
         if (existing.messageId != message.messageId ||
+            existing.locationMessageId != message.locationMessageId ||
             existing.roundId != message.conversationRoundId ||
             existing.tickNo != message.tickNo ||
             existing.senderName != senderName ||
@@ -822,6 +945,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           changed = true;
         }
         existing.messageId = message.messageId;
+        existing.locationMessageId = message.locationMessageId;
         existing.roundId = message.conversationRoundId;
         existing.tickNo = message.tickNo;
         existing.senderName = senderName;
@@ -838,6 +962,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           localId: localId,
           clientMsgId: message.clientMsgId,
           messageId: message.messageId,
+          locationMessageId: message.locationMessageId,
           roundId: message.conversationRoundId,
           tickNo: message.tickNo,
           senderId: message.senderId,
@@ -867,6 +992,61 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         ..addAll(next);
     }
     return changed;
+  }
+
+  void _requestVisibleMessageGapFillIfNeeded(
+    List<WorldChatroomMessage> source,
+  ) {
+    final service = _service;
+    if (service == null || source.isEmpty) return;
+    final gapBeforeLocationMessageId =
+        locationChatMessageGapFillCursorForTesting(source);
+    if (gapBeforeLocationMessageId <= 0) return;
+    final key = '${widget.locationId}\u001F$gapBeforeLocationMessageId';
+    if (!_messageGapFillKeys.add(key)) return;
+    _logPanelMetric(
+      'message gap fill requested location=${widget.locationId} '
+      'beforeLocationMsg=$gapBeforeLocationMessageId',
+    );
+    _recordPanelDebug(
+      action: 'gapFillRequested',
+      sourceMessages: source,
+      details: {'beforeLocationMessageId': gapBeforeLocationMessageId},
+    );
+    unawaited(
+      _fillVisibleMessageGap(
+        service: service,
+        key: key,
+        beforeLocationMessageId: gapBeforeLocationMessageId,
+      ),
+    );
+  }
+
+  Future<void> _fillVisibleMessageGap({
+    required WorldChatroomService service,
+    required String key,
+    required int beforeLocationMessageId,
+  }) async {
+    try {
+      await service.loadOlderMessages(
+        locationId: widget.locationId,
+        beforeMessageId: beforeLocationMessageId,
+        limit: 20,
+      );
+    } catch (error) {
+      _messageGapFillKeys.remove(key);
+      _logPanelMetric(
+        'message gap fill failed location=${widget.locationId} '
+        'beforeLocationMsg=$beforeLocationMessageId error=$error',
+      );
+      _recordPanelDebug(
+        action: 'gapFillFailed',
+        details: {
+          'beforeLocationMessageId': beforeLocationMessageId,
+          'error': '$error',
+        },
+      );
+    }
   }
 
   ChatMessageVm? _matchingPendingSelfMessage(
@@ -1039,6 +1219,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _hasDraftText = false;
       _textController.clear();
     });
+    _recordPanelDebug(
+      action: 'optimisticSend',
+      details: {
+        'clientMsgId': clientMsgId,
+        'vm': LocationChatDebugSlice.debugRenderMessage(localMessage),
+      },
+    );
     _scrollToBottom();
 
     try {
@@ -1058,6 +1245,15 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _awaitingAiResponseRoundId = ack.conversationRoundId.trim();
         _sending = false;
       });
+      _recordPanelDebug(
+        action: 'sendAck',
+        details: {
+          'clientMsgId': clientMsgId,
+          'messageId': ack.messageId,
+          'locationMessageId': ack.locationMessageId,
+          'roundId': ack.conversationRoundId,
+        },
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -1067,6 +1263,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _awaitingAiResponseRoundId = '';
         _sending = false;
       });
+      _recordPanelDebug(
+        action: 'sendFailed',
+        details: {'clientMsgId': clientMsgId, 'error': '$e'},
+      );
     }
   }
 
@@ -1108,22 +1308,41 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     if (_loadingOlderMessages) return;
     final service = _service;
     if (service == null) return;
-    final beforeMessageId = _earliestLoadedMessageId();
-    if (beforeMessageId <= 0) {
+    final beforeLocationMessageId = _earliestLoadedLocationMessageId();
+    if (beforeLocationMessageId <= 0) {
       _hasMoreOlderMessages = false;
       return;
     }
     setState(() {
       _loadingOlderMessages = true;
     });
+    _recordPanelDebug(
+      action: 'loadOlderStart',
+      details: {'beforeLocationMessageId': beforeLocationMessageId},
+    );
     try {
       final page = await service.loadOlderMessages(
         locationId: widget.locationId,
-        beforeMessageId: beforeMessageId,
+        beforeMessageId: beforeLocationMessageId,
         limit: 20,
       );
       _hasMoreOlderMessages = page.hasMore;
-    } catch (_) {
+      _recordPanelDebug(
+        action: 'loadOlderDone',
+        details: {
+          'beforeLocationMessageId': beforeLocationMessageId,
+          'loadedCount': page.loadedCount,
+          'hasMore': page.hasMore,
+        },
+      );
+    } catch (error) {
+      _recordPanelDebug(
+        action: 'loadOlderFailed',
+        details: {
+          'beforeLocationMessageId': beforeLocationMessageId,
+          'error': '$error',
+        },
+      );
       // Up-scroll history loading is opportunistic; connection failures are
       // surfaced by the chatroom service failure stream when appropriate.
     } finally {
@@ -1137,13 +1356,15 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     }
   }
 
-  int _earliestLoadedMessageId() {
+  int _earliestLoadedLocationMessageId() {
     var earliest = 0;
     final source =
         _chatroomState.messagesByLocation[widget.locationId] ??
         const <WorldChatroomMessage>[];
     for (final message in source) {
-      final messageId = message.messageId;
+      final messageId = message.locationMessageId > 0
+          ? message.locationMessageId
+          : message.messageId;
       if (messageId <= 0) continue;
       if (earliest == 0 || messageId < earliest) earliest = messageId;
     }
@@ -1500,6 +1721,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _initialBottomScrollPending = true;
     _initialBottomScrollShouldComplete = false;
     _initialBottomScrollDidJump = false;
+    _recordPanelDebug(action: 'initialBottomScrollStart');
     _scheduleInitialBottomScroll(complete: _messages.isNotEmpty);
   }
 
@@ -1509,12 +1731,17 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _initialBottomScrollShouldComplete || complete;
     if (_initialBottomScrollScheduled) return;
     _initialBottomScrollScheduled = true;
+    _recordPanelDebug(
+      action: 'initialBottomScrollScheduled',
+      details: {'complete': complete},
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initialBottomScrollScheduled = false;
       if (!mounted || !_initialBottomScrollPending) return;
       if (!_scrollController.hasClients) return;
       _scrollController.jumpTo(_bottomScrollOffset());
       _initialBottomScrollDidJump = true;
+      _recordPanelDebug(action: 'initialBottomScrollJump');
       final shouldComplete = _initialBottomScrollShouldComplete;
       _initialBottomScrollShouldComplete = false;
       if (!shouldComplete || _messages.isEmpty) return;
@@ -1524,11 +1751,16 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _scrollController.jumpTo(_bottomScrollOffset());
         _initialBottomScrollPending = false;
         _initialBottomScrollDidJump = false;
+        _recordPanelDebug(action: 'initialBottomScrollComplete');
       });
     });
   }
 
   void _scrollToBottom({bool jump = false}) {
+    _recordPanelDebug(
+      action: 'scrollToBottomScheduled',
+      details: {'jump': jump},
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
       final bottom = _bottomScrollOffset();
@@ -1545,6 +1777,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   }
 
   void _forceScrollToBottom() {
+    _recordPanelDebug(action: 'forceScrollToBottom');
     void jumpIfReady() {
       if (!mounted || !_scrollController.hasClients) return;
       _scrollController.jumpTo(_bottomScrollOffset());
@@ -1563,6 +1796,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   void _activateComposerFocusBottomPin() {
     _composerFocusBottomPinActive = true;
+    _recordPanelDebug(action: 'composerFocusBottomPinStart');
     if (_scrollController.hasClients) {
       _scrollController.jumpTo(_bottomScrollOffset());
     }
@@ -1571,12 +1805,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   void _deactivateComposerFocusBottomPin() {
     _composerFocusBottomPinActive = false;
+    _recordPanelDebug(action: 'composerFocusBottomPinStop');
   }
 
   void _scheduleComposerFocusBottomPin() {
     if (!_composerFocusBottomPinActive) return;
     if (_composerFocusBottomScheduled) return;
     _composerFocusBottomScheduled = true;
+    _recordPanelDebug(action: 'composerFocusBottomPinScheduled');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _composerFocusBottomScheduled = false;
       if (!mounted ||
@@ -1608,10 +1844,12 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     if (!_isAtBottom()) return;
     if (_keepBottomAfterLayoutScheduled) return;
     _keepBottomAfterLayoutScheduled = true;
+    _recordPanelDebug(action: 'keepBottomAfterLayoutScheduled');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _keepBottomAfterLayoutScheduled = false;
       if (!mounted || !_scrollController.hasClients) return;
       _scrollController.jumpTo(_bottomScrollOffset());
+      _recordPanelDebug(action: 'keepBottomAfterLayoutJump');
     });
   }
 
@@ -2294,26 +2532,122 @@ bool _senderIdIsNarrator(String senderId) {
 List<WorldChatroomMessage> visibleLocationChatMessagesForTesting(
   List<WorldChatroomMessage> source,
 ) {
-  if (source.length < 2) return source;
-  final next = <WorldChatroomMessage>[];
-  WorldChatroomMessage? pendingTick;
-  for (final message in source) {
-    if (_isTickAdvanceMessage(message)) {
-      pendingTick = message;
+  return _visibleLocationChatMessages(source).messages;
+}
+
+@visibleForTesting
+int locationChatMessageGapFillCursorForTesting(
+  List<WorldChatroomMessage> source,
+) {
+  return _visibleLocationChatMessages(source).gapFillBeforeLocationMessageId;
+}
+
+_VisibleLocationChatMessages _visibleLocationChatMessages(
+  List<WorldChatroomMessage> source,
+) {
+  if (source.length < 2) {
+    return _VisibleLocationChatMessages(
+      messages: source,
+      gapFillBeforeLocationMessageId: 0,
+    );
+  }
+  final sorted = source.toList(growable: false)
+    ..sort(_compareLocationChatRenderMessages);
+  final locationMessages = sorted
+      .where(
+        (message) =>
+            !_isTickAdvanceMessage(message) && message.locationMessageId > 0,
+      )
+      .toList(growable: false);
+  if (locationMessages.isEmpty) {
+    return _VisibleLocationChatMessages(
+      messages: sorted,
+      gapFillBeforeLocationMessageId: 0,
+    );
+  }
+
+  final visibleLocationMessageIds = <int>{};
+  var expectedLocationMessageId = locationMessages.last.locationMessageId;
+  var gapFillBeforeLocationMessageId = 0;
+  for (final message in locationMessages.reversed) {
+    final locationMessageId = message.locationMessageId;
+    if (locationMessageId == expectedLocationMessageId) {
+      visibleLocationMessageIds.add(locationMessageId);
+      expectedLocationMessageId -= 1;
       continue;
     }
-    if (pendingTick != null) {
-      next.add(pendingTick);
-      pendingTick = null;
+    if (locationMessageId < expectedLocationMessageId) {
+      gapFillBeforeLocationMessageId = expectedLocationMessageId + 1;
+      break;
     }
-    next.add(message);
   }
-  if (pendingTick != null) next.add(pendingTick);
-  return next.length == source.length ? source : next;
+
+  final visibleLocationMessages = locationMessages
+      .where(
+        (message) =>
+            visibleLocationMessageIds.contains(message.locationMessageId),
+      )
+      .toList(growable: false);
+  if (visibleLocationMessages.isEmpty) {
+    return const _VisibleLocationChatMessages(
+      messages: <WorldChatroomMessage>[],
+      gapFillBeforeLocationMessageId: 0,
+    );
+  }
+  final minVisibleMessageId = visibleLocationMessages.fold<int>(0, (
+    previous,
+    message,
+  ) {
+    final messageId = message.messageId;
+    if (messageId <= 0) return previous;
+    if (previous == 0 || messageId < previous) return messageId;
+    return previous;
+  });
+
+  final visible = sorted
+      .where((message) {
+        if (_isTickAdvanceMessage(message)) {
+          return minVisibleMessageId <= 0 ||
+              message.messageId >= minVisibleMessageId;
+        }
+        return visibleLocationMessageIds.contains(message.locationMessageId);
+      })
+      .toList(growable: false);
+  return _VisibleLocationChatMessages(
+    messages: visible,
+    gapFillBeforeLocationMessageId: gapFillBeforeLocationMessageId,
+  );
 }
 
 bool _isTickAdvanceMessage(WorldChatroomMessage message) {
   return message.senderType.trim().toLowerCase() == 'tick';
+}
+
+int _compareLocationChatRenderMessages(
+  WorldChatroomMessage a,
+  WorldChatroomMessage b,
+) {
+  final byMessageId = a.messageId.compareTo(b.messageId);
+  if (byMessageId != 0) return byMessageId;
+  final byLocationMessageId = a.locationMessageId.compareTo(
+    b.locationMessageId,
+  );
+  if (byLocationMessageId != 0) return byLocationMessageId;
+  final byRound = a.conversationRoundNumber.compareTo(
+    b.conversationRoundNumber,
+  );
+  if (byRound != 0) return byRound;
+  return a.roundOrder.compareTo(b.roundOrder);
+}
+
+class _VisibleLocationChatMessages {
+  const _VisibleLocationChatMessages({
+    required this.messages,
+    required this.gapFillBeforeLocationMessageId,
+  });
+
+  final List<WorldChatroomMessage> messages;
+  final int gapFillBeforeLocationMessageId;
 }
 
 class _LocationChatNewMessageNotice extends StatelessWidget {

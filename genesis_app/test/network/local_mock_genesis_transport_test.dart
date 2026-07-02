@@ -413,11 +413,9 @@ void main() {
     );
     expect(userLocations.worldId, world);
     expect(userLocations.locations, isNotEmpty);
-    final firstLocationCharacter =
-        userLocations.locations.first.characters.first;
-    expect(firstLocationCharacter.charId, isNotEmpty);
-    expect(firstLocationCharacter.name, isNotEmpty);
-    expect(firstLocationCharacter.locationId, isNotEmpty);
+    final firstLocationUser = userLocations.locations.first.users.first;
+    expect(firstLocationUser.userId, isNotEmpty);
+    expect(firstLocationUser.userName, isNotEmpty);
     final history = await api.chatroomHttp.getMessages(
       worldId: world,
       locationId: worldMessages.locations.first.locationId,
@@ -425,6 +423,11 @@ void main() {
       limit: 20,
     );
     expect(history.messages, isNotEmpty);
+    final historyMessage = history.messages.first;
+    expect(historyMessage.globalMessageId, greaterThan(0));
+    expect(historyMessage.messageId, greaterThan(0));
+    expect(historyMessage.locationMessageId, greaterThan(0));
+    expect(historyMessage.createdAt, isNotNull);
     expect(await api.chatroomHttp.lockWorld(worldId: world), true);
     var tickProgress = await api.chatroomHttp.tickProgress(worldId: world);
     expect(tickProgress.progress, 0);

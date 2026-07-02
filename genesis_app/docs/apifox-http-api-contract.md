@@ -285,16 +285,19 @@
 
 ### ChatroomMessageDTO
 
-- `message_id`: integer，全局递增消息 ID
-- `location_id`: string，地点 ID；`/aitown-chat/api/messages` 的 `MessageDTO` 不带该字段，调用方已知 location
+- `global_message_id`: integer，全局递增消息 ID
+- `message_id`: integer，world 级别递增消息 ID
+- `location_message_id`: integer，location 级别递增消息 ID
+- `location_id`: string，地点 ID；世界级消息可能为空
 - `conversation_round_id`: integer，对话轮次 ID
-- `round_order`: integer，轮次内序号
-- `sender_type`: string，`user`、`character` 或 `narrator`
+- `sender_type`: string，`user`、`character`、`narrator`、`npc` 或 `tick`
 - `sender_id`: string，发送者 ID
 - `sender_name`: string，发送者名称
 - `user_id`: string，用户消息时非空
 - `content`: string，消息内容
-- `created_at`: string，创建时间
+- `current_time`: string，世界时间，tick advance 时非空
+- `tick_no`: integer，Tick 序号，仅 tick 相关消息时非零
+- `created_at`: string，创建时间，格式为 `2006-01-02 15:04:05`
 
 ### ChatroomNarratorLocationGroup
 
@@ -963,7 +966,7 @@ Query：
 
 ### GET `/aitown-chat/internal/world/messages`
 
-获取指定世界最近 50 条消息，按 `conversation_round_id` 倒排、`round_order` 正排，并按 `location_id` 分组返回。
+获取指定世界最近 50 条消息，并按 `location_id` 分组返回。
 
 Query：
 
@@ -981,18 +984,18 @@ Query：
 
 ### GET `/aitown-chat/api/messages`
 
-分页获取指定 location 的历史消息。
+获取指定世界、指定地点的历史消息。`limit` 默认 20，最大 100。
 
 Query：
 
 - `world_id*`: string，世界实例 ID
 - `location_id*`: string，地点 ID
 - `since`: integer，起始消息 ID；`0` 表示获取最新
-- `limit`: integer，默认 `20`
+- `limit`: integer，默认 `20`，最大 `100`
 
 响应 `data`：
 
-- `messages`: `ChatroomMessageDTO[]`；响应消息使用 `msg_id` 和毫秒级 `ts`
+- `messages`: `ChatroomMessageDTO[]`
 - `has_more`: boolean，是否有更多消息
 - `newest_message_id`: integer，最新消息 ID
 
@@ -1602,8 +1605,8 @@ query：
 | `GET /api/v1/world/origin_progress` | 已新增 `WorldV1Api.originProgress(uid,originId)`，query 使用 `uid/origin_id`，响应消费 `world_id/tick_cnt`；origin discuss loader 会用该接口补齐每条评论作者在当前 origin 下的 world 与 tick 进度。 |
 | `POST /api/v1/world/tick` | 新契约替代旧 progress 触发接口；客户端应提交 `{ "world_id": "<world_id>" }` 并消费 `world_id/tick_cnt/last_tick`。 |
 | `GET /aitown-chat/api/ulocation` | `ChatroomHttpApi.getUserLocations(worldId)` query 使用 `world_id`，响应消费 `locations[].characters[]`，角色字段为 `char_id/player_uid/player_username/name/location_id`；`WorldChatroomService` 用 `player_uid` 识别真实用户并刷新所在 location，本地 mock 从 world detail 角色列表生成同形状响应。 |
-| `GET /aitown-chat/internal/world/messages` | 已新增 `ChatroomHttpApi.getWorldMessages(worldId)`，query 使用 `world_id`，响应消费 `locations[].location_id/messages[]`；本地 mock 按 location 分组返回最近消息。 |
-| `GET /aitown-chat/api/messages` | 已新增 `ChatroomHttpApi.getMessages(worldId,locationId,since,limit)`，query 使用 `world_id/location_id/since/limit`，响应消费 `messages/has_more/newest_message_id`。 |
+| `GET /aitown-chat/internal/world/messages` | `ChatroomHttpApi.getWorldMessages(worldId)` query 使用 `world_id`，响应消费 `locations[].location_id/messages[]`；`ChatroomHttpMessage` 只按新 DTO 解析 `global_message_id/message_id/location_message_id/current_time/tick_no/created_at`。 |
+| `GET /aitown-chat/api/messages` | `ChatroomHttpApi.getMessages(worldId,locationId,since,limit)` query 使用 `world_id/location_id/since/limit`，响应消费 `messages/has_more/newest_message_id`；本地 mock 返回新 `MessageDTO` 字段。 |
 | `POST /aitown-chat/internal/tick/lock` | 已新增 `ChatroomHttpApi.lockWorld(worldId)`，按 Apifox 同时发送 query `world_id` 与 multipart form `world_id`，响应消费 `locked`。 |
 | `GET /aitown-chat/internal/tick/progress` | 已新增 `ChatroomHttpApi.tickProgress(worldId)`，响应消费 `progress/pending_messages/active_llm_calls`。 |
 | `POST /aitown-chat/internal/tick/unlock` | 已新增 `ChatroomHttpApi.unlockWorld(worldId)`，multipart form 发送 `world_id`，响应消费 `unlocked`。 |

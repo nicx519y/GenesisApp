@@ -15,6 +15,7 @@ import '../bootstrap/app_services_scope.dart';
 import '../bootstrap/service_registry.dart';
 import '../config/app_config.dart';
 import '../config/app_endpoint_overrides.dart';
+import '../debug/location_chat_debug_hub.dart';
 import '../debug_page_tracker.dart';
 import '../genesis_navigator.dart';
 import 'agent_control_models.dart';
@@ -134,6 +135,11 @@ final Map<String, AgentControlHandler> _defaultHandlers = {
   'config.endpoint.clear': _clearEndpoint,
   'cache.clear': _clearCache,
   'diagnostics.snapshot': _diagnosticsSnapshot,
+  if (LocationChatDebugHub.available) ...{
+    'debug.locationChat.snapshot': _locationChatDebugSnapshot,
+    'debug.locationChat.events': _locationChatDebugEvents,
+    'debug.locationChat.clear': _locationChatDebugClear,
+  },
 };
 
 final Map<String, _AgentJob> _agentJobs = <String, _AgentJob>{};
@@ -689,6 +695,31 @@ Future<Map<String, Object?>> _diagnosticsSnapshot(
     'uid': _redactedValue(uid),
     'hasAuthToken': token?.trim().isNotEmpty == true,
   };
+}
+
+Future<Map<String, Object?>> _locationChatDebugSnapshot(
+  AgentControlContext context,
+  AgentControlRequest request,
+) async {
+  return LocationChatDebugHub.snapshot();
+}
+
+Future<Map<String, Object?>> _locationChatDebugEvents(
+  AgentControlContext context,
+  AgentControlRequest request,
+) async {
+  return LocationChatDebugHub.eventsAfter(
+    _intParam(request.params['cursor']),
+    limit: _intParam(request.params['limit']),
+  );
+}
+
+Future<Map<String, Object?>> _locationChatDebugClear(
+  AgentControlContext context,
+  AgentControlRequest request,
+) async {
+  LocationChatDebugHub.clear();
+  return LocationChatDebugHub.snapshot();
 }
 
 Future<void> _navigateToRoute(

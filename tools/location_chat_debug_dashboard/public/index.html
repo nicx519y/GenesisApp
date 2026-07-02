@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Location Chat Debug</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2/cdn/themes/dark.css">
+    <link rel="stylesheet" href="/styles.css">
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@shoelace-style/shoelace@2/cdn/shoelace-autoloader.js"></script>
+  </head>
+  <body class="sl-theme-dark">
+    <header class="topbar">
+      <div>
+        <h1>Location Chat Debug</h1>
+        <p id="connectionStatus">Waiting for agent_control...</p>
+      </div>
+      <div class="actions">
+        <sl-button id="refreshButton" size="small" variant="default">Refresh</sl-button>
+        <sl-button id="clearButton" size="small" variant="default">Clear Events</sl-button>
+        <sl-button id="exportButton" size="small" variant="primary">Export JSON</sl-button>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section class="info-strip">
+        <div id="summaryGrid" class="info-grid"></div>
+      </section>
+
+      <section class="workspace split-workspace">
+        <sl-card class="work-card queue-card">
+          <div slot="header" class="panel-heading">
+            <h2>Queue Compare</h2>
+          </div>
+          <sl-tab-group id="locationTabGroup" class="location-tab-group"></sl-tab-group>
+        </sl-card>
+
+        <sl-card class="work-card network-card">
+          <div slot="header" class="panel-heading">
+            <h2>Net Work</h2>
+          </div>
+          <sl-tab-group id="networkTabGroup" class="network-tab-group">
+            <sl-tab slot="nav" panel="http">HTTPS</sl-tab>
+            <sl-tab slot="nav" panel="websocket">WebSocket</sl-tab>
+            <sl-tab-panel name="http">
+              <div id="httpMessages" class="panel-scroll"></div>
+            </sl-tab-panel>
+            <sl-tab-panel name="websocket">
+              <div id="websocketFrames" class="panel-scroll"></div>
+            </sl-tab-panel>
+          </sl-tab-group>
+        </sl-card>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

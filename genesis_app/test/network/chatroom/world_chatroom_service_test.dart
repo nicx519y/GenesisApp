@@ -84,7 +84,12 @@ void main() {
       service.state.entitiesByLocation['loc-2']!.map((entity) => entity.id),
       contains('user-1'),
     );
-    expect(service.state.messagesByLocation, isEmpty);
+    expect(
+      service.state.messagesByLocation.keys,
+      containsAll(['loc-1', 'loc-2']),
+    );
+    expect(service.state.messagesByLocation['loc-1'], isEmpty);
+    expect(service.state.messagesByLocation['loc-2'], isEmpty);
     expect(http.detailRequests, 1);
     expect(http.userLocationRequests, 1);
     expect(http.messagesRequestsByLocation, isEmpty);
@@ -121,7 +126,7 @@ void main() {
 
       await service.connect(worldId: 'world-1', identity: _identity());
 
-      expect(service.state.messagesByLocation['loc-1'], isNull);
+      expect(service.state.messagesByLocation['loc-1'], isEmpty);
       expect(http.messagesRequestsByLocation, isEmpty);
       final cached = await storage.loadLatestMessages(
         ownerUid: 'user-1',
@@ -480,6 +485,8 @@ void main() {
         (message) => message.messageId == 11,
       );
       expect(page.loadedCount, 1);
+      expect(message.globalMessageId, 90011);
+      expect(message.locationMessageId, 11);
       expect(message.locationId, 'loc-1');
       final cached = await storage.loadLatestMessages(
         ownerUid: 'user-1',
@@ -488,6 +495,8 @@ void main() {
         limit: 20,
       );
       expect(cached.single['location_id'], 'loc-1');
+      expect(cached.single['global_msg_id'], 90011);
+      expect(cached.single['location_msg_id'], 11);
       await service.dispose();
     },
   );
@@ -502,7 +511,7 @@ void main() {
         locationId: 'loc-1',
         messages: [
           for (var id = 1; id <= 205; id += 1)
-            _httpMessageJson(
+            _storageMessageJson(
               messageId: id,
               locationId: 'loc-1',
               content: 'message-$id',
@@ -519,7 +528,11 @@ void main() {
 
       expect(records, hasLength(200));
       expect(records.first['msg_id'], 6);
+      expect(records.first['global_msg_id'], 90006);
+      expect(records.first['location_msg_id'], 6);
       expect(records.last['msg_id'], 205);
+      expect(records.last['global_msg_id'], 90205);
+      expect(records.last['location_msg_id'], 205);
     },
   );
 
@@ -531,7 +544,7 @@ void main() {
       locationId: 'loc-1',
       messages: [
         for (var id = 1; id <= 5; id += 1)
-          _httpMessageJson(
+          _storageMessageJson(
             messageId: id,
             locationId: 'loc-1',
             content: 'message-$id',
@@ -550,6 +563,63 @@ void main() {
     expect(records.map((message) => message['msg_id']).toList(), [2, 3]);
   });
 
+  test(
+    'chatroom message storage orders and pages by location message id',
+    () async {
+      final storage = MemoryChatroomMessageStorage();
+      await storage.mergeMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        messages: [
+          _storageMessageJson(
+            messageId: 100,
+            locationMessageId: 1,
+            locationId: 'loc-1',
+            content: 'first in location',
+          ),
+          _storageMessageJson(
+            messageId: 20,
+            locationMessageId: 2,
+            locationId: 'loc-1',
+            content: 'second in location',
+          ),
+          _storageMessageJson(
+            messageId: 30,
+            locationMessageId: 3,
+            locationId: 'loc-1',
+            content: 'third in location',
+          ),
+        ],
+      );
+
+      final latest = await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 2,
+      );
+      expect(latest.map((message) => message['location_msg_id']).toList(), [
+        2,
+        3,
+      ]);
+      expect(latest.map((message) => message['msg_id']).toList(), [20, 30]);
+
+      final older = await storage.loadMessagesBefore(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        beforeMessageId: 3,
+        limit: 2,
+      );
+      expect(older.map((message) => message['location_msg_id']).toList(), [
+        1,
+        2,
+      ]);
+      expect(older.map((message) => message['msg_id']).toList(), [100, 20]);
+    },
+  );
+
   test('clearCachedMessages clears persisted and in-memory history', () async {
     final socket = _FakeChatroomSocket();
     final http = _WorldChatroomHttpTransport()
@@ -561,7 +631,11 @@ void main() {
       worldId: 'world-1',
       locationId: 'loc-1',
       messages: [
-        _httpMessageJson(messageId: 1, locationId: 'loc-1', content: 'old-1'),
+        _storageMessageJson(
+          messageId: 1,
+          locationId: 'loc-1',
+          content: 'old-1',
+        ),
       ],
     );
     await storage.mergeMessages(
@@ -569,7 +643,7 @@ void main() {
       worldId: 'world-1',
       locationId: 'loc-2',
       messages: [
-        _httpMessageJson(
+        _storageMessageJson(
           messageId: 7,
           locationId: 'loc-2',
           content: 'other-location',
@@ -607,7 +681,8 @@ void main() {
 
     expect(loc1, isEmpty);
     expect(loc2, isEmpty);
-    expect(service.state.messagesByLocation, isEmpty);
+    expect(service.state.messagesByLocation['loc-1'], isEmpty);
+    expect(service.state.messagesByLocation['loc-2'], isEmpty);
     expect(service.state.worldMessages, isEmpty);
     await service.dispose();
   });
@@ -670,7 +745,9 @@ void main() {
       'user_id': 'user-1',
       'sender_id': 'user-1',
       'sender_name': 'Player One',
+      'global_msg_id': 90061,
       'msg_id': 61,
+      'location_msg_id': 61,
       'conversation_round_id': 1280,
       'payload': {'content': '你是谁', 'client_msg_id': 'client-1'},
     });
@@ -685,6 +762,8 @@ void main() {
     final message = service.state.messagesByLocation['loc-1']!.singleWhere(
       (message) => message.messageId == 61,
     );
+    expect(message.globalMessageId, 90061);
+    expect(message.locationMessageId, 61);
     expect(message.userId, 'user-1');
     expect(message.senderId, 'user-1');
     expect(message.clientMsgId, 'client-1');
@@ -707,7 +786,9 @@ void main() {
       socket.serverFrame('tick_advance', {
         'ts': 1780840607650,
         'world_id': 'world-1',
+        'global_msg_id': 90154,
         'msg_id': 154,
+        'location_msg_id': 0,
         'conversation_round_id': 1348,
         'current_time': 'Day 45, 19:30',
         'payload': {'content': 'Day 45, 19:30', 'tick_no': 7},
@@ -727,6 +808,8 @@ void main() {
       for (final locationId in const ['loc-1', 'loc-2']) {
         final message = service.state.messagesByLocation[locationId]!
             .singleWhere((message) => message.messageId == 154);
+        expect(message.globalMessageId, 90154);
+        expect(message.locationMessageId, 0);
         expect(message.locationId, locationId);
         expect(message.senderType, 'tick');
         expect(message.senderId, 'tick');
@@ -754,7 +837,9 @@ void main() {
       'ts': 1780840607650,
       'world_id': 'world-1',
       'payload': {'content': '*黑暗中，芯片脉冲与数据卡蓝光交织*'},
+      'global_msg_id': 90155,
       'msg_id': 155,
+      'location_msg_id': 55,
       'conversation_round_id': 1349,
       'sender_id': 'nar',
       'sender_name': '旁白',
@@ -772,6 +857,8 @@ void main() {
     final message = service.state.messagesByLocation['loc-1']!.singleWhere(
       (message) => message.messageId == 155,
     );
+    expect(message.globalMessageId, 90155);
+    expect(message.locationMessageId, 55);
     expect(message.conversationRoundId, '1349');
     expect(message.locationId, 'loc-1');
     expect(message.senderType, 'narrator');
@@ -795,7 +882,9 @@ void main() {
     socket.serverFrame('nar_new_message', {
       'world_id': 'world-1',
       'payload': {'content': '角色旁白式发言'},
+      'global_msg_id': 90156,
       'msg_id': 156,
+      'location_msg_id': 56,
       'conversation_round_id': 1350,
       'sender_id': 'char-1',
       'sender_name': 'Alice',
@@ -813,6 +902,8 @@ void main() {
     final message = service.state.messagesByLocation['loc-1']!.singleWhere(
       (message) => message.messageId == 156,
     );
+    expect(message.globalMessageId, 90156);
+    expect(message.locationMessageId, 56);
     expect(message.conversationRoundId, '1350');
     expect(message.senderId, 'char-1');
     expect(message.senderType, 'character');
@@ -1125,7 +1216,9 @@ void main() {
       'world_id': 'world-1',
       'session_id': 'sess-1',
       'location_id': 'loc-1',
+      'global_msg_id': 90010,
       'msg_id': 10,
+      'location_msg_id': 10,
       'conversation_round_id': 8,
       'payload': {
         'sender_id': 'char-1',
@@ -1136,14 +1229,21 @@ void main() {
     await _waitFor(
       () => service.state.streamMessagesByKey.containsKey('loc-1|8'),
     );
+    expect(
+      service.state.streamMessagesByKey['loc-1|8']?.globalMessageId,
+      90010,
+    );
+    expect(service.state.streamMessagesByKey['loc-1|8']?.locationMessageId, 10);
 
     socket.serverFrame('llm_chunk', {
       'world_id': 'world-1',
       'session_id': 'sess-1',
       'location_id': 'loc-2',
+      'global_msg_id': 90010,
       'msg_id': 10,
+      'location_msg_id': 10,
       'conversation_round_id': 8,
-      'payload': {'sender_id': 'char-1', 'chunk': 'wrong'},
+      'payload': {'sender_id': 'char-1', 'seq': 1, 'content': 'wrong'},
     });
     await _waitFor(() => service.state.lastFailure?.code == 'stream_missing');
 
@@ -1151,9 +1251,11 @@ void main() {
       'world_id': 'world-1',
       'session_id': 'sess-1',
       'location_id': 'loc-1',
+      'global_msg_id': 90010,
       'msg_id': 10,
+      'location_msg_id': 10,
       'conversation_round_id': 8,
-      'payload': {'sender_id': 'char-1', 'chunk': 'hel'},
+      'payload': {'sender_id': 'char-1', 'seq': 1, 'content': 'hel'},
     });
     await _waitFor(
       () => service.state.streamMessagesByKey['loc-1|8']?.content == 'hel',
@@ -1163,7 +1265,9 @@ void main() {
       'world_id': 'world-1',
       'session_id': 'sess-1',
       'location_id': 'loc-1',
+      'global_msg_id': 90010,
       'msg_id': 10,
+      'location_msg_id': 10,
       'conversation_round_id': 8,
       'payload': {'sender_id': 'char-1', 'content': 'hello'},
     });
@@ -1174,6 +1278,8 @@ void main() {
     final message = service.state.messagesByLocation['loc-1']!.singleWhere(
       (message) => message.conversationRoundId == '8',
     );
+    expect(message.globalMessageId, 90010);
+    expect(message.locationMessageId, 10);
     expect(message.content, 'hello');
     expect(message.streaming, false);
     await service.dispose();
@@ -1183,7 +1289,7 @@ void main() {
 Future<WorldChatroomService> _service({
   required ChatroomSocketTransport socketTransport,
   HttpTransport? httpTransport,
-  Duration heartbeatInterval = const Duration(seconds: 10),
+  Duration heartbeatInterval = const Duration(seconds: 2),
   Duration reconnectInterval = const Duration(milliseconds: 20),
   Duration ackTimeout = const Duration(milliseconds: 20),
   ChatroomMessageStorage? messageStorage,
@@ -1306,17 +1412,46 @@ Map<String, dynamic> _httpMessageJson({
   required int messageId,
   required String locationId,
   required String content,
+  int? locationMessageId,
 }) {
   return {
-    'msg_id': messageId,
+    'global_message_id': 90000 + messageId,
+    'message_id': messageId,
+    'location_message_id': locationMessageId ?? messageId,
     'location_id': locationId,
     'conversation_round_id': messageId,
-    'round_order': 1,
+    'tick_no': 0,
     'sender_type': 'user',
     'sender_id': 'user-$messageId',
     'sender_name': 'User $messageId',
     'user_id': 'user-$messageId',
     'content': content,
+    'current_time': '',
+    'created_at': '2026-07-01 10:00:${messageId.toString().padLeft(2, '0')}',
+  };
+}
+
+Map<String, dynamic> _storageMessageJson({
+  required int messageId,
+  required String locationId,
+  required String content,
+  int? locationMessageId,
+}) {
+  return {
+    'global_msg_id': 90000 + messageId,
+    'msg_id': messageId,
+    'location_msg_id': locationMessageId ?? messageId,
+    'location_id': locationId,
+    'conversation_round_id': messageId,
+    'round_order': 1,
+    'tick_no': 0,
+    'sender_type': 'user',
+    'sender_id': 'user-$messageId',
+    'sender_name': 'User $messageId',
+    'user_id': 'user-$messageId',
+    'client_msg_id': '',
+    'content': content,
+    'current_time': '',
     'ts': 1717300000000 + messageId,
   };
 }
@@ -1338,7 +1473,6 @@ Future<void> _waitFor(
 class _WorldChatroomHttpTransport implements HttpTransport {
   String worldName = 'World One';
   String? userLocationId = 'loc-2';
-  bool includeAiLocation = true;
   int detailRequests = 0;
   int userLocationRequests = 0;
   int messagesRequests = 0;
@@ -1364,7 +1498,7 @@ class _WorldChatroomHttpTransport implements HttpTransport {
     if (path.endsWith('/aitown-chat/api/ulocation')) {
       userLocationRequests += 1;
       final locations = <Map<String, Object?>>[];
-      void addCharacter(String locationId, Map<String, Object?> character) {
+      void addUser(String locationId, Map<String, Object?> user) {
         Map<String, Object?>? group;
         for (final location in locations) {
           if (location['location_id'] == locationId) {
@@ -1376,31 +1510,18 @@ class _WorldChatroomHttpTransport implements HttpTransport {
             group ??
             <String, Object?>{
               'location_id': locationId,
-              'characters': <Map<String, Object?>>[],
+              'users': <Map<String, Object?>>[],
             };
         if (group == null) locations.add(resolvedGroup);
-        (resolvedGroup['characters'] as List<Map<String, Object?>>).add(
-          character,
-        );
+        (resolvedGroup['users'] as List<Map<String, Object?>>).add(user);
       }
 
-      if (includeAiLocation) {
-        addCharacter('loc-1', const {
-          'char_id': 'char-1',
-          'player_uid': '',
-          'player_username': '',
-          'name': 'Alice',
-          'location_id': 'loc-1',
-        });
-      }
       final resolvedUserLocationId = userLocationId?.trim();
       if (resolvedUserLocationId != null && resolvedUserLocationId.isNotEmpty) {
-        addCharacter(resolvedUserLocationId, {
-          'char_id': 'char-player-1',
-          'player_uid': 'user-1',
-          'player_username': 'Player One',
-          'name': 'Role One',
-          'location_id': resolvedUserLocationId,
+        addUser(resolvedUserLocationId, {
+          'user_id': 'user-1',
+          'user_name': 'Player One',
+          'avatar': '',
         });
       }
       return _json({
@@ -1425,7 +1546,7 @@ class _WorldChatroomHttpTransport implements HttpTransport {
           ? allMessages
           : allMessages
                 .where((message) {
-                  final messageId = message['msg_id'];
+                  final messageId = message['message_id'];
                   return messageId is int && messageId < since;
                 })
                 .toList(growable: false);
@@ -1437,8 +1558,9 @@ class _WorldChatroomHttpTransport implements HttpTransport {
           'has_more': false,
           'newest_message_id': messages.fold<int>(
             0,
-            (previous, message) => (message['msg_id'] as int? ?? 0) > previous
-                ? message['msg_id'] as int
+            (previous, message) =>
+                (message['message_id'] as int? ?? 0) > previous
+                ? message['message_id'] as int
                 : previous,
           ),
         },
@@ -1673,7 +1795,9 @@ class _FakeChatroomSocket implements ChatroomSocket {
       'world_id': 'world-1',
       'session_id': 'sess-1',
       'location_id': locationId,
+      'global_msg_id': 90000 + messageId,
       'msg_id': messageId,
+      'location_msg_id': messageId,
       'conversation_round_id': roundId,
       'payload': {
         'round_order': 1,
