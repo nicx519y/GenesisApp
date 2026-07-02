@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -268,7 +270,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     }
   }
 
-  Future<void> _saveEndpointOverrides() async {
+  Future<void> _saveEndpointOverrides({String? successMessage}) async {
     if (_savingEndpointOverrides || _loadingEndpointOverrides) return;
     setState(() => _savingEndpointOverrides = true);
     try {
@@ -298,34 +300,16 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           AppEndpointOverrideStore.displayDomain(overrides.gatewayApiBaseUrl);
       _chatroomWsBaseUrlController.text =
           AppEndpointOverrideStore.displayDomain(overrides.chatroomWsBaseUrl);
-      showGenesisToast(context, 'Saved. New requests use endpoints.');
+      showGenesisToast(
+        context,
+        successMessage ?? 'Saved. New requests use endpoints.',
+      );
     } on FormatException catch (error) {
       if (!mounted) return;
       showGenesisToast(context, error.message);
     } catch (error) {
       if (!mounted) return;
       showGenesisToast(context, 'Save failed: $error');
-    } finally {
-      if (mounted) {
-        setState(() => _savingEndpointOverrides = false);
-      }
-    }
-  }
-
-  Future<void> _clearEndpointOverrides() async {
-    if (_savingEndpointOverrides || _loadingEndpointOverrides) return;
-    setState(() => _savingEndpointOverrides = true);
-    try {
-      await AppEndpointOverrideStore.clear();
-      if (!mounted) return;
-      AppServicesScope.replaceWithConfig(context, const AppConfig());
-      _apiBaseUrlController.clear();
-      _gatewayApiBaseUrlController.clear();
-      _chatroomWsBaseUrlController.clear();
-      showGenesisToast(context, 'Endpoint overrides cleared.');
-    } catch (error) {
-      if (!mounted) return;
-      showGenesisToast(context, 'Clear failed: $error');
     } finally {
       if (mounted) {
         setState(() => _savingEndpointOverrides = false);
@@ -351,14 +335,16 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     return value.isEmpty ? _defaultEndpointHost : value;
   }
 
-  void _switchEndpointEnvironment() {
+  Future<void> _switchEndpointEnvironment() async {
     if (_loadingEndpointOverrides || _savingEndpointOverrides) return;
     final host = _isUsingTestEndpointHost
         ? _productionEndpointHost
         : _testEndpointHost;
+    final successMessage = _isUsingTestEndpointHost ? '已切换到正式环境' : '已切换到测试环境';
     _apiBaseUrlController.text = host;
     _gatewayApiBaseUrlController.text = host;
     _chatroomWsBaseUrlController.text = host;
+    await _saveEndpointOverrides(successMessage: successMessage);
   }
 
   Widget _buildDeviceIdDiagnostics(DeviceIdDiagnostics? diagnostics) {
@@ -475,7 +461,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           _DeveloperEndpointHeader(
             isTestEnvironment: _isUsingTestEndpointHost,
             enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
-            onPressed: _switchEndpointEnvironment,
+            onPressed: () => unawaited(_switchEndpointEnvironment()),
           ),
           const SizedBox(height: 12),
           _DeveloperEndpointField(
@@ -484,18 +470,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             scheme: 'https://',
             hintText: _defaultEndpointHost,
             controller: _apiBaseUrlController,
-            enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
-            textInputAction: TextInputAction.next,
           ),
           const SizedBox(height: _itemGap),
           _DeveloperEndpointField(
             key: const ValueKey<String>('developer-gateway-api-base-url-field'),
-            label: 'Gateway HTTPS',
+            label: 'Gateway',
             scheme: 'https://',
             hintText: _defaultEndpointHost,
             controller: _gatewayApiBaseUrlController,
-            enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
-            textInputAction: TextInputAction.next,
           ),
           const SizedBox(height: _itemGap),
           _DeveloperEndpointField(
@@ -504,26 +486,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             scheme: 'wss://',
             hintText: _defaultEndpointHost,
             controller: _chatroomWsBaseUrlController,
-            enabled: !_loadingEndpointOverrides && !_savingEndpointOverrides,
-            textInputAction: TextInputAction.next,
-          ),
-          const SizedBox(height: _itemGap),
-          GenesisPrimaryButton(
-            label: _savingEndpointOverrides ? 'Saving...' : 'Save endpoints',
-            onPressed: _savingEndpointOverrides || _loadingEndpointOverrides
-                ? null
-                : _saveEndpointOverrides,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
-          ),
-          const SizedBox(height: _itemGap),
-          GenesisPrimaryButton(
-            label: 'Clear endpoint overrides',
-            onPressed: _savingEndpointOverrides || _loadingEndpointOverrides
-                ? null
-                : _clearEndpointOverrides,
-            backgroundColor: const Color(0xFFE1E1E3),
-            foregroundColor: Colors.black,
           ),
           const SizedBox(height: 18),
           const SizedBox(height: _itemGap),
@@ -620,7 +582,7 @@ class _DeveloperEndpointHeader extends StatelessWidget {
       children: [
         const Expanded(child: _DeveloperSectionTitle('Endpoint overrides')),
         const SizedBox(width: 8),
-        Flexible(
+        Expanded(
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: enabled ? onPressed : null,
@@ -654,86 +616,20 @@ class _DeveloperEndpointField extends StatelessWidget {
     required this.scheme,
     required this.hintText,
     required this.controller,
-    required this.enabled,
-    this.textInputAction,
   });
 
   final String label;
   final String scheme;
   final String hintText;
   final TextEditingController controller;
-  final bool enabled;
-  final TextInputAction? textInputAction;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            color: Colors.black,
-            fontWeight: FontWeight.w600,
-            height: 1.2,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF4F4F6),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          child: Row(
-            children: [
-              Text(
-                scheme,
-                style: const TextStyle(
-                  color: Color(0xFF666666),
-                  fontSize: 13,
-                  height: 1.3,
-                ),
-              ),
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  enabled: enabled,
-                  keyboardType: TextInputType.url,
-                  textInputAction: textInputAction,
-                  scrollPadding: EdgeInsets.only(
-                    left: 20,
-                    right: 20,
-                    top: 20,
-                    bottom: 120,
-                  ),
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.black,
-                    height: 1.3,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: hintText,
-                    isDense: true,
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                    hintStyle: const TextStyle(
-                      color: Color(0xFFA8A8AD),
-                      fontSize: 13,
-                      letterSpacing: 0,
-                      height: 1.3,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+    final host = controller.text.trim().isEmpty
+        ? hintText
+        : controller.text.trim();
+    final displayText = '$scheme$host';
+    return _DeveloperInfoSingleLineRow(title: label, content: displayText);
   }
 }
 

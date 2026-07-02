@@ -672,6 +672,7 @@ void main() {
       'sender_name': 'Player One',
       'msg_id': 61,
       'conversation_round_id': 1280,
+      'current_time': 'Day 3, 19:46',
       'payload': {'content': '你是谁', 'client_msg_id': 'client-1'},
     });
 
@@ -688,6 +689,10 @@ void main() {
     expect(message.userId, 'user-1');
     expect(message.senderId, 'user-1');
     expect(message.clientMsgId, 'client-1');
+    expect(message.currentTime, 'Day 3, 19:46');
+    expect(service.state.latestSocketCurrentTime, 'Day 3, 19:46');
+    expect(service.state.latestSocketTickNo, 0);
+    expect(service.state.latestSocketCurrentTimeRevision, 1);
     await service.dispose();
   });
 
@@ -734,6 +739,8 @@ void main() {
         expect(message.tickNo, 7);
         expect(message.content, 'Day 45, 19:30');
       }
+      expect(service.state.latestSocketCurrentTime, 'Day 45, 19:30');
+      expect(service.state.latestSocketTickNo, 7);
       expect(service.state.messagesByLocation.containsKey('loc-root'), isFalse);
       await service.dispose();
     },

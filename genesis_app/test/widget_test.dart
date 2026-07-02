@@ -8721,9 +8721,17 @@ void main() {
     );
   });
 
-  testWidgets('developer page switches endpoint environment inputs', (
+  testWidgets('developer page switches endpoint environment display', (
     WidgetTester tester,
   ) async {
+    await AppEndpointOverrideStore.save(
+      const AppEndpointOverrides(
+        apiBaseUrl: 'https://dev.hushie.ai/api/',
+        gatewayApiBaseUrl: 'https://dev.hushie.ai/apix/',
+        chatroomHttpBaseUrl: 'https://dev.hushie.ai/',
+        chatroomWsBaseUrl: 'wss://dev.hushie.ai/aitown-chat/ws',
+      ),
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: AppServicesScope(
@@ -8742,38 +8750,67 @@ void main() {
     );
 
     await tester.tap(find.text('切换到正式环境'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    String fieldValue(String key) {
-      return tester
-              .widget<TextField>(
-                find.descendant(
-                  of: find.byKey(ValueKey<String>(key)),
-                  matching: find.byType(TextField),
-                ),
-              )
-              .controller
-              ?.text ??
-          '';
+    String endpointText(String key) {
+      final texts = tester.widgetList<Text>(
+        find.descendant(
+          of: find.byKey(ValueKey<String>(key)),
+          matching: find.byType(Text),
+        ),
+      );
+      return texts
+          .map((text) => text.data ?? text.textSpan?.toPlainText() ?? '')
+          .firstWhere(
+            (text) => text.startsWith('https://') || text.startsWith('wss://'),
+          );
     }
 
-    expect(fieldValue('developer-api-base-url-field'), 'api.worldo.ai');
-    expect(fieldValue('developer-gateway-api-base-url-field'), 'api.worldo.ai');
-    expect(fieldValue('developer-chatroom-ws-base-url-field'), 'api.worldo.ai');
+    expect(
+      endpointText('developer-api-base-url-field'),
+      'https://api.worldo.ai',
+    );
+    expect(
+      endpointText('developer-gateway-api-base-url-field'),
+      'https://api.worldo.ai',
+    );
+    expect(
+      endpointText('developer-chatroom-ws-base-url-field'),
+      'wss://api.worldo.ai',
+    );
     expect(find.text('切换到测试环境'), findsOneWidget);
 
     await tester.tap(find.text('切换到测试环境'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(fieldValue('developer-api-base-url-field'), 'dev.hushie.ai');
-    expect(fieldValue('developer-gateway-api-base-url-field'), 'dev.hushie.ai');
-    expect(fieldValue('developer-chatroom-ws-base-url-field'), 'dev.hushie.ai');
+    expect(
+      endpointText('developer-api-base-url-field'),
+      'https://dev.hushie.ai',
+    );
+    expect(
+      endpointText('developer-gateway-api-base-url-field'),
+      'https://dev.hushie.ai',
+    );
+    expect(
+      endpointText('developer-chatroom-ws-base-url-field'),
+      'wss://dev.hushie.ai',
+    );
     expect(find.text('切换到正式环境'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    await AppEndpointOverrideStore.clear();
   });
 
-  testWidgets('developer page saves and clears endpoint overrides', (
+  testWidgets('developer page endpoint switch saves overrides automatically', (
     WidgetTester tester,
   ) async {
+    await AppEndpointOverrideStore.save(
+      const AppEndpointOverrides(
+        apiBaseUrl: 'https://api.worldo.ai/api/',
+        gatewayApiBaseUrl: 'https://api.worldo.ai/apix/',
+        chatroomHttpBaseUrl: 'https://api.worldo.ai/',
+        chatroomWsBaseUrl: 'wss://api.worldo.ai/aitown-chat/ws',
+      ),
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: AppServicesScope(
@@ -8786,15 +8823,16 @@ void main() {
 
     final scrollable = find.byType(Scrollable).first;
     await tester.scrollUntilVisible(
-      find.byKey(const ValueKey<String>('developer-api-base-url-field')),
+      find.text('切换到测试环境'),
       180,
       scrollable: scrollable,
     );
     expect(tester.testTextInput.isVisible, isFalse);
+    expect(find.byType(TextField), findsNothing);
     expect(
       find.descendant(
         of: find.byKey(const ValueKey<String>('developer-api-base-url-field')),
-        matching: find.text('https://'),
+        matching: find.text('https://api.worldo.ai'),
       ),
       findsOneWidget,
     );
@@ -8806,75 +8844,31 @@ void main() {
     );
     var contentContext = tester.element(find.byType(DeveloperPageContent));
     final originalServices = AppServicesScope.read(contentContext);
-    await tester.enterText(
-      find.descendant(
-        of: find.byKey(const ValueKey<String>('developer-api-base-url-field')),
-        matching: find.byType(TextField),
-      ),
-      'api.example.com',
-    );
-    await tester.enterText(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey<String>('developer-gateway-api-base-url-field'),
-        ),
-        matching: find.byType(TextField),
-      ),
-      'gateway.example.com',
-    );
-    await tester.enterText(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey<String>('developer-chatroom-ws-base-url-field'),
-        ),
-        matching: find.byType(TextField),
-      ),
-      'chat.example.com',
-    );
-    await tester.scrollUntilVisible(
-      find.text('Save endpoints'),
-      180,
-      scrollable: scrollable,
-    );
-    await tester.tap(find.text('Save endpoints'));
+    await tester.tap(find.text('切换到测试环境'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Saved. New requests use endpoints.'), findsOneWidget);
+    expect(find.text('已切换到测试环境'), findsOneWidget);
     final saved = await AppEndpointOverrideStore.load();
-    expect(saved.apiBaseUrl, 'https://api.example.com/api/');
-    expect(saved.gatewayApiBaseUrl, 'https://gateway.example.com/apix/');
-    expect(saved.chatroomHttpBaseUrl, 'https://api.example.com/');
-    expect(saved.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
-    expect(
-      tester
-          .widget<TextField>(
-            find.descendant(
-              of: find.byKey(
-                const ValueKey<String>('developer-api-base-url-field'),
-              ),
-              matching: find.byType(TextField),
-            ),
-          )
-          .controller
-          ?.text,
-      'api.example.com',
-    );
+    expect(saved.apiBaseUrl, 'https://dev.hushie.ai/api/');
+    expect(saved.gatewayApiBaseUrl, 'https://dev.hushie.ai/apix/');
+    expect(saved.chatroomHttpBaseUrl, 'https://dev.hushie.ai/');
+    expect(saved.chatroomWsBaseUrl, 'wss://dev.hushie.ai/aitown-chat/ws');
 
     contentContext = tester.element(find.byType(DeveloperPageContent));
     final updatedServices = AppServicesScope.read(contentContext);
     expect(identical(updatedServices, originalServices), isFalse);
-    expect(updatedServices.config.apiBaseUrl, 'https://api.example.com/api/');
+    expect(updatedServices.config.apiBaseUrl, 'https://dev.hushie.ai/api/');
     expect(
       updatedServices.config.gatewayApiBaseUrl,
-      'https://gateway.example.com/apix/',
+      'https://dev.hushie.ai/apix/',
     );
     expect(
       updatedServices.config.chatroomHttpBaseUrl,
-      'https://api.example.com/',
+      'https://dev.hushie.ai/',
     );
     expect(
       updatedServices.config.chatroomWsBaseUrl,
-      'wss://chat.example.com/aitown-chat/ws',
+      'wss://dev.hushie.ai/aitown-chat/ws',
     );
     expect(
       identical(updatedServices.sessionStore, originalServices.sessionStore),
@@ -8889,38 +8883,15 @@ void main() {
     );
 
     final config = await AppEndpointOverrideStore.loadConfig();
-    expect(config.apiBaseUrl, 'https://api.example.com/api/');
-    expect(config.gatewayApiBaseUrl, 'https://gateway.example.com/apix/');
-    expect(config.chatroomHttpBaseUrl, 'https://api.example.com/');
-    expect(config.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
+    expect(config.apiBaseUrl, 'https://dev.hushie.ai/api/');
+    expect(config.gatewayApiBaseUrl, 'https://dev.hushie.ai/apix/');
+    expect(config.chatroomHttpBaseUrl, 'https://dev.hushie.ai/');
+    expect(config.chatroomWsBaseUrl, 'wss://dev.hushie.ai/aitown-chat/ws');
 
+    expect(find.text('Save endpoints'), findsNothing);
+    expect(find.text('Clear endpoint overrides'), findsNothing);
     await tester.pump(const Duration(seconds: 2));
-    await tester.scrollUntilVisible(
-      find.text('Clear endpoint overrides'),
-      180,
-      scrollable: scrollable,
-    );
-    await tester.tap(find.text('Clear endpoint overrides'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Endpoint overrides cleared.'), findsOneWidget);
-    expect((await AppEndpointOverrideStore.load()).hasAny, isFalse);
-    contentContext = tester.element(find.byType(DeveloperPageContent));
-    final clearedServices = AppServicesScope.read(contentContext);
-    expect(clearedServices.config.apiBaseUrl, GenesisApi.defaultApiBaseUrl);
-    expect(
-      clearedServices.config.gatewayApiBaseUrl,
-      GenesisApi.defaultGatewayApiBaseUrl,
-    );
-    expect(
-      clearedServices.config.chatroomHttpBaseUrl,
-      GenesisApi.defaultChatroomHttpBaseUrl,
-    );
-    expect(
-      clearedServices.config.chatroomWsBaseUrl,
-      GenesisApi.defaultChatroomWsBaseUrl,
-    );
-    await tester.pump(const Duration(seconds: 2));
+    await AppEndpointOverrideStore.clear();
   });
 
   testWidgets('developer page sheet leaves keyboard avoidance to route', (

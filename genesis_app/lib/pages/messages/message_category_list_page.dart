@@ -1339,7 +1339,7 @@ _JoinRequestApprovalStatus? _approvalStatusFromJson(Map<String, dynamic> json) {
     asString(json['status']),
     asString(json['review_status']),
   ]).toLowerCase();
-  if (raw == '20' || raw == 'approved' || raw == 'approve') {
+  if (raw == '20' || raw == '40' || raw == 'approved' || raw == 'approve') {
     return _JoinRequestApprovalStatus.approved;
   }
   if (raw == '30' || raw == 'rejected' || raw == 'reject') {

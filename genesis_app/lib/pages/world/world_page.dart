@@ -89,6 +89,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _tick1WaitDialogStarted = false;
   Timer? _worldInfoPollTimer;
   Future<void>? _worldInfoPollFuture;
+  int _lastAppliedChatroomWorldProgressRevision = 0;
   List<WorldMapBubbleCandidate> _mapBubbleCandidates =
       const <WorldMapBubbleCandidate>[];
   int? _pendingProgressTickCount;
@@ -330,11 +331,27 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final currentWorld = world ?? _world;
     var shouldSyncRelationStatus = false;
     final tickDoneFromPush = _worldTickInProgress && !state.inputBlocked;
+    final socketCurrentTime = state.latestSocketCurrentTime.trim();
+    final socketTickNo = state.latestSocketTickNo;
+    final shouldApplySocketWorldProgress =
+        (socketCurrentTime.isNotEmpty || socketTickNo > 0) &&
+        state.latestSocketCurrentTimeRevision >
+            _lastAppliedChatroomWorldProgressRevision;
     setState(() {
       if (world != null && !identical(_world, world)) {
         _world = world;
         _syncLocationChatDescriptors(world);
         shouldSyncRelationStatus = true;
+      }
+      final currentWorldDetail = _world;
+      if (shouldApplySocketWorldProgress && currentWorldDetail != null) {
+        _world = currentWorldDetail.copyWith(
+          tickCount: socketTickNo > 0 ? socketTickNo : null,
+          currentTime: socketCurrentTime.isEmpty ? null : socketCurrentTime,
+        );
+        _sectionsWorldNotifier.value = _world;
+        _lastAppliedChatroomWorldProgressRevision =
+            state.latestSocketCurrentTimeRevision;
       }
       _replaceMapBubbleCandidates(
         _buildMapBubbleCandidates(state, currentWorld),

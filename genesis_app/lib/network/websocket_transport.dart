@@ -7,6 +7,9 @@ import 'io_http_transport.dart';
 
 const kLogWebSocketFrames = !bool.fromEnvironment('dart.vm.product');
 
+typedef WebSocketFrameLogSink =
+    void Function(String direction, String formatted);
+
 abstract interface class NetworkWebSocket {
   Stream<String> get messages;
 
@@ -25,15 +28,18 @@ class IoWebSocketTransport implements NetworkWebSocketTransport {
     bool logFrames = kLogWebSocketFrames,
     String logName = 'NetworkWebSocket',
     String frameLogName = 'NetworkWebSocketFrame',
+    WebSocketFrameLogSink? frameLogSink,
   }) : _client = createProxyAwareHttpClient(proxy),
        _logFrames = logFrames,
        _logName = logName,
-       _frameLogName = frameLogName;
+       _frameLogName = frameLogName,
+       _frameLogSink = frameLogSink;
 
   final HttpClient _client;
   final bool _logFrames;
   final String _logName;
   final String _frameLogName;
+  final WebSocketFrameLogSink? _frameLogSink;
 
   @override
   Future<NetworkWebSocket> connect(
@@ -56,6 +62,7 @@ class IoWebSocketTransport implements NetworkWebSocketTransport {
       logFrames: _logFrames,
       logName: _logName,
       frameLogName: _frameLogName,
+      frameLogSink: _frameLogSink,
     );
   }
 }
@@ -66,14 +73,17 @@ class _IoNetworkWebSocket implements NetworkWebSocket {
     required bool logFrames,
     required String logName,
     required String frameLogName,
+    required WebSocketFrameLogSink? frameLogSink,
   }) : _logFrames = logFrames,
        _logName = logName,
-       _frameLogName = frameLogName;
+       _frameLogName = frameLogName,
+       _frameLogSink = frameLogSink;
 
   final WebSocket _socket;
   final bool _logFrames;
   final String _logName;
   final String _frameLogName;
+  final WebSocketFrameLogSink? _frameLogSink;
 
   @override
   Stream<String> get messages {
@@ -122,10 +132,12 @@ class _IoNetworkWebSocket implements NetworkWebSocket {
 
   void _logFrame(String direction, String message) {
     if (!_logFrames || const bool.fromEnvironment('dart.vm.product')) return;
-    developer.log(
-      formatWebSocketFrameLog(direction: direction, message: message),
-      name: _frameLogName,
+    final formatted = formatWebSocketFrameLog(
+      direction: direction,
+      message: message,
     );
+    developer.log(formatted, name: _frameLogName);
+    _frameLogSink?.call(direction, formatted);
   }
 }
 
