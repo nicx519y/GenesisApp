@@ -7,14 +7,11 @@ import '../../app/genesis_navigator.dart';
 import '../../network/app_request_headers.dart';
 import '../../network/chatroom/chatroom_client.dart';
 import '../../network/chatroom/chatroom_message_storage.dart';
-import '../../network/chatroom/chatroom_socket_transport.dart';
-import '../../network/dio_http_transport.dart';
 import '../../network/direct_message_conversation_store.dart';
 import '../../network/direct_message_message_store.dart';
 import '../../network/gateway_auth.dart';
 import '../../network/genesis_api.dart';
-import '../../network/http_transport.dart';
-import '../../network/io_http_transport.dart';
+import '../../network/network_runtime_factory.dart';
 import '../../routers/app_router.dart';
 import '../../platform/platform_services.dart';
 import '../config/app_config.dart';
@@ -127,18 +124,17 @@ class ServiceRegistry {
 
     final debugProxy = config.debugProxy.trim();
     final useMock = config.useMock;
-    final httpTransport = _buildHttpTransport(
+    const networkRuntimeFactory = NetworkRuntimeFactory();
+    final httpTransport = networkRuntimeFactory.buildHttpTransport(
       debugProxy: debugProxy,
       useMock: useMock == true,
     );
-    final socketTransport = debugProxy.isEmpty && !config.debugWsLog
-        ? null
-        : IoChatroomSocketTransport(
-            proxy: debugProxy.isEmpty ? null : debugProxy,
-            logFrames:
-                config.debugWsLog ||
-                !const bool.fromEnvironment('dart.vm.product'),
-          );
+    final socketTransport = networkRuntimeFactory.buildWebSocketTransport(
+      debugProxy: debugProxy,
+      debugLogFrames: config.debugWsLog,
+      logName: 'ChatroomSocket',
+      frameLogName: 'ChatroomSocketFrame',
+    );
     final appRequestHeaders = AppRequestHeaderProvider();
     GatewayRequestInterceptor? gatewayRequestInterceptor;
     GatewayHandshakeHeaderSigner? gatewayWsHandshakeHeaderSigner;
@@ -237,24 +233,5 @@ class ServiceRegistry {
       sessionRevisionOverride: current.sessionRevision,
       chatroomMessagesOverride: current.chatroomMessages,
     );
-  }
-
-  static HttpTransport? _buildHttpTransport({
-    required String debugProxy,
-    required bool useMock,
-  }) {
-    if (useMock) return null;
-    const engine = String.fromEnvironment(
-      'GENESIS_HTTP_ENGINE',
-      defaultValue: 'io',
-    );
-    final proxy = debugProxy.isEmpty ? null : debugProxy;
-    switch (engine.trim().toLowerCase()) {
-      case 'dio':
-        return DioHttpTransport(proxy: proxy);
-      case 'io':
-      default:
-        return proxy == null ? null : IoHttpTransport(proxy: proxy);
-    }
   }
 }
