@@ -658,7 +658,10 @@ class WorldChatroomService {
           WorldChatroomMessage.fromTickAdvanceMessage(e),
         );
       case ChatroomAiStreamStart e:
-        _upsertMessage(WorldChatroomMessage.fromAiStreamStart(e));
+        _upsertMessage(
+          WorldChatroomMessage.fromAiStreamStart(e),
+          socketCurrentTime: e.currentTime,
+        );
       case ChatroomAiStreamChunk e:
         _appendStreamChunk(e);
       case ChatroomAiStreamEnd e:
@@ -1045,14 +1048,18 @@ class WorldChatroomService {
   }
 
   Future<void> _handleIncomingMessage(WorldChatroomMessage message) async {
-    _upsertMessage(message);
+    _upsertMessage(message, socketCurrentTime: message.currentTime);
   }
 
   Future<void> _handleTickAdvanceMessage(WorldChatroomMessage message) async {
     final messages = _tickAdvanceLocationIds(message.locationId)
         .map((locationId) => message.copyWith(locationId: locationId))
         .toList(growable: false);
-    _upsertMessages(messages.isEmpty ? [message] : messages);
+    _upsertMessages(
+      messages.isEmpty ? [message] : messages,
+      socketCurrentTime: message.currentTime,
+      socketTickNo: message.tickNo,
+    );
   }
 
   Future<List<WorldChatroomMessage>> _fetchLatestMessages(
@@ -1214,6 +1221,7 @@ class WorldChatroomService {
             ? existing.currentTime
             : event.currentTime,
       ),
+      socketCurrentTime: event.currentTime,
     );
   }
 
@@ -1240,18 +1248,35 @@ class WorldChatroomService {
             : event.currentTime,
         streaming: false,
       ),
+      socketCurrentTime: event.currentTime,
     );
   }
 
-  void _upsertMessage(WorldChatroomMessage message, {bool persist = true}) {
-    _upsertMessages([message], persist: persist);
+  void _upsertMessage(
+    WorldChatroomMessage message, {
+    bool persist = true,
+    String socketCurrentTime = '',
+    int socketTickNo = 0,
+  }) {
+    _upsertMessages(
+      [message],
+      persist: persist,
+      socketCurrentTime: socketCurrentTime,
+      socketTickNo: socketTickNo,
+    );
   }
 
   void _upsertMessages(
     List<WorldChatroomMessage> messages, {
     bool persist = true,
+    String socketCurrentTime = '',
+    int socketTickNo = 0,
   }) {
     if (messages.isEmpty) return;
+    final resolvedSocketCurrentTime = socketCurrentTime.trim();
+    final resolvedSocketTickNo = socketTickNo > 0 ? socketTickNo : 0;
+    final hasSocketWorldProgress =
+        resolvedSocketCurrentTime.isNotEmpty || resolvedSocketTickNo > 0;
     var worldMessages = _state.worldMessages;
     final byLocation = <String, List<WorldChatroomMessage>>{
       ..._state.messagesByLocation,
@@ -1285,6 +1310,15 @@ class WorldChatroomService {
         messagesByLocation: byLocation,
         streamMessagesByKey: streamKeys,
         lastMessageId: lastMessageId,
+        latestSocketCurrentTime: hasSocketWorldProgress
+            ? resolvedSocketCurrentTime
+            : null,
+        latestSocketTickNo: hasSocketWorldProgress
+            ? resolvedSocketTickNo
+            : null,
+        latestSocketCurrentTimeRevision: hasSocketWorldProgress
+            ? _state.latestSocketCurrentTimeRevision + 1
+            : null,
       ),
     );
     if (persist) {
@@ -1637,6 +1671,9 @@ class WorldChatroomState {
     this.joinedLocationId = '',
     this.inputBlocked = false,
     this.reconnecting = false,
+    this.latestSocketCurrentTime = '',
+    this.latestSocketTickNo = 0,
+    this.latestSocketCurrentTimeRevision = 0,
     this.lastFailure,
   });
 
@@ -1654,6 +1691,9 @@ class WorldChatroomState {
   final String joinedLocationId;
   final bool inputBlocked;
   final bool reconnecting;
+  final String latestSocketCurrentTime;
+  final int latestSocketTickNo;
+  final int latestSocketCurrentTimeRevision;
   final ChatroomFailureEvent? lastFailure;
 
   WorldChatroomState copyWith({
@@ -1671,6 +1711,9 @@ class WorldChatroomState {
     String? joinedLocationId,
     bool? inputBlocked,
     bool? reconnecting,
+    String? latestSocketCurrentTime,
+    int? latestSocketTickNo,
+    int? latestSocketCurrentTimeRevision,
     ChatroomFailureEvent? lastFailure,
   }) {
     return WorldChatroomState(
@@ -1689,6 +1732,12 @@ class WorldChatroomState {
       joinedLocationId: joinedLocationId ?? this.joinedLocationId,
       inputBlocked: inputBlocked ?? this.inputBlocked,
       reconnecting: reconnecting ?? this.reconnecting,
+      latestSocketCurrentTime:
+          latestSocketCurrentTime ?? this.latestSocketCurrentTime,
+      latestSocketTickNo: latestSocketTickNo ?? this.latestSocketTickNo,
+      latestSocketCurrentTimeRevision:
+          latestSocketCurrentTimeRevision ??
+          this.latestSocketCurrentTimeRevision,
       lastFailure: lastFailure ?? this.lastFailure,
     );
   }

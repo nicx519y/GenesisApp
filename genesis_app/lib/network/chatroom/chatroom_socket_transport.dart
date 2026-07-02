@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import '../io_http_transport.dart';
 
 const _kLogWebSocketFrames = !bool.fromEnvironment('dart.vm.product');
@@ -103,10 +105,11 @@ class _IoChatroomSocket implements ChatroomSocket {
 
   void _logFrame(String direction, String message) {
     if (!_logFrames || const bool.fromEnvironment('dart.vm.product')) return;
-    developer.log(
-      _formatFrameLog(direction: direction, message: message),
-      name: 'ChatroomSocketFrame',
-    );
+    final formatted = _formatFrameLog(direction: direction, message: message);
+    developer.log(formatted, name: 'ChatroomSocketFrame');
+    if (direction == '<=') {
+      debugPrint('[ChatroomSocketFrame] $formatted');
+    }
   }
 }
 
