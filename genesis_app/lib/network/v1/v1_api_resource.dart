@@ -71,6 +71,7 @@ Object? handleV1ResponseErrNo(Object? json) {
       fallback: 'Something went wrong',
     ),
     code: errNo,
+    kind: ApiExceptionKind.business,
   );
 }
 

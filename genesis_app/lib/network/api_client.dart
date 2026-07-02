@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import '../app/telemetry/genesis_telemetry.dart';
@@ -36,6 +37,52 @@ typedef ApiRequestInterceptor =
       ApiRequestSender send,
     );
 
+class ApiRetryPolicy {
+  const ApiRetryPolicy({
+    this.maxAttempts = 1,
+    this.methods = const <String>{'GET', 'HEAD'},
+    this.exceptionKinds = const <ApiExceptionKind>{
+      ApiExceptionKind.transport,
+      ApiExceptionKind.timeout,
+    },
+    this.transportErrorKinds = const <TransportErrorKind>{
+      TransportErrorKind.timeout,
+      TransportErrorKind.connection,
+    },
+  });
+
+  static const ApiRetryPolicy none = ApiRetryPolicy(
+    maxAttempts: 1,
+    methods: <String>{},
+    exceptionKinds: <ApiExceptionKind>{},
+    transportErrorKinds: <TransportErrorKind>{},
+  );
+
+  static const ApiRetryPolicy safe = ApiRetryPolicy(maxAttempts: 2);
+
+  final int maxAttempts;
+  final Set<String> methods;
+  final Set<ApiExceptionKind> exceptionKinds;
+  final Set<TransportErrorKind> transportErrorKinds;
+
+  bool shouldRetry({
+    required TransportRequest request,
+    required ApiException error,
+    required int attempt,
+  }) {
+    if (attempt >= _effectiveMaxAttempts) return false;
+    if (!methods.contains(request.method.trim().toUpperCase())) return false;
+    if (!exceptionKinds.contains(error.kind)) return false;
+    final transportKind = error.transportErrorKind;
+    if (transportKind != null && !transportErrorKinds.contains(transportKind)) {
+      return false;
+    }
+    return true;
+  }
+
+  int get _effectiveMaxAttempts => maxAttempts < 1 ? 1 : maxAttempts;
+}
+
 class ApiClient {
   ApiClient({
     required String baseUrl,
@@ -45,13 +92,15 @@ class ApiClient {
     ApiRequestInterceptor? requestInterceptor,
     HttpTransport? transport,
     int timeoutMs = 15000,
+    ApiRetryPolicy retryPolicy = ApiRetryPolicy.none,
   }) : _baseUri = Uri.parse(baseUrl),
        _defaultHeaders = Map<String, String>.from(defaultHeaders ?? const {}),
        _responseProcessor = responseProcessor ?? defaultResponseProcessor,
        _requestHeaderProvider = requestHeaderProvider,
        _requestInterceptor = requestInterceptor,
        _transport = transport ?? IoHttpTransport(),
-       _timeoutMs = timeoutMs;
+       _timeoutMs = timeoutMs,
+       _retryPolicy = retryPolicy;
 
   final Uri _baseUri;
   final Map<String, String> _defaultHeaders;
@@ -60,6 +109,7 @@ class ApiClient {
   final ApiRequestInterceptor? _requestInterceptor;
   final HttpTransport _transport;
   final int _timeoutMs;
+  final ApiRetryPolicy _retryPolicy;
 
   ApiClient copyWith({
     String? baseUrl,
@@ -69,6 +119,7 @@ class ApiClient {
     ApiRequestInterceptor? requestInterceptor,
     HttpTransport? transport,
     int? timeoutMs,
+    ApiRetryPolicy? retryPolicy,
   }) {
     return ApiClient(
       baseUrl: baseUrl ?? _baseUri.toString(),
@@ -78,6 +129,7 @@ class ApiClient {
       requestInterceptor: requestInterceptor ?? _requestInterceptor,
       transport: transport ?? _transport,
       timeoutMs: timeoutMs ?? _timeoutMs,
+      retryPolicy: retryPolicy ?? _retryPolicy,
     );
   }
 
@@ -258,37 +310,87 @@ class ApiClient {
     );
 
     TransportResponse transportResponse;
-    try {
-      final interceptor = _requestInterceptor;
-      transportResponse = interceptor == null
-          ? await _send(request)
-          : await interceptor(request, _send);
-    } on NetworkRequestCancelledException catch (e) {
-      stopwatch.stop();
-      _recordHttpTelemetry(
-        request: request,
-        duration: stopwatch.elapsed,
-        outcome: 'cancelled',
-        errorType: e.runtimeType.toString(),
-      );
-      rethrow;
-    } on ApiException {
-      stopwatch.stop();
-      _recordHttpTelemetry(
-        request: request,
-        duration: stopwatch.elapsed,
-        outcome: 'api_exception',
-      );
-      rethrow;
-    } catch (e) {
-      stopwatch.stop();
-      _recordHttpTelemetry(
-        request: request,
-        duration: stopwatch.elapsed,
-        outcome: 'transport_exception',
-        errorType: e.runtimeType.toString(),
-      );
-      throw ApiException(message: 'Request failed', error: e, uri: uri);
+    var attempt = 1;
+    var retryCount = 0;
+    while (true) {
+      try {
+        final interceptor = _requestInterceptor;
+        transportResponse = interceptor == null
+            ? await _send(request)
+            : await interceptor(request, _send);
+        break;
+      } on NetworkRequestCancelledException catch (e) {
+        stopwatch.stop();
+        _recordHttpTelemetry(
+          request: request,
+          duration: stopwatch.elapsed,
+          outcome: 'cancelled',
+          errorType: e.runtimeType.toString(),
+          errorKind: ApiExceptionKind.cancelled,
+          attemptCount: attempt,
+          retryCount: retryCount,
+        );
+        rethrow;
+      } on ApiException catch (error) {
+        if (_retryPolicy.shouldRetry(
+          request: request,
+          error: error,
+          attempt: attempt,
+        )) {
+          retryCount += 1;
+          _recordHttpRetryTelemetry(
+            request: request,
+            attempt: attempt,
+            retryCount: retryCount,
+            error: error,
+          );
+          attempt += 1;
+          continue;
+        }
+        stopwatch.stop();
+        _recordHttpTelemetry(
+          request: request,
+          duration: stopwatch.elapsed,
+          outcome: 'api_exception',
+          errorType: error.runtimeType.toString(),
+          errorKind: error.kind,
+          transportErrorKind: error.transportErrorKind,
+          retryable: error.retryable,
+          attemptCount: attempt,
+          retryCount: retryCount,
+        );
+        rethrow;
+      } catch (error) {
+        final apiError = _transportApiException(error, uri);
+        if (_retryPolicy.shouldRetry(
+          request: request,
+          error: apiError,
+          attempt: attempt,
+        )) {
+          retryCount += 1;
+          _recordHttpRetryTelemetry(
+            request: request,
+            attempt: attempt,
+            retryCount: retryCount,
+            error: apiError,
+          );
+          attempt += 1;
+          continue;
+        }
+        stopwatch.stop();
+        _recordHttpTelemetry(
+          request: request,
+          duration: stopwatch.elapsed,
+          outcome: 'transport_exception',
+          errorType: error.runtimeType.toString(),
+          errorKind: apiError.kind,
+          transportErrorKind: apiError.transportErrorKind,
+          retryable: apiError.retryable,
+          attemptCount: attempt,
+          retryCount: retryCount,
+        );
+        throw apiError;
+      }
     }
 
     final bodyBytes = transportResponse.bodyBytes.isEmpty
@@ -317,6 +419,8 @@ class ApiClient {
         response: apiResponse,
         duration: stopwatch.elapsed,
         outcome: 'success',
+        attemptCount: attempt,
+        retryCount: retryCount,
       );
       return processed as T;
     } on Object catch (error) {
@@ -327,6 +431,15 @@ class ApiClient {
         duration: stopwatch.elapsed,
         outcome: 'response_exception',
         errorType: error.runtimeType.toString(),
+        errorKind: error is ApiException
+            ? error.kind
+            : ApiExceptionKind.response,
+        transportErrorKind: error is ApiException
+            ? error.transportErrorKind
+            : null,
+        retryable: error is ApiException ? error.retryable : false,
+        attemptCount: attempt,
+        retryCount: retryCount,
       );
       rethrow;
     }
@@ -341,6 +454,7 @@ class ApiClient {
       responseBody: response.body,
       responseHeaders: response.headers,
       uri: response.uri,
+      kind: ApiExceptionKind.httpStatus,
     );
   }
 
@@ -378,6 +492,11 @@ void _recordHttpTelemetry({
   required String outcome,
   ApiResponse? response,
   String? errorType,
+  ApiExceptionKind? errorKind,
+  TransportErrorKind? transportErrorKind,
+  bool retryable = false,
+  int attemptCount = 1,
+  int retryCount = 0,
 }) {
   GenesisTelemetry.event(
     'http_request',
@@ -393,7 +512,36 @@ void _recordHttpTelemetry({
       'request_family': _requestFamily(request.uri),
       'api_err_no': _apiErrNo(response?.data),
       'error_type': errorType,
+      'error_kind': errorKind?.name,
+      'transport_error_kind': transportErrorKind?.name,
+      'retryable': retryable,
+      'attempt_count': attemptCount,
+      'retry_count': retryCount,
     },
+  );
+}
+
+void _recordHttpRetryTelemetry({
+  required TransportRequest request,
+  required int attempt,
+  required int retryCount,
+  required ApiException error,
+}) {
+  GenesisTelemetry.event(
+    'http_request_retry',
+    category: 'network.http',
+    data: <String, Object?>{
+      'method': request.method.toUpperCase(),
+      'host': request.uri.host,
+      'path': request.uri.path,
+      'request_family': _requestFamily(request.uri),
+      'attempt': attempt,
+      'retry_count': retryCount,
+      'error_kind': error.kind.name,
+      'transport_error_kind': error.transportErrorKind?.name,
+      'error_type': error.error?.runtimeType.toString(),
+    },
+    level: GenesisTelemetryLevel.warning,
   );
 }
 
@@ -437,6 +585,42 @@ Object? _decodeResponseData({
     case ApiResponseType.bytes:
       return bodyBytes;
   }
+}
+
+ApiException _transportApiException(Object error, Uri uri) {
+  final transportKind = _transportErrorKind(error);
+  return ApiException(
+    message: 'Request failed',
+    error: error,
+    uri: uri,
+    kind: transportKind == TransportErrorKind.timeout
+        ? ApiExceptionKind.timeout
+        : ApiExceptionKind.transport,
+    transportErrorKind: transportKind,
+    retryable:
+        transportKind == TransportErrorKind.timeout ||
+        transportKind == TransportErrorKind.connection,
+  );
+}
+
+TransportErrorKind _transportErrorKind(Object error) {
+  if (error is TimeoutException) return TransportErrorKind.timeout;
+  final text = error.toString().toLowerCase();
+  if (text.contains('timeout')) return TransportErrorKind.timeout;
+  if (text.contains('cancel')) return TransportErrorKind.cancelled;
+  if (text.contains('certificate') || text.contains('handshake')) {
+    return TransportErrorKind.badCertificate;
+  }
+  if (text.contains('socketexception') ||
+      text.contains('connection reset') ||
+      text.contains('connection refused') ||
+      text.contains('connection closed') ||
+      text.contains('broken pipe') ||
+      text.contains('network is unreachable') ||
+      text.contains('failed host lookup')) {
+    return TransportErrorKind.connection;
+  }
+  return TransportErrorKind.unknown;
 }
 
 class _PreparedBody {
