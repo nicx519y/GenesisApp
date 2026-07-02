@@ -196,12 +196,21 @@ HttpMethod? _firebaseHttpMethodFor(String method) {
 }
 
 String _firebaseMetricUrl(Uri uri) {
+  final path = uri.path.isEmpty ? '/' : uri.path;
+  if (uri.hasPort) {
+    return Uri(
+      scheme: uri.scheme,
+      userInfo: uri.userInfo,
+      host: uri.host,
+      port: uri.port,
+      path: path,
+    ).toString();
+  }
   return Uri(
     scheme: uri.scheme,
     userInfo: uri.userInfo,
     host: uri.host,
-    port: uri.hasPort ? uri.port : 0,
-    path: uri.path.isEmpty ? '/' : uri.path,
+    path: path,
   ).toString();
 }
 
