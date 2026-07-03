@@ -9280,7 +9280,11 @@ void main() {
     final transport = _RecordingProfileActionTransport();
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const UserInfoPage(uid: 'u_peer'),
@@ -9356,7 +9360,11 @@ void main() {
     final transport = _RecordingFollowsTransport();
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
         child: const MaterialApp(
           home: FollowsPage(uid: 'u_peer', initialTitle: 'Peer User'),
         ),
@@ -9835,6 +9843,7 @@ void main() {
           services: await _testServices(
             transport: transport,
             useMock: false,
+            initialAuthToken: 'backend-token',
             directMessageMessages: store,
           ),
           child: const ChatPage(peerUid: 'u_peer_dm', peerName: 'Penny Direct'),
@@ -10192,6 +10201,7 @@ void main() {
     final services = await _testServices(
       transport: transport,
       useMock: false,
+      initialAuthToken: 'backend-token',
       directMessageMessages: store,
     );
     await tester.pumpWidget(

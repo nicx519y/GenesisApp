@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
+import '../../components/auth/login_guard.dart';
 import '../origin_editor/origin_draft_repository.dart';
 import '../origin_editor/origin_editor_pages.dart';
 import '../origin_editor/origin_pending_submission_coordinator.dart';
@@ -85,6 +86,12 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
     OriginDraftRepository repository,
     CreateOriginDraft draft,
   ) async {
+    if (!await ensureGenesisLogin(context)) {
+      return const OriginSubmitResult(message: '', showMessage: false);
+    }
+    if (!context.mounted) {
+      return const OriginSubmitResult(message: '', showMessage: false);
+    }
     final api = AppServicesScope.read(context).api;
     GenesisTelemetry.collectLog(
       actionType: 'event',

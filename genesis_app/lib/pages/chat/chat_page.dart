@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/polling_scheduler.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
+import '../../components/auth/login_guard.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../network/api_exception.dart';
@@ -320,18 +321,25 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (_sending || _peerUid.isEmpty) return;
     final content = _textController.text.trim();
     if (content.isEmpty) return;
+    if (!await ensureGenesisLogin(context)) return;
+    if (!mounted) return;
+    final services = AppServicesScope.read(context);
+    final sessionUid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (!mounted) return;
 
-    setState(() => _sending = true);
+    setState(() {
+      _sending = true;
+      if (sessionUid.isNotEmpty) _myUid = sessionUid;
+    });
     await _clearDraft(_peerUid);
     if (!mounted) return;
-    final senderUid = _myUid.trim().isEmpty ? '__anonymous__' : _myUid.trim();
+    final senderUid = sessionUid.isNotEmpty ? sessionUid : '__anonymous__';
     final localMessageId = await _messageStore.insertLocalMessage(
       peerUid: _peerUid,
       senderUid: senderUid,
       content: content,
     );
     if (!mounted) return;
-    final services = AppServicesScope.read(context);
     _applyingDraftText = true;
     _textController.clear();
     _applyingDraftText = false;

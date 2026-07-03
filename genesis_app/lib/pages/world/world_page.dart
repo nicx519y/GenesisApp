@@ -558,6 +558,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   Future<void> _runWorldAction(WorldHeaderActionKind action) async {
     if (_worldActionRunning) return;
     if (action == WorldHeaderActionKind.request) {
+      if (!await ensureGenesisLogin(context)) return;
+      if (!mounted) return;
       final confirmed = await _confirmWorldRequest();
       if (!mounted || !confirmed) return;
     }
