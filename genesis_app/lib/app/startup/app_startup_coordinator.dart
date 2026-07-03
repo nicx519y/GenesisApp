@@ -20,7 +20,7 @@ class AppStartupCoordinator {
 
   static void configure({
     required DateTime startedAt,
-    required AppVersionInfo appVersion,
+    AppVersionInfo? appVersion,
   }) {
     _startedAt = startedAt;
     _appVersion = appVersion;
