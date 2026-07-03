@@ -16,10 +16,11 @@ class AppStartupCoordinator {
   static Future<void>? _telemetryInitialization;
   static bool _warmUpStarted = false;
   static bool _telemetryLifecycleObserverAdded = false;
+  static bool _startupFirstReportRecorded = false;
 
   static void configure({
     required DateTime startedAt,
-    required AppVersionInfo appVersion,
+    AppVersionInfo? appVersion,
   }) {
     _startedAt = startedAt;
     _appVersion = appVersion;
@@ -56,12 +57,22 @@ class AppStartupCoordinator {
       appVersion: version,
       trackingEnabled: trackingAuthorizationStatus.allowsTracking,
     );
+    _recordStartupFirstReport();
     if (_telemetryLifecycleObserverAdded) return;
     _telemetryLifecycleObserverAdded = true;
     WidgetsBinding.instance.addObserver(
       GenesisTelemetryLifecycleObserver(
         startedAt: _startedAt ?? DateTime.now(),
       ),
+    );
+  }
+
+  static void _recordStartupFirstReport() {
+    if (_startupFirstReportRecorded) return;
+    _startupFirstReportRecorded = true;
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'startup_first_report',
     );
   }
 
@@ -72,5 +83,6 @@ class AppStartupCoordinator {
     _telemetryInitialization = null;
     _warmUpStarted = false;
     _telemetryLifecycleObserverAdded = false;
+    _startupFirstReportRecorded = false;
   }
 }
