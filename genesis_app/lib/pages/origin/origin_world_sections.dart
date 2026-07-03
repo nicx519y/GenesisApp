@@ -106,6 +106,7 @@ class _LaunchPreviewSection extends StatelessWidget {
         ? (previewTick['tick_result'] as Map).cast<String, dynamic>()
         : const <String, dynamic>{};
     final globalBody = _mapString(tickResult, const ['narrator']);
+    final metricUnit = _mapString(origin.metric, const ['unit']);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,6 +130,7 @@ class _LaunchPreviewSection extends StatelessWidget {
           contentLabelStyle: _originTickContentLabelStyle,
           contentTextStyle: _originTickContentTextStyle,
           contentTimestampStyle: _originTickContentTimestampStyle,
+          metricUnit: metricUnit,
         ),
       ],
     );

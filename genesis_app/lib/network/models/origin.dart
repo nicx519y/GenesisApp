@@ -147,6 +147,7 @@ class OriginDetail {
     List<OriginLocation>? allLocations,
     this.events = const <OriginEvent>[],
     this.ticks = const <Map<String, dynamic>>[],
+    this.metric = const <String, dynamic>{},
     this.locationTree = const <LocationTreeNode<OriginLocation>>[],
     ProcessedLocationTree<OriginLocation>? processedLocationTree,
   }) : allLocations = allLocations ?? locations,
@@ -179,6 +180,7 @@ class OriginDetail {
   final List<OriginLocation> allLocations;
   final List<OriginEvent> events;
   final List<Map<String, dynamic>> ticks;
+  final Map<String, dynamic> metric;
   final List<LocationTreeNode<OriginLocation>> locationTree;
   final ProcessedLocationTree<OriginLocation> processedLocationTree;
 
@@ -238,6 +240,9 @@ class OriginDetail {
                 .toList(growable: false)
           : const <OriginEvent>[],
       ticks: _originTicksFromJson(json['ticks'] ?? json['tick_list']),
+      metric: json['metric'] is Map
+          ? asJsonMap(json['metric'])
+          : const <String, dynamic>{},
       locationTree: locationTree,
       processedLocationTree: processLocationTree(locationTree),
     );

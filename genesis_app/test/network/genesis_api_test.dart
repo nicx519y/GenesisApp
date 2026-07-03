@@ -703,7 +703,7 @@ void main() {
               'setting': 'Internal setting text.',
               'events': const <Object?>[],
               'tags': const <Object?>[],
-              'metric': const <String, Object?>{},
+              'metric': const <String, Object?>{'unit': '%'},
               'created_at': 1716000000,
               'started_at': 'Day 1',
               'tick_duration_days': 30,
@@ -761,6 +761,7 @@ void main() {
       (origin.ticks.single['tick_result'] as Map)['current_time'],
       'Day 1, 08:30',
     );
+    expect(origin.metric['unit'], '%');
     expect(origin.locations.single.locationParagraph, 'Gate launch paragraph.');
   });
 
