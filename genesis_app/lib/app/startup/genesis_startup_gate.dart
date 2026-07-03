@@ -36,7 +36,7 @@ class GenesisStartupGate extends StatefulWidget {
   final AppConfig config;
   final AppVersionInfo appVersion;
   final DateTime startedAt;
-  final Future<void> Function(AppServices services) primeNetworkPermission;
+  final Future<bool> Function(AppServices services) primeNetworkPermission;
   final Future<void> Function() ensureFirebasePerformanceMonitoring;
   final TrackingAuthorizationRequester requestTrackingAuthorization;
   final Future<void> Function(AppServices services) warmUp;

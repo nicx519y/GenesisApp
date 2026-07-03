@@ -83,6 +83,7 @@ import 'package:genesis_flutter_android/platform/auth/identity_auth_service.dart
 import 'package:genesis_flutter_android/platform/app/external_url_opener.dart';
 import 'package:genesis_flutter_android/platform/channels/genesis_method_channels.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
+import 'package:genesis_flutter_android/platform/privacy/app_tracking_transparency_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
@@ -176,6 +177,7 @@ Future<AppServices> _testServices({
     deviceIdService: deviceId,
     sessionStore: sessionStore,
     identityAuthService: resolvedIdentityAuth,
+    appHeaderProvider: () async => const <String, String>{},
   );
   final resolvedBackendAuth =
       backendAuth ??
@@ -3586,7 +3588,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: AppServicesScope(
-          services: await _testServices(transport: transport, useMock: false),
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
           child: const AppShellPage(initialIndex: 1),
         ),
       ),
@@ -3739,12 +3745,28 @@ void main() {
               useMock: false,
               initialAuthToken: 'backend-token',
             ),
-            child: const HomePage(),
+            child: const HomePage(
+              startupPlatform: TargetPlatform.android,
+              initialTabIndex: HomePage.myWorldsTabIndex,
+              initialRequestMetricWindow: Duration.zero,
+            ),
           ),
         ),
       );
-      await tester.pumpAndSettle();
-
+      for (
+        var i = 0;
+        i < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      for (
+        var i = 0;
+        i < 20 && find.text('World tick narrator 1').evaluate().isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
       var worldRequests = transport.requestsFor('/api/v1/world/list');
       expect(worldRequests, hasLength(1));
       expect(
@@ -3762,7 +3784,20 @@ void main() {
       expect(find.text('Legacy world progress summary 1'), findsNothing);
 
       await tester.tap(find.text('Popular'));
-      await tester.pumpAndSettle();
+      for (
+        var i = 0;
+        i < 20 && transport.requestsFor('/api/v1/origin/list').isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      for (
+        var i = 0;
+        i < 20 && find.text('#Origin 1').evaluate().isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
 
       final originRequests = transport.requestsFor('/api/v1/origin/list');
       expect(originRequests, hasLength(1));
@@ -3793,18 +3828,117 @@ void main() {
             useMock: false,
             initialUid: null,
           ),
-          child: const HomePage(),
+          child: const HomePage(
+            startupPlatform: TargetPlatform.android,
+            initialRequestMetricWindow: Duration.zero,
+          ),
         ),
       ),
     );
-    await tester.pumpAndSettle();
-
+    for (
+      var i = 0;
+      i < 20 && transport.requestsFor('/api/v1/origin/list').isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    for (
+      var i = 0;
+      i < 20 && find.text('#Origin 1').evaluate().isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
     final originRequests = transport.requestsFor('/api/v1/origin/list');
     expect(originRequests, hasLength(1));
     expect(originRequests.single.uri.queryParameters['pn'], '1');
     expect(originRequests.single.uri.queryParameters['rn'], '10');
     expect(find.text('#Origin 1'), findsWidgets);
+  });
+
+  testWidgets(
+    'Home iOS startup gate keeps skeleton until network prime succeeds',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport();
+      final networkPrime = Completer<bool>();
+      var trackingRequested = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'backend-token',
+            ),
+            child: HomePage(
+              startupPlatform: TargetPlatform.iOS,
+              initialTabIndex: HomePage.myWorldsTabIndex,
+              initialRequestMetricWindow: Duration.zero,
+              primeNetworkPermission: (_) => networkPrime.future,
+              requestTrackingAuthorization: () async {
+                trackingRequested = true;
+                return AppTrackingAuthorizationStatus.denied;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
+        ),
+        findsOneWidget,
+      );
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+      expect(trackingRequested, isFalse);
+
+      networkPrime.complete(true);
+      for (var i = 0; i < 10 && !trackingRequested; i += 1) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(trackingRequested, isTrue);
+      expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
+    },
+  );
+
+  testWidgets('Home iOS startup gate shows retry when network prime fails', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: HomePage(
+            startupPlatform: TargetPlatform.iOS,
+            initialRequestMetricWindow: Duration.zero,
+            primeNetworkPermission: (_) async => false,
+            requestTrackingAuthorization: () async =>
+                AppTrackingAuthorizationStatus.denied,
+          ),
+        ),
+      ),
+    );
+    for (
+      var i = 0;
+      i < 10 && find.widgetWithText(FilledButton, 'Retry').evaluate().isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(find.widgetWithText(FilledButton, 'Retry'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
   });
 
   testWidgets('Home My Worlds signed-out initial frame shows empty state', (

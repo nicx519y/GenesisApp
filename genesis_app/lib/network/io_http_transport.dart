@@ -4,11 +4,13 @@ import 'dart:io';
 
 import 'package:firebase_performance/firebase_performance.dart';
 
+import '../app/telemetry/firebase_performance_monitoring.dart';
 import 'http_transport.dart';
 
 typedef HttpRequestPerformanceMetricFactory =
     HttpRequestPerformanceMetric? Function(String url, HttpMethod method);
 typedef HttpRequestPerformanceMetricUrlFilter = bool Function(Uri uri);
+typedef HttpRequestPerformanceMetricReady = bool Function();
 
 abstract class HttpRequestPerformanceMetric {
   set httpResponseCode(int? value);
@@ -26,15 +28,20 @@ class IoHttpTransport implements HttpTransport {
     String? proxy,
     HttpRequestPerformanceMetricFactory? performanceMetricFactory,
     HttpRequestPerformanceMetricUrlFilter? performanceMetricUrlFilter,
+    HttpRequestPerformanceMetricReady? performanceMetricReady,
   }) : _client = client ?? createProxyAwareHttpClient(proxy),
        _performanceMetricFactory =
            performanceMetricFactory ?? createFirebasePerformanceMetric,
        _performanceMetricUrlFilter =
-           performanceMetricUrlFilter ?? isBusinessPerformanceMetricUrl;
+           performanceMetricUrlFilter ?? isBusinessPerformanceMetricUrl,
+       _performanceMetricReady =
+           performanceMetricReady ??
+           (() => FirebasePerformanceMonitoring.isReady);
 
   final HttpClient _client;
   final HttpRequestPerformanceMetricFactory _performanceMetricFactory;
   final HttpRequestPerformanceMetricUrlFilter _performanceMetricUrlFilter;
+  final HttpRequestPerformanceMetricReady _performanceMetricReady;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -107,6 +114,7 @@ class IoHttpTransport implements HttpTransport {
     try {
       final method = firebaseHttpMethodFor(request.method);
       if (method == null) return null;
+      if (!_performanceMetricReady()) return null;
       if (!_performanceMetricUrlFilter(request.uri)) return null;
       metric = _performanceMetricFactory(
         firebaseMetricUrl(request.uri),
