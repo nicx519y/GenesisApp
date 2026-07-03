@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 
+import '../app/telemetry/firebase_performance_monitoring.dart';
 import 'http_transport.dart';
 import 'io_http_transport.dart';
 
@@ -13,15 +14,20 @@ class DioHttpTransport implements HttpTransport {
     String? proxy,
     HttpRequestPerformanceMetricFactory? performanceMetricFactory,
     HttpRequestPerformanceMetricUrlFilter? performanceMetricUrlFilter,
+    HttpRequestPerformanceMetricReady? performanceMetricReady,
   }) : _dio = dio ?? _createDio(proxy),
        _performanceMetricFactory =
            performanceMetricFactory ?? createFirebasePerformanceMetric,
        _performanceMetricUrlFilter =
-           performanceMetricUrlFilter ?? isBusinessPerformanceMetricUrl;
+           performanceMetricUrlFilter ?? isBusinessPerformanceMetricUrl,
+       _performanceMetricReady =
+           performanceMetricReady ??
+           (() => FirebasePerformanceMonitoring.isReady);
 
   final Dio _dio;
   final HttpRequestPerformanceMetricFactory _performanceMetricFactory;
   final HttpRequestPerformanceMetricUrlFilter _performanceMetricUrlFilter;
+  final HttpRequestPerformanceMetricReady _performanceMetricReady;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -87,6 +93,7 @@ class DioHttpTransport implements HttpTransport {
     try {
       final method = firebaseHttpMethodFor(request.method);
       if (method == null) return null;
+      if (!_performanceMetricReady()) return null;
       if (!_performanceMetricUrlFilter(request.uri)) return null;
       metric = _performanceMetricFactory(
         firebaseMetricUrl(request.uri),

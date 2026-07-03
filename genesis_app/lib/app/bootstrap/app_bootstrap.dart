@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/widgets.dart';
 
@@ -10,7 +12,6 @@ import 'service_registry.dart';
 class AppBootstrap {
   const AppBootstrap._();
 
-  static const _firebaseInitializeTimeout = Duration(seconds: 4);
   static const _gatewayPrepareTimeout = Duration(seconds: 8);
   static const _networkPermissionPrimeTimeout = Duration(seconds: 15);
   static const _sessionReadTimeout = Duration(seconds: 2);
@@ -30,14 +31,16 @@ class AppBootstrap {
     return services;
   }
 
-  static Future<void> primeNetworkPermission(AppServices services) async {
+  static Future<bool> primeNetworkPermission(AppServices services) async {
     try {
       await services.api.v1.origin.homeNav().timeout(
         _networkPermissionPrimeTimeout,
       );
+      return true;
     } catch (e, st) {
       debugPrint('[Auth][Bootstrap] network permission prime failed: $e');
       debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
+      return false;
     }
   }
 
@@ -52,7 +55,7 @@ class AppBootstrap {
   static Future<void> _initializeFirebasePerformanceMonitoring() async {
     try {
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp().timeout(_firebaseInitializeTimeout);
+        await Firebase.initializeApp();
       }
       await FirebasePerformanceMonitoring.enable();
     } catch (e, st) {
@@ -63,8 +66,8 @@ class AppBootstrap {
   }
 
   static Future<void> warmUp(AppServices services) async {
-    await ensureFirebasePerformanceMonitoring();
-    await FirebaseCrashReporting.enable();
+    unawaited(ensureFirebasePerformanceMonitoring());
+    unawaited(_enableCrashReportingAfterFirebaseReady());
 
     try {
       await services.gatewayAuth?.prepare().timeout(_gatewayPrepareTimeout);
@@ -94,5 +97,10 @@ class AppBootstrap {
         debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
       }
     }
+  }
+
+  static Future<void> _enableCrashReportingAfterFirebaseReady() async {
+    await ensureFirebasePerformanceMonitoring();
+    await FirebaseCrashReporting.enable();
   }
 }

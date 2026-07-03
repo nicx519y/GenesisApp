@@ -28,6 +28,7 @@ void main() {
     final metrics = <_FakePerformanceMetric>[];
     final transport = IoHttpTransport(
       performanceMetricUrlFilter: (_) => true,
+      performanceMetricReady: () => true,
       performanceMetricFactory: (url, method) {
         final metric = _FakePerformanceMetric(url: url, method: method);
         metrics.add(metric);
@@ -73,6 +74,7 @@ void main() {
 
     final metrics = <_FakePerformanceMetric>[];
     final transport = IoHttpTransport(
+      performanceMetricReady: () => true,
       performanceMetricFactory: (url, method) {
         final metric = _FakePerformanceMetric(url: url, method: method);
         metrics.add(metric);
@@ -102,6 +104,7 @@ void main() {
         responseBody: '{"ok":true}',
         contentType: ContentType.json,
       ),
+      performanceMetricReady: () => true,
       performanceMetricFactory: (url, method) {
         final metric = _FakePerformanceMetric(url: url, method: method);
         metrics.add(metric);
@@ -139,6 +142,7 @@ void main() {
 
     final transport = IoHttpTransport(
       performanceMetricUrlFilter: (_) => true,
+      performanceMetricReady: () => true,
       performanceMetricFactory: (_, _) => throw StateError('metric failed'),
     );
 
@@ -196,6 +200,45 @@ void main() {
     expect(progressEvents.last.receivedBytes, responseBody.length);
     expect(progressEvents.last.totalBytes, responseBody.length);
   });
+
+  test(
+    'skips manual metrics while Firebase Performance is not ready',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      server.listen((request) async {
+        request.response
+          ..statusCode = 200
+          ..write('ok');
+        await request.response.close();
+      });
+
+      final metrics = <_FakePerformanceMetric>[];
+      final transport = IoHttpTransport(
+        performanceMetricUrlFilter: (_) => true,
+        performanceMetricReady: () => false,
+        performanceMetricFactory: (url, method) {
+          final metric = _FakePerformanceMetric(url: url, method: method);
+          metrics.add(metric);
+          return metric;
+        },
+      );
+
+      final response = await transport.send(
+        TransportRequest(
+          method: 'GET',
+          uri: Uri.parse('http://127.0.0.1:${server.port}/ping'),
+          headers: const {},
+          bodyBytes: null,
+          timeoutMs: 5000,
+        ),
+      );
+
+      expect(response.statusCode, 200);
+      expect(response.body, 'ok');
+      expect(metrics, isEmpty);
+    },
+  );
 }
 
 class _FakePerformanceMetric implements HttpRequestPerformanceMetric {
