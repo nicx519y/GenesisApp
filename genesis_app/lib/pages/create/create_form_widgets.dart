@@ -752,8 +752,8 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       setState(() {
         _previewBytes = crop.bytes;
         _isUploading = true;
-        _isUploadProcessing = false;
-        _uploadProgress = 0.02;
+        _isUploadProcessing = true;
+        _uploadProgress = 0;
       });
       widget.controller.clear();
       widget.onChanged();
@@ -790,15 +790,6 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
         bytes: crop.bytes,
         filename: crop.filename,
         contentType: crop.contentType,
-        onSendProgress: (sentBytes, totalBytes) {
-          if (!mounted || !_isUploading) return;
-          final total = totalBytes <= 0 ? 1 : totalBytes;
-          final isProcessing = totalBytes > 0 && sentBytes >= totalBytes;
-          setState(() {
-            _isUploadProcessing = isProcessing;
-            _uploadProgress = (sentBytes / total).clamp(0.0, 1.0).toDouble();
-          });
-        },
       );
       if (!mounted) return;
       final url = GenesisImageResourceRegistry.resolve(uploaded).displayUrl;
@@ -807,7 +798,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
       }
       setState(() {
         _isUploadProcessing = false;
-        _uploadProgress = 1;
+        _uploadProgress = 0;
       });
       widget.controller.text = url;
       setState(() {
