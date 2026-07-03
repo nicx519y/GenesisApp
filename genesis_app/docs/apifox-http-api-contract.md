@@ -1461,7 +1461,7 @@ query：
 请求 body：
 
 - `target_type*`: string，举报对象类型，枚举 `origin`、`world`、`tick`、`message`、`discuss`
-- `target_id*`: string，举报对象业务 id；`message` 当前按 `message_id` 原样记录，不做存在性校验
+- `target_id*`: string，举报对象业务 id；`message` 当前按 `global_message_id` 原样记录，不做存在性校验
 - `content*`: string，举报内容；服务端 trim 后不能为空，最长 1000 字符
 
 请求示例：
@@ -1605,8 +1605,8 @@ query：
 | `GET /api/v1/world/origin_progress` | 已新增 `WorldV1Api.originProgress(uid,originId)`，query 使用 `uid/origin_id`，响应消费 `world_id/tick_cnt`；origin discuss loader 会用该接口补齐每条评论作者在当前 origin 下的 world 与 tick 进度。 |
 | `POST /api/v1/world/tick` | 新契约替代旧 progress 触发接口；客户端应提交 `{ "world_id": "<world_id>" }` 并消费 `world_id/tick_cnt/last_tick`。 |
 | `GET /aitown-chat/api/ulocation` | `ChatroomHttpApi.getUserLocations(worldId)` query 使用 `world_id`，响应消费 `locations[].characters[]`，角色字段为 `char_id/player_uid/player_username/name/location_id`；`WorldChatroomService` 用 `player_uid` 识别真实用户并刷新所在 location，本地 mock 从 world detail 角色列表生成同形状响应。 |
-| `GET /aitown-chat/internal/world/messages` | `ChatroomHttpApi.getWorldMessages(worldId)` query 使用 `world_id`，响应消费 `locations[].location_id/messages[]`；`ChatroomHttpMessage` 只按新 DTO 解析 `global_message_id/message_id/location_message_id/current_time/tick_no/created_at`。 |
-| `GET /aitown-chat/api/messages` | `ChatroomHttpApi.getMessages(worldId,locationId,since,limit)` query 使用 `world_id/location_id/since/limit`，响应消费 `messages/has_more/newest_message_id`；本地 mock 返回新 `MessageDTO` 字段。 |
+| `GET /aitown-chat/internal/world/messages` | `ChatroomHttpApi.getWorldMessages(worldId)` query 使用 `world_id`，响应消费 `locations[].location_id/messages[]`；`WorldChatroomService.refreshLatestMessages(...)` 的 latest 刷新走该 world 级接口，再按响应 location 分桶写入本地队列；`ChatroomHttpMessage` 只按新 DTO 解析 `global_message_id/message_id/location_message_id/current_time/tick_no/created_at`。 |
+| `GET /aitown-chat/api/messages` | `ChatroomHttpApi.getMessages(worldId,locationId,since,limit)` query 使用 `world_id/location_id/since/limit`，响应消费 `messages/has_more/newest_message_id`；仅用于单 location 的 older 分页/补洞；本地 mock 返回新 `MessageDTO` 字段。 |
 | `POST /aitown-chat/internal/tick/lock` | 已新增 `ChatroomHttpApi.lockWorld(worldId)`，按 Apifox 同时发送 query `world_id` 与 multipart form `world_id`，响应消费 `locked`。 |
 | `GET /aitown-chat/internal/tick/progress` | 已新增 `ChatroomHttpApi.tickProgress(worldId)`，响应消费 `progress/pending_messages/active_llm_calls`。 |
 | `POST /aitown-chat/internal/tick/unlock` | 已新增 `ChatroomHttpApi.unlockWorld(worldId)`，multipart form 发送 `world_id`，响应消费 `unlocked`。 |
@@ -1634,7 +1634,7 @@ query：
 | `GET /api/v1/message/unread` | `MessagesV1Api.unreadSummary` 已改用消息页未读统计接口，响应消费 `world_apply_unread/follow_unread/interaction_unread/direct_message_unread/total_unread`。 |
 | `GET /api/v1/message/notifications` | `MessagesV1Api.notifications` 已改为必传 `block` query，枚举 `world_apply/follow/interaction`；页面入口已从旧 `system/follower/comment` 映射为 Apifox 的三个 block。 |
 | `POST /api/v1/message/read` | `MessagesV1Api.markNotificationsRead` 已改为 `/message/read`，body 使用 `block` 或 `notification_id`，不再提交旧 `category/notification_ids`。 |
-| `POST /api/v1/report/create` | 已新增 `ReportV1Api.create`，body 使用 `target_type/target_id/content`，响应消费 `report_id`；World、Worldo、用户详情页和 location chat 长按菜单已接入；通过共享 `GenesisApi` runtime header path 自动带上 `device-id/app-id/app-version/app-platform/authorization`；本地 mock 校验 `target_type`、空 `target_id/content` 与 1000 字符长度限制，并为用户详情页 report 补充接受 `target_type=user`。 |
+| `POST /api/v1/report/create` | 已新增 `ReportV1Api.create`，body 使用 `target_type/target_id/content`，响应消费 `report_id`；World、Worldo、用户详情页和 location chat 长按菜单已接入，其中 message report 的 `target_id` 使用 `global_message_id`；通过共享 `GenesisApi` runtime header path 自动带上 `device-id/app-id/app-version/app-platform/authorization`；本地 mock 校验 `target_type`、空 `target_id/content` 与 1000 字符长度限制，并为用户详情页 report 补充接受 `target_type=user`。 |
 | `POST /api/v1/feedback/create` | 已新增 `FeedbackV1Api.create`，body 使用 `content`，响应消费 `feedback_id`；通过共享 `GenesisApi` runtime header path 自动带上 `device-id/app-id/app-version/app-platform/authorization`；本地 mock 校验空 `content` 与 1000 字符长度限制。 |
 | `POST /api/v1/direct_message/block` | 已新增 `DmV1Api.block`，body 使用 `target_uid`。 |
 | `POST /api/v1/direct_message/unblock` | 已新增 `DmV1Api.unblock`，body 使用 `target_uid`。 |

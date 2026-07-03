@@ -877,12 +877,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         : pointId;
     if (locationId.isEmpty) return;
     GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'world_map_click',
-      object1: widget.wid,
-      object2: locationId,
-    );
-    GenesisTelemetry.collectLog(
       actionType: 'pageview',
       action: 'world_map',
       object1: widget.wid,
@@ -930,6 +924,14 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             localMessageLocationIds: descriptor.localMessageLocationIds,
           ) ??
           descriptor,
+    );
+  }
+
+  void _recordWorldMapClick() {
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'world_map_click',
+      object1: widget.wid,
     );
   }
 
@@ -1555,6 +1557,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         onHorizontalPanStateChanged: tabIndex == 0
             ? _handleWorldMapHorizontalPanStateChanged
             : null,
+        onMapTap: _recordWorldMapClick,
         onPointTap: _openChatForPoint,
       );
       return WorldKeepAlivePage(child: map);

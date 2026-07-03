@@ -931,7 +931,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           continue;
         }
         usedLocalIds.add(existing.localId);
-        if (existing.messageId != message.messageId ||
+        if (existing.globalMessageId != message.globalMessageId ||
+            existing.messageId != message.messageId ||
             existing.locationMessageId != message.locationMessageId ||
             existing.roundId != message.conversationRoundId ||
             existing.tickNo != message.tickNo ||
@@ -944,6 +945,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
             existing.localId != localId) {
           changed = true;
         }
+        existing.globalMessageId = message.globalMessageId;
         existing.messageId = message.messageId;
         existing.locationMessageId = message.locationMessageId;
         existing.roundId = message.conversationRoundId;
@@ -961,6 +963,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         final nextMessage = ChatMessageVm(
           localId: localId,
           clientMsgId: message.clientMsgId,
+          globalMessageId: message.globalMessageId,
           messageId: message.messageId,
           locationMessageId: message.locationMessageId,
           roundId: message.conversationRoundId,
@@ -1239,7 +1242,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         object3: ack.messageId,
       );
       setState(() {
+        localMessage.globalMessageId = ack.globalMessageId;
         localMessage.messageId = ack.messageId;
+        localMessage.locationMessageId = ack.locationMessageId;
         localMessage.roundId = ack.conversationRoundId;
         localMessage.status = 'sent';
         _awaitingAiResponseRoundId = ack.conversationRoundId.trim();
@@ -1249,6 +1254,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         action: 'sendAck',
         details: {
           'clientMsgId': clientMsgId,
+          'globalMessageId': ack.globalMessageId,
           'messageId': ack.messageId,
           'locationMessageId': ack.locationMessageId,
           'roundId': ack.conversationRoundId,
@@ -1903,11 +1909,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   }
 
   String _messageReportTargetId(ChatMessageVm message) {
-    final messageId = message.messageId ?? 0;
-    if (messageId > 0) return '$messageId';
-    final clientMsgId = message.clientMsgId.trim();
-    if (clientMsgId.isNotEmpty) return clientMsgId;
-    return message.localId;
+    return locationChatMessageReportTargetIdForTesting(message);
   }
 
   String _tickReportText(ChatMessageVm message) {
@@ -2462,6 +2464,17 @@ String _resolvedProfileAvatar(
   );
   if (resolved.isNotEmpty) return resolved;
   return asResolvedImageUrl(profileAvatar, resolveAssetUrl);
+}
+
+@visibleForTesting
+String locationChatMessageReportTargetIdForTesting(ChatMessageVm message) {
+  final globalMessageId = message.globalMessageId;
+  if (globalMessageId > 0) return '$globalMessageId';
+  final messageId = message.messageId ?? 0;
+  if (messageId > 0) return '$messageId';
+  final clientMsgId = message.clientMsgId.trim();
+  if (clientMsgId.isNotEmpty) return clientMsgId;
+  return message.localId;
 }
 
 @visibleForTesting

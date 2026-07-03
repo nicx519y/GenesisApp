@@ -23,8 +23,32 @@ const state = {
   virtualHeightCache: new Map(),
   virtualResizeObserver: null,
   locationTabsSignature: "",
+  storageReady: null,
+  persistedEventCount: 0,
+  persistedMaxCursor: 0,
+  agentJobId: "",
+  agentStatus: "idle",
+  agentAfterSeq: 0,
+  agentLogs: [],
+  agentStatusTimer: null,
   pollTimer: null
 };
+
+const EVENT_PAGE_LIMIT = 1000;
+const EVENT_MEMORY_LIMIT = 2000;
+const MESSAGE_SOURCE_KEY_MEMORY_LIMIT = 3000;
+const MESSAGE_SOURCE_HITS_PER_KEY_LIMIT = 20;
+const EXPANDED_NETWORK_ROW_MEMORY_LIMIT = 300;
+const VIRTUAL_LIST_MEMORY_LIMIT = 80;
+const VIRTUAL_HEIGHT_CACHE_MEMORY_LIMIT = 120;
+const VIRTUAL_HEIGHT_ITEMS_PER_LIST_LIMIT = 1000;
+const VIRTUAL_SCROLL_MEMORY_LIMIT = 120;
+const STABLE_VIRTUAL_ID_MEMORY_LIMIT = 160;
+const AGENT_LOG_MEMORY_LIMIT = 50;
+const EVENT_DB_NAME = "location-chat-debug-dashboard";
+const EVENT_DB_VERSION = 2;
+const EVENT_STORE_NAME = "events";
+const SNAPSHOT_STORE_NAME = "snapshots";
 
 const statusEl = document.getElementById("connectionStatus");
 const summaryGrid = document.getElementById("summaryGrid");
@@ -34,10 +58,18 @@ const queueErrors = document.getElementById("queueErrors");
 const networkTabGroup = document.getElementById("networkTabGroup");
 const websocketFrames = document.getElementById("websocketFrames");
 const httpMessages = document.getElementById("httpMessages");
+const agentStatusEl = document.getElementById("agentStatus");
+const agentCountInput = document.getElementById("agentCountInput");
+const agentLocationCountInput = document.getElementById("agentLocationCountInput");
+const agentUseCurrentTarget = document.getElementById("agentUseCurrentTarget");
+const agentStartButton = document.getElementById("agentStartButton");
+const agentStopButton = document.getElementById("agentStopButton");
 
 document.getElementById("refreshButton").addEventListener("click", refreshAll);
 document.getElementById("clearButton").addEventListener("click", clearEvents);
 document.getElementById("exportButton").addEventListener("click", exportJson);
+agentStartButton.addEventListener("click", startAgentJob);
+agentStopButton.addEventListener("click", stopAgentJob);
 
 queueMainTabGroup.addEventListener("sl-tab-show", (event) => {
   const tabName = `${event.detail.name || ""}`.trim();
@@ -60,8 +92,7 @@ networkTabGroup.addEventListener("sl-tab-show", (event) => {
   const tabName = `${event.detail.name || ""}`.trim();
   if (!tabName || tabName === state.activeNetworkTab) return;
   state.activeNetworkTab = tabName;
-  renderWebSocketFrames();
-  renderHttpMessages();
+  renderNetworkTimeline();
   queueMicrotask(mountVirtualLists);
 });
 
@@ -79,14 +110,15 @@ queueErrors.addEventListener("keydown", (event) => {
   jumpToQueueError(row.dataset.queueErrorKey || "");
 });
 
-function rpc(method, params = {}) {
+function rpc(method, params = {}, options = {}) {
   return fetch("/api/rpc", {
     method: "POST",
     headers: {"content-type": "application/json"},
     body: JSON.stringify({
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       method,
-      params
+      params,
+      timeoutMs: options.timeoutMs
     })
   }).then(async (res) => {
     const json = await res.json();
@@ -100,10 +132,16 @@ function rpc(method, params = {}) {
 
 async function refreshAll() {
   try {
+    await ensureEventStorage();
     const snapshot = await rpc("debug.locationChat.snapshot");
+    const events = Array.isArray(snapshot.events) ? snapshot.events : [];
+    await resetEventStorageIfCursorReset(snapshot);
+    await storeSnapshot(snapshot);
+    await appendEvents(events);
     state.snapshot = snapshot;
     state.cursor = Number(snapshot.nextCursor || 1) - 1;
-    state.events = Array.isArray(snapshot.events) ? snapshot.events : [];
+    state.events = limitedMemoryEvents(events);
+    state.queueErrors = [];
     setStatus(snapshot);
     render();
   } catch (error) {
@@ -113,17 +151,27 @@ async function refreshAll() {
 
 async function pollEvents() {
   try {
-    const result = await rpc("debug.locationChat.events", {
-      cursor: state.cursor,
-      limit: 100
-    });
-    state.cursor = Number(result.nextCursor || state.cursor);
-    if (Array.isArray(result.events) && result.events.length) {
-      state.events.push(...result.events);
-      if (state.events.length > 500) {
-        state.events.splice(0, state.events.length - 500);
-      }
+    await ensureEventStorage();
+    let receivedAny = false;
+    const receivedEvents = [];
+    while (true) {
+      const result = await rpc("debug.locationChat.events", {
+        cursor: state.cursor,
+        limit: EVENT_PAGE_LIMIT
+      });
+      const events = Array.isArray(result.events) ? result.events : [];
+      if (!events.length) break;
+      receivedEvents.push(...events);
+      state.events.push(...events);
+      trimMemoryEvents();
+      state.cursor = Number(result.nextCursor || events[events.length - 1]?.cursor || state.cursor);
+      receivedAny = true;
+      if (events.length < EVENT_PAGE_LIMIT) break;
+    }
+    if (receivedAny) {
+      await appendEvents(receivedEvents);
       state.snapshot = await rpc("debug.locationChat.snapshot");
+      await storeSnapshot(state.snapshot);
       setStatus(state.snapshot);
       render();
     } else if (state.snapshot) {
@@ -137,6 +185,7 @@ async function pollEvents() {
 async function clearEvents() {
   try {
     state.snapshot = await rpc("debug.locationChat.clear");
+    await clearEventStorage();
     state.cursor = 0;
     state.events = [];
     state.activeLocationId = "";
@@ -147,6 +196,7 @@ async function clearEvents() {
     state.messageSourceIndexSignature = "";
     state.networkFocusKey = "";
     state.networkMessageFocusKey = "";
+    clearBoundedUiCaches();
     setStatus(state.snapshot);
     render();
   } catch (error) {
@@ -154,12 +204,26 @@ async function clearEvents() {
   }
 }
 
-function exportJson() {
+async function exportJson() {
+  let events = state.events;
+  let snapshot = state.snapshot;
+  try {
+    await ensureEventStorage();
+    events = await readAllStoredEvents();
+    snapshot = await readStoredSnapshot();
+  } catch (error) {
+    statusEl.textContent = `Export using memory cache only: ${error.message}`;
+  }
   const blob = new Blob([
     JSON.stringify({
       exportedAt: new Date().toISOString(),
-      snapshot: state.snapshot,
-      events: state.events
+      snapshot,
+      eventStorage: {
+        memoryCount: state.events.length,
+        persistedCount: state.persistedEventCount,
+        persistedMaxCursor: state.persistedMaxCursor
+      },
+      events
     }, null, 2)
   ], {type: "application/json"});
   const url = URL.createObjectURL(blob);
@@ -173,19 +237,378 @@ function exportJson() {
 function setStatus(snapshot) {
   const enabled = snapshot?.enabled ? "enabled" : "disabled";
   const available = snapshot?.available ? "available" : "not available";
-  statusEl.textContent = `agent_control connected, debug ${enabled}, RPC ${available}`;
+  statusEl.textContent = `agent_control connected, debug ${enabled}, RPC ${available}, events memory ${state.events.length}, db ${state.persistedEventCount}`;
+}
+
+function ensureEventStorage() {
+  if (!window.indexedDB) {
+    return Promise.reject(new Error("IndexedDB is not available."));
+  }
+  if (state.storageReady) return state.storageReady;
+  state.storageReady = openEventDb().then(async (db) => {
+    const meta = await readEventStorageMeta(db);
+    state.persistedEventCount = meta.count;
+    state.persistedMaxCursor = meta.maxCursor;
+    return db;
+  });
+  return state.storageReady;
+}
+
+function openEventDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(EVENT_DB_NAME, EVENT_DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(EVENT_STORE_NAME)) {
+        const store = db.createObjectStore(EVENT_STORE_NAME, {keyPath: "cursor"});
+        store.createIndex("source", "source", {unique: false});
+        store.createIndex("worldId", "worldId", {unique: false});
+        store.createIndex("timestamp", "timestamp", {unique: false});
+      }
+      if (!db.objectStoreNames.contains(SNAPSHOT_STORE_NAME)) {
+        db.createObjectStore(SNAPSHOT_STORE_NAME, {keyPath: "key"});
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Failed to open IndexedDB."));
+  });
+}
+
+function readEventStorageMeta(db) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(EVENT_STORE_NAME, "readonly");
+    const store = transaction.objectStore(EVENT_STORE_NAME);
+    const countRequest = store.count();
+    const cursorRequest = store.openCursor(null, "prev");
+    const meta = {count: 0, maxCursor: 0};
+    countRequest.onsuccess = () => {
+      meta.count = Number(countRequest.result || 0);
+    };
+    cursorRequest.onsuccess = () => {
+      meta.maxCursor = Number(cursorRequest.result?.key || 0);
+    };
+    transaction.oncomplete = () => resolve(meta);
+    transaction.onerror = () => reject(transaction.error || new Error("Failed to read event storage."));
+  });
+}
+
+async function resetEventStorageIfCursorReset(snapshot) {
+  const nextCursor = Number(snapshot?.nextCursor || 1);
+  if (state.persistedMaxCursor > 0 && nextCursor > 0 && nextCursor <= state.persistedMaxCursor) {
+    await clearEventStorage();
+  }
+}
+
+async function appendEvents(events) {
+  if (!events.length) return;
+  const db = await ensureEventStorage();
+  await writeStoredEvents(db, events);
+  const meta = await readEventStorageMeta(db);
+  state.persistedEventCount = meta.count;
+  state.persistedMaxCursor = meta.maxCursor;
+}
+
+function writeStoredEvents(db, events) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(EVENT_STORE_NAME, "readwrite");
+    const store = transaction.objectStore(EVENT_STORE_NAME);
+    for (const event of events) {
+      const cursor = Number(event?.cursor || 0);
+      if (cursor <= 0) continue;
+      store.put({...event, cursor});
+    }
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error("Failed to write events."));
+  });
+}
+
+function readAllStoredEvents() {
+  return ensureEventStorage().then((db) => new Promise((resolve, reject) => {
+    const transaction = db.transaction(EVENT_STORE_NAME, "readonly");
+    const store = transaction.objectStore(EVENT_STORE_NAME);
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const events = Array.isArray(request.result) ? request.result : [];
+      events.sort((a, b) => Number(a.cursor || 0) - Number(b.cursor || 0));
+      resolve(events);
+    };
+    request.onerror = () => reject(request.error || new Error("Failed to read stored events."));
+  }));
+}
+
+function storeSnapshot(snapshot) {
+  return ensureEventStorage().then((db) => new Promise((resolve, reject) => {
+    const transaction = db.transaction(SNAPSHOT_STORE_NAME, "readwrite");
+    transaction.objectStore(SNAPSHOT_STORE_NAME).put({
+      key: "latest",
+      updatedAt: new Date().toISOString(),
+      snapshot
+    });
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error("Failed to write snapshot."));
+  }));
+}
+
+function readStoredSnapshot() {
+  return ensureEventStorage().then((db) => new Promise((resolve, reject) => {
+    const transaction = db.transaction(SNAPSHOT_STORE_NAME, "readonly");
+    const request = transaction.objectStore(SNAPSHOT_STORE_NAME).get("latest");
+    request.onsuccess = () => resolve(request.result?.snapshot || state.snapshot);
+    request.onerror = () => reject(request.error || new Error("Failed to read stored snapshot."));
+  }));
+}
+
+function clearEventStorage() {
+  return ensureEventStorage().then((db) => new Promise((resolve, reject) => {
+    const transaction = db.transaction(
+      [EVENT_STORE_NAME, SNAPSHOT_STORE_NAME],
+      "readwrite"
+    );
+    transaction.objectStore(EVENT_STORE_NAME).clear();
+    transaction.objectStore(SNAPSHOT_STORE_NAME).clear();
+    transaction.oncomplete = () => {
+      state.persistedEventCount = 0;
+      state.persistedMaxCursor = 0;
+      resolve();
+    };
+    transaction.onerror = () => reject(transaction.error || new Error("Failed to clear event storage."));
+  }));
+}
+
+function limitedMemoryEvents(events) {
+  if (!Array.isArray(events)) return [];
+  return events.slice(-EVENT_MEMORY_LIMIT);
+}
+
+function trimMemoryEvents() {
+  if (state.events.length <= EVENT_MEMORY_LIMIT) return;
+  state.events.splice(0, state.events.length - EVENT_MEMORY_LIMIT);
+}
+
+function enforceLocalMemoryLimits() {
+  trimMemoryEvents();
+  trimMessageSourceIndex();
+  trimSetTail(state.expandedNetworkRows, EXPANDED_NETWORK_ROW_MEMORY_LIMIT);
+  trimMapTail(state.virtualLists, VIRTUAL_LIST_MEMORY_LIMIT);
+  trimMapTail(state.virtualScrollTops, VIRTUAL_SCROLL_MEMORY_LIMIT);
+  trimMapTail(state.virtualListIds, STABLE_VIRTUAL_ID_MEMORY_LIMIT);
+  trimVirtualHeightCache();
+}
+
+function clearBoundedUiCaches() {
+  state.queueErrorMap.clear();
+  state.messageSourceIndex.clear();
+  state.messageSourceIndexSignature = "";
+  state.expandedNetworkRows.clear();
+  state.virtualListIds.clear();
+  state.virtualLists.clear();
+  state.virtualScrollTops.clear();
+  state.virtualHeightCache.clear();
+}
+
+function trimMessageSourceIndex() {
+  trimMapTail(state.messageSourceIndex, MESSAGE_SOURCE_KEY_MEMORY_LIMIT);
+  for (const bucket of state.messageSourceIndex.values()) {
+    if (Array.isArray(bucket?.http)) {
+      trimArrayTail(bucket.http, MESSAGE_SOURCE_HITS_PER_KEY_LIMIT);
+    }
+    if (Array.isArray(bucket?.websocket)) {
+      trimArrayTail(bucket.websocket, MESSAGE_SOURCE_HITS_PER_KEY_LIMIT);
+    }
+  }
+}
+
+function trimVirtualHeightCache() {
+  trimMapTail(state.virtualHeightCache, VIRTUAL_HEIGHT_CACHE_MEMORY_LIMIT);
+  for (const heights of state.virtualHeightCache.values()) {
+    if (heights instanceof Map) {
+      trimMapTail(heights, VIRTUAL_HEIGHT_ITEMS_PER_LIST_LIMIT);
+    }
+  }
+}
+
+function trimArrayTail(array, limit) {
+  if (!Array.isArray(array) || array.length <= limit) return;
+  array.splice(0, array.length - limit);
+}
+
+function trimMapTail(map, limit) {
+  if (!(map instanceof Map) || map.size <= limit) return;
+  const overflow = map.size - limit;
+  let removed = 0;
+  for (const key of map.keys()) {
+    map.delete(key);
+    removed += 1;
+    if (removed >= overflow) break;
+  }
+}
+
+function trimSetTail(set, limit) {
+  if (!(set instanceof Set) || set.size <= limit) return;
+  const overflow = set.size - limit;
+  let removed = 0;
+  for (const value of set.values()) {
+    set.delete(value);
+    removed += 1;
+    if (removed >= overflow) break;
+  }
+}
+
+async function startAgentJob() {
+  const count = Math.max(1, Number.parseInt(agentCountInput.value || "20", 10) || 20);
+  const locationCount = Math.max(
+    1,
+    Number.parseInt(agentLocationCountInput.value || "1", 10) || 1
+  );
+  const params = {
+    count,
+    locationCount,
+    replyTimeoutSeconds: 120
+  };
+  if (agentUseCurrentTarget.checked) {
+    const worldId = currentWorldSnapshot().worldId || state.activeWorldId;
+    const locationId =
+      state.appActiveLocationId ||
+      state.activeLocationId ||
+      activePanelLocationId();
+    if (worldId) params.wid = worldId;
+    if (locationId) params.locationId = locationId;
+  }
+
+  agentStartButton.loading = true;
+  updateAgentPanel("Starting agent...");
+  try {
+    const result = await rpc("agent.world_chat.start", params, {timeoutMs: 10000});
+    state.agentJobId = `${result.jobId || ""}`.trim();
+    state.agentStatus = `${result.status || "running"}`;
+    state.agentAfterSeq = 0;
+    state.agentLogs = [];
+    persistAgentJob();
+    updateAgentPanel();
+    await pollAgentJobStatus();
+  } catch (error) {
+    updateAgentPanel(`Start failed: ${error.message}`);
+  } finally {
+    agentStartButton.loading = false;
+  }
+}
+
+async function stopAgentJob() {
+  if (!state.agentJobId) {
+    updateAgentPanel("No running agent job.");
+    return;
+  }
+  agentStopButton.loading = true;
+  updateAgentPanel("Stopping agent...");
+  try {
+    await rpc("agent.world_chat.cancel", {jobId: state.agentJobId}, {timeoutMs: 10000});
+    state.agentStatus = "cancelling";
+    updateAgentPanel();
+    await pollAgentJobStatus();
+  } catch (error) {
+    updateAgentPanel(`Stop failed: ${error.message}`);
+  } finally {
+    agentStopButton.loading = false;
+  }
+}
+
+async function pollAgentJobStatus() {
+  if (!state.agentJobId) return;
+  if (isTerminalAgentStatus(state.agentStatus)) return;
+  try {
+    const result = await rpc("agent.world_chat.status", {
+      jobId: state.agentJobId,
+      afterSeq: state.agentAfterSeq
+    }, {timeoutMs: 10000});
+    state.agentStatus = `${result.status || state.agentStatus || "running"}`;
+    const logs = Array.isArray(result.logs) ? result.logs : [];
+    for (const log of logs) {
+      const seq = Number(log.seq || 0);
+      if (seq > state.agentAfterSeq) state.agentAfterSeq = seq;
+      state.agentLogs.push(log);
+    }
+    trimArrayTail(state.agentLogs, AGENT_LOG_MEMORY_LIMIT);
+    if (isTerminalAgentStatus(state.agentStatus)) {
+      clearPersistedAgentJob();
+      state.agentJobId = "";
+    } else {
+      persistAgentJob();
+    }
+    updateAgentPanel();
+  } catch (error) {
+    if (`${error.message || ""}`.includes("Agent job was not found")) {
+      state.agentStatus = "not_found";
+      clearPersistedAgentJob();
+      state.agentJobId = "";
+      updateAgentPanel("Agent job is no longer available in the App process.");
+      return;
+    }
+    updateAgentPanel(`Status failed: ${error.message}`);
+  }
+}
+
+function updateAgentPanel(message = "") {
+  const status = normalizeAgentStatus(message || state.agentStatus || "idle");
+  const job = state.agentJobId ? ` ${state.agentJobId}` : "";
+  agentStatusEl.textContent = status;
+  agentStatusEl.dataset.status = status;
+  agentStatusEl.title = message || (job ? `job${job}` : status);
+  const running = Boolean(state.agentJobId) && !isTerminalAgentStatus(status);
+  agentStartButton.disabled = running;
+  agentStopButton.disabled = !running;
+}
+
+function normalizeAgentStatus(value) {
+  const text = `${value || ""}`.trim().toLowerCase();
+  if (!text) return "idle";
+  if (text.includes("fail")) return "failed";
+  if (text.includes("not found")) return "not_found";
+  if (text.includes("start")) return "starting";
+  if (text.includes("stop")) return "stopping";
+  return text.replace(/\s+/g, "_").replace(/[^a-z0-9_-]/g, "");
+}
+
+function isTerminalAgentStatus(status) {
+  return status === "completed" ||
+    status === "failed" ||
+    status === "cancelled" ||
+    status === "not_found";
+}
+
+function persistAgentJob() {
+  if (!state.agentJobId) return;
+  localStorage.setItem("locationChatAgentJob", JSON.stringify({
+    jobId: state.agentJobId,
+    status: state.agentStatus,
+    afterSeq: state.agentAfterSeq
+  }));
+}
+
+function restoreAgentJob() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("locationChatAgentJob") || "{}");
+    state.agentJobId = `${saved.jobId || ""}`.trim();
+    state.agentStatus = `${saved.status || (state.agentJobId ? "running" : "idle")}`;
+    state.agentAfterSeq = Number(saved.afterSeq || 0);
+  } catch (_) {
+    clearPersistedAgentJob();
+  }
+}
+
+function clearPersistedAgentJob() {
+  localStorage.removeItem("locationChatAgentJob");
 }
 
 function render() {
   saveVirtualScrollPositions();
   syncActiveWorld();
   rebuildMessageSourceIndex();
-  computeQueueErrors();
+  deriveQueueErrorsFromReportedData();
   renderSummary();
   renderQueueTabs();
   renderQueueErrors();
-  renderWebSocketFrames();
-  renderHttpMessages();
+  renderNetworkTimeline();
+  enforceLocalMemoryLimits();
   queueMicrotask(mountVirtualLists);
 }
 
@@ -355,7 +778,7 @@ function renderQueueErrors() {
   });
 }
 
-function computeQueueErrors() {
+function deriveQueueErrorsFromReportedData() {
   const world = currentWorldSnapshot();
   const snapshots = state.snapshot?.snapshots || {};
   const errors = [];
@@ -518,21 +941,30 @@ function queueErrorMarkerKey(worldId, locationId, queueLayer, message) {
   ].join("|");
 }
 
-function renderWebSocketFrames() {
-  if (state.activeNetworkTab !== "websocket") {
-    clearElement(websocketFrames);
-    return;
-  }
-  const frames = networkEvents("websocket", 500);
-  renderVirtualListInto(websocketFrames, {
-    items: frames,
+function renderNetworkTimeline() {
+  const activeContainer = state.activeNetworkTab === "websocket"
+    ? websocketFrames
+    : httpMessages;
+  const inactiveContainer = state.activeNetworkTab === "websocket"
+    ? httpMessages
+    : websocketFrames;
+  clearElement(inactiveContainer);
+  const events = networkEvents();
+  renderVirtualListInto(activeContainer, {
+    items: events,
     className: "network-virtual-list",
-    key: `network:${state.activeWorldId}:websocket`,
-    emptyHtml: `<p class="muted">No WebSocket frames yet.</p>`,
-    getItemHeight: (event) => networkRowOpen(event) ? 430 : 39,
+    key: networkTimelineKey(),
+    emptyHtml: `<p class="muted">No message network events yet.</p>`,
+    getItemHeight: (event) => networkRowOpen(event)
+      ? networkExpandedRowHeight(event)
+      : 39,
     getItemKey: networkRowId,
-    renderItem: renderWebSocketFrame
+    renderItem: renderNetworkEvent
   });
+}
+
+function networkTimelineKey() {
+  return `network:${state.activeWorldId}:timeline`;
 }
 
 function rebuildMessageSourceIndex() {
@@ -546,7 +978,8 @@ function rebuildMessageSourceIndex() {
   if (signature === state.messageSourceIndexSignature) return;
 
   const index = new Map();
-  for (const event of networkEvents("http", 500)) {
+  for (const event of networkEvents()) {
+    if (event.source !== "http") continue;
     const rowId = networkRowId(event);
     const details = event.details || {};
     const messages = Array.isArray(details.messages) ? details.messages : [];
@@ -560,7 +993,8 @@ function rebuildMessageSourceIndex() {
     }
   }
 
-  for (const event of networkEvents("websocket", 500)) {
+  for (const event of networkEvents()) {
+    if (event.source !== "websocket") continue;
     const rowId = networkRowId(event);
     const payloadMessages = extractMessageLikeObjects(event.details?.payload);
     for (const message of payloadMessages) {
@@ -660,21 +1094,15 @@ function uniqueStrings(values) {
   return result;
 }
 
-function renderHttpMessages() {
-  if (state.activeNetworkTab !== "http") {
-    clearElement(httpMessages);
-    return;
-  }
-  const pulls = networkEvents("http", 500);
-  renderVirtualListInto(httpMessages, {
-    items: pulls,
-    className: "network-virtual-list",
-    key: `network:${state.activeWorldId}:http`,
-    emptyHtml: `<p class="muted">No HTTPS message pulls yet.</p>`,
-    getItemHeight: (event) => networkRowOpen(event) ? httpExpandedRowHeight() : 39,
-    getItemKey: networkRowId,
-    renderItem: renderHttpPull
-  });
+function renderNetworkEvent(event) {
+  return event.source === "http"
+    ? renderHttpPull(event)
+    : renderWebSocketFrame(event);
+}
+
+function networkExpandedRowHeight(event) {
+  if (event.source === "http") return httpExpandedRowHeight();
+  return 430;
 }
 
 function httpExpandedRowHeight() {
@@ -682,14 +1110,48 @@ function httpExpandedRowHeight() {
   return detailHeight + 39;
 }
 
-function networkEvents(source, limit) {
+function networkEvents(limit = 0) {
   const worldId = state.activeWorldId;
-  return state.events
-    .filter((event) => event.source === source)
+  const events = state.events
+    .filter(isMessageNetworkEvent)
     .filter((event) => !worldId || event.worldId === worldId)
-    .filter((event) => Number(event.cursor || 0) >= state.networkSinceCursor)
-    .slice(-limit)
-    .reverse();
+    .filter((event) => Number(event.cursor || 0) >= state.networkSinceCursor);
+  events.sort(compareNetworkEventOrder);
+  return (limit > 0 ? events.slice(-limit) : events).reverse();
+}
+
+function compareNetworkEventOrder(a, b) {
+  const cursorA = Number(a?.cursor || 0);
+  const cursorB = Number(b?.cursor || 0);
+  if (cursorA !== cursorB) return cursorA - cursorB;
+  const timeA = Date.parse(a?.timestamp || "") || 0;
+  const timeB = Date.parse(b?.timestamp || "") || 0;
+  return timeA - timeB;
+}
+
+function isMessageNetworkEvent(event) {
+  if (!event) return false;
+  if (event.source === "http") return true;
+  if (event.source !== "websocket") return false;
+  const details = event.details || {};
+  const type = `${details.type || event.action || ""}`.trim();
+  const eventType = `${details.eventType || ""}`.trim();
+  if (eventType === "world_new_message") return true;
+  if (type === "world_change") return false;
+  if (!type) return true;
+  return [
+    "join",
+    "send_message",
+    "ack",
+    "user_message",
+    "nar_new_message",
+    "tick_advance",
+    "llm_stream_start",
+    "llm_chunk",
+    "llm_stream_end",
+    "error",
+    "decode_error"
+  ].includes(type);
 }
 
 function syncActiveWorld() {
@@ -1520,6 +1982,7 @@ function handleVirtualListClick(event) {
     state.expandedNetworkRows.delete(rowId);
   } else {
     state.expandedNetworkRows.add(rowId);
+    trimSetTail(state.expandedNetworkRows, EXPANDED_NETWORK_ROW_MEMORY_LIMIT);
   }
   state.virtualLists.get(event.currentTarget.dataset.virtualId || "")?.itemHeights.clear();
   renderVirtualList(event.currentTarget);
@@ -1529,18 +1992,14 @@ function jumpToNetworkSource(sourceKeysValue) {
   const hit = resolveNetworkSourceHit(sourceKeysValue);
   if (!hit) return;
 
-  state.activeNetworkTab = hit.source;
   state.networkFocusKey = hit.rowId;
   state.networkMessageFocusKey = hit.source === "http" && hit.messageRowKey
     ? networkMessageFocusKey(hit.rowId, hit.messageRowKey)
     : "";
   state.expandedNetworkRows.add(hit.rowId);
+  trimSetTail(state.expandedNetworkRows, EXPANDED_NETWORK_ROW_MEMORY_LIMIT);
 
-  if (typeof networkTabGroup.show === "function") {
-    networkTabGroup.show(hit.source);
-  }
-  renderWebSocketFrames();
-  renderHttpMessages();
+  renderNetworkTimeline();
 
   queueMicrotask(() => {
     mountVirtualLists();
@@ -1582,7 +2041,7 @@ function networkMessageFocusKey(rowId, messageRowKeyValue) {
 
 function scrollToNetworkHit(hit) {
   const container = document.querySelector(
-    `.virtual-list[data-virtual-key="${cssEscape(`network:${state.activeWorldId}:${hit.source}`)}"]`
+    `.virtual-list[data-virtual-key="${cssEscape(networkTimelineKey())}"]`
   );
   if (!container) return false;
   const scrolled = scrollVirtualListToItem(container, hit.rowId);
@@ -1711,5 +2170,9 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+restoreAgentJob();
+updateAgentPanel();
 refreshAll();
 state.pollTimer = setInterval(pollEvents, 1000);
+state.agentStatusTimer = setInterval(pollAgentJobStatus, 2000);
+pollAgentJobStatus();

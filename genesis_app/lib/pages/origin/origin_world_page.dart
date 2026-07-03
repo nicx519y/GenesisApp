@@ -271,6 +271,14 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     });
   }
 
+  void _recordWorldoMapClick(OriginDetail origin) {
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_map_click',
+      object1: origin.oid,
+    );
+  }
+
   void _closeLocationChat() {
     if (_activeChatLocation == null) return;
     setState(() => _activeChatLocation = null);
@@ -604,6 +612,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                 pointsListOuterScrollHandoff: false,
                 overlayTop: topPadding + 8 + 48,
                 drillExitTop: topPadding + 68,
+                onMapTap: () => _recordWorldoMapClick(origin),
                 onPointTap: (point) => _openChatForPoint(origin, point),
               ),
             ),

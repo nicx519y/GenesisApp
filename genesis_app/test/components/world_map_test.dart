@@ -986,6 +986,35 @@ void main() {
     expect(tappedIds, ['root', 'leaf']);
   });
 
+  testWidgets('map background taps report map tap', (tester) async {
+    var mapTapCount = 0;
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      onMapTap: () => mapTapCount += 1,
+    );
+
+    await tester.tapAt(const Offset(20, 20));
+
+    expect(mapTapCount, 1);
+  });
+
+  testWidgets('map point taps report map tap and point tap', (tester) async {
+    var mapTapCount = 0;
+    final tappedIds = <String>[];
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      onMapTap: () => mapTapCount += 1,
+      onPointTap: (point) => tappedIds.add(point.id),
+    );
+
+    await tester.tap(find.text('Gate'));
+
+    expect(mapTapCount, 1);
+    expect(tappedIds, ['point-1']);
+  });
+
   testWidgets('drillable map tap does not show a location ripple', (
     tester,
   ) async {
@@ -1879,6 +1908,7 @@ Future<void> _pumpWorldMap(
   List<WorldPoint>? listPoints,
   List<WorldMapLocationNode> locationNodes = const <WorldMapLocationNode>[],
   bool fallbackOnEmptyMapUrl = true,
+  VoidCallback? onMapTap,
   WorldPointTapCallback? onPointTap,
   VoidCallback? onDrillIntoLocation,
   ValueChanged<bool>? onMapInteractionChanged,
@@ -1915,6 +1945,7 @@ Future<void> _pumpWorldMap(
                 messageBubbles: messageBubbles,
                 messageBubblePlaybackPaused: messageBubblePlaybackPaused,
                 onDrillIntoLocation: onDrillIntoLocation,
+                onMapTap: onMapTap,
                 onPointTap: onPointTap,
                 points:
                     points ??

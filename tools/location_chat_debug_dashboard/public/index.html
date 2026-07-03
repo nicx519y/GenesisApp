@@ -11,15 +11,43 @@
   </head>
   <body class="sl-theme-dark">
     <header class="topbar">
-      <div>
+      <div class="brand-block">
         <h1>Location Chat Debug</h1>
         <p id="connectionStatus">Waiting for agent_control...</p>
       </div>
-      <div class="actions">
-        <sl-button id="refreshButton" size="small" variant="default">Refresh</sl-button>
-        <sl-button id="clearButton" size="small" variant="default">Clear Events</sl-button>
-        <sl-button id="exportButton" size="small" variant="primary">Export JSON</sl-button>
-      </div>
+      <section class="control-row">
+        <section class="agent-strip">
+          <div class="agent-title">
+            <h2>Agent Control</h2>
+            <span id="agentStatus" class="agent-status-badge" data-status="idle">idle</span>
+          </div>
+          <label class="agent-field">
+            <span>Count</span>
+            <input id="agentCountInput" type="number" min="1" max="1000" value="20">
+          </label>
+          <label class="agent-field">
+            <span>Locations</span>
+            <input id="agentLocationCountInput" type="number" min="1" max="100" value="1">
+          </label>
+          <label class="agent-check">
+            <input id="agentUseCurrentTarget" type="checkbox" checked>
+            <span>Use current wid/location</span>
+          </label>
+          <div class="agent-actions">
+            <sl-button id="agentStartButton" size="small" variant="primary">Start Agent</sl-button>
+            <sl-button id="agentStopButton" size="small" variant="danger" disabled>Stop Agent</sl-button>
+          </div>
+        </section>
+
+        <section class="tools-strip">
+          <h2>Tools</h2>
+          <div class="actions">
+            <sl-button id="refreshButton" size="small" variant="default">Refresh</sl-button>
+            <sl-button id="clearButton" size="small" variant="default">Clear Events</sl-button>
+            <sl-button id="exportButton" size="small" variant="primary">Export JSON</sl-button>
+          </div>
+        </section>
+      </section>
     </header>
 
     <main class="app-shell">

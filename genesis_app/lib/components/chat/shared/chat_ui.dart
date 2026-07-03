@@ -89,6 +89,7 @@ class ChatMessageVm {
   ChatMessageVm({
     required this.localId,
     this.clientMsgId = '',
+    this.globalMessageId = 0,
     this.messageId,
     this.locationMessageId = 0,
     this.roundId = '',
@@ -119,6 +120,7 @@ class ChatMessageVm {
 
   final String localId;
   final String clientMsgId;
+  int globalMessageId;
   int? messageId;
   int locationMessageId;
   String roundId;

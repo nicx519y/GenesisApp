@@ -8,7 +8,6 @@ const bool _locationChatDebugFlag = bool.fromEnvironment(
 class LocationChatDebugHub {
   const LocationChatDebugHub._();
 
-  static const int _maxEvents = 500;
   static int _nextCursor = 1;
   static final List<Map<String, Object?>> _events = <Map<String, Object?>>[];
   static final Map<String, Map<String, Object?>> _snapshots =
@@ -34,18 +33,18 @@ class LocationChatDebugHub {
   }
 
   static Map<String, Object?> eventsAfter(int cursor, {int limit = 100}) {
-    final resolvedLimit = (limit <= 0 ? 100 : limit)
-        .clamp(1, _maxEvents)
-        .toInt();
+    final resolvedLimit = limit <= 0 ? 100 : limit;
     final events = _events
         .where((event) => _asInt(event['cursor']) > cursor)
         .take(resolvedLimit)
         .map(_deepCopyMap)
         .toList(growable: false);
+    final pageCursor = events.isEmpty ? cursor : _asInt(events.last['cursor']);
     return <String, Object?>{
       'available': available,
       'enabled': enabled,
-      'nextCursor': _nextCursor,
+      'nextCursor': pageCursor,
+      'latestCursor': _nextCursor - 1,
       'events': events,
     };
   }
@@ -121,9 +120,6 @@ class LocationChatDebugHub {
       'details': _sanitizeMap(details),
     };
     _events.add(event);
-    if (_events.length > _maxEvents) {
-      _events.removeRange(0, _events.length - _maxEvents);
-    }
     final key = snapshotKey.trim();
     if (key.isNotEmpty && snapshot != null) {
       final layer = _snapshots.putIfAbsent(

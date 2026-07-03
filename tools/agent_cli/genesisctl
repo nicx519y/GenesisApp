@@ -2,25 +2,26 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-app_dir="$(cd "$script_dir/.." && pwd)"
+repo_dir="$(cd "$script_dir/../.." && pwd)"
+app_dir="$repo_dir/genesis_app"
 env_file="${GENESIS_AGENT_CONTROL_ENV_FILE:-$app_dir/.agent-control.env}"
 
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/ctl init
-  scripts/ctl app ping
-  scripts/ctl app state
-  scripts/ctl app navigate /search --arg q=alice
-  scripts/ctl app back
-  scripts/ctl auth state
-  scripts/ctl auth clear
-  scripts/ctl world locations --wid <wid>
-  scripts/ctl agent world-chat --count 100
-  scripts/ctl config endpoint set --api dev.hushie.ai --gateway dev.hushie.ai --chat-ws dev.hushie.ai
-  scripts/ctl config endpoint clear
-  scripts/ctl cache clear --target all
-  scripts/ctl diagnostics snapshot
+  tools/agent_cli/ctl init
+  tools/agent_cli/ctl app ping
+  tools/agent_cli/ctl app state
+  tools/agent_cli/ctl app navigate /search --arg q=alice
+  tools/agent_cli/ctl app back
+  tools/agent_cli/ctl auth state
+  tools/agent_cli/ctl auth clear
+  tools/agent_cli/ctl world locations --wid <wid>
+  tools/agent_cli/ctl agent world-chat --count 100
+  tools/agent_cli/ctl config endpoint set --api dev.hushie.ai --gateway dev.hushie.ai --chat-ws dev.hushie.ai
+  tools/agent_cli/ctl config endpoint clear
+  tools/agent_cli/ctl cache clear --target all
+  tools/agent_cli/ctl diagnostics snapshot
 
 Environment:
   GENESIS_AGENT_CONTROL_ENV_FILE  Override env file path.
@@ -80,12 +81,12 @@ token="${GENESIS_AGENT_CONTROL_TOKEN:-}"
 
 if [[ -z "$token" ]]; then
   echo "Missing GENESIS_AGENT_CONTROL_TOKEN." >&2
-  echo "Run scripts/ctl init first, or export GENESIS_AGENT_CONTROL_TOKEN." >&2
+  echo "Run tools/agent_cli/ctl init first, or export GENESIS_AGENT_CONTROL_TOKEN." >&2
   exit 1
 fi
 
 cd "$app_dir"
-exec dart run tool/genesisctl.dart \
+exec dart "$script_dir/genesisctl.dart" \
   --host "$host" \
   --port "$port" \
   --token "$token" \

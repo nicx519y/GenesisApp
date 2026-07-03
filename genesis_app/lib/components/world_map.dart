@@ -84,6 +84,7 @@ class WorldMap extends StatefulWidget {
     this.drillExitMaxWidth,
     this.onDrillIntoLocation,
     this.onHorizontalPanStateChanged,
+    this.onMapTap,
     this.onPointTap,
     this.activeBubble,
     this.messageBubbles = const <WorldMapMessageBubble>[],
@@ -106,6 +107,7 @@ class WorldMap extends StatefulWidget {
   final double? drillExitMaxWidth;
   final VoidCallback? onDrillIntoLocation;
   final ValueChanged<WorldMapHorizontalPanState>? onHorizontalPanStateChanged;
+  final VoidCallback? onMapTap;
   final WorldPointTapCallback? onPointTap;
   final WorldMapMessageBubble? activeBubble;
   final List<WorldMapMessageBubble> messageBubbles;
@@ -375,6 +377,7 @@ class _WorldMapState extends State<WorldMap> {
                                           ),
                                         ],
                                       ),
+                                  onMapTap: widget.onMapTap,
                                   onScaleChanged: _handleMapZoomScaleChanged,
                                   onZoomControlChanged:
                                       _handleZoomControlChanged,
@@ -1442,6 +1445,7 @@ class _ZoomableMapContent extends StatefulWidget {
   const _ZoomableMapContent({
     required this.background,
     required this.overlayBuilder,
+    required this.onMapTap,
     required this.onScaleChanged,
     required this.onZoomControlChanged,
   });
@@ -1452,6 +1456,7 @@ class _ZoomableMapContent extends StatefulWidget {
 
   final Widget background;
   final _MapOverlayBuilder overlayBuilder;
+  final VoidCallback? onMapTap;
   final ValueChanged<double> onScaleChanged;
   final _ZoomControlChanged onZoomControlChanged;
 
@@ -1469,6 +1474,10 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   bool _interactionActive = false;
   Duration? _lastTapTime;
   Offset? _lastTapLocalPosition;
+  int? _mapTapPointer;
+  Offset? _mapTapStartPosition;
+  bool _mapTapStartedOnOverlay = false;
+  bool _mapTapMoved = false;
   Matrix4? _manualGestureStartMatrix;
   Offset? _manualGestureStartFocal;
   double? _manualGestureStartDistance;
@@ -1513,7 +1522,13 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _handlePointerDown(PointerDownEvent event) {
-    if (_activePointers.isEmpty) _handlePossibleDoubleTap(event);
+    if (_activePointers.isEmpty) {
+      _handlePossibleDoubleTap(event);
+      _mapTapPointer = event.pointer;
+      _mapTapStartPosition = event.localPosition;
+      _mapTapStartedOnOverlay = false;
+      _mapTapMoved = false;
+    }
     _activePointers.add(event.pointer);
     _activePointerPositions[event.pointer] = event.localPosition;
     if (_activePointers.length >= 2 || _isZoomed) {
@@ -1523,12 +1538,21 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _handleOverlayPointerDown(PointerDownEvent event) {
+    if (_mapTapPointer == event.pointer) {
+      _mapTapStartedOnOverlay = true;
+    }
     _overlayPointers.add(event.pointer);
     _startManualGestureIfNeeded();
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
     if (!_activePointers.contains(event.pointer)) return;
+    if (_mapTapPointer == event.pointer) {
+      final start = _mapTapStartPosition;
+      if (start != null && (event.localPosition - start).distance > 12) {
+        _mapTapMoved = true;
+      }
+    }
     _activePointerPositions[event.pointer] = event.localPosition;
 
     if (_activePointerPositions.length >= 2) {
@@ -1543,9 +1567,22 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _handlePointerEnd(PointerEvent event) {
+    if (event is PointerUpEvent &&
+        _mapTapPointer == event.pointer &&
+        !_mapTapStartedOnOverlay &&
+        !_mapTapMoved &&
+        _activePointers.length == 1) {
+      widget.onMapTap?.call();
+    }
     _activePointers.remove(event.pointer);
     _overlayPointers.remove(event.pointer);
     _activePointerPositions.remove(event.pointer);
+    if (_mapTapPointer == event.pointer) {
+      _mapTapPointer = null;
+      _mapTapStartPosition = null;
+      _mapTapStartedOnOverlay = false;
+      _mapTapMoved = false;
+    }
     if (_activePointers.length < 2) _clearManualScaleGesture();
     if (_activePointers.isEmpty) {
       _dispatchMapInteraction(false);

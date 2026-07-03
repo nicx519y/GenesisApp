@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 
@@ -109,6 +110,60 @@ void main() {
     expect(
       resolveLocationChatAiRoleNamesForTesting(state, ['loc-1', 'loc-alias']),
       ['Alice', 'Guide'],
+    );
+  });
+
+  test('message report target prefers global message id', () {
+    expect(
+      locationChatMessageReportTargetIdForTesting(
+        ChatMessageVm(
+          localId: 'local-fallback',
+          clientMsgId: 'client-fallback',
+          globalMessageId: 90001,
+          messageId: 1001,
+          locationMessageId: 101,
+          senderId: 'u_peer',
+          senderName: 'Peer',
+          text: 'hello',
+          isMe: false,
+          status: 'sent',
+        ),
+      ),
+      '90001',
+    );
+  });
+
+  test('message report target falls back when global message id is absent', () {
+    expect(
+      locationChatMessageReportTargetIdForTesting(
+        ChatMessageVm(
+          localId: 'local-fallback',
+          clientMsgId: 'client-fallback',
+          messageId: 1001,
+          locationMessageId: 101,
+          senderId: 'u_peer',
+          senderName: 'Peer',
+          text: 'hello',
+          isMe: false,
+          status: 'sent',
+        ),
+      ),
+      '1001',
+    );
+
+    expect(
+      locationChatMessageReportTargetIdForTesting(
+        ChatMessageVm(
+          localId: 'local-fallback',
+          clientMsgId: 'client-fallback',
+          senderId: 'u_peer',
+          senderName: 'Peer',
+          text: 'pending',
+          isMe: false,
+          status: 'sending',
+        ),
+      ),
+      'client-fallback',
     );
   });
 

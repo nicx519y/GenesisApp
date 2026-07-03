@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_dir="$(cd "$script_dir/../.." && pwd)"
+app_dir="$repo_dir/genesis_app"
+dashboard_dir="$repo_dir/tools/location_chat_debug_dashboard"
+env_file="${GENESIS_AGENT_CONTROL_ENV_FILE:-$app_dir/.agent-control.env}"
+
+dashboard_port="${GENESIS_DASHBOARD_PORT:-${PORT:-17318}}"
+skip_npm_install="${SKIP_NPM_INSTALL:-false}"
+skip_adb_forward="${SKIP_ADB_FORWARD:-false}"
+open_dashboard="${OPEN_DASHBOARD:-true}"
+adb_bin="${ADB:-adb}"
+dashboard_pid=""
+
+usage() {
+  cat <<'EOF'
+Usage:
+  tools/agent_cli/run-with-dashboard
+  tools/agent_cli/run-with-dashboard -d <device-id>
+  tools/agent_cli/run-with-dashboard --profile
+
+Starts the Flutter app with agent CLI + location-chat debug enabled, and starts
+the local location chat dashboard in the background.
+
+Environment:
+  GENESIS_DASHBOARD_PORT      Dashboard port. Default: 17318.
+  OPEN_DASHBOARD              Open dashboard in browser. Default: true.
+  SKIP_NPM_INSTALL            Skip dashboard npm install. Default: false.
+  SKIP_ADB_FORWARD            Skip adb forward. Default: false.
+  ADB                         adb binary path. Default: adb.
+EOF
+}
+
+cleanup() {
+  local status=$?
+  trap - EXIT
+  if [[ -n "$dashboard_pid" ]] && kill -0 "$dashboard_pid" >/dev/null 2>&1; then
+    echo "Stopping dashboard..."
+    kill "$dashboard_pid" >/dev/null 2>&1 || true
+    wait "$dashboard_pid" >/dev/null 2>&1 || true
+  fi
+  exit "$status"
+}
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ ! -d "$dashboard_dir" ]]; then
+  echo "Dashboard directory not found: $dashboard_dir" >&2
+  exit 1
+fi
+
+if [[ ! -f "$env_file" ]]; then
+  "$script_dir/ctl" init >/dev/null
+fi
+
+set -a
+# shellcheck disable=SC1090
+source "$env_file"
+set +a
+
+agent_host="${GENESIS_AGENT_CONTROL_HOST:-127.0.0.1}"
+agent_port="${GENESIS_AGENT_CONTROL_PORT:-17317}"
+agent_token="${GENESIS_AGENT_CONTROL_TOKEN:-}"
+
+if [[ -z "$agent_token" ]]; then
+  echo "Missing GENESIS_AGENT_CONTROL_TOKEN in $env_file" >&2
+  exit 1
+fi
+
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+(
+  cd "$dashboard_dir"
+
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "npm is required but was not found in PATH." >&2
+    exit 1
+  fi
+
+  if [[ "$skip_npm_install" != "true" ]]; then
+    echo "Installing dashboard dependencies..."
+    npm install
+  fi
+
+  if [[ "$skip_adb_forward" != "true" ]]; then
+    if ! command -v "$adb_bin" >/dev/null 2>&1; then
+      echo "adb is required but was not found in PATH." >&2
+      echo "Set SKIP_ADB_FORWARD=true to start without USB forwarding." >&2
+      exit 1
+    fi
+    echo "Forwarding Android agent_control port tcp:$agent_port -> tcp:$agent_port..."
+    "$adb_bin" forward "tcp:$agent_port" "tcp:$agent_port"
+  fi
+
+  echo "Starting dashboard at http://127.0.0.1:$dashboard_port/"
+  exec env \
+    PORT="$dashboard_port" \
+    AGENT_CONTROL_URL="http://$agent_host:$agent_port" \
+    GENESIS_AGENT_CONTROL_TOKEN="$agent_token" \
+    npm start
+) &
+dashboard_pid=$!
+
+sleep 1
+if ! kill -0 "$dashboard_pid" >/dev/null 2>&1; then
+  wait "$dashboard_pid"
+fi
+
+dashboard_url="http://127.0.0.1:$dashboard_port/"
+echo "Dashboard: $dashboard_url"
+echo "CLI: $script_dir/ctl app ping"
+
+if [[ "$open_dashboard" == "true" ]] && command -v open >/dev/null 2>&1; then
+  open "$dashboard_url" >/dev/null 2>&1 || true
+fi
+
+"$script_dir/run" \
+  --dart-define=GENESIS_LOCATION_CHAT_DEBUG=true \
+  "$@"

@@ -4,7 +4,8 @@
   "private": true,
   "description": "Local dashboard for Genesis location chat debug queues over adb-forwarded agent_control.",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "start:usb": "bash ./start-usb.sh"
   },
   "engines": {
     "node": ">=18"

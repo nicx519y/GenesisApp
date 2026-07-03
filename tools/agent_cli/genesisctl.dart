@@ -134,6 +134,10 @@ _Command _buildCommand(List<String> args) {
       return _worldLocationsCommand(tail);
     case 'agent world-chat':
       return _agentWorldChatCommand(tail);
+    case 'agent world-chat-open':
+      return _agentWorldChatOpenCommand(tail);
+    case 'agent world-chat-send':
+      return _agentWorldChatSendCommand(tail);
     case 'config endpoint':
       return _endpointCommand(tail);
     case 'cache clear':
@@ -208,6 +212,12 @@ _Command _agentWorldChatCommand(List<String> args) {
       case '--messages':
         params['count'] = int.parse(_requiredOptionValue(args, ++index, arg));
         break;
+      case '--location-count':
+      case '--locations':
+        params['locationCount'] = int.parse(
+          _requiredOptionValue(args, ++index, arg),
+        );
+        break;
       case '--reply-timeout-seconds':
         params['replyTimeoutSeconds'] = int.parse(
           _requiredOptionValue(args, ++index, arg),
@@ -221,6 +231,66 @@ _Command _agentWorldChatCommand(List<String> args) {
     }
   }
   return _Command('agent.world_chat', params);
+}
+
+_Command _agentWorldChatOpenCommand(List<String> args) {
+  final params = <String, Object?>{};
+  for (var index = 0; index < args.length; index += 1) {
+    final arg = args[index];
+    switch (arg) {
+      case '--wid':
+      case '--world-id':
+        params['wid'] = _requiredOptionValue(args, ++index, arg);
+        break;
+      case '--location-id':
+        params['locationId'] = _requiredOptionValue(args, ++index, arg);
+        break;
+      case '--context-limit':
+        params['contextLimit'] = int.parse(
+          _requiredOptionValue(args, ++index, arg),
+        );
+        break;
+      default:
+        throw FormatException('Unknown agent world-chat-open option: $arg');
+    }
+  }
+  return _Command('agent.world_chat.open', params);
+}
+
+_Command _agentWorldChatSendCommand(List<String> args) {
+  final params = <String, Object?>{};
+  for (var index = 0; index < args.length; index += 1) {
+    final arg = args[index];
+    switch (arg) {
+      case '--wid':
+      case '--world-id':
+        params['wid'] = _requiredOptionValue(args, ++index, arg);
+        break;
+      case '--location-id':
+        params['locationId'] = _requiredOptionValue(args, ++index, arg);
+        break;
+      case '--message':
+      case '--text':
+        params['message'] = _requiredOptionValue(args, ++index, arg);
+        break;
+      case '--reply-timeout-seconds':
+        params['replyTimeoutSeconds'] = int.parse(
+          _requiredOptionValue(args, ++index, arg),
+        );
+        break;
+      case '--context-limit':
+        params['contextLimit'] = int.parse(
+          _requiredOptionValue(args, ++index, arg),
+        );
+        break;
+      default:
+        throw FormatException('Unknown agent world-chat-send option: $arg');
+    }
+  }
+  if ((params['message']?.toString().trim() ?? '').isEmpty) {
+    throw const FormatException('--message is required.');
+  }
+  return _Command('agent.world_chat.send', params);
 }
 
 _Command _endpointCommand(List<String> args) {
@@ -271,6 +341,18 @@ _Command _cacheCommand(List<String> args) {
 _CliOptions _effectiveOptions(_CliOptions options, _Command command) {
   if (command.method == 'agent.world_chat' && options.timeoutMs == 10000) {
     return options.withTimeoutMs(30 * 60 * 1000);
+  }
+  if (command.method == 'agent.world_chat.open' && options.timeoutMs == 10000) {
+    return options.withTimeoutMs(60 * 1000);
+  }
+  if (command.method == 'agent.world_chat.send' && options.timeoutMs == 10000) {
+    final replyTimeoutSeconds = _intValue(
+      command.params['replyTimeoutSeconds'],
+    );
+    final timeoutSeconds = replyTimeoutSeconds <= 0
+        ? 5 * 60
+        : replyTimeoutSeconds + 60;
+    return options.withTimeoutMs(timeoutSeconds * 1000);
   }
   return options;
 }
@@ -410,18 +492,20 @@ String _requiredOptionValue(List<String> args, int index, String option) {
 void _printUsage() {
   stdout.writeln('''
 Usage:
-  dart run tool/genesisctl.dart [options] app ping
-  dart run tool/genesisctl.dart [options] app state
-  dart run tool/genesisctl.dart [options] app navigate /route [--arg key=value] [--replace] [--clear-stack]
-  dart run tool/genesisctl.dart [options] app back
-  dart run tool/genesisctl.dart [options] auth state
-  dart run tool/genesisctl.dart [options] auth clear
-  dart run tool/genesisctl.dart [options] world locations --wid <wid>
-  dart run tool/genesisctl.dart [options] agent world-chat [--wid <wid>] [--location-id <id>] [--count 100]
-  dart run tool/genesisctl.dart [options] config endpoint set --api dev.hushie.ai [--gateway dev.hushie.ai] [--chat-ws dev.hushie.ai]
-  dart run tool/genesisctl.dart [options] config endpoint clear
-  dart run tool/genesisctl.dart [options] cache clear [--target all|image|directMessage]
-  dart run tool/genesisctl.dart [options] diagnostics snapshot
+  dart tools/agent_cli/genesisctl.dart [options] app ping
+  dart tools/agent_cli/genesisctl.dart [options] app state
+  dart tools/agent_cli/genesisctl.dart [options] app navigate /route [--arg key=value] [--replace] [--clear-stack]
+  dart tools/agent_cli/genesisctl.dart [options] app back
+  dart tools/agent_cli/genesisctl.dart [options] auth state
+  dart tools/agent_cli/genesisctl.dart [options] auth clear
+  dart tools/agent_cli/genesisctl.dart [options] world locations --wid <wid>
+  dart tools/agent_cli/genesisctl.dart [options] agent world-chat [--wid <wid>] [--location-id <id>] [--count 100] [--location-count 3]
+  dart tools/agent_cli/genesisctl.dart [options] agent world-chat-open [--wid <wid>] [--location-id <id>] [--context-limit 40]
+  dart tools/agent_cli/genesisctl.dart [options] agent world-chat-send --wid <wid> --location-id <id> --message <text> [--reply-timeout-seconds 120]
+  dart tools/agent_cli/genesisctl.dart [options] config endpoint set --api dev.hushie.ai [--gateway dev.hushie.ai] [--chat-ws dev.hushie.ai]
+  dart tools/agent_cli/genesisctl.dart [options] config endpoint clear
+  dart tools/agent_cli/genesisctl.dart [options] cache clear [--target all|image|directMessage]
+  dart tools/agent_cli/genesisctl.dart [options] diagnostics snapshot
 
 Options:
   --host <host>          Default: 127.0.0.1

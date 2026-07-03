@@ -193,7 +193,7 @@ void main() {
   );
 
   test(
-    'join fetches current location history without warming every location',
+    'join fetches world latest history without per-location requests',
     () async {
       final socket = _FakeChatroomSocket();
       final http = _WorldChatroomHttpTransport()
@@ -238,10 +238,10 @@ void main() {
             false,
       );
 
-      expect(http.messagesRequestsByLocation['loc-1'], 1);
-      expect(http.messagesRequestsByLocation.containsKey('loc-2'), isFalse);
-      expect(http.messagesRequestsByLocation.containsKey('loc-root'), isFalse);
-      expect(historyStateLengths.where((length) => length > 0).toList(), [3]);
+      expect(http.worldMessagesRequests, 1);
+      expect(http.messagesRequestsByLocation, isEmpty);
+      expect(historyStateLengths.where((length) => length > 0), contains(3));
+      expect(historyStateLengths.where((length) => length > 0).last, 3);
       await stateSub.cancel();
       await service.dispose();
     },
@@ -1475,6 +1475,7 @@ class _WorldChatroomHttpTransport implements HttpTransport {
   String? userLocationId = 'loc-2';
   int detailRequests = 0;
   int userLocationRequests = 0;
+  int worldMessagesRequests = 0;
   int messagesRequests = 0;
   final Set<String> failedMessageLocationIds = <String>{};
   final Map<String, int> messagesRequestsByLocation = {};
@@ -1528,6 +1529,17 @@ class _WorldChatroomHttpTransport implements HttpTransport {
         'err_no': 0,
         'err_msg': 'succ',
         'data': {'world_id': 'world-1', 'locations': locations},
+      });
+    }
+    if (path.endsWith('/aitown-chat/internal/world/messages')) {
+      worldMessagesRequests += 1;
+      final locations = messagesByLocation.entries
+          .map((entry) => {'location_id': entry.key, 'messages': entry.value})
+          .toList(growable: false);
+      return _json({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {'locations': locations},
       });
     }
     if (path.endsWith('/aitown-chat/api/messages')) {

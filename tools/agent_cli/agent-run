@@ -2,15 +2,16 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-app_dir="$(cd "$script_dir/.." && pwd)"
+repo_dir="$(cd "$script_dir/../.." && pwd)"
+app_dir="$repo_dir/genesis_app"
 env_file="${GENESIS_AGENT_CONTROL_ENV_FILE:-$app_dir/.agent-control.env}"
 
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/run
-  scripts/run -d <device-id>
-  scripts/run --release
+  tools/agent_cli/run
+  tools/agent_cli/run -d <device-id>
+  tools/agent_cli/run --release
 
 This is a thin wrapper around flutter run. It automatically enables the
 Genesis agent CLI port and reuses .agent-control.env.

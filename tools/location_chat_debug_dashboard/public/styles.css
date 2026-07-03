@@ -49,12 +49,17 @@ body {
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 16px;
-  min-height: 70px;
-  padding: 12px 18px;
+  min-height: 64px;
+  padding: 10px 18px;
   background: #030604;
   border-bottom: 1px solid var(--line);
+}
+
+.brand-block {
+  flex: 0 0 auto;
+  min-width: 220px;
 }
 
 h1,
@@ -83,7 +88,7 @@ p {
 .actions {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 
@@ -95,6 +100,147 @@ p {
   min-height: 0;
   padding: 12px;
   overflow: hidden;
+}
+
+.control-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.agent-strip,
+.tools-strip {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 16px;
+  border-left: 1px solid var(--line);
+  background: transparent;
+}
+
+.agent-strip {
+  flex: 0 1 auto;
+  grid-template-columns: max-content max-content max-content max-content max-content;
+  grid-template-areas: "title count locations target buttons";
+}
+
+.tools-strip {
+  flex: 0 0 auto;
+  grid-template-columns: auto max-content;
+  min-width: max-content;
+}
+
+.tools-strip h2 {
+  white-space: nowrap;
+}
+
+.agent-title {
+  grid-area: title;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 20px;
+  min-width: 0;
+}
+
+.agent-status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  border: 1px solid rgba(120, 148, 131, 0.38);
+  border-radius: 999px;
+  padding: 0 8px;
+  background: rgba(120, 148, 131, 0.12);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+
+.agent-status-badge[data-status="running"],
+.agent-status-badge[data-status="starting"] {
+  border-color: rgba(57, 255, 136, 0.42);
+  background: rgba(57, 255, 136, 0.12);
+  color: var(--accent);
+}
+
+.agent-status-badge[data-status="completed"] {
+  border-color: rgba(56, 189, 248, 0.42);
+  background: rgba(56, 189, 248, 0.12);
+  color: #7dd3fc;
+}
+
+.agent-status-badge[data-status="cancelling"],
+.agent-status-badge[data-status="stopping"] {
+  border-color: rgba(215, 255, 95, 0.38);
+  background: rgba(215, 255, 95, 0.1);
+  color: var(--warn);
+}
+
+.agent-status-badge[data-status="failed"],
+.agent-status-badge[data-status="not_found"] {
+  border-color: rgba(248, 113, 113, 0.48);
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--bad);
+}
+
+.agent-field,
+.agent-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.agent-field {
+  flex-direction: row;
+  white-space: nowrap;
+}
+
+.agent-field:nth-of-type(1) {
+  grid-area: count;
+}
+
+.agent-field:nth-of-type(2) {
+  grid-area: locations;
+}
+
+.agent-field input {
+  width: 68px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 8px;
+  background: var(--code);
+  color: var(--text);
+  font: inherit;
+}
+
+.agent-check input {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+}
+
+.agent-check {
+  grid-area: target;
+  white-space: nowrap;
+}
+
+.agent-actions {
+  grid-area: buttons;
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
 }
 
 .info-strip {
@@ -827,8 +973,34 @@ pre {
     flex-direction: column;
   }
 
+  .brand-block {
+    min-width: 0;
+  }
+
   .actions {
     justify-content: flex-start;
+  }
+
+  .control-row {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .agent-strip {
+    flex-basis: 100%;
+    border-left: 0;
+    padding-left: 0;
+    grid-template-columns: max-content max-content;
+    grid-template-areas:
+      "title title"
+      "count locations"
+      "target buttons";
+  }
+
+  .tools-strip {
+    min-width: 0;
+    border-left: 0;
+    padding-left: 0;
   }
 
   .split-workspace {
@@ -855,6 +1027,25 @@ pre {
 }
 
 @media (max-width: 620px) {
+  .agent-strip {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "title"
+      "count"
+      "locations"
+      "target"
+      "buttons";
+  }
+
+  .tools-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-actions,
+  .actions {
+    justify-content: flex-start;
+  }
+
   .info-grid {
     display: grid;
     grid-template-columns: 1fr;

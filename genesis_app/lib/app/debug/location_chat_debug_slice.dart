@@ -168,6 +168,8 @@ class LocationChatDebugSlice {
     return <String, Object?>{
       'localId': message.localId,
       'clientMsgId': message.clientMsgId,
+      'globalMsgId': message.globalMessageId,
+      'global_message_id': message.globalMessageId,
       'messageId': message.messageId,
       'locationMsgId': message.locationMessageId,
       'location_msg_id': message.locationMessageId,

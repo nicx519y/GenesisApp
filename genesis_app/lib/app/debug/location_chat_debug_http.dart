@@ -32,7 +32,11 @@ class LocationChatDebugHttp {
     TransportRequest request,
     TransportResponse response,
   ) {
-    if (!_isMessagesRequest(request)) return;
+    if (_isWorldMessagesRequest(request)) {
+      _recordChatroomWorldMessagesResponse(request, response);
+      return;
+    }
+    if (!_isLocationMessagesRequest(request)) return;
     final decoded = _decodeJson(response.body);
     final responseJson = decoded is Map
         ? Map<String, Object?>.from(asJsonMap(decoded))
@@ -88,11 +92,17 @@ class LocationChatDebugHttp {
     TransportRequest request,
     Object error,
   ) {
-    if (!_isMessagesRequest(request)) return;
+    if (!_isLocationMessagesRequest(request) &&
+        !_isWorldMessagesRequest(request)) {
+      return;
+    }
     final query = request.uri.queryParameters;
+    final action = _isWorldMessagesRequest(request)
+        ? 'getWorldMessagesLatestFailed'
+        : 'getMessagesFailed';
     LocationChatDebugHub.record(
       source: 'http',
-      action: 'getMessagesFailed',
+      action: action,
       worldId: asString(query['world_id']),
       locationId: asString(query['location_id']),
       details: {
@@ -103,9 +113,67 @@ class LocationChatDebugHttp {
     );
   }
 
-  static bool _isMessagesRequest(TransportRequest request) {
+  static void _recordChatroomWorldMessagesResponse(
+    TransportRequest request,
+    TransportResponse response,
+  ) {
+    final decoded = _decodeJson(response.body);
+    final responseJson = decoded is Map
+        ? Map<String, Object?>.from(asJsonMap(decoded))
+        : const <String, Object?>{};
+    ChatroomWorldMessagesResponse? parsed;
+    try {
+      final data = handleV1ResponseErrNo(decoded);
+      parsed = ChatroomWorldMessagesResponse.fromJson(asJsonMap(data));
+    } catch (_) {
+      parsed = null;
+    }
+    final messages = parsed == null
+        ? const <Map<String, Object?>>[]
+        : parsed.locations
+              .expand((location) => location.messages)
+              .map(_debugHttpMessage)
+              .toList(growable: false);
+    final query = request.uri.queryParameters;
+    final worldId = asString(query['world_id']);
+    LocationChatDebugHub.record(
+      source: 'http',
+      action: 'getWorldMessagesLatest',
+      worldId: worldId,
+      locationId: '',
+      details: {
+        'endpoint': '${request.method} ${request.uri.path}',
+        'request': query,
+        'statusCode': response.statusCode,
+        'locations': parsed?.locations.length ?? 0,
+        'loaded': messages.length,
+        'response': responseJson,
+        'messages': messages,
+      },
+      snapshotKey: '$worldId|world|getWorldMessagesLatest',
+      snapshot: {
+        'endpoint': '${request.method} ${request.uri.path}',
+        'worldId': worldId,
+        'locationId': '',
+        'action': 'getWorldMessagesLatest',
+        'request': query,
+        'statusCode': response.statusCode,
+        'locations': parsed?.locations.length ?? 0,
+        'loaded': messages.length,
+        'response': responseJson,
+        'messages': messages,
+      },
+    );
+  }
+
+  static bool _isLocationMessagesRequest(TransportRequest request) {
     return request.method.toUpperCase() == 'GET' &&
         request.uri.path.endsWith('/aitown-chat/api/messages');
+  }
+
+  static bool _isWorldMessagesRequest(TransportRequest request) {
+    return request.method.toUpperCase() == 'GET' &&
+        request.uri.path.endsWith('/aitown-chat/internal/world/messages');
   }
 
   static Object? _decodeJson(String body) {

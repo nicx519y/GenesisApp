@@ -41,10 +41,36 @@ void main() {
     expect(details['authToken'], 'abcd...wxyz');
 
     final page = LocationChatDebugHub.eventsAfter(0);
-    expect(page['nextCursor'], 2);
+    expect(page['nextCursor'], 1);
+    expect(page['latestCursor'], 1);
     expect(page['events'], hasLength(1));
 
     final emptyPage = LocationChatDebugHub.eventsAfter(1);
     expect(emptyPage['events'], isEmpty);
+  });
+
+  test('retains all debug events and paginates without skipping cursors', () {
+    for (var index = 0; index < 1200; index += 1) {
+      LocationChatDebugHub.recordForTesting(
+        source: index.isEven ? 'http' : 'websocket',
+        action: 'event-$index',
+        details: {'index': index},
+      );
+    }
+
+    final snapshot = LocationChatDebugHub.snapshot();
+    expect(snapshot['events'], hasLength(1200));
+    expect(snapshot['nextCursor'], 1201);
+
+    final firstPage = LocationChatDebugHub.eventsAfter(0, limit: 100);
+    expect(firstPage['events'], hasLength(100));
+    expect(firstPage['nextCursor'], 100);
+    expect(firstPage['latestCursor'], 1200);
+
+    final secondPage = LocationChatDebugHub.eventsAfter(100, limit: 100);
+    final secondEvents = secondPage['events'] as List<Object?>;
+    expect(secondEvents, hasLength(100));
+    expect((secondEvents.first as Map<String, Object?>)['cursor'], 101);
+    expect(secondPage['nextCursor'], 200);
   });
 }
