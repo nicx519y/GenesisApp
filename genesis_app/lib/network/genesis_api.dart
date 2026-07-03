@@ -1715,6 +1715,9 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
     processedLocationTree: processLocationTree(locationTree),
     events: events,
     ticks: ticks,
+    metric: origin['metric'] is Map
+        ? asJsonMap(origin['metric'])
+        : const <String, dynamic>{},
   );
 }
 
