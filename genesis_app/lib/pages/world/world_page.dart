@@ -1392,6 +1392,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         mapImageUrl: rootMapImageUrl,
         dimmed: pointMode,
         showPointsList: pointMode,
+        initialZoomScale: pointMode ? 1 : 1.5,
         pointsListOuterScrollHandoff: false,
         overlayTop:
             topPadding +
