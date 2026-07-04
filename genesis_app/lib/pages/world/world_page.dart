@@ -11,6 +11,7 @@ import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
@@ -1478,6 +1479,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 },
               ),
             ),
+            if (_worldTickInProgress)
+              const Positioned.fill(child: GenesisGenerationWaitOverlay()),
           ],
         ),
       ),

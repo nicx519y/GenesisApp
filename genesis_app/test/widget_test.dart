@@ -176,6 +176,7 @@ Future<AppServices> _testServices({
     deviceIdService: deviceId,
     sessionStore: sessionStore,
     identityAuthService: resolvedIdentityAuth,
+    appHeaderProvider: () async => const <String, String>{},
   );
   final resolvedBackendAuth =
       backendAuth ??
@@ -421,6 +422,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldSummaryLatestItems,
     this.worldDetailTicksByRequest,
     this.worldDetailTickCountsByRequest,
+    this.worldInfoStatusesByRequest,
     this.chatroomMessagesByLocation,
     this.worldTickListCompleter,
     this.hotTagsCompleter,
@@ -449,10 +451,12 @@ class _RecordingV1ListTransport implements HttpTransport {
   final List<Map<String, Object?>>? worldSummaryLatestItems;
   final List<List<Map<String, Object?>>>? worldDetailTicksByRequest;
   final List<int>? worldDetailTickCountsByRequest;
+  final List<int>? worldInfoStatusesByRequest;
   final Map<String, List<Map<String, Object?>>>? chatroomMessagesByLocation;
   final Completer<TransportResponse>? worldTickListCompleter;
   final Completer<TransportResponse>? hotTagsCompleter;
   int _worldDetailRequestIndex = 0;
+  int _worldInfoRequestIndex = 0;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -505,6 +509,17 @@ class _RecordingV1ListTransport implements HttpTransport {
           request.uri.queryParameters['wid'] ??
           '';
       final detail = _worldDetail(wid);
+      final statusesByRequest = worldInfoStatusesByRequest;
+      if (statusesByRequest != null) {
+        final index = _worldInfoRequestIndex.clamp(
+          0,
+          statusesByRequest.length - 1,
+        );
+        final info = Map<String, Object?>.from(detail['info']! as Map);
+        info['status'] = statusesByRequest[index];
+        detail['info'] = info;
+      }
+      _worldInfoRequestIndex += 1;
       return _jsonResponse({
         'err_no': 0,
         'err_str': 'success',
@@ -4496,14 +4511,14 @@ void main() {
     );
     expect(
       find.text(
-        'Generate  a live and customized world for you.\n'
+        'Generating a live and customized world for you.\n'
         'Please wait for a moment.',
       ),
       findsOneWidget,
     );
     final waitBody = tester.widget<Text>(
       find.text(
-        'Generate  a live and customized world for you.\n'
+        'Generating a live and customized world for you.\n'
         'Please wait for a moment.',
       ),
     );
@@ -4530,6 +4545,7 @@ void main() {
     expect(await OriginLaunchPendingStore.load(), isNotNull);
     worldRequests = transport.requestsFor('/api/v1/world/detail');
     expect(worldRequests, hasLength(2));
+    OriginLaunchCoordinator.instance.resetForTesting();
   });
 
   testWidgets('Origin detail location opens launch-only chat panel', (
@@ -7701,20 +7717,16 @@ void main() {
     );
     expect(readyCreateButton.onPressed, isNotNull);
 
-    readyCreateButton.onPressed!();
+    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
     await tester.pump();
-    await tester.runAsync(() async {
-      for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/create').isNotEmpty) break;
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
-    });
-    await tester.runAsync(() async {
-      for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/info').isNotEmpty) break;
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
-    });
+    for (var i = 0; i < 300; i++) {
+      if (transport.requestsFor('/api/v1/origin/create').isNotEmpty) break;
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+    for (var i = 0; i < 300; i++) {
+      if (transport.requestsFor('/api/v1/origin/info').isNotEmpty) break;
+      await tester.pump(const Duration(milliseconds: 10));
+    }
     await tester.pump();
 
     final requests = transport.requestsFor('/api/v1/origin/create');
@@ -7747,21 +7759,45 @@ void main() {
     final pendingCreate = await OriginPendingSubmissionStore.loadCreating();
     expect(pendingCreate?.originId, 'o_created_1');
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
-    expect(find.widgetWithText(FilledButton, 'Creating...'), findsOneWidget);
-    final createButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Creating...'),
+    expect(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+      findsOneWidget,
     );
-    expect(createButton.onPressed, isNull);
+    final createWaitTitleFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is Text &&
+          (widget.data ?? '').startsWith('Creating your Worldo'),
+    );
+    expect(createWaitTitleFinder, findsOneWidget);
+    final initialCreateWaitTitle = tester
+        .widget<Text>(createWaitTitleFinder)
+        .data;
+    await tester.pump(const Duration(milliseconds: 400));
+    final animatedCreateWaitTitle = tester
+        .widget<Text>(createWaitTitleFinder)
+        .data;
+    expect(animatedCreateWaitTitle, isNot(initialCreateWaitTitle));
+    expect(
+      find.byKey(const ValueKey('create-worldo-wait-perspective-text')),
+      findsOneWidget,
+    );
+    expect(find.text('A public world view.'), findsOneWidget);
+    expect(find.text('Hidden rules.'), findsOneWidget);
+    expect(find.text('Ari: Guide. Calm'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader is SvgAssetLoader &&
+            (widget.bytesLoader as SvgAssetLoader).assetName ==
+                'assets/svg/worldo-logo.svg',
+      ),
+      findsOneWidget,
+    );
     expect(
       _richTextWithPlainText('Worldo #Origin o_created_1 created!'),
       findsNothing,
     );
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
-    await tester.pumpAndSettle();
-    expect(find.text('Open create'), findsOneWidget);
-    expect(find.text('Create Worldo'), findsNothing);
-    expect(find.text('Save the draft before leaving?'), findsNothing);
-
     await tester.pump(const Duration(seconds: 5));
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
@@ -7897,8 +7933,11 @@ void main() {
 
     expect(transport.requestsFor('/api/v1/origin/create'), isEmpty);
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
-    expect(find.textContaining('Crystal City'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Creating...'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Creating your Worldo'), findsOneWidget);
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
   });
 
@@ -8109,22 +8148,22 @@ void main() {
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
-    expect(find.widgetWithText(FilledButton, 'Publishing...'), findsOneWidget);
-    final publishButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Publishing...').last,
+    expect(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+      findsOneWidget,
     );
-    expect(publishButton.onPressed, isNull);
+    expect(find.textContaining('Publishing your Worldo'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('create-worldo-wait-perspective-text')),
+      findsOneWidget,
+    );
+    expect(find.text('Editable public view.'), findsOneWidget);
+    expect(find.text('Editable hidden rules.'), findsOneWidget);
+    expect(find.text('Mira: Archivist. Patient'), findsOneWidget);
     expect(
       _richTextWithPlainText('Worldo #Origin o_edit_1 published!'),
       findsNothing,
     );
-    await tester.tap(
-      find.byIcon(Icons.arrow_back_ios_new),
-      warnIfMissed: false,
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Publish changes before leaving?'), findsNothing);
-    expect(find.text('Open edit'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 5));
     await tester.runAsync(() async {
@@ -8258,7 +8297,11 @@ void main() {
 
     expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
-    expect(find.widgetWithText(FilledButton, 'Publishing...'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Publishing your Worldo'), findsOneWidget);
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
   });
 
@@ -10822,6 +10865,7 @@ void main() {
     final transport = _RecordingV1ListTransport(
       worldRelationStatus: 'owner',
       worldDetailTickCountsByRequest: const [26],
+      worldInfoStatusesByRequest: const [20, 10],
       worldTickListCompleter: tickListCompleter,
     );
     final services = await _testServices(transport: transport, useMock: false);
@@ -10883,9 +10927,14 @@ void main() {
     await tester.ensureVisible(progressButton);
     await tester.tap(progressButton);
     await tester.pump();
+    expect(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('AI is generating'), findsOneWidget);
     for (
       var attempt = 0;
-      attempt < 10 && transport.requestsFor('/api/v1/world/tick/list').isEmpty;
+      attempt < 70 && transport.requestsFor('/api/v1/world/tick/list').isEmpty;
       attempt += 1
     ) {
       await tester.runAsync(() async {
@@ -10953,6 +11002,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
+    expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
     expect(find.text('Completed tick event.'), findsOneWidget);
     expect(find.text('Completed tick paragraph.'), findsOneWidget);
     expect(

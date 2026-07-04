@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
+import '../../components/common/genesis_generation_wait_overlay.dart';
+import '../../components/genesis_logo.dart';
 import '../../components/page_header.dart';
 import '../../network/api_exception.dart';
 import '../create/create_origin_draft_store.dart';
 import '../origin_editor/origin_draft_repository.dart';
 import '../origin_editor/origin_editor_pages.dart';
+import '../origin_editor/origin_generation_wait_content.dart';
 import '../origin_editor/origin_pending_submission_coordinator.dart';
 import 'edit_basics_page.dart';
 import 'edit_characters_page.dart';
@@ -32,6 +35,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
   OriginDraftSubmitStatus _submitStatus = OriginDraftSubmitStatus.idle;
   int _reloadSignal = 0;
   late final VoidCallback _removePublishOutcomeListener;
+  List<String> _generationWaitLines = const <String>[];
 
   @override
   void initState() {
@@ -69,10 +73,10 @@ class _EditOriginPageState extends State<EditOriginPage> {
       final api = AppServicesScope.read(context).api;
       final detail = await api.v1.origin.forEdit(originId: originId);
       if (!mounted) return;
+      final initialDraft = originDraftFromV1Detail(detail);
       setState(() {
-        _repository = MemoryOriginDraftRepository(
-          initialDraft: originDraftFromV1Detail(detail),
-        );
+        _repository = MemoryOriginDraftRepository(initialDraft: initialDraft);
+        _generationWaitLines = originDraftGenerationWaitLines(initialDraft);
         _updateNotesController.clear();
         _submitStatus = OriginDraftSubmitStatus.idle;
         _isLoading = false;
@@ -132,7 +136,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
       );
     }
 
-    return OriginDraftFlowPage(
+    final flow = OriginDraftFlowPage(
       key: ValueKey('edit-origin-${widget.originId}'),
       title: 'Edit Worldo',
       repository: repository,
@@ -156,6 +160,21 @@ class _EditOriginPageState extends State<EditOriginPage> {
       reloadSignal: _reloadSignal,
       onSubmit: _onSave,
     );
+    if (_submitStatus == OriginDraftSubmitStatus.idle) return flow;
+    return Stack(
+      children: [
+        flow,
+        Positioned.fill(
+          child: GenesisGenerationWaitOverlay(
+            title: 'Publishing your Worldo',
+            illustration: const Center(
+              child: GenesisLogo(height: 88, width: 152),
+            ),
+            perspectiveLines: _generationWaitLines,
+          ),
+        ),
+      ],
+    );
   }
 
   Future<OriginSubmitResult> _onSave(
@@ -165,6 +184,11 @@ class _EditOriginPageState extends State<EditOriginPage> {
   ) async {
     final originId = draft.basics.originId.trim();
     final api = AppServicesScope.read(context).api;
+    if (mounted) {
+      setState(
+        () => _generationWaitLines = originDraftGenerationWaitLines(draft),
+      );
+    }
     final payload = draft.toCreateOriginPayload();
     if (repository is MemoryOriginDraftRepository) {
       payload['deleted_char_ids'] = repository.deletedCharacterIds(draft);
