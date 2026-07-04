@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
+import '../../app/bootstrap/app_bootstrap.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/bootstrap/service_registry.dart';
+import '../../app/startup/app_startup_coordinator.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
 import '../../components/discuss/origin_discuss_preview_list.dart';
@@ -15,6 +17,7 @@ import '../../components/origin/origin_item_card.dart';
 import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
 import '../../network/json_utils.dart';
+import '../../platform/privacy/app_tracking_transparency_service.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/secend_tabs.dart';
@@ -25,8 +28,25 @@ void _ignoreHomeFeedCacheWrite(Future<void> write) {
   unawaited(write.catchError((_) {}));
 }
 
+typedef TrackingAuthorizationRequester =
+    Future<AppTrackingAuthorizationStatus> Function();
+
+Future<void> _waitHomeInitialRequestMetricWindow(Duration delay) async {
+  if (delay <= Duration.zero) return;
+  await Future<void>.delayed(delay);
+}
+
 class HomePage extends StatefulWidget {
-  const HomePage({super.key, this.initialTabIndex, this.activationListenable});
+  const HomePage({
+    super.key,
+    this.initialTabIndex,
+    this.activationListenable,
+    this.startupPlatform,
+    this.primeNetworkPermission = AppBootstrap.primeNetworkPermission,
+    this.requestTrackingAuthorization =
+        AppTrackingTransparencyService.requestAuthorization,
+    this.initialRequestMetricWindow = const Duration(milliseconds: 200),
+  });
 
   static const List<String> tabs = ['My Worlds', 'Popular'];
   static const int myWorldsTabIndex = 0;
@@ -34,6 +54,10 @@ class HomePage extends StatefulWidget {
 
   final int? initialTabIndex;
   final ValueListenable<int>? activationListenable;
+  final TargetPlatform? startupPlatform;
+  final Future<bool> Function(AppServices services) primeNetworkPermission;
+  final TrackingAuthorizationRequester requestTrackingAuthorization;
+  final Duration initialRequestMetricWindow;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -44,11 +68,17 @@ class _HomePageState extends State<HomePage> {
 
   int? _initialTabIndex;
   Future<int>? _initialTabIndexFuture;
+  var _startupGateStarted = false;
+  var _startupGateReady = false;
+  var _startupGateFailed = false;
 
   @override
   void initState() {
     super.initState();
     _resolveInitialTabIndex();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startStartupGateIfNeeded();
+    });
   }
 
   @override
@@ -75,6 +105,60 @@ class _HomePageState extends State<HomePage> {
     }
     _initialTabIndex = null;
     _initialTabIndexFuture = _initialTabIndexFromSession();
+  }
+
+  bool get _requiresStartupGate {
+    return (widget.startupPlatform ?? defaultTargetPlatform) ==
+        TargetPlatform.iOS;
+  }
+
+  void _startStartupGateIfNeeded() {
+    if (!mounted || _startupGateStarted) return;
+    _startupGateStarted = true;
+    if (!_requiresStartupGate) {
+      _startupGateReady = true;
+      return;
+    }
+    unawaited(_runIosStartupGate());
+  }
+
+  Future<void> _runIosStartupGate() async {
+    setState(() {
+      _startupGateFailed = false;
+    });
+    final services = AppServicesScope.read(context);
+    final allowed = await widget.primeNetworkPermission(services);
+    if (!mounted) return;
+    if (!allowed) {
+      setState(() {
+        _startupGateReady = false;
+        _startupGateFailed = true;
+      });
+      return;
+    }
+    setState(() {
+      _startupGateReady = true;
+      _startupGateFailed = false;
+    });
+    unawaited(_requestTrackingAndInitializeTelemetry(services));
+  }
+
+  Future<void> _requestTrackingAndInitializeTelemetry(
+    AppServices services,
+  ) async {
+    final trackingAuthorizationStatus = await widget
+        .requestTrackingAuthorization();
+    await AppStartupCoordinator.initializeTelemetry(
+      services: services,
+      trackingAuthorizationStatus: trackingAuthorizationStatus,
+    );
+  }
+
+  void _retryStartupGate() {
+    if (!_requiresStartupGate) return;
+    _startupGateStarted = false;
+    _startupGateFailed = false;
+    _startStartupGateIfNeeded();
   }
 
   Future<int> _initialTabIndexFromSession() async {
@@ -104,11 +188,18 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_requiresStartupGate && !_startupGateReady) {
+      return _HomeStartupGateView(
+        failed: _startupGateFailed,
+        onRetry: _retryStartupGate,
+      );
+    }
     final initialTabIndex = _initialTabIndex;
     if (initialTabIndex != null) {
       return _HomeTabScaffold(
         initialIndex: initialTabIndex,
         activationListenable: widget.activationListenable,
+        initialRequestMetricWindow: widget.initialRequestMetricWindow,
       );
     }
 
@@ -129,6 +220,7 @@ class _HomePageState extends State<HomePage> {
         return _HomeTabScaffold(
           initialIndex: initialIndex,
           activationListenable: widget.activationListenable,
+          initialRequestMetricWindow: widget.initialRequestMetricWindow,
         );
       },
     );
@@ -139,10 +231,12 @@ class _HomeTabScaffold extends StatelessWidget {
   const _HomeTabScaffold({
     required this.initialIndex,
     required this.activationListenable,
+    required this.initialRequestMetricWindow,
   });
 
   final int initialIndex;
   final ValueListenable<int>? activationListenable;
+  final Duration initialRequestMetricWindow;
 
   @override
   Widget build(BuildContext context) {
@@ -156,7 +250,10 @@ class _HomeTabScaffold extends StatelessWidget {
           const SizedBox(height: 4),
           const _HomeTabs(),
           Expanded(
-            child: _HomeTabView(activationListenable: activationListenable),
+            child: _HomeTabView(
+              activationListenable: activationListenable,
+              initialRequestMetricWindow: initialRequestMetricWindow,
+            ),
           ),
         ],
       ),
@@ -178,18 +275,27 @@ class _HomeTabs extends StatelessWidget {
 }
 
 class _HomeTabView extends StatelessWidget {
-  const _HomeTabView({this.activationListenable});
+  const _HomeTabView({
+    this.activationListenable,
+    required this.initialRequestMetricWindow,
+  });
 
   final ValueListenable<int>? activationListenable;
+  final Duration initialRequestMetricWindow;
 
   @override
   Widget build(BuildContext context) {
     return TabBarView(
       children: [
-        _MyWorldFeed(index: 0, activationListenable: activationListenable),
+        _MyWorldFeed(
+          index: 0,
+          activationListenable: activationListenable,
+          initialRequestMetricWindow: initialRequestMetricWindow,
+        ),
         _PopularOriginFeed(
           index: 1,
           activationListenable: activationListenable,
+          initialRequestMetricWindow: initialRequestMetricWindow,
         ),
       ],
     );
@@ -230,10 +336,43 @@ class _HomeHeader extends StatelessWidget {
   }
 }
 
+class _HomeStartupGateView extends StatelessWidget {
+  const _HomeStartupGateView({required this.failed, required this.onRetry});
+
+  final bool failed;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        const _HomeHeader(),
+        const SizedBox(height: 4),
+        if (failed)
+          Expanded(
+            child: Center(
+              child: FilledButton(
+                onPressed: onRetry,
+                child: const Text('Retry'),
+              ),
+            ),
+          )
+        else
+          const Expanded(child: GenesisListLoadingSkeleton.popularOriginList()),
+      ],
+    );
+  }
+}
+
 class _MyWorldFeed extends StatefulWidget {
-  const _MyWorldFeed({required this.index, this.activationListenable});
+  const _MyWorldFeed({
+    required this.index,
+    required this.initialRequestMetricWindow,
+    this.activationListenable,
+  });
 
   final int index;
+  final Duration initialRequestMetricWindow;
   final ValueListenable<int>? activationListenable;
 
   @override
@@ -391,7 +530,13 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isInitialLoading = true;
       });
     }
-    unawaited(_refreshItems(force: true));
+    if (await _hasLocalLoginSession()) {
+      await _waitHomeInitialRequestMetricWindow(
+        widget.initialRequestMetricWindow,
+      );
+      if (!mounted) return;
+    }
+    await _refreshItems(force: true);
   }
 
   Future<HomeFeedCacheStore?> _cacheStoreForActiveSession() async {
@@ -473,7 +618,8 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   Future<void> _refreshItems({bool force = false}) async {
     if ((!force && _isInitialLoading) || _isRefreshing) return;
-    if (!await _hasLocalLoginSession()) {
+    final hasSession = await _hasLocalLoginSession();
+    if (!hasSession) {
       if (!mounted) return;
       setState(() {
         _items.clear();
@@ -726,9 +872,14 @@ class _WorldListPage {
 }
 
 class _PopularOriginFeed extends StatefulWidget {
-  const _PopularOriginFeed({required this.index, this.activationListenable});
+  const _PopularOriginFeed({
+    required this.index,
+    required this.initialRequestMetricWindow,
+    this.activationListenable,
+  });
 
   final int index;
+  final Duration initialRequestMetricWindow;
   final ValueListenable<int>? activationListenable;
 
   @override
@@ -881,7 +1032,11 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
         _isInitialLoading = true;
       });
     }
-    unawaited(_refreshItems(force: true));
+    await _waitHomeInitialRequestMetricWindow(
+      widget.initialRequestMetricWindow,
+    );
+    if (!mounted) return;
+    await _refreshItems(force: true);
   }
 
   Future<HomeFeedCacheStore> _cacheStoreForCurrentOwner() async {

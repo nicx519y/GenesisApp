@@ -30,6 +30,11 @@ typedef DiscussImageResultPicker =
     Future<GenesisImagePickResult> Function(int limit);
 typedef DiscussImageUploader =
     Future<String> Function(DiscussPickedImage image);
+typedef DiscussImageProgressUploader =
+    Future<String> Function(
+      DiscussPickedImage image, {
+      void Function(int sentBytes, int totalBytes)? onSendProgress,
+    });
 typedef DiscussImageProcessorForTesting =
     Future<Map<String, Object>> Function(Map<String, Object> request);
 
@@ -49,7 +54,7 @@ const Duration _discussUploadProgressTick = Duration(milliseconds: 270);
 const int _discussCompressionProgressBytesPerSecond = 2 * 1024 * 1024;
 const int _discussUploadProgressBytesPerSecond = 50 * 1024;
 const double _discussCompressionProgress = 0.10;
-const double _discussUploadProgressCap = 0.92;
+const double _discussEstimatedUploadProgressCap = 0.98;
 const int _discussUploadMaxWidth = 800;
 const Duration _discussCompressionProgressMinDuration = Duration(
   milliseconds: 450,
@@ -93,6 +98,7 @@ Future<bool> showDiscussPostComposer({
   required DiscussComposerSubmitter submitter,
   DiscussImagePicker? imagePicker,
   DiscussImageUploader? imageUploader,
+  DiscussImageProgressUploader? imageProgressUploader,
   bool requireLogin = true,
 }) async {
   if (requireLogin && !await ensureGenesisLogin(context)) return false;
@@ -128,6 +134,26 @@ Future<bool> showDiscussPostComposer({
               }
               return url;
             },
+        uploadImageWithProgress:
+            imageProgressUploader ??
+            (imageUploader == null
+                ? (image, {onSendProgress}) async {
+                    final api = AppServicesScope.read(sheetContext).api;
+                    final uploaded = await api.v1.upload.image(
+                      bytes: image.bytes,
+                      filename: image.filename,
+                      contentType: image.contentType,
+                      onSendProgress: onSendProgress,
+                    );
+                    final url = GenesisImageResourceRegistry.resolve(
+                      uploaded,
+                    ).displayUrl;
+                    if (url.isEmpty) {
+                      throw StateError('Upload returned an empty URL');
+                    }
+                    return url;
+                  }
+                : null),
         onSubmit: (content, images) async {
           await submitter(content, images);
         },
@@ -150,6 +176,9 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
       placeholder: widget.placeholder,
       imagePicker: widget.imagePicker,
       imageUploader: widget.imageUploader ?? _uploadImage,
+      imageProgressUploader: widget.imageUploader == null
+          ? _uploadImageWithProgress
+          : null,
       submitter: _submit,
       requireLogin: widget.requireLogin,
     );
@@ -180,6 +209,22 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
       bytes: image.bytes,
       filename: image.filename,
       contentType: image.contentType,
+    );
+    final url = GenesisImageResourceRegistry.resolve(uploaded).displayUrl;
+    if (url.isEmpty) throw StateError('Upload returned an empty URL');
+    return url;
+  }
+
+  Future<String> _uploadImageWithProgress(
+    DiscussPickedImage image, {
+    void Function(int sentBytes, int totalBytes)? onSendProgress,
+  }) async {
+    final api = AppServicesScope.read(context).api;
+    final uploaded = await api.v1.upload.image(
+      bytes: image.bytes,
+      filename: image.filename,
+      contentType: image.contentType,
+      onSendProgress: onSendProgress,
     );
     final url = GenesisImageResourceRegistry.resolve(uploaded).displayUrl;
     if (url.isEmpty) throw StateError('Upload returned an empty URL');
@@ -223,6 +268,7 @@ class _DiscussComposerSheet extends StatefulWidget {
     required this.pickImages,
     this.pickImageResult,
     required this.uploadImage,
+    this.uploadImageWithProgress,
     required this.onSubmit,
   });
 
@@ -231,6 +277,7 @@ class _DiscussComposerSheet extends StatefulWidget {
   final DiscussImagePicker pickImages;
   final DiscussImageResultPicker? pickImageResult;
   final DiscussImageUploader uploadImage;
+  final DiscussImageProgressUploader? uploadImageWithProgress;
   final Future<void> Function(String content, List<String> images) onSubmit;
 
   @override
@@ -457,22 +504,41 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
       final uploadBytes = uploadImage['bytes']! as Uint8List;
       final uploadFilename = uploadImage['filename']! as String;
       final uploadContentType = uploadImage['content_type']! as String;
-      _startAttachmentUploadProgressTimer(
-        attachment,
-        byteCount: uploadBytes.length,
+      final pickedImage = DiscussPickedImage(
+        bytes: uploadBytes,
+        filename: uploadFilename,
+        contentType: uploadContentType,
       );
-      final url = await widget.uploadImage(
-        DiscussPickedImage(
-          bytes: uploadBytes,
-          filename: uploadFilename,
-          contentType: uploadContentType,
-        ),
-      );
+      final progressUploader = widget.uploadImageWithProgress;
+      final String url;
+      if (progressUploader == null) {
+        _startAttachmentUploadProgressTimer(
+          attachment,
+          byteCount: uploadBytes.length,
+        );
+        url = await widget.uploadImage(pickedImage);
+      } else {
+        url = await progressUploader(
+          pickedImage,
+          onSendProgress: (sentBytes, totalBytes) {
+            if (!mounted || !_images.contains(attachment)) return;
+            final isProcessing = totalBytes > 0 && sentBytes >= totalBytes;
+            setState(() {
+              attachment.processing = isProcessing;
+              attachment.progress = _actualDiscussUploadProgress(
+                sentBytes: sentBytes,
+                totalBytes: totalBytes,
+              );
+            });
+          },
+        );
+      }
       if (!mounted || !_images.contains(attachment)) return;
       attachment.progressTimer?.cancel();
       setState(() {
         attachment.progress = 1;
         attachment.url = url;
+        attachment.processing = false;
         attachment.uploading = false;
       });
     } catch (_) {
@@ -480,6 +546,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
       attachment.progressTimer?.cancel();
       setState(() {
         attachment.failed = true;
+        attachment.processing = false;
         attachment.uploading = false;
       });
       showGenesisToast(context, 'Image upload failed');
@@ -540,13 +607,25 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
     final estimatedBytes = byteCount <= 0 ? 1 : byteCount;
     final estimatedDurationMs =
         estimatedBytes / _discussUploadProgressBytesPerSecond * 1000;
-    if (estimatedDurationMs <= 0) return _discussUploadProgressCap;
+    if (estimatedDurationMs <= 0) return _discussEstimatedUploadProgressCap;
     final uploadProgress =
         elapsed.inMilliseconds /
         estimatedDurationMs *
-        (_discussUploadProgressCap - _discussCompressionProgress);
+        (_discussEstimatedUploadProgressCap - _discussCompressionProgress);
     return (_discussCompressionProgress + uploadProgress)
-        .clamp(_discussCompressionProgress, _discussUploadProgressCap)
+        .clamp(_discussCompressionProgress, _discussEstimatedUploadProgressCap)
+        .toDouble();
+  }
+
+  double _actualDiscussUploadProgress({
+    required int sentBytes,
+    required int totalBytes,
+  }) {
+    final total = totalBytes <= 0 ? 1 : totalBytes;
+    final raw = (sentBytes / total).clamp(0.0, 1.0).toDouble();
+    return (_discussCompressionProgress +
+            raw * (1 - _discussCompressionProgress))
+        .clamp(_discussCompressionProgress, 1.0)
         .toDouble();
   }
 
@@ -781,6 +860,7 @@ class _DiscussImageAttachment {
   String? url;
   double progress = 0;
   bool uploading = true;
+  bool processing = false;
   bool failed = false;
 }
 
@@ -949,6 +1029,7 @@ class _DiscussImageTile extends StatelessWidget {
                     if (attachment.uploading)
                       GenesisUploadProgressOverlay(
                         progress: attachment.progress,
+                        processing: attachment.processing,
                       ),
                     if (attachment.failed)
                       ColoredBox(

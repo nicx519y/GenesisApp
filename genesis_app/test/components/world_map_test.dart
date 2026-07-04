@@ -19,6 +19,34 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
   });
 
+  test('initial zoom focus uses location with the most avatars', () {
+    final focus = worldMapInitialZoomFocusForTesting([
+      const WorldPoint(
+        id: 'empty',
+        name: 'Empty',
+        type: WorldPointType.castle,
+        position: Offset(0.1, 0.2),
+        users: <UserAvatar>[],
+      ),
+      const WorldPoint(
+        id: 'one',
+        name: 'One',
+        type: WorldPointType.castle,
+        position: Offset(0.3, 0.4),
+        users: <UserAvatar>[UserAvatar('A')],
+      ),
+      const WorldPoint(
+        id: 'three',
+        name: 'Three',
+        type: WorldPointType.castle,
+        position: Offset(0.7, 0.8),
+        users: <UserAvatar>[UserAvatar('A'), UserAvatar('B'), UserAvatar('C')],
+      ),
+    ]);
+
+    expect(focus, const Offset(0.7, 0.8));
+  });
+
   test('mock world data includes dense map points and default map asset', () {
     expect(kMockV1Locations.length, greaterThanOrEqualTo(9));
 

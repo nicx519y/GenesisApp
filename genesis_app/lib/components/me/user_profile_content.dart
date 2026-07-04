@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
+import '../../components/auth/login_guard.dart';
 import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../icons/custom_icon_assets.dart';
@@ -244,7 +247,7 @@ class _UserProfileContentState extends State<UserProfileContent>
                 isFollowed: isFollowed,
                 followLoading: _followLoading,
                 onFollowToggle: () => _toggleFollow(isFollowed),
-                onMessage: _openMessages,
+                onMessage: () => unawaited(_openMessages()),
               ),
             ),
           ],
@@ -285,6 +288,8 @@ class _UserProfileContentState extends State<UserProfileContent>
     if (_followLoading) return;
     final uid = widget.data.uid.trim();
     if (uid.isEmpty) return;
+    if (!await ensureGenesisLogin(context)) return;
+    if (!mounted) return;
 
     setState(() => _followLoading = true);
     try {
@@ -311,7 +316,9 @@ class _UserProfileContentState extends State<UserProfileContent>
     }
   }
 
-  void _openMessages() {
+  Future<void> _openMessages() async {
+    if (!await ensureGenesisLogin(context)) return;
+    if (!mounted) return;
     Navigator.of(context).pushNamed(
       RouteNames.chat,
       arguments: {

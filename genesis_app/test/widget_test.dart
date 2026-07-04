@@ -83,6 +83,7 @@ import 'package:genesis_flutter_android/platform/auth/identity_auth_service.dart
 import 'package:genesis_flutter_android/platform/app/external_url_opener.dart';
 import 'package:genesis_flutter_android/platform/channels/genesis_method_channels.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
+import 'package:genesis_flutter_android/platform/privacy/app_tracking_transparency_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
@@ -3601,7 +3602,11 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: AppServicesScope(
-          services: await _testServices(transport: transport, useMock: false),
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
           child: const AppShellPage(initialIndex: 1),
         ),
       ),
@@ -3754,12 +3759,28 @@ void main() {
               useMock: false,
               initialAuthToken: 'backend-token',
             ),
-            child: const HomePage(),
+            child: const HomePage(
+              startupPlatform: TargetPlatform.android,
+              initialTabIndex: HomePage.myWorldsTabIndex,
+              initialRequestMetricWindow: Duration.zero,
+            ),
           ),
         ),
       );
-      await tester.pumpAndSettle();
-
+      for (
+        var i = 0;
+        i < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      for (
+        var i = 0;
+        i < 20 && find.text('World tick narrator 1').evaluate().isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
       var worldRequests = transport.requestsFor('/api/v1/world/list');
       expect(worldRequests, hasLength(1));
       expect(
@@ -3777,7 +3798,20 @@ void main() {
       expect(find.text('Legacy world progress summary 1'), findsNothing);
 
       await tester.tap(find.text('Popular'));
-      await tester.pumpAndSettle();
+      for (
+        var i = 0;
+        i < 20 && transport.requestsFor('/api/v1/origin/list').isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      for (
+        var i = 0;
+        i < 20 && find.text('#Origin 1').evaluate().isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
 
       final originRequests = transport.requestsFor('/api/v1/origin/list');
       expect(originRequests, hasLength(1));
@@ -3808,18 +3842,117 @@ void main() {
             useMock: false,
             initialUid: null,
           ),
-          child: const HomePage(),
+          child: const HomePage(
+            startupPlatform: TargetPlatform.android,
+            initialRequestMetricWindow: Duration.zero,
+          ),
         ),
       ),
     );
-    await tester.pumpAndSettle();
-
+    for (
+      var i = 0;
+      i < 20 && transport.requestsFor('/api/v1/origin/list').isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    for (
+      var i = 0;
+      i < 20 && find.text('#Origin 1').evaluate().isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
     final originRequests = transport.requestsFor('/api/v1/origin/list');
     expect(originRequests, hasLength(1));
     expect(originRequests.single.uri.queryParameters['pn'], '1');
     expect(originRequests.single.uri.queryParameters['rn'], '10');
     expect(find.text('#Origin 1'), findsWidgets);
+  });
+
+  testWidgets(
+    'Home iOS startup gate keeps skeleton until network prime succeeds',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport();
+      final networkPrime = Completer<bool>();
+      var trackingRequested = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'backend-token',
+            ),
+            child: HomePage(
+              startupPlatform: TargetPlatform.iOS,
+              initialTabIndex: HomePage.myWorldsTabIndex,
+              initialRequestMetricWindow: Duration.zero,
+              primeNetworkPermission: (_) => networkPrime.future,
+              requestTrackingAuthorization: () async {
+                trackingRequested = true;
+                return AppTrackingAuthorizationStatus.denied;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
+        ),
+        findsOneWidget,
+      );
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+      expect(trackingRequested, isFalse);
+
+      networkPrime.complete(true);
+      for (var i = 0; i < 10 && !trackingRequested; i += 1) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(trackingRequested, isTrue);
+      expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
+    },
+  );
+
+  testWidgets('Home iOS startup gate shows retry when network prime fails', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: HomePage(
+            startupPlatform: TargetPlatform.iOS,
+            initialRequestMetricWindow: Duration.zero,
+            primeNetworkPermission: (_) async => false,
+            requestTrackingAuthorization: () async =>
+                AppTrackingAuthorizationStatus.denied,
+          ),
+        ),
+      ),
+    );
+    for (
+      var i = 0;
+      i < 10 && find.widgetWithText(FilledButton, 'Retry').evaluate().isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(find.widgetWithText(FilledButton, 'Retry'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
   });
 
   testWidgets('Home My Worlds signed-out initial frame shows empty state', (
@@ -7687,7 +7820,12 @@ void main() {
 
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          backendAuthenticated: true,
+          initialAuthToken: 'backend-token',
+          transport: transport,
+          useMock: false,
+        ),
         child: MaterialApp(
           navigatorKey: genesisNavigatorKey,
           home: Builder(
@@ -7985,7 +8123,12 @@ void main() {
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          backendAuthenticated: true,
+          initialAuthToken: 'backend-token',
+          transport: transport,
+          useMock: false,
+        ),
         child: MaterialApp(
           navigatorKey: genesisNavigatorKey,
           home: Builder(
@@ -8764,9 +8907,17 @@ void main() {
     );
   });
 
-  testWidgets('developer page switches endpoint environment inputs', (
+  testWidgets('developer page switches endpoint environment display', (
     WidgetTester tester,
   ) async {
+    await AppEndpointOverrideStore.save(
+      const AppEndpointOverrides(
+        apiBaseUrl: 'https://dev.hushie.ai/api/',
+        gatewayApiBaseUrl: 'https://dev.hushie.ai/apix/',
+        chatroomHttpBaseUrl: 'https://dev.hushie.ai/',
+        chatroomWsBaseUrl: 'wss://dev.hushie.ai/aitown-chat/ws',
+      ),
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: AppServicesScope(
@@ -8785,38 +8936,67 @@ void main() {
     );
 
     await tester.tap(find.text('切换到正式环境'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    String fieldValue(String key) {
-      return tester
-              .widget<TextField>(
-                find.descendant(
-                  of: find.byKey(ValueKey<String>(key)),
-                  matching: find.byType(TextField),
-                ),
-              )
-              .controller
-              ?.text ??
-          '';
+    String endpointText(String key) {
+      final texts = tester.widgetList<Text>(
+        find.descendant(
+          of: find.byKey(ValueKey<String>(key)),
+          matching: find.byType(Text),
+        ),
+      );
+      return texts
+          .map((text) => text.data ?? text.textSpan?.toPlainText() ?? '')
+          .firstWhere(
+            (text) => text.startsWith('https://') || text.startsWith('wss://'),
+          );
     }
 
-    expect(fieldValue('developer-api-base-url-field'), 'api.worldo.ai');
-    expect(fieldValue('developer-gateway-api-base-url-field'), 'api.worldo.ai');
-    expect(fieldValue('developer-chatroom-ws-base-url-field'), 'api.worldo.ai');
+    expect(
+      endpointText('developer-api-base-url-field'),
+      'https://api.worldo.ai',
+    );
+    expect(
+      endpointText('developer-gateway-api-base-url-field'),
+      'https://api.worldo.ai',
+    );
+    expect(
+      endpointText('developer-chatroom-ws-base-url-field'),
+      'wss://api.worldo.ai',
+    );
     expect(find.text('切换到测试环境'), findsOneWidget);
 
     await tester.tap(find.text('切换到测试环境'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(fieldValue('developer-api-base-url-field'), 'dev.hushie.ai');
-    expect(fieldValue('developer-gateway-api-base-url-field'), 'dev.hushie.ai');
-    expect(fieldValue('developer-chatroom-ws-base-url-field'), 'dev.hushie.ai');
+    expect(
+      endpointText('developer-api-base-url-field'),
+      'https://dev.hushie.ai',
+    );
+    expect(
+      endpointText('developer-gateway-api-base-url-field'),
+      'https://dev.hushie.ai',
+    );
+    expect(
+      endpointText('developer-chatroom-ws-base-url-field'),
+      'wss://dev.hushie.ai',
+    );
     expect(find.text('切换到正式环境'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    await AppEndpointOverrideStore.clear();
   });
 
-  testWidgets('developer page saves and clears endpoint overrides', (
+  testWidgets('developer page endpoint switch saves overrides automatically', (
     WidgetTester tester,
   ) async {
+    await AppEndpointOverrideStore.save(
+      const AppEndpointOverrides(
+        apiBaseUrl: 'https://api.worldo.ai/api/',
+        gatewayApiBaseUrl: 'https://api.worldo.ai/apix/',
+        chatroomHttpBaseUrl: 'https://api.worldo.ai/',
+        chatroomWsBaseUrl: 'wss://api.worldo.ai/aitown-chat/ws',
+      ),
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: AppServicesScope(
@@ -8829,15 +9009,16 @@ void main() {
 
     final scrollable = find.byType(Scrollable).first;
     await tester.scrollUntilVisible(
-      find.byKey(const ValueKey<String>('developer-api-base-url-field')),
+      find.text('切换到测试环境'),
       180,
       scrollable: scrollable,
     );
     expect(tester.testTextInput.isVisible, isFalse);
+    expect(find.byType(TextField), findsNothing);
     expect(
       find.descendant(
         of: find.byKey(const ValueKey<String>('developer-api-base-url-field')),
-        matching: find.text('https://'),
+        matching: find.text('https://api.worldo.ai'),
       ),
       findsOneWidget,
     );
@@ -8849,75 +9030,31 @@ void main() {
     );
     var contentContext = tester.element(find.byType(DeveloperPageContent));
     final originalServices = AppServicesScope.read(contentContext);
-    await tester.enterText(
-      find.descendant(
-        of: find.byKey(const ValueKey<String>('developer-api-base-url-field')),
-        matching: find.byType(TextField),
-      ),
-      'api.example.com',
-    );
-    await tester.enterText(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey<String>('developer-gateway-api-base-url-field'),
-        ),
-        matching: find.byType(TextField),
-      ),
-      'gateway.example.com',
-    );
-    await tester.enterText(
-      find.descendant(
-        of: find.byKey(
-          const ValueKey<String>('developer-chatroom-ws-base-url-field'),
-        ),
-        matching: find.byType(TextField),
-      ),
-      'chat.example.com',
-    );
-    await tester.scrollUntilVisible(
-      find.text('Save endpoints'),
-      180,
-      scrollable: scrollable,
-    );
-    await tester.tap(find.text('Save endpoints'));
+    await tester.tap(find.text('切换到测试环境'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Saved. New requests use endpoints.'), findsOneWidget);
+    expect(find.text('已切换到测试环境'), findsOneWidget);
     final saved = await AppEndpointOverrideStore.load();
-    expect(saved.apiBaseUrl, 'https://api.example.com/api/');
-    expect(saved.gatewayApiBaseUrl, 'https://gateway.example.com/apix/');
-    expect(saved.chatroomHttpBaseUrl, 'https://api.example.com/');
-    expect(saved.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
-    expect(
-      tester
-          .widget<TextField>(
-            find.descendant(
-              of: find.byKey(
-                const ValueKey<String>('developer-api-base-url-field'),
-              ),
-              matching: find.byType(TextField),
-            ),
-          )
-          .controller
-          ?.text,
-      'api.example.com',
-    );
+    expect(saved.apiBaseUrl, 'https://dev.hushie.ai/api/');
+    expect(saved.gatewayApiBaseUrl, 'https://dev.hushie.ai/apix/');
+    expect(saved.chatroomHttpBaseUrl, 'https://dev.hushie.ai/');
+    expect(saved.chatroomWsBaseUrl, 'wss://dev.hushie.ai/aitown-chat/ws');
 
     contentContext = tester.element(find.byType(DeveloperPageContent));
     final updatedServices = AppServicesScope.read(contentContext);
     expect(identical(updatedServices, originalServices), isFalse);
-    expect(updatedServices.config.apiBaseUrl, 'https://api.example.com/api/');
+    expect(updatedServices.config.apiBaseUrl, 'https://dev.hushie.ai/api/');
     expect(
       updatedServices.config.gatewayApiBaseUrl,
-      'https://gateway.example.com/apix/',
+      'https://dev.hushie.ai/apix/',
     );
     expect(
       updatedServices.config.chatroomHttpBaseUrl,
-      'https://api.example.com/',
+      'https://dev.hushie.ai/',
     );
     expect(
       updatedServices.config.chatroomWsBaseUrl,
-      'wss://chat.example.com/aitown-chat/ws',
+      'wss://dev.hushie.ai/aitown-chat/ws',
     );
     expect(
       identical(updatedServices.sessionStore, originalServices.sessionStore),
@@ -8932,38 +9069,15 @@ void main() {
     );
 
     final config = await AppEndpointOverrideStore.loadConfig();
-    expect(config.apiBaseUrl, 'https://api.example.com/api/');
-    expect(config.gatewayApiBaseUrl, 'https://gateway.example.com/apix/');
-    expect(config.chatroomHttpBaseUrl, 'https://api.example.com/');
-    expect(config.chatroomWsBaseUrl, 'wss://chat.example.com/aitown-chat/ws');
+    expect(config.apiBaseUrl, 'https://dev.hushie.ai/api/');
+    expect(config.gatewayApiBaseUrl, 'https://dev.hushie.ai/apix/');
+    expect(config.chatroomHttpBaseUrl, 'https://dev.hushie.ai/');
+    expect(config.chatroomWsBaseUrl, 'wss://dev.hushie.ai/aitown-chat/ws');
 
+    expect(find.text('Save endpoints'), findsNothing);
+    expect(find.text('Clear endpoint overrides'), findsNothing);
     await tester.pump(const Duration(seconds: 2));
-    await tester.scrollUntilVisible(
-      find.text('Clear endpoint overrides'),
-      180,
-      scrollable: scrollable,
-    );
-    await tester.tap(find.text('Clear endpoint overrides'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Endpoint overrides cleared.'), findsOneWidget);
-    expect((await AppEndpointOverrideStore.load()).hasAny, isFalse);
-    contentContext = tester.element(find.byType(DeveloperPageContent));
-    final clearedServices = AppServicesScope.read(contentContext);
-    expect(clearedServices.config.apiBaseUrl, GenesisApi.defaultApiBaseUrl);
-    expect(
-      clearedServices.config.gatewayApiBaseUrl,
-      GenesisApi.defaultGatewayApiBaseUrl,
-    );
-    expect(
-      clearedServices.config.chatroomHttpBaseUrl,
-      GenesisApi.defaultChatroomHttpBaseUrl,
-    );
-    expect(
-      clearedServices.config.chatroomWsBaseUrl,
-      GenesisApi.defaultChatroomWsBaseUrl,
-    );
-    await tester.pump(const Duration(seconds: 2));
+    await AppEndpointOverrideStore.clear();
   });
 
   testWidgets('developer page sheet leaves keyboard avoidance to route', (
@@ -9352,7 +9466,11 @@ void main() {
     final transport = _RecordingProfileActionTransport();
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const UserInfoPage(uid: 'u_peer'),
@@ -9428,7 +9546,11 @@ void main() {
     final transport = _RecordingFollowsTransport();
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
         child: const MaterialApp(
           home: FollowsPage(uid: 'u_peer', initialTitle: 'Peer User'),
         ),
@@ -9907,6 +10029,7 @@ void main() {
           services: await _testServices(
             transport: transport,
             useMock: false,
+            initialAuthToken: 'backend-token',
             directMessageMessages: store,
           ),
           child: const ChatPage(peerUid: 'u_peer_dm', peerName: 'Penny Direct'),
@@ -10264,6 +10387,7 @@ void main() {
     final services = await _testServices(
       transport: transport,
       useMock: false,
+      initialAuthToken: 'backend-token',
       directMessageMessages: store,
     );
     await tester.pumpWidget(

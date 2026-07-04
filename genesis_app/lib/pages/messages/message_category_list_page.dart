@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/discuss/origin_discuss_list.dart';
@@ -235,6 +236,8 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
     _NotificationItem item,
     _JoinRequestAction action,
   ) async {
+    if (!await ensureGenesisLogin(context)) return;
+    if (!mounted) return;
     final applyId = item.applyId.trim();
     if (applyId.isEmpty) {
       showGenesisToast(context, 'Missing join request ID');
@@ -266,6 +269,8 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
     if (item.senderDeleted || uid.isEmpty || _loadingFollowUids.contains(uid)) {
       return;
     }
+    if (!await ensureGenesisLogin(context)) return;
+    if (!mounted) return;
     setState(() => _loadingFollowUids.add(uid));
     try {
       final api = AppServicesScope.read(context).api.v1.follow;
@@ -1339,7 +1344,7 @@ _JoinRequestApprovalStatus? _approvalStatusFromJson(Map<String, dynamic> json) {
     asString(json['status']),
     asString(json['review_status']),
   ]).toLowerCase();
-  if (raw == '20' || raw == 'approved' || raw == 'approve') {
+  if (raw == '20' || raw == '40' || raw == 'approved' || raw == 'approve') {
     return _JoinRequestApprovalStatus.approved;
   }
   if (raw == '30' || raw == 'rejected' || raw == 'reject') {

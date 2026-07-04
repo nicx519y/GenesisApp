@@ -1,7 +1,6 @@
-import 'dart:convert';
-
 import '../api_client.dart';
 import '../json_utils.dart';
+import '../multipart_body.dart';
 import '../v1/v1_api_resource.dart';
 import 'chatroom_http_models.dart';
 
@@ -119,13 +118,10 @@ class ChatroomHttpApi {
     required Map<String, String> fields,
     Map<String, Object?>? query,
   }) async {
-    final boundary =
-        'genesis-chatroom-${DateTime.now().microsecondsSinceEpoch}';
     final json = await _client.post<Object?>(
       path,
       query: query,
-      body: _multipartFormBody(boundary: boundary, fields: fields),
-      headers: {'content-type': 'multipart/form-data; boundary=$boundary'},
+      body: MultipartBody(fields: fields),
     );
     final data = handleV1ResponseErrNo(json);
     return data == null ? <String, dynamic>{} : asJsonMap(data);
@@ -138,21 +134,4 @@ String _required(String value, String name) {
     throw ArgumentError.value(value, name, 'must not be empty');
   }
   return trimmed;
-}
-
-List<int> _multipartFormBody({
-  required String boundary,
-  required Map<String, String> fields,
-}) {
-  final out = <int>[];
-  void addText(String value) => out.addAll(utf8.encode(value));
-
-  for (final entry in fields.entries) {
-    addText('--$boundary\r\n');
-    addText('Content-Disposition: form-data; name="${entry.key}"\r\n\r\n');
-    addText('${entry.value}\r\n');
-  }
-
-  addText('--$boundary--\r\n');
-  return out;
 }

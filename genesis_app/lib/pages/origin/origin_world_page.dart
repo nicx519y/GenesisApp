@@ -601,6 +601,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                 mapImageUrl: mapImageUrl,
                 dimmed: _showLocationPage,
                 showPointsList: _showLocationPage,
+                initialZoomScale: _showLocationPage ? 1 : 1.5,
                 pointsListOuterScrollHandoff: false,
                 overlayTop: topPadding + 8 + 48,
                 drillExitTop: topPadding + 68,
