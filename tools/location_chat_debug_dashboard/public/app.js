@@ -25,6 +25,7 @@ const state = {
   locationTabsSignature: "",
   storageReady: null,
   persistedEventCount: 0,
+  persistedNetworkRecordCount: 0,
   persistedMaxCursor: 0,
   agentJobId: "",
   agentStatus: "idle",
@@ -46,8 +47,9 @@ const VIRTUAL_SCROLL_MEMORY_LIMIT = 120;
 const STABLE_VIRTUAL_ID_MEMORY_LIMIT = 160;
 const AGENT_LOG_MEMORY_LIMIT = 50;
 const EVENT_DB_NAME = "location-chat-debug-dashboard";
-const EVENT_DB_VERSION = 2;
+const EVENT_DB_VERSION = 4;
 const EVENT_STORE_NAME = "events";
+const NETWORK_STORE_NAME = "networkRecords";
 const SNAPSHOT_STORE_NAME = "snapshots";
 
 const statusEl = document.getElementById("connectionStatus");
@@ -61,6 +63,7 @@ const httpMessages = document.getElementById("httpMessages");
 const agentStatusEl = document.getElementById("agentStatus");
 const agentCountInput = document.getElementById("agentCountInput");
 const agentLocationCountInput = document.getElementById("agentLocationCountInput");
+const agentWidInput = document.getElementById("agentWidInput");
 const agentUseCurrentTarget = document.getElementById("agentUseCurrentTarget");
 const agentStartButton = document.getElementById("agentStartButton");
 const agentStopButton = document.getElementById("agentStopButton");
@@ -70,6 +73,12 @@ document.getElementById("clearButton").addEventListener("click", clearEvents);
 document.getElementById("exportButton").addEventListener("click", exportJson);
 agentStartButton.addEventListener("click", startAgentJob);
 agentStopButton.addEventListener("click", stopAgentJob);
+agentWidInput.addEventListener("change", persistAgentWidInput);
+agentWidInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  if (!agentStartButton.disabled) startAgentJob();
+});
 
 queueMainTabGroup.addEventListener("sl-tab-show", (event) => {
   const tabName = `${event.detail.name || ""}`.trim();
@@ -206,13 +215,16 @@ async function clearEvents() {
 
 async function exportJson() {
   let events = state.events;
+  let networkRecords = [];
   let snapshot = state.snapshot;
   try {
     await ensureEventStorage();
     events = await readAllStoredEvents();
+    networkRecords = await readAllStoredNetworkRecords();
     snapshot = await readStoredSnapshot();
   } catch (error) {
     statusEl.textContent = `Export using memory cache only: ${error.message}`;
+    networkRecords = networkRecordsFromEvents(events);
   }
   const blob = new Blob([
     JSON.stringify({
@@ -221,8 +233,10 @@ async function exportJson() {
       eventStorage: {
         memoryCount: state.events.length,
         persistedCount: state.persistedEventCount,
+        persistedNetworkRecordCount: state.persistedNetworkRecordCount,
         persistedMaxCursor: state.persistedMaxCursor
       },
+      networkRecords,
       events
     }, null, 2)
   ], {type: "application/json"});
@@ -237,7 +251,7 @@ async function exportJson() {
 function setStatus(snapshot) {
   const enabled = snapshot?.enabled ? "enabled" : "disabled";
   const available = snapshot?.available ? "available" : "not available";
-  statusEl.textContent = `agent_control connected, debug ${enabled}, RPC ${available}, events memory ${state.events.length}, db ${state.persistedEventCount}`;
+  statusEl.textContent = `agent_control connected, debug ${enabled}, RPC ${available}, events memory ${state.events.length}, db ${state.persistedEventCount}, network ${state.persistedNetworkRecordCount}`;
 }
 
 function ensureEventStorage() {
@@ -248,6 +262,7 @@ function ensureEventStorage() {
   state.storageReady = openEventDb().then(async (db) => {
     const meta = await readEventStorageMeta(db);
     state.persistedEventCount = meta.count;
+    state.persistedNetworkRecordCount = meta.networkRecordCount;
     state.persistedMaxCursor = meta.maxCursor;
     return db;
   });
@@ -259,12 +274,30 @@ function openEventDb() {
     const request = indexedDB.open(EVENT_DB_NAME, EVENT_DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
+      let eventStore;
       if (!db.objectStoreNames.contains(EVENT_STORE_NAME)) {
-        const store = db.createObjectStore(EVENT_STORE_NAME, {keyPath: "cursor"});
-        store.createIndex("source", "source", {unique: false});
-        store.createIndex("worldId", "worldId", {unique: false});
-        store.createIndex("timestamp", "timestamp", {unique: false});
+        eventStore = db.createObjectStore(EVENT_STORE_NAME, {keyPath: "cursor"});
+      } else {
+        eventStore = request.transaction.objectStore(EVENT_STORE_NAME);
       }
+      ensureEventStoreIndex(eventStore, "source", "source");
+      ensureEventStoreIndex(eventStore, "worldId", "worldId");
+      ensureEventStoreIndex(eventStore, "timestamp", "timestamp");
+      ensureEventStoreIndex(eventStore, "networkKind", "networkKind");
+      ensureEventStoreIndex(eventStore, "networkRecordId", "networkRecordId");
+      let networkStore;
+      if (!db.objectStoreNames.contains(NETWORK_STORE_NAME)) {
+        networkStore = db.createObjectStore(NETWORK_STORE_NAME, {
+          keyPath: "networkRecordId"
+        });
+      } else {
+        networkStore = request.transaction.objectStore(NETWORK_STORE_NAME);
+      }
+      ensureEventStoreIndex(networkStore, "networkKind", "networkKind");
+      ensureEventStoreIndex(networkStore, "worldId", "worldId");
+      ensureEventStoreIndex(networkStore, "locationId", "locationId");
+      ensureEventStoreIndex(networkStore, "timestamp", "timestamp");
+      ensureEventStoreIndex(networkStore, "cursor", "cursor");
       if (!db.objectStoreNames.contains(SNAPSHOT_STORE_NAME)) {
         db.createObjectStore(SNAPSHOT_STORE_NAME, {keyPath: "key"});
       }
@@ -274,15 +307,28 @@ function openEventDb() {
   });
 }
 
+function ensureEventStoreIndex(store, name, keyPath) {
+  if (store.indexNames.contains(name)) return;
+  store.createIndex(name, keyPath, {unique: false});
+}
+
 function readEventStorageMeta(db) {
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(EVENT_STORE_NAME, "readonly");
-    const store = transaction.objectStore(EVENT_STORE_NAME);
-    const countRequest = store.count();
-    const cursorRequest = store.openCursor(null, "prev");
-    const meta = {count: 0, maxCursor: 0};
-    countRequest.onsuccess = () => {
-      meta.count = Number(countRequest.result || 0);
+    const transaction = db.transaction(
+      [EVENT_STORE_NAME, NETWORK_STORE_NAME],
+      "readonly"
+    );
+    const eventStore = transaction.objectStore(EVENT_STORE_NAME);
+    const networkStore = transaction.objectStore(NETWORK_STORE_NAME);
+    const eventCountRequest = eventStore.count();
+    const networkCountRequest = networkStore.count();
+    const cursorRequest = eventStore.openCursor(null, "prev");
+    const meta = {count: 0, networkRecordCount: 0, maxCursor: 0};
+    eventCountRequest.onsuccess = () => {
+      meta.count = Number(eventCountRequest.result || 0);
+    };
+    networkCountRequest.onsuccess = () => {
+      meta.networkRecordCount = Number(networkCountRequest.result || 0);
     };
     cursorRequest.onsuccess = () => {
       meta.maxCursor = Number(cursorRequest.result?.key || 0);
@@ -305,21 +351,42 @@ async function appendEvents(events) {
   await writeStoredEvents(db, events);
   const meta = await readEventStorageMeta(db);
   state.persistedEventCount = meta.count;
+  state.persistedNetworkRecordCount = meta.networkRecordCount;
   state.persistedMaxCursor = meta.maxCursor;
 }
 
 function writeStoredEvents(db, events) {
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(EVENT_STORE_NAME, "readwrite");
-    const store = transaction.objectStore(EVENT_STORE_NAME);
+    const transaction = db.transaction(
+      [EVENT_STORE_NAME, NETWORK_STORE_NAME],
+      "readwrite"
+    );
+    const eventStore = transaction.objectStore(EVENT_STORE_NAME);
+    const networkStore = transaction.objectStore(NETWORK_STORE_NAME);
     for (const event of events) {
       const cursor = Number(event?.cursor || 0);
       if (cursor <= 0) continue;
-      store.put({...event, cursor});
+      const storedEvent = normalizeStoredEvent({...event, cursor});
+      eventStore.put(storedEvent);
+      const networkRecord = networkRecordFromEvent(storedEvent);
+      if (networkRecord) networkStore.put(networkRecord);
     }
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error || new Error("Failed to write events."));
   });
+}
+
+function normalizeStoredEvent(event) {
+  const networkRecord = networkRecordFromEvent(event);
+  if (!networkRecord) return event;
+  return {
+    ...event,
+    networkKind: networkRecord.networkKind,
+    networkRecordId: networkRecord.networkRecordId,
+    networkRecordType: networkRecord.networkRecordType,
+    networkDirection: networkRecord.networkDirection,
+    networkEndpoint: networkRecord.networkEndpoint
+  };
 }
 
 function readAllStoredEvents() {
@@ -334,6 +401,28 @@ function readAllStoredEvents() {
     };
     request.onerror = () => reject(request.error || new Error("Failed to read stored events."));
   }));
+}
+
+function readAllStoredNetworkRecords() {
+  return ensureEventStorage().then((db) => new Promise((resolve, reject) => {
+    const transaction = db.transaction(NETWORK_STORE_NAME, "readonly");
+    const store = transaction.objectStore(NETWORK_STORE_NAME);
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const records = Array.isArray(request.result) ? request.result : [];
+      records.sort(compareNetworkEventOrder);
+      resolve(records);
+    };
+    request.onerror = () => reject(request.error || new Error("Failed to read stored network records."));
+  }));
+}
+
+function networkRecordsFromEvents(events) {
+  const records = (Array.isArray(events) ? events : [])
+    .map(networkRecordFromEvent)
+    .filter(Boolean);
+  records.sort(compareNetworkEventOrder);
+  return records;
 }
 
 function storeSnapshot(snapshot) {
@@ -361,13 +450,15 @@ function readStoredSnapshot() {
 function clearEventStorage() {
   return ensureEventStorage().then((db) => new Promise((resolve, reject) => {
     const transaction = db.transaction(
-      [EVENT_STORE_NAME, SNAPSHOT_STORE_NAME],
+      [EVENT_STORE_NAME, NETWORK_STORE_NAME, SNAPSHOT_STORE_NAME],
       "readwrite"
     );
     transaction.objectStore(EVENT_STORE_NAME).clear();
+    transaction.objectStore(NETWORK_STORE_NAME).clear();
     transaction.objectStore(SNAPSHOT_STORE_NAME).clear();
     transaction.oncomplete = () => {
       state.persistedEventCount = 0;
+      state.persistedNetworkRecordCount = 0;
       state.persistedMaxCursor = 0;
       resolve();
     };
@@ -460,20 +551,33 @@ async function startAgentJob() {
     1,
     Number.parseInt(agentLocationCountInput.value || "1", 10) || 1
   );
+  const currentWorldId = currentWorldSnapshot().worldId || state.activeWorldId;
+  const requestedWid = agentWidInput.value.trim();
+  const usesCurrentWid = isCurrentWidAlias(requestedWid);
+  const targetWid = usesCurrentWid ? currentWorldId : requestedWid;
+  if (usesCurrentWid && !targetWid) {
+    updateAgentPanel("Start failed: no current world snapshot.");
+    return;
+  }
   const params = {
     count,
     locationCount,
     replyTimeoutSeconds: 120
   };
+  if (targetWid) params.wid = targetWid;
   if (agentUseCurrentTarget.checked) {
-    const worldId = currentWorldSnapshot().worldId || state.activeWorldId;
-    const locationId =
-      state.appActiveLocationId ||
-      state.activeLocationId ||
-      activePanelLocationId();
+    const worldId = targetWid || currentWorldId;
+    const canReuseCurrentLocation =
+      usesCurrentWid || !targetWid || !currentWorldId || targetWid === currentWorldId;
+    const locationId = canReuseCurrentLocation
+      ? state.appActiveLocationId ||
+        state.activeLocationId ||
+        activePanelLocationId()
+      : "";
     if (worldId) params.wid = worldId;
     if (locationId) params.locationId = locationId;
   }
+  persistAgentWidInput();
 
   agentStartButton.loading = true;
   updateAgentPanel("Starting agent...");
@@ -597,6 +701,25 @@ function restoreAgentJob() {
 
 function clearPersistedAgentJob() {
   localStorage.removeItem("locationChatAgentJob");
+}
+
+function isCurrentWidAlias(value) {
+  return `${value || ""}`.trim().toLowerCase() === "current";
+}
+
+function restoreAgentWidInput() {
+  const urlWid = new URLSearchParams(window.location.search).get("wid") || "";
+  const savedWid = localStorage.getItem("locationChatAgentWid") || "";
+  agentWidInput.value = `${urlWid || savedWid}`.trim();
+}
+
+function persistAgentWidInput() {
+  const wid = agentWidInput.value.trim();
+  if (wid) {
+    localStorage.setItem("locationChatAgentWid", wid);
+  } else {
+    localStorage.removeItem("locationChatAgentWid");
+  }
 }
 
 function render() {
@@ -949,14 +1072,17 @@ function renderNetworkTimeline() {
     ? httpMessages
     : websocketFrames;
   clearElement(inactiveContainer);
-  const events = networkEvents();
+  const records = networkRecords({kind: state.activeNetworkTab});
+  const emptyLabel = state.activeNetworkTab === "websocket"
+    ? "No WebSocket packets yet."
+    : "No HTTP requests yet.";
   renderVirtualListInto(activeContainer, {
-    items: events,
+    items: records,
     className: "network-virtual-list",
     key: networkTimelineKey(),
-    emptyHtml: `<p class="muted">No message network events yet.</p>`,
-    getItemHeight: (event) => networkRowOpen(event)
-      ? networkExpandedRowHeight(event)
+    emptyHtml: `<p class="muted">${emptyLabel}</p>`,
+    getItemHeight: (record) => networkRowOpen(record)
+      ? networkExpandedRowHeight(record)
       : 39,
     getItemKey: networkRowId,
     renderItem: renderNetworkEvent
@@ -964,7 +1090,7 @@ function renderNetworkTimeline() {
 }
 
 function networkTimelineKey() {
-  return `network:${state.activeWorldId}:timeline`;
+  return `network:${state.activeWorldId}:${state.activeNetworkTab}:timeline`;
 }
 
 function rebuildMessageSourceIndex() {
@@ -978,30 +1104,28 @@ function rebuildMessageSourceIndex() {
   if (signature === state.messageSourceIndexSignature) return;
 
   const index = new Map();
-  for (const event of networkEvents()) {
-    if (event.source !== "http") continue;
-    const rowId = networkRowId(event);
-    const details = event.details || {};
+  for (const record of networkRecords({kind: "http"})) {
+    const rowId = networkRowId(record);
+    const details = record.details || {};
     const messages = Array.isArray(details.messages) ? details.messages : [];
     for (const message of messages) {
-      addMessageSourceHit(index, message, event, {
+      addMessageSourceHit(index, message, record, {
         source: "http",
         rowId,
-        eventCursor: Number(event.cursor || 0),
+        eventCursor: Number(record.cursor || 0),
         messageRowKey: messageRowKey(message, 0)
       });
     }
   }
 
-  for (const event of networkEvents()) {
-    if (event.source !== "websocket") continue;
-    const rowId = networkRowId(event);
-    const payloadMessages = extractMessageLikeObjects(event.details?.payload);
+  for (const record of networkRecords({kind: "websocket"})) {
+    const rowId = networkRowId(record);
+    const payloadMessages = extractMessageLikeObjects(record.details?.payload);
     for (const message of payloadMessages) {
-      addMessageSourceHit(index, message, event, {
+      addMessageSourceHit(index, message, record, {
         source: "websocket",
         rowId,
-        eventCursor: Number(event.cursor || 0),
+        eventCursor: Number(record.cursor || 0),
         messageRowKey: messageRowKey(message, 0)
       });
     }
@@ -1110,14 +1234,42 @@ function httpExpandedRowHeight() {
   return detailHeight + 39;
 }
 
-function networkEvents(limit = 0) {
+function networkRecords({kind = "", limit = 0} = {}) {
   const worldId = state.activeWorldId;
-  const events = state.events
-    .filter(isMessageNetworkEvent)
-    .filter((event) => !worldId || event.worldId === worldId)
-    .filter((event) => Number(event.cursor || 0) >= state.networkSinceCursor);
-  events.sort(compareNetworkEventOrder);
-  return (limit > 0 ? events.slice(-limit) : events).reverse();
+  const records = state.events
+    .map(networkRecordFromEvent)
+    .filter(Boolean)
+    .filter((record) => !kind || record.networkKind === kind)
+    .filter((record) => !worldId || record.worldId === worldId)
+    .filter((record) => Number(record.cursor || 0) >= state.networkSinceCursor);
+  records.sort(compareNetworkEventOrder);
+  return (limit > 0 ? records.slice(-limit) : records).reverse();
+}
+
+function networkRecordFromEvent(event) {
+  if (!event) return null;
+  const source = `${event.source || ""}`.trim();
+  if (source !== "http" && source !== "websocket") return null;
+  const details = event.details || {};
+  const cursor = Number(event.cursor || 0);
+  const networkKind = source;
+  const networkRecordType = source === "http"
+    ? "http_request"
+    : "websocket_packet";
+  const networkDirection = source === "websocket"
+    ? `${details.direction || ""}`.trim()
+    : "";
+  const networkEndpoint = source === "http"
+    ? `${details.endpoint || ""}`.trim()
+    : `${details.type || details.eventType || event.action || ""}`.trim();
+  return {
+    ...event,
+    networkKind,
+    networkRecordType,
+    networkDirection,
+    networkEndpoint,
+    networkRecordId: `${networkRecordType}:${cursor || event.timestamp || event.action || ""}`
+  };
 }
 
 function compareNetworkEventOrder(a, b) {
@@ -1127,31 +1279,6 @@ function compareNetworkEventOrder(a, b) {
   const timeA = Date.parse(a?.timestamp || "") || 0;
   const timeB = Date.parse(b?.timestamp || "") || 0;
   return timeA - timeB;
-}
-
-function isMessageNetworkEvent(event) {
-  if (!event) return false;
-  if (event.source === "http") return true;
-  if (event.source !== "websocket") return false;
-  const details = event.details || {};
-  const type = `${details.type || event.action || ""}`.trim();
-  const eventType = `${details.eventType || ""}`.trim();
-  if (eventType === "world_new_message") return true;
-  if (type === "world_change") return false;
-  if (!type) return true;
-  return [
-    "join",
-    "send_message",
-    "ack",
-    "user_message",
-    "nar_new_message",
-    "tick_advance",
-    "llm_stream_start",
-    "llm_chunk",
-    "llm_stream_end",
-    "error",
-    "decode_error"
-  ].includes(type);
 }
 
 function syncActiveWorld() {
@@ -1571,7 +1698,7 @@ function firstNonEmpty(...values) {
 }
 
 function networkRowId(event) {
-  return `${event.source}:${event.cursor}`;
+  return `${event.networkRecordId || `${event.source}:${event.cursor}`}`;
 }
 
 function networkRowOpen(event) {
@@ -1992,6 +2119,10 @@ function jumpToNetworkSource(sourceKeysValue) {
   const hit = resolveNetworkSourceHit(sourceKeysValue);
   if (!hit) return;
 
+  state.activeNetworkTab = hit.source;
+  if (typeof networkTabGroup.show === "function") {
+    networkTabGroup.show(hit.source);
+  }
   state.networkFocusKey = hit.rowId;
   state.networkMessageFocusKey = hit.source === "http" && hit.messageRowKey
     ? networkMessageFocusKey(hit.rowId, hit.messageRowKey)
@@ -2170,6 +2301,7 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+restoreAgentWidInput();
 restoreAgentJob();
 updateAgentPanel();
 refreshAll();

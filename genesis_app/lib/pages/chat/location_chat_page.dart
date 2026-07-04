@@ -31,6 +31,7 @@ const double _locationChatComposerBottomExtension = 60;
 const double _locationChatEdgeSwipeWidth = 24;
 const double _locationChatEdgeSwipeTriggerDistance = 64;
 const double _locationChatEdgeSwipeTriggerVelocity = 450;
+const int _locationChatMessageGapMaxAttempts = 3;
 const String _locationChatDefaultBackgroundAsset =
     'assets/images/map_default/location_default.webp';
 
@@ -106,6 +107,7 @@ class LocationChatPanel extends StatefulWidget {
     this.style,
     this.initialDraftText = '',
     this.onDraftTextChanged,
+    this.messageQueueInitializationCovered = false,
   });
 
   final String worldId;
@@ -131,6 +133,7 @@ class LocationChatPanel extends StatefulWidget {
   final ChatUiStyleConfig? style;
   final String initialDraftText;
   final ValueChanged<String>? onDraftTextChanged;
+  final bool messageQueueInitializationCovered;
 
   @override
   State<LocationChatPanel> createState() => _LocationChatPanelState();
@@ -176,6 +179,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _composerFocusBottomPinActive = false;
   bool _composerFocusBottomScheduled = false;
   final Set<String> _messageGapFillKeys = <String>{};
+  final Map<String, int> _messageGapFillAttempts = <String, int>{};
+  final Set<String> _releasedMessageGapKeys = <String>{};
   double _edgeSwipeBackDragDistance = 0;
   bool _edgeSwipeBackTriggered = false;
 
@@ -243,6 +248,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           _initialContentReadyNotified = false;
           _initialLatestMessagesRefresh = null;
           _messageGapFillKeys.clear();
+          _messageGapFillAttempts.clear();
+          _releasedMessageGapKeys.clear();
           _prepareConnection();
           _startInitialBottomScroll();
         }),
@@ -644,6 +651,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   }
 
   String _initialLatestMessagesRefreshReason() {
+    if (widget.messageQueueInitializationCovered) return '';
     if (_messages.isEmpty) return 'empty';
     return _hasVisibleAiMessageMissingCurrentTime() ? 'missingCurrentTime' : '';
   }
@@ -679,7 +687,6 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final nextSource =
         state.messagesByLocation[widget.locationId] ??
         const <WorldChatroomMessage>[];
-    _requestVisibleMessageGapFillIfNeeded(nextSource);
     final beforeVmCount = _messages.length;
     final reconcileStopwatch = _panelMetricsEnabled
         ? (Stopwatch()..start())
@@ -877,7 +884,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     WorldChatroomState? identityState,
   }) {
     final resolvedIdentityState = identityState ?? _chatroomState;
-    final visibleSource = visibleLocationChatMessagesForTesting(source);
+    final renderWindow = _visibleLocationChatMessages(
+      source,
+      renderedLocationMessageIds: _renderedLocationMessageIds(),
+      releasedGapKeys: _releasedMessageGapKeys,
+      locationId: widget.locationId,
+    );
+    _requestVisibleMessageGapFillIfNeeded(renderWindow.gaps, source);
+    final visibleSource = renderWindow.messages;
     final previous = _messages.where((message) => !message.isSystem).toList();
     final existingByKey = {
       for (final message in previous) message.localId: message,
@@ -997,58 +1011,112 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     return changed;
   }
 
+  Set<int> _renderedLocationMessageIds() {
+    return _messages
+        .where((message) => !message.isSystem && message.locationMessageId > 0)
+        .map((message) => message.locationMessageId)
+        .toSet();
+  }
+
   void _requestVisibleMessageGapFillIfNeeded(
+    List<_LocationChatMessageGap> gaps,
     List<WorldChatroomMessage> source,
   ) {
     final service = _service;
-    if (service == null || source.isEmpty) return;
-    final gapBeforeLocationMessageId =
-        locationChatMessageGapFillCursorForTesting(source);
-    if (gapBeforeLocationMessageId <= 0) return;
-    final key = '${widget.locationId}\u001F$gapBeforeLocationMessageId';
-    if (!_messageGapFillKeys.add(key)) return;
-    _logPanelMetric(
-      'message gap fill requested location=${widget.locationId} '
-      'beforeLocationMsg=$gapBeforeLocationMessageId',
-    );
-    _recordPanelDebug(
-      action: 'gapFillRequested',
-      sourceMessages: source,
-      details: {'beforeLocationMessageId': gapBeforeLocationMessageId},
-    );
-    unawaited(
-      _fillVisibleMessageGap(
-        service: service,
-        key: key,
-        beforeLocationMessageId: gapBeforeLocationMessageId,
-      ),
-    );
+    if (service == null || source.isEmpty || gaps.isEmpty) return;
+    for (final gap in gaps) {
+      final key = _locationChatMessageGapKey(widget.locationId, gap);
+      if (_releasedMessageGapKeys.contains(key)) continue;
+      if (!_messageGapFillKeys.add(key)) continue;
+      _logPanelMetric(
+        'message gap fill requested location=${widget.locationId} '
+        'lower=${gap.lowerLocationMessageId} '
+        'upper=${gap.upperLocationMessageId}',
+      );
+      _recordPanelDebug(
+        action: 'gapFillRequested',
+        sourceMessages: source,
+        details: {
+          'lowerLocationMessageId': gap.lowerLocationMessageId,
+          'upperLocationMessageId': gap.upperLocationMessageId,
+          'missingCount': gap.missingCount,
+        },
+      );
+      unawaited(_fillVisibleMessageGap(service: service, key: key, gap: gap));
+    }
   }
 
   Future<void> _fillVisibleMessageGap({
     required WorldChatroomService service,
     required String key,
-    required int beforeLocationMessageId,
+    required _LocationChatMessageGap gap,
   }) async {
-    try {
-      await service.loadOlderMessages(
-        locationId: widget.locationId,
-        beforeMessageId: beforeLocationMessageId,
-        limit: 20,
-      );
-    } catch (error) {
-      _messageGapFillKeys.remove(key);
-      _logPanelMetric(
-        'message gap fill failed location=${widget.locationId} '
-        'beforeLocationMsg=$beforeLocationMessageId error=$error',
-      );
-      _recordPanelDebug(
-        action: 'gapFillFailed',
-        details: {
-          'beforeLocationMessageId': beforeLocationMessageId,
-          'error': '$error',
-        },
-      );
+    for (
+      var attempt = 1;
+      attempt <= _locationChatMessageGapMaxAttempts;
+      attempt += 1
+    ) {
+      _messageGapFillAttempts[key] = attempt;
+      try {
+        if (_isLocationChatMessageGapFilled(
+          service.state.messagesByLocation[widget.locationId] ??
+              const <WorldChatroomMessage>[],
+          gap,
+        )) {
+          _messageGapFillKeys.remove(key);
+          _messageGapFillAttempts.remove(key);
+          return;
+        }
+        await service.loadOlderMessages(
+          locationId: widget.locationId,
+          beforeMessageId: gap.upperLocationMessageId,
+          limit: math.min(100, gap.missingCount + 1),
+        );
+        if (_isLocationChatMessageGapFilled(
+          service.state.messagesByLocation[widget.locationId] ??
+              const <WorldChatroomMessage>[],
+          gap,
+        )) {
+          _messageGapFillKeys.remove(key);
+          _messageGapFillAttempts.remove(key);
+          return;
+        }
+      } catch (error) {
+        _logPanelMetric(
+          'message gap fill failed location=${widget.locationId} '
+          'lower=${gap.lowerLocationMessageId} '
+          'upper=${gap.upperLocationMessageId} '
+          'attempt=$attempt error=$error',
+        );
+        _recordPanelDebug(
+          action: 'gapFillFailed',
+          details: {
+            'lowerLocationMessageId': gap.lowerLocationMessageId,
+            'upperLocationMessageId': gap.upperLocationMessageId,
+            'attempt': attempt,
+            'error': '$error',
+          },
+        );
+      }
+    }
+    _releasedMessageGapKeys.add(key);
+    _messageGapFillKeys.remove(key);
+    _messageGapFillAttempts.remove(key);
+    _recordPanelDebug(
+      action: 'gapFillReleased',
+      details: {
+        'lowerLocationMessageId': gap.lowerLocationMessageId,
+        'upperLocationMessageId': gap.upperLocationMessageId,
+        'attempts': _locationChatMessageGapMaxAttempts,
+      },
+    );
+    if (!mounted) return;
+    final changed = _reconcileMessages(
+      _chatroomState.messagesByLocation[widget.locationId] ??
+          const <WorldChatroomMessage>[],
+    );
+    if (changed && mounted) {
+      setState(() {});
     }
   }
 
@@ -1085,8 +1153,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   }
 
   String _messageLocalId(WorldChatroomMessage message) {
-    if (message.messageId > 0) return 'message-${message.messageId}';
-    return 'stream-${message.locationId}-${message.conversationRoundId}-${message.senderId}';
+    return _locationChatMessageLocalId(message);
   }
 
   String _messageSenderType(WorldChatroomMessage message) {
@@ -1394,7 +1461,12 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   String _messageDedupKey(WorldChatroomMessage message) {
     final clientMsgId = message.clientMsgId.trim();
     if (clientMsgId.isNotEmpty) return 'client:$clientMsgId';
-    if (message.messageId > 0) return 'message:${message.messageId}';
+    if (message.locationMessageId > 0) {
+      return 'location:${message.locationId}:${message.locationMessageId}';
+    }
+    if (message.locationId.trim().isEmpty && message.messageId > 0) {
+      return 'message:${message.messageId}';
+    }
     return [
       'round',
       message.locationId,
@@ -2527,6 +2599,18 @@ String _locationChatEntityDedupKey(WorldChatroomEntity entity) {
   return nameKey.isEmpty ? '' : 'name:$nameKey';
 }
 
+@visibleForTesting
+String locationChatMessageLocalIdForTesting(WorldChatroomMessage message) {
+  return _locationChatMessageLocalId(message);
+}
+
+String _locationChatMessageLocalId(WorldChatroomMessage message) {
+  if (message.locationMessageId > 0) {
+    return 'location-${message.locationId}-${message.locationMessageId}';
+  }
+  return 'stream-${message.locationId}-${message.conversationRoundId}-${message.senderId}';
+}
+
 Object? _mapValue(Map<dynamic, dynamic> map, List<String> keys) {
   for (final key in keys) {
     final value = map[key];
@@ -2549,6 +2633,21 @@ List<WorldChatroomMessage> visibleLocationChatMessagesForTesting(
 }
 
 @visibleForTesting
+List<WorldChatroomMessage> visibleLocationChatMessagesWithRenderedIdsForTesting(
+  List<WorldChatroomMessage> source, {
+  Set<int> renderedLocationMessageIds = const <int>{},
+  Set<String> releasedGapKeys = const <String>{},
+  String locationId = 'loc-1',
+}) {
+  return _visibleLocationChatMessages(
+    source,
+    renderedLocationMessageIds: renderedLocationMessageIds,
+    releasedGapKeys: releasedGapKeys,
+    locationId: locationId,
+  ).messages;
+}
+
+@visibleForTesting
 int locationChatMessageGapFillCursorForTesting(
   List<WorldChatroomMessage> source,
 ) {
@@ -2556,12 +2655,16 @@ int locationChatMessageGapFillCursorForTesting(
 }
 
 _VisibleLocationChatMessages _visibleLocationChatMessages(
-  List<WorldChatroomMessage> source,
-) {
+  List<WorldChatroomMessage> source, {
+  Set<int> renderedLocationMessageIds = const <int>{},
+  Set<String> releasedGapKeys = const <String>{},
+  String locationId = '',
+}) {
   if (source.length < 2) {
     return _VisibleLocationChatMessages(
       messages: source,
       gapFillBeforeLocationMessageId: 0,
+      gaps: const <_LocationChatMessageGap>[],
     );
   }
   final sorted = source.toList(growable: false)
@@ -2576,23 +2679,65 @@ _VisibleLocationChatMessages _visibleLocationChatMessages(
     return _VisibleLocationChatMessages(
       messages: sorted,
       gapFillBeforeLocationMessageId: 0,
+      gaps: const <_LocationChatMessageGap>[],
     );
   }
 
-  final visibleLocationMessageIds = <int>{};
-  var expectedLocationMessageId = locationMessages.last.locationMessageId;
-  var gapFillBeforeLocationMessageId = 0;
-  for (final message in locationMessages.reversed) {
-    final locationMessageId = message.locationMessageId;
-    if (locationMessageId == expectedLocationMessageId) {
-      visibleLocationMessageIds.add(locationMessageId);
-      expectedLocationMessageId -= 1;
-      continue;
+  final locationIds =
+      locationMessages
+          .map((message) => message.locationMessageId)
+          .toSet()
+          .toList(growable: false)
+        ..sort();
+  final visibleLocationMessageIds = renderedLocationMessageIds
+      .where(locationIds.contains)
+      .toSet();
+  final gaps = <_LocationChatMessageGap>[];
+
+  if (visibleLocationMessageIds.isEmpty) {
+    var expectedLocationMessageId = locationMessages.last.locationMessageId;
+    for (final message in locationMessages.reversed) {
+      final locationMessageId = message.locationMessageId;
+      if (locationMessageId == expectedLocationMessageId) {
+        visibleLocationMessageIds.add(locationMessageId);
+        expectedLocationMessageId -= 1;
+        continue;
+      }
+      if (locationMessageId < expectedLocationMessageId) {
+        final gap = _LocationChatMessageGap(
+          lowerLocationMessageId: locationMessageId,
+          upperLocationMessageId: expectedLocationMessageId + 1,
+        );
+        if (_locationChatGapIsReleased(locationId, gap, releasedGapKeys)) {
+          visibleLocationMessageIds.add(locationMessageId);
+          expectedLocationMessageId = locationMessageId - 1;
+          continue;
+        }
+        gaps.add(gap);
+        break;
+      }
     }
-    if (locationMessageId < expectedLocationMessageId) {
-      gapFillBeforeLocationMessageId = expectedLocationMessageId + 1;
-      break;
-    }
+  } else {
+    _includeVisibleLocationIdsInsideRenderedSpan(
+      locationIds: locationIds,
+      visibleLocationMessageIds: visibleLocationMessageIds,
+    );
+    _expandVisibleLocationIdsAcrossGaps(
+      locationIds: locationIds,
+      visibleLocationMessageIds: visibleLocationMessageIds,
+      gaps: gaps,
+      releasedGapKeys: releasedGapKeys,
+      locationId: locationId,
+      forward: true,
+    );
+    _expandVisibleLocationIdsAcrossGaps(
+      locationIds: locationIds,
+      visibleLocationMessageIds: visibleLocationMessageIds,
+      gaps: gaps,
+      releasedGapKeys: releasedGapKeys,
+      locationId: locationId,
+      forward: false,
+    );
   }
 
   final visibleLocationMessages = locationMessages
@@ -2605,31 +2750,169 @@ _VisibleLocationChatMessages _visibleLocationChatMessages(
     return const _VisibleLocationChatMessages(
       messages: <WorldChatroomMessage>[],
       gapFillBeforeLocationMessageId: 0,
+      gaps: <_LocationChatMessageGap>[],
     );
   }
-  final minVisibleMessageId = visibleLocationMessages.fold<int>(0, (
-    previous,
-    message,
-  ) {
-    final messageId = message.messageId;
-    if (messageId <= 0) return previous;
-    if (previous == 0 || messageId < previous) return messageId;
-    return previous;
-  });
-
-  final visible = sorted
-      .where((message) {
-        if (_isTickAdvanceMessage(message)) {
-          return minVisibleMessageId <= 0 ||
-              message.messageId >= minVisibleMessageId;
-        }
-        return visibleLocationMessageIds.contains(message.locationMessageId);
-      })
-      .toList(growable: false);
+  final visible = _visibleLocationChatMessagesWithTicks(
+    sorted: sorted,
+    visibleLocationMessageIds: visibleLocationMessageIds,
+  );
   return _VisibleLocationChatMessages(
     messages: visible,
-    gapFillBeforeLocationMessageId: gapFillBeforeLocationMessageId,
+    gapFillBeforeLocationMessageId: gaps.isEmpty
+        ? 0
+        : gaps.first.upperLocationMessageId,
+    gaps: gaps,
   );
+}
+
+List<WorldChatroomMessage> _visibleLocationChatMessagesWithTicks({
+  required List<WorldChatroomMessage> sorted,
+  required Set<int> visibleLocationMessageIds,
+}) {
+  final visible = <WorldChatroomMessage>[];
+  final leadingTicks = <WorldChatroomMessage>[];
+  var seenLocationMessage = false;
+  var seenVisibleLocationMessage = false;
+  var blockedByHiddenLocationAfterVisible = false;
+
+  for (final message in sorted) {
+    if (_isTickAdvanceMessage(message)) {
+      if (seenVisibleLocationMessage && !blockedByHiddenLocationAfterVisible) {
+        visible.add(message);
+      } else if (!seenLocationMessage) {
+        leadingTicks.add(message);
+      }
+      continue;
+    }
+
+    if (message.locationMessageId <= 0) {
+      continue;
+    }
+
+    final messageIsVisible = visibleLocationMessageIds.contains(
+      message.locationMessageId,
+    );
+    if (messageIsVisible) {
+      if (!seenVisibleLocationMessage && !seenLocationMessage) {
+        visible.addAll(leadingTicks);
+      }
+      visible.add(message);
+      seenVisibleLocationMessage = true;
+      blockedByHiddenLocationAfterVisible = false;
+    } else {
+      if (seenVisibleLocationMessage) {
+        blockedByHiddenLocationAfterVisible = true;
+      }
+      leadingTicks.clear();
+    }
+    seenLocationMessage = true;
+  }
+
+  return visible;
+}
+
+void _includeVisibleLocationIdsInsideRenderedSpan({
+  required List<int> locationIds,
+  required Set<int> visibleLocationMessageIds,
+}) {
+  if (visibleLocationMessageIds.isEmpty) return;
+  final minRendered = visibleLocationMessageIds.reduce(math.min);
+  final maxRendered = visibleLocationMessageIds.reduce(math.max);
+  for (final id in locationIds) {
+    if (id < minRendered) continue;
+    if (id > maxRendered) break;
+    visibleLocationMessageIds.add(id);
+  }
+}
+
+void _expandVisibleLocationIdsAcrossGaps({
+  required List<int> locationIds,
+  required Set<int> visibleLocationMessageIds,
+  required List<_LocationChatMessageGap> gaps,
+  required Set<String> releasedGapKeys,
+  required String locationId,
+  required bool forward,
+}) {
+  if (visibleLocationMessageIds.isEmpty) return;
+  if (forward) {
+    var expected = visibleLocationMessageIds.reduce(math.max) + 1;
+    for (final id in locationIds.where((id) => id >= expected)) {
+      if (id == expected) {
+        visibleLocationMessageIds.add(id);
+        expected += 1;
+        continue;
+      }
+      final gap = _LocationChatMessageGap(
+        lowerLocationMessageId: expected - 1,
+        upperLocationMessageId: id,
+      );
+      if (_locationChatGapIsReleased(locationId, gap, releasedGapKeys)) {
+        visibleLocationMessageIds.add(id);
+        expected = id + 1;
+        continue;
+      }
+      gaps.add(gap);
+      return;
+    }
+    return;
+  }
+
+  var expected = visibleLocationMessageIds.reduce(math.min) - 1;
+  for (final id in locationIds.reversed.where((id) => id <= expected)) {
+    if (id == expected) {
+      visibleLocationMessageIds.add(id);
+      expected -= 1;
+      continue;
+    }
+    final gap = _LocationChatMessageGap(
+      lowerLocationMessageId: id,
+      upperLocationMessageId: expected + 1,
+    );
+    if (_locationChatGapIsReleased(locationId, gap, releasedGapKeys)) {
+      visibleLocationMessageIds.add(id);
+      expected = id - 1;
+      continue;
+    }
+    gaps.add(gap);
+    return;
+  }
+}
+
+bool _locationChatGapIsReleased(
+  String locationId,
+  _LocationChatMessageGap gap,
+  Set<String> releasedGapKeys,
+) {
+  return releasedGapKeys.contains(_locationChatMessageGapKey(locationId, gap));
+}
+
+bool _isLocationChatMessageGapFilled(
+  List<WorldChatroomMessage> messages,
+  _LocationChatMessageGap gap,
+) {
+  final ids = messages
+      .where(
+        (message) =>
+            !_isTickAdvanceMessage(message) && message.locationMessageId > 0,
+      )
+      .map((message) => message.locationMessageId)
+      .toSet();
+  for (
+    var id = gap.lowerLocationMessageId + 1;
+    id < gap.upperLocationMessageId;
+    id += 1
+  ) {
+    if (!ids.contains(id)) return false;
+  }
+  return true;
+}
+
+String _locationChatMessageGapKey(
+  String locationId,
+  _LocationChatMessageGap gap,
+) {
+  return '${locationId.trim()}\u001F${gap.lowerLocationMessageId}\u001F${gap.upperLocationMessageId}';
 }
 
 bool _isTickAdvanceMessage(WorldChatroomMessage message) {
@@ -2657,10 +2940,24 @@ class _VisibleLocationChatMessages {
   const _VisibleLocationChatMessages({
     required this.messages,
     required this.gapFillBeforeLocationMessageId,
+    required this.gaps,
   });
 
   final List<WorldChatroomMessage> messages;
   final int gapFillBeforeLocationMessageId;
+  final List<_LocationChatMessageGap> gaps;
+}
+
+class _LocationChatMessageGap {
+  const _LocationChatMessageGap({
+    required this.lowerLocationMessageId,
+    required this.upperLocationMessageId,
+  });
+
+  final int lowerLocationMessageId;
+  final int upperLocationMessageId;
+
+  int get missingCount => upperLocationMessageId - lowerLocationMessageId - 1;
 }
 
 class _LocationChatNewMessageNotice extends StatelessWidget {

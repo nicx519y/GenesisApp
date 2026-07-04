@@ -67,7 +67,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   final Set<String> _preloadedLocationMessageIds = <String>{};
   final Map<String, Future<void>> _preloadingLocationMessageFutures =
       <String, Future<void>>{};
-  Future<void>? _preloadMessageCacheResetFuture;
   String _activeChatLocationId = '';
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
@@ -367,7 +366,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _worldChatroom = null;
     _preloadedLocationMessageIds.clear();
     _preloadingLocationMessageFutures.clear();
-    _preloadMessageCacheResetFuture = null;
     _mapBubbleMessagesReady = false;
     if (mounted) {
       setState(() {
@@ -1178,13 +1176,53 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (descriptors.isEmpty) return;
     final chatroom = _worldChatroom;
     if (chatroom == null || chatroom.identity == null) return;
-    final resetFuture = _ensureLocationMessagePreloadReset(chatroom);
-    final preloadFuture = Future.wait<void>(
-      descriptors.map(
-        (descriptor) =>
-            _preloadLocationChatMessages(descriptor, resetFuture: resetFuture),
-      ),
-    );
+    final pendingDescriptors = descriptors
+        .where(
+          (descriptor) =>
+              !_preloadedLocationMessageIds.contains(descriptor.locationId) &&
+              !_preloadingLocationMessageFutures.containsKey(
+                descriptor.locationId,
+              ),
+        )
+        .toList(growable: false);
+    if (pendingDescriptors.isEmpty) {
+      final expectedIds = descriptors
+          .map((descriptor) => descriptor.locationId.trim())
+          .where((locationId) => locationId.isNotEmpty)
+          .toSet();
+      if (expectedIds.every(_preloadedLocationMessageIds.contains)) {
+        _mapBubbleMessagesReady = true;
+        _replaceMapBubbleCandidates(
+          _buildMapBubbleCandidates(chatroom.state, _world),
+        );
+      }
+      return;
+    }
+    final pendingIds = pendingDescriptors
+        .map((descriptor) => descriptor.locationId.trim())
+        .where((locationId) => locationId.isNotEmpty)
+        .toList(growable: false);
+    final preloadFuture = chatroom
+        .initializeLeafLocationQueues(locationIds: pendingIds)
+        .then((_) {
+          if (!identical(_worldChatroom, chatroom)) return;
+          _preloadedLocationMessageIds.addAll(pendingIds);
+        })
+        .catchError((Object error) {
+          _logLocationChatMetric('message preload failed error=$error');
+          _recordWorldLocationChatDebug(
+            action: 'preloadFailed',
+            details: {'error': '$error'},
+          );
+        })
+        .whenComplete(() {
+          for (final locationId in pendingIds) {
+            _preloadingLocationMessageFutures.remove(locationId);
+          }
+        });
+    for (final locationId in pendingIds) {
+      _preloadingLocationMessageFutures[locationId] = preloadFuture;
+    }
     unawaited(
       preloadFuture.then((_) {
         if (!mounted || !identical(_worldChatroom, chatroom)) return;
@@ -1213,39 +1251,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     );
   }
 
-  Future<void> _ensureLocationMessagePreloadReset(
-    WorldChatroomService chatroom,
-  ) {
-    final existing = _preloadMessageCacheResetFuture;
-    if (existing != null) return existing;
-    _logLocationChatMetric('message preload cache reset start');
-    _recordWorldLocationChatDebug(action: 'preloadResetStart');
-    final future = chatroom
-        .clearCachedMessages()
-        .then((_) {
-          if (!identical(_worldChatroom, chatroom)) return;
-          _preloadedLocationMessageIds.clear();
-          _logLocationChatMetric('message preload cache reset done');
-          _recordWorldLocationChatDebug(action: 'preloadResetDone');
-        })
-        .catchError((Object error) {
-          _logLocationChatMetric(
-            'message preload cache reset failed error=$error',
-          );
-          _recordWorldLocationChatDebug(
-            action: 'preloadResetFailed',
-            details: {'error': '$error'},
-          );
-          throw error;
-        });
-    _preloadMessageCacheResetFuture = future;
-    return future;
-  }
-
   Future<void> _preloadLocationChatMessages(
-    WorldLocationChatPanelDescriptor descriptor, {
-    Future<void>? resetFuture,
-  }) {
+    WorldLocationChatPanelDescriptor descriptor,
+  ) {
     final locationId = descriptor.locationId.trim();
     if (locationId.isEmpty || !descriptor.isLeafLocation) {
       return Future<void>.value();
@@ -1259,8 +1267,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     }
     final existing = _preloadingLocationMessageFutures[locationId];
     if (existing != null) return existing;
-    final resolvedResetFuture =
-        resetFuture ?? _ensureLocationMessagePreloadReset(chatroom);
     _logLocationChatMetric(
       'message preload start location=$locationId '
       'aliases=${descriptor.localMessageLocationIds.join(',')}',
@@ -1270,14 +1276,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       locationId: locationId,
       details: {'aliases': descriptor.localMessageLocationIds},
     );
-    final future = resolvedResetFuture
-        .then(
-          (_) => chatroom.refreshLatestMessages(
-            locationId: locationId,
-            limit: 20,
-            emitLatestFetched: false,
-          ),
-        )
+    final future = chatroom
+        .initializeLeafLocationQueues(locationIds: [locationId])
         .then((messages) {
           if (!identical(_worldChatroom, chatroom) ||
               !_locationChatDescriptors.containsKey(locationId)) {
@@ -1286,14 +1286,12 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           _preloadedLocationMessageIds.add(locationId);
           _logLocationChatMetric(
             'message preload done location=$locationId '
-            'loaded=${messages.length} '
             'stateCount=${chatroom.state.messagesByLocation[locationId]?.length ?? 0}',
           );
           _recordWorldLocationChatDebug(
             action: 'preloadDone',
             locationId: locationId,
             details: {
-              'loaded': messages.length,
               'stateCount':
                   chatroom.state.messagesByLocation[locationId]?.length ?? 0,
             },
@@ -1646,6 +1644,15 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 chatroom: _worldChatroom,
                 cache: _locationChatPageCache,
                 onBack: _closeCachedLocationChat,
+                isMessageQueueInitializationCovered: (locationId) {
+                  final resolvedLocationId = locationId.trim();
+                  return _preloadedLocationMessageIds.contains(
+                        resolvedLocationId,
+                      ) ||
+                      _preloadingLocationMessageFutures.containsKey(
+                        resolvedLocationId,
+                      );
+                },
                 onPanelReady: (locationId) {
                   _locationChatPageCache.markReady(locationId);
                   _recordWorldLocationChatDebug(

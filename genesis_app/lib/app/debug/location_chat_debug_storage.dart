@@ -122,6 +122,29 @@ class LocationChatDebugChatroomMessageStorage
   }
 
   @override
+  Future<void> deleteMessagesAtOrBefore({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int maxLocationMessageId,
+  }) async {
+    await _delegate.deleteMessagesAtOrBefore(
+      ownerUid: ownerUid,
+      worldId: worldId,
+      locationId: locationId,
+      maxLocationMessageId: maxLocationMessageId,
+    );
+    await _recordLatestSnapshot(
+      action: 'deleteAtOrBefore',
+      ownerUid: ownerUid,
+      worldId: worldId,
+      locationId: locationId,
+      limit: 200,
+      details: {'maxLocationMessageId': maxLocationMessageId},
+    );
+  }
+
+  @override
   Future<void> clearCache(String ownerUid) async {
     await _delegate.clearCache(ownerUid);
     LocationChatDebugHub.record(
@@ -253,8 +276,7 @@ int _locationMessageId(Map<String, dynamic> message) {
 }
 
 int _locationQueueMessageId(Map<String, dynamic> message) {
-  final locationMessageId = _locationMessageId(message);
-  return locationMessageId > 0 ? locationMessageId : _messageId(message);
+  return _locationMessageId(message);
 }
 
 String _preview(String value) {

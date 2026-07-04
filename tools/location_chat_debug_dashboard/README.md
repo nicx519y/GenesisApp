@@ -117,14 +117,21 @@ The dashboard is a single-screen dark split view:
   is stored in browser local storage so a refreshed page can still stop a
   running App job while the App process remains alive. `Locations` lets the job
   visit multiple locations in one world by entering a location, sending its
-  assigned messages, exiting, and then entering the next location.
+  assigned messages, exiting, and then entering the next location. `Wid` lets
+  the job enter a specific world. Enter `Current` to use the world from the
+  latest App debug snapshot and keep the current location target. When `Wid` is
+  empty, the dashboard uses the current world/location if `Use current location`
+  is checked, otherwise the App picks a random eligible world. You can also
+  prefill it with `http://127.0.0.1:17318/?wid=<WID>`.
 - Top info row: 300px-wide cards for `Wid`, `Num Of Leaf Locations`, and
   `Websocket Status`.
 - Left card: `Queue Compare`, with one tab per leaf location.
-- Right card: `Net Work`, with `HTTPS` and `WebSocket` tabs.
-- `HTTPS` and `WebSocket`: the same message-network timeline, newest first,
-  across message-related HTTP requests and inbound/outbound WebSocket payloads.
-  Rows keep their source labels, but the list is not bucketed by location.
+- Right card: `Net Work`, with separate `HTTPS` and `WebSocket` tabs.
+- `HTTPS`: stored and rendered as HTTP request rows, newest first, with the raw
+  response JSON and parsed messages when the row is expanded.
+- `WebSocket`: stored and rendered as individual WebSocket packet rows, newest
+  first, preserving inbound/outbound direction, frame type, raw payload size, and
+  expandable raw/payload JSON.
 
 ## Event Retention
 
@@ -133,7 +140,11 @@ Debug events use a two-tier local cache in the dashboard:
 - Recent events are kept in browser memory for rendering and frequent lookup.
 - All events and the latest full snapshot are persisted into the browser
   IndexedDB database
-  `location-chat-debug-dashboard`.
+  `location-chat-debug-dashboard`. Raw debug events remain in the `events`
+  store, while the right-side request list is also materialized into a
+  `networkRecords` store with `networkKind`, `networkRecordId`, and
+  `networkRecordType` metadata so it can be queried and rebuilt by HTTP request
+  or WebSocket packet.
 
 The Network timeline renders the in-memory window for the active world so large
 captures do not slow down DOM rendering. `Export JSON` reads the full persisted

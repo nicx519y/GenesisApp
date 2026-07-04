@@ -123,8 +123,8 @@ p {
 
 .agent-strip {
   flex: 0 1 auto;
-  grid-template-columns: max-content max-content max-content max-content max-content;
-  grid-template-areas: "title count locations target buttons";
+  grid-template-columns: max-content max-content max-content max-content max-content max-content;
+  grid-template-areas: "title count locations wid target buttons";
 }
 
 .tools-strip {
@@ -212,6 +212,10 @@ p {
   grid-area: locations;
 }
 
+.agent-wid-field {
+  grid-area: wid;
+}
+
 .agent-field input {
   width: 68px;
   height: 28px;
@@ -221,6 +225,11 @@ p {
   background: var(--code);
   color: var(--text);
   font: inherit;
+}
+
+.agent-wid-field input {
+  width: 150px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .agent-check input {
@@ -990,11 +999,11 @@ pre {
     flex-basis: 100%;
     border-left: 0;
     padding-left: 0;
-    grid-template-columns: max-content max-content;
+    grid-template-columns: max-content max-content max-content;
     grid-template-areas:
-      "title title"
-      "count locations"
-      "target buttons";
+      "title title title"
+      "count locations wid"
+      "target buttons buttons";
   }
 
   .tools-strip {
@@ -1033,8 +1042,13 @@ pre {
       "title"
       "count"
       "locations"
+      "wid"
       "target"
       "buttons";
+  }
+
+  .agent-wid-field input {
+    width: min(100%, 220px);
   }
 
   .tools-strip {

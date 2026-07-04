@@ -11,6 +11,9 @@ final ValueNotifier<String> genesisCurrentRouteName = ValueNotifier<String>(
   RouteNames.home,
 );
 
+final ValueNotifier<Object?> genesisCurrentRouteArguments =
+    ValueNotifier<Object?>(null);
+
 final NavigatorObserver genesisRouteObserver = _GenesisRouteObserver();
 
 class _GenesisRouteObserver extends NavigatorObserver {
@@ -25,6 +28,7 @@ class _GenesisRouteObserver extends NavigatorObserver {
     );
     genesisCurrentRouteName.value = route.settings.name ?? '';
     genesisCurrentPageClassName.value = pageClassName;
+    genesisCurrentRouteArguments.value = route.settings.arguments;
     GenesisTelemetry.pageView(
       routeName: route.settings.name ?? '',
       pageClassName: pageClassName,

@@ -636,7 +636,13 @@ Future<Map<String, Object?>> _runAgentWorldChat(
     'locationId': locationId,
     'locationName': locationName,
   });
-  await _navigateToRoute(context, RouteNames.locationChat, chatArgs);
+  await _ensureAgentLocationChatPage(
+    context,
+    worldId: world.worldId,
+    locationId: locationId,
+    arguments: chatArgs,
+    progress: progress,
+  );
 
   _throwIfAgentCancelled(isCancelled);
   progress('准备 chatroom 身份并连接 websocket', {'locationId': locationId});
@@ -921,10 +927,12 @@ Future<Map<String, Object?>> _runAgentWorldChatAcrossLocations(
         'locationName': locationName,
         'messageCount': locationMessageCount,
       });
-      await _navigateToRoute(
+      await _ensureAgentLocationChatPage(
         context,
-        RouteNames.locationChat,
-        _agentLocationChatArgs(world, location),
+        worldId: world.worldId,
+        locationId: locationId,
+        arguments: _agentLocationChatArgs(world, location),
+        progress: progress,
       );
       await _ensureAgentChatroomReady(
         chatroom,
@@ -1184,6 +1192,43 @@ Future<Map<String, Object?>> _locationChatDebugClear(
   return LocationChatDebugHub.snapshot();
 }
 
+Future<void> _ensureAgentLocationChatPage(
+  AgentControlContext context, {
+  required String worldId,
+  required String locationId,
+  required Map<String, Object?> arguments,
+  required _AgentProgress progress,
+}) async {
+  final current = _currentAgentLocationChatTarget();
+  if (current != null &&
+      current.worldId == worldId &&
+      current.locationId == locationId) {
+    progress('已在目标 LocationChatPage，复用当前页面', {
+      'wid': worldId,
+      'locationId': locationId,
+    });
+    await _waitForAgentRouteFrame();
+    return;
+  }
+
+  if (current != null) {
+    progress('退出当前 LocationChatPage 后再切换 location', {
+      'previousWid': current.worldId,
+      'previousLocationId': current.locationId,
+      'nextWid': worldId,
+      'nextLocationId': locationId,
+    });
+    await _leaveLocationChatPage(context, worldId);
+  }
+
+  if (!_currentWorldRouteMatches(worldId)) {
+    await _navigateToRoute(context, RouteNames.world, {
+      'wid': worldId,
+    }, clearStack: true);
+  }
+  await _navigateToRoute(context, RouteNames.locationChat, arguments);
+}
+
 Future<void> _navigateToRoute(
   AgentControlContext context,
   String route,
@@ -1245,14 +1290,6 @@ Future<_AgentWorldChatTarget> _resolveAgentWorldChatTarget(
   AgentControlRequest request, {
   required _AgentProgress progress,
 }) async {
-  progress('进入首页，确保从 HomePage 开始选择 world', {'route': RouteNames.home});
-  await _navigateToRoute(
-    context,
-    RouteNames.home,
-    const <String, Object?>{},
-    clearStack: true,
-  );
-
   final services = context.services;
   progress('检查登录态，auth token 为空则停止并等待人工登录', {});
   final authenticated = await services.api.hasAuthenticatedSession();
@@ -1263,6 +1300,15 @@ Future<_AgentWorldChatTarget> _resolveAgentWorldChatTarget(
     'wid',
     'world_id',
   ]);
+  if (requestedWid == null) {
+    progress('进入首页，确保从 HomePage 开始选择 world', {'route': RouteNames.home});
+    await _navigateToRoute(
+      context,
+      RouteNames.home,
+      const <String, Object?>{},
+      clearStack: true,
+    );
+  }
   progress('选择要进入的 world', {'requestedWid': requestedWid ?? ''});
   final worldPick = requestedWid == null
       ? await _pickHomeWorld(services, progress: progress)
@@ -1275,10 +1321,13 @@ Future<_AgentWorldChatTarget> _resolveAgentWorldChatTarget(
     );
   }
 
-  progress('先进入 WorldPage', {'wid': wid});
-  await _navigateToRoute(context, RouteNames.world, {
-    'wid': wid,
-  }, clearStack: true);
+  final currentLocationChat = _currentAgentLocationChatTarget();
+  if (currentLocationChat == null || currentLocationChat.worldId != wid) {
+    progress('先进入 WorldPage', {'wid': wid});
+    await _navigateToRoute(context, RouteNames.world, {
+      'wid': wid,
+    }, clearStack: true);
+  }
 
   progress('在 WorldPage 后拉取 world 详情', {'wid': wid});
   final world = await services.api.getWorld(wid);
@@ -1341,7 +1390,13 @@ Future<_AgentWorldChatTarget> _resolveAgentWorldChatTarget(
     'locationId': locationId,
     'locationName': locationName,
   });
-  await _navigateToRoute(context, RouteNames.locationChat, chatArgs);
+  await _ensureAgentLocationChatPage(
+    context,
+    worldId: world.worldId,
+    locationId: locationId,
+    arguments: chatArgs,
+    progress: progress,
+  );
 
   return _AgentWorldChatTarget(
     world: world,
@@ -1510,14 +1565,19 @@ Future<void> _leaveLocationChatPage(
       message: 'Navigator is not available yet.',
     );
   }
-  final didPop = await navigator.maybePop();
-  if (!didPop) {
+
+  for (var popCount = 0; popCount < 8; popCount += 1) {
+    if (_currentAgentLocationChatTarget() == null) return;
+    final didPop = await navigator.maybePop();
+    if (!didPop) break;
+    await _waitForAgentRouteFrame();
+  }
+
+  if (_currentAgentLocationChatTarget() != null) {
     await _navigateToRoute(context, RouteNames.world, {
       'wid': worldId,
     }, clearStack: true);
-    return;
   }
-  await _waitForAgentRouteFrame();
 }
 
 Future<ChatroomConnectionIdentity> _agentChatroomIdentity(
@@ -1809,6 +1869,56 @@ String? _optionalString(Map<String, Object?> params, List<String> keys) {
   return null;
 }
 
+_AgentLocationChatPageTarget? _currentAgentLocationChatTarget() {
+  return _agentLocationChatTargetFrom(
+    genesisCurrentRouteName.value,
+    genesisCurrentRouteArguments.value,
+  );
+}
+
+_AgentLocationChatPageTarget? _agentLocationChatTargetFrom(
+  String routeName,
+  Object? routeArguments,
+) {
+  if (routeName != RouteNames.locationChat) return null;
+  final args = _mapParam(routeArguments);
+  if (args == null) return null;
+  final worldId = _optionalString(args, const ['wid', 'world_id', 'worldId']);
+  final locationId = _optionalString(args, const [
+    'location_id',
+    'locationId',
+    'scene_id',
+    'sceneId',
+    'point_id',
+    'pointId',
+  ]);
+  if (worldId == null || locationId == null) return null;
+  return _AgentLocationChatPageTarget(worldId: worldId, locationId: locationId);
+}
+
+bool _currentWorldRouteMatches(String worldId) {
+  if (genesisCurrentRouteName.value != RouteNames.world) return false;
+  final args = _mapParam(genesisCurrentRouteArguments.value);
+  if (args == null) return false;
+  return _optionalString(args, const ['wid', 'world_id', 'worldId']) == worldId;
+}
+
+@visibleForTesting
+bool agentControlShouldReuseLocationChatPageForTesting({
+  required String currentRouteName,
+  required Object? currentRouteArguments,
+  required String worldId,
+  required String locationId,
+}) {
+  final current = _agentLocationChatTargetFrom(
+    currentRouteName,
+    currentRouteArguments,
+  );
+  return current != null &&
+      current.worldId == worldId.trim() &&
+      current.locationId == locationId.trim();
+}
+
 bool _boolParam(Object? value) {
   if (value is bool) return value;
   final text = value?.toString().trim().toLowerCase() ?? '';
@@ -1993,6 +2103,16 @@ class _AgentWorldChatTarget {
   final String locationName;
   final Map<String, Object?> location;
   final bool authenticated;
+}
+
+class _AgentLocationChatPageTarget {
+  const _AgentLocationChatPageTarget({
+    required this.worldId,
+    required this.locationId,
+  });
+
+  final String worldId;
+  final String locationId;
 }
 
 void _ignoreAgentProgress(String goal, Map<String, Object?> details) {}

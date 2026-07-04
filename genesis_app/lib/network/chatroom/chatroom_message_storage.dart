@@ -28,6 +28,13 @@ abstract class ChatroomMessageStorage {
     int maxMessagesPerLocation = 200,
   });
 
+  Future<void> deleteMessagesAtOrBefore({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int maxLocationMessageId,
+  });
+
   Future<void> upsertMessage({
     required String ownerUid,
     required String worldId,
@@ -168,6 +175,24 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
   }
 
   @override
+  Future<void> deleteMessagesAtOrBefore({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int maxLocationMessageId,
+  }) async {
+    if (maxLocationMessageId <= 0) return;
+    final db = await _db;
+    await db.delete(
+      'chatroom_messages',
+      where:
+          'owner_uid = ? AND world_id = ? AND location_id = ? '
+          'AND $_locationQueueIdSql <= ?',
+      whereArgs: [ownerUid, worldId, locationId, maxLocationMessageId],
+    );
+  }
+
+  @override
   Future<void> clearCache(String ownerUid) async {
     final db = await _db;
     await db.delete(
@@ -198,7 +223,7 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
       'global_msg_id': _globalMessageId(message),
       'msg_id': messageId,
       'location_msg_id': locationMessageId,
-      'raw_json': jsonEncode(message),
+      'raw_json': jsonEncode(_messageForStorage(message, locationMessageId)),
       'created_at': _messageSortValue(message),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
@@ -285,7 +310,7 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
     for (final message in messages) {
       final queueMessageId = _locationQueueMessageId(message);
       if (queueMessageId <= 0) continue;
-      bucket[queueMessageId] = Map<String, dynamic>.from(message);
+      bucket[queueMessageId] = _messageForStorage(message, queueMessageId);
     }
     _prune(bucket, maxMessagesPerLocation);
   }
@@ -301,8 +326,22 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
     final queueMessageId = _locationQueueMessageId(message);
     if (queueMessageId <= 0) return;
     final bucket = _bucket(ownerUid, worldId, locationId);
-    bucket[queueMessageId] = Map<String, dynamic>.from(message);
+    bucket[queueMessageId] = _messageForStorage(message, queueMessageId);
     _prune(bucket, maxMessagesPerLocation);
+  }
+
+  @override
+  Future<void> deleteMessagesAtOrBefore({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int maxLocationMessageId,
+  }) async {
+    if (maxLocationMessageId <= 0) return;
+    final bucket = _bucket(ownerUid, worldId, locationId);
+    bucket.removeWhere((queueMessageId, _) {
+      return queueMessageId <= maxLocationMessageId;
+    });
   }
 
   @override
@@ -356,7 +395,7 @@ const _createChatroomMessagesLocationUniqueSql = '''
 ''';
 
 const _locationQueueIdSql = '''
-  CASE WHEN location_msg_id > 0 THEN location_msg_id ELSE msg_id END
+  location_msg_id
 ''';
 
 const _locationQueueOrderByDescending =
@@ -366,7 +405,7 @@ Map<String, dynamic>? _messageFromRow(Map<String, Object?> row) {
   try {
     final message = asJsonMap(jsonDecode('${row['raw_json']}'));
     message.putIfAbsent('global_msg_id', () => asInt(row['global_msg_id']));
-    message.putIfAbsent('location_msg_id', () => asInt(row['location_msg_id']));
+    message['location_msg_id'] = asInt(row['location_msg_id']);
     return message;
   } catch (_) {
     return null;
@@ -408,8 +447,15 @@ int _locationMessageId(Map<String, dynamic> message) {
 }
 
 int _locationQueueMessageId(Map<String, dynamic> message) {
-  final locationMessageId = _locationMessageId(message);
-  return locationMessageId > 0 ? locationMessageId : _messageId(message);
+  return _locationMessageId(message);
+}
+
+Map<String, dynamic> _messageForStorage(
+  Map<String, dynamic> message,
+  int locationMessageId,
+) {
+  return Map<String, dynamic>.from(message)
+    ..['location_msg_id'] = locationMessageId;
 }
 
 int _messageSortValue(Map<String, dynamic> message) {
