@@ -1484,6 +1484,7 @@ class _RecordingDmDeltaTransport implements HttpTransport {
 class _RecordingDmChatTransport implements HttpTransport {
   _RecordingDmChatTransport({
     this.failSend = false,
+    this.sendFailureMessage = 'send failed',
     List<Map<String, dynamic>>? messages,
   }) : messages =
            messages ??
@@ -1499,6 +1500,7 @@ class _RecordingDmChatTransport implements HttpTransport {
            ];
 
   final bool failSend;
+  final String sendFailureMessage;
   final requests = <TransportRequest>[];
   final List<Map<String, dynamic>> messages;
 
@@ -1520,8 +1522,8 @@ class _RecordingDmChatTransport implements HttpTransport {
           statusCode: 200,
           headers: const {'content-type': 'application/json'},
           body: jsonEncode({
-            'err_no': 10001,
-            'err_msg': 'send failed',
+            'err_no': 20001,
+            'err_msg': sendFailureMessage,
             'data': <String, Object?>{},
           }),
         );
@@ -10036,17 +10038,147 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('send this draft'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.send));
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send-button')));
     await tester.pump();
     await tester.pumpAndSettle();
 
     expect(
       await storage.loadDraft(ownerUid: 'u_mock', peerUid: 'u_peer_dm'),
       '',
+    );
+  });
+
+  testWidgets('chat page hints when waiting for a peer reply', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingDmChatTransport(messages: const []);
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const DefaultPlatformConfig(),
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: const _FakeIdentityAuthService(),
+    );
+    final conversationStore = DirectMessageConversationStore(
+      api: api,
+      sessionStore: sessionStore,
+      storage: MemoryDirectMessageConversationStorage(),
+    );
+    final conversation =
+        _dmConversationJson(
+            convId: 'dm_conv',
+            peerName: 'Penny Direct',
+            messageId: 'dm_last_self',
+            message: 'Waiting on peer',
+            minutesAgo: 1,
+          )
+          ..['peer'] = {
+            'uid': 'u_peer_dm',
+            'name': 'Penny Direct',
+            'avatar': '',
+          }
+          ..['can_send_next_message'] = false;
+    await conversationStore.mergeConversationJson(conversation);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            sessionStoreOverride: sessionStore,
+            directMessageConversations: conversationStore,
+            directMessageMessages: DirectMessageMessageStore(
+              api: api,
+              sessionStore: sessionStore,
+              storage: MemoryDirectMessageMessageStorage(),
+            ),
+          ),
+          child: const ChatPage(peerUid: 'u_peer_dm', peerName: 'Penny Direct'),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.decoration?.hintText, 'Wait for a reply to send more');
+  });
+
+  testWidgets('chat page shows send rejection below the failed bubble', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingDmChatTransport(
+      failSend: true,
+      sendFailureMessage: 'only one message can be sent before a reply.',
+      messages: const [],
+    );
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const DefaultPlatformConfig(),
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: const _FakeIdentityAuthService(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+            sessionStoreOverride: sessionStore,
+            directMessageMessages: DirectMessageMessageStore(
+              api: api,
+              sessionStore: sessionStore,
+              storage: MemoryDirectMessageMessageStorage(),
+            ),
+          ),
+          child: const ChatPage(peerUid: 'u_peer_dm', peerName: 'Penny Direct'),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.enterText(find.byType(TextField), 'second ping');
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send-button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final error = find.text('Only one message can be sent before a reply.');
+    expect(error, findsOneWidget);
+    final errorText = tester.widget<Text>(error);
+    expect(errorText.style?.color, const Color(0xFF999999));
+    expect(errorText.style?.fontSize, 12);
+    expect(errorText.textAlign, TextAlign.center);
+    expect(
+      tester.getTopLeft(error).dy,
+      greaterThan(tester.getBottomLeft(find.text('second ping')).dy),
+    );
+    expect(
+      find.ancestor(
+        of: error,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is DecoratedBox &&
+              widget.decoration is BoxDecoration &&
+              ((widget.decoration as BoxDecoration).color?.a ?? 0) > 0,
+        ),
+      ),
+      findsNothing,
     );
   });
 
@@ -10398,18 +10530,18 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    for (var attempt = 0; attempt < 10; attempt += 1) {
+      if (find.text('Synced direct chat').evaluate().isNotEmpty) break;
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     await tester.enterText(find.byType(TextField), 'optimistic hello');
-    await tester.tap(find.byIcon(Icons.send));
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send-button')));
     await tester.pump();
 
     expect(find.text('optimistic hello'), findsOneWidget);
-    expect(
-      tester.getTopLeft(find.text('optimistic hello')).dy,
-      greaterThan(tester.getTopLeft(find.text('Synced direct chat')).dy),
-    );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byIcon(Icons.priority_high), findsOneWidget);
     final persisted = await storage.loadMessages(

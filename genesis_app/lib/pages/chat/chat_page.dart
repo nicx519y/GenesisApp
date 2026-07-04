@@ -8,8 +8,8 @@ import '../../app/bootstrap/polling_scheduler.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/shared/chat_ui.dart';
-import '../../components/common/genesis_center_toast.dart';
 import '../../network/api_exception.dart';
+import '../../network/direct_message_conversation_store.dart';
 import '../../network/direct_message_message_store.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
@@ -18,6 +18,7 @@ import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/display_name_formatter.dart';
 
 const Color _privateChatHeaderBackgroundColor = Color(0xFFEDEDED);
+const String _privateChatReplyGateHint = 'Wait for a reply to send more';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({
@@ -53,6 +54,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   bool _sending = false;
   bool _loadingOlder = false;
   bool _applyingDraftText = false;
+  String _latestSendFailureLocalMessageId = '';
+  String _latestSendFailureMessage = '';
   String _lastDraftPeerUid = '';
   String _lastSavedDraft = '';
   String _myUid = '';
@@ -96,6 +99,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       _syncing = false;
       _sending = false;
       _loadingOlder = false;
+      _latestSendFailureLocalMessageId = '';
+      _latestSendFailureMessage = '';
     });
     unawaited(_bootstrap());
   }
@@ -376,13 +381,20 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         );
       }
       if (!mounted) return;
+      setState(() {
+        _latestSendFailureLocalMessageId = '';
+        _latestSendFailureMessage = '';
+      });
       _scrollToBottom();
     } on ApiException catch (error, stackTrace) {
       debugPrint('[ChatPage][DM] send failed: $error');
       debugPrint('[ChatPage][DM] stacktrace:\n$stackTrace');
       if (mounted) {
         final message = error.message.trim();
-        showGenesisToast(context, message.isEmpty ? 'Send failed' : message);
+        setState(() {
+          _latestSendFailureLocalMessageId = localMessageId;
+          _latestSendFailureMessage = message.isEmpty ? 'Send failed' : message;
+        });
       }
       await _markLocalMessageSendFailed(localMessageId);
     } catch (error, stackTrace) {
@@ -604,6 +616,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                   sending: _sending,
                   onSend: _send,
                   sendLabel: 'Send',
+                  hintText: _composerHintText(),
                   style: kPrivateChatStyle,
                   onHeightChanged: _handleComposerHeightChanged,
                 ),
@@ -613,6 +626,31 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         ),
       ),
     );
+  }
+
+  String? _composerHintText() {
+    if (_latestVisibleMessageIsIncoming()) return null;
+    final conversation = _conversationForPeer();
+    if (conversation == null || conversation.canSendNextMessage) return null;
+    return _privateChatReplyGateHint;
+  }
+
+  bool _latestVisibleMessageIsIncoming() {
+    final ids = _messageStore.orderedMessageIds.value;
+    if (ids.isEmpty) return false;
+    final latest = _recordForMessageId(ids.last);
+    return latest != null && _isIncomingMessage(latest);
+  }
+
+  DirectMessageConversationRecord? _conversationForPeer() {
+    final conversations = AppServicesScope.read(
+      context,
+    ).directMessageConversations;
+    for (final id in conversations.orderedConversationIds.value) {
+      final record = conversations.rowListenable(id)?.value;
+      if (record?.peerUid.trim() == _peerUid) return record;
+    }
+    return null;
   }
 
   Widget _buildMessages() {
@@ -661,13 +699,16 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       final previous = messageIndex == 0
           ? null
           : _recordForMessageId(renderIds[messageIndex - 1]);
-      return ChatMessageRow(
-        key: ValueKey(messageId),
-        message: _messageVm(failedRecord),
-        onAvatarTap: _avatarTapFor(failedRecord),
-        showDateDivider: shouldShowChatDateDivider(
-          previous?.createdAt,
-          failedRecord.createdAt,
+      return _withInlineSendFailure(
+        messageId: messageId,
+        child: ChatMessageRow(
+          key: ValueKey(messageId),
+          message: _messageVm(failedRecord),
+          onAvatarTap: _avatarTapFor(failedRecord),
+          showDateDivider: shouldShowChatDateDivider(
+            previous?.createdAt,
+            failedRecord.createdAt,
+          ),
         ),
       );
     }
@@ -680,15 +721,58 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         final previous = messageIndex == 0
             ? null
             : _recordForMessageId(renderIds[messageIndex - 1]);
-        return ChatMessageRow(
-          message: _messageVm(record),
-          onAvatarTap: _avatarTapFor(record),
-          showDateDivider: shouldShowChatDateDivider(
-            previous?.createdAt,
-            record.createdAt,
+        return _withInlineSendFailure(
+          messageId: messageId,
+          child: ChatMessageRow(
+            message: _messageVm(record),
+            onAvatarTap: _avatarTapFor(record),
+            showDateDivider: shouldShowChatDateDivider(
+              previous?.createdAt,
+              record.createdAt,
+            ),
           ),
         );
       },
+    );
+  }
+
+  Widget _withInlineSendFailure({
+    required String messageId,
+    required Widget child,
+  }) {
+    if (messageId != _latestSendFailureLocalMessageId ||
+        _latestSendFailureMessage.trim().isEmpty) {
+      return child;
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        child,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+              child: Align(
+                alignment: Alignment.center,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth - 48,
+                  ),
+                  child: Text(
+                    _capitalizedSentence(_latestSendFailureMessage),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFF999999),
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -790,6 +874,12 @@ Object? _mapValue(Map<dynamic, dynamic> map, List<String> keys) {
     if (text.isNotEmpty) return value;
   }
   return null;
+}
+
+String _capitalizedSentence(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return trimmed;
+  return trimmed[0].toUpperCase() + trimmed.substring(1);
 }
 
 class _NewIncomingMessageNotice extends StatelessWidget {

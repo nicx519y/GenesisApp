@@ -21,6 +21,7 @@ class DirectMessageConversationRecord {
     required this.lastMessageAtTime,
     required this.unreadCount,
     required this.sortValue,
+    required this.canSendNextMessage,
     required this.rawJson,
   });
 
@@ -38,6 +39,7 @@ class DirectMessageConversationRecord {
       lastMessageAtTime: time,
       unreadCount: asInt(json['unread_cnt']),
       sortValue: time?.millisecondsSinceEpoch ?? 0,
+      canSendNextMessage: asBool(json['can_send_next_message'], fallback: true),
       rawJson: jsonEncode(json),
     );
   }
@@ -52,6 +54,7 @@ class DirectMessageConversationRecord {
   final DateTime? lastMessageAtTime;
   final int unreadCount;
   final int sortValue;
+  final bool canSendNextMessage;
   final String rawJson;
 }
 

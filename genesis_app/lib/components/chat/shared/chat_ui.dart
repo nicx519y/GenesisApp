@@ -343,6 +343,7 @@ class ChatComposer extends StatelessWidget {
     required this.onSend,
     this.onHeightChanged,
     this.sendLabel,
+    this.hintText,
     this.style,
     this.bottomSafeAreaInset,
     this.focusNode,
@@ -356,6 +357,7 @@ class ChatComposer extends StatelessWidget {
   final Future<void> Function() onSend;
   final ValueChanged<double>? onHeightChanged;
   final String? sendLabel;
+  final String? hintText;
   final ChatUiStyleConfig? style;
   final double? bottomSafeAreaInset;
   final FocusNode? focusNode;
@@ -437,6 +439,7 @@ class ChatComposer extends StatelessWidget {
                         ),
                         decoration: InputDecoration(
                           border: InputBorder.none,
+                          hintText: hintText,
                           contentPadding: EdgeInsets.symmetric(
                             horizontal: style.inputHorizontalPadding,
                             vertical: style.inputVerticalPadding,
