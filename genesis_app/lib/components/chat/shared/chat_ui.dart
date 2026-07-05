@@ -49,6 +49,8 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
 
 const double _locationChatOuterPadding = 10;
 const double _locationChatAvatarOneThird = 40 / 3;
+const double _npcChatAvatarSize = 36;
+const Color _npcChatAvatarBackgroundColor = Color(0xFF4A5F7A);
 const Color _locationChatBackgroundColor = Color(0xFF111111);
 const Color _locationChatChromeStrong = Color(0xF2111111);
 const Color _locationChatChromeSoft = Color(0x80111111);
@@ -1113,16 +1115,18 @@ class ChatMessageRow extends StatelessWidget {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: onAvatarTap,
-                child: ChatAvatar(
-                  label: chatInitials(message.senderName),
-                  imageUrl: message.avatarUrl,
-                  colors: style.otherAvatarColors,
-                  seed: message.senderName,
-                  borderColor: message.isPlayerControlledRole
-                      ? GenesisColors.brand
-                      : null,
-                  style: style,
-                ),
+                child: _isNpcSender(message.senderId)
+                    ? const ChatNpcAvatar()
+                    : ChatAvatar(
+                        label: chatInitials(message.senderName),
+                        imageUrl: message.avatarUrl,
+                        colors: style.otherAvatarColors,
+                        seed: message.senderName,
+                        borderColor: message.isPlayerControlledRole
+                            ? GenesisColors.brand
+                            : null,
+                        style: style,
+                      ),
               ),
             ],
           ),
@@ -1310,6 +1314,35 @@ class ChatAvatar extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class ChatNpcAvatar extends StatelessWidget {
+  const ChatNpcAvatar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.square(
+      key: ValueKey('chat-npc-avatar'),
+      dimension: _npcChatAvatarSize,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _npcChatAvatarBackgroundColor,
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Text(
+            'NPC',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1695,6 +1728,10 @@ String _tickAdvanceText(ChatMessageVm message) {
 
 String chatInitials(String value) {
   return initialsForAvatarName(value);
+}
+
+bool _isNpcSender(String senderId) {
+  return senderId.trim().toLowerCase() == 'char_npc';
 }
 
 String firstNonEmpty(List<String?> values) {
