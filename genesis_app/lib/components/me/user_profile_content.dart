@@ -230,7 +230,7 @@ class _UserProfileContentState extends State<UserProfileContent>
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: _FollowStats(
@@ -241,7 +241,7 @@ class _UserProfileContentState extends State<UserProfileContent>
             ),
           ),
           if (data.isSelf) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: _GemsBalanceEntry(),
