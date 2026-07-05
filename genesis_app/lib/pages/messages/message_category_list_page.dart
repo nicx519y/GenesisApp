@@ -240,7 +240,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
     if (!mounted) return;
     final applyId = item.applyId.trim();
     if (applyId.isEmpty) {
-      showGenesisToast(context, 'Missing join request ID');
+      showGenesisToast(context, 'Review failed');
       return;
     }
 

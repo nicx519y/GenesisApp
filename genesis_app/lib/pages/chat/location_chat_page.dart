@@ -2731,11 +2731,7 @@ String _resolvedProfileAvatar(
 String locationChatMessageReportTargetIdForTesting(ChatMessageVm message) {
   final globalMessageId = message.globalMessageId;
   if (globalMessageId > 0) return '$globalMessageId';
-  final messageId = message.messageId ?? 0;
-  if (messageId > 0) return '$messageId';
-  final clientMsgId = message.clientMsgId.trim();
-  if (clientMsgId.isNotEmpty) return clientMsgId;
-  return message.localId;
+  return '';
 }
 
 @visibleForTesting

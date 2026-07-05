@@ -133,7 +133,7 @@ void main() {
     );
   });
 
-  test('message report target falls back when global message id is absent', () {
+  test('message report target is empty when global message id is absent', () {
     expect(
       locationChatMessageReportTargetIdForTesting(
         ChatMessageVm(
@@ -148,7 +148,7 @@ void main() {
           status: 'sent',
         ),
       ),
-      '1001',
+      '',
     );
 
     expect(
@@ -163,7 +163,7 @@ void main() {
           status: 'sending',
         ),
       ),
-      'client-fallback',
+      '',
     );
   });
 
