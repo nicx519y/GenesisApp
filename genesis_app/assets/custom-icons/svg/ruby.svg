@@ -1,0 +1,19 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g id="ruby-gem">
+    <path d="M233 15L398 109V403L233 497L68 403V109L233 15Z" fill="#C40038"/>
+    <path d="M233 15L398 109L338 162L233 102V15Z" fill="#D90037"/>
+    <path d="M233 15V102L128 162L68 109L233 15Z" fill="#C7003C"/>
+    <path d="M68 109L128 162V350L68 403V109Z" fill="#BD0035"/>
+    <path d="M398 109V403L338 350V162L398 109Z" fill="#B90034"/>
+    <path d="M68 403L233 497V410L128 350L68 403Z" fill="#D40037"/>
+    <path d="M398 403L233 497V410L338 350L398 403Z" fill="#D90037"/>
+    <path d="M128 162L233 102L338 162V350L233 410L128 350V162Z" fill="#E93650"/>
+    <path d="M143 171L233 120L319 169V330L214 390L143 349V171Z" fill="#EB3D56"/>
+    <path d="M233 102L338 162L319 169L233 120V102Z" fill="#F14B62" opacity="0.45"/>
+    <path d="M128 350L233 410L214 390L143 349L128 350Z" fill="#A90035" opacity="0.45"/>
+    <path d="M319 169L338 162V350L319 330V169Z" fill="#D8003B"/>
+    <path d="M128 162L143 171V349L128 350V162Z" fill="#D82B49"/>
+    <rect x="136" y="194" width="8" height="134" rx="4" fill="#FF7F92" opacity="0.55"/>
+    <circle cx="140" cy="181" r="4.5" fill="#FF7F92" opacity="0.55"/>
+  </g>
+</svg>

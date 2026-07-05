@@ -88,4 +88,49 @@ void main() {
 
     expect(selectedIndexes, <int>[1, 0]);
   });
+
+  testWidgets('self profile shows Gems balance entry and opens wallet', (
+    tester,
+  ) async {
+    String? openedRoute;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        onGenerateRoute: (settings) {
+          openedRoute = settings.name;
+          return MaterialPageRoute<void>(
+            settings: settings,
+            builder: (_) => const SizedBox.shrink(),
+          );
+        },
+        home: Scaffold(
+          body: UserProfileContent(
+            data: const UserProfileData(
+              avatarUrl: '',
+              displayName: 'User',
+              uid: 'u_user',
+              followingCount: 12,
+              followerCount: 34,
+              origins: <UserProfileOriginItem>[],
+              worlds: <UserProfileWorldItem>[],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Following'), findsOneWidget);
+    expect(find.text('Followers'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('user-profile-gems-entry')),
+      findsOneWidget,
+    );
+    expect(find.text('430'), findsOneWidget);
+    expect(find.text('Gems'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('user-profile-gems-entry')));
+    await tester.pumpAndSettle();
+
+    expect(openedRoute, '/gems');
+  });
 }

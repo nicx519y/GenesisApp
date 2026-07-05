@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
@@ -239,6 +240,13 @@ class _UserProfileContentState extends State<UserProfileContent>
               onFollowersTap: () => _openFollows(1),
             ),
           ),
+          if (data.isSelf) ...[
+            const SizedBox(height: 12),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: _GemsBalanceEntry(),
+            ),
+          ],
           if (!data.isSelf) ...[
             const SizedBox(height: 20),
             Padding(
@@ -348,6 +356,61 @@ class _UserProfileContentState extends State<UserProfileContent>
 
   int _decrementCount(int value) {
     return value > 0 ? value - 1 : 0;
+  }
+}
+
+class _GemsBalanceEntry extends StatelessWidget {
+  const _GemsBalanceEntry();
+
+  static const int _placeholderBalance = 430;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      key: const ValueKey('user-profile-gems-entry'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(context).pushNamed(RouteNames.gemWallet),
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF4F6),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFFFE0E6)),
+        ),
+        child: Row(
+          children: [
+            SvgPicture.asset(
+              'assets/custom-icons/svg/ruby.svg',
+              width: 22,
+              height: 22,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              '$_placeholderBalance',
+              style: TextStyle(
+                fontSize: 16,
+                height: 20 / 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF333333),
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Text(
+              'Gems',
+              style: TextStyle(
+                fontSize: 12,
+                height: 18 / 12,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF666666),
+              ),
+            ),
+            const Spacer(),
+            const Icon(Icons.chevron_right, size: 22, color: Color(0xFF999999)),
+          ],
+        ),
+      ),
+    );
   }
 }
 
