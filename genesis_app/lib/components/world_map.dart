@@ -283,6 +283,8 @@ class _WorldMapState extends State<WorldMap> {
           visiblePoints,
           devicePixelRatio: devicePixelRatio,
         );
+        final mapIsZoomed =
+            _mapZoomScale > _ZoomableMapContent.minScale + 0.001;
         final mapKeyId = _locationTrail.isEmpty
             ? '__world_root__'
             : _locationTrail.last.id;
@@ -319,7 +321,9 @@ class _WorldMapState extends State<WorldMap> {
                   controller: verticalScrollController,
                   primary: false,
                   scrollDirection: Axis.vertical,
-                  physics: viewport.height > constraints.maxHeight + 0.5
+                  physics:
+                      !mapIsZoomed &&
+                          viewport.height > constraints.maxHeight + 0.5
                       ? const ClampingScrollPhysics()
                       : const NeverScrollableScrollPhysics(),
                   child: SizedBox(
@@ -328,7 +332,9 @@ class _WorldMapState extends State<WorldMap> {
                       controller: horizontalScrollController,
                       primary: false,
                       scrollDirection: Axis.horizontal,
-                      physics: viewport.width > constraints.maxWidth + 0.5
+                      physics:
+                          !mapIsZoomed &&
+                              viewport.width > constraints.maxWidth + 0.5
                           ? const ClampingScrollPhysics()
                           : const NeverScrollableScrollPhysics(),
                       child: SizedBox(
@@ -492,6 +498,7 @@ class _WorldMapState extends State<WorldMap> {
     setState(() {
       _mapZoomScale = scale;
     });
+    _scheduleHorizontalPanStateNotification();
   }
 
   void _handleZoomControlChanged(
@@ -955,8 +962,12 @@ class _WorldMapState extends State<WorldMap> {
 
     var canScrollLeft = false;
     var canScrollRight = false;
+    final mapIsZoomed = _mapZoomScale > _ZoomableMapContent.minScale + 0.001;
     final horizontalScrollController = _horizontalScrollController;
-    if (horizontalScrollController != null &&
+    if (mapIsZoomed) {
+      canScrollLeft = true;
+      canScrollRight = true;
+    } else if (horizontalScrollController != null &&
         horizontalScrollController.hasClients) {
       final position = horizontalScrollController.position;
       canScrollLeft = position.pixels > position.minScrollExtent + 0.5;
