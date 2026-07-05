@@ -62,6 +62,30 @@ void main() {
     );
   });
 
+  testWidgets('anchored message list shows loading instead of oldest notice', (
+    WidgetTester tester,
+  ) async {
+    const notice = 'Oldest edge notice';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatAnchoredMessageList(
+            controller: ScrollController(),
+            centerLocalId: '',
+            topTitle: '',
+            oldestEdgeNotice: notice,
+            oldestEdgeLoading: true,
+            showDateDividers: false,
+            messages: const [],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text(notice), findsNothing);
+  });
+
   testWidgets('chat message list shows first divider and long gaps', (
     WidgetTester tester,
   ) async {

@@ -12000,7 +12000,7 @@ void main() {
         message(5, 'tick'),
       ]);
 
-      expect(visible.map((message) => message.messageId), [1, 2, 3, 4, 5]);
+      expect(visible.map((message) => message.messageId), [1, 3, 4, 5]);
     },
   );
 

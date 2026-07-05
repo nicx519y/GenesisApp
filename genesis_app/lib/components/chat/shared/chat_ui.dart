@@ -655,6 +655,7 @@ class ChatMessageList extends StatelessWidget {
     this.onMessageLongPressStart,
     this.keyboardDismissBehavior,
     this.oldestEdgeNotice,
+    this.oldestEdgeLoading = false,
     this.reverse = true,
     this.showDateDividers = true,
     this.style,
@@ -666,6 +667,7 @@ class ChatMessageList extends StatelessWidget {
   final ChatMessageLongPressStart? onMessageLongPressStart;
   final ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior;
   final String? oldestEdgeNotice;
+  final bool oldestEdgeLoading;
   final bool reverse;
   final bool showDateDividers;
   final ChatUiStyleConfig? style;
@@ -686,6 +688,7 @@ class ChatMessageList extends StatelessWidget {
           return _ChatOldestEdgeContent(
             topTitle: topTitle,
             notice: oldestEdgeNotice,
+            loading: oldestEdgeLoading,
             style: style,
           );
         }
@@ -717,6 +720,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
     this.onMessageLongPressStart,
     this.keyboardDismissBehavior,
     this.oldestEdgeNotice,
+    this.oldestEdgeLoading = false,
     this.showDateDividers = true,
     this.style,
   });
@@ -732,6 +736,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
   final ChatMessageLongPressStart? onMessageLongPressStart;
   final ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior;
   final String? oldestEdgeNotice;
+  final bool oldestEdgeLoading;
   final bool showDateDividers;
   final ChatUiStyleConfig? style;
 
@@ -748,6 +753,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
           _ChatOldestEdgeContent(
             topTitle: topTitle,
             notice: oldestEdgeNotice,
+            loading: oldestEdgeLoading,
             style: style,
           ),
         ],
@@ -777,6 +783,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
                 return _ChatOldestEdgeContent(
                   topTitle: topTitle,
                   notice: oldestEdgeNotice,
+                  loading: oldestEdgeLoading,
                   style: style,
                 );
               }
@@ -831,16 +838,44 @@ class _ChatOldestEdgeContent extends StatelessWidget {
   const _ChatOldestEdgeContent({
     required this.topTitle,
     required this.notice,
+    required this.loading,
     required this.style,
   });
 
   final String topTitle;
   final String? notice;
+  final bool loading;
   final ChatUiStyleConfig style;
 
   @override
   Widget build(BuildContext context) {
     final normalizedNotice = notice?.trim() ?? '';
+    if (loading) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ChatTopTitle(name: topTitle, style: style),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              topTitle.trim().isEmpty ? 0 : 4,
+              20,
+              16,
+            ),
+            child: SizedBox.square(
+              dimension: style.sendingBadgeSize,
+              child: Padding(
+                padding: EdgeInsets.all(style.sendingBadgePadding),
+                child: CircularProgressIndicator(
+                  strokeWidth: style.sendingBadgeStrokeWidth,
+                  color: style.sendingBadgeColor,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     if (normalizedNotice.isEmpty) {
       return _ChatTopTitle(name: topTitle, style: style);
     }

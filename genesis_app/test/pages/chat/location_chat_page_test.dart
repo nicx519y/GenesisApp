@@ -302,6 +302,81 @@ void main() {
     },
   );
 
+  test('visible location chat messages collapse consecutive ticks', () {
+    final source = [
+      _message(messageId: 1, locationMessageId: 1, content: 'one'),
+      _message(
+        messageId: 2,
+        locationMessageId: 0,
+        senderType: 'tick',
+        content: 'older tick',
+      ),
+      _message(
+        messageId: 3,
+        locationMessageId: 0,
+        senderType: 'tick',
+        content: 'newer tick',
+      ),
+      _message(messageId: 4, locationMessageId: 2, content: 'two'),
+    ];
+
+    expect(
+      visibleLocationChatMessagesForTesting(
+        source,
+      ).map((message) => message.content),
+      ['one', 'newer tick', 'two'],
+    );
+  });
+
+  test('visible location chat messages collapse consecutive leading ticks', () {
+    final source = [
+      _message(
+        messageId: 1,
+        locationMessageId: 0,
+        senderType: 'tick',
+        content: 'older leading tick',
+      ),
+      _message(
+        messageId: 2,
+        locationMessageId: 0,
+        senderType: 'tick',
+        content: 'newer leading tick',
+      ),
+      _message(messageId: 3, locationMessageId: 1, content: 'one'),
+    ];
+
+    expect(
+      visibleLocationChatMessagesForTesting(
+        source,
+      ).map((message) => message.content),
+      ['newer leading tick', 'one'],
+    );
+  });
+
+  test('visible location chat messages collapse tick-only queues', () {
+    final source = [
+      _message(
+        messageId: 1,
+        locationMessageId: 0,
+        senderType: 'tick',
+        content: 'Tick 1',
+      ),
+      _message(
+        messageId: 2,
+        locationMessageId: 0,
+        senderType: 'tick',
+        content: 'Tick 2',
+      ),
+    ];
+
+    expect(
+      visibleLocationChatMessagesForTesting(
+        source,
+      ).map((message) => message.content),
+      ['Tick 2'],
+    );
+  });
+
   test(
     'visible location chat messages keep rendered old data before new gaps',
     () {
@@ -366,6 +441,69 @@ void main() {
       [10, 20, 40, 50],
     );
   });
+
+  test(
+    'oldest edge notice waits for rendered window to include oldest message',
+    () {
+      final source = [
+        _message(messageId: 10, locationMessageId: 1, content: 'old 1'),
+        _message(messageId: 20, locationMessageId: 2, content: 'old 2'),
+        _message(messageId: 40, locationMessageId: 4, content: 'new 4'),
+        _message(messageId: 50, locationMessageId: 5, content: 'new 5'),
+      ];
+
+      expect(
+        shouldShowLocationChatOldestEdgeNoticeForTesting(
+          source,
+          renderedLocationMessageIds: const {4, 5},
+        ),
+        isFalse,
+      );
+      expect(
+        shouldShowLocationChatOldestEdgeNoticeForTesting(
+          source,
+          renderedLocationMessageIds: const {1, 2},
+          releasedGapKeys: const {'loc-1\u001F2\u001F4'},
+        ),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'oldest edge notice waits while older loading or gap fill is active',
+    () {
+      final source = [
+        _message(messageId: 10, locationMessageId: 1, content: 'old 1'),
+        _message(messageId: 20, locationMessageId: 2, content: 'old 2'),
+      ];
+
+      expect(
+        shouldShowLocationChatOldestEdgeNoticeForTesting(
+          source,
+          renderedLocationMessageIds: const {1, 2},
+          loadingOlderMessages: true,
+        ),
+        isFalse,
+      );
+      expect(
+        shouldShowLocationChatOldestEdgeNoticeForTesting(
+          source,
+          renderedLocationMessageIds: const {1, 2},
+          hasPendingGapFill: true,
+        ),
+        isFalse,
+      );
+      expect(
+        shouldShowLocationChatOldestEdgeNoticeForTesting(
+          source,
+          renderedLocationMessageIds: const {1, 2},
+          hasMoreOlderMessages: true,
+        ),
+        isFalse,
+      );
+    },
+  );
 }
 
 WorldChatroomMessage _message({

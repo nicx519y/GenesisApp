@@ -797,6 +797,38 @@ void main() {
   });
 
   test(
+    'loadOlderMessages trusts explicit remote has_more when page is full',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _WorldChatroomHttpTransport()
+        ..messagesByLocation['loc-1'] = [
+          for (var id = 1; id <= 20; id += 1)
+            _httpMessageJson(
+              messageId: id,
+              locationId: 'loc-1',
+              content: 'remote $id',
+            ),
+        ]
+        ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+      );
+
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final page = await service.loadOlderMessages(
+        locationId: 'loc-1',
+        beforeMessageId: 21,
+        limit: 20,
+      );
+
+      expect(page.loadedCount, 20);
+      expect(page.hasMore, isFalse);
+      await service.dispose();
+    },
+  );
+
+  test(
     'initializeLeafLocationQueues fetches latest history for leaf locations',
     () async {
       final socket = _FakeChatroomSocket();

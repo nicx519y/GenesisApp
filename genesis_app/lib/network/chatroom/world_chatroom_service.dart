@@ -500,7 +500,7 @@ class WorldChatroomService {
     }
     final page = WorldChatroomOlderMessagesPage(
       loadedCount: loadedMessageIds.length,
-      hasMore: response.hasMore || loadedMessageIds.length >= limit,
+      hasMore: response.hasMore,
     );
     _recordServiceQueueDebug(
       action: 'loadOlderDone',
