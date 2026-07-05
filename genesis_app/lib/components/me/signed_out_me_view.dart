@@ -1,8 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../app/debug_floating_button_visibility.dart';
-import '../common/genesis_center_toast.dart';
+import '../../app/debug_floating_button_unlock.dart';
 import '../../platform/auth/auth_session.dart';
 import '../login_provider_button.dart';
 
@@ -32,8 +33,7 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
       return;
     }
     _topTapCount = 0;
-    showGenesisDebugFloatingButton();
-    showGenesisToast(context, 'Debug button shown');
+    unawaited(requestGenesisDebugFloatingButtonUnlock(context));
   }
 
   @override
@@ -50,45 +50,45 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                 child: Column(
                   children: [
                     Expanded(
-                      child: GestureDetector(
-                        key: const ValueKey<String>(
-                          'signed-out-debug-button-restore',
-                        ),
-                        behavior: HitTestBehavior.translucent,
-                        onTap: _handleTopTap,
-                        child: Column(
-                          children: [
-                            SizedBox(height: constraints.maxHeight * 0.15),
-                            SvgPicture.asset(
+                      child: Column(
+                        children: [
+                          SizedBox(height: constraints.maxHeight * 0.15),
+                          GestureDetector(
+                            key: const ValueKey<String>(
+                              'signed-out-debug-button-restore',
+                            ),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _handleTopTap,
+                            child: SvgPicture.asset(
                               'assets/svg/worldo-logo.svg',
                               key: const Key('signed_out_worldo_logo'),
                               width: 200,
                               fit: BoxFit.contain,
                             ),
-                            const SizedBox(height: 30),
-                            const Text(
-                              'LIVE YOUR WORLD',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 9,
-                                color: Color(0xFF7A7A7A),
-                              ),
+                          ),
+                          const SizedBox(height: 30),
+                          const Text(
+                            'LIVE YOUR WORLD',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 9,
+                              color: Color(0xFF7A7A7A),
                             ),
-                            const SizedBox(height: 18),
-                            const Text(
-                              'Launch world, create worldo, invite\n'
-                              'friends, and continue them anywhere.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12,
-                                height: 1.35,
-                                color: Color(0xFF666666),
-                              ),
+                          ),
+                          const SizedBox(height: 18),
+                          const Text(
+                            'Launch world, create worldo, invite\n'
+                            'friends, and continue them anywhere.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.35,
+                              color: Color(0xFF666666),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                     Column(

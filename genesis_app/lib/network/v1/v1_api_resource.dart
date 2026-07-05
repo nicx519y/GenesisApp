@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import '../api_client.dart';
 import '../api_exception.dart';
 import '../json_utils.dart';
@@ -73,6 +71,7 @@ Object? handleV1ResponseErrNo(Object? json) {
       fallback: 'Something went wrong',
     ),
     code: errNo,
+    kind: ApiExceptionKind.business,
   );
 }
 
@@ -89,32 +88,6 @@ Map<String, Object?> v1Body(Map<String, Object?> values) {
     for (final entry in values.entries)
       if (entry.value != null) entry.key: entry.value,
   };
-}
-
-List<int> multipartBody({
-  required String boundary,
-  required List<int> bytes,
-  required String filename,
-  required String contentType,
-  Map<String, String> fields = const <String, String>{},
-}) {
-  final out = <int>[];
-  void addText(String value) => out.addAll(utf8.encode(value));
-
-  for (final entry in fields.entries) {
-    addText('--$boundary\r\n');
-    addText('Content-Disposition: form-data; name="${entry.key}"\r\n\r\n');
-    addText('${entry.value}\r\n');
-  }
-
-  addText('--$boundary\r\n');
-  addText(
-    'Content-Disposition: form-data; name="file"; filename="$filename"\r\n',
-  );
-  addText('Content-Type: $contentType\r\n\r\n');
-  out.addAll(bytes);
-  addText('\r\n--$boundary--\r\n');
-  return out;
 }
 
 Object? _normalizeV1Keys(Object? value) {

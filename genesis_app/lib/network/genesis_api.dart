@@ -195,6 +195,7 @@ class GenesisApi {
       responseBody: response.body,
       responseHeaders: response.headers,
       uri: response.uri,
+      kind: ApiExceptionKind.business,
     );
   }
 
@@ -220,6 +221,7 @@ class GenesisApi {
       responseBody: response.body,
       responseHeaders: response.headers,
       uri: response.uri,
+      kind: ApiExceptionKind.business,
     );
   }
 
@@ -1279,6 +1281,7 @@ Object? _defaultGenesisProcessor(ApiResponse response) {
         responseBody: response.body,
         responseHeaders: response.headers,
         uri: response.uri,
+        kind: ApiExceptionKind.httpStatus,
       );
     }
   }
@@ -1289,6 +1292,7 @@ Object? _defaultGenesisProcessor(ApiResponse response) {
     responseBody: response.body,
     responseHeaders: response.headers,
     uri: response.uri,
+    kind: ApiExceptionKind.httpStatus,
   );
 }
 
@@ -1714,6 +1718,9 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
     processedLocationTree: processLocationTree(locationTree),
     events: events,
     ticks: ticks,
+    metric: origin['metric'] is Map
+        ? asJsonMap(origin['metric'])
+        : const <String, dynamic>{},
   );
 }
 

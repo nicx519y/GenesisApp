@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 final ValueNotifier<bool> genesisDebugFloatingButtonVisible =
-    ValueNotifier<bool>(false);
+    ValueNotifier<bool>(kDebugMode);
 
 void showGenesisDebugFloatingButton() {
   genesisDebugFloatingButtonVisible.value = true;

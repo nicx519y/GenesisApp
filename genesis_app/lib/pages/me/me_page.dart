@@ -25,7 +25,6 @@ import '../../utils/entity_deleted.dart';
 import '../../utils/image_format_guards.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/text/genesis_text_input_formatters.dart';
-import '../../ui/tokens/genesis_typography.dart';
 import 'settings_page.dart';
 
 class MePage extends StatefulWidget {

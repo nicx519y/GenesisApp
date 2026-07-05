@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
+import 'package:genesis_flutter_android/network/multipart_body.dart';
 
 class _FakeTransport implements HttpTransport {
   _FakeTransport({required this.handler});
@@ -91,7 +94,7 @@ void main() {
     expect(transport.lastRequest!.headers['x-d'], 'request');
   });
 
-  test('default response processor throws on non-2xx', () async {
+  test('default response processor throws typed non-2xx error', () async {
     final transport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 401,
@@ -105,7 +108,14 @@ void main() {
       transport: transport,
     );
 
-    expect(() => client.get<Object?>('/ping'), throwsA(isA<ApiException>()));
+    await expectLater(
+      client.get<Object?>('/ping'),
+      throwsA(
+        isA<ApiException>()
+            .having((e) => e.statusCode, 'statusCode', 401)
+            .having((e) => e.kind, 'kind', ApiExceptionKind.httpStatus),
+      ),
+    );
   });
 
   test('uses custom response processor', () async {
@@ -131,5 +141,186 @@ void main() {
 
     final v = await client.get<int>('/ping');
     expect(v, 123);
+  });
+
+  test('prepares multipart body and content type', () async {
+    final transport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"ok":true}',
+      ),
+    );
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+    );
+
+    await client.post<Object?>(
+      '/upload',
+      body: MultipartBody.singleFile(
+        boundary: 'test-boundary',
+        fields: const {'biz_type': 'avatar'},
+        bytes: 'abc'.codeUnits,
+        filename: 'a.txt',
+        contentType: 'text/plain',
+      ),
+    );
+
+    expect(
+      transport.lastRequest!.headers['content-type'],
+      'multipart/form-data; boundary=test-boundary',
+    );
+    final body = String.fromCharCodes(transport.lastRequest!.bodyBytes!);
+    expect(body, contains('--test-boundary'));
+    expect(body, contains('name="biz_type"'));
+    expect(body, contains('filename="a.txt"'));
+    expect(body, contains('Content-Type: text/plain'));
+    expect(body, contains('abc'));
+  });
+
+  test('returns text and bytes without forcing json decoding', () async {
+    var response = const TransportResponse(
+      statusCode: 200,
+      headers: {'content-type': 'application/json'},
+      body: '{"ok":true}',
+    );
+    final transport = _FakeTransport(handler: (_) => response);
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+    );
+
+    expect(await client.getText('/text'), '{"ok":true}');
+
+    response = const TransportResponse(
+      statusCode: 200,
+      headers: {'content-type': 'application/octet-stream'},
+      body: '',
+      bodyBytes: <int>[0, 255, 1, 2],
+    );
+
+    expect(await client.getBytes('/file'), <int>[0, 255, 1, 2]);
+  });
+
+  test('wires receive progress and cancellation token to transport', () async {
+    final progressEvents = <({int receivedBytes, int totalBytes})>[];
+    final token = NetworkCancellationToken();
+    final transport = _FakeTransport(
+      handler: (request) {
+        request.onReceiveProgress?.call(3, 9);
+        return const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/octet-stream'},
+          body: 'abc',
+          bodyBytes: <int>[97, 98, 99],
+        );
+      },
+    );
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+    );
+
+    await client.downloadBytes(
+      '/file',
+      onReceiveProgress: (receivedBytes, totalBytes) {
+        progressEvents.add((
+          receivedBytes: receivedBytes,
+          totalBytes: totalBytes,
+        ));
+      },
+      cancellationToken: token,
+    );
+
+    expect(transport.lastRequest!.cancellationToken, same(token));
+    expect(progressEvents, [(receivedBytes: 3, totalBytes: 9)]);
+  });
+
+  test('propagates request cancellation without wrapping as ApiException', () {
+    final token = NetworkCancellationToken()..cancel();
+    final transport = _FakeTransport(
+      handler: (request) {
+        request.cancellationToken?.throwIfCancelled();
+        return const TransportResponse(statusCode: 200, headers: {}, body: '');
+      },
+    );
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+    );
+
+    expect(
+      () => client.getBytes('/file', cancellationToken: token),
+      throwsA(isA<NetworkRequestCancelledException>()),
+    );
+  });
+
+  test('wraps transport timeout with typed retryable error', () async {
+    final transport = _FakeTransport(
+      handler: (_) => throw TimeoutException('slow'),
+    );
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+    );
+
+    await expectLater(
+      client.get<Object?>('/ping'),
+      throwsA(
+        isA<ApiException>()
+            .having((e) => e.kind, 'kind', ApiExceptionKind.timeout)
+            .having(
+              (e) => e.transportErrorKind,
+              'transportErrorKind',
+              TransportErrorKind.timeout,
+            )
+            .having((e) => e.retryable, 'retryable', isTrue),
+      ),
+    );
+  });
+
+  test('safe retry policy retries GET transport timeouts', () async {
+    var attempts = 0;
+    final transport = _FakeTransport(
+      handler: (_) {
+        attempts += 1;
+        if (attempts == 1) throw TimeoutException('slow');
+        return const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"ok":true}',
+        );
+      },
+    );
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+      retryPolicy: ApiRetryPolicy.safe,
+    );
+
+    expect(await client.get<Object?>('/ping'), {'ok': true});
+    expect(attempts, 2);
+  });
+
+  test('safe retry policy does not retry POST transport timeouts', () async {
+    var attempts = 0;
+    final transport = _FakeTransport(
+      handler: (_) {
+        attempts += 1;
+        throw TimeoutException('slow');
+      },
+    );
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+      retryPolicy: ApiRetryPolicy.safe,
+    );
+
+    await expectLater(
+      client.post<Object?>('/ping', body: const <String, Object?>{}),
+      throwsA(isA<ApiException>()),
+    );
+    expect(attempts, 1);
   });
 }

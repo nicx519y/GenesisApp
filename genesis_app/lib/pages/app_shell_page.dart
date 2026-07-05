@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 
 import '../app/bootstrap/app_services_scope.dart';
 import '../app/bootstrap/polling_scheduler.dart';
+import '../app/startup/app_startup_coordinator.dart';
 import '../app/telemetry/genesis_telemetry.dart';
 import '../components/bottom_tabs.dart';
 import '../components/login_sheet.dart';
 import '../network/models/unread_summary.dart';
 import '../platform/auth/auth_session.dart';
+import '../platform/privacy/app_tracking_transparency_service.dart';
 import 'create/create_origin_page.dart';
 import 'home/home_page.dart';
 import 'me/me_page.dart';
@@ -62,6 +64,7 @@ class _AppShellPageState extends State<AppShellPage>
       onTick: _refreshMessagesData,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startAppRuntime();
       _recordSelectedTabPageView();
       _startMessagesPolling();
     });
@@ -107,6 +110,22 @@ class _AppShellPageState extends State<AppShellPage>
 
   void _stopMessagesPolling() {
     _messagesPoller.stop();
+  }
+
+  void _startAppRuntime() {
+    if (!mounted) return;
+    final services = AppServicesScope.read(context);
+    AppStartupCoordinator.startFirebasePerformance();
+    AppStartupCoordinator.startWarmUp(services);
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      unawaited(
+        AppStartupCoordinator.initializeTelemetry(
+          services: services,
+          trackingAuthorizationStatus:
+              AppTrackingAuthorizationStatus.notSupported,
+        ),
+      );
+    }
   }
 
   Future<void> _refreshMessagesData() async {

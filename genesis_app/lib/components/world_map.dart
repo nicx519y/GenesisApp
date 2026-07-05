@@ -42,6 +42,23 @@ Color worldMapAvatarBorderColorForTesting({
   return isPlayerControlledRole ? GenesisColors.brand : const Color(0xFFDDDDDD);
 }
 
+@visibleForTesting
+Offset? worldMapInitialZoomFocusForTesting(List<WorldPoint> points) {
+  return _worldMapInitialZoomFocusForPoints(points);
+}
+
+Offset? _worldMapInitialZoomFocusForPoints(List<WorldPoint> points) {
+  WorldPoint? target;
+  for (final point in points) {
+    if (point.users.isEmpty) continue;
+    final current = target;
+    if (current == null || point.users.length > current.users.length) {
+      target = point;
+    }
+  }
+  return target?.position;
+}
+
 typedef WorldPointTapCallback = FutureOr<void> Function(WorldPoint point);
 
 @immutable
@@ -89,6 +106,7 @@ class WorldMap extends StatefulWidget {
     this.activeBubble,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
+    this.initialZoomScale = _ZoomableMapContent.minScale,
   });
 
   final List<WorldPoint> points;
@@ -112,6 +130,7 @@ class WorldMap extends StatefulWidget {
   final WorldMapMessageBubble? activeBubble;
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
+  final double initialZoomScale;
 
   @override
   State<WorldMap> createState() => _WorldMapState();
@@ -148,6 +167,9 @@ class _WorldMapState extends State<WorldMap> {
   @override
   void initState() {
     super.initState();
+    _mapZoomScale = widget.initialZoomScale
+        .clamp(_ZoomableMapContent.minScale, _ZoomableMapContent.maxScale)
+        .toDouble();
     _debugPrintLocationTree('init');
   }
 
@@ -265,6 +287,12 @@ class _WorldMapState extends State<WorldMap> {
             ? '__world_root__'
             : _locationTrail.last.id;
         final mapKey = ValueKey<String>(mapKeyId);
+        final initialFocus = _worldMapInitialZoomFocusForPoints(visiblePoints);
+        final initialTransformKey = [
+          mapKeyId,
+          currentMapImageUrl,
+          widget.initialZoomScale.toStringAsFixed(3),
+        ].join('|');
         _syncMapScrollControllers(
           signature:
               '$currentMapImageUrl|$mapKeyId|${constraints.maxWidth}|${constraints.maxHeight}|${viewport.width}|${viewport.height}',
@@ -325,6 +353,13 @@ class _WorldMapState extends State<WorldMap> {
                                     preloadAvatarUrls: preloadAvatarUrls,
                                     fallbackOnEmptyUrl:
                                         widget.fallbackOnEmptyMapUrl,
+                                  ),
+                                  initialScale: widget.initialZoomScale,
+                                  initialFocus: initialFocus,
+                                  initialTransformKey: initialTransformKey,
+                                  initialViewportSize: Size(
+                                    viewport.width,
+                                    viewport.height,
                                   ),
                                   overlayBuilder:
                                       (
@@ -1444,6 +1479,10 @@ typedef _ZoomControlChanged =
 class _ZoomableMapContent extends StatefulWidget {
   const _ZoomableMapContent({
     required this.background,
+    required this.initialScale,
+    required this.initialFocus,
+    required this.initialTransformKey,
+    required this.initialViewportSize,
     required this.overlayBuilder,
     required this.onMapTap,
     required this.onScaleChanged,
@@ -1455,6 +1494,10 @@ class _ZoomableMapContent extends StatefulWidget {
   static const double doubleTapScale = 1.5;
 
   final Widget background;
+  final double initialScale;
+  final Offset? initialFocus;
+  final String initialTransformKey;
+  final Size initialViewportSize;
   final _MapOverlayBuilder overlayBuilder;
   final VoidCallback? onMapTap;
   final ValueChanged<double> onScaleChanged;
@@ -1465,8 +1508,7 @@ class _ZoomableMapContent extends StatefulWidget {
 }
 
 class _ZoomableMapContentState extends State<_ZoomableMapContent> {
-  late final TransformationController _transformationController =
-      TransformationController();
+  late final TransformationController _transformationController;
   final Object _zoomControlToken = Object();
   final Set<int> _activePointers = <int>{};
   final Set<int> _overlayPointers = <int>{};
@@ -1485,6 +1527,9 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   @override
   void initState() {
     super.initState();
+    _transformationController = TransformationController(
+      _initialTransformForSize(widget.initialViewportSize),
+    );
     _transformationController.addListener(_notifyScaleChanged);
     widget.onZoomControlChanged(_zoomControlToken, zoomByControl);
   }
@@ -1495,6 +1540,9 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
     if (oldWidget.onZoomControlChanged != widget.onZoomControlChanged) {
       oldWidget.onZoomControlChanged(_zoomControlToken, null);
       widget.onZoomControlChanged(_zoomControlToken, zoomByControl);
+    }
+    if (oldWidget.initialTransformKey != widget.initialTransformKey) {
+      _applyInitialTransform(widget.initialViewportSize);
     }
   }
 
@@ -1508,6 +1556,35 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
 
   void _notifyScaleChanged() {
     widget.onScaleChanged(_transformationController.value.getMaxScaleOnAxis());
+  }
+
+  void _applyInitialTransform(Size size) {
+    _transformationController.value = _initialTransformForSize(size);
+  }
+
+  Matrix4 _initialTransformForSize(Size size) {
+    final scale = widget.initialScale
+        .clamp(_ZoomableMapContent.minScale, _ZoomableMapContent.maxScale)
+        .toDouble();
+    if (size.isEmpty || scale <= _ZoomableMapContent.minScale + 0.001) {
+      return Matrix4.identity();
+    }
+
+    final focus = widget.initialFocus ?? const Offset(0.5, 0.5);
+    final clampedFocus = Offset(
+      focus.dx.clamp(0.0, 1.0).toDouble(),
+      focus.dy.clamp(0.0, 1.0).toDouble(),
+    );
+    final contentFocus = Offset(
+      size.width * clampedFocus.dx,
+      size.height * clampedFocus.dy,
+    );
+    final center = Offset(size.width / 2, size.height / 2);
+    return _transformMatrixForSize(
+      size: size,
+      scale: scale,
+      translation: center - contentFocus * scale,
+    );
   }
 
   bool get _isZoomed {
@@ -1641,9 +1718,20 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   void _setTransform(double scale, Offset translation) {
     final box = context.findRenderObject() as RenderBox?;
     final size = box?.size ?? Size.zero;
+    _transformationController.value = _transformMatrixForSize(
+      size: size,
+      scale: scale,
+      translation: translation,
+    );
+  }
+
+  Matrix4 _transformMatrixForSize({
+    required Size size,
+    required double scale,
+    required Offset translation,
+  }) {
     if (size.isEmpty || scale <= _ZoomableMapContent.minScale + 0.001) {
-      _transformationController.value = Matrix4.identity();
-      return;
+      return Matrix4.identity();
     }
 
     final minX = size.width - size.width * scale;
@@ -1652,7 +1740,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
       translation.dx.clamp(minX, 0.0).toDouble(),
       translation.dy.clamp(minY, 0.0).toDouble(),
     );
-    _transformationController.value = Matrix4.identity()
+    return Matrix4.identity()
       ..translateByDouble(clampedTranslation.dx, clampedTranslation.dy, 0, 1)
       ..scaleByDouble(scale, scale, 1, 1);
   }

@@ -4,11 +4,13 @@ import 'dart:io';
 
 import 'package:firebase_performance/firebase_performance.dart';
 
+import '../app/telemetry/firebase_performance_monitoring.dart';
 import 'http_transport.dart';
 
 typedef HttpRequestPerformanceMetricFactory =
     HttpRequestPerformanceMetric? Function(String url, HttpMethod method);
 typedef HttpRequestPerformanceMetricUrlFilter = bool Function(Uri uri);
+typedef HttpRequestPerformanceMetricReady = bool Function();
 
 abstract class HttpRequestPerformanceMetric {
   set httpResponseCode(int? value);
@@ -26,57 +28,82 @@ class IoHttpTransport implements HttpTransport {
     String? proxy,
     HttpRequestPerformanceMetricFactory? performanceMetricFactory,
     HttpRequestPerformanceMetricUrlFilter? performanceMetricUrlFilter,
+    HttpRequestPerformanceMetricReady? performanceMetricReady,
   }) : _client = client ?? createProxyAwareHttpClient(proxy),
        _performanceMetricFactory =
-           performanceMetricFactory ?? _createFirebasePerformanceMetric,
+           performanceMetricFactory ?? createFirebasePerformanceMetric,
        _performanceMetricUrlFilter =
-           performanceMetricUrlFilter ?? _isBusinessPerformanceMetricUrl;
+           performanceMetricUrlFilter ?? isBusinessPerformanceMetricUrl,
+       _performanceMetricReady =
+           performanceMetricReady ??
+           (() => FirebasePerformanceMonitoring.isReady);
 
   final HttpClient _client;
   final HttpRequestPerformanceMetricFactory _performanceMetricFactory;
   final HttpRequestPerformanceMetricUrlFilter _performanceMetricUrlFilter;
+  final HttpRequestPerformanceMetricReady _performanceMetricReady;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
+    request.cancellationToken?.throwIfCancelled();
     final metric = await _startPerformanceMetric(request);
+    HttpClientRequest? httpRequest;
+    void Function()? removeCancelListener;
     try {
-      final httpRequest = await _client
+      httpRequest = await _client
           .openUrl(request.method, request.uri)
           .timeout(Duration(milliseconds: request.timeoutMs));
+      removeCancelListener = request.cancellationToken?.addCancelListener(() {
+        httpRequest?.abort(const NetworkRequestCancelledException());
+      });
+      request.cancellationToken?.throwIfCancelled();
+      final openedRequest = httpRequest;
 
       request.headers.forEach((key, value) {
-        httpRequest.headers.set(key, value);
+        openedRequest.headers.set(key, value);
       });
 
       if (request.bodyBytes != null) {
-        httpRequest.add(request.bodyBytes!);
+        openedRequest.add(request.bodyBytes!);
+        request.onSendProgress?.call(
+          request.bodyBytes!.length,
+          request.bodyBytes!.length,
+        );
       }
 
-      final httpResponse = await httpRequest.close().timeout(
+      final httpResponse = await openedRequest.close().timeout(
         Duration(milliseconds: request.timeoutMs),
       );
+      request.cancellationToken?.throwIfCancelled();
 
       final headers = <String, String>{};
       httpResponse.headers.forEach((name, values) {
         headers[name] = values.join(',');
       });
 
-      final body = await utf8
-          .decodeStream(httpResponse)
-          .timeout(Duration(milliseconds: request.timeoutMs));
+      final bodyBytes = await _readResponseBytes(
+        httpResponse,
+        timeout: Duration(milliseconds: request.timeoutMs),
+        onReceiveProgress: request.onReceiveProgress,
+        cancellationToken: request.cancellationToken,
+      );
+      final body = utf8.decode(bodyBytes, allowMalformed: true);
 
       final response = TransportResponse(
         statusCode: httpResponse.statusCode,
         headers: headers,
         body: body,
+        bodyBytes: bodyBytes,
         responsePayloadSizeBytes:
-            _responsePayloadSizeFromHeaders(headers) ??
-            _nonNegativeContentLength(httpResponse.contentLength),
+            responsePayloadSizeFromHeaders(headers) ??
+            nonNegativeContentLength(httpResponse.contentLength) ??
+            bodyBytes.length,
       );
-      _recordPerformanceMetricResponse(metric, response);
+      recordPerformanceMetricResponse(metric, response);
       return response;
     } finally {
-      await _stopPerformanceMetric(metric);
+      removeCancelListener?.call();
+      await stopPerformanceMetric(metric);
     }
   }
 
@@ -85,11 +112,12 @@ class IoHttpTransport implements HttpTransport {
   ) async {
     HttpRequestPerformanceMetric? metric;
     try {
-      final method = _firebaseHttpMethodFor(request.method);
+      final method = firebaseHttpMethodFor(request.method);
       if (method == null) return null;
+      if (!_performanceMetricReady()) return null;
       if (!_performanceMetricUrlFilter(request.uri)) return null;
       metric = _performanceMetricFactory(
-        _firebaseMetricUrl(request.uri),
+        firebaseMetricUrl(request.uri),
         method,
       );
       if (metric == null) return null;
@@ -97,10 +125,27 @@ class IoHttpTransport implements HttpTransport {
       await metric.start();
       return metric;
     } catch (_) {
-      await _stopPerformanceMetric(metric);
+      await stopPerformanceMetric(metric);
       return null;
     }
   }
+}
+
+Future<List<int>> _readResponseBytes(
+  HttpClientResponse response, {
+  required Duration timeout,
+  required NetworkProgressCallback? onReceiveProgress,
+  required NetworkCancellationToken? cancellationToken,
+}) async {
+  final out = <int>[];
+  final totalBytes = nonNegativeContentLength(response.contentLength) ?? -1;
+  await for (final chunk in response.timeout(timeout)) {
+    cancellationToken?.throwIfCancelled();
+    out.addAll(chunk);
+    onReceiveProgress?.call(out.length, totalBytes);
+  }
+  cancellationToken?.throwIfCancelled();
+  return out;
 }
 
 class _FirebaseHttpRequestPerformanceMetric
@@ -140,7 +185,7 @@ class _FirebaseHttpRequestPerformanceMetric
   }
 }
 
-HttpRequestPerformanceMetric _createFirebasePerformanceMetric(
+HttpRequestPerformanceMetric createFirebasePerformanceMetric(
   String url,
   HttpMethod method,
 ) {
@@ -171,7 +216,7 @@ String? _normalizeProxyAddress(String? proxy) {
   return '${parsed.host}:${parsed.port}';
 }
 
-HttpMethod? _firebaseHttpMethodFor(String method) {
+HttpMethod? firebaseHttpMethodFor(String method) {
   switch (method.trim().toUpperCase()) {
     case 'CONNECT':
       return HttpMethod.Connect;
@@ -195,17 +240,26 @@ HttpMethod? _firebaseHttpMethodFor(String method) {
   return null;
 }
 
-String _firebaseMetricUrl(Uri uri) {
+String firebaseMetricUrl(Uri uri) {
+  final path = uri.path.isEmpty ? '/' : uri.path;
+  if (uri.hasPort) {
+    return Uri(
+      scheme: uri.scheme,
+      userInfo: uri.userInfo,
+      host: uri.host,
+      port: uri.port,
+      path: path,
+    ).toString();
+  }
   return Uri(
     scheme: uri.scheme,
     userInfo: uri.userInfo,
     host: uri.host,
-    port: uri.hasPort ? uri.port : 0,
-    path: uri.path.isEmpty ? '/' : uri.path,
+    path: path,
   ).toString();
 }
 
-bool _isBusinessPerformanceMetricUrl(Uri uri) {
+bool isBusinessPerformanceMetricUrl(Uri uri) {
   switch (uri.host.toLowerCase()) {
     case 'api.worldo.ai':
     case 'dev.hushie.ai':
@@ -214,29 +268,30 @@ bool _isBusinessPerformanceMetricUrl(Uri uri) {
   return false;
 }
 
-void _recordPerformanceMetricResponse(
+void recordPerformanceMetricResponse(
   HttpRequestPerformanceMetric? metric,
   TransportResponse response,
 ) {
   if (metric == null) return;
   try {
     metric.httpResponseCode = response.statusCode;
-    metric.responseContentType = _headerValue(response.headers, 'content-type');
+    metric.responseContentType = headerValue(response.headers, 'content-type');
     metric.responsePayloadSize =
-        response.responsePayloadSizeBytes ?? utf8.encode(response.body).length;
+        response.responsePayloadSizeBytes ??
+        (response.bodyBytes.isEmpty
+            ? utf8.encode(response.body).length
+            : response.bodyBytes.length);
   } catch (_) {}
 }
 
-Future<void> _stopPerformanceMetric(
-  HttpRequestPerformanceMetric? metric,
-) async {
+Future<void> stopPerformanceMetric(HttpRequestPerformanceMetric? metric) async {
   if (metric == null) return;
   try {
     await metric.stop();
   } catch (_) {}
 }
 
-String? _headerValue(Map<String, String> headers, String name) {
+String? headerValue(Map<String, String> headers, String name) {
   final normalizedName = name.toLowerCase();
   for (final entry in headers.entries) {
     if (entry.key.toLowerCase() == normalizedName) {
@@ -246,14 +301,14 @@ String? _headerValue(Map<String, String> headers, String name) {
   return null;
 }
 
-int? _responsePayloadSizeFromHeaders(Map<String, String> headers) {
-  final raw = _headerValue(headers, 'content-length')?.trim();
+int? responsePayloadSizeFromHeaders(Map<String, String> headers) {
+  final raw = headerValue(headers, 'content-length')?.trim();
   if (raw == null || raw.isEmpty) return null;
   final value = int.tryParse(raw);
-  return _nonNegativeContentLength(value);
+  return nonNegativeContentLength(value);
 }
 
-int? _nonNegativeContentLength(int? value) {
+int? nonNegativeContentLength(int? value) {
   if (value == null || value < 0) return null;
   return value;
 }

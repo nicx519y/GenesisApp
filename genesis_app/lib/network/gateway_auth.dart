@@ -151,6 +151,9 @@ class GatewayRequestInterceptor {
       headers: headers,
       bodyBytes: request.bodyBytes,
       timeoutMs: request.timeoutMs,
+      onSendProgress: request.onSendProgress,
+      onReceiveProgress: request.onReceiveProgress,
+      cancellationToken: request.cancellationToken,
     );
   }
 }
@@ -234,6 +237,9 @@ class GatewayRequestSigner {
       headers: headers,
       bodyBytes: request.bodyBytes,
       timeoutMs: request.timeoutMs,
+      onSendProgress: request.onSendProgress,
+      onReceiveProgress: request.onReceiveProgress,
+      cancellationToken: request.cancellationToken,
     );
   }
 }
@@ -484,7 +490,10 @@ class GatewayAuthCoordinator {
     var offset = _serverTimeOffsetMs;
     offset ??= await syncServerTime();
     if (keyId == null || keyId.trim().isEmpty) {
-      throw ApiException(message: 'Gateway registration is unavailable');
+      throw ApiException(
+        message: 'Gateway registration is unavailable',
+        kind: ApiExceptionKind.gatewayAuth,
+      );
     }
     return GatewaySigningContext(
       appId: identity.appId,
@@ -522,6 +531,7 @@ class GatewayAuthCoordinator {
       if (serverTimeMs <= 0) {
         throw ApiException(
           message: 'Gateway time response missing server_time_ms',
+          kind: ApiExceptionKind.gatewayAuth,
         );
       }
       final offset = serverTimeMs - DateTime.now().millisecondsSinceEpoch;
@@ -629,6 +639,7 @@ class GatewayAuthCoordinator {
     if (registerId.trim().isEmpty) {
       throw ApiException(
         message: 'Gateway challenge response missing register_id',
+        kind: ApiExceptionKind.gatewayAuth,
       );
     }
 
@@ -675,7 +686,10 @@ class GatewayAuthCoordinator {
     final registerData = asJsonMap(_unwrapGatewayData(registerJson));
     final keyId = asString(registerData['key_id']);
     if (keyId.trim().isEmpty) {
-      throw ApiException(message: 'Gateway register response missing key_id');
+      throw ApiException(
+        message: 'Gateway register response missing key_id',
+        kind: ApiExceptionKind.gatewayAuth,
+      );
     }
     return keyId;
   }
@@ -699,7 +713,10 @@ class GatewayAuthCoordinator {
         platform.isEmpty ||
         appVersion.isEmpty ||
         deviceId.isEmpty) {
-      throw ApiException(message: 'Gateway identity headers are incomplete');
+      throw ApiException(
+        message: 'Gateway identity headers are incomplete',
+        kind: ApiExceptionKind.gatewayAuth,
+      );
     }
     return GatewayIdentity(
       appId: appId,
@@ -826,7 +843,10 @@ class NativeGatewayDeviceKeyStore implements GatewayDeviceKeyStore {
     );
     final normalized = (value ?? '').trim();
     if (normalized.isEmpty) {
-      throw ApiException(message: 'Gateway public key is unavailable');
+      throw ApiException(
+        message: 'Gateway public key is unavailable',
+        kind: ApiExceptionKind.gatewayAuth,
+      );
     }
     return normalized;
   }
@@ -839,7 +859,10 @@ class NativeGatewayDeviceKeyStore implements GatewayDeviceKeyStore {
     );
     final normalized = (value ?? '').trim();
     if (normalized.isEmpty) {
-      throw ApiException(message: 'Gateway signature is unavailable');
+      throw ApiException(
+        message: 'Gateway signature is unavailable',
+        kind: ApiExceptionKind.gatewayAuth,
+      );
     }
     return normalized;
   }

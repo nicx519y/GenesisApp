@@ -4,16 +4,15 @@ import 'package:flutter/widgets.dart';
 
 import '../../components/common/genesis_center_toast.dart';
 import '../../app/genesis_navigator.dart';
-import '../../network/genesis_api.dart';
 import '../../network/app_request_headers.dart';
 import '../../network/chatroom/chatroom_client.dart';
 import '../../network/chatroom/chatroom_message_storage.dart';
-import '../../network/chatroom/chatroom_socket_transport.dart';
 import '../../network/direct_message_conversation_store.dart';
 import '../../network/direct_message_message_store.dart';
 import '../../network/gateway_auth.dart';
+import '../../network/genesis_api.dart';
+import '../../network/network_runtime_factory.dart';
 import '../../routers/app_router.dart';
-import '../../network/io_http_transport.dart';
 import '../../platform/platform_services.dart';
 import '../config/app_config.dart';
 import '../config/platform_config.dart';
@@ -126,17 +125,17 @@ class ServiceRegistry {
 
     final debugProxy = config.debugProxy.trim();
     final useMock = config.useMock;
-    final httpTransport = debugProxy.isEmpty || useMock == true
-        ? null
-        : IoHttpTransport(proxy: debugProxy);
-    final socketTransport = debugProxy.isEmpty && !config.debugWsLog
-        ? null
-        : IoChatroomSocketTransport(
-            proxy: debugProxy.isEmpty ? null : debugProxy,
-            logFrames:
-                config.debugWsLog ||
-                !const bool.fromEnvironment('dart.vm.product'),
-          );
+    const networkRuntimeFactory = NetworkRuntimeFactory();
+    final httpTransport = networkRuntimeFactory.buildHttpTransport(
+      debugProxy: debugProxy,
+      useMock: useMock == true,
+    );
+    final socketTransport = networkRuntimeFactory.buildWebSocketTransport(
+      debugProxy: debugProxy,
+      debugLogFrames: config.debugWsLog,
+      logName: 'ChatroomSocket',
+      frameLogName: 'ChatroomSocketFrame',
+    );
     final appRequestHeaders = AppRequestHeaderProvider();
     GatewayRequestInterceptor? gatewayRequestInterceptor;
     GatewayHandshakeHeaderSigner? gatewayWsHandshakeHeaderSigner;

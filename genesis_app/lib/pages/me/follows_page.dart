@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/me/genesis_follow_user_list_tile.dart';
 import '../../components/page_header.dart';
@@ -151,6 +152,8 @@ class _FollowsPageState extends State<FollowsPage>
   Future<void> _toggleFollow(_FollowUserItem item, bool isFollowed) async {
     final uid = item.uid.trim();
     if (uid.isEmpty || _loadingUids.contains(uid)) return;
+    if (!await ensureGenesisLogin(context)) return;
+    if (!mounted) return;
 
     setState(() => _loadingUids.add(uid));
     try {
