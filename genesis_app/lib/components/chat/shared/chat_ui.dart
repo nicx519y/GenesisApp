@@ -167,6 +167,7 @@ class ChatHeader extends StatelessWidget {
     this.showSubtitle = true,
     this.showMoreButton = true,
     this.subtitleIconAsset,
+    this.trailing,
     this.style,
   });
 
@@ -179,12 +180,16 @@ class ChatHeader extends StatelessWidget {
   final bool showSubtitle;
   final bool showMoreButton;
   final String? subtitleIconAsset;
+  final Widget? trailing;
   final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
     final topInset = GenesisSafeAreaInsets.top(context);
+    final headerSidePadding = trailing == null
+        ? style.headerTrailingPlaceholderWidth
+        : 96.0;
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(
@@ -221,7 +226,7 @@ class ChatHeader extends StatelessWidget {
                     children: [
                       Padding(
                         padding: EdgeInsets.symmetric(
-                          horizontal: style.headerTrailingPlaceholderWidth,
+                          horizontal: headerSidePadding,
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -286,7 +291,9 @@ class ChatHeader extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (showMoreButton)
+                if (trailing != null)
+                  Align(alignment: Alignment.centerRight, child: trailing)
+                else if (showMoreButton)
                   Align(
                     alignment: Alignment.centerRight,
                     child: IconButton(

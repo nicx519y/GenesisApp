@@ -62,6 +62,39 @@ void main() {
     );
   });
 
+  testWidgets('chat header can show Memory & Model entry', (
+    WidgetTester tester,
+  ) async {
+    var tapped = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatHeader(
+            title: 'Moonlit Market',
+            subtitle: '2 characters',
+            connected: true,
+            connecting: false,
+            onBack: () {},
+            trailing: TextButton(
+              key: const ValueKey('memory-model-entry'),
+              onPressed: () => tapped = true,
+              child: const Text('CC4.5'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byKey(const ValueKey('memory-model-entry')), findsOneWidget);
+    expect(find.text('CC4.5'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('memory-model-entry')));
+    await tester.pump();
+
+    expect(tapped, isTrue);
+  });
+
   testWidgets('anchored message list shows loading instead of oldest notice', (
     WidgetTester tester,
   ) async {

@@ -14,6 +14,7 @@ import '../../components/chat/shared/chat_ui.dart';
 import '../../components/ai_content_disclaimer.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_report_actions.dart';
+import '../../components/gems/memory_model_entry_button.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
@@ -21,6 +22,7 @@ import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/world.dart';
+import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../utils/display_name_formatter.dart';
@@ -2276,6 +2278,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
       showSubtitle: widget.showConnectionStatus && aiRoleNames.isNotEmpty,
       showMoreButton: widget.showMoreButton,
+      trailing: MemoryModelEntryButton(
+        modelLabel: 'CC4.5',
+        darkHeader: true,
+        onTap: () => Navigator.of(context).pushNamed(RouteNames.memoryModel),
+      ),
       style: style,
     );
     final headerHeight = _locationChatHeaderHeight(style);

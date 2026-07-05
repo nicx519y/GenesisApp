@@ -9,6 +9,7 @@ import '../pages/discuss/post_detail_page.dart';
 import '../pages/edit/edit_origin_page.dart';
 import '../pages/legal/legal_document_page.dart';
 import '../pages/gems/gem_wallet_page.dart';
+import '../pages/gems/memory_model_page.dart';
 import '../pages/search/search_page.dart';
 import '../pages/origin/origin_world_page.dart';
 import '../pages/world/world_page.dart';
@@ -44,6 +45,7 @@ sealed class RouteNames {
   static const follows = '/follows';
   static const legal = '/legal';
   static const gemWallet = '/gems';
+  static const memoryModel = '/memory_model';
   static const pageNotFound = '/page_not_found';
 }
 
@@ -425,6 +427,7 @@ sealed class AppRouter {
       RouteNames.follows => 'FollowsPage',
       RouteNames.legal => 'LegalDocumentPage',
       RouteNames.gemWallet => 'GemWalletPage',
+      RouteNames.memoryModel => 'MemoryModelPage',
       RouteNames.pageNotFound => 'PageNotFoundPage',
       RouteNames.shell => 'AppShellPage',
       _ => 'PageNotFoundPage',
@@ -583,6 +586,11 @@ sealed class AppRouter {
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => const GemWalletPage(),
+        );
+      case RouteNames.memoryModel:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => const MemoryModelPage(),
         );
       case RouteNames.pageNotFound:
         return MaterialPageRoute<void>(
