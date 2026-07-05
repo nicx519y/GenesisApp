@@ -167,6 +167,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _loadingOlderMessages = false;
   int _loadingOlderBeforeLocationMessageId = 0;
   bool _hasMoreOlderMessages = true;
+  bool _olderMessagesExhaustedByRemote = false;
   bool _initialContentReadyNotified = false;
   Future<void>? _initialLatestMessagesRefresh;
   int _unseenIncomingCount = 0;
@@ -248,6 +249,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _closeChatroom().then((_) {
           if (!mounted) return;
           _hasMoreOlderMessages = true;
+          _olderMessagesExhaustedByRemote = false;
           _loadingOlderMessages = false;
           _initialContentReadyNotified = false;
           _initialLatestMessagesRefresh = null;
@@ -370,7 +372,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         widget.locationId: widget.openingPreviewEntities,
       },
     );
-    return _reconcileMessages(widget.openingPreviewMessages);
+    final changedMessages = _reconcileMessages(widget.openingPreviewMessages);
+    _syncHasMoreOlderMessagesForSource(widget.openingPreviewMessages);
+    return changedMessages;
   }
 
   void _activateConnection() {
@@ -702,11 +706,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       nextSource,
       identityState: state,
     );
+    final changedHasMoreOlder = _syncHasMoreOlderMessagesForSource(nextSource);
     final olderLoadRendered = _olderLoadHasRenderedNewMessages();
     final nextAwaitingAiResponse =
         _awaitingAiResponse && !_hasCompletedAwaitedAiResponse(nextSource);
     final shouldRebuild =
         changedMessages ||
+        changedHasMoreOlder ||
         olderLoadRendered ||
         _hasVisibleChatroomStateChange(_chatroomState, state) ||
         nextAwaitingAiResponse != _awaitingAiResponse;
@@ -1443,6 +1449,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     return nonSystem.last.localId;
   }
 
+  bool _syncHasMoreOlderMessagesForSource(List<WorldChatroomMessage> source) {
+    final hasOlderCursor = _oldestLocationMessageId(source) > 0;
+    final nextHasMoreOlder = hasOlderCursor && !_olderMessagesExhaustedByRemote;
+    if (_hasMoreOlderMessages == nextHasMoreOlder) return false;
+    _hasMoreOlderMessages = nextHasMoreOlder;
+    return true;
+  }
+
   void _handleMessageListScroll() {
     if (!_scrollController.hasClients) return;
     if (_initialBottomScrollPending &&
@@ -1489,6 +1503,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         beforeMessageId: beforeLocationMessageId,
         limit: 20,
       );
+      _olderMessagesExhaustedByRemote = !page.hasMore;
       _hasMoreOlderMessages = page.hasMore;
       if (page.loadedCount > 0 && mounted) {
         _syncFromServiceState(service);
@@ -2251,8 +2266,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       showMoreButton: widget.showMoreButton,
       style: style,
     );
+    final headerHeight = _locationChatHeaderHeight(style);
+    final composerHeight = _locationChatComposerHeight(style);
     final listStyle = style.copyWith(
-      messageListPadding: _locationChatMessageListPadding(style),
+      messageListPadding: _locationChatMessageListPadding(
+        style,
+        headerHeight: headerHeight,
+        composerHeight: composerHeight,
+      ),
     );
     final messageList = ChatAnchoredMessageList(
       key: const ValueKey<String>('location-chat-message-list'),
@@ -2303,7 +2324,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
                           Positioned(
                             left: 0,
                             right: 0,
-                            bottom: _locationChatComposerHeight(style) + 12,
+                            bottom: composerHeight + 12,
                             child: Center(
                               child: _LocationChatNewMessageNotice(
                                 count: _unseenIncomingCount,
@@ -2422,11 +2443,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _edgeSwipeBackTriggered = false;
   }
 
-  EdgeInsets _locationChatMessageListPadding(ChatUiStyleConfig style) {
+  EdgeInsets _locationChatMessageListPadding(
+    ChatUiStyleConfig style, {
+    required double headerHeight,
+    required double composerHeight,
+  }) {
     return style.messageListPadding.copyWith(
-      top: style.messageListPadding.top + _locationChatHeaderHeight(style),
-      bottom:
-          style.messageListPadding.bottom + _locationChatComposerHeight(style),
+      top: style.messageListPadding.top + headerHeight,
+      bottom: style.messageListPadding.bottom + composerHeight,
     );
   }
 

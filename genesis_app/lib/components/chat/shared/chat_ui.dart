@@ -52,13 +52,15 @@ const double _locationChatAvatarOneThird = 40 / 3;
 const Color _locationChatBackgroundColor = Color(0xFF111111);
 const Color _locationChatChromeStrong = Color(0xF2111111);
 const Color _locationChatChromeSoft = Color(0x80111111);
+const Color _locationChatHeaderGlassTop = Color(0xA6111111);
+const Color _locationChatHeaderGlassBottom = Color(0x33111111);
 
 ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
   conversationBackgroundColor: _locationChatBackgroundColor,
   headerBackgroundGradient: LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [_locationChatChromeStrong, _locationChatChromeSoft],
+    colors: [_locationChatHeaderGlassTop, _locationChatHeaderGlassBottom],
   ),
   headerTitleTextStyle: ChatUiStyleConfig.standard.headerTitleTextStyle
       .copyWith(color: Colors.white),
@@ -746,6 +748,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
     if (messages.isEmpty) {
       return ListView(
         controller: controller,
+        physics: const ClampingScrollPhysics(),
         keyboardDismissBehavior:
             keyboardDismissBehavior ?? ScrollViewKeyboardDismissBehavior.manual,
         padding: style.messageListPadding,
@@ -764,10 +767,52 @@ class ChatAnchoredMessageList extends StatelessWidget {
     final olderCount = centerIndex;
     final newerCount = messages.length - centerIndex;
     final padding = style.messageListPadding;
+    final hasOldestEdgeContent =
+        topTitle.trim().isNotEmpty ||
+        (oldestEdgeNotice?.trim().isNotEmpty ?? false) ||
+        oldestEdgeLoading;
+
+    if (centerIndex == 0) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final minHeight = constraints.hasBoundedHeight
+              ? constraints.maxHeight
+              : 0.0;
+          return SingleChildScrollView(
+            controller: controller,
+            physics: const ClampingScrollPhysics(),
+            keyboardDismissBehavior:
+                keyboardDismissBehavior ??
+                ScrollViewKeyboardDismissBehavior.manual,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minHeight),
+              child: Padding(
+                padding: padding,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (hasOldestEdgeContent)
+                      _ChatOldestEdgeContent(
+                        topTitle: topTitle,
+                        notice: oldestEdgeNotice,
+                        loading: oldestEdgeLoading,
+                        style: style,
+                      ),
+                    for (var index = 0; index < messages.length; index += 1)
+                      _buildMessageRow(index, style),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
 
     return CustomScrollView(
       controller: controller,
       center: _bottomSliverKey,
+      physics: const ClampingScrollPhysics(),
       keyboardDismissBehavior:
           keyboardDismissBehavior ?? ScrollViewKeyboardDismissBehavior.manual,
       slivers: [

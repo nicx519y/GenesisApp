@@ -19,6 +19,7 @@ import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/app/version/force_upgrade_gate.dart';
 import 'package:genesis_flutter_android/main.dart';
+import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/copyable_id_label.dart';
 import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
@@ -12003,6 +12004,226 @@ void main() {
       expect(visible.map((message) => message.messageId), [1, 3, 4, 5]);
     },
   );
+
+  testWidgets(
+    'location chat short content sits between header and composer without scrolling',
+    (WidgetTester tester) async {
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-1',
+            locationId: 'castle',
+            locationName: 'Castle',
+            active: false,
+            openingPreviewMessages: [
+              for (var i = 1; i <= 3; i += 1)
+                WorldChatroomMessage(
+                  messageId: i,
+                  locationMessageId: i,
+                  conversationRoundId: '$i',
+                  roundOrder: 0,
+                  tickNo: 0,
+                  locationId: 'castle',
+                  senderType: 'user',
+                  senderId: 'u_peer',
+                  senderName: 'Peer',
+                  content: 'short location chat message $i',
+                  createdAt: null,
+                ),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final scrollable = find
+          .descendant(
+            of: find.byKey(
+              const ValueKey<String>('location-chat-message-list'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final headerBottom = tester.getBottomLeft(find.byType(ChatHeader)).dy;
+      final composerTop = tester.getTopLeft(find.byType(ChatComposer)).dy;
+      final firstMessageTop = tester
+          .getTopLeft(find.text('short location chat message 1'))
+          .dy;
+      final position = tester.state<ScrollableState>(scrollable).position;
+
+      expect(tester.getTopLeft(scrollable).dy, lessThan(headerBottom));
+      expect(firstMessageTop, greaterThan(headerBottom));
+      expect(firstMessageTop, lessThan(composerTop));
+      expect(position.minScrollExtent, 0);
+      expect(position.maxScrollExtent, 0);
+
+      await tester.drag(scrollable, const Offset(0, -80));
+      await tester.pump();
+
+      expect(position.pixels, 0);
+      expect(
+        tester.getTopLeft(find.text('short location chat message 1')).dy,
+        firstMessageTop,
+      );
+    },
+  );
+
+  testWidgets(
+    'location chat tick-only viewport shows notice without scrolling',
+    (WidgetTester tester) async {
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-1',
+            locationId: 'castle',
+            locationName: 'Castle',
+            active: false,
+            openingPreviewMessages: [
+              WorldChatroomMessage(
+                messageId: 1,
+                locationMessageId: 0,
+                conversationRoundId: '1',
+                roundOrder: 0,
+                tickNo: 1,
+                locationId: 'castle',
+                senderType: 'tick',
+                senderId: 'tick',
+                senderName: 'Time',
+                content: 'Tick 1',
+                currentTime: 'Match Day, 14:00',
+                createdAt: null,
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+
+      final scrollable = find
+          .descendant(
+            of: find.byKey(
+              const ValueKey<String>('location-chat-message-list'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final noticeTop = tester
+          .getTopLeft(find.text(kAiContentDisclaimerText))
+          .dy;
+      final position = tester.state<ScrollableState>(scrollable).position;
+
+      expect(position.minScrollExtent, 0);
+      expect(position.maxScrollExtent, 0);
+
+      await tester.drag(scrollable, const Offset(0, -80));
+      await tester.pump();
+
+      expect(position.pixels, 0);
+      expect(
+        tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy,
+        noticeTop,
+      );
+    },
+  );
+
+  testWidgets('location chat short content stays fixed while typing', (
+    WidgetTester tester,
+  ) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetViewInsets();
+    });
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(chatroom: chatroom);
+    await tester.pumpWidget(GenesisApp(services: services));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
+      RouteNames.locationChat,
+      arguments: {
+        'world_id': 'world-1',
+        'world_name': 'World One',
+        'location_id': 'castle',
+        'location_name': 'Castle',
+      },
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    for (var i = 1; i <= 3; i += 1) {
+      chatroom.session.emit(
+        ChatroomUserMessage(
+          sessionId: 'sess-1',
+          worldId: 'world-1',
+          locationId: 'castle',
+          userId: 'u_peer',
+          code: 0,
+          codeMsg: 'ok',
+          ts: null,
+          messageId: i,
+          locationMessageId: i,
+          conversationRoundId: '$i',
+          roundOrder: 0,
+          senderType: 'user',
+          senderId: 'u_peer',
+          senderName: 'Peer',
+          content: 'interactive short message $i',
+          broadcast: true,
+          currentTime: '2026-06-25T00:00:00Z',
+          clientMsgId: '',
+          createdAt: null,
+        ),
+      );
+    }
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final scrollable = find
+        .descendant(
+          of: find.byKey(const ValueKey<String>('location-chat-message-list')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final firstMessageTop = tester
+        .getTopLeft(find.text('interactive short message 1'))
+        .dy;
+    var position = tester.state<ScrollableState>(scrollable).position;
+    expect(position.maxScrollExtent, 0);
+
+    await tester.tap(find.byType(TextField).last);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).last, 'draft');
+    await tester.pump();
+
+    position = tester.state<ScrollableState>(scrollable).position;
+    expect(position.pixels, 0);
+    expect(position.maxScrollExtent, 0);
+    expect(
+      tester.getTopLeft(find.text('interactive short message 1')).dy,
+      firstMessageTop,
+    );
+  });
 
   testWidgets('location chat first render starts at message list bottom', (
     WidgetTester tester,

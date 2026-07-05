@@ -86,6 +86,54 @@ void main() {
     expect(find.text(notice), findsNothing);
   });
 
+  testWidgets(
+    'anchored message list does not scroll short notice and message content',
+    (WidgetTester tester) async {
+      final controller = ScrollController();
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 640,
+              child: ChatAnchoredMessageList(
+                controller: controller,
+                centerLocalId: '',
+                topTitle: '',
+                oldestEdgeNotice: 'Oldest edge notice',
+                showDateDividers: false,
+                messages: chatMessages(1, 3),
+                style: style,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final scrollable = find.byType(Scrollable).first;
+      final position = tester.state<ScrollableState>(scrollable).position;
+      final firstMessageTop = tester
+          .getTopLeft(find.byKey(const ValueKey('m1')))
+          .dy;
+
+      expect(position.minScrollExtent, 0);
+      expect(position.maxScrollExtent, 0);
+
+      await tester.drag(scrollable, const Offset(0, -80));
+      await tester.pump();
+
+      expect(position.pixels, 0);
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('m1'))).dy,
+        firstMessageTop,
+      );
+    },
+  );
+
   testWidgets('chat message list shows first divider and long gaps', (
     WidgetTester tester,
   ) async {
