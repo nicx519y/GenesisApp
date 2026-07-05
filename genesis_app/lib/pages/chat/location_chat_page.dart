@@ -168,6 +168,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   int _loadingOlderBeforeLocationMessageId = 0;
   bool _hasMoreOlderMessages = true;
   bool _olderMessagesExhaustedByRemote = false;
+  bool _olderMessagesExhaustedByCursorlessContent = false;
   bool _initialContentReadyNotified = false;
   Future<void>? _initialLatestMessagesRefresh;
   int _unseenIncomingCount = 0;
@@ -234,9 +235,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void didUpdateWidget(LocationChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.service != widget.service ||
+    final changedChatTarget =
+        oldWidget.service != widget.service ||
         oldWidget.worldId != widget.worldId ||
-        oldWidget.locationId != widget.locationId ||
+        oldWidget.locationId != widget.locationId;
+    if (changedChatTarget ||
         !listEquals(
           oldWidget.openingPreviewMessages,
           widget.openingPreviewMessages,
@@ -249,7 +252,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         _closeChatroom().then((_) {
           if (!mounted) return;
           _hasMoreOlderMessages = true;
-          _olderMessagesExhaustedByRemote = false;
+          if (changedChatTarget) {
+            _olderMessagesExhaustedByRemote = false;
+            _olderMessagesExhaustedByCursorlessContent = false;
+          }
           _loadingOlderMessages = false;
           _initialContentReadyNotified = false;
           _initialLatestMessagesRefresh = null;
@@ -1451,7 +1457,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
   bool _syncHasMoreOlderMessagesForSource(List<WorldChatroomMessage> source) {
     final hasOlderCursor = _oldestLocationMessageId(source) > 0;
-    final nextHasMoreOlder = hasOlderCursor && !_olderMessagesExhaustedByRemote;
+    if (!hasOlderCursor && source.isNotEmpty) {
+      _olderMessagesExhaustedByCursorlessContent = true;
+    }
+    final nextHasMoreOlder =
+        hasOlderCursor &&
+        !_olderMessagesExhaustedByRemote &&
+        !_olderMessagesExhaustedByCursorlessContent;
     if (_hasMoreOlderMessages == nextHasMoreOlder) return false;
     _hasMoreOlderMessages = nextHasMoreOlder;
     return true;

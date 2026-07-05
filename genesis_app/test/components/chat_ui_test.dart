@@ -134,6 +134,71 @@ void main() {
     },
   );
 
+  testWidgets(
+    'anchored message list stays linear when only system messages precede center',
+    (WidgetTester tester) async {
+      final controller = ScrollController();
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
+      );
+
+      final messages = [
+        ChatMessageVm(
+          localId: 'tick-1',
+          senderId: 'tick',
+          senderName: 'Tick',
+          senderType: 'tick',
+          text: '',
+          isMe: false,
+          status: 'sent',
+          tickNo: 1,
+          currentTime: 'Match Day, 14:00',
+        ),
+        ChatMessageVm(
+          localId: 'm1',
+          senderId: 'me',
+          senderName: 'Me',
+          text: 'first message',
+          isMe: true,
+          status: 'sent',
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 640,
+              child: ChatAnchoredMessageList(
+                controller: controller,
+                centerLocalId: 'm1',
+                topTitle: '',
+                oldestEdgeNotice: 'Oldest edge notice',
+                showDateDividers: false,
+                messages: messages,
+                style: style,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final scrollable = find.byType(Scrollable).first;
+      final position = tester.state<ScrollableState>(scrollable).position;
+      final noticeTop = tester.getTopLeft(find.text('Oldest edge notice')).dy;
+
+      expect(position.minScrollExtent, 0);
+      expect(position.maxScrollExtent, 0);
+
+      await tester.drag(scrollable, const Offset(0, -80));
+      await tester.pump();
+
+      expect(position.pixels, 0);
+      expect(tester.getTopLeft(find.text('Oldest edge notice')).dy, noticeTop);
+    },
+  );
+
   testWidgets('chat message list shows first divider and long gaps', (
     WidgetTester tester,
   ) async {

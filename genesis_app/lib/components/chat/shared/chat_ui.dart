@@ -772,7 +772,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
         (oldestEdgeNotice?.trim().isNotEmpty ?? false) ||
         oldestEdgeLoading;
 
-    if (centerIndex == 0) {
+    if (centerIndex == 0 || !_hasNonSystemMessageBefore(centerIndex)) {
       return LayoutBuilder(
         builder: (context, constraints) {
           final minHeight = constraints.hasBoundedHeight
@@ -862,6 +862,17 @@ class ChatAnchoredMessageList extends StatelessWidget {
       (message) => message.localId == normalizedCenterLocalId,
     );
     return index < 0 ? 0 : index;
+  }
+
+  bool _hasNonSystemMessageBefore(int centerIndex) {
+    for (
+      var index = 0;
+      index < centerIndex && index < messages.length;
+      index += 1
+    ) {
+      if (!messages[index].isSystem) return true;
+    }
+    return false;
   }
 
   Widget _buildMessageRow(int messageIndex, ChatUiStyleConfig style) {

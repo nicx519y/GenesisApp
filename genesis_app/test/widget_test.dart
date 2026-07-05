@@ -11734,7 +11734,13 @@ void main() {
   ) async {
     addTearDown(tester.view.resetViewInsets);
     final chatroom = _FakeChatroomClient();
-    final services = await _testServices(chatroom: chatroom);
+    final services = await _testServices(
+      chatroom: chatroom,
+      initialUserInfo: const {
+        'uid': 'u_mock',
+        'avatar_url': 'assets/images/default_list_image.png',
+      },
+    );
     await tester.pumpWidget(GenesisApp(services: services));
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -11869,7 +11875,7 @@ void main() {
     final chatroom = _FakeChatroomClient();
     final services = await _testServices(chatroom: chatroom);
     await tester.pumpWidget(GenesisApp(services: services));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
       RouteNames.locationChat,
@@ -11880,7 +11886,7 @@ void main() {
         'location_name': 'Castle',
       },
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
     chatroom.session.holdSendAcks = true;
 
     await tester.tap(find.byType(TextField));
@@ -11921,7 +11927,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('吃饭了吗'), findsOneWidget);
   });
@@ -12224,6 +12230,95 @@ void main() {
       firstMessageTop,
     );
   });
+
+  testWidgets(
+    'location chat first user message after tick-only does not jump',
+    (WidgetTester tester) async {
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        tester.view.resetViewInsets();
+      });
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+
+      WorldChatroomMessage message({
+        required int messageId,
+        required int locationMessageId,
+        required String senderType,
+        required String content,
+      }) {
+        return WorldChatroomMessage(
+          messageId: messageId,
+          locationMessageId: locationMessageId,
+          conversationRoundId: '$messageId',
+          roundOrder: 0,
+          tickNo: senderType == 'tick' ? messageId : 0,
+          locationId: 'castle',
+          senderType: senderType,
+          senderId: senderType == 'tick' ? 'tick' : 'u_mock',
+          senderName: senderType == 'tick' ? 'Time' : 'Me',
+          content: content,
+          currentTime: senderType == 'tick' ? 'Match Day, 14:00' : '',
+          createdAt: null,
+        );
+      }
+
+      Widget build(List<WorldChatroomMessage> messages) {
+        return MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-1',
+            locationId: 'castle',
+            locationName: 'Castle',
+            active: false,
+            openingPreviewMessages: messages,
+          ),
+        );
+      }
+
+      final tick = message(
+        messageId: 1,
+        locationMessageId: 0,
+        senderType: 'tick',
+        content: 'Tick 1',
+      );
+
+      await tester.pumpWidget(build([tick]));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final scrollable = find
+          .descendant(
+            of: find.byKey(
+              const ValueKey<String>('location-chat-message-list'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final noticeFinder = find.text(kAiContentDisclaimerText);
+      expect(noticeFinder, findsOneWidget);
+      const tickBubbleKey = ValueKey('chat-tick-message-bubble');
+      final tickTop = tester.getTopLeft(find.byKey(tickBubbleKey)).dy;
+      var position = tester.state<ScrollableState>(scrollable).position;
+      expect(position.maxScrollExtent, 0);
+
+      final firstUser = message(
+        messageId: 2,
+        locationMessageId: 1,
+        senderType: 'user',
+        content: 'first message',
+      );
+      await tester.pumpWidget(build([tick, firstUser]));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      position = tester.state<ScrollableState>(scrollable).position;
+      expect(position.pixels, 0);
+      expect(position.maxScrollExtent, 0);
+      expect(tester.getTopLeft(find.byKey(tickBubbleKey)).dy, tickTop);
+      expect(find.text('first message'), findsOneWidget);
+    },
+  );
 
   testWidgets('location chat first render starts at message list bottom', (
     WidgetTester tester,
