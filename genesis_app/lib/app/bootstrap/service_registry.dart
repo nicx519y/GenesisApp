@@ -16,6 +16,7 @@ import '../../routers/app_router.dart';
 import '../../platform/platform_services.dart';
 import '../config/app_config.dart';
 import '../config/platform_config.dart';
+import '../debug/location_chat_debug_storage.dart';
 import '../version/app_version_check_service.dart';
 
 class AppServices {
@@ -194,8 +195,9 @@ class ServiceRegistry {
       sessionStore: sessionStore,
       storage: SqfliteDirectMessageMessageStorage(),
     );
-    final chatroomMessages =
-        chatroomMessagesOverride ?? SqfliteChatroomMessageStorage();
+    final chatroomMessages = LocationChatDebugChatroomMessageStorage.wrap(
+      chatroomMessagesOverride ?? SqfliteChatroomMessageStorage(),
+    );
     final appVersionCheck = GenesisAppVersionCheckService(
       config: config,
       api: api,

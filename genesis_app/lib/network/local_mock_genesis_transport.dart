@@ -886,6 +886,7 @@ class _MockState {
   int _v1WorldApplySeq = 0;
   final List<Map<String, dynamic>> _chatroomMessages = <Map<String, dynamic>>[];
   final Map<String, bool> _chatroomWorldLocks = <String, bool>{};
+  final Map<String, int> _chatroomLocationMessageSeq = <String, int>{};
   int _chatroomMessageSeq = 1000;
   int _chatroomRoundSeq = 100;
 
@@ -1141,27 +1142,28 @@ class _MockState {
     for (final character in kMockV1Characters) {
       final payload = _contractCharacter(character);
       final playerUid = asString(payload['player_uid']);
-      final locationId = playerUid.isNotEmpty
-          ? playerLocations[playerUid] ?? asString(payload['location_id'])
-          : asString(payload['location_id']);
+      if (playerUid.isEmpty) continue;
+      final locationId =
+          playerLocations[playerUid] ?? asString(payload['location_id']);
       if (locationId.isEmpty) continue;
       payload['location_id'] = locationId;
       if (playerUid == asString(me['id'])) {
         payload['player_username'] = asString(me['display_name']);
       }
       byLocation.putIfAbsent(locationId, () => <Map<String, dynamic>>[]).add({
-        'char_id': payload['char_id'],
-        'player_uid': payload['player_uid'],
-        'player_username': payload['player_username'],
-        'name': payload['name'],
-        'location_id': payload['location_id'],
+        'user_id': playerUid,
+        'user_name': asString(
+          payload['player_username'],
+          fallback: asString(payload['name'], fallback: playerUid),
+        ),
+        'avatar': asImageUrl(payload['avatar']),
       });
     }
     return {
       'world_id': resolvedWorldId,
       'locations': [
         for (final entry in byLocation.entries)
-          {'location_id': entry.key, 'characters': entry.value},
+          {'location_id': entry.key, 'users': entry.value},
       ],
     };
   }
@@ -1179,15 +1181,24 @@ class _MockState {
               final sameLocation =
                   locationId.trim().isEmpty ||
                   message['location_id'] == locationId;
-              final id = (message['message_id'] as int?) ?? 0;
+              final id =
+                  (message['location_message_id'] as int?) ??
+                  (message['message_id'] as int?) ??
+                  0;
               final beforeCursor = since == null || since <= 0 || id < since;
               return sameLocation && beforeCursor;
             })
             .toList(growable: false)
           ..sort((a, b) {
-            return ((b['message_id'] as int?) ?? 0).compareTo(
-              (a['message_id'] as int?) ?? 0,
-            );
+            final bId =
+                (b['location_message_id'] as int?) ??
+                (b['message_id'] as int?) ??
+                0;
+            final aId =
+                (a['location_message_id'] as int?) ??
+                (a['message_id'] as int?) ??
+                0;
+            return bId.compareTo(aId);
           });
     final page = messages.take(size).map(_chatroomResponseMessage).toList();
     final newestId = _chatroomMessagesForWorld(worldId).fold<int>(0, (
@@ -3365,17 +3376,27 @@ class _MockState {
     required String content,
     String? createdAt,
   }) {
+    final resolvedWorldId = _resolveChatroomWorldId(worldId);
+    final messageId = ++_chatroomMessageSeq;
+    final locationSeqKey = '$resolvedWorldId::$locationId';
+    final locationMessageId =
+        (_chatroomLocationMessageSeq[locationSeqKey] ?? 100) + 1;
+    _chatroomLocationMessageSeq[locationSeqKey] = locationMessageId;
     return {
-      'message_id': ++_chatroomMessageSeq,
-      'world_id': _resolveChatroomWorldId(worldId),
+      'global_message_id': messageId,
+      'message_id': messageId,
+      'location_message_id': locationMessageId,
+      'world_id': resolvedWorldId,
       'location_id': locationId,
       'conversation_round_id': conversationRoundId,
       'round_order': roundOrder,
+      'tick_no': 0,
       'sender_type': senderType,
       'sender_id': senderId,
       'sender_name': senderName,
       'user_id': userId,
       'content': content,
+      'current_time': '',
       'created_at': createdAt ?? DateTime.now().toUtc().toIso8601String(),
     };
   }
@@ -3383,10 +3404,7 @@ class _MockState {
   Map<String, dynamic> _chatroomResponseMessage(Map<String, dynamic> message) {
     final copy = _deepCopyMap(message);
     copy.remove('world_id');
-    copy['msg_id'] = asInt(copy.remove('message_id'));
-    copy['ts'] =
-        asDateTime(copy.remove('created_at'))?.millisecondsSinceEpoch ??
-        DateTime.now().millisecondsSinceEpoch;
+    copy.remove('round_order');
     return copy;
   }
 

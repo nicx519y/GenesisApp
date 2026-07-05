@@ -101,6 +101,7 @@ class WorldMap extends StatefulWidget {
     this.drillExitMaxWidth,
     this.onDrillIntoLocation,
     this.onHorizontalPanStateChanged,
+    this.onMapTap,
     this.onPointTap,
     this.activeBubble,
     this.messageBubbles = const <WorldMapMessageBubble>[],
@@ -124,6 +125,7 @@ class WorldMap extends StatefulWidget {
   final double? drillExitMaxWidth;
   final VoidCallback? onDrillIntoLocation;
   final ValueChanged<WorldMapHorizontalPanState>? onHorizontalPanStateChanged;
+  final VoidCallback? onMapTap;
   final WorldPointTapCallback? onPointTap;
   final WorldMapMessageBubble? activeBubble;
   final List<WorldMapMessageBubble> messageBubbles;
@@ -165,6 +167,9 @@ class _WorldMapState extends State<WorldMap> {
   @override
   void initState() {
     super.initState();
+    _mapZoomScale = widget.initialZoomScale
+        .clamp(_ZoomableMapContent.minScale, _ZoomableMapContent.maxScale)
+        .toDouble();
     _debugPrintLocationTree('init');
   }
 
@@ -352,6 +357,10 @@ class _WorldMapState extends State<WorldMap> {
                                   initialScale: widget.initialZoomScale,
                                   initialFocus: initialFocus,
                                   initialTransformKey: initialTransformKey,
+                                  initialViewportSize: Size(
+                                    viewport.width,
+                                    viewport.height,
+                                  ),
                                   overlayBuilder:
                                       (
                                         context,
@@ -403,6 +412,7 @@ class _WorldMapState extends State<WorldMap> {
                                           ),
                                         ],
                                       ),
+                                  onMapTap: widget.onMapTap,
                                   onScaleChanged: _handleMapZoomScaleChanged,
                                   onZoomControlChanged:
                                       _handleZoomControlChanged,
@@ -1472,7 +1482,9 @@ class _ZoomableMapContent extends StatefulWidget {
     required this.initialScale,
     required this.initialFocus,
     required this.initialTransformKey,
+    required this.initialViewportSize,
     required this.overlayBuilder,
+    required this.onMapTap,
     required this.onScaleChanged,
     required this.onZoomControlChanged,
   });
@@ -1485,7 +1497,9 @@ class _ZoomableMapContent extends StatefulWidget {
   final double initialScale;
   final Offset? initialFocus;
   final String initialTransformKey;
+  final Size initialViewportSize;
   final _MapOverlayBuilder overlayBuilder;
+  final VoidCallback? onMapTap;
   final ValueChanged<double> onScaleChanged;
   final _ZoomControlChanged onZoomControlChanged;
 
@@ -1494,8 +1508,7 @@ class _ZoomableMapContent extends StatefulWidget {
 }
 
 class _ZoomableMapContentState extends State<_ZoomableMapContent> {
-  late final TransformationController _transformationController =
-      TransformationController();
+  late final TransformationController _transformationController;
   final Object _zoomControlToken = Object();
   final Set<int> _activePointers = <int>{};
   final Set<int> _overlayPointers = <int>{};
@@ -1503,17 +1516,22 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   bool _interactionActive = false;
   Duration? _lastTapTime;
   Offset? _lastTapLocalPosition;
+  int? _mapTapPointer;
+  Offset? _mapTapStartPosition;
+  bool _mapTapStartedOnOverlay = false;
+  bool _mapTapMoved = false;
   Matrix4? _manualGestureStartMatrix;
   Offset? _manualGestureStartFocal;
   double? _manualGestureStartDistance;
-  String _appliedInitialTransformKey = '';
 
   @override
   void initState() {
     super.initState();
+    _transformationController = TransformationController(
+      _initialTransformForSize(widget.initialViewportSize),
+    );
     _transformationController.addListener(_notifyScaleChanged);
     widget.onZoomControlChanged(_zoomControlToken, zoomByControl);
-    _scheduleInitialTransform();
   }
 
   @override
@@ -1523,10 +1541,8 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
       oldWidget.onZoomControlChanged(_zoomControlToken, null);
       widget.onZoomControlChanged(_zoomControlToken, zoomByControl);
     }
-    if (oldWidget.initialTransformKey != widget.initialTransformKey ||
-        (oldWidget.initialScale - widget.initialScale).abs() > 0.001 ||
-        oldWidget.initialFocus != widget.initialFocus) {
-      _scheduleInitialTransform();
+    if (oldWidget.initialTransformKey != widget.initialTransformKey) {
+      _applyInitialTransform(widget.initialViewportSize);
     }
   }
 
@@ -1542,30 +1558,16 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
     widget.onScaleChanged(_transformationController.value.getMaxScaleOnAxis());
   }
 
-  void _scheduleInitialTransform() {
-    if (_appliedInitialTransformKey == widget.initialTransformKey) return;
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (!mounted ||
-          _appliedInitialTransformKey == widget.initialTransformKey ||
-          _interactionActive) {
-        return;
-      }
-      _applyInitialTransform();
-    });
+  void _applyInitialTransform(Size size) {
+    _transformationController.value = _initialTransformForSize(size);
   }
 
-  void _applyInitialTransform() {
-    final box = context.findRenderObject() as RenderBox?;
-    final size = box?.size ?? Size.zero;
-    if (size.isEmpty) return;
-
-    _appliedInitialTransformKey = widget.initialTransformKey;
+  Matrix4 _initialTransformForSize(Size size) {
     final scale = widget.initialScale
         .clamp(_ZoomableMapContent.minScale, _ZoomableMapContent.maxScale)
         .toDouble();
-    if (scale <= _ZoomableMapContent.minScale + 0.001) {
-      _transformationController.value = Matrix4.identity();
-      return;
+    if (size.isEmpty || scale <= _ZoomableMapContent.minScale + 0.001) {
+      return Matrix4.identity();
     }
 
     final focus = widget.initialFocus ?? const Offset(0.5, 0.5);
@@ -1578,7 +1580,11 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
       size.height * clampedFocus.dy,
     );
     final center = Offset(size.width / 2, size.height / 2);
-    _setTransform(scale, center - contentFocus * scale);
+    return _transformMatrixForSize(
+      size: size,
+      scale: scale,
+      translation: center - contentFocus * scale,
+    );
   }
 
   bool get _isZoomed {
@@ -1593,7 +1599,13 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _handlePointerDown(PointerDownEvent event) {
-    if (_activePointers.isEmpty) _handlePossibleDoubleTap(event);
+    if (_activePointers.isEmpty) {
+      _handlePossibleDoubleTap(event);
+      _mapTapPointer = event.pointer;
+      _mapTapStartPosition = event.localPosition;
+      _mapTapStartedOnOverlay = false;
+      _mapTapMoved = false;
+    }
     _activePointers.add(event.pointer);
     _activePointerPositions[event.pointer] = event.localPosition;
     if (_activePointers.length >= 2 || _isZoomed) {
@@ -1603,12 +1615,21 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _handleOverlayPointerDown(PointerDownEvent event) {
+    if (_mapTapPointer == event.pointer) {
+      _mapTapStartedOnOverlay = true;
+    }
     _overlayPointers.add(event.pointer);
     _startManualGestureIfNeeded();
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
     if (!_activePointers.contains(event.pointer)) return;
+    if (_mapTapPointer == event.pointer) {
+      final start = _mapTapStartPosition;
+      if (start != null && (event.localPosition - start).distance > 12) {
+        _mapTapMoved = true;
+      }
+    }
     _activePointerPositions[event.pointer] = event.localPosition;
 
     if (_activePointerPositions.length >= 2) {
@@ -1623,9 +1644,22 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _handlePointerEnd(PointerEvent event) {
+    if (event is PointerUpEvent &&
+        _mapTapPointer == event.pointer &&
+        !_mapTapStartedOnOverlay &&
+        !_mapTapMoved &&
+        _activePointers.length == 1) {
+      widget.onMapTap?.call();
+    }
     _activePointers.remove(event.pointer);
     _overlayPointers.remove(event.pointer);
     _activePointerPositions.remove(event.pointer);
+    if (_mapTapPointer == event.pointer) {
+      _mapTapPointer = null;
+      _mapTapStartPosition = null;
+      _mapTapStartedOnOverlay = false;
+      _mapTapMoved = false;
+    }
     if (_activePointers.length < 2) _clearManualScaleGesture();
     if (_activePointers.isEmpty) {
       _dispatchMapInteraction(false);
@@ -1684,9 +1718,20 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   void _setTransform(double scale, Offset translation) {
     final box = context.findRenderObject() as RenderBox?;
     final size = box?.size ?? Size.zero;
+    _transformationController.value = _transformMatrixForSize(
+      size: size,
+      scale: scale,
+      translation: translation,
+    );
+  }
+
+  Matrix4 _transformMatrixForSize({
+    required Size size,
+    required double scale,
+    required Offset translation,
+  }) {
     if (size.isEmpty || scale <= _ZoomableMapContent.minScale + 0.001) {
-      _transformationController.value = Matrix4.identity();
-      return;
+      return Matrix4.identity();
     }
 
     final minX = size.width - size.width * scale;
@@ -1695,7 +1740,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
       translation.dx.clamp(minX, 0.0).toDouble(),
       translation.dy.clamp(minY, 0.0).toDouble(),
     );
-    _transformationController.value = Matrix4.identity()
+    return Matrix4.identity()
       ..translateByDouble(clampedTranslation.dx, clampedTranslation.dy, 0, 1)
       ..scaleByDouble(scale, scale, 1, 1);
   }

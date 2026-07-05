@@ -101,9 +101,6 @@ void main() {
       'client_msg_id': isA<String>(),
       'world_id': 'world-1',
       'location_id': 'loc-1',
-      'user_id': 'u_1',
-      'sender_id': 'u_1',
-      'sender_name': 'u_1',
     });
 
     socket.serverJoinAck();
@@ -243,7 +240,9 @@ void main() {
       'world_id': 'world-1',
       'session_id': 'sess-1',
       'location_id': 'loc-1',
+      'global_msg_id': 9001,
       'msg_id': 1001,
+      'location_msg_id': 11,
       'conversation_round_id': 201,
       'err_no': '',
       'err_msg': '',
@@ -251,7 +250,9 @@ void main() {
     });
 
     final ack = await ackFuture;
+    expect(ack.globalMessageId, 9001);
     expect(ack.messageId, 1001);
+    expect(ack.locationMessageId, 11);
     expect(ack.conversationRoundId, '201');
     await session.close();
   });
@@ -271,13 +272,17 @@ void main() {
       'user_id': 'user-1',
       'sender_id': 'user-1',
       'sender_name': 'Player One',
+      'global_msg_id': 9126,
       'msg_id': 126,
+      'location_msg_id': 26,
       'conversation_round_id': 1317,
       'payload': {'content': '吃饭了吗', 'client_msg_id': 'client-1'},
     });
 
     final ack = await ackFuture;
+    expect(ack.globalMessageId, 9126);
     expect(ack.messageId, 126);
+    expect(ack.locationMessageId, 26);
     expect(ack.conversationRoundId, '1317');
     expect(ack.clientMsgId, 'client-1');
     await session.close();
@@ -385,7 +390,9 @@ void main() {
     socket.serverFrame('llm_stream_start', {
       'world_id': 'world-1',
       'location_id': 'loc-1',
+      'global_msg_id': 9789,
       'msg_id': 789,
+      'location_msg_id': 89,
       'conversation_round_id': 201,
       'payload': {
         'sender_type': 'character',
@@ -395,12 +402,18 @@ void main() {
     });
     final aiStream = await streamFuture;
     final chunks = <String>[];
-    final sub = aiStream.chunks.listen((chunk) => chunks.add(chunk.chunk));
+    final seqs = <int>[];
+    final sub = aiStream.chunks.listen((chunk) {
+      chunks.add(chunk.chunk);
+      seqs.add(chunk.seq);
+    });
 
     socket.serverFrame('llm_chunk', {
       'world_id': 'world-1',
       'location_id': 'loc-1',
+      'global_msg_id': 9789,
       'msg_id': 789,
+      'location_msg_id': 89,
       'conversation_round_id': 201,
       'payload': {
         'sender_type': 'character',
@@ -413,7 +426,9 @@ void main() {
     socket.serverFrame('llm_chunk', {
       'world_id': 'world-1',
       'location_id': 'loc-1',
+      'global_msg_id': 9789,
       'msg_id': 789,
+      'location_msg_id': 89,
       'conversation_round_id': 201,
       'payload': {
         'sender_type': 'character',
@@ -426,7 +441,9 @@ void main() {
     socket.serverFrame('llm_stream_end', {
       'world_id': 'world-1',
       'location_id': 'loc-1',
+      'global_msg_id': 9789,
       'msg_id': 789,
+      'location_msg_id': 89,
       'conversation_round_id': 201,
       'payload': {
         'sender_type': 'character',
@@ -439,8 +456,11 @@ void main() {
     final end = await aiStream.done;
     await sub.cancel();
     expect(end.messageId, 789);
+    expect(aiStream.start.globalMessageId, 9789);
+    expect(aiStream.start.locationMessageId, 89);
     expect(aiStream.start.conversationRoundId, '201');
     expect(chunks, ['hello ', 'there']);
+    expect(seqs, [1, 2]);
     expect(aiStream.content, 'hello there');
     await session.close();
   });

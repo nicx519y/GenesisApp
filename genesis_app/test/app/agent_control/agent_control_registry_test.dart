@@ -4,6 +4,7 @@ import 'package:genesis_flutter_android/app/agent_control/agent_control_registry
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
+import 'package:genesis_flutter_android/routers/app_router.dart';
 
 void main() {
   late MemoryUserSessionStore sessionStore;
@@ -134,5 +135,48 @@ void main() {
 
     expect(response.ok, false);
     expect(response.error?['code'], 'route_not_allowed');
+  });
+
+  test('returns location chat debug snapshot in disabled mode', () async {
+    final response = await registry.execute(
+      const AgentControlRequest(
+        id: '1',
+        method: 'debug.locationChat.snapshot',
+        params: {},
+        timeoutMs: 1000,
+        dryRun: false,
+      ),
+      context,
+    );
+
+    expect(response.ok, true);
+    final result = response.result as Map<String, Object?>;
+    expect(result['available'], true);
+    expect(result['enabled'], false);
+    expect(result['events'], isEmpty);
+  });
+
+  test('reuses current location chat page for the same world and location', () {
+    expect(
+      agentControlShouldReuseLocationChatPageForTesting(
+        currentRouteName: RouteNames.locationChat,
+        currentRouteArguments: const {'wid': 'world-1', 'location_id': 'loc-1'},
+        worldId: 'world-1',
+        locationId: 'loc-1',
+      ),
+      true,
+    );
+  });
+
+  test('does not reuse location chat page for a different location', () {
+    expect(
+      agentControlShouldReuseLocationChatPageForTesting(
+        currentRouteName: RouteNames.locationChat,
+        currentRouteArguments: const {'wid': 'world-1', 'location_id': 'loc-1'},
+        worldId: 'world-1',
+        locationId: 'loc-2',
+      ),
+      false,
+    );
   });
 }

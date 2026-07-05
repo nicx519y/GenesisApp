@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
+import '../../app/debug/location_chat_debug_slice.dart';
 import '../genesis_api.dart';
 import '../json_utils.dart';
 import '../models/location_tree.dart';
@@ -13,6 +15,9 @@ import 'chatroom_message_storage.dart';
 import 'chatroom_models.dart';
 
 const _maxMessagesPerLocation = 200;
+const _maxRecoverableLocationMessageGap = 50;
+const _maxLocationMessageGapFillAttempts = 3;
+const _defaultLocationQueueInitConcurrency = 4;
 
 bool get _chatroomHydrateMetricsEnabled => kDebugMode || kProfileMode;
 
@@ -36,12 +41,21 @@ class WorldChatroomOlderMessagesPage {
   final bool hasMore;
 }
 
+class _LocationMessageGap {
+  const _LocationMessageGap({required this.lower, required this.upper});
+
+  final int lower;
+  final int upper;
+
+  int get missingCount => upper - lower - 1;
+}
+
 class WorldChatroomService {
   WorldChatroomService({
     required GenesisApi api,
     required ChatroomClient client,
     required ChatroomMessageStorage messageStorage,
-    Duration heartbeatInterval = const Duration(seconds: 10),
+    Duration heartbeatInterval = const Duration(seconds: 2),
     Duration reconnectInterval = const Duration(seconds: 5),
     bool refreshInitialSnapshotOnConnect = true,
   }) : _api = api,
@@ -112,6 +126,10 @@ class WorldChatroomService {
         processedLocationTree: world.processedLocationTree,
         entitiesById: entities,
         entitiesByLocation: _entitiesByLocation(entities),
+        messagesByLocation: _leafLocationMessageQueues(
+          world,
+          _state.messagesByLocation,
+        ),
       ),
     );
   }
@@ -181,6 +199,18 @@ class WorldChatroomService {
       'storageAliases=${storageLocationIds.join(',')} '
       'owner=${ownerUid?.trim().isNotEmpty == true ? 'provided' : 'service'}',
     );
+    LocationChatDebugSlice.recordEvent(
+      source: 'service',
+      action: 'hydrateStart',
+      worldId: resolvedWorldId,
+      locationId: resolvedLocationId,
+      details: {
+        'storageAliases': storageLocationIds,
+        'ownerSource': ownerUid?.trim().isNotEmpty == true
+            ? 'provided'
+            : 'service',
+      },
+    );
     final hydrations = storageLocationIds.map(
       (storageLocationId) => _hydrateLocalMessagesForLocation(
         storageLocationId,
@@ -194,6 +224,14 @@ class WorldChatroomService {
       'request done world=$resolvedWorldId state=$resolvedLocationId '
       'stateCount=${_state.messagesByLocation[resolvedLocationId]?.length ?? 0} '
       'elapsed=${stopwatch?.elapsedMilliseconds}ms',
+    );
+    _recordServiceQueueDebug(
+      action: 'hydrateDone',
+      locationId: resolvedLocationId,
+      details: {
+        'storageAliases': storageLocationIds,
+        'elapsedMs': stopwatch?.elapsedMilliseconds,
+      },
     );
   }
 
@@ -245,6 +283,22 @@ class WorldChatroomService {
     if (updateState && messages.isNotEmpty) {
       _upsertMessages(messages, persist: false);
     }
+    if (LocationChatDebugSlice.enabled) {
+      LocationChatDebugSlice.recordEvent(
+        source: 'service',
+        action: 'loadCached',
+        worldId: resolvedWorldId,
+        locationId: resolvedLocationId,
+        details: {
+          'ownerUid': resolvedOwnerUid,
+          'storageAliases': storageLocationIds,
+          'limit': limit,
+          'updateState': updateState,
+          'loaded': messages.length,
+          'messages': LocationChatDebugSlice.debugWorldMessageQueue(messages),
+        },
+      );
+    }
     return messages;
   }
 
@@ -258,15 +312,24 @@ class WorldChatroomService {
     if (resolvedLocationId.isEmpty || limit <= 0) {
       return const <WorldChatroomMessage>[];
     }
-    final fetchKey = '$resolvedLocationId\u001F$limit\u001F$emitLatestFetched';
+    if (_worldId.isEmpty) return const <WorldChatroomMessage>[];
+    final fetchKey =
+        'location\u001F$_worldId\u001F$resolvedLocationId\u001F$limit\u001F$emitLatestFetched';
     final existingFetch = _latestMessageFetchFutures[fetchKey];
     if (existingFetch != null) {
       return existingFetch;
     }
-    final fetch = _fetchLatestMessagesWithFailure(
-      resolvedLocationId,
+    final fetch = _fetchLatestLocationMessagesWithFailure(
+      locationId: resolvedLocationId,
       limit: limit,
       emitLatestFetched: emitLatestFetched,
+    );
+    LocationChatDebugSlice.recordEvent(
+      source: 'service',
+      action: 'refreshLatestStart',
+      worldId: _worldId,
+      locationId: resolvedLocationId,
+      details: {'limit': limit, 'emitLatestFetched': emitLatestFetched},
     );
     _latestMessageFetchFutures[fetchKey] = fetch;
     try {
@@ -274,6 +337,52 @@ class WorldChatroomService {
     } finally {
       _latestMessageFetchFutures.remove(fetchKey);
     }
+  }
+
+  Future<void> initializeLeafLocationQueues({
+    Iterable<String>? locationIds,
+    int latestLimit = 20,
+    int concurrency = _defaultLocationQueueInitConcurrency,
+  }) async {
+    _throwIfDisposed();
+    if (_worldId.isEmpty || latestLimit <= 0) return;
+    final ids = _orderedNonEmpty(
+      locationIds ?? _leafLocationIdsForCurrentWorld(),
+    );
+    if (ids.isEmpty) return;
+    final stopwatch = _chatroomHydrateMetricsEnabled
+        ? (Stopwatch()..start())
+        : null;
+    _logChatroomHydrateMetric(
+      'leaf queue init start world=$_worldId locations=${ids.length} '
+      'limit=$latestLimit concurrency=$concurrency',
+    );
+    _recordServiceQueueDebug(
+      action: 'leafQueueInitStart',
+      locationId: '',
+      details: {
+        'locations': ids,
+        'limit': latestLimit,
+        'concurrency': concurrency,
+      },
+    );
+    await _runLimited<String>(
+      ids,
+      math.max(1, concurrency),
+      (locationId) => _initializeLeafLocationQueue(
+        locationId: locationId,
+        latestLimit: latestLimit,
+      ),
+    );
+    _logChatroomHydrateMetric(
+      'leaf queue init done world=$_worldId locations=${ids.length} '
+      'elapsed=${stopwatch?.elapsedMilliseconds}ms',
+    );
+    _recordServiceQueueDebug(
+      action: 'leafQueueInitDone',
+      locationId: '',
+      details: {'locations': ids, 'elapsedMs': stopwatch?.elapsedMilliseconds},
+    );
   }
 
   Future<void> leave() async {
@@ -355,6 +464,13 @@ class WorldChatroomService {
     }
     final loadedMessageIds = <int>{};
     final ownerUid = _storageOwnerUid;
+    LocationChatDebugSlice.recordEvent(
+      source: 'service',
+      action: 'loadOlderStart',
+      worldId: _worldId,
+      locationId: resolvedLocationId,
+      details: {'beforeMessageId': beforeMessageId, 'limit': limit},
+    );
     if (ownerUid.isNotEmpty && _worldId.isNotEmpty) {
       final localMessages = await _messageStorage.loadMessagesBefore(
         ownerUid: ownerUid,
@@ -365,7 +481,8 @@ class WorldChatroomService {
       );
       for (final json in localMessages) {
         final message = WorldChatroomMessage.fromStorageJson(json);
-        if (message.messageId > 0) loadedMessageIds.add(message.messageId);
+        final queueMessageId = message.locationQueueMessageId;
+        if (queueMessageId > 0) loadedMessageIds.add(queueMessageId);
         _upsertMessage(message, persist: false);
       }
     }
@@ -378,12 +495,24 @@ class WorldChatroomService {
     );
     await _mergeFetchedMessages(resolvedLocationId, response.messages);
     for (final message in response.messages) {
-      if (message.messageId > 0) loadedMessageIds.add(message.messageId);
+      final queueMessageId = message.locationMessageId;
+      if (queueMessageId > 0) loadedMessageIds.add(queueMessageId);
     }
-    return WorldChatroomOlderMessagesPage(
+    final page = WorldChatroomOlderMessagesPage(
       loadedCount: loadedMessageIds.length,
-      hasMore: response.hasMore || loadedMessageIds.length >= limit,
+      hasMore: response.hasMore,
     );
+    _recordServiceQueueDebug(
+      action: 'loadOlderDone',
+      locationId: resolvedLocationId,
+      details: {
+        'beforeMessageId': beforeMessageId,
+        'limit': limit,
+        'loadedCount': page.loadedCount,
+        'hasMore': page.hasMore,
+      },
+    );
+    return page;
   }
 
   Future<void> clearCachedMessages() async {
@@ -397,10 +526,19 @@ class WorldChatroomService {
     _setState(
       _state.copyWith(
         worldMessages: const <WorldChatroomMessage>[],
-        messagesByLocation: const <String, List<WorldChatroomMessage>>{},
+        messagesByLocation: _leafLocationMessageQueues(
+          _state.world,
+          const <String, List<WorldChatroomMessage>>{},
+        ),
         streamMessagesByKey: const <String, WorldChatroomMessage>{},
         lastMessageId: 0,
       ),
+    );
+    LocationChatDebugSlice.recordEvent(
+      source: 'service',
+      action: 'clearCachedMessages',
+      worldId: _worldId,
+      details: {'ownerUid': ownerUid},
     );
   }
 
@@ -643,6 +781,264 @@ class WorldChatroomService {
     });
   }
 
+  Future<void> _initializeLeafLocationQueue({
+    required String locationId,
+    required int latestLimit,
+  }) async {
+    final resolvedLocationId = locationId.trim();
+    if (resolvedLocationId.isEmpty || _worldId.isEmpty) return;
+    try {
+      _recordServiceQueueDebug(
+        action: 'leafQueueInitLocationStart',
+        locationId: resolvedLocationId,
+        details: {'limit': latestLimit},
+      );
+      final response = await _api.chatroomHttp.getMessages(
+        worldId: _worldId,
+        locationId: resolvedLocationId,
+        since: 0,
+        limit: latestLimit,
+      );
+      await _mergeFetchedMessages(resolvedLocationId, response.messages);
+      await _repairLocationMessageGaps(resolvedLocationId);
+      _recordServiceQueueDebug(
+        action: 'leafQueueInitLocationDone',
+        locationId: resolvedLocationId,
+        details: {
+          'loaded': response.messages.length,
+          'hasMore': response.hasMore,
+        },
+      );
+    } catch (error) {
+      _recordServiceQueueDebug(
+        action: 'leafQueueInitLocationFailed',
+        locationId: resolvedLocationId,
+        details: {'error': '$error'},
+      );
+    }
+  }
+
+  Future<void> _repairLocationMessageGaps(String locationId) async {
+    final unresolvedGapKeys = <String>{};
+    for (var pass = 0; pass < _maxMessagesPerLocation; pass += 1) {
+      final gap = _firstLocationMessageGap(
+        _state.messagesByLocation[locationId] ?? const <WorldChatroomMessage>[],
+        ignoredKeys: unresolvedGapKeys,
+      );
+      if (gap == null) return;
+      final gapKey = _locationMessageGapKey('', gap);
+      if (gap.missingCount > _maxRecoverableLocationMessageGap) {
+        await _discardLocationMessagesAtOrBefore(
+          locationId: locationId,
+          maxLocationMessageId: gap.lower,
+          reason: 'largeGap',
+        );
+        continue;
+      }
+      final filled = await _fillLocationMessageGap(
+        locationId: locationId,
+        gap: gap,
+      );
+      if (!filled) {
+        unresolvedGapKeys.add(gapKey);
+        return;
+      }
+    }
+  }
+
+  Future<bool> _fillLocationMessageGap({
+    required String locationId,
+    required _LocationMessageGap gap,
+  }) async {
+    final limit = math.min(100, gap.missingCount + 1);
+    for (
+      var attempt = 1;
+      attempt <= _maxLocationMessageGapFillAttempts;
+      attempt += 1
+    ) {
+      try {
+        _recordServiceQueueDebug(
+          action: 'gapFillStart',
+          locationId: locationId,
+          details: {
+            'lower': gap.lower,
+            'upper': gap.upper,
+            'missingCount': gap.missingCount,
+            'attempt': attempt,
+            'limit': limit,
+          },
+        );
+        final response = await _api.chatroomHttp.getMessages(
+          worldId: _worldId,
+          locationId: locationId,
+          since: gap.upper,
+          limit: limit,
+        );
+        await _mergeFetchedMessages(locationId, response.messages);
+        if (_isLocationMessageGapFilled(
+          _state.messagesByLocation[locationId] ??
+              const <WorldChatroomMessage>[],
+          gap,
+        )) {
+          _recordServiceQueueDebug(
+            action: 'gapFillDone',
+            locationId: locationId,
+            details: {
+              'lower': gap.lower,
+              'upper': gap.upper,
+              'attempt': attempt,
+              'loaded': response.messages.length,
+            },
+          );
+          return true;
+        }
+      } catch (error) {
+        _recordServiceQueueDebug(
+          action: 'gapFillFailed',
+          locationId: locationId,
+          details: {
+            'lower': gap.lower,
+            'upper': gap.upper,
+            'attempt': attempt,
+            'error': '$error',
+          },
+        );
+      }
+    }
+    _recordServiceQueueDebug(
+      action: 'gapFillReleased',
+      locationId: locationId,
+      details: {
+        'lower': gap.lower,
+        'upper': gap.upper,
+        'attempts': _maxLocationMessageGapFillAttempts,
+      },
+    );
+    return false;
+  }
+
+  Future<void> _discardLocationMessagesAtOrBefore({
+    required String locationId,
+    required int maxLocationMessageId,
+    required String reason,
+  }) async {
+    if (maxLocationMessageId <= 0) return;
+    final ownerUid = _storageOwnerUid;
+    if (ownerUid.isNotEmpty && _worldId.isNotEmpty) {
+      await _messageStorage.deleteMessagesAtOrBefore(
+        ownerUid: ownerUid,
+        worldId: _worldId,
+        locationId: locationId,
+        maxLocationMessageId: maxLocationMessageId,
+      );
+    }
+    final byLocation = Map<String, List<WorldChatroomMessage>>.from(
+      _state.messagesByLocation,
+    );
+    byLocation[locationId] = List<WorldChatroomMessage>.unmodifiable(
+      (byLocation[locationId] ?? const <WorldChatroomMessage>[]).where(
+        (message) => message.locationQueueMessageId > maxLocationMessageId,
+      ),
+    );
+    final streamMessagesByKey = <String, WorldChatroomMessage>{
+      ..._state.streamMessagesByKey,
+    };
+    streamMessagesByKey.removeWhere((_, message) {
+      return message.locationId == locationId &&
+          message.locationQueueMessageId <= maxLocationMessageId;
+    });
+    _setState(
+      _state.copyWith(
+        worldMessages: _state.worldMessages
+            .where(
+              (message) =>
+                  message.locationId != locationId ||
+                  message.locationQueueMessageId > maxLocationMessageId,
+            )
+            .toList(growable: false),
+        messagesByLocation: byLocation,
+        streamMessagesByKey: streamMessagesByKey,
+      ),
+    );
+    _recordServiceQueueDebug(
+      action: 'discardLocationMessages',
+      locationId: locationId,
+      details: {'maxLocationMessageId': maxLocationMessageId, 'reason': reason},
+    );
+  }
+
+  _LocationMessageGap? _firstLocationMessageGap(
+    List<WorldChatroomMessage> messages, {
+    Set<String> ignoredKeys = const <String>{},
+  }) {
+    final ids =
+        messages
+            .where(
+              (message) =>
+                  !_isTickAdvanceWorldMessage(message) &&
+                  message.locationMessageId > 0,
+            )
+            .map((message) => message.locationMessageId)
+            .toSet()
+            .toList(growable: false)
+          ..sort();
+    for (var index = 1; index < ids.length; index += 1) {
+      final lower = ids[index - 1];
+      final upper = ids[index];
+      if (upper <= lower + 1) continue;
+      final gap = _LocationMessageGap(lower: lower, upper: upper);
+      if (ignoredKeys.contains(_locationMessageGapKey('', gap))) continue;
+      return gap;
+    }
+    return null;
+  }
+
+  bool _isTickAdvanceWorldMessage(WorldChatroomMessage message) {
+    return message.senderType.trim().toLowerCase() == 'tick';
+  }
+
+  bool _isLocationMessageGapFilled(
+    List<WorldChatroomMessage> messages,
+    _LocationMessageGap gap,
+  ) {
+    final ids = messages
+        .where(
+          (message) =>
+              !_isTickAdvanceWorldMessage(message) &&
+              message.locationMessageId > 0,
+        )
+        .map((message) => message.locationMessageId)
+        .toSet();
+    for (var id = gap.lower + 1; id < gap.upper; id += 1) {
+      if (!ids.contains(id)) return false;
+    }
+    return true;
+  }
+
+  String _locationMessageGapKey(String locationId, _LocationMessageGap gap) {
+    return '${locationId.trim()}\u001F${gap.lower}\u001F${gap.upper}';
+  }
+
+  Future<void> _runLimited<T>(
+    List<T> items,
+    int concurrency,
+    Future<void> Function(T item) run,
+  ) async {
+    var nextIndex = 0;
+    Future<void> worker() async {
+      while (nextIndex < items.length) {
+        final index = nextIndex;
+        nextIndex += 1;
+        await run(items[index]);
+      }
+    }
+
+    final workerCount = math.min(concurrency, items.length);
+    await Future.wait<void>([
+      for (var i = 0; i < workerCount; i += 1) worker(),
+    ]);
+  }
+
   Future<void> _handleEvent(ChatroomEvent event) async {
     switch (event) {
       case ChatroomWorldNotification e:
@@ -692,7 +1088,7 @@ class WorldChatroomService {
           'world_new_message fetch start location=${event.locationId} '
           'world=$_worldId',
         );
-        await _fetchLatestMessagesForNotification(event.locationId);
+        await _fetchLatestMessagesForNotification();
         _logChatroomSocketEvent(
           'world_new_message fetch done location=${event.locationId} '
           'world=$_worldId',
@@ -718,6 +1114,10 @@ class WorldChatroomService {
         processedLocationTree: world.processedLocationTree,
         entitiesById: entities,
         entitiesByLocation: _entitiesByLocation(entities),
+        messagesByLocation: _leafLocationMessageQueues(
+          world,
+          _state.messagesByLocation,
+        ),
       ),
     );
     return world;
@@ -729,31 +1129,23 @@ class WorldChatroomService {
     );
     final entities = <String, WorldChatroomEntity>{
       for (final entry in _state.entitiesById.entries)
-        entry.key: _entityWithoutLocation(entry.value),
+        entry.key: entry.value.type == WorldChatroomEntityType.player
+            ? _entityWithoutLocation(entry.value)
+            : entry.value,
     };
     for (final group in response.locations) {
-      for (final character in group.characters) {
-        final isPlayer = character.playerUid.trim().isNotEmpty;
-        final id = isPlayer
-            ? character.playerUid.trim()
-            : character.charId.trim();
+      for (final user in group.users) {
+        final id = user.userId.trim();
         if (id.isEmpty) continue;
         final existing = _state.entitiesById[id];
-        final locationId = _firstNonEmpty([
-          character.locationId,
-          group.locationId,
-        ]);
+        final locationId = group.locationId.trim();
         entities[id] = WorldChatroomEntity(
           id: id,
-          name: isPlayer
-              ? _firstNonEmpty([existing?.name, character.name, id])
-              : _firstNonEmpty([existing?.name, character.name]),
-          avatarUrl: existing?.avatarUrl ?? '',
-          type: isPlayer
-              ? WorldChatroomEntityType.player
-              : WorldChatroomEntityType.character,
+          name: _firstNonEmpty([existing?.name, user.userName, id]),
+          avatarUrl: _firstNonEmpty([existing?.avatarUrl, user.avatar]),
+          type: WorldChatroomEntityType.player,
           locationId: locationId,
-          isAi: !isPlayer,
+          isAi: false,
         );
       }
     }
@@ -1013,10 +1405,33 @@ class WorldChatroomService {
         'beforeStateCount=$beforeStateCount afterStateCount=$afterStateCount '
         'elapsed=${stopwatch?.elapsedMilliseconds}ms',
       );
+      _recordServiceQueueDebug(
+        action: 'dbHydrateDone',
+        locationId: stateLocationId,
+        details: {
+          'storageLocationId': storageLocationId,
+          'loaded': localMessages.length,
+          'firstMsg': firstMessageId,
+          'beforeStateCount': beforeStateCount,
+          'afterStateCount': afterStateCount,
+          'elapsedMs': stopwatch?.elapsedMilliseconds,
+        },
+      );
     } catch (e) {
       _logChatroomHydrateMetric(
         'db load failed storage=$storageLocationId state=$stateLocationId '
         'elapsed=${stopwatch?.elapsedMilliseconds}ms error=$e',
+      );
+      LocationChatDebugSlice.recordEvent(
+        source: 'service',
+        action: 'dbHydrateFailed',
+        worldId: worldId,
+        locationId: stateLocationId,
+        details: {
+          'storageLocationId': storageLocationId,
+          'elapsedMs': stopwatch?.elapsedMilliseconds,
+          'error': '$e',
+        },
       );
       _recordFailure(
         ChatroomFailureEvent(
@@ -1062,58 +1477,52 @@ class WorldChatroomService {
     );
   }
 
-  Future<List<WorldChatroomMessage>> _fetchLatestMessages(
-    String locationId, {
+  Future<List<WorldChatroomMessage>> _fetchLatestLocationMessages({
+    required String locationId,
     required int limit,
     bool emitLatestFetched = true,
   }) async {
-    final stopwatch = _chatroomHydrateMetricsEnabled
-        ? (Stopwatch()..start())
-        : null;
-    final resolvedLocationId = locationId.trim();
-    if (resolvedLocationId.isEmpty) return const <WorldChatroomMessage>[];
-    _logChatroomHydrateMetric(
-      'history fetch start location=$resolvedLocationId limit=$limit '
-      'beforeStateCount=${_state.messagesByLocation[resolvedLocationId]?.length ?? 0}',
-    );
+    if (_worldId.isEmpty) return const <WorldChatroomMessage>[];
     final response = await _api.chatroomHttp.getMessages(
       worldId: _worldId,
-      locationId: resolvedLocationId,
+      locationId: locationId,
+      since: 0,
       limit: limit,
     );
-    final messages = await _mergeFetchedMessages(
-      resolvedLocationId,
-      response.messages,
-    );
+    final messages = await _mergeFetchedMessages(locationId, response.messages);
     if (emitLatestFetched &&
         messages.isNotEmpty &&
         !_latestFetchedMessages.isClosed) {
       _latestFetchedMessages.add(messages);
     }
-    _logChatroomHydrateMetric(
-      'history fetch done location=$resolvedLocationId '
-      'loaded=${response.messages.length} '
-      'afterStateCount=${_state.messagesByLocation[resolvedLocationId]?.length ?? 0} '
-      'elapsed=${stopwatch?.elapsedMilliseconds}ms',
+    _recordServiceQueueDebug(
+      action: 'refreshLocationLatestDone',
+      locationId: locationId,
+      details: {
+        'limit': limit,
+        'loaded': messages.length,
+        'hasMore': response.hasMore,
+        'emitLatestFetched': emitLatestFetched,
+      },
     );
     return messages;
   }
 
-  Future<List<WorldChatroomMessage>> _fetchLatestMessagesWithFailure(
-    String locationId, {
+  Future<List<WorldChatroomMessage>> _fetchLatestLocationMessagesWithFailure({
+    required String locationId,
     required int limit,
     bool emitLatestFetched = true,
   }) async {
     try {
-      return await _fetchLatestMessages(
-        locationId,
+      return await _fetchLatestLocationMessages(
+        locationId: locationId,
         limit: limit,
         emitLatestFetched: emitLatestFetched,
       );
     } catch (e) {
       _logChatroomSocketEvent(
-        'latest messages fetch failed location=$locationId '
-        'limit=$limit error=$e',
+        'latest location messages fetch failed world=$_worldId '
+        'location=$locationId limit=$limit error=$e',
       );
       _recordFailure(
         ChatroomFailureEvent(
@@ -1128,25 +1537,108 @@ class WorldChatroomService {
     }
   }
 
-  Future<void> _fetchLatestMessagesForNotification(String locationId) async {
-    final resolvedLocationId = locationId.trim();
-    if (resolvedLocationId.isNotEmpty) {
-      await _fetchLatestMessages(resolvedLocationId, limit: 20);
-      return;
+  Future<List<WorldChatroomMessage>> _fetchLatestWorldMessages({
+    required int limit,
+    bool emitLatestFetched = true,
+  }) async {
+    final stopwatch = _chatroomHydrateMetricsEnabled
+        ? (Stopwatch()..start())
+        : null;
+    if (_worldId.isEmpty) return const <WorldChatroomMessage>[];
+    _logChatroomHydrateMetric(
+      'world history fetch start world=$_worldId limit=$limit '
+      'locationCount=${_state.messagesByLocation.length}',
+    );
+    final response = await _api.chatroomHttp.getWorldMessages(
+      worldId: _worldId,
+    );
+    final messages = <WorldChatroomMessage>[];
+    for (final location in response.locations) {
+      final locationId = location.locationId.trim();
+      if (locationId.isEmpty) continue;
+      messages.addAll(
+        await _mergeFetchedMessages(locationId, location.messages),
+      );
     }
-    for (final id in _leafLocationIdsForCurrentWorld()) {
-      await _fetchLatestMessages(id, limit: 20);
+    if (emitLatestFetched &&
+        messages.isNotEmpty &&
+        !_latestFetchedMessages.isClosed) {
+      _latestFetchedMessages.add(messages);
+    }
+    _logChatroomHydrateMetric(
+      'world history fetch done world=$_worldId '
+      'locations=${response.locations.length} loaded=${messages.length} '
+      'elapsed=${stopwatch?.elapsedMilliseconds}ms',
+    );
+    _recordServiceQueueDebug(
+      action: 'refreshWorldLatestDone',
+      locationId: '',
+      details: {
+        'limit': limit,
+        'locations': response.locations.length,
+        'loaded': messages.length,
+        'emitLatestFetched': emitLatestFetched,
+        'elapsedMs': stopwatch?.elapsedMilliseconds,
+      },
+    );
+    return messages;
+  }
+
+  Future<List<WorldChatroomMessage>> _fetchLatestWorldMessagesWithFailure({
+    required int limit,
+    bool emitLatestFetched = true,
+  }) async {
+    try {
+      return await _fetchLatestWorldMessages(
+        limit: limit,
+        emitLatestFetched: emitLatestFetched,
+      );
+    } catch (e) {
+      _logChatroomSocketEvent(
+        'latest world messages fetch failed world=$_worldId limit=$limit error=$e',
+      );
+      _recordFailure(
+        ChatroomFailureEvent(
+          code: 'message_history_load_failed',
+          message: 'Something went wrong',
+          sourceType: 'message_history',
+          requestType: 'get_messages',
+          cause: e,
+        ),
+      );
+      return const <WorldChatroomMessage>[];
     }
   }
 
+  Future<void> _fetchLatestMessagesForNotification() async {
+    await _fetchLatestWorldMessagesWithFailure(limit: 20);
+  }
+
   List<String> _leafLocationIdsForCurrentWorld() {
+    return _leafLocationIdsForWorld(_state.world);
+  }
+
+  List<String> _leafLocationIdsForWorld(WorldDetail? world) {
     final ids = <String>{};
-    final world = _state.world;
     if (world != null) {
       for (final node in world.processedLocationTree.flattened) {
         if (node.children.isNotEmpty) continue;
         final id = node.id.trim();
         if (id.isNotEmpty) ids.add(id);
+      }
+      if (ids.isEmpty) {
+        final parentIds = world.locations
+            .map((location) => asString(location['location_pid']).trim())
+            .where((id) => id.isNotEmpty)
+            .toSet();
+        for (final location in world.locations) {
+          final id = asString(
+            location['location_id'],
+            fallback: asString(location['id']),
+          ).trim();
+          if (id.isEmpty || parentIds.contains(id)) continue;
+          ids.add(id);
+        }
       }
     }
     return ids.toList(growable: false);
@@ -1198,6 +1690,20 @@ class WorldChatroomService {
       );
     }
     _upsertMessages(worldMessages, persist: false);
+    if (LocationChatDebugSlice.enabled) {
+      LocationChatDebugSlice.recordEvent(
+        source: 'service',
+        action: 'mergeFetched',
+        worldId: _worldId,
+        locationId: locationId,
+        details: {
+          'incoming': messages.length,
+          'messages': LocationChatDebugSlice.debugWorldMessageQueue(
+            worldMessages,
+          ),
+        },
+      );
+    }
     return worldMessages;
   }
 
@@ -1278,16 +1784,17 @@ class WorldChatroomService {
     final hasSocketWorldProgress =
         resolvedSocketCurrentTime.isNotEmpty || resolvedSocketTickNo > 0;
     var worldMessages = _state.worldMessages;
-    final byLocation = <String, List<WorldChatroomMessage>>{
-      ..._state.messagesByLocation,
-    };
+    final byLocation = _leafLocationMessageQueues(
+      _state.world,
+      _state.messagesByLocation,
+    );
     final streamKeys = <String, WorldChatroomMessage>{
       ..._state.streamMessagesByKey,
     };
     var lastMessageId = _state.lastMessageId;
     for (final message in messages) {
       worldMessages = _upsertIntoList(worldMessages, message);
-      if (message.locationId.isNotEmpty) {
+      if (_shouldStoreMessageInLocationQueue(message)) {
         byLocation[message.locationId] = _trimMessageList(
           _upsertIntoList(
             byLocation[message.locationId] ?? const <WorldChatroomMessage>[],
@@ -1321,6 +1828,17 @@ class WorldChatroomService {
             : null,
       ),
     );
+    final changedLocationIds = messages
+        .map((message) => message.locationId.trim())
+        .where((locationId) => locationId.isNotEmpty)
+        .toSet();
+    for (final locationId in changedLocationIds) {
+      _recordServiceQueueDebug(
+        action: persist ? 'upsertPersist' : 'upsertState',
+        locationId: locationId,
+        details: {'incoming': messages.length, 'persist': persist},
+      );
+    }
     if (persist) {
       for (final message in messages) {
         unawaited(
@@ -1376,6 +1894,17 @@ class WorldChatroomService {
     if (aClientMsgId.isNotEmpty && bClientMsgId.isNotEmpty) {
       return aClientMsgId == bClientMsgId;
     }
+    if (a.locationId == b.locationId &&
+        a.locationMessageId > 0 &&
+        b.locationMessageId > 0) {
+      return a.locationMessageId == b.locationMessageId;
+    }
+    if (a.locationId == b.locationId) {
+      return a.conversationRoundId == b.conversationRoundId &&
+          a.userId == b.userId &&
+          a.senderId == b.senderId &&
+          a.streaming == b.streaming;
+    }
     if (a.messageId > 0 && b.messageId > 0) {
       return a.messageId == b.messageId;
     }
@@ -1387,6 +1916,20 @@ class WorldChatroomService {
   }
 
   int _compareMessages(WorldChatroomMessage a, WorldChatroomMessage b) {
+    if (a.locationId == b.locationId &&
+        a.locationMessageId > 0 &&
+        b.locationMessageId > 0) {
+      return a.locationMessageId.compareTo(b.locationMessageId);
+    }
+    if (a.locationId == b.locationId) {
+      final round = a.conversationRoundNumber.compareTo(
+        b.conversationRoundNumber,
+      );
+      if (round != 0) return round;
+      final order = a.roundOrder.compareTo(b.roundOrder);
+      if (order != 0) return order;
+      return a.messageId.compareTo(b.messageId);
+    }
     if (a.messageId > 0 && b.messageId > 0) {
       return a.messageId.compareTo(b.messageId);
     }
@@ -1397,6 +1940,45 @@ class WorldChatroomService {
     final order = a.roundOrder.compareTo(b.roundOrder);
     if (order != 0) return order;
     return a.messageId.compareTo(b.messageId);
+  }
+
+  Map<String, List<WorldChatroomMessage>> _leafLocationMessageQueues(
+    WorldDetail? world,
+    Map<String, List<WorldChatroomMessage>> current,
+  ) {
+    if (world == null) {
+      return Map<String, List<WorldChatroomMessage>>.from(current);
+    }
+    final leafIds = _leafLocationIdsForWorld(world);
+    if (leafIds.isEmpty) {
+      return Map<String, List<WorldChatroomMessage>>.from(current);
+    }
+    return <String, List<WorldChatroomMessage>>{
+      for (final locationId in leafIds)
+        locationId: List<WorldChatroomMessage>.unmodifiable(
+          (current[locationId] ?? const <WorldChatroomMessage>[]).where(
+            _isLocationQueueMessage,
+          ),
+        ),
+    };
+  }
+
+  bool _shouldStoreMessageInLocationQueue(WorldChatroomMessage message) {
+    return _shouldStoreMessageForLocation(message.locationId) &&
+        _isLocationQueueMessage(message);
+  }
+
+  bool _shouldStoreMessageForLocation(String locationId) {
+    final resolvedLocationId = locationId.trim();
+    if (resolvedLocationId.isEmpty) return false;
+    final world = _state.world;
+    if (world == null) return true;
+    final leafIds = _leafLocationIdsForWorld(world);
+    return leafIds.isEmpty || leafIds.contains(resolvedLocationId);
+  }
+
+  bool _isLocationQueueMessage(WorldChatroomMessage message) {
+    return _isTickAdvanceWorldMessage(message) || message.locationMessageId > 0;
   }
 
   Map<String, WorldChatroomEntity> _entitiesFromWorld(WorldDetail world) {
@@ -1581,6 +2163,32 @@ class WorldChatroomService {
       message: _storageJsonFromWorldMessage(message),
       maxMessagesPerLocation: _maxMessagesPerLocation,
     );
+    if (LocationChatDebugSlice.enabled) {
+      LocationChatDebugSlice.recordEvent(
+        source: 'service',
+        action: 'persistMessage',
+        worldId: _worldId,
+        locationId: locationId,
+        details: {
+          'ownerUid': ownerUid,
+          'message': LocationChatDebugSlice.debugWorldMessage(message),
+        },
+      );
+    }
+  }
+
+  void _recordServiceQueueDebug({
+    required String action,
+    required String locationId,
+    Map<String, Object?> details = const <String, Object?>{},
+  }) {
+    LocationChatDebugSlice.recordServiceQueue(
+      action: action,
+      worldId: _worldId,
+      locationId: locationId,
+      state: _state,
+      details: details,
+    );
   }
 
   String get _storageOwnerUid {
@@ -1595,7 +2203,9 @@ class WorldChatroomService {
     WorldChatroomMessage message,
   ) {
     return {
+      'global_msg_id': message.globalMessageId,
       'msg_id': message.messageId,
+      'location_msg_id': message.locationMessageId,
       'location_id': message.locationId,
       'conversation_round_id': message.conversationRoundNumber,
       'round_order': message.roundOrder,
@@ -1616,18 +2226,20 @@ class WorldChatroomService {
     String fallbackLocationId = '',
   }) {
     return {
+      'global_msg_id': message.globalMessageId,
       'msg_id': message.messageId,
+      'location_msg_id': message.locationMessageId,
       'location_id': message.locationId.trim().isEmpty
           ? fallbackLocationId
           : message.locationId,
       'conversation_round_id': message.conversationRoundId,
-      'round_order': message.roundOrder,
+      'round_order': 0,
       'tick_no': message.tickNo,
       'sender_type': message.senderType,
       'sender_id': message.senderId,
       'sender_name': message.senderName,
       'user_id': message.userId,
-      'client_msg_id': message.clientMsgId,
+      'client_msg_id': '',
       'content': message.content,
       'current_time': message.currentTime,
       'ts': message.createdAt?.millisecondsSinceEpoch,
@@ -1765,7 +2377,9 @@ class WorldChatroomEntity {
 
 class WorldChatroomMessage {
   const WorldChatroomMessage({
+    this.globalMessageId = 0,
     required this.messageId,
+    this.locationMessageId = 0,
     required this.conversationRoundId,
     required this.roundOrder,
     this.tickNo = 0,
@@ -1781,7 +2395,9 @@ class WorldChatroomMessage {
     this.streaming = false,
   });
 
+  final int globalMessageId;
   final int messageId;
+  final int locationMessageId;
   final String conversationRoundId;
   final int roundOrder;
   final int tickNo;
@@ -1796,20 +2412,24 @@ class WorldChatroomMessage {
   final DateTime? createdAt;
   final bool streaming;
 
+  int get locationQueueMessageId => locationMessageId;
+
   int get conversationRoundNumber => int.tryParse(conversationRoundId) ?? 0;
 
   factory WorldChatroomMessage.fromHttpMessage(ChatroomHttpMessage message) {
     return WorldChatroomMessage(
+      globalMessageId: message.globalMessageId,
       messageId: message.messageId,
+      locationMessageId: message.locationMessageId,
       conversationRoundId: '${message.conversationRoundId}',
-      roundOrder: message.roundOrder,
+      roundOrder: 0,
       tickNo: message.tickNo,
       locationId: message.locationId,
       senderType: message.senderType,
       userId: message.userId,
       senderId: message.senderId,
       senderName: message.senderName,
-      clientMsgId: message.clientMsgId,
+      clientMsgId: '',
       content: message.content,
       currentTime: message.currentTime,
       createdAt: message.createdAt,
@@ -1817,14 +2437,33 @@ class WorldChatroomMessage {
   }
 
   factory WorldChatroomMessage.fromStorageJson(Map<String, dynamic> json) {
-    return WorldChatroomMessage.fromHttpMessage(
-      ChatroomHttpMessage.fromJson(json),
+    return WorldChatroomMessage(
+      globalMessageId: asInt(json['global_msg_id']),
+      messageId: asInt(json['msg_id']),
+      locationMessageId: asInt(json['location_msg_id']),
+      conversationRoundId: asString(
+        json['conversation_round_id'],
+        fallback: '${asInt(json['conversation_round_id'])}',
+      ),
+      roundOrder: asInt(json['round_order']),
+      tickNo: asInt(json['tick_no']),
+      locationId: asString(json['location_id']),
+      senderType: asString(json['sender_type']),
+      userId: asString(json['user_id']),
+      senderId: asString(json['sender_id']),
+      senderName: asString(json['sender_name']),
+      clientMsgId: asString(json['client_msg_id']),
+      content: asString(json['content']),
+      currentTime: asString(json['current_time']),
+      createdAt: asDateTime(json['ts']),
     );
   }
 
   factory WorldChatroomMessage.fromUserMessage(ChatroomUserMessage message) {
     return WorldChatroomMessage(
+      globalMessageId: message.globalMessageId,
       messageId: message.messageId,
+      locationMessageId: message.locationMessageId,
       conversationRoundId: message.conversationRoundId,
       roundOrder: message.roundOrder,
       locationId: message.locationId,
@@ -1843,7 +2482,9 @@ class WorldChatroomMessage {
     ChatroomNarratorMessage message,
   ) {
     return WorldChatroomMessage(
+      globalMessageId: message.globalMessageId,
       messageId: message.messageId,
+      locationMessageId: message.locationMessageId,
       conversationRoundId: message.conversationRoundId,
       roundOrder: message.roundOrder,
       locationId: message.locationId,
@@ -1863,7 +2504,9 @@ class WorldChatroomMessage {
     ChatroomTickAdvanceMessage message,
   ) {
     return WorldChatroomMessage(
+      globalMessageId: message.globalMessageId,
       messageId: message.messageId,
+      locationMessageId: message.locationMessageId,
       conversationRoundId: message.conversationRoundId,
       roundOrder: message.roundOrder,
       tickNo: message.tickNo,
@@ -1880,7 +2523,9 @@ class WorldChatroomMessage {
 
   factory WorldChatroomMessage.fromAiStreamStart(ChatroomAiStreamStart event) {
     return WorldChatroomMessage(
+      globalMessageId: event.globalMessageId,
       messageId: event.messageId,
+      locationMessageId: event.locationMessageId,
       conversationRoundId: event.conversationRoundId,
       roundOrder: event.roundOrder,
       tickNo: 0,
@@ -1897,7 +2542,9 @@ class WorldChatroomMessage {
   }
 
   WorldChatroomMessage copyWith({
+    int? globalMessageId,
     int? messageId,
+    int? locationMessageId,
     String? conversationRoundId,
     int? roundOrder,
     int? tickNo,
@@ -1913,7 +2560,9 @@ class WorldChatroomMessage {
     bool? streaming,
   }) {
     return WorldChatroomMessage(
+      globalMessageId: globalMessageId ?? this.globalMessageId,
       messageId: messageId ?? this.messageId,
+      locationMessageId: locationMessageId ?? this.locationMessageId,
       conversationRoundId: conversationRoundId ?? this.conversationRoundId,
       roundOrder: roundOrder ?? this.roundOrder,
       tickNo: tickNo ?? this.tickNo,

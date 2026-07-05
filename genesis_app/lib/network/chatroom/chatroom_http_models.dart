@@ -2,99 +2,98 @@ import '../json_utils.dart';
 
 class ChatroomHttpMessage {
   const ChatroomHttpMessage({
+    this.rawJson = const <String, Object?>{},
+    required this.globalMessageId,
     required this.messageId,
+    required this.locationMessageId,
     required this.locationId,
     required this.conversationRoundId,
-    required this.roundOrder,
     this.tickNo = 0,
     required this.senderType,
     required this.senderId,
     required this.senderName,
     required this.userId,
-    this.clientMsgId = '',
     required this.content,
     this.currentTime = '',
     required this.createdAt,
   });
 
+  final Map<String, Object?> rawJson;
+  final int globalMessageId;
   final int messageId;
+  final int locationMessageId;
   final String locationId;
   final int conversationRoundId;
-  final int roundOrder;
   final int tickNo;
   final String senderType;
   final String senderId;
   final String senderName;
   final String userId;
-  final String clientMsgId;
   final String content;
   final String currentTime;
   final DateTime? createdAt;
 
   factory ChatroomHttpMessage.fromJson(Map<String, dynamic> json) {
+    final messageId = asInt(json['message_id']);
     return ChatroomHttpMessage(
-      messageId: asInt(json['msg_id'], fallback: asInt(json['message_id'])),
+      rawJson: Map<String, Object?>.from(json),
+      globalMessageId: asInt(json['global_message_id']),
+      messageId: messageId,
+      locationMessageId: asInt(
+        json['location_msg_id'],
+        fallback: asInt(json['location_message_id']),
+      ),
       locationId: asString(json['location_id']),
       conversationRoundId: asInt(json['conversation_round_id']),
-      roundOrder: asInt(json['round_order']),
       tickNo: asInt(json['tick_no']),
       senderType: asString(json['sender_type']),
       senderId: asString(json['sender_id']),
       senderName: asString(json['sender_name']),
       userId: asString(json['user_id']),
-      clientMsgId: asString(json['client_msg_id']),
       content: asString(json['content']),
       currentTime: asString(json['current_time']),
-      createdAt: asDateTime(json['ts']) ?? asDateTime(json['created_at']),
+      createdAt: asDateTime(json['created_at']),
     );
   }
 }
 
-class ChatroomLocationCharacter {
-  const ChatroomLocationCharacter({
-    required this.charId,
-    required this.playerUid,
-    required this.playerUsername,
-    required this.name,
-    required this.locationId,
+class ChatroomLocationUser {
+  const ChatroomLocationUser({
+    required this.userId,
+    required this.userName,
+    required this.avatar,
   });
 
-  final String charId;
-  final String playerUid;
-  final String playerUsername;
-  final String name;
-  final String locationId;
+  final String userId;
+  final String userName;
+  final String avatar;
 
-  bool get isPlayer => playerUid.trim().isNotEmpty;
-
-  factory ChatroomLocationCharacter.fromJson(Map<String, dynamic> json) {
-    return ChatroomLocationCharacter(
-      charId: asString(json['char_id']),
-      playerUid: asString(json['player_uid']),
-      playerUsername: asString(json['player_username']),
-      name: asString(json['name']),
-      locationId: asString(json['location_id']),
+  factory ChatroomLocationUser.fromJson(Map<String, dynamic> json) {
+    return ChatroomLocationUser(
+      userId: asString(json['user_id']),
+      userName: asString(json['user_name']),
+      avatar: asString(json['avatar']),
     );
   }
 }
 
-class ChatroomCharacterLocationGroup {
-  const ChatroomCharacterLocationGroup({
+class ChatroomUserLocationGroup {
+  const ChatroomUserLocationGroup({
     required this.locationId,
-    required this.characters,
+    required this.users,
   });
 
   final String locationId;
-  final List<ChatroomLocationCharacter> characters;
+  final List<ChatroomLocationUser> users;
 
-  factory ChatroomCharacterLocationGroup.fromJson(Map<String, dynamic> json) {
-    final rawCharacters = json['characters'] is List
-        ? asJsonList(json['characters'])
+  factory ChatroomUserLocationGroup.fromJson(Map<String, dynamic> json) {
+    final rawUsers = json['users'] is List
+        ? asJsonList(json['users'])
         : const [];
-    return ChatroomCharacterLocationGroup(
+    return ChatroomUserLocationGroup(
       locationId: asString(json['location_id']),
-      characters: rawCharacters
-          .map((item) => ChatroomLocationCharacter.fromJson(asJsonMap(item)))
+      users: rawUsers
+          .map((item) => ChatroomLocationUser.fromJson(asJsonMap(item)))
           .toList(growable: false),
     );
   }
@@ -107,7 +106,7 @@ class ChatroomUserLocationsResponse {
   });
 
   final String worldId;
-  final List<ChatroomCharacterLocationGroup> locations;
+  final List<ChatroomUserLocationGroup> locations;
 
   factory ChatroomUserLocationsResponse.fromJson(Map<String, dynamic> json) {
     final rawLocations = json['locations'] is List
@@ -116,9 +115,7 @@ class ChatroomUserLocationsResponse {
     return ChatroomUserLocationsResponse(
       worldId: asString(json['world_id']),
       locations: rawLocations
-          .map(
-            (item) => ChatroomCharacterLocationGroup.fromJson(asJsonMap(item)),
-          )
+          .map((item) => ChatroomUserLocationGroup.fromJson(asJsonMap(item)))
           .toList(growable: false),
     );
   }
@@ -165,11 +162,13 @@ class ChatroomWorldMessagesResponse {
 
 class ChatroomMessageListResponse {
   const ChatroomMessageListResponse({
+    this.rawJson = const <String, Object?>{},
     required this.messages,
     required this.hasMore,
     required this.newestMessageId,
   });
 
+  final Map<String, Object?> rawJson;
   final List<ChatroomHttpMessage> messages;
   final bool hasMore;
   final int newestMessageId;
@@ -182,6 +181,7 @@ class ChatroomMessageListResponse {
         .map((item) => ChatroomHttpMessage.fromJson(asJsonMap(item)))
         .toList(growable: false);
     return ChatroomMessageListResponse(
+      rawJson: Map<String, Object?>.from(json),
       messages: messages,
       hasMore: asBool(json['has_more']),
       newestMessageId: asInt(
