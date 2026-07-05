@@ -1,367 +1,367 @@
-# worldo Gems Product Design
+# worldo Gems 产品设计
 
-Date: 2026-07-05
-Branch: `main_gems`
-Status: design draft for Figma and Flutter static prototype
+日期：2026-07-05
+分支：`main_gems`
+状态：用于 Figma 设计与 Flutter 静态高保真原型的设计草案
 
-## Scope
+## 范围
 
-This phase designs the Gems experience for worldo without backend implementation.
-Flutter work should be a high-fidelity static prototype with page-local fixture data only.
-Do not add new API resources, repositories, mock services, payment SDKs, or local deduction logic.
+本阶段只设计 worldo 的 Gems 体验，不实现后端。
+Flutter 后续只做高保真静态原型，数据使用页面本地 fixture。
+不要新增 API resource、repository、mock service、支付 SDK 或本地扣费逻辑。
 
-## Goals
+## 目标
 
-- Show the user's Gem balance from the Me page.
-- Create a Gem Wallet page that combines paid top-up and free Gem tasks.
-- Create a Gem Records page for future income and spending history.
-- Add a Memory & Model page that controls model and memory choices for world interactions.
-- Keep world chat and progress flows visually calm by avoiding per-action cost labels in the main flow.
-- Document backend responsibilities so frontend and backend can connect later without a fake client contract.
+- 在 Me 页面展示用户当前 Gem 余额入口。
+- 创建 Gem Wallet 页面，把付费充值和免费领取任务放在同一个页面。
+- 创建 Gem Records 页面，用于未来展示充值、领取和消耗流水。
+- 创建 Memory & Model 页面，用于 world 内的模型与记忆长度选择。
+- 保持 world chat 和 progress 主流程安静，不在每次 message/progress 上显性展示消耗数量。
+- 明确未来后端职责，避免前端先沉淀一套假的接口契约。
 
-## Non-Goals
+## 非目标
 
-- Real payment channel integration.
-- Backend API implementation.
-- Local mock service or simulated business repository.
-- Subscription entry.
-- On-message or on-progress visible cost display in the primary chat/map UI.
+- 接入真实支付渠道。
+- 实现后端 API。
+- 实现本地 mock service 或模拟业务 repository。
+- 增加 subscription 入口。
+- 在 message 发送框或 progress 按钮上展示每次消耗的 Gem 数量。
 
-## Design System Requirements
+## 设计系统要求
 
-Follow `worldo-design-spec.md` strictly:
+严格遵照 `worldo-design-spec.md`：
 
-- Mobile frame: `375 x 778`.
-- Page margin: `20px`; content width: `335px`.
-- Background: `#FFFFFF`.
-- Primary action red: `#F42C47`.
-- Text hierarchy: `#333333`, `#444444`, `#666666`, `#999999`.
-- Body copy: `12px / 18px`.
-- Top title: `16px` semibold.
-- Prefer whitespace, dividers, image/icon-led modules, and restrained cards.
-- Main app pages reserve bottom navigation space; pushed utility pages use a centered title header and back affordance.
+- 移动端画布：`375 x 778`。
+- 页面左右边距：`20px`；主体内容宽度：`335px`。
+- 页面背景：`#FFFFFF`。
+- 主行动红色：`#F42C47`。
+- 文本层级：`#333333`、`#444444`、`#666666`、`#999999`。
+- 正文：`12px / 18px`。
+- 顶部标题：`16px` semibold。
+- 优先使用留白、分割线、图片/图标引导和克制的模块，不做重卡片化页面。
+- 主 tab 页面需要为底部导航预留空间；二级工具页使用居中标题 header 和返回入口。
 
-## Information Architecture
+## 信息架构
 
-### Me Page Entry
+### Me 页面入口
 
-Add a compact Gem balance entry near the top account area of the signed-in Me page.
+在已登录 Me 页的账号区域附近增加一个紧凑的 Gem 余额入口。
 
-Content:
+内容：
 
-- Gem icon.
-- Current balance, for example `430`.
-- Label: `Gems`.
-- Chevron or subtle tap affordance.
+- Gem 图标。
+- 当前余额，例如 `430`。
+- 标签：`Gems`。
+- 右侧 chevron 或轻量点击提示。
 
-Behavior:
+行为：
 
-- Tapping opens `Gem Wallet`.
-- If signed out, the entry is hidden or replaced by sign-in guidance, matching existing Me behavior.
+- 点击进入 `Gem Wallet`。
+- 未登录时隐藏该入口，或沿用 Me 页现有未登录引导。
 
 ### Gem Wallet
 
-Purpose: one page for both buying Gems and earning free Gems, so users see top-up options whenever they claim free rewards.
+目的：把购买 Gems 与免费领取 Gems 放在同一个页面，让用户每次做免费任务时都能看到充值区域。
 
-Module order:
+模块顺序：
 
-1. Balance
-2. Top-up packages
-3. Starter tasks
-4. Bonus tasks
-5. Daily tasks
-6. Join us tasks
+1. 余额
+2. 充值套餐
+3. 新手任务
+4. Bonus 任务
+5. Daily 任务
+6. Join us 任务
 
-Header:
+Header：
 
-- Center title: `Gems`.
-- Back icon on the left.
-- Records icon/button on the right.
-- No subscription entry.
+- 居中标题：`Gems`。
+- 左侧返回。
+- 右侧 records 图标或文字按钮。
+- 不出现 subscription 入口。
 
-Balance module:
+余额模块：
 
-- Shows current Gem balance prominently.
-- Uses a subtle red/pink highlight area inspired by the reference, adapted to worldo's white visual system.
-- Avoid a dark full-page treatment; this should still feel like worldo.
+- 强展示当前 Gem 余额。
+- 可借鉴参考图的红/粉氛围，但要适配 worldo 白底视觉系统。
+- 不使用深色全页背景，整体仍然要像 worldo。
 
-Top-up packages:
+充值套餐：
 
-- Six package tiles in a 3-column grid.
-- Each tile shows Gem amount, optional promotion tag, and price.
-- Example package labels: `+500`, `+1100`, `+4400`, `+8800`, `+16500`, `+55000`.
-- Top-up buttons are visual placeholders in this phase.
-- Tap behavior: page-local toast or non-persistent pressed feedback, such as `Payment coming soon`.
+- 6 个套餐，3 列网格。
+- 每个套餐展示 Gem 数量、可选促销标签和价格。
+- 示例套餐：`+500`、`+1100`、`+4400`、`+8800`、`+16500`、`+55000`。
+- 一期充值按钮只是视觉占位。
+- 点击行为：页面本地 toast 或短暂 pressed 反馈，例如 `Payment coming soon`。
 
-Starter tasks:
+新手任务：
 
-- New-user one-time tasks.
-- Example tasks:
+- 一次性的新用户任务。
+- 示例任务：
   - `Create your first worldo`
   - `Join your first world`
-- Reward displayed on the right, for example `+50`.
-- CTA uses red pill button.
+- 奖励在右侧展示，例如 `+50`。
+- CTA 使用红色 pill button。
 
-Bonus tasks:
+Bonus 任务：
 
-- Occasional or deeper engagement tasks.
-- Example tasks:
+- 偶发或更深度的参与任务。
+- 示例任务：
   - `Invite a friend to a world`
   - `Write a comment`
   - `Share a worldo`
 
-Daily tasks:
+Daily 任务：
 
-- Repeatable daily tasks.
-- Example tasks:
+- 每日可重复任务。
+- 示例任务：
   - `Daily check-in`
   - `Send a message`
   - `Progress a world`
-- Claimed tasks show disabled state.
+- 已领取任务展示 disabled/claimed 状态。
 
-Join us tasks:
+Join us 任务：
 
-- Social/community follows.
-- Example entries:
+- 社媒或社区关注任务。
+- 示例条目：
   - `Discord`
   - `Instagram`
   - `TikTok`
   - `YouTube`
   - `X`
-- Each row shows platform icon placeholder, reward, and `Follow` CTA.
+- 每行展示平台图标占位、奖励和 `Follow` CTA。
 
 ### Gem Records
 
-Purpose: future transparent ledger for all Gem movement.
+目的：未来透明展示所有 Gem 增减流水。
 
-Header:
+Header：
 
-- Center title: `Gem Records`.
-- Back icon on the left.
+- 居中标题：`Gem Records`。
+- 左侧返回。
 
-Filters:
+筛选：
 
-- Segmented text tabs: `All`, `Earned`, `Spent`, `Top-up`.
-- Active state uses worldo red underline.
+- 文本 tab：`All`、`Earned`、`Spent`、`Top-up`。
+- 激活态使用 worldo 红色下划线。
 
-Record rows:
+流水行：
 
-- Title: action name, such as `Daily check-in`, `Message in #Moonlit Market`, `World progress`, `Top-up package`.
-- Metadata: timestamp and source.
-- Amount: positive values in red or strong text with `+`; spent values in neutral/darker text with `-`.
-- Empty state uses soft centered copy, not a heavy card.
+- 标题：行为名称，例如 `Daily check-in`、`Message in #Moonlit Market`、`World progress`、`Top-up package`。
+- 元信息：时间和来源。
+- 数额：收入用 `+`，支出用 `-`；收入可以使用红色或更强文本强调，支出使用中性深色。
+- 空状态使用柔和的居中文案，不使用重卡片。
 
 ### Memory & Model
 
-Entry points:
+入口：
 
-- World map top-right utility icon.
-- Location chat top-right utility icon.
+- World map 右上角工具入口。
+- Location chat 右上角工具入口。
 
-Purpose:
+目的：
 
-- Let users choose max memory limit and model.
-- Show next estimated Gem cost inside this settings page.
-- Keep chat send and world progress controls free of explicit cost labels.
+- 让用户选择最大记忆长度和模型。
+- 在该设置页内展示下一次预计 Gem 消耗。
+- 保持 chat 发送和 world progress 主流程不展示显性费用标签。
 
-Header:
+Header：
 
-- Back icon on the left.
-- Center title: `Memory & Model`.
-- `Save` text action on the right.
+- 左侧返回。
+- 居中标题：`Memory & Model`。
+- 右侧 `Save` 文字按钮。
 
-Memory section:
+Memory 区域：
 
-- Current memory usage summary, for example `2K`.
-- Max memory limit slider.
-- Recommended discrete values for design: `4K`, `32K`, `156K`, `512K`, `1M`.
-- `Apply to all characters` toggle.
-- `View details` row reserved for future explanation.
+- 当前记忆使用量，例如 `2K`。
+- 最大记忆长度 slider。
+- 设计稿建议使用离散值：`4K`、`32K`、`156K`、`512K`、`1M`。
+- `Apply to all characters` toggle。
+- 预留 `View details` 入口，用于未来解释记忆规则。
 
-Model section:
+Model 区域：
 
-- Section title: `Choose model`.
-- Optional `View details` link.
-- Grouping:
+- 区块标题：`Choose model`。
+- 可选 `View details` 链接。
+- 分组：
   - `Recommended`
   - `Basic`
-- Each model card shows:
-  - Model name.
-  - Optional `Hot` or `New` badge.
-  - Estimated next message cost.
-  - Short description.
-  - Cost range based on memory, for example `4-320 gems`.
-  - Radio selected/unselected state.
+- 每个模型卡片展示：
+  - 模型名称。
+  - 可选 `Hot` 或 `New` badge。
+  - 下一次 message 预计消耗。
+  - 简短描述。
+  - 基于 memory 的消耗范围，例如 `4-320 gems`。
+  - radio 选中/未选中状态。
 
-Example models for static design:
+静态设计示例模型：
 
-- `Top Pick V3` with `Hot`, estimated next message `4 gems`.
-- `Top Pick V3.5`, estimated next message `4 gems`.
-- `Luxury Selection V4.0` with `New`, estimated next message `9 gems`.
-- `Sake Pro` with `New`, estimated next message `3 gems`.
-- `Sake Max`, estimated next message `4 gems`.
-- `Sake V2` with `Hot`, estimated next message `1 gem`.
-- `Water` with `New`, estimated next message `1 gem`.
+- `Top Pick V3`，带 `Hot`，预计下一条 message `4 gems`。
+- `Top Pick V3.5`，预计下一条 message `4 gems`。
+- `Luxury Selection V4.0`，带 `New`，预计下一条 message `9 gems`。
+- `Sake Pro`，带 `New`，预计下一条 message `3 gems`。
+- `Sake Max`，预计下一条 message `4 gems`。
+- `Sake V2`，带 `Hot`，预计下一条 message `1 gem`。
+- `Water`，带 `New`，预计下一条 message `1 gem`。
 
-Save behavior in this phase:
+一期保存行为：
 
-- Updates only page-local selected state while the page is open.
-- Shows non-persistent confirmation feedback.
-- Does not write to a service or API.
+- 只更新当前页面打开期间的本地选中状态。
+- 展示轻量确认反馈。
+- 不写入 service 或 API。
 
-## Product Logic
+## 产品逻辑
 
-### Gem Acquisition
+### Gem 获取方式
 
-Users can get Gems from:
+用户可以通过以下方式获得 Gems：
 
-- Top-up packages.
-- Starter tasks.
-- Bonus tasks.
-- Daily tasks.
-- Join us tasks.
+- 充值套餐。
+- 新手任务。
+- Bonus 任务。
+- Daily 任务。
+- Join us 任务。
 
-Top-up in this phase:
+一期充值：
 
-- Visible as package tiles.
-- Payment channel is not connected.
-- Product copy should avoid promising successful purchase.
+- 只展示套餐卡片。
+- 不接支付渠道。
+- 文案避免承诺支付成功。
 
-Task reward logic for future backend:
+未来任务奖励逻辑：
 
-- Backend decides eligibility, progress, claimability, reward amount, cooldown, and final grant.
-- Frontend displays returned states.
-- Frontend should never grant authoritative balance locally.
+- 后端决定任务资格、进度、是否可领取、奖励金额、冷却时间和最终发放。
+- 前端只展示后端返回的状态。
+- 前端永远不在本地授予权威余额。
 
-Task states:
+任务状态：
 
-- `available`: user can act.
-- `in_progress`: progress count shown, such as `0/3`.
-- `claimable`: task can be claimed.
-- `claimed`: task completed for its period or forever.
-- `locked`: unavailable until a condition is met.
+- `available`：用户可以执行。
+- `in_progress`：展示进度，例如 `0/3`。
+- `claimable`：任务奖励可领取。
+- `claimed`：当前周期或永久任务已领取。
+- `locked`：条件未满足，暂不可用。
 
-### Gem Spending
+### Gem 消耗方式
 
-Gem spending applies to:
+Gem 消耗发生在：
 
-- Each location chat message.
-- Each world progress action.
+- 每次 location chat message。
+- 每次 world progress。
 
-Cost inputs:
+影响消耗的因素：
 
-- Selected model.
-- Selected max memory limit.
-- Actual current memory usage.
-- Action type: message or progress.
-- Future backend pricing rules.
+- 用户选择的模型。
+- 用户选择的最大记忆长度。
+- 当前实际记忆使用量。
+- 行为类型：message 或 progress。
+- 未来后端定价规则。
 
-User-facing rule:
+用户可见规则：
 
-- The main chat and progress UI do not show cost on every action.
-- The Memory & Model page shows estimated next cost.
-- If the backend rejects an action due to insufficient Gems, show a clear shortage prompt and route to Gem Wallet.
+- 主 chat 和 progress UI 不在每次操作上展示消耗数量。
+- Memory & Model 页面展示下一次预计消耗。
+- 如果后端因为余额不足拒绝操作，前端展示明确的余额不足提示，并引导到 Gem Wallet。
 
-Authority:
+权威归属：
 
-- Backend is the source of truth for balance checks, pricing, and deduction.
-- Frontend estimates are informational.
+- 后端是余额校验、定价和扣费的唯一权威。
+- 前端展示的预计消耗只作为信息提示。
 
-### Balance States
+### 余额状态
 
-The UI should support:
+UI 未来需要支持：
 
-- Normal positive balance.
-- Low balance.
-- Insufficient balance.
-- Loading balance.
-- Balance unavailable.
+- 正常余额。
+- 低余额。
+- 余额不足。
+- 余额加载中。
+- 余额不可用。
 
-For this static prototype, use normal balance only, with visual placeholders for future states in the MD and Figma annotations if needed.
+静态原型阶段只使用正常余额状态；如有必要，可在 MD 或 Figma 注释中说明未来状态。
 
-### Error Handling For Future Integration
+### 未来接入时的错误处理
 
-Expected future backend errors:
+未来后端可能返回：
 
-- Insufficient Gems.
-- Task not claimable.
-- Task already claimed.
-- Payment order unavailable.
-- Pricing changed.
-- Model unavailable.
-- Memory limit unavailable.
+- Gems 不足。
+- 任务不可领取。
+- 任务已领取。
+- 支付订单不可用。
+- 定价已变化。
+- 模型不可用。
+- 记忆长度不可用。
 
-Recommended frontend handling:
+建议前端处理：
 
-- Show concise toast or bottom sheet depending on severity.
-- For insufficient Gems, lead to Gem Wallet.
-- For pricing changed, refresh estimate and ask the user to retry.
-- For unavailable model/memory, reset to backend recommended default.
+- 根据严重程度使用简短 toast 或 bottom sheet。
+- Gems 不足时引导到 Gem Wallet。
+- 定价变化时刷新预计消耗，并让用户重试。
+- 模型或记忆长度不可用时，回退到后端推荐默认值。
 
-## Future Backend Contract Notes
+## 未来后端契约说明
 
-These are product contract notes, not current frontend implementation tasks.
+以下是产品契约说明，不是当前前端实现任务。
 
-Wallet:
+Wallet：
 
-- Fetch balance.
-- Fetch top-up packages.
-- Fetch task groups and task states.
-- Claim task reward.
-- Fetch Gem records.
+- 获取余额。
+- 获取充值套餐。
+- 获取任务分组和任务状态。
+- 领取任务奖励。
+- 获取 Gem 流水。
 
-Pricing:
+Pricing：
 
-- Fetch model catalog.
-- Fetch current memory/model setting for a world or character.
-- Estimate next message cost.
-- Estimate next progress cost.
-- Save memory/model setting.
+- 获取模型列表。
+- 获取某个 world 或角色的当前 memory/model 设置。
+- 估算下一条 message 消耗。
+- 估算下一次 progress 消耗。
+- 保存 memory/model 设置。
 
-Spending:
+Spending：
 
-- Message send endpoint performs authoritative balance check and deduction.
-- World progress endpoint performs authoritative balance check and deduction.
-- Responses should include updated balance when possible.
+- Message 发送接口执行权威余额校验和扣费。
+- World progress 接口执行权威余额校验和扣费。
+- 接口响应尽量返回更新后的余额。
 
-Records:
+Records：
 
-- Each grant or spend should create an immutable ledger item.
-- Records should include amount, type, source, world/location context when available, timestamp, and balance after transaction if backend supports it.
+- 每一次发放或消耗都应生成不可变流水。
+- 流水应包含金额、类型、来源、可选 world/location 上下文、时间戳，以及后端支持时的交易后余额。
 
-## Figma Deliverables
+## Figma 交付物
 
-Create high-fidelity mobile frames in the `G设计` Figma file:
+在 `G设计` Figma 文件中创建高保真移动端 frame：
 
 - `Gem Wallet`
 - `Gem Records`
 - `Memory & Model`
-- Optional small Me page entry component/sample frame if space allows.
+- 如空间允许，可增加一个 Me 页 Gem 入口示例 frame/component。
 
-Frame requirements:
+Frame 要求：
 
-- `375px` width.
-- Use `20px` horizontal margins and `335px` content width.
-- Follow worldo white/red/gray design system, not the dark competitor palette.
-- Use competitor references for structure and hierarchy only.
+- 宽度 `375px`。
+- 使用 `20px` 左右边距和 `335px` 内容宽度。
+- 遵循 worldo 白底、红色、灰阶设计系统，不沿用竞品的深色调。
+- 竞品参考图只借鉴结构和信息层级，不直接复制视觉语言。
 
-## Flutter Prototype Rules
+## Flutter 静态原型规则
 
-When implementation starts after Figma approval:
+Figma 设计通过后，进入 Flutter 实现时：
 
-- Add route entries and pages.
-- Use static fixture data local to the page or a UI-only fixture file.
-- Do not create backend API classes.
-- Do not create mock service/repository abstractions.
-- Keep action handlers local and clearly replaceable.
-- Add tests only for routing and stable page rendering if needed.
+- 增加 route 和页面。
+- 使用页面本地 fixture 数据，或 UI-only fixture 文件。
+- 不创建后端 API class。
+- 不创建 mock service/repository 抽象。
+- action handler 保持本地且易替换。
+- 如有必要，只补充路由和稳定渲染相关测试。
 
-## Acceptance Criteria
+## 验收标准
 
-- Me page has a visible Gem balance entry for signed-in users.
-- Gem Wallet page matches the approved Figma layout and module order.
-- Gem Records page is reachable from Wallet header.
-- Memory & Model page is reachable from world map and location chat.
-- Main chat and progress controls do not show per-action cost labels.
-- Static prototype does not add backend API, repository, mock service, or payment SDK code.
-- Product logic document explains future backend authority for pricing, balance, and deduction.
+- 已登录 Me 页有可见的 Gem 余额入口。
+- Gem Wallet 页面符合 Figma 定稿和指定模块顺序。
+- Gem Records 可以从 Wallet header 进入。
+- Memory & Model 可以从 world map 和 location chat 进入。
+- 主 chat 和 progress 控件不展示每次行为的 Gem 消耗标签。
+- 静态原型不新增后端 API、repository、mock service 或支付 SDK 代码。
+- 产品逻辑文档明确说明未来后端对定价、余额和扣费拥有权威。
