@@ -2014,7 +2014,7 @@ void main() {
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('My World'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
-    expect(find.text('Worldo'), findsOneWidget);
+    expect(find.text('#Worldo'), findsOneWidget);
     expect(find.text('Create'), findsOneWidget);
     expect(find.text('Messages'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
@@ -3582,7 +3582,7 @@ void main() {
     }
   });
 
-  testWidgets('tap Worldo switches to Worldo page', (
+  testWidgets('tap #Worldo switches to Worldo page', (
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
@@ -3590,11 +3590,12 @@ void main() {
     expect(find.text('My World'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
 
-    await tester.tap(find.text('Worldo'));
+    await tester.tap(find.text('#Worldo'));
     await tester.pumpAndSettle();
 
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Worldo'), findsNWidgets(2));
+    expect(find.text('#Worldo'), findsOneWidget);
+    expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
   });
 
@@ -3624,7 +3625,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
 
-    await tester.tap(find.text('Worldo'));
+    await tester.tap(find.text('#Worldo'));
     await tester.pumpAndSettle();
 
     originRequests = transport.requestsFor('/api/v1/origin/list');
@@ -6684,14 +6685,14 @@ void main() {
     );
     await tester.pump();
 
-    final initialTabTop = tester.getTopLeft(find.text('Worldo')).dy;
+    final initialTabTop = tester.getTopLeft(find.text('#Worldo')).dy;
     expect(initialTabTop, greaterThan(80));
 
     await tester.drag(find.byType(NestedScrollView), const Offset(0, -260));
     await tester.pumpAndSettle();
 
     expect(collapsed, isTrue);
-    expect(tester.getTopLeft(find.text('Worldo')).dy, lessThanOrEqualTo(10));
+    expect(tester.getTopLeft(find.text('#Worldo')).dy, lessThanOrEqualTo(10));
     expect(find.text('Scrollable User'), findsNothing);
   });
 
