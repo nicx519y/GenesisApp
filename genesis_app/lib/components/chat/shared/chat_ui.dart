@@ -1006,6 +1006,7 @@ class ChatMessageRow extends StatelessWidget {
         textAlign: message.isTick || message.isNarrator
             ? TextAlign.left
             : TextAlign.center,
+        leadingIconAsset: message.isNarrator ? paragraphIconAsset : null,
         bubbleKey: message.isTick
             ? const ValueKey('chat-tick-message-bubble')
             : const ValueKey('chat-system-message-bubble'),
@@ -1411,6 +1412,7 @@ class ChatSystemMessage extends StatelessWidget {
     this.fullWidth = false,
     this.singleLine = false,
     this.textAlign = TextAlign.center,
+    this.leadingIconAsset,
     this.bubbleKey = const ValueKey('chat-system-message-bubble'),
     this.onLongPressStart,
     this.style,
@@ -1420,6 +1422,7 @@ class ChatSystemMessage extends StatelessWidget {
   final bool fullWidth;
   final bool singleLine;
   final TextAlign textAlign;
+  final String? leadingIconAsset;
   final Key bubbleKey;
   final GestureLongPressStartCallback? onLongPressStart;
   final ChatUiStyleConfig? style;
@@ -1450,18 +1453,68 @@ class ChatSystemMessage extends StatelessWidget {
                     style.systemMessageBorderRadius,
                   ),
                 ),
-                child: _InlineMarkdownText(
-                  text: text,
-                  maxLines: singleLine ? 1 : null,
-                  overflow: singleLine ? TextOverflow.ellipsis : null,
-                  textAlign: textAlign,
-                  style: style.systemMessageTextStyle,
-                ),
+                child: leadingIconAsset == null
+                    ? _InlineMarkdownText(
+                        text: text,
+                        maxLines: singleLine ? 1 : null,
+                        overflow: singleLine ? TextOverflow.ellipsis : null,
+                        textAlign: textAlign,
+                        style: style.systemMessageTextStyle,
+                      )
+                    : _SystemMessageWithLeadingIcon(
+                        iconAsset: leadingIconAsset!,
+                        text: text,
+                        textAlign: textAlign,
+                        style: style,
+                      ),
               ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _SystemMessageWithLeadingIcon extends StatelessWidget {
+  const _SystemMessageWithLeadingIcon({
+    required this.iconAsset,
+    required this.text,
+    required this.textAlign,
+    required this.style,
+  });
+
+  final String iconAsset;
+  final String text;
+  final TextAlign textAlign;
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = style.systemMessageTextStyle.color ?? Colors.white;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 3),
+          child: SvgPicture.asset(
+            iconAsset,
+            width: 14,
+            height: 14,
+            fit: BoxFit.contain,
+            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+            excludeFromSemantics: true,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _InlineMarkdownText(
+            text: text,
+            textAlign: textAlign,
+            style: style.systemMessageTextStyle,
+          ),
+        ),
+      ],
     );
   }
 }

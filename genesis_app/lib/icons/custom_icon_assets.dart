@@ -6,6 +6,7 @@ double customIconAssetRenderSize(String assetName, double baseSize) {
 }
 
 const String copyStatIconAsset = 'assets/custom-icons/svg/copy_icon.svg';
+const String paragraphIconAsset = 'assets/custom-icons/svg/paragraph_icon.svg';
 const String tickStatIconAsset = 'assets/custom-icons/svg/tick_icon.svg';
 const String connectStatIconAsset = 'assets/custom-icons/svg/connect_icon.svg';
 const String characterStatIconAsset =
