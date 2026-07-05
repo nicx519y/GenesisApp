@@ -7,6 +7,21 @@ import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 void main() {
+  List<ChatMessageVm> chatMessages(int start, int end) {
+    return [
+      for (var id = start; id <= end; id += 1)
+        ChatMessageVm(
+          localId: 'm$id',
+          senderId: 'peer',
+          senderName: 'Peer',
+          text: 'message $id',
+          isMe: id.isEven,
+          status: 'sent',
+          createdAt: DateTime(2026, 5, 29, 10).add(Duration(minutes: id)),
+        ),
+    ];
+  }
+
   testWidgets('chat message list can render an oldest-edge notice', (
     WidgetTester tester,
   ) async {
@@ -132,6 +147,50 @@ void main() {
 
     expect(find.byType(ChatDateDivider), findsNothing);
   });
+
+  testWidgets(
+    'anchored message list keeps center stable when history prepends',
+    (WidgetTester tester) async {
+      final controller = ScrollController();
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: EdgeInsets.zero,
+      );
+
+      Widget build(List<ChatMessageVm> messages) {
+        return MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: ChatAnchoredMessageList(
+                controller: controller,
+                messages: messages,
+                centerLocalId: 'm21',
+                topTitle: '',
+                showDateDividers: false,
+                style: style,
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(build(chatMessages(21, 80)));
+      await tester.pumpAndSettle();
+      controller.jumpTo(0);
+      await tester.pumpAndSettle();
+
+      final centerFinder = find.byKey(const ValueKey<String>('m21'));
+      expect(centerFinder, findsOneWidget);
+      final before = tester.getTopLeft(centerFinder).dy;
+
+      await tester.pumpWidget(build(chatMessages(1, 80)));
+      await tester.pumpAndSettle();
+
+      expect(centerFinder, findsOneWidget);
+      final after = tester.getTopLeft(centerFinder).dy;
+      expect(after, closeTo(before, 1));
+    },
+  );
 
   test('chat date divider rule includes first message only plus long gaps', () {
     final start = DateTime(2026, 5, 29, 10);

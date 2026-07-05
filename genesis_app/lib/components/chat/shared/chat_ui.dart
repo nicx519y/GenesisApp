@@ -707,6 +707,126 @@ class ChatMessageList extends StatelessWidget {
   }
 }
 
+class ChatAnchoredMessageList extends StatelessWidget {
+  const ChatAnchoredMessageList({
+    super.key,
+    required this.controller,
+    required this.messages,
+    required this.centerLocalId,
+    required this.topTitle,
+    this.onMessageLongPressStart,
+    this.keyboardDismissBehavior,
+    this.oldestEdgeNotice,
+    this.showDateDividers = true,
+    this.style,
+  });
+
+  static const _bottomSliverKey = ValueKey<String>(
+    'chat-anchored-message-list-bottom',
+  );
+
+  final ScrollController controller;
+  final List<ChatMessageVm> messages;
+  final String centerLocalId;
+  final String topTitle;
+  final ChatMessageLongPressStart? onMessageLongPressStart;
+  final ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior;
+  final String? oldestEdgeNotice;
+  final bool showDateDividers;
+  final ChatUiStyleConfig? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = this.style ?? ChatUiStyleConfig.standard;
+    if (messages.isEmpty) {
+      return ListView(
+        controller: controller,
+        keyboardDismissBehavior:
+            keyboardDismissBehavior ?? ScrollViewKeyboardDismissBehavior.manual,
+        padding: style.messageListPadding,
+        children: [
+          _ChatOldestEdgeContent(
+            topTitle: topTitle,
+            notice: oldestEdgeNotice,
+            style: style,
+          ),
+        ],
+      );
+    }
+
+    final centerIndex = _resolvedCenterIndex();
+    final olderCount = centerIndex;
+    final newerCount = messages.length - centerIndex;
+    final padding = style.messageListPadding;
+
+    return CustomScrollView(
+      controller: controller,
+      center: _bottomSliverKey,
+      keyboardDismissBehavior:
+          keyboardDismissBehavior ?? ScrollViewKeyboardDismissBehavior.manual,
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.only(
+            left: padding.left,
+            top: padding.top,
+            right: padding.right,
+          ),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              if (index == olderCount) {
+                return _ChatOldestEdgeContent(
+                  topTitle: topTitle,
+                  notice: oldestEdgeNotice,
+                  style: style,
+                );
+              }
+              final messageIndex = centerIndex - 1 - index;
+              return _buildMessageRow(messageIndex, style);
+            }, childCount: olderCount + 1),
+          ),
+        ),
+        SliverPadding(
+          key: _bottomSliverKey,
+          padding: EdgeInsets.only(
+            left: padding.left,
+            right: padding.right,
+            bottom: padding.bottom,
+          ),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final messageIndex = centerIndex + index;
+              return _buildMessageRow(messageIndex, style);
+            }, childCount: newerCount),
+          ),
+        ),
+      ],
+    );
+  }
+
+  int _resolvedCenterIndex() {
+    final normalizedCenterLocalId = centerLocalId.trim();
+    if (normalizedCenterLocalId.isEmpty) return 0;
+    final index = messages.indexWhere(
+      (message) => message.localId == normalizedCenterLocalId,
+    );
+    return index < 0 ? 0 : index;
+  }
+
+  Widget _buildMessageRow(int messageIndex, ChatUiStyleConfig style) {
+    final current = messages[messageIndex];
+    final previous = messageIndex == 0 ? null : messages[messageIndex - 1];
+    return ChatMessageRow(
+      key: ValueKey(current.localId),
+      message: current,
+      style: style,
+      onMessageLongPressStart: onMessageLongPressStart,
+      showDateDivider:
+          showDateDividers &&
+          shouldShowChatDateDivider(previous?.createdAt, current.createdAt),
+    );
+  }
+}
+
 class _ChatOldestEdgeContent extends StatelessWidget {
   const _ChatOldestEdgeContent({
     required this.topTitle,

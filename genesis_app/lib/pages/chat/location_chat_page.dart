@@ -181,6 +181,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   final Set<String> _messageGapFillKeys = <String>{};
   final Map<String, int> _messageGapFillAttempts = <String, int>{};
   final Set<String> _releasedMessageGapKeys = <String>{};
+  String _scrollCenterLocalId = '';
   double _edgeSwipeBackDragDistance = 0;
   bool _edgeSwipeBackTriggered = false;
 
@@ -250,6 +251,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           _messageGapFillKeys.clear();
           _messageGapFillAttempts.clear();
           _releasedMessageGapKeys.clear();
+          _scrollCenterLocalId = '';
           _prepareConnection();
           _startInitialBottomScroll();
         }),
@@ -867,9 +869,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       scroll: {
         'hasClients': hasClients,
         'pixels': hasClients ? _scrollController.position.pixels : 0,
+        'extentBefore': hasClients
+            ? _scrollController.position.extentBefore
+            : 0,
         'maxScrollExtent': hasClients
             ? _scrollController.position.maxScrollExtent
             : 0,
+        'scrollCenterLocalId': _scrollCenterLocalId,
         'isAtBottom': _isAtBottom(),
         'initialBottomScrollPending': _initialBottomScrollPending,
         'initialBottomScrollScheduled': _initialBottomScrollScheduled,
@@ -1008,7 +1014,45 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         ..clear()
         ..addAll(next);
     }
+    _syncScrollCenterLocalId();
     return changed;
+  }
+
+  void _syncScrollCenterLocalId() {
+    final nextCenterLocalId = _firstNonSystemMessageLocalId();
+    if (nextCenterLocalId.isEmpty) {
+      if (_scrollCenterLocalId.isNotEmpty) {
+        final previousCenterLocalId = _scrollCenterLocalId;
+        _scrollCenterLocalId = '';
+        _recordPanelDebug(
+          action: 'scrollCenterCleared',
+          details: {'previousCenterLocalId': previousCenterLocalId},
+        );
+      }
+      return;
+    }
+    if (_scrollCenterLocalId.isNotEmpty &&
+        _messages.any((message) => message.localId == _scrollCenterLocalId)) {
+      return;
+    }
+    final previousCenterLocalId = _scrollCenterLocalId;
+    _scrollCenterLocalId = nextCenterLocalId;
+    _recordPanelDebug(
+      action: previousCenterLocalId.isEmpty
+          ? 'scrollCenterInitialized'
+          : 'scrollCenterReset',
+      details: {
+        'previousCenterLocalId': previousCenterLocalId,
+        'centerLocalId': _scrollCenterLocalId,
+      },
+    );
+  }
+
+  String _firstNonSystemMessageLocalId() {
+    for (final message in _messages) {
+      if (!message.isSystem) return message.localId;
+    }
+    return '';
   }
 
   Set<int> _renderedLocationMessageIds() {
@@ -1373,7 +1417,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       return;
     }
     final position = _scrollController.position;
-    if (position.pixels - position.minScrollExtent > 180) return;
+    if (position.extentBefore > 180) return;
     unawaited(_loadOlderMessages());
   }
 
@@ -2119,15 +2163,15 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     final listStyle = style.copyWith(
       messageListPadding: _locationChatMessageListPadding(style),
     );
-    final messageList = ChatMessageList(
+    final messageList = ChatAnchoredMessageList(
       key: const ValueKey<String>('location-chat-message-list'),
       controller: _scrollController,
       messages: _messages,
+      centerLocalId: _scrollCenterLocalId,
       topTitle: '',
       oldestEdgeNotice: kAiContentDisclaimerText,
       onMessageLongPressStart: _showMessageActionMenu,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      reverse: false,
       showDateDividers: false,
       style: listStyle,
     );
