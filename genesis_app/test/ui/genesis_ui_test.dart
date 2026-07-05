@@ -28,29 +28,10 @@ void main() {
       GenesisTypography.body.fontSize,
     );
     expect(materialApp.theme?.textTheme.bodyMedium?.fontFamilyFallback, isNull);
-    expect(
-      materialApp.theme?.textTheme.bodyMedium?.fontFamily,
-      isNot('NotoSans'),
-    );
+    expect(materialApp.theme?.textTheme.bodyMedium?.fontFamily, isNull);
   });
 
-  test('GenesisTypography keeps extended unicode fallback fonts', () {
-    expect(
-      GenesisTypography.fallbackFontFamilies,
-      containsAllInOrder(<String>[
-        'NotoSans',
-        'NotoSansArabic',
-        'NotoSansBengali',
-        'NotoSansHebrew',
-        'NotoSansMath',
-        'NotoSansMono',
-        'NotoSansEgyptianHieroglyphs',
-        'Apple Color Emoji',
-        'Noto Color Emoji',
-        'NotoSansSymbols2',
-      ]),
-    );
-
+  test('GenesisTypography keeps text styles on the system font path', () {
     for (final style in <TextStyle>[
       GenesisTypography.pageTitle,
       GenesisTypography.body,
@@ -63,7 +44,7 @@ void main() {
     }
   });
 
-  testWidgets('GenesisTextFallback merges fallback into explicit Text styles', (
+  testWidgets('GenesisTextFallback keeps explicit Text styles unchanged', (
     tester,
   ) async {
     const styledText = '☛ ˙۵ও⃢♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀〬𓈒ֹ⁠꙳';
@@ -82,10 +63,7 @@ void main() {
 
     final richText = tester.widget<RichText>(find.byType(RichText));
     expect(richText.text.style?.fontFamily, isNull);
-    expect(
-      richText.text.style?.fontFamilyFallback,
-      GenesisTypography.fallbackFontFamilies,
-    );
+    expect(richText.text.style?.fontFamilyFallback, isNull);
   });
 
   testWidgets('Genesis UI components read styles from GenesisUiTheme', (
@@ -185,14 +163,8 @@ void main() {
       expect(controller.text, rendered);
       final input = tester.widget<TextField>(find.byType(TextField));
       expect(input.style?.fontFamily, isNull);
-      expect(
-        input.style?.fontFamilyFallback,
-        GenesisTypography.fallbackFontFamilies,
-      );
-      expect(
-        input.decoration?.hintStyle?.fontFamilyFallback,
-        GenesisTypography.fallbackFontFamilies,
-      );
+      expect(input.style?.fontFamilyFallback, isNull);
+      expect(input.decoration?.hintStyle?.fontFamilyFallback, isNull);
     },
   );
 

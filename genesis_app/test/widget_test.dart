@@ -20,6 +20,7 @@ import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/app/version/force_upgrade_gate.dart';
 import 'package:genesis_flutter_android/main.dart';
+import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/copyable_id_label.dart';
 import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
@@ -2013,7 +2014,7 @@ void main() {
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('My World'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
-    expect(find.text('Worldo'), findsOneWidget);
+    expect(find.text('#Worldo'), findsOneWidget);
     expect(find.text('Create'), findsOneWidget);
     expect(find.text('Messages'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
@@ -3581,7 +3582,7 @@ void main() {
     }
   });
 
-  testWidgets('tap Worldo switches to Worldo page', (
+  testWidgets('tap #Worldo switches to Worldo page', (
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
@@ -3589,11 +3590,12 @@ void main() {
     expect(find.text('My World'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
 
-    await tester.tap(find.text('Worldo'));
+    await tester.tap(find.text('#Worldo'));
     await tester.pumpAndSettle();
 
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Worldo'), findsNWidgets(2));
+    expect(find.text('#Worldo'), findsOneWidget);
+    expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
   });
 
@@ -3623,7 +3625,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
 
-    await tester.tap(find.text('Worldo'));
+    await tester.tap(find.text('#Worldo'));
     await tester.pumpAndSettle();
 
     originRequests = transport.requestsFor('/api/v1/origin/list');
@@ -6683,14 +6685,14 @@ void main() {
     );
     await tester.pump();
 
-    final initialTabTop = tester.getTopLeft(find.text('Worldo')).dy;
+    final initialTabTop = tester.getTopLeft(find.text('#Worldo')).dy;
     expect(initialTabTop, greaterThan(80));
 
     await tester.drag(find.byType(NestedScrollView), const Offset(0, -260));
     await tester.pumpAndSettle();
 
     expect(collapsed, isTrue);
-    expect(tester.getTopLeft(find.text('Worldo')).dy, lessThanOrEqualTo(10));
+    expect(tester.getTopLeft(find.text('#Worldo')).dy, lessThanOrEqualTo(10));
     expect(find.text('Scrollable User'), findsNothing);
   });
 
@@ -12023,6 +12025,7 @@ void main() {
           codeMsg: 'ok',
           ts: null,
           messageId: 42,
+          locationMessageId: 42,
           conversationRoundId: 'round-1',
           roundOrder: 0,
           senderType: 'user',
@@ -12136,7 +12139,13 @@ void main() {
   ) async {
     addTearDown(tester.view.resetViewInsets);
     final chatroom = _FakeChatroomClient();
-    final services = await _testServices(chatroom: chatroom);
+    final services = await _testServices(
+      chatroom: chatroom,
+      initialUserInfo: const {
+        'uid': 'u_mock',
+        'avatar_url': 'assets/images/default_list_image.png',
+      },
+    );
     await tester.pumpWidget(GenesisApp(services: services));
     await tester.pump(const Duration(milliseconds: 300));
 
@@ -12162,6 +12171,7 @@ void main() {
           codeMsg: 'ok',
           ts: null,
           messageId: i,
+          locationMessageId: i,
           conversationRoundId: '$i',
           roundOrder: 0,
           senderType: 'user',
@@ -12211,6 +12221,7 @@ void main() {
         codeMsg: 'ok',
         ts: null,
         messageId: 61,
+        locationMessageId: 61,
         conversationRoundId: '61',
         roundOrder: 0,
         senderType: 'user',
@@ -12244,6 +12255,7 @@ void main() {
         codeMsg: 'ok',
         ts: null,
         messageId: 62,
+        locationMessageId: 62,
         conversationRoundId: '62',
         roundOrder: 0,
         senderType: 'user',
@@ -12268,7 +12280,7 @@ void main() {
     final chatroom = _FakeChatroomClient();
     final services = await _testServices(chatroom: chatroom);
     await tester.pumpWidget(GenesisApp(services: services));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
       RouteNames.locationChat,
@@ -12279,7 +12291,7 @@ void main() {
         'location_name': 'Castle',
       },
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
     chatroom.session.holdSendAcks = true;
 
     await tester.tap(find.byType(TextField));
@@ -12306,6 +12318,7 @@ void main() {
         codeMsg: 'ok',
         ts: null,
         messageId: 126,
+        locationMessageId: 126,
         conversationRoundId: '1317',
         roundOrder: 0,
         senderType: 'user',
@@ -12319,7 +12332,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('吃饭了吗'), findsOneWidget);
   });
@@ -12353,6 +12366,7 @@ void main() {
           codeMsg: 'ok',
           ts: null,
           messageId: 155,
+          locationMessageId: 155,
           conversationRoundId: '1349',
           roundOrder: 0,
           senderType: 'narrator',
@@ -12371,32 +12385,345 @@ void main() {
     },
   );
 
-  test('location chat visible messages keep only latest consecutive tick', () {
-    WorldChatroomMessage message(int id, String senderType) {
-      return WorldChatroomMessage(
-        messageId: id,
-        conversationRoundId: '$id',
-        roundOrder: 0,
-        tickNo: senderType == 'tick' ? id : 0,
-        locationId: 'loc-1',
-        senderType: senderType,
-        senderId: senderType == 'tick' ? 'tick' : 'u_peer',
-        senderName: senderType == 'tick' ? 'Time' : 'Peer',
-        content: 'message $id',
-        createdAt: null,
+  test(
+    'location chat visible messages keep tick messages in message id order',
+    () {
+      WorldChatroomMessage message(int id, String senderType) {
+        return WorldChatroomMessage(
+          messageId: id,
+          locationMessageId: senderType == 'tick' ? 0 : (id == 4 ? 2 : id),
+          conversationRoundId: '$id',
+          roundOrder: 0,
+          tickNo: senderType == 'tick' ? id : 0,
+          locationId: 'loc-1',
+          senderType: senderType,
+          senderId: senderType == 'tick' ? 'tick' : 'u_peer',
+          senderName: senderType == 'tick' ? 'Time' : 'Peer',
+          content: 'message $id',
+          createdAt: null,
+        );
+      }
+
+      final visible = visibleLocationChatMessagesForTesting([
+        message(1, 'user'),
+        message(2, 'tick'),
+        message(3, 'tick'),
+        message(4, 'user'),
+        message(5, 'tick'),
+      ]);
+
+      expect(visible.map((message) => message.messageId), [1, 3, 4, 5]);
+    },
+  );
+
+  testWidgets(
+    'location chat short content sits between header and composer without scrolling',
+    (WidgetTester tester) async {
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-1',
+            locationId: 'castle',
+            locationName: 'Castle',
+            active: false,
+            openingPreviewMessages: [
+              for (var i = 1; i <= 3; i += 1)
+                WorldChatroomMessage(
+                  messageId: i,
+                  locationMessageId: i,
+                  conversationRoundId: '$i',
+                  roundOrder: 0,
+                  tickNo: 0,
+                  locationId: 'castle',
+                  senderType: 'user',
+                  senderId: 'u_peer',
+                  senderName: 'Peer',
+                  content: 'short location chat message $i',
+                  createdAt: null,
+                ),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final scrollable = find
+          .descendant(
+            of: find.byKey(
+              const ValueKey<String>('location-chat-message-list'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final headerBottom = tester.getBottomLeft(find.byType(ChatHeader)).dy;
+      final composerTop = tester.getTopLeft(find.byType(ChatComposer)).dy;
+      final firstMessageTop = tester
+          .getTopLeft(find.text('short location chat message 1'))
+          .dy;
+      final position = tester.state<ScrollableState>(scrollable).position;
+
+      expect(tester.getTopLeft(scrollable).dy, lessThan(headerBottom));
+      expect(firstMessageTop, greaterThan(headerBottom));
+      expect(firstMessageTop, lessThan(composerTop));
+      expect(position.minScrollExtent, 0);
+      expect(position.maxScrollExtent, 0);
+
+      await tester.drag(scrollable, const Offset(0, -80));
+      await tester.pump();
+
+      expect(position.pixels, 0);
+      expect(
+        tester.getTopLeft(find.text('short location chat message 1')).dy,
+        firstMessageTop,
+      );
+    },
+  );
+
+  testWidgets(
+    'location chat tick-only viewport shows notice without scrolling',
+    (WidgetTester tester) async {
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-1',
+            locationId: 'castle',
+            locationName: 'Castle',
+            active: false,
+            openingPreviewMessages: [
+              WorldChatroomMessage(
+                messageId: 1,
+                locationMessageId: 0,
+                conversationRoundId: '1',
+                roundOrder: 0,
+                tickNo: 1,
+                locationId: 'castle',
+                senderType: 'tick',
+                senderId: 'tick',
+                senderName: 'Time',
+                content: 'Tick 1',
+                currentTime: 'Match Day, 14:00',
+                createdAt: null,
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text(kAiContentDisclaimerText), findsOneWidget);
+
+      final scrollable = find
+          .descendant(
+            of: find.byKey(
+              const ValueKey<String>('location-chat-message-list'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final noticeTop = tester
+          .getTopLeft(find.text(kAiContentDisclaimerText))
+          .dy;
+      final position = tester.state<ScrollableState>(scrollable).position;
+
+      expect(position.minScrollExtent, 0);
+      expect(position.maxScrollExtent, 0);
+
+      await tester.drag(scrollable, const Offset(0, -80));
+      await tester.pump();
+
+      expect(position.pixels, 0);
+      expect(
+        tester.getTopLeft(find.text(kAiContentDisclaimerText)).dy,
+        noticeTop,
+      );
+    },
+  );
+
+  testWidgets('location chat short content stays fixed while typing', (
+    WidgetTester tester,
+  ) async {
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetViewInsets();
+    });
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(chatroom: chatroom);
+    await tester.pumpWidget(GenesisApp(services: services));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    Navigator.of(tester.element(find.byType(Scaffold).first)).pushNamed(
+      RouteNames.locationChat,
+      arguments: {
+        'world_id': 'world-1',
+        'world_name': 'World One',
+        'location_id': 'castle',
+        'location_name': 'Castle',
+      },
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+
+    for (var i = 1; i <= 3; i += 1) {
+      chatroom.session.emit(
+        ChatroomUserMessage(
+          sessionId: 'sess-1',
+          worldId: 'world-1',
+          locationId: 'castle',
+          userId: 'u_peer',
+          code: 0,
+          codeMsg: 'ok',
+          ts: null,
+          messageId: i,
+          locationMessageId: i,
+          conversationRoundId: '$i',
+          roundOrder: 0,
+          senderType: 'user',
+          senderId: 'u_peer',
+          senderName: 'Peer',
+          content: 'interactive short message $i',
+          broadcast: true,
+          currentTime: '2026-06-25T00:00:00Z',
+          clientMsgId: '',
+          createdAt: null,
+        ),
       );
     }
+    await tester.pump(const Duration(milliseconds: 300));
 
-    final visible = visibleLocationChatMessagesForTesting([
-      message(1, 'user'),
-      message(2, 'tick'),
-      message(3, 'tick'),
-      message(4, 'user'),
-      message(5, 'tick'),
-    ]);
+    final scrollable = find
+        .descendant(
+          of: find.byKey(const ValueKey<String>('location-chat-message-list')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final firstMessageTop = tester
+        .getTopLeft(find.text('interactive short message 1'))
+        .dy;
+    var position = tester.state<ScrollableState>(scrollable).position;
+    expect(position.maxScrollExtent, 0);
 
-    expect(visible.map((message) => message.messageId), [1, 3, 4, 5]);
+    await tester.tap(find.byType(TextField).last);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).last, 'draft');
+    await tester.pump();
+
+    position = tester.state<ScrollableState>(scrollable).position;
+    expect(position.pixels, 0);
+    expect(position.maxScrollExtent, 0);
+    expect(
+      tester.getTopLeft(find.text('interactive short message 1')).dy,
+      firstMessageTop,
+    );
   });
+
+  testWidgets(
+    'location chat first user message after tick-only does not jump',
+    (WidgetTester tester) async {
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        tester.view.resetViewInsets();
+      });
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+
+      WorldChatroomMessage message({
+        required int messageId,
+        required int locationMessageId,
+        required String senderType,
+        required String content,
+      }) {
+        return WorldChatroomMessage(
+          messageId: messageId,
+          locationMessageId: locationMessageId,
+          conversationRoundId: '$messageId',
+          roundOrder: 0,
+          tickNo: senderType == 'tick' ? messageId : 0,
+          locationId: 'castle',
+          senderType: senderType,
+          senderId: senderType == 'tick' ? 'tick' : 'u_mock',
+          senderName: senderType == 'tick' ? 'Time' : 'Me',
+          content: content,
+          currentTime: senderType == 'tick' ? 'Match Day, 14:00' : '',
+          createdAt: null,
+        );
+      }
+
+      Widget build(List<WorldChatroomMessage> messages) {
+        return MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-1',
+            locationId: 'castle',
+            locationName: 'Castle',
+            active: false,
+            openingPreviewMessages: messages,
+          ),
+        );
+      }
+
+      final tick = message(
+        messageId: 1,
+        locationMessageId: 0,
+        senderType: 'tick',
+        content: 'Tick 1',
+      );
+
+      await tester.pumpWidget(build([tick]));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final scrollable = find
+          .descendant(
+            of: find.byKey(
+              const ValueKey<String>('location-chat-message-list'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final noticeFinder = find.text(kAiContentDisclaimerText);
+      expect(noticeFinder, findsOneWidget);
+      const tickBubbleKey = ValueKey('chat-tick-message-bubble');
+      final tickTop = tester.getTopLeft(find.byKey(tickBubbleKey)).dy;
+      var position = tester.state<ScrollableState>(scrollable).position;
+      expect(position.maxScrollExtent, 0);
+
+      final firstUser = message(
+        messageId: 2,
+        locationMessageId: 1,
+        senderType: 'user',
+        content: 'first message',
+      );
+      await tester.pumpWidget(build([tick, firstUser]));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      position = tester.state<ScrollableState>(scrollable).position;
+      expect(position.pixels, 0);
+      expect(position.maxScrollExtent, 0);
+      expect(tester.getTopLeft(find.byKey(tickBubbleKey)).dy, tickTop);
+      expect(find.text('first message'), findsOneWidget);
+    },
+  );
 
   testWidgets('location chat first render starts at message list bottom', (
     WidgetTester tester,
@@ -12412,6 +12739,7 @@ void main() {
             for (var i = 1; i <= 60; i += 1)
               WorldChatroomMessage(
                 messageId: i,
+                locationMessageId: i,
                 conversationRoundId: '$i',
                 roundOrder: 0,
                 tickNo: 0,
@@ -12470,6 +12798,7 @@ void main() {
           codeMsg: 'ok',
           ts: null,
           messageId: i,
+          locationMessageId: i,
           conversationRoundId: '$i',
           roundOrder: 0,
           senderType: 'user',
@@ -12509,6 +12838,7 @@ void main() {
         codeMsg: 'ok',
         ts: null,
         messageId: 61,
+        locationMessageId: 61,
         conversationRoundId: '61',
         roundOrder: 0,
         senderType: 'user',
@@ -12569,6 +12899,7 @@ void main() {
           codeMsg: 'ok',
           ts: null,
           messageId: i,
+          locationMessageId: i,
           conversationRoundId: '$i',
           roundOrder: 0,
           senderType: 'user',
@@ -12604,6 +12935,7 @@ void main() {
         codeMsg: 'ok',
         ts: null,
         messageId: 61,
+        locationMessageId: 61,
         conversationRoundId: '61',
         roundOrder: 0,
         senderType: 'user',
@@ -12676,6 +13008,7 @@ void main() {
         codeMsg: 'ok',
         ts: null,
         messageId: 127,
+        locationMessageId: 127,
         conversationRoundId: '1318',
         roundOrder: 0,
         senderType: 'user',

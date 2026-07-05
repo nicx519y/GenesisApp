@@ -285,10 +285,12 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       setState(() => _isSubmitting = false);
       _showError(e.message);
       return false;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('[OriginEditor] submit failed: $e');
+      debugPrint('[OriginEditor] stacktrace:\n$stackTrace');
       if (!mounted) return false;
       setState(() => _isSubmitting = false);
-      _showError('${widget.failurePrefix}: $e');
+      _showError(widget.failurePrefix);
       return false;
     }
   }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
+import '../../app/debug/location_chat_debug_slice.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
@@ -67,7 +68,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   final Set<String> _preloadedLocationMessageIds = <String>{};
   final Map<String, Future<void>> _preloadingLocationMessageFutures =
       <String, Future<void>>{};
-  Future<void>? _preloadMessageCacheResetFuture;
   String _activeChatLocationId = '';
   bool _pollInFlight = false;
   bool _worldActionRunning = false;
@@ -384,7 +384,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _worldChatroom = null;
     _preloadedLocationMessageIds.clear();
     _preloadingLocationMessageFutures.clear();
-    _preloadMessageCacheResetFuture = null;
     _mapBubbleMessagesReady = false;
     if (mounted) {
       setState(() {
@@ -701,8 +700,19 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _pendingProgressTickCount = null;
     if (_openEventsAfterTickDone) {
       _openEventsAfterTickDone = false;
-      _showOrSelectEventsAfterTick();
+      if (!_shouldSuppressAutoEventsAfterTick) {
+        _showOrSelectEventsAfterTick();
+      }
     }
+  }
+
+  bool get _shouldSuppressAutoEventsAfterTick {
+    if (_activeChatLocationId.isNotEmpty ||
+        _locationChatPageCache.activeLocationId.isNotEmpty) {
+      return true;
+    }
+    final route = ModalRoute.of(context);
+    return route != null && !route.isCurrent;
   }
 
   void _showOrSelectEventsAfterTick() {
@@ -885,12 +895,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         : pointId;
     if (locationId.isEmpty) return;
     GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'world_map_click',
-      object1: widget.wid,
-      object2: locationId,
-    );
-    GenesisTelemetry.collectLog(
       actionType: 'pageview',
       action: 'world_map',
       object1: widget.wid,
@@ -941,6 +945,14 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     );
   }
 
+  void _recordWorldMapClick() {
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'world_map_click',
+      object1: widget.wid,
+    );
+  }
+
   Future<void> _updateUserPositionForLocation(String locationId) async {
     try {
       await AppServicesScope.of(
@@ -967,6 +979,15 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       'previous=${previousActiveId.isEmpty ? 'none' : previousActiveId} '
       'aliases=${descriptor.localMessageLocationIds.join(',')}',
     );
+    _recordWorldLocationChatDebug(
+      action: 'openStart',
+      locationId: locationId,
+      details: {
+        'cached': wasCached,
+        'previousActiveId': previousActiveId,
+        'descriptor': _debugDescriptor(descriptor),
+      },
+    );
     if (previousActiveId.isNotEmpty && previousActiveId != locationId) {
       if (!descriptor.isLeafLocation) {
         unawaited(_leaveCachedLocationChat(previousActiveId));
@@ -984,6 +1005,15 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       'previous=${previousActiveId.isEmpty ? 'none' : previousActiveId} '
       'active=$_activeChatLocationId elapsed=${stopwatch?.elapsedMilliseconds}ms',
     );
+    _recordWorldLocationChatDebug(
+      action: 'openDone',
+      locationId: locationId,
+      details: {
+        'cached': wasCached,
+        'previousActiveId': previousActiveId,
+        'elapsedMs': stopwatch?.elapsedMilliseconds,
+      },
+    );
   }
 
   Future<void> _hydrateActiveLocationChatMessages(
@@ -999,12 +1029,25 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         'active hydrate skipped location=${descriptor.locationId} '
         'hasChatroom=${chatroom != null} hasIdentity=${identity != null}',
       );
+      _recordWorldLocationChatDebug(
+        action: 'activeHydrateSkipped',
+        locationId: descriptor.locationId,
+        details: {
+          'hasChatroom': chatroom != null,
+          'hasIdentity': identity != null,
+        },
+      );
       return;
     }
     final ownerUid = worldFirstNonEmpty([identity.userId, identity.senderId]);
     if (ownerUid.isEmpty) {
       _logLocationChatMetric(
         'active hydrate skipped location=${descriptor.locationId} noOwner',
+      );
+      _recordWorldLocationChatDebug(
+        action: 'activeHydrateSkipped',
+        locationId: descriptor.locationId,
+        details: {'reason': 'noOwner'},
       );
       return;
     }
@@ -1024,6 +1067,17 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       'stateCount=${chatroom.state.messagesByLocation[descriptor.locationId]?.length ?? 0} '
       'elapsed=${stopwatch?.elapsedMilliseconds}ms',
     );
+    _recordWorldLocationChatDebug(
+      action: 'activeHydrateDone',
+      locationId: descriptor.locationId,
+      details: {
+        'aliases': descriptor.localMessageLocationIds,
+        'stateCount':
+            chatroom.state.messagesByLocation[descriptor.locationId]?.length ??
+            0,
+        'elapsedMs': stopwatch?.elapsedMilliseconds,
+      },
+    );
   }
 
   void _closeCachedLocationChat() {
@@ -1035,6 +1089,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _activeChatLocationId = '';
       _locationChatPageCache.deactivate();
     });
+    _recordWorldLocationChatDebug(
+      action: 'close',
+      locationId: locationId,
+      details: {'cachedPanelCount': _locationChatPageCache.cachedPanelCount},
+    );
     _syncWorldStatusBarForMainTab();
   }
 
@@ -1059,6 +1118,18 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final descriptors = _locationChatDescriptorsForWorld(world);
     _locationChatDescriptors = descriptors;
     _locationChatPageCache.syncDescriptors(descriptors);
+    _recordWorldLocationChatDebug(
+      action: 'syncDescriptors',
+      details: {
+        'count': descriptors.length,
+        'leafCount': descriptors.values
+            .where((descriptor) => descriptor.isLeafLocation)
+            .length,
+        'descriptors': descriptors.values
+            .map(_debugDescriptor)
+            .toList(growable: false),
+      },
+    );
     if (!_locationChatDescriptors.containsKey(_activeChatLocationId)) {
       _activeChatLocationId = '';
       _locationChatPageCache.deactivate();
@@ -1114,16 +1185,64 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       'cached=${_locationChatPageCache.cachedPanelCount} '
       'preloaded=${_preloadedLocationMessageIds.length}',
     );
+    _recordWorldLocationChatDebug(
+      action: 'precacheScheduled',
+      details: {
+        'count': descriptors.length,
+        'cachedPanelCount': _locationChatPageCache.cachedPanelCount,
+        'preloadedCount': _preloadedLocationMessageIds.length,
+      },
+    );
     if (descriptors.isEmpty) return;
     final chatroom = _worldChatroom;
     if (chatroom == null || chatroom.identity == null) return;
-    final resetFuture = _ensureLocationMessagePreloadReset(chatroom);
-    final preloadFuture = Future.wait<void>(
-      descriptors.map(
-        (descriptor) =>
-            _preloadLocationChatMessages(descriptor, resetFuture: resetFuture),
-      ),
-    );
+    final pendingDescriptors = descriptors
+        .where(
+          (descriptor) =>
+              !_preloadedLocationMessageIds.contains(descriptor.locationId) &&
+              !_preloadingLocationMessageFutures.containsKey(
+                descriptor.locationId,
+              ),
+        )
+        .toList(growable: false);
+    if (pendingDescriptors.isEmpty) {
+      final expectedIds = descriptors
+          .map((descriptor) => descriptor.locationId.trim())
+          .where((locationId) => locationId.isNotEmpty)
+          .toSet();
+      if (expectedIds.every(_preloadedLocationMessageIds.contains)) {
+        _mapBubbleMessagesReady = true;
+        _replaceMapBubbleCandidates(
+          _buildMapBubbleCandidates(chatroom.state, _world),
+        );
+      }
+      return;
+    }
+    final pendingIds = pendingDescriptors
+        .map((descriptor) => descriptor.locationId.trim())
+        .where((locationId) => locationId.isNotEmpty)
+        .toList(growable: false);
+    final preloadFuture = chatroom
+        .initializeLeafLocationQueues(locationIds: pendingIds)
+        .then((_) {
+          if (!identical(_worldChatroom, chatroom)) return;
+          _preloadedLocationMessageIds.addAll(pendingIds);
+        })
+        .catchError((Object error) {
+          _logLocationChatMetric('message preload failed error=$error');
+          _recordWorldLocationChatDebug(
+            action: 'preloadFailed',
+            details: {'error': '$error'},
+          );
+        })
+        .whenComplete(() {
+          for (final locationId in pendingIds) {
+            _preloadingLocationMessageFutures.remove(locationId);
+          }
+        });
+    for (final locationId in pendingIds) {
+      _preloadingLocationMessageFutures[locationId] = preloadFuture;
+    }
     unawaited(
       preloadFuture.then((_) {
         if (!mounted || !identical(_worldChatroom, chatroom)) return;
@@ -1141,37 +1260,20 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         _logLocationChatMetric(
           'map bubble messages ready locations=${expectedIds.length}',
         );
+        _recordWorldLocationChatDebug(
+          action: 'mapBubbleMessagesReady',
+          details: {
+            'locations': expectedIds.toList(growable: false),
+            'candidateCount': _mapBubbleCandidates.length,
+          },
+        );
       }),
     );
   }
 
-  Future<void> _ensureLocationMessagePreloadReset(
-    WorldChatroomService chatroom,
-  ) {
-    final existing = _preloadMessageCacheResetFuture;
-    if (existing != null) return existing;
-    _logLocationChatMetric('message preload cache reset start');
-    final future = chatroom
-        .clearCachedMessages()
-        .then((_) {
-          if (!identical(_worldChatroom, chatroom)) return;
-          _preloadedLocationMessageIds.clear();
-          _logLocationChatMetric('message preload cache reset done');
-        })
-        .catchError((Object error) {
-          _logLocationChatMetric(
-            'message preload cache reset failed error=$error',
-          );
-          throw error;
-        });
-    _preloadMessageCacheResetFuture = future;
-    return future;
-  }
-
   Future<void> _preloadLocationChatMessages(
-    WorldLocationChatPanelDescriptor descriptor, {
-    Future<void>? resetFuture,
-  }) {
+    WorldLocationChatPanelDescriptor descriptor,
+  ) {
     final locationId = descriptor.locationId.trim();
     if (locationId.isEmpty || !descriptor.isLeafLocation) {
       return Future<void>.value();
@@ -1185,20 +1287,17 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     }
     final existing = _preloadingLocationMessageFutures[locationId];
     if (existing != null) return existing;
-    final resolvedResetFuture =
-        resetFuture ?? _ensureLocationMessagePreloadReset(chatroom);
     _logLocationChatMetric(
       'message preload start location=$locationId '
       'aliases=${descriptor.localMessageLocationIds.join(',')}',
     );
-    final future = resolvedResetFuture
-        .then(
-          (_) => chatroom.refreshLatestMessages(
-            locationId: locationId,
-            limit: 20,
-            emitLatestFetched: false,
-          ),
-        )
+    _recordWorldLocationChatDebug(
+      action: 'preloadStart',
+      locationId: locationId,
+      details: {'aliases': descriptor.localMessageLocationIds},
+    );
+    final future = chatroom
+        .initializeLeafLocationQueues(locationIds: [locationId])
         .then((messages) {
           if (!identical(_worldChatroom, chatroom) ||
               !_locationChatDescriptors.containsKey(locationId)) {
@@ -1207,13 +1306,25 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           _preloadedLocationMessageIds.add(locationId);
           _logLocationChatMetric(
             'message preload done location=$locationId '
-            'loaded=${messages.length} '
             'stateCount=${chatroom.state.messagesByLocation[locationId]?.length ?? 0}',
+          );
+          _recordWorldLocationChatDebug(
+            action: 'preloadDone',
+            locationId: locationId,
+            details: {
+              'stateCount':
+                  chatroom.state.messagesByLocation[locationId]?.length ?? 0,
+            },
           );
         })
         .catchError((Object error) {
           _logLocationChatMetric(
             'message preload failed location=$locationId error=$error',
+          );
+          _recordWorldLocationChatDebug(
+            action: 'preloadFailed',
+            locationId: locationId,
+            details: {'error': '$error'},
           );
         })
         .whenComplete(() {
@@ -1228,6 +1339,66 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   void _logLocationChatMetric(String message) {
     if (!_locationChatMetricsEnabled) return;
     debugPrint('[World][LocationChatCache] $message');
+  }
+
+  void _recordWorldLocationChatDebug({
+    required String action,
+    String locationId = '',
+    Map<String, Object?> details = const <String, Object?>{},
+  }) {
+    if (!LocationChatDebugSlice.enabled) return;
+    final activeLocationId = _activeChatLocationId.trim();
+    LocationChatDebugSlice.recordEvent(
+      source: 'world',
+      action: action,
+      worldId: widget.wid,
+      locationId: locationId,
+      details: <String, Object?>{
+        ...details,
+        'activeLocationId': activeLocationId,
+        'cacheActiveLocationId': _locationChatPageCache.activeLocationId,
+        'cachedPanelCount': _locationChatPageCache.cachedPanelCount,
+        'preloadedLocationIds': _preloadedLocationMessageIds.toList(
+          growable: false,
+        ),
+        'preloadingLocationIds': _preloadingLocationMessageFutures.keys.toList(
+          growable: false,
+        ),
+        'mapBubbleMessagesReady': _mapBubbleMessagesReady,
+      },
+      snapshotKey: widget.wid,
+      snapshot: <String, Object?>{
+        'worldId': widget.wid,
+        'activeLocationId': activeLocationId,
+        'cacheActiveLocationId': _locationChatPageCache.activeLocationId,
+        'cachedPanelCount': _locationChatPageCache.cachedPanelCount,
+        'preloadedLocationIds': _preloadedLocationMessageIds.toList(
+          growable: false,
+        ),
+        'preloadingLocationIds': _preloadingLocationMessageFutures.keys.toList(
+          growable: false,
+        ),
+        'mapBubbleMessagesReady': _mapBubbleMessagesReady,
+        'descriptorCount': _locationChatDescriptors.length,
+        'descriptors': _locationChatDescriptors.values
+            .map(_debugDescriptor)
+            .toList(growable: false),
+      },
+    );
+  }
+
+  Map<String, Object?> _debugDescriptor(
+    WorldLocationChatPanelDescriptor descriptor,
+  ) {
+    return <String, Object?>{
+      'locationId': descriptor.locationId,
+      'locationName': descriptor.locationName,
+      'isLeafLocation': descriptor.isLeafLocation,
+      'localMessageLocationIds': descriptor.localMessageLocationIds,
+      'hasBackgroundImage': descriptor.backgroundImageUrl.trim().isNotEmpty,
+      'ready': _locationChatPageCache.isReady(descriptor.locationId),
+      'cached': _locationChatPageCache.hasPanel(descriptor.locationId),
+    };
   }
 
   void _showMapTab() {
@@ -1296,7 +1467,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             _eventsAfterCurrentBottomSheetClosedTargetTickNumber;
         _openEventsAfterCurrentBottomSheetClosed = false;
         _eventsAfterCurrentBottomSheetClosedTargetTickNumber = null;
-        if (openEvents && mounted) {
+        if (openEvents && mounted && !_shouldSuppressAutoEventsAfterTick) {
           _openWorldBottomSheet(
             WorldBottomSheetKind.events,
             scrollEventsToLatest: true,
@@ -1405,6 +1576,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         onHorizontalPanStateChanged: tabIndex == 0
             ? _handleWorldMapHorizontalPanStateChanged
             : null,
+        onMapTap: _recordWorldMapClick,
         onPointTap: _openChatForPoint,
       );
       return WorldKeepAlivePage(child: map);
@@ -1493,8 +1665,21 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 chatroom: _worldChatroom,
                 cache: _locationChatPageCache,
                 onBack: _closeCachedLocationChat,
+                isMessageQueueInitializationCovered: (locationId) {
+                  final resolvedLocationId = locationId.trim();
+                  return _preloadedLocationMessageIds.contains(
+                        resolvedLocationId,
+                      ) ||
+                      _preloadingLocationMessageFutures.containsKey(
+                        resolvedLocationId,
+                      );
+                },
                 onPanelReady: (locationId) {
                   _locationChatPageCache.markReady(locationId);
+                  _recordWorldLocationChatDebug(
+                    action: 'panelReady',
+                    locationId: locationId,
+                  );
                   if (mounted) setState(() {});
                 },
               ),

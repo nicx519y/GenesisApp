@@ -49,16 +49,20 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
 
 const double _locationChatOuterPadding = 10;
 const double _locationChatAvatarOneThird = 40 / 3;
+const double _npcChatAvatarSize = 36;
+const Color _npcChatAvatarBackgroundColor = Color(0xFF4A5F7A);
 const Color _locationChatBackgroundColor = Color(0xFF111111);
 const Color _locationChatChromeStrong = Color(0xF2111111);
 const Color _locationChatChromeSoft = Color(0x80111111);
+const Color _locationChatHeaderGlassTop = Color(0xA6111111);
+const Color _locationChatHeaderGlassBottom = Color(0x33111111);
 
 ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
   conversationBackgroundColor: _locationChatBackgroundColor,
   headerBackgroundGradient: LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [_locationChatChromeStrong, _locationChatChromeSoft],
+    colors: [_locationChatHeaderGlassTop, _locationChatHeaderGlassBottom],
   ),
   headerTitleTextStyle: ChatUiStyleConfig.standard.headerTitleTextStyle
       .copyWith(color: Colors.white),
@@ -89,7 +93,9 @@ class ChatMessageVm {
   ChatMessageVm({
     required this.localId,
     this.clientMsgId = '',
+    this.globalMessageId = 0,
     this.messageId,
+    this.locationMessageId = 0,
     this.roundId = '',
     this.tickNo = 0,
     required this.senderId,
@@ -118,7 +124,9 @@ class ChatMessageVm {
 
   final String localId;
   final String clientMsgId;
+  int globalMessageId;
   int? messageId;
+  int locationMessageId;
   String roundId;
   int tickNo;
   final String senderId;
@@ -654,6 +662,7 @@ class ChatMessageList extends StatelessWidget {
     this.onMessageLongPressStart,
     this.keyboardDismissBehavior,
     this.oldestEdgeNotice,
+    this.oldestEdgeLoading = false,
     this.reverse = true,
     this.showDateDividers = true,
     this.style,
@@ -665,6 +674,7 @@ class ChatMessageList extends StatelessWidget {
   final ChatMessageLongPressStart? onMessageLongPressStart;
   final ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior;
   final String? oldestEdgeNotice;
+  final bool oldestEdgeLoading;
   final bool reverse;
   final bool showDateDividers;
   final ChatUiStyleConfig? style;
@@ -685,6 +695,7 @@ class ChatMessageList extends StatelessWidget {
           return _ChatOldestEdgeContent(
             topTitle: topTitle,
             notice: oldestEdgeNotice,
+            loading: oldestEdgeLoading,
             style: style,
           );
         }
@@ -706,20 +717,226 @@ class ChatMessageList extends StatelessWidget {
   }
 }
 
+class ChatAnchoredMessageList extends StatelessWidget {
+  const ChatAnchoredMessageList({
+    super.key,
+    required this.controller,
+    required this.messages,
+    required this.centerLocalId,
+    required this.topTitle,
+    this.onMessageLongPressStart,
+    this.keyboardDismissBehavior,
+    this.oldestEdgeNotice,
+    this.oldestEdgeLoading = false,
+    this.showDateDividers = true,
+    this.style,
+  });
+
+  static const _bottomSliverKey = ValueKey<String>(
+    'chat-anchored-message-list-bottom',
+  );
+
+  final ScrollController controller;
+  final List<ChatMessageVm> messages;
+  final String centerLocalId;
+  final String topTitle;
+  final ChatMessageLongPressStart? onMessageLongPressStart;
+  final ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior;
+  final String? oldestEdgeNotice;
+  final bool oldestEdgeLoading;
+  final bool showDateDividers;
+  final ChatUiStyleConfig? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = this.style ?? ChatUiStyleConfig.standard;
+    if (messages.isEmpty) {
+      return ListView(
+        controller: controller,
+        physics: const ClampingScrollPhysics(),
+        keyboardDismissBehavior:
+            keyboardDismissBehavior ?? ScrollViewKeyboardDismissBehavior.manual,
+        padding: style.messageListPadding,
+        children: [
+          _ChatOldestEdgeContent(
+            topTitle: topTitle,
+            notice: oldestEdgeNotice,
+            loading: oldestEdgeLoading,
+            style: style,
+          ),
+        ],
+      );
+    }
+
+    final centerIndex = _resolvedCenterIndex();
+    final olderCount = centerIndex;
+    final newerCount = messages.length - centerIndex;
+    final padding = style.messageListPadding;
+    final hasOldestEdgeContent =
+        topTitle.trim().isNotEmpty ||
+        (oldestEdgeNotice?.trim().isNotEmpty ?? false) ||
+        oldestEdgeLoading;
+
+    if (centerIndex == 0 || !_hasNonSystemMessageBefore(centerIndex)) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final minHeight = constraints.hasBoundedHeight
+              ? constraints.maxHeight
+              : 0.0;
+          return SingleChildScrollView(
+            controller: controller,
+            physics: const ClampingScrollPhysics(),
+            keyboardDismissBehavior:
+                keyboardDismissBehavior ??
+                ScrollViewKeyboardDismissBehavior.manual,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minHeight),
+              child: Padding(
+                padding: padding,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (hasOldestEdgeContent)
+                      _ChatOldestEdgeContent(
+                        topTitle: topTitle,
+                        notice: oldestEdgeNotice,
+                        loading: oldestEdgeLoading,
+                        style: style,
+                      ),
+                    for (var index = 0; index < messages.length; index += 1)
+                      _buildMessageRow(index, style),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    return CustomScrollView(
+      controller: controller,
+      center: _bottomSliverKey,
+      physics: const ClampingScrollPhysics(),
+      keyboardDismissBehavior:
+          keyboardDismissBehavior ?? ScrollViewKeyboardDismissBehavior.manual,
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.only(
+            left: padding.left,
+            top: padding.top,
+            right: padding.right,
+          ),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              if (index == olderCount) {
+                return _ChatOldestEdgeContent(
+                  topTitle: topTitle,
+                  notice: oldestEdgeNotice,
+                  loading: oldestEdgeLoading,
+                  style: style,
+                );
+              }
+              final messageIndex = centerIndex - 1 - index;
+              return _buildMessageRow(messageIndex, style);
+            }, childCount: olderCount + 1),
+          ),
+        ),
+        SliverPadding(
+          key: _bottomSliverKey,
+          padding: EdgeInsets.only(
+            left: padding.left,
+            right: padding.right,
+            bottom: padding.bottom,
+          ),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final messageIndex = centerIndex + index;
+              return _buildMessageRow(messageIndex, style);
+            }, childCount: newerCount),
+          ),
+        ),
+      ],
+    );
+  }
+
+  int _resolvedCenterIndex() {
+    final normalizedCenterLocalId = centerLocalId.trim();
+    if (normalizedCenterLocalId.isEmpty) return 0;
+    final index = messages.indexWhere(
+      (message) => message.localId == normalizedCenterLocalId,
+    );
+    return index < 0 ? 0 : index;
+  }
+
+  bool _hasNonSystemMessageBefore(int centerIndex) {
+    for (
+      var index = 0;
+      index < centerIndex && index < messages.length;
+      index += 1
+    ) {
+      if (!messages[index].isSystem) return true;
+    }
+    return false;
+  }
+
+  Widget _buildMessageRow(int messageIndex, ChatUiStyleConfig style) {
+    final current = messages[messageIndex];
+    final previous = messageIndex == 0 ? null : messages[messageIndex - 1];
+    return ChatMessageRow(
+      key: ValueKey(current.localId),
+      message: current,
+      style: style,
+      onMessageLongPressStart: onMessageLongPressStart,
+      showDateDivider:
+          showDateDividers &&
+          shouldShowChatDateDivider(previous?.createdAt, current.createdAt),
+    );
+  }
+}
+
 class _ChatOldestEdgeContent extends StatelessWidget {
   const _ChatOldestEdgeContent({
     required this.topTitle,
     required this.notice,
+    required this.loading,
     required this.style,
   });
 
   final String topTitle;
   final String? notice;
+  final bool loading;
   final ChatUiStyleConfig style;
 
   @override
   Widget build(BuildContext context) {
     final normalizedNotice = notice?.trim() ?? '';
+    if (loading) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ChatTopTitle(name: topTitle, style: style),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              topTitle.trim().isEmpty ? 0 : 4,
+              20,
+              16,
+            ),
+            child: SizedBox.square(
+              dimension: style.sendingBadgeSize,
+              child: Padding(
+                padding: EdgeInsets.all(style.sendingBadgePadding),
+                child: CircularProgressIndicator(
+                  strokeWidth: style.sendingBadgeStrokeWidth,
+                  color: style.sendingBadgeColor,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     if (normalizedNotice.isEmpty) {
       return _ChatTopTitle(name: topTitle, style: style);
     }
@@ -791,6 +1008,7 @@ class ChatMessageRow extends StatelessWidget {
         textAlign: message.isTick || message.isNarrator
             ? TextAlign.left
             : TextAlign.center,
+        leadingIconAsset: message.isNarrator ? paragraphIconAsset : null,
         bubbleKey: message.isTick
             ? const ValueKey('chat-tick-message-bubble')
             : const ValueKey('chat-system-message-bubble'),
@@ -897,16 +1115,18 @@ class ChatMessageRow extends StatelessWidget {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: onAvatarTap,
-                child: ChatAvatar(
-                  label: chatInitials(message.senderName),
-                  imageUrl: message.avatarUrl,
-                  colors: style.otherAvatarColors,
-                  seed: message.senderName,
-                  borderColor: message.isPlayerControlledRole
-                      ? GenesisColors.brand
-                      : null,
-                  style: style,
-                ),
+                child: _isNpcSender(message.senderId)
+                    ? const ChatNpcAvatar()
+                    : ChatAvatar(
+                        label: chatInitials(message.senderName),
+                        imageUrl: message.avatarUrl,
+                        colors: style.otherAvatarColors,
+                        seed: message.senderName,
+                        borderColor: message.isPlayerControlledRole
+                            ? GenesisColors.brand
+                            : null,
+                        style: style,
+                      ),
               ),
             ],
           ),
@@ -1099,6 +1319,35 @@ class ChatAvatar extends StatelessWidget {
   }
 }
 
+class ChatNpcAvatar extends StatelessWidget {
+  const ChatNpcAvatar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.square(
+      key: ValueKey('chat-npc-avatar'),
+      dimension: _npcChatAvatarSize,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _npcChatAvatarBackgroundColor,
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Text(
+            'NPC',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ChatAiBadge extends StatelessWidget {
   const ChatAiBadge({super.key, this.style});
 
@@ -1196,6 +1445,7 @@ class ChatSystemMessage extends StatelessWidget {
     this.fullWidth = false,
     this.singleLine = false,
     this.textAlign = TextAlign.center,
+    this.leadingIconAsset,
     this.bubbleKey = const ValueKey('chat-system-message-bubble'),
     this.onLongPressStart,
     this.style,
@@ -1205,6 +1455,7 @@ class ChatSystemMessage extends StatelessWidget {
   final bool fullWidth;
   final bool singleLine;
   final TextAlign textAlign;
+  final String? leadingIconAsset;
   final Key bubbleKey;
   final GestureLongPressStartCallback? onLongPressStart;
   final ChatUiStyleConfig? style;
@@ -1235,18 +1486,68 @@ class ChatSystemMessage extends StatelessWidget {
                     style.systemMessageBorderRadius,
                   ),
                 ),
-                child: _InlineMarkdownText(
-                  text: text,
-                  maxLines: singleLine ? 1 : null,
-                  overflow: singleLine ? TextOverflow.ellipsis : null,
-                  textAlign: textAlign,
-                  style: style.systemMessageTextStyle,
-                ),
+                child: leadingIconAsset == null
+                    ? _InlineMarkdownText(
+                        text: text,
+                        maxLines: singleLine ? 1 : null,
+                        overflow: singleLine ? TextOverflow.ellipsis : null,
+                        textAlign: textAlign,
+                        style: style.systemMessageTextStyle,
+                      )
+                    : _SystemMessageWithLeadingIcon(
+                        iconAsset: leadingIconAsset!,
+                        text: text,
+                        textAlign: textAlign,
+                        style: style,
+                      ),
               ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _SystemMessageWithLeadingIcon extends StatelessWidget {
+  const _SystemMessageWithLeadingIcon({
+    required this.iconAsset,
+    required this.text,
+    required this.textAlign,
+    required this.style,
+  });
+
+  final String iconAsset;
+  final String text;
+  final TextAlign textAlign;
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = style.systemMessageTextStyle.color ?? Colors.white;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 3),
+          child: SvgPicture.asset(
+            iconAsset,
+            width: 14,
+            height: 14,
+            fit: BoxFit.contain,
+            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+            excludeFromSemantics: true,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _InlineMarkdownText(
+            text: text,
+            textAlign: textAlign,
+            style: style.systemMessageTextStyle,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1427,6 +1728,10 @@ String _tickAdvanceText(ChatMessageVm message) {
 
 String chatInitials(String value) {
   return initialsForAvatarName(value);
+}
+
+bool _isNpcSender(String senderId) {
+  return senderId.trim().toLowerCase() == 'char_npc';
 }
 
 String firstNonEmpty(List<String?> values) {

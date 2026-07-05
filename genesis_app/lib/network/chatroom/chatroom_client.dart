@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import '../../app/debug/location_chat_debug_slice.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../api_client.dart';
 import '../app_request_headers.dart';
@@ -17,7 +18,7 @@ class ChatroomClient {
     required UserSessionStore sessionStore,
     DeviceIdService? deviceIdService,
     ChatroomSocketTransport? transport,
-    Duration heartbeatInterval = const Duration(seconds: 10),
+    Duration heartbeatInterval = const Duration(seconds: 2),
     Duration ackTimeout = const Duration(seconds: 12),
     bool autoHeartbeat = true,
     RequestHeaderProvider? requestHeaderProvider,
@@ -274,9 +275,6 @@ class ChatroomSession {
       final ack = await _sendAckedClientMessage('join', <String, Object?>{
         'world_id': worldId,
         'location_id': resolvedLocationId,
-        'user_id': userId,
-        'sender_id': senderId,
-        'sender_name': senderName,
       }, requestType: 'join');
       final nextJoined = ChatroomJoined(
         sessionId: ack.sessionId,
@@ -487,15 +485,35 @@ class ChatroomSession {
       if (value is String && value.trim().isEmpty) continue;
       json[entry.key] = value;
     }
-    return _socket.send(jsonEncode(json));
+    final raw = jsonEncode(json);
+    _recordWebSocketDebug(
+      action: 'send',
+      details: {'direction': 'out', 'type': type, 'raw': raw, 'payload': json},
+    );
+    return _socket.send(raw);
   }
 
   void _handleMessage(String raw) {
     try {
       final envelope = ChatroomEnvelope.decode(raw);
       final event = chatroomEventFromEnvelope(envelope);
+      _recordWebSocketDebug(
+        action: 'receive',
+        locationId: envelope.locationId,
+        details: {
+          'direction': 'in',
+          'type': envelope.type,
+          'eventType': chatroomEventType(event),
+          'raw': raw,
+          'payload': envelope.mergedPayload,
+        },
+      );
       _dispatchEvent(event);
     } catch (e) {
+      _recordWebSocketDebug(
+        action: 'decodeFailed',
+        details: {'direction': 'in', 'raw': raw, 'error': e.toString()},
+      );
       _emitFailure(
         ChatroomFailureEvent(
           code: 'protocol_error',
@@ -505,6 +523,49 @@ class ChatroomSession {
         ),
       );
     }
+  }
+
+  void _recordWebSocketDebug({
+    required String action,
+    String? locationId,
+    Map<String, Object?> details = const <String, Object?>{},
+  }) {
+    if (!LocationChatDebugSlice.enabled) return;
+    final resolvedLocationId = _resolveDebugLocationId(locationId);
+    LocationChatDebugSlice.recordEvent(
+      source: 'websocket',
+      action: action,
+      worldId: worldId,
+      locationId: resolvedLocationId,
+      details: <String, Object?>{
+        ...details,
+        'sessionLocationId': this.locationId,
+        'joinedLocationId': _joined?.locationId,
+        'pendingAckCount': _pendingAcks.length,
+        'activeStreamCount': _activeStreams.length,
+      },
+      snapshotKey: '$worldId|$resolvedLocationId',
+      snapshot: <String, Object?>{
+        'worldId': worldId,
+        'locationId': resolvedLocationId,
+        'lastAction': action,
+        'sessionLocationId': this.locationId,
+        'joinedLocationId': _joined?.locationId,
+        'pendingAckCount': _pendingAcks.length,
+        'activeStreamCount': _activeStreams.length,
+        'lastFrame': details,
+      },
+    );
+  }
+
+  String _resolveDebugLocationId(String? candidate) {
+    final resolvedCandidate = candidate?.trim();
+    if (resolvedCandidate != null && resolvedCandidate.isNotEmpty) {
+      return resolvedCandidate;
+    }
+    final joinedLocationId = _joined?.locationId.trim() ?? '';
+    if (joinedLocationId.isNotEmpty) return joinedLocationId;
+    return locationId.trim();
   }
 
   void _dispatchEvent(ChatroomEvent event) {
@@ -545,7 +606,9 @@ class ChatroomSession {
           code: event.code,
           codeMsg: event.codeMsg,
           ts: event.ts,
+          globalMessageId: event.globalMessageId,
           messageId: event.messageId,
+          locationMessageId: event.locationMessageId,
           conversationRoundId: event.conversationRoundId,
           clientMsgId: event.clientMsgId,
         ),

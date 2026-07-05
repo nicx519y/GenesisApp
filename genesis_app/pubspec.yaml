@@ -94,30 +94,6 @@ flutter:
     - family: MyFlutterApp
       fonts:
         - asset: assets/custom-icons/fonts/MyFlutterApp.ttf
-    - family: NotoSans
-      fonts:
-        - asset: assets/fonts/NotoSans-Regular.ttf
-    - family: NotoSansArabic
-      fonts:
-        - asset: assets/fonts/NotoSansArabic-Regular.ttf
-    - family: NotoSansBengali
-      fonts:
-        - asset: assets/fonts/NotoSansBengali-Regular.ttf
-    - family: NotoSansEgyptianHieroglyphs
-      fonts:
-        - asset: assets/fonts/NotoSansEgyptianHieroglyphs-Regular.ttf
-    - family: NotoSansHebrew
-      fonts:
-        - asset: assets/fonts/NotoSansHebrew-Regular.ttf
-    - family: NotoSansMath
-      fonts:
-        - asset: assets/fonts/NotoSansMath-Regular.ttf
-    - family: NotoSansMono
-      fonts:
-        - asset: assets/fonts/NotoSansMono-Regular.ttf
-    - family: NotoSansSymbols2
-      fonts:
-        - asset: assets/fonts/NotoSansSymbols2-Regular.ttf
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -166,7 +166,9 @@ void main() {
     final source = worldPageSource.readAsStringSync();
 
     expect(source, contains('worldMapBubbleCandidatesFor('));
-    expect(source, contains('messageBubbles: _mapMessageBubbles'));
+    expect(source, contains('messageBubbles: _activeChatLocationId.isEmpty'));
+    expect(source, contains('_mapBubbleMessagesReady'));
+    expect(source, contains('_mapMessageBubbles'));
     expect(
       source,
       contains('messageBubblePlaybackPaused: _activeChatLocationId.isNotEmpty'),
@@ -186,12 +188,23 @@ void main() {
       source.indexOf('void _showOrSelectEventsAfterTick()'),
       source.indexOf('void _markWorldTickIdle()'),
     );
+    final suppressAutoEvents = source.substring(
+      source.indexOf('bool get _shouldSuppressAutoEventsAfterTick'),
+      source.indexOf('void _showOrSelectEventsAfterTick()'),
+    );
     final openBottomSheet = source.substring(
       source.indexOf('void _openWorldBottomSheet('),
       source.indexOf('@override\n  Widget build(BuildContext context)'),
     );
 
     expect(tickDone, contains('_showOrSelectEventsAfterTick();'));
+    expect(tickDone, contains('!_shouldSuppressAutoEventsAfterTick'));
+    expect(suppressAutoEvents, contains('_activeChatLocationId.isNotEmpty'));
+    expect(
+      suppressAutoEvents,
+      contains('_locationChatPageCache.activeLocationId.isNotEmpty'),
+    );
+    expect(suppressAutoEvents, contains('!route.isCurrent'));
     expect(showOrSelectEvents, contains('_worldBottomSheetOpen'));
     expect(
       showOrSelectEvents,
@@ -213,7 +226,12 @@ void main() {
     );
     expect(openBottomSheet, contains('_worldBottomSheetSelection.value'));
     expect(openBottomSheet, contains('if (_worldBottomSheetOpen) return;'));
-    expect(openBottomSheet, contains('if (openEvents && mounted)'));
+    expect(
+      openBottomSheet,
+      contains(
+        'if (openEvents && mounted && !_shouldSuppressAutoEventsAfterTick)',
+      ),
+    );
     expect(openBottomSheet, contains('showModalBottomSheet<void>'));
   });
 

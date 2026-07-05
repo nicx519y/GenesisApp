@@ -130,7 +130,7 @@ class _UserProfileContentState extends State<UserProfileContent>
                 alignment: Alignment.centerLeft,
                 child: GenesisTabBar(
                   controller: _tabController,
-                  labels: const ['Worldo', 'World'],
+                  labels: const ['#Worldo', 'World'],
                   horizontalPadding: 8,
                   labelPadding: const EdgeInsets.symmetric(horizontal: 8),
                   labelFontSize: widget.tabLabelFontSize,

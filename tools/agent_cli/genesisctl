@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_dir="$(cd "$script_dir/../.." && pwd)"
+app_dir="$repo_dir/genesis_app"
+env_file="${GENESIS_AGENT_CONTROL_ENV_FILE:-$app_dir/.agent-control.env}"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  tools/agent_cli/ctl init
+  tools/agent_cli/ctl app ping
+  tools/agent_cli/ctl app state
+  tools/agent_cli/ctl app navigate /search --arg q=alice
+  tools/agent_cli/ctl app back
+  tools/agent_cli/ctl auth state
+  tools/agent_cli/ctl auth clear
+  tools/agent_cli/ctl world locations --wid <wid>
+  tools/agent_cli/ctl agent world-chat --count 100
+  tools/agent_cli/ctl config endpoint set --api dev.hushie.ai --gateway dev.hushie.ai --chat-ws dev.hushie.ai
+  tools/agent_cli/ctl config endpoint clear
+  tools/agent_cli/ctl cache clear --target all
+  tools/agent_cli/ctl diagnostics snapshot
+
+Environment:
+  GENESIS_AGENT_CONTROL_ENV_FILE  Override env file path.
+  GENESIS_AGENT_CONTROL_HOST      Default: 127.0.0.1
+  GENESIS_AGENT_CONTROL_PORT      Default: 17317
+  GENESIS_AGENT_CONTROL_TOKEN     Loaded from .agent-control.env if present.
+EOF
+}
+
+generate_token() {
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -base64 32 | tr -d '\n'
+    return
+  fi
+  date "+%s%N" | shasum -a 256 | awk '{print $1}'
+}
+
+write_env_file() {
+  if [[ -f "$env_file" ]]; then
+    echo "Already exists: $env_file"
+    return
+  fi
+  local token
+  token="$(generate_token)"
+  cat >"$env_file" <<EOF
+GENESIS_AGENT_CONTROL_HOST=127.0.0.1
+GENESIS_AGENT_CONTROL_PORT=17317
+GENESIS_AGENT_CONTROL_TOKEN=$token
+EOF
+  chmod 600 "$env_file"
+  echo "Created: $env_file"
+  echo
+  echo "Use the same token when starting the app:"
+  echo "  flutter run --dart-define=GENESIS_AGENT_CONTROL_ENABLED=true --dart-define=GENESIS_AGENT_CONTROL_TOKEN='$token' --dart-define=GENESIS_AGENT_CONTROL_PORT=17317"
+}
+
+if [[ "${1:-}" == "init" ]]; then
+  write_env_file
+  exit 0
+fi
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" || $# -eq 0 ]]; then
+  usage
+  exit 0
+fi
+
+if [[ -f "$env_file" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$env_file"
+  set +a
+fi
+
+host="${GENESIS_AGENT_CONTROL_HOST:-127.0.0.1}"
+port="${GENESIS_AGENT_CONTROL_PORT:-17317}"
+token="${GENESIS_AGENT_CONTROL_TOKEN:-}"
+
+if [[ -z "$token" ]]; then
+  echo "Missing GENESIS_AGENT_CONTROL_TOKEN." >&2
+  echo "Run tools/agent_cli/ctl init first, or export GENESIS_AGENT_CONTROL_TOKEN." >&2
+  exit 1
+fi
+
+cd "$app_dir"
+exec dart "$script_dir/genesisctl.dart" \
+  --host "$host" \
+  --port "$port" \
+  --token "$token" \
+  "$@"

@@ -198,6 +198,7 @@ class WorldLocationChatRouterHost extends StatefulWidget {
     required this.cache,
     required this.onBack,
     required this.onPanelReady,
+    required this.isMessageQueueInitializationCovered,
   });
 
   final String worldId;
@@ -205,6 +206,7 @@ class WorldLocationChatRouterHost extends StatefulWidget {
   final WorldLocationChatPageCache cache;
   final VoidCallback onBack;
   final ValueChanged<String> onPanelReady;
+  final bool Function(String locationId) isMessageQueueInitializationCovered;
 
   @override
   State<WorldLocationChatRouterHost> createState() =>
@@ -313,6 +315,10 @@ class WorldLocationChatRouterHostState
                   chatroom: widget.chatroom,
                   descriptor: descriptor,
                   active: active,
+                  messageQueueInitializationCovered: widget
+                      .isMessageQueueInitializationCovered(
+                        descriptor.locationId,
+                      ),
                   onBack: widget.onBack,
                   onInitialContentReady: () =>
                       widget.onPanelReady(descriptor.locationId),
@@ -343,6 +349,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
     required this.onInitialContentReady,
     required this.initialDraftText,
     required this.onDraftTextChanged,
+    required this.messageQueueInitializationCovered,
   });
 
   final String worldId;
@@ -353,6 +360,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
   final VoidCallback onInitialContentReady;
   final String initialDraftText;
   final ValueChanged<String> onDraftTextChanged;
+  final bool messageQueueInitializationCovered;
 
   @override
   Widget build(BuildContext context) {
@@ -374,6 +382,8 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             service: chatroom,
             active: active,
             leaveOnInactive: false,
+            messageQueueInitializationCovered:
+                messageQueueInitializationCovered,
             systemUiOverlayStyle: kChatDarkHeaderSystemUiOverlayStyle,
             style: kLocationChatStyle,
             onBack: onBack,

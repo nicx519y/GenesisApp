@@ -19,13 +19,11 @@ class _FakeTransport implements HttpTransport {
         'locations': [
           {
             'location_id': 'loc_1',
-            'characters': [
+            'users': [
               {
-                'char_id': 'char_1',
-                'player_uid': 'u_1',
-                'player_username': 'A',
-                'name': '勇者小明',
-                'location_id': 'loc_1',
+                'user_id': 'u_1',
+                'user_name': '勇者小明',
+                'avatar': 'https://cdn.example.com/u_1.png',
               },
             ],
           },
@@ -39,16 +37,19 @@ class _FakeTransport implements HttpTransport {
             'location_id': 'loc_1',
             'messages': [
               {
-                'msg_id': 1001,
+                'global_message_id': 90001,
+                'message_id': 1001,
+                'location_msg_id': 101,
                 'location_id': 'loc_1',
                 'conversation_round_id': 100,
-                'round_order': 1,
                 'sender_type': 'user',
                 'sender_id': 'char_1',
                 'sender_name': 'A',
                 'user_id': 'u_1',
                 'content': 'hello',
-                'ts': 1717300000000,
+                'current_time': 'Day 1, 08:00',
+                'tick_no': 3,
+                'created_at': '2026-07-01 10:00:00',
               },
             ],
           },
@@ -59,16 +60,23 @@ class _FakeTransport implements HttpTransport {
       return _ok({
         'messages': [
           {
-            'msg_id': 1001,
+            'global_message_id': 90001,
+            'message_id': 1001,
+            'location_msg_id': 101,
+            'location_id': 'loc_1',
             'conversation_round_id': 100,
             'sender_type': 'user',
             'sender_id': 'char_1',
             'sender_name': 'A',
+            'user_id': 'u_1',
             'content': 'hello',
-            'ts': 1717300000000,
+            'current_time': 'Day 1, 08:00',
+            'tick_no': 3,
+            'created_at': '2026-07-01 10:00:00',
           },
         ],
         'has_more': false,
+        'newest_message_id': 1001,
       });
     }
     if (path == '/aitown-chat/internal/tick/lock') {
@@ -112,6 +120,48 @@ class _FakeTransport implements HttpTransport {
 }
 
 void main() {
+  test('ChatroomHttpMessage reads legacy location_message_id fallback', () {
+    final message = ChatroomHttpMessage.fromJson({
+      'message_id': 1001,
+      'location_message_id': 101,
+      'location_id': 'loc_1',
+    });
+
+    expect(message.locationMessageId, 101);
+  });
+
+  test('ChatroomMessageListResponse preserves raw response json', () {
+    final response = ChatroomMessageListResponse.fromJson({
+      'messages': [
+        {
+          'global_message_id': 90001,
+          'message_id': 1001,
+          'location_msg_id': 101,
+          'location_id': 'loc_1',
+          'conversation_round_id': 100,
+          'sender_type': 'user',
+          'sender_id': 'char_1',
+          'sender_name': 'A',
+          'user_id': 'u_1',
+          'content': 'full body',
+          'current_time': 'Day 1, 08:00',
+          'custom_server_field': {'nested': true},
+        },
+      ],
+      'has_more': true,
+      'newest_message_id': 1001,
+      'server_extra': 'keep-me',
+    });
+
+    expect(response.rawJson['server_extra'], 'keep-me');
+    final rawMessages = response.rawJson['messages'] as List<Object?>;
+    final rawMessage = rawMessages.single as Map<Object?, Object?>;
+    expect(rawMessage['custom_server_field'], {'nested': true});
+    expect(rawMessage.containsKey('locationMsgId'), isFalse);
+    expect(rawMessage['location_msg_id'], 101);
+    expect(response.messages.single.rawJson['content'], 'full body');
+  });
+
   test('ChatroomHttpApi maps all Apifox chatroom HTTP endpoints', () async {
     final transport = _FakeTransport();
     final api = ChatroomHttpApi(
@@ -120,16 +170,20 @@ void main() {
 
     final userLocations = await api.getUserLocations(worldId: 'w_1');
     expect(userLocations.worldId, 'w_1');
-    final character = userLocations.locations.single.characters.single;
-    expect(character.charId, 'char_1');
-    expect(character.playerUid, 'u_1');
-    expect(character.playerUsername, 'A');
-    expect(character.name, '勇者小明');
-    expect(character.locationId, 'loc_1');
+    final user = userLocations.locations.single.users.single;
+    expect(user.userId, 'u_1');
+    expect(user.userName, '勇者小明');
+    expect(user.avatar, 'https://cdn.example.com/u_1.png');
 
     final worldMessages = await api.getWorldMessages(worldId: 'w_1');
     expect(worldMessages.locations.single.locationId, 'loc_1');
-    expect(worldMessages.locations.single.messages.single.content, 'hello');
+    final worldMessage = worldMessages.locations.single.messages.single;
+    expect(worldMessage.content, 'hello');
+    expect(worldMessage.globalMessageId, 90001);
+    expect(worldMessage.messageId, 1001);
+    expect(worldMessage.locationMessageId, 101);
+    expect(worldMessage.currentTime, 'Day 1, 08:00');
+    expect(worldMessage.tickNo, 3);
 
     final history = await api.getMessages(
       worldId: 'w_1',
@@ -138,7 +192,12 @@ void main() {
       limit: 20,
     );
     expect(history.newestMessageId, 1001);
-    expect(history.messages.single.senderType, 'user');
+    final historyMessage = history.messages.single;
+    expect(historyMessage.senderType, 'user');
+    expect(historyMessage.globalMessageId, 90001);
+    expect(historyMessage.messageId, 1001);
+    expect(historyMessage.locationMessageId, 101);
+    expect(historyMessage.createdAt, DateTime(2026, 7, 1, 10));
 
     expect(await api.lockWorld(worldId: 'w_1'), true);
     final progress = await api.tickProgress(worldId: 'w_1');

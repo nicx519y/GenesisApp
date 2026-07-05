@@ -72,8 +72,9 @@ const events = [
   ["home_popular_click", "点击 Popular item", "GenesisTelemetry.collectLog", "event", "home_popular_click", "oid", "", "", "OriginListItem.oid"],
   ["worldo_list_click", "点击 worldo list item", "GenesisTelemetry.collectLog", "event", "worldo_list_click", "oid", "", "", "OriginListItem.oid"],
   ["me_click", "点击 Me/Profile 页面 oid/wid 内容", "GenesisTelemetry.collectLog", "event", "me_click", "oid/wid", "", "", "UserProfileOriginItem.oid 或 UserProfileWorldItem.wid"],
+  ["worldo_map_click", "点击 worldo map 任意位置", "GenesisTelemetry.collectLog", "event", "worldo_map_click", "oid", "", "", "OriginDetail.oid"],
   ["world_locations_click", "点击 location 列表项", "GenesisTelemetry.collectLog", "event", "world_locations_click", "wid", "loc_id", "", "WorldDetail.worldId；WorldPoint sceneId/pointId/id"],
-  ["world_map_click", "点击 world map location", "GenesisTelemetry.collectLog", "event", "world_map_click", "wid", "loc_id", "", "WorldPage.widget.wid；WorldPoint sceneId/pointId/id"],
+  ["world_map_click", "点击 world map 任意位置", "GenesisTelemetry.collectLog", "event", "world_map_click", "wid", "", "", "WorldPage.widget.wid"],
   ["location_chat_send_message", "location chat 发消息成功后", "GenesisTelemetry.collectLog", "event", "location_chat_send_message", "wid", "loc_id", "message_id", "LocationChatPage.widget.worldId；widget.locationId；ack.messageId"],
   ["private_chat_send_message", "私聊发送成功后", "GenesisTelemetry.collectLog", "event", "private_chat_send_message", "peer_uid", "message_id", "", "ChatPage._peerUid；dm send 返回 message_id/id"],
 ];

@@ -15,6 +15,7 @@ import '../bootstrap/app_services_scope.dart';
 import '../bootstrap/service_registry.dart';
 import '../config/app_config.dart';
 import '../config/app_endpoint_overrides.dart';
+import '../debug/location_chat_debug_hub.dart';
 import '../debug_page_tracker.dart';
 import '../genesis_navigator.dart';
 import 'agent_control_models.dart';
@@ -127,6 +128,8 @@ final Map<String, AgentControlHandler> _defaultHandlers = {
   'auth.clear': _authClear,
   'world.locations': _worldLocations,
   'agent.world_chat': _agentWorldChat,
+  'agent.world_chat.open': _agentWorldChatOpen,
+  'agent.world_chat.send': _agentWorldChatSend,
   'agent.world_chat.start': _agentWorldChatStart,
   'agent.world_chat.status': _agentWorldChatStatus,
   'agent.world_chat.cancel': _agentWorldChatCancel,
@@ -134,6 +137,11 @@ final Map<String, AgentControlHandler> _defaultHandlers = {
   'config.endpoint.clear': _clearEndpoint,
   'cache.clear': _clearCache,
   'diagnostics.snapshot': _diagnosticsSnapshot,
+  if (LocationChatDebugHub.available) ...{
+    'debug.locationChat.snapshot': _locationChatDebugSnapshot,
+    'debug.locationChat.events': _locationChatDebugEvents,
+    'debug.locationChat.clear': _locationChatDebugClear,
+  },
 };
 
 final Map<String, _AgentJob> _agentJobs = <String, _AgentJob>{};
@@ -331,6 +339,157 @@ Future<Map<String, Object?>> _agentWorldChatCancel(
   return {'jobId': jobId, 'cancelled': true};
 }
 
+Future<Map<String, Object?>> _agentWorldChatOpen(
+  AgentControlContext context,
+  AgentControlRequest request,
+) async {
+  final contextLimit = _intParam(request.params['contextLimit']) <= 0
+      ? 40
+      : _intParam(request.params['contextLimit']);
+  if (request.dryRun) {
+    return {'dryRun': true, 'contextLimit': contextLimit};
+  }
+
+  final target = await _resolveAgentWorldChatTarget(
+    context,
+    request,
+    progress: _ignoreAgentProgress,
+  );
+  final services = context.services;
+  final identity = await _agentChatroomIdentity(services);
+  final chatroom = WorldChatroomService(
+    api: services.api,
+    client: services.chatroom,
+    messageStorage: services.chatroomMessages,
+    refreshInitialSnapshotOnConnect: false,
+  );
+
+  try {
+    chatroom.applyWorldSnapshot(target.world);
+    await chatroom
+        .connect(worldId: target.world.worldId, identity: identity)
+        .timeout(const Duration(seconds: 30));
+    await chatroom
+        .join(locationId: target.locationId)
+        .timeout(const Duration(seconds: 30));
+    await chatroom.refreshLatestMessages(
+      locationId: target.locationId,
+      limit: contextLimit,
+    );
+    final messages =
+        chatroom.state.messagesByLocation[target.locationId] ??
+        const <WorldChatroomMessage>[];
+    return {
+      ..._agentWorldChatTargetJson(target),
+      'contextLimit': contextLimit,
+      'queueContext': _agentQueueContext(messages),
+      'messages': _agentMessageContextRows(messages),
+    };
+  } finally {
+    try {
+      await chatroom.disconnect();
+    } catch (_) {
+      // The context result should not be hidden by socket shutdown errors.
+    }
+    await chatroom.dispose();
+  }
+}
+
+Future<Map<String, Object?>> _agentWorldChatSend(
+  AgentControlContext context,
+  AgentControlRequest request,
+) async {
+  final text = _requiredString(request.params, const ['message', 'text']);
+  final replyTimeoutSeconds =
+      _intParam(request.params['replyTimeoutSeconds']) <= 0
+      ? 120
+      : _intParam(request.params['replyTimeoutSeconds']);
+  final contextLimit = _intParam(request.params['contextLimit']) <= 0
+      ? 60
+      : _intParam(request.params['contextLimit']);
+  if (request.dryRun) {
+    return {
+      'dryRun': true,
+      'message': _messageExcerpt(text, limit: 120),
+      'replyTimeoutSeconds': replyTimeoutSeconds,
+      'contextLimit': contextLimit,
+    };
+  }
+
+  final target = await _resolveAgentWorldChatTarget(
+    context,
+    request,
+    progress: _ignoreAgentProgress,
+  );
+  final services = context.services;
+  final identity = await _agentChatroomIdentity(services);
+  final chatroom = WorldChatroomService(
+    api: services.api,
+    client: services.chatroom,
+    messageStorage: services.chatroomMessages,
+    refreshInitialSnapshotOnConnect: false,
+  );
+
+  try {
+    chatroom.applyWorldSnapshot(target.world);
+    await chatroom
+        .connect(worldId: target.world.worldId, identity: identity)
+        .timeout(const Duration(seconds: 30));
+    await chatroom
+        .join(locationId: target.locationId)
+        .timeout(const Duration(seconds: 30));
+    await chatroom.refreshLatestMessages(
+      locationId: target.locationId,
+      limit: contextLimit,
+    );
+    final beforeMessages =
+        chatroom.state.messagesByLocation[target.locationId] ??
+        const <WorldChatroomMessage>[];
+    final clientMsgId = 'agent-manual-${DateTime.now().microsecondsSinceEpoch}';
+    final ack = await _sendAgentMessageWithReconnect(
+      chatroom,
+      text,
+      clientMsgId: clientMsgId,
+      worldId: target.world.worldId,
+      locationId: target.locationId,
+      identity: identity,
+      progress: _ignoreAgentProgress,
+    );
+    final reply = await _waitForAgentReply(
+      chatroom,
+      ack,
+      locationId: target.locationId,
+      identity: identity,
+      timeout: Duration(seconds: replyTimeoutSeconds),
+    );
+    final afterMessages =
+        chatroom.state.messagesByLocation[target.locationId] ??
+        const <WorldChatroomMessage>[];
+    return {
+      ..._agentWorldChatTargetJson(target),
+      'replyTimeoutSeconds': replyTimeoutSeconds,
+      'contextLimit': contextLimit,
+      'sent': _messageExcerpt(text, limit: 240),
+      'clientMsgId': clientMsgId,
+      'ackMessageId': ack.messageId,
+      'conversationRoundId': ack.conversationRoundId,
+      'replyMessageId': reply.messageId,
+      'replySender': reply.senderName,
+      'reply': _messageExcerpt(reply.content, limit: 500),
+      'queueContextBefore': _agentQueueContext(beforeMessages),
+      'queueContext': _agentQueueContext(afterMessages),
+      'messages': _agentMessageContextRows(afterMessages),
+    };
+  } finally {
+    try {
+      await chatroom.disconnect();
+    } catch (_) {
+      // The send result should not be hidden by socket shutdown errors.
+    }
+    await chatroom.dispose();
+  }
+}
+
 Future<Map<String, Object?>> _runAgentWorldChat(
   AgentControlContext context,
   AgentControlRequest request, {
@@ -345,9 +504,14 @@ Future<Map<String, Object?>> _runAgentWorldChat(
       _intParam(request.params['replyTimeoutSeconds']) <= 0
       ? 120
       : _intParam(request.params['replyTimeoutSeconds']);
+  final locationCount = _intParam(
+    request.params['locationCount'] ?? request.params['locations'],
+  );
+  final requestedLocationCount = locationCount <= 0 ? 1 : locationCount;
   final seedMessage = _optionalString(request.params, const ['seedMessage']);
   progress('准备自动聊天参数', {
     'messageCount': messageCount,
+    'locationCount': requestedLocationCount,
     'replyTimeoutSeconds': replyTimeoutSeconds,
   });
 
@@ -355,8 +519,22 @@ Future<Map<String, Object?>> _runAgentWorldChat(
     return {
       'dryRun': true,
       'messageCount': messageCount,
+      'locationCount': requestedLocationCount,
       'replyTimeoutSeconds': replyTimeoutSeconds,
     };
+  }
+
+  if (requestedLocationCount > 1) {
+    return _runAgentWorldChatAcrossLocations(
+      context,
+      request,
+      progress: progress,
+      isCancelled: isCancelled,
+      messageCount: messageCount,
+      requestedLocationCount: requestedLocationCount,
+      replyTimeoutSeconds: replyTimeoutSeconds,
+      seedMessage: seedMessage,
+    );
   }
 
   _throwIfAgentCancelled(isCancelled);
@@ -447,12 +625,24 @@ Future<Map<String, Object?>> _runAgentWorldChat(
   if (aliases is List && aliases.isNotEmpty) {
     chatArgs['localMessageLocationIds'] = aliases.join(',');
   }
+  await _updateAgentUserPosition(
+    services,
+    wid: world.worldId,
+    locationId: locationId,
+    progress: progress,
+  );
   progress('进入 LocationChatPage', {
     'wid': world.worldId,
     'locationId': locationId,
     'locationName': locationName,
   });
-  await _navigateToRoute(context, RouteNames.locationChat, chatArgs);
+  await _ensureAgentLocationChatPage(
+    context,
+    worldId: world.worldId,
+    locationId: locationId,
+    arguments: chatArgs,
+    progress: progress,
+  );
 
   _throwIfAgentCancelled(isCancelled);
   progress('准备 chatroom 身份并连接 websocket', {'locationId': locationId});
@@ -479,6 +669,10 @@ Future<Map<String, Object?>> _runAgentWorldChat(
         .timeout(const Duration(seconds: 30));
     progress('刷新最近消息作为上下文', {'locationId': locationId, 'limit': 40});
     await chatroom.refreshLatestMessages(locationId: locationId, limit: 40);
+    var queueContext = _agentQueueContext(
+      chatroom.state.messagesByLocation[locationId] ??
+          const <WorldChatroomMessage>[],
+    );
 
     for (var index = 0; index < messageCount; index += 1) {
       _throwIfAgentCancelled(isCancelled);
@@ -494,6 +688,7 @@ Future<Map<String, Object?>> _runAgentWorldChat(
         world: world,
         locationName: locationName,
         lastReply: lastReply,
+        queueContext: queueContext,
         seedMessage: seedMessage,
       );
       final clientMsgId =
@@ -526,6 +721,10 @@ Future<Map<String, Object?>> _runAgentWorldChat(
         timeout: Duration(seconds: replyTimeoutSeconds),
       );
       lastReply = reply.content.trim();
+      queueContext = _agentQueueContext(
+        chatroom.state.messagesByLocation[locationId] ??
+            const <WorldChatroomMessage>[],
+      );
       progress('收到 AI 回复，准备下一轮', {
         'turn': index + 1,
         'total': messageCount,
@@ -564,6 +763,283 @@ Future<Map<String, Object?>> _runAgentWorldChat(
     'requestedMessageCount': messageCount,
     'sentCount': sentCount,
     'replyCount': transcript.length,
+    'lastReply': _messageExcerpt(lastReply, limit: 200),
+    'transcriptTail': transcript.length <= 5
+        ? transcript
+        : transcript.sublist(transcript.length - 5),
+  };
+}
+
+Future<Map<String, Object?>> _runAgentWorldChatAcrossLocations(
+  AgentControlContext context,
+  AgentControlRequest request, {
+  required _AgentProgress progress,
+  required _AgentCancelled isCancelled,
+  required int messageCount,
+  required int requestedLocationCount,
+  required int replyTimeoutSeconds,
+  required String? seedMessage,
+}) async {
+  _throwIfAgentCancelled(isCancelled);
+  progress('进入首页，确保从 HomePage 开始选择 world', {'route': RouteNames.home});
+  await _navigateToRoute(
+    context,
+    RouteNames.home,
+    const <String, Object?>{},
+    clearStack: true,
+  );
+
+  final services = context.services;
+  progress('检查登录态，auth token 为空则停止并等待人工登录', {});
+  final authenticated = await services.api.hasAuthenticatedSession();
+  if (authenticated) services.notifySessionChanged();
+  await _requireAuthenticatedAgentSession(services);
+
+  _throwIfAgentCancelled(isCancelled);
+  final requestedWid = _optionalString(request.params, const [
+    'wid',
+    'world_id',
+  ]);
+  progress('选择要进入的 world', {'requestedWid': requestedWid ?? ''});
+  final worldPick = requestedWid == null
+      ? await _pickHomeWorld(services, progress: progress)
+      : _WorldPickResult(wid: requestedWid);
+  final wid = worldPick.wid;
+  if (wid.isEmpty) {
+    throw const AgentControlException(
+      code: 'world_not_found',
+      message: 'No world was found from home or my worlds.',
+    );
+  }
+
+  _throwIfAgentCancelled(isCancelled);
+  progress('进入 WorldPage，后续在多个 location 间切换', {'wid': wid});
+  await _navigateToRoute(context, RouteNames.world, {
+    'wid': wid,
+  }, clearStack: true);
+
+  progress('拉取 world 详情并检查是否可聊天', {'wid': wid});
+  final world = await services.api.getWorld(wid);
+  final relationBefore = world.relationStatus;
+  final relation = relationBefore.trim().toLowerCase();
+  if (!_isLaunchedRelation(relation)) {
+    throw AgentControlException(
+      code: 'world_not_chat_ready',
+      message:
+          'Selected world is not launched/joined. Launch is disabled for this command.',
+      details: {'wid': world.worldId, 'relationStatus': relationBefore},
+    );
+  }
+
+  final locations = _worldLocationRows(world);
+  final requestedLocationId = _optionalString(request.params, const [
+    'locationId',
+    'location_id',
+  ]);
+  final selectedLocations = _chooseLocations(
+    locations,
+    requestedLocationId,
+    requestedLocationCount,
+  );
+  if (selectedLocations.isEmpty) {
+    throw AgentControlException(
+      code: 'location_not_found',
+      message: 'No usable location was found for the selected world.',
+      details: {'wid': world.worldId},
+    );
+  }
+  final perLocationMessageCounts = _distributedMessageCounts(
+    messageCount,
+    selectedLocations.length,
+  );
+  progress('已选择多个 location，准备依次进入/退出并发消息', {
+    'requestedLocationCount': requestedLocationCount,
+    'selectedLocationCount': selectedLocations.length,
+    'messageCount': messageCount,
+    'locations': [
+      for (final location in selectedLocations)
+        {
+          'locationId': location['locationId'],
+          'locationName': location['locationName'],
+        },
+    ],
+  });
+
+  final identity = await _agentChatroomIdentity(services);
+  final chatroom = WorldChatroomService(
+    api: services.api,
+    client: services.chatroom,
+    messageStorage: services.chatroomMessages,
+    refreshInitialSnapshotOnConnect: false,
+  );
+
+  final transcript = <Map<String, Object?>>[];
+  var sentCount = 0;
+  var replyCount = 0;
+  var lastReply = '';
+  try {
+    chatroom.applyWorldSnapshot(world);
+    progress('连接 world chatroom', {'wid': world.worldId});
+    await chatroom
+        .connect(worldId: world.worldId, identity: identity)
+        .timeout(const Duration(seconds: 30));
+
+    for (
+      var locationIndex = 0;
+      locationIndex < selectedLocations.length;
+      locationIndex += 1
+    ) {
+      _throwIfAgentCancelled(isCancelled);
+      final location = selectedLocations[locationIndex];
+      final locationId = location['locationId']?.toString().trim() ?? '';
+      final locationName = location['locationName']?.toString().trim() ?? '';
+      final locationMessageCount = perLocationMessageCounts[locationIndex];
+
+      final previousJoinedLocationId = chatroom.state.joinedLocationId.trim();
+      if (previousJoinedLocationId.isNotEmpty &&
+          previousJoinedLocationId != locationId) {
+        progress('离开上一个 location chatroom', {
+          'previousLocationId': previousJoinedLocationId,
+          'nextLocationId': locationId,
+        });
+        try {
+          await chatroom.leave().timeout(const Duration(seconds: 15));
+        } catch (error) {
+          progress('离开上一个 location chatroom 失败，继续切换', {
+            'previousLocationId': previousJoinedLocationId,
+            'nextLocationId': locationId,
+            'error': error.toString(),
+          });
+        }
+      }
+
+      await _updateAgentUserPosition(
+        services,
+        wid: world.worldId,
+        locationId: locationId,
+        progress: progress,
+      );
+
+      progress('进入 location', {
+        'index': locationIndex + 1,
+        'total': selectedLocations.length,
+        'locationId': locationId,
+        'locationName': locationName,
+        'messageCount': locationMessageCount,
+      });
+      await _ensureAgentLocationChatPage(
+        context,
+        worldId: world.worldId,
+        locationId: locationId,
+        arguments: _agentLocationChatArgs(world, location),
+        progress: progress,
+      );
+      await _ensureAgentChatroomReady(
+        chatroom,
+        worldId: world.worldId,
+        locationId: locationId,
+        identity: identity,
+        progress: progress,
+      );
+      await chatroom.refreshLatestMessages(locationId: locationId, limit: 40);
+      var queueContext = _agentQueueContext(
+        chatroom.state.messagesByLocation[locationId] ??
+            const <WorldChatroomMessage>[],
+      );
+
+      for (var turn = 0; turn < locationMessageCount; turn += 1) {
+        _throwIfAgentCancelled(isCancelled);
+        final globalTurn = sentCount + 1;
+        final text = _agentMessageForTurn(
+          turn: turn + 1,
+          world: world,
+          locationName: locationName,
+          lastReply: lastReply,
+          queueContext: queueContext,
+          seedMessage: sentCount == 0 ? seedMessage : null,
+        );
+        final clientMsgId =
+            'agent-${DateTime.now().microsecondsSinceEpoch}-$globalTurn';
+        progress('在当前 location 发送消息并等待 ack', {
+          'turn': globalTurn,
+          'locationTurn': turn + 1,
+          'total': messageCount,
+          'locationId': locationId,
+          'message': _messageExcerpt(text, limit: 80),
+        });
+        final ack = await _sendAgentMessageWithReconnect(
+          chatroom,
+          text,
+          clientMsgId: clientMsgId,
+          worldId: world.worldId,
+          locationId: locationId,
+          identity: identity,
+          progress: progress,
+        );
+        sentCount += 1;
+        final reply = await _waitForAgentReply(
+          chatroom,
+          ack,
+          locationId: locationId,
+          identity: identity,
+          timeout: Duration(seconds: replyTimeoutSeconds),
+        );
+        replyCount += 1;
+        lastReply = reply.content.trim();
+        queueContext = _agentQueueContext(
+          chatroom.state.messagesByLocation[locationId] ??
+              const <WorldChatroomMessage>[],
+        );
+        transcript.add({
+          'turn': globalTurn,
+          'locationIndex': locationIndex + 1,
+          'locationId': locationId,
+          'locationName': locationName,
+          'sent': _messageExcerpt(text, limit: 80),
+          'ackMessageId': ack.messageId,
+          'conversationRoundId': ack.conversationRoundId,
+          'replyMessageId': reply.messageId,
+          'replySender': reply.senderName,
+          'reply': _messageExcerpt(lastReply, limit: 120),
+        });
+      }
+
+      progress('退出 location，回到 WorldPage', {
+        'index': locationIndex + 1,
+        'total': selectedLocations.length,
+        'locationId': locationId,
+      });
+      await _leaveLocationChatPage(context, world.worldId);
+    }
+  } finally {
+    try {
+      await chatroom.disconnect();
+    } catch (_) {
+      // The automation result should not be hidden by socket shutdown errors.
+    }
+    await chatroom.dispose();
+  }
+
+  return {
+    'wid': world.worldId,
+    'worldName': world.name,
+    'relationStatusBefore': relationBefore,
+    'relationStatusAfter': world.relationStatus,
+    'authenticated': authenticated,
+    'launchedByAgent': false,
+    'launchPolls': 0,
+    'requestedLocationCount': requestedLocationCount,
+    'visitedLocationCount': selectedLocations.length,
+    'locations': [
+      for (final location in selectedLocations)
+        {
+          'locationId': location['locationId'],
+          'locationName': location['locationName'],
+        },
+    ],
+    'requestedMessageCount': messageCount,
+    'sentCount': sentCount,
+    'replyCount': replyCount,
     'lastReply': _messageExcerpt(lastReply, limit: 200),
     'transcriptTail': transcript.length <= 5
         ? transcript
@@ -691,6 +1167,68 @@ Future<Map<String, Object?>> _diagnosticsSnapshot(
   };
 }
 
+Future<Map<String, Object?>> _locationChatDebugSnapshot(
+  AgentControlContext context,
+  AgentControlRequest request,
+) async {
+  return LocationChatDebugHub.snapshot();
+}
+
+Future<Map<String, Object?>> _locationChatDebugEvents(
+  AgentControlContext context,
+  AgentControlRequest request,
+) async {
+  return LocationChatDebugHub.eventsAfter(
+    _intParam(request.params['cursor']),
+    limit: _intParam(request.params['limit']),
+  );
+}
+
+Future<Map<String, Object?>> _locationChatDebugClear(
+  AgentControlContext context,
+  AgentControlRequest request,
+) async {
+  LocationChatDebugHub.clear();
+  return LocationChatDebugHub.snapshot();
+}
+
+Future<void> _ensureAgentLocationChatPage(
+  AgentControlContext context, {
+  required String worldId,
+  required String locationId,
+  required Map<String, Object?> arguments,
+  required _AgentProgress progress,
+}) async {
+  final current = _currentAgentLocationChatTarget();
+  if (current != null &&
+      current.worldId == worldId &&
+      current.locationId == locationId) {
+    progress('已在目标 LocationChatPage，复用当前页面', {
+      'wid': worldId,
+      'locationId': locationId,
+    });
+    await _waitForAgentRouteFrame();
+    return;
+  }
+
+  if (current != null) {
+    progress('退出当前 LocationChatPage 后再切换 location', {
+      'previousWid': current.worldId,
+      'previousLocationId': current.locationId,
+      'nextWid': worldId,
+      'nextLocationId': locationId,
+    });
+    await _leaveLocationChatPage(context, worldId);
+  }
+
+  if (!_currentWorldRouteMatches(worldId)) {
+    await _navigateToRoute(context, RouteNames.world, {
+      'wid': worldId,
+    }, clearStack: true);
+  }
+  await _navigateToRoute(context, RouteNames.locationChat, arguments);
+}
+
 Future<void> _navigateToRoute(
   AgentControlContext context,
   String route,
@@ -715,7 +1253,159 @@ Future<void> _navigateToRoute(
   } else {
     unawaited(navigator.pushNamed(route, arguments: arguments));
   }
-  await Future<void>.delayed(Duration.zero);
+  await _waitForAgentRouteFrame();
+}
+
+Future<void> _waitForAgentRouteFrame() async {
+  final binding = WidgetsBinding.instance;
+  for (var index = 0; index < 2; index += 1) {
+    binding.scheduleFrame();
+    await binding.endOfFrame;
+  }
+  await Future<void>.delayed(const Duration(milliseconds: 150));
+}
+
+Future<void> _updateAgentUserPosition(
+  AppServices services, {
+  required String wid,
+  required String locationId,
+  required _AgentProgress progress,
+}) async {
+  progress('更新用户位置到目标 location', {'wid': wid, 'locationId': locationId});
+  try {
+    await services.api
+        .updateUserPosition(wid: wid, locationId: locationId)
+        .timeout(const Duration(seconds: 15));
+  } catch (error) {
+    progress('更新用户位置失败，继续进入 location', {
+      'wid': wid,
+      'locationId': locationId,
+      'error': error.toString(),
+    });
+  }
+}
+
+Future<_AgentWorldChatTarget> _resolveAgentWorldChatTarget(
+  AgentControlContext context,
+  AgentControlRequest request, {
+  required _AgentProgress progress,
+}) async {
+  final services = context.services;
+  progress('检查登录态，auth token 为空则停止并等待人工登录', {});
+  final authenticated = await services.api.hasAuthenticatedSession();
+  if (authenticated) services.notifySessionChanged();
+  await _requireAuthenticatedAgentSession(services);
+
+  final requestedWid = _optionalString(request.params, const [
+    'wid',
+    'world_id',
+  ]);
+  if (requestedWid == null) {
+    progress('进入首页，确保从 HomePage 开始选择 world', {'route': RouteNames.home});
+    await _navigateToRoute(
+      context,
+      RouteNames.home,
+      const <String, Object?>{},
+      clearStack: true,
+    );
+  }
+  progress('选择要进入的 world', {'requestedWid': requestedWid ?? ''});
+  final worldPick = requestedWid == null
+      ? await _pickHomeWorld(services, progress: progress)
+      : _WorldPickResult(wid: requestedWid);
+  final wid = worldPick.wid;
+  if (wid.isEmpty) {
+    throw const AgentControlException(
+      code: 'world_not_found',
+      message: 'No world was found from home or my worlds.',
+    );
+  }
+
+  final currentLocationChat = _currentAgentLocationChatTarget();
+  if (currentLocationChat == null || currentLocationChat.worldId != wid) {
+    progress('先进入 WorldPage', {'wid': wid});
+    await _navigateToRoute(context, RouteNames.world, {
+      'wid': wid,
+    }, clearStack: true);
+  }
+
+  progress('在 WorldPage 后拉取 world 详情', {'wid': wid});
+  final world = await services.api.getWorld(wid);
+  final relationBefore = world.relationStatus;
+  final relation = relationBefore.trim().toLowerCase();
+  progress('确认不执行 launch，仅检查 world 是否可聊天', {
+    'wid': world.worldId,
+    'worldName': world.name,
+    'relationStatus': relationBefore,
+    'isProgressing': world.isProgressing,
+  });
+  if (!_isLaunchedRelation(relation)) {
+    throw AgentControlException(
+      code: 'world_not_chat_ready',
+      message:
+          'Selected world is not launched/joined. Launch is disabled for this command.',
+      details: {'wid': world.worldId, 'relationStatus': relationBefore},
+    );
+  }
+
+  final locations = _worldLocationRows(world);
+  final requestedLocationId = _optionalString(request.params, const [
+    'locationId',
+    'location_id',
+  ]);
+  progress('获取叶子 location 并选择一个进入聊天', {
+    'locationCount': locations.length,
+    'requestedLocationId': requestedLocationId ?? '',
+  });
+  final location = _chooseLocation(locations, requestedLocationId);
+  final locationId = location['locationId']?.toString().trim() ?? '';
+  final locationName = location['locationName']?.toString().trim() ?? '';
+  if (locationId.isEmpty) {
+    throw AgentControlException(
+      code: 'location_not_found',
+      message: 'No usable location was found for the selected world.',
+      details: {'wid': world.worldId},
+    );
+  }
+
+  final chatArgs = <String, Object?>{
+    'wid': world.worldId,
+    'location_id': locationId,
+    'worldName': world.name,
+    'locationName': locationName,
+    'isLeafLocation': location['isLeafLocation'] == true,
+  };
+  final aliases = location['localMessageLocationIds'];
+  if (aliases is List && aliases.isNotEmpty) {
+    chatArgs['localMessageLocationIds'] = aliases.join(',');
+  }
+  await _updateAgentUserPosition(
+    services,
+    wid: world.worldId,
+    locationId: locationId,
+    progress: progress,
+  );
+  progress('进入 LocationChatPage', {
+    'wid': world.worldId,
+    'locationId': locationId,
+    'locationName': locationName,
+  });
+  await _ensureAgentLocationChatPage(
+    context,
+    worldId: world.worldId,
+    locationId: locationId,
+    arguments: chatArgs,
+    progress: progress,
+  );
+
+  return _AgentWorldChatTarget(
+    world: world,
+    relationBefore: relationBefore,
+    locationId: locationId,
+    locationName: locationName,
+    location: location,
+    authenticated: authenticated,
+  );
 }
 
 Future<_WorldPickResult> _pickHomeWorld(
@@ -724,14 +1414,17 @@ Future<_WorldPickResult> _pickHomeWorld(
 }) async {
   progress('查询我的 world 列表', {'scene': 'mine', 'limit': 20});
   final worlds = await services.api.getMyWorlds(scene: 'mine', limit: 20);
-  for (final world in worlds) {
-    if (!world.deleted && world.wid.trim().isNotEmpty) {
-      progress('从我的 world 列表选择 world', {
-        'wid': world.wid.trim(),
-        'worldName': world.name,
-      });
-      return _WorldPickResult(wid: world.wid.trim());
-    }
+  final candidates = worlds
+      .where((world) => !world.deleted && world.wid.trim().isNotEmpty)
+      .toList(growable: false);
+  if (candidates.isNotEmpty) {
+    final world = candidates[math.Random().nextInt(candidates.length)];
+    progress('从我的 world 列表随机选择 world', {
+      'wid': world.wid.trim(),
+      'worldName': world.name,
+      'candidateCount': candidates.length,
+    });
+    return _WorldPickResult(wid: world.wid.trim());
   }
   throw const AgentControlException(
     code: 'world_not_found',
@@ -781,6 +1474,112 @@ Map<String, Object?> _chooseLocation(
   return candidates[math.Random().nextInt(candidates.length)];
 }
 
+List<Map<String, Object?>> _chooseLocations(
+  List<Map<String, Object?>> locations,
+  String? requestedLocationId,
+  int requestedCount,
+) {
+  if (locations.isEmpty) return const <Map<String, Object?>>[];
+  final leaves = locations
+      .where((location) => location['isLeafLocation'] == true)
+      .toList(growable: false);
+  final candidates = (leaves.isEmpty ? locations : leaves)
+      .where(
+        (location) =>
+            (location['locationId']?.toString().trim() ?? '').isNotEmpty,
+      )
+      .toList(growable: false);
+  if (candidates.isEmpty) return const <Map<String, Object?>>[];
+
+  final selected = <Map<String, Object?>>[];
+  final seen = <String>{};
+  final requested = requestedLocationId?.trim() ?? '';
+  if (requested.isNotEmpty) {
+    Map<String, Object?>? requestedLocation;
+    for (final location in candidates) {
+      if ((location['locationId']?.toString().trim() ?? '') == requested) {
+        requestedLocation = location;
+        break;
+      }
+    }
+    if (requestedLocation == null) {
+      throw AgentControlException(
+        code: 'location_not_found',
+        message: 'Requested location was not found in the selected world.',
+        details: {'locationId': requested},
+      );
+    }
+    selected.add(requestedLocation);
+    seen.add(requested);
+  }
+
+  final shuffled = candidates.toList(growable: false)..shuffle(math.Random());
+  for (final location in shuffled) {
+    if (selected.length >= requestedCount) break;
+    final locationId = location['locationId']?.toString().trim() ?? '';
+    if (locationId.isEmpty || !seen.add(locationId)) continue;
+    selected.add(location);
+  }
+  return selected;
+}
+
+List<int> _distributedMessageCounts(int messageCount, int locationCount) {
+  if (locationCount <= 0) return const <int>[];
+  final total = messageCount < 0 ? 0 : messageCount;
+  final base = total ~/ locationCount;
+  var remainder = total % locationCount;
+  return [
+    for (var index = 0; index < locationCount; index += 1)
+      base + (remainder-- > 0 ? 1 : 0),
+  ];
+}
+
+Map<String, Object?> _agentLocationChatArgs(
+  WorldDetail world,
+  Map<String, Object?> location,
+) {
+  final locationId = location['locationId']?.toString().trim() ?? '';
+  final locationName = location['locationName']?.toString().trim() ?? '';
+  final chatArgs = <String, Object?>{
+    'wid': world.worldId,
+    'location_id': locationId,
+    'worldName': world.name,
+    'locationName': locationName,
+    'isLeafLocation': location['isLeafLocation'] == true,
+  };
+  final aliases = location['localMessageLocationIds'];
+  if (aliases is List && aliases.isNotEmpty) {
+    chatArgs['localMessageLocationIds'] = aliases.join(',');
+  }
+  return chatArgs;
+}
+
+Future<void> _leaveLocationChatPage(
+  AgentControlContext context,
+  String worldId,
+) async {
+  final navigator = context.navigator;
+  if (navigator == null) {
+    throw const AgentControlException(
+      code: 'navigator_unavailable',
+      message: 'Navigator is not available yet.',
+    );
+  }
+
+  for (var popCount = 0; popCount < 8; popCount += 1) {
+    if (_currentAgentLocationChatTarget() == null) return;
+    final didPop = await navigator.maybePop();
+    if (!didPop) break;
+    await _waitForAgentRouteFrame();
+  }
+
+  if (_currentAgentLocationChatTarget() != null) {
+    await _navigateToRoute(context, RouteNames.world, {
+      'wid': worldId,
+    }, clearStack: true);
+  }
+}
+
 Future<ChatroomConnectionIdentity> _agentChatroomIdentity(
   AppServices services,
 ) async {
@@ -814,15 +1613,93 @@ String _agentMessageForTurn({
   required WorldDetail world,
   required String locationName,
   required String lastReply,
+  required String queueContext,
   required String? seedMessage,
 }) {
   if (turn == 1) {
     final seed = seedMessage?.trim() ?? '';
     if (seed.isNotEmpty) return seed;
+    if (queueContext.isNotEmpty) {
+      return 'Turn $turn: I have arrived at $locationName in ${world.name}. Recent context: $queueContext. Continue from what is already happening here and give me a natural next action.';
+    }
     return 'Turn $turn: I have arrived at $locationName in ${world.name}. What should I notice first?';
   }
   final context = _messageExcerpt(lastReply, limit: 120);
-  return 'Turn $turn: Based on your last reply "$context", continue the scene and tell me what I should do or ask next.';
+  final queue = queueContext.isEmpty
+      ? ''
+      : ' Recent queue context: ${_messageExcerpt(queueContext, limit: 180)}.';
+  return 'Turn $turn: Based on your last reply "$context",$queue continue the scene and tell me what I should do or ask next.';
+}
+
+String _agentQueueContext(List<WorldChatroomMessage> messages) {
+  final rows = messages
+      .where((message) => message.content.trim().isNotEmpty)
+      .toList(growable: false);
+  if (rows.isEmpty) return '';
+  rows.sort((a, b) {
+    final aTime = a.createdAt?.millisecondsSinceEpoch ?? 0;
+    final bTime = b.createdAt?.millisecondsSinceEpoch ?? 0;
+    if (aTime != bTime) return aTime.compareTo(bTime);
+    return a.messageId.compareTo(b.messageId);
+  });
+  final tail = rows.length <= 5 ? rows : rows.sublist(rows.length - 5);
+  return tail
+      .map((message) {
+        final speaker = _firstNonEmpty([
+          message.senderName,
+          message.senderType,
+          message.senderId,
+          'unknown',
+        ]);
+        return '$speaker: ${_messageExcerpt(message.content, limit: 80)}';
+      })
+      .join(' | ');
+}
+
+Map<String, Object?> _agentWorldChatTargetJson(_AgentWorldChatTarget target) {
+  return {
+    'wid': target.world.worldId,
+    'worldName': target.world.name,
+    'relationStatusBefore': target.relationBefore,
+    'relationStatusAfter': target.world.relationStatus,
+    'authenticated': target.authenticated,
+    'launchedByAgent': false,
+    'launchPolls': 0,
+    'locationId': target.locationId,
+    'locationName': target.locationName,
+    'isLeafLocation': target.location['isLeafLocation'] == true,
+  };
+}
+
+List<Map<String, Object?>> _agentMessageContextRows(
+  List<WorldChatroomMessage> messages, {
+  int limit = 12,
+}) {
+  final rows = messages
+      .where((message) => message.content.trim().isNotEmpty)
+      .toList(growable: false);
+  rows.sort((a, b) {
+    final aTime = a.createdAt?.millisecondsSinceEpoch ?? 0;
+    final bTime = b.createdAt?.millisecondsSinceEpoch ?? 0;
+    if (aTime != bTime) return aTime.compareTo(bTime);
+    return a.messageId.compareTo(b.messageId);
+  });
+  final tail = rows.length <= limit ? rows : rows.sublist(rows.length - limit);
+  return [
+    for (final message in tail)
+      {
+        'messageId': message.messageId,
+        'globalMessageId': message.globalMessageId,
+        'locationMessageId': message.locationMessageId,
+        'conversationRoundId': message.conversationRoundId,
+        'senderType': message.senderType,
+        'senderId': message.senderId,
+        'senderName': message.senderName,
+        'streaming': message.streaming,
+        'content': _messageExcerpt(message.content, limit: 500),
+        'createdAt': message.createdAt?.toIso8601String(),
+      },
+  ];
 }
 
 Future<void> _ensureAgentChatroomReady(
@@ -992,6 +1869,56 @@ String? _optionalString(Map<String, Object?> params, List<String> keys) {
   return null;
 }
 
+_AgentLocationChatPageTarget? _currentAgentLocationChatTarget() {
+  return _agentLocationChatTargetFrom(
+    genesisCurrentRouteName.value,
+    genesisCurrentRouteArguments.value,
+  );
+}
+
+_AgentLocationChatPageTarget? _agentLocationChatTargetFrom(
+  String routeName,
+  Object? routeArguments,
+) {
+  if (routeName != RouteNames.locationChat) return null;
+  final args = _mapParam(routeArguments);
+  if (args == null) return null;
+  final worldId = _optionalString(args, const ['wid', 'world_id', 'worldId']);
+  final locationId = _optionalString(args, const [
+    'location_id',
+    'locationId',
+    'scene_id',
+    'sceneId',
+    'point_id',
+    'pointId',
+  ]);
+  if (worldId == null || locationId == null) return null;
+  return _AgentLocationChatPageTarget(worldId: worldId, locationId: locationId);
+}
+
+bool _currentWorldRouteMatches(String worldId) {
+  if (genesisCurrentRouteName.value != RouteNames.world) return false;
+  final args = _mapParam(genesisCurrentRouteArguments.value);
+  if (args == null) return false;
+  return _optionalString(args, const ['wid', 'world_id', 'worldId']) == worldId;
+}
+
+@visibleForTesting
+bool agentControlShouldReuseLocationChatPageForTesting({
+  required String currentRouteName,
+  required Object? currentRouteArguments,
+  required String worldId,
+  required String locationId,
+}) {
+  final current = _agentLocationChatTargetFrom(
+    currentRouteName,
+    currentRouteArguments,
+  );
+  return current != null &&
+      current.worldId == worldId.trim() &&
+      current.locationId == locationId.trim();
+}
+
 bool _boolParam(Object? value) {
   if (value is bool) return value;
   final text = value?.toString().trim().toLowerCase() ?? '';
@@ -1158,6 +2085,34 @@ class _WorldPickResult {
   const _WorldPickResult({required this.wid});
 
   final String wid;
+}
+
+class _AgentWorldChatTarget {
+  const _AgentWorldChatTarget({
+    required this.world,
+    required this.relationBefore,
+    required this.locationId,
+    required this.locationName,
+    required this.location,
+    required this.authenticated,
+  });
+
+  final WorldDetail world;
+  final String relationBefore;
+  final String locationId;
+  final String locationName;
+  final Map<String, Object?> location;
+  final bool authenticated;
+}
+
+class _AgentLocationChatPageTarget {
+  const _AgentLocationChatPageTarget({
+    required this.worldId,
+    required this.locationId,
+  });
+
+  final String worldId;
+  final String locationId;
 }
 
 void _ignoreAgentProgress(String goal, Map<String, Object?> details) {}

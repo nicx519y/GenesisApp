@@ -7,6 +7,21 @@ import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 void main() {
+  List<ChatMessageVm> chatMessages(int start, int end) {
+    return [
+      for (var id = start; id <= end; id += 1)
+        ChatMessageVm(
+          localId: 'm$id',
+          senderId: 'peer',
+          senderName: 'Peer',
+          text: 'message $id',
+          isMe: id.isEven,
+          status: 'sent',
+          createdAt: DateTime(2026, 5, 29, 10).add(Duration(minutes: id)),
+        ),
+    ];
+  }
+
   testWidgets('chat message list can render an oldest-edge notice', (
     WidgetTester tester,
   ) async {
@@ -46,6 +61,143 @@ void main() {
       ),
     );
   });
+
+  testWidgets('anchored message list shows loading instead of oldest notice', (
+    WidgetTester tester,
+  ) async {
+    const notice = 'Oldest edge notice';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatAnchoredMessageList(
+            controller: ScrollController(),
+            centerLocalId: '',
+            topTitle: '',
+            oldestEdgeNotice: notice,
+            oldestEdgeLoading: true,
+            showDateDividers: false,
+            messages: const [],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text(notice), findsNothing);
+  });
+
+  testWidgets(
+    'anchored message list does not scroll short notice and message content',
+    (WidgetTester tester) async {
+      final controller = ScrollController();
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 640,
+              child: ChatAnchoredMessageList(
+                controller: controller,
+                centerLocalId: '',
+                topTitle: '',
+                oldestEdgeNotice: 'Oldest edge notice',
+                showDateDividers: false,
+                messages: chatMessages(1, 3),
+                style: style,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final scrollable = find.byType(Scrollable).first;
+      final position = tester.state<ScrollableState>(scrollable).position;
+      final firstMessageTop = tester
+          .getTopLeft(find.byKey(const ValueKey('m1')))
+          .dy;
+
+      expect(position.minScrollExtent, 0);
+      expect(position.maxScrollExtent, 0);
+
+      await tester.drag(scrollable, const Offset(0, -80));
+      await tester.pump();
+
+      expect(position.pixels, 0);
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('m1'))).dy,
+        firstMessageTop,
+      );
+    },
+  );
+
+  testWidgets(
+    'anchored message list stays linear when only system messages precede center',
+    (WidgetTester tester) async {
+      final controller = ScrollController();
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: const EdgeInsets.fromLTRB(10, 18, 10, 12),
+      );
+
+      final messages = [
+        ChatMessageVm(
+          localId: 'tick-1',
+          senderId: 'tick',
+          senderName: 'Tick',
+          senderType: 'tick',
+          text: '',
+          isMe: false,
+          status: 'sent',
+          tickNo: 1,
+          currentTime: 'Match Day, 14:00',
+        ),
+        ChatMessageVm(
+          localId: 'm1',
+          senderId: 'me',
+          senderName: 'Me',
+          text: 'first message',
+          isMe: true,
+          status: 'sent',
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 640,
+              child: ChatAnchoredMessageList(
+                controller: controller,
+                centerLocalId: 'm1',
+                topTitle: '',
+                oldestEdgeNotice: 'Oldest edge notice',
+                showDateDividers: false,
+                messages: messages,
+                style: style,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final scrollable = find.byType(Scrollable).first;
+      final position = tester.state<ScrollableState>(scrollable).position;
+      final noticeTop = tester.getTopLeft(find.text('Oldest edge notice')).dy;
+
+      expect(position.minScrollExtent, 0);
+      expect(position.maxScrollExtent, 0);
+
+      await tester.drag(scrollable, const Offset(0, -80));
+      await tester.pump();
+
+      expect(position.pixels, 0);
+      expect(tester.getTopLeft(find.text('Oldest edge notice')).dy, noticeTop);
+    },
+  );
 
   testWidgets('chat message list shows first divider and long gaps', (
     WidgetTester tester,
@@ -132,6 +284,50 @@ void main() {
 
     expect(find.byType(ChatDateDivider), findsNothing);
   });
+
+  testWidgets(
+    'anchored message list keeps center stable when history prepends',
+    (WidgetTester tester) async {
+      final controller = ScrollController();
+      final style = ChatUiStyleConfig.standard.copyWith(
+        messageListPadding: EdgeInsets.zero,
+      );
+
+      Widget build(List<ChatMessageVm> messages) {
+        return MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: ChatAnchoredMessageList(
+                controller: controller,
+                messages: messages,
+                centerLocalId: 'm21',
+                topTitle: '',
+                showDateDividers: false,
+                style: style,
+              ),
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(build(chatMessages(21, 80)));
+      await tester.pumpAndSettle();
+      controller.jumpTo(0);
+      await tester.pumpAndSettle();
+
+      final centerFinder = find.byKey(const ValueKey<String>('m21'));
+      expect(centerFinder, findsOneWidget);
+      final before = tester.getTopLeft(centerFinder).dy;
+
+      await tester.pumpWidget(build(chatMessages(1, 80)));
+      await tester.pumpAndSettle();
+
+      expect(centerFinder, findsOneWidget);
+      final after = tester.getTopLeft(centerFinder).dy;
+      expect(after, closeTo(before, 1));
+    },
+  );
 
   test('chat date divider rule includes first message only plus long gaps', () {
     final start = DateTime(2026, 5, 29, 10);
@@ -376,6 +572,46 @@ void main() {
     expect(find.text('PN'), findsOneWidget);
   });
 
+  testWidgets('char npc message renders fixed NPC avatar', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'char_npc',
+              senderName: 'Village Guide',
+              text: 'hello',
+              isMe: false,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+            style: kLocationChatStyle,
+          ),
+        ),
+      ),
+    );
+
+    final avatarFinder = find.byKey(const ValueKey('chat-npc-avatar'));
+    expect(avatarFinder, findsOneWidget);
+    expect(tester.getSize(avatarFinder), const Size(36, 36));
+    expect(find.text('NPC'), findsOneWidget);
+    expect(find.text('VG'), findsNothing);
+
+    final avatarBox = tester.widget<DecoratedBox>(
+      find.descendant(of: avatarFinder, matching: find.byType(DecoratedBox)),
+    );
+    final decoration = avatarBox.decoration as BoxDecoration;
+    expect(decoration.color, const Color(0xFF4A5F7A));
+    expect(decoration.shape, BoxShape.circle);
+
+    final label = tester.widget<Text>(find.text('NPC'));
+    expect(label.style?.color, Colors.white);
+    expect(label.style?.fontWeight, FontWeight.w700);
+  });
+
   testWidgets('chat message bubble parses markdown italic text', (
     WidgetTester tester,
   ) async {
@@ -439,10 +675,7 @@ void main() {
       );
       expect(text.textSpan?.toPlainText(), rendered);
       expect(text.textSpan?.style?.fontFamily, isNull);
-      expect(
-        text.textSpan?.style?.fontFamilyFallback,
-        GenesisTypography.fallbackFontFamilies,
-      );
+      expect(text.textSpan?.style?.fontFamilyFallback, isNull);
     },
   );
 
@@ -783,7 +1016,7 @@ void main() {
     expect(tickBar.right, closeTo(400 - expectedOuterPadding, 1));
     expect(
       narratorText.left,
-      closeTo(expectedBubbleEdge + style.systemMessagePadding.left, 1),
+      closeTo(expectedBubbleEdge + style.systemMessagePadding.left + 20, 1),
     );
     expect(
       tickText.left,
@@ -1128,10 +1361,7 @@ void main() {
     expect(controller.text, rendered);
     final input = tester.widget<TextField>(find.byType(TextField));
     expect(input.style?.fontFamily, isNull);
-    expect(
-      input.style?.fontFamilyFallback,
-      GenesisTypography.fallbackFontFamilies,
-    );
+    expect(input.style?.fontFamilyFallback, isNull);
   });
 
   testWidgets('chat composer send button keeps text field focused', (
