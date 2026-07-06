@@ -302,6 +302,11 @@ class WorldInfoHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final action = worldHeaderActionFor(world.relationStatus);
+    final canTapRunningProgress =
+        action.kind == WorldHeaderActionKind.progress &&
+        worldActionRunning &&
+        action.isClickable &&
+        !world.deleted;
     final actionEnabled =
         !world.deleted && !worldActionRunning && action.isClickable;
     final counters = <Map<String, dynamic>>[
@@ -358,25 +363,34 @@ class WorldInfoHeader extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 18),
-                  GenesisPrimaryButton(
-                    label: action.label,
-                    onPressed: actionEnabled
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: canTapRunningProgress
                         ? () => onWorldAction(action.kind)
                         : null,
-                    height: 35,
-                    width: 140,
-                    backgroundColor: const Color(0xFF2F9663),
-                    disabledBackgroundColor: const Color(
-                      0xFF2F9663,
-                    ).withValues(alpha: 0.62),
-                    foregroundColor: Colors.white,
-                    fontSize: 16,
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    isLoading: worldActionRunning,
-                    loadingSize: 18,
-                    loadingStrokeWidth: 2,
+                    child: AbsorbPointer(
+                      absorbing: canTapRunningProgress,
+                      child: GenesisPrimaryButton(
+                        label: action.label,
+                        onPressed: actionEnabled
+                            ? () => onWorldAction(action.kind)
+                            : null,
+                        height: 35,
+                        width: 140,
+                        backgroundColor: const Color(0xFF2F9663),
+                        disabledBackgroundColor: const Color(
+                          0xFF2F9663,
+                        ).withValues(alpha: 0.62),
+                        foregroundColor: Colors.white,
+                        fontSize: 16,
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        isLoading: worldActionRunning,
+                        loadingSize: 18,
+                        loadingStrokeWidth: 2,
+                      ),
+                    ),
                   ),
                 ],
               ),

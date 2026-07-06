@@ -93,6 +93,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
               child: GenesisLogo(height: 88, width: 152),
             ),
             perspectiveLines: _generationWaitLines,
+            onBackPressed: () => Navigator.of(context).maybePop(),
           ),
         ),
       ],

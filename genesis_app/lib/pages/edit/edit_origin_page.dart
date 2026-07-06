@@ -172,6 +172,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
               child: GenesisLogo(height: 88, width: 152),
             ),
             perspectiveLines: _generationWaitLines,
+            onBackPressed: () => Navigator.of(context).maybePop(),
           ),
         ),
       ],

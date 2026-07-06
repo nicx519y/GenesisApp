@@ -54,7 +54,6 @@ class WorldPage extends StatefulWidget {
 }
 
 class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
-  static const Duration _worldInfoPollInterval = Duration(seconds: 5);
   static const double _progressWaitAvatarSize = 88;
   static const String _progressWaitTitle = 'Progressing the World';
   static const String _progressWaitMessage =
@@ -102,14 +101,15 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   int _lastAppliedNewUserJoinRevision = 0;
   WorldNewUserJoinNotice? _pendingNewUserJoinNotice;
   bool _tick1WaitDialogStarted = false;
-  Timer? _worldInfoPollTimer;
-  Future<void>? _worldInfoPollFuture;
+  bool? _lastChatroomInputBlocked;
+  bool _worldTickDoneHandling = false;
   int _lastAppliedChatroomWorldProgressRevision = 0;
   List<WorldMapBubbleCandidate> _mapBubbleCandidates =
       const <WorldMapBubbleCandidate>[];
   int? _pendingProgressTickCount;
   var _currentUid = '';
   var _currentUidRequested = false;
+  var _locationChatDescriptorSignature = '';
   late final ValueNotifier<WorldDetail?> _sectionsWorldNotifier =
       ValueNotifier<WorldDetail?>(_world);
   late final ValueNotifier<WorldBottomSheetSelection>
@@ -143,7 +143,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _maybeShowTick1WaitDialog();
       if (initialWorld.isProgressing &&
           shouldConnectWorldChatroom(initialWorld.relationStatus)) {
-        _startWorldTickPolling();
+        _startWorldTickTracking();
       }
     } else {
       unawaited(
@@ -179,7 +179,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     GenesisSystemUiChrome.applyDefault();
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
-    _stopWorldInfoPolling();
     final chatroom = _worldChatroom;
     _worldChatroom = null;
     if (chatroom != null) {
@@ -386,9 +385,18 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         ? _newUserJoinNoticeFromEvent(latestNewUserJoin)
         : null;
     var shouldSyncRelationStatus = false;
-    final tickDoneFromPush = _worldTickInProgress && !state.inputBlocked;
+    final previousInputBlocked = _lastChatroomInputBlocked;
+    _lastChatroomInputBlocked = state.inputBlocked;
+    final tickDoneFromPush =
+        _worldTickInProgress &&
+        previousInputBlocked == true &&
+        !state.inputBlocked &&
+        !_worldTickDoneHandling;
     final tickStartedFromPush =
-        canShowWorldTickProgress && state.inputBlocked && !_worldTickInProgress;
+        canShowWorldTickProgress &&
+        state.inputBlocked &&
+        previousInputBlocked != true &&
+        !_worldTickInProgress;
     final socketCurrentTime = state.latestSocketCurrentTime.trim();
     final socketTickNo = state.latestSocketTickNo;
     final shouldApplySocketWorldProgress =
@@ -396,8 +404,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         state.latestSocketCurrentTimeRevision >
             _lastAppliedChatroomWorldProgressRevision;
     setState(() {
-      if (world != null && !identical(_world, world)) {
+      if (world != null && _shouldApplyChatroomWorldSnapshot(world)) {
         _world = world;
+        _sectionsWorldNotifier.value = world;
         _syncLocationChatDescriptors(world);
         shouldSyncRelationStatus = true;
       }
@@ -426,7 +435,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     }
     if (tickStartedFromPush) {
       _setWorldTickInProgress(true);
-      _startWorldTickPolling(pollImmediately: false);
+      _startWorldTickTracking();
     }
     if (tickDoneFromPush) {
       unawaited(_handleWorldTickDone());
@@ -577,7 +586,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final canTrackWorldProgress = shouldConnectWorldChatroom(
       world.relationStatus,
     );
-    final shouldStartPolling = world.isProgressing && canTrackWorldProgress;
+    final shouldStartTracking = world.isProgressing && canTrackWorldProgress;
     _precacheProgressWaitAvatarImages(world);
     setState(() {
       _world = world;
@@ -589,8 +598,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       );
     });
     _syncWorldChatroomForRelationStatus(world.relationStatus);
-    if (shouldStartPolling) {
-      _startWorldTickPolling();
+    if (shouldStartTracking) {
+      _startWorldTickTracking();
     } else if (_worldTickInProgress) {
       _markWorldTickIdle();
     }
@@ -705,18 +714,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   Future<void> _runWorldAction(WorldHeaderActionKind action) async {
-    if (_worldActionRunning) return;
     if (action == WorldHeaderActionKind.progress && _worldTickInProgress) {
       _openEventsAfterTickDone = true;
-      if (mounted) {
-        setState(() => _worldActionRunning = true);
-      } else {
-        _worldActionRunning = true;
-      }
+      _startWorldTickTracking();
       _setWorldTickWaitOverlayRequested(true);
-      _startWorldTickPolling(pollImmediately: false);
       return;
     }
+    if (_worldActionRunning) return;
     if (action == WorldHeaderActionKind.request) {
       if (!await ensureGenesisLogin(context)) return;
       if (!mounted) return;
@@ -769,7 +773,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         showGenesisToast(context, message);
       }
       if (action == WorldHeaderActionKind.progress) {
-        _startWorldTickPolling(openEventsAfterDone: true);
+        _startWorldTickTracking(openEventsAfterDone: true);
       } else {
         await _fetchWorld();
       }
@@ -780,7 +784,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         _openEventsAfterTickDone = false;
         _pendingProgressTickCount = null;
         _setWorldTickWaitOverlayRequested(false);
-        _stopWorldInfoPolling();
         _markWorldTickIdle();
       }
       showGenesisToast(context, '${worldHeaderActionLabel(action)} failed');
@@ -791,19 +794,15 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     }
   }
 
-  void _startWorldTickPolling({
-    bool openEventsAfterDone = false,
-    bool pollImmediately = true,
-  }) {
+  void _startWorldTickTracking({bool openEventsAfterDone = false}) {
     if (openEventsAfterDone) _openEventsAfterTickDone = true;
     _setWorldTickInProgress(true);
-    if (_worldInfoPollTimer != null) return;
-    _worldInfoPollTimer = Timer.periodic(
-      _worldInfoPollInterval,
-      (_) => _pollWorldInfoUntilTickDone(),
-    );
-    if (pollImmediately) {
-      unawaited(_pollWorldInfoUntilTickDone());
+    if (!_worldActionRunning) {
+      if (mounted) {
+        setState(() => _worldActionRunning = true);
+      } else {
+        _worldActionRunning = true;
+      }
     }
   }
 
@@ -835,51 +834,30 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _pollWorldInfoUntilTickDone() {
-    final existing = _worldInfoPollFuture;
-    if (existing != null) return existing;
-    final future = _pollWorldInfoOnce();
-    _worldInfoPollFuture = future;
-    return future.whenComplete(() {
-      if (identical(_worldInfoPollFuture, future)) {
-        _worldInfoPollFuture = null;
-      }
-    });
-  }
-
-  Future<void> _pollWorldInfoOnce() async {
-    try {
-      final world = await AppServicesScope.read(
-        context,
-      ).api.getWorldInfo(widget.wid);
-      if (!mounted || world.isProgressing) return;
-      await _handleWorldTickDone();
-    } catch (error) {
-      debugPrint(
-        '[WorldPage] world/info poll failed wid="${widget.wid}": $error',
-      );
-    }
-  }
-
   Future<void> _handleWorldTickDone() async {
-    _stopWorldInfoPolling();
+    if (_worldTickDoneHandling) return;
+    _worldTickDoneHandling = true;
     _markWorldTickIdle();
-    await _fetchWorld();
-    if (!mounted) return;
-    _markEventsUnread();
-    final completedTickCount = _world?.tickCount ?? _pendingProgressTickCount;
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'world_progress_async_complete',
-      object1: widget.wid,
-      object2: completedTickCount,
-    );
-    _pendingProgressTickCount = null;
-    if (_openEventsAfterTickDone) {
-      _openEventsAfterTickDone = false;
-      if (!_shouldSuppressAutoEventsAfterTick) {
-        _showOrSelectEventsAfterTick();
+    try {
+      await _fetchWorld();
+      if (!mounted) return;
+      _markEventsUnread();
+      final completedTickCount = _world?.tickCount ?? _pendingProgressTickCount;
+      GenesisTelemetry.collectLog(
+        actionType: 'event',
+        action: 'world_progress_async_complete',
+        object1: widget.wid,
+        object2: completedTickCount,
+      );
+      _pendingProgressTickCount = null;
+      if (_openEventsAfterTickDone) {
+        _openEventsAfterTickDone = false;
+        if (!_shouldSuppressAutoEventsAfterTick) {
+          _showOrSelectEventsAfterTick();
+        }
       }
+    } finally {
+      _worldTickDoneHandling = false;
     }
   }
 
@@ -927,11 +905,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   void _clearEventsUnread() {
     if (!_eventsUnread) return;
     setState(() => _eventsUnread = false);
-  }
-
-  void _stopWorldInfoPolling() {
-    _worldInfoPollTimer?.cancel();
-    _worldInfoPollTimer = null;
   }
 
   Future<bool> _confirmWorldRequest() async {
@@ -1302,6 +1275,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   void _syncLocationChatDescriptors(WorldDetail world) {
     final descriptors = _locationChatDescriptorsForWorld(world);
+    final signature = _locationChatDescriptorsSignature(descriptors);
+    if (signature == _locationChatDescriptorSignature) return;
+    _locationChatDescriptorSignature = signature;
     _locationChatDescriptors = descriptors;
     _locationChatPageCache.syncDescriptors(descriptors);
     _recordWorldLocationChatDebug(
@@ -1329,6 +1305,40 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     );
     _mapBubbleMessagesReady = false;
     _scheduleLocationChatPrecache();
+  }
+
+  bool _shouldApplyChatroomWorldSnapshot(WorldDetail nextWorld) {
+    final currentWorld = _world;
+    if (currentWorld == null) return true;
+    if (currentWorld.worldId != nextWorld.worldId) return true;
+    if (currentWorld.relationStatus != nextWorld.relationStatus) return true;
+    if (currentWorld.tickCount != nextWorld.tickCount) return true;
+    if (currentWorld.currentTime != nextWorld.currentTime) return true;
+    if (currentWorld.isProgressing != nextWorld.isProgressing) return true;
+    final nextSignature = _locationChatDescriptorsSignature(
+      _locationChatDescriptorsForWorld(nextWorld),
+    );
+    return nextSignature != _locationChatDescriptorSignature;
+  }
+
+  String _locationChatDescriptorsSignature(
+    Map<String, WorldLocationChatPanelDescriptor> descriptors,
+  ) {
+    final parts =
+        descriptors.values
+            .map((descriptor) {
+              return [
+                descriptor.locationId,
+                descriptor.locationName,
+                descriptor.backgroundImageUrl,
+                descriptor.backgroundPreviewImageUrl,
+                descriptor.isLeafLocation ? '1' : '0',
+                descriptor.localMessageLocationIds.join(','),
+              ].join('\u001f');
+            })
+            .toList(growable: false)
+          ..sort();
+    return parts.join('\u001e');
   }
 
   Map<String, WorldLocationChatPanelDescriptor>
@@ -1869,12 +1879,14 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                       );
                 },
                 onPanelReady: (locationId) {
-                  _locationChatPageCache.markReady(locationId);
+                  final becameReady = _locationChatPageCache.markReady(
+                    locationId,
+                  );
                   _recordWorldLocationChatDebug(
                     action: 'panelReady',
                     locationId: locationId,
                   );
-                  if (mounted) setState(() {});
+                  if (mounted && becameReady) setState(() {});
                 },
               ),
             ),
@@ -1888,6 +1900,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                   title: _progressWaitTitle,
                   message: _progressWaitMessage,
                   characterAvatars: _progressWaitAvatarsFromWorld(_world),
+                  onBackPressed: () => Navigator.of(context).maybePop(),
                 ),
               ),
           ],

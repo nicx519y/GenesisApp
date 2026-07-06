@@ -425,8 +425,6 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldSummaryLatestItems,
     this.worldDetailTicksByRequest,
     this.worldDetailTickCountsByRequest,
-    this.worldInfoStatusesByRequest,
-    this.worldInfoProgressingByRequest,
     this.chatroomMessagesByLocation,
     this.worldTickListCompleter,
     this.hotTagsCompleter,
@@ -455,13 +453,10 @@ class _RecordingV1ListTransport implements HttpTransport {
   final List<Map<String, Object?>>? worldSummaryLatestItems;
   final List<List<Map<String, Object?>>>? worldDetailTicksByRequest;
   final List<int>? worldDetailTickCountsByRequest;
-  final List<int>? worldInfoStatusesByRequest;
-  final List<bool>? worldInfoProgressingByRequest;
   final Map<String, List<Map<String, Object?>>>? chatroomMessagesByLocation;
   final Completer<TransportResponse>? worldTickListCompleter;
   final Completer<TransportResponse>? hotTagsCompleter;
   int _worldDetailRequestIndex = 0;
-  int _worldInfoRequestIndex = 0;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -514,27 +509,6 @@ class _RecordingV1ListTransport implements HttpTransport {
           request.uri.queryParameters['wid'] ??
           '';
       final detail = _worldDetail(wid);
-      final statusesByRequest = worldInfoStatusesByRequest;
-      if (statusesByRequest != null) {
-        final index = _worldInfoRequestIndex.clamp(
-          0,
-          statusesByRequest.length - 1,
-        );
-        final info = Map<String, Object?>.from(detail['info']! as Map);
-        info['status'] = statusesByRequest[index];
-        detail['info'] = info;
-      }
-      final progressingByRequest = worldInfoProgressingByRequest;
-      if (progressingByRequest != null) {
-        final index = _worldInfoRequestIndex.clamp(
-          0,
-          progressingByRequest.length - 1,
-        );
-        final info = Map<String, Object?>.from(detail['info']! as Map);
-        info['is_progressing'] = progressingByRequest[index];
-        detail['info'] = info;
-      }
-      _worldInfoRequestIndex += 1;
       return _jsonResponse({
         'err_no': 0,
         'err_str': 'success',
@@ -2042,7 +2016,8 @@ void main() {
         .dy;
 
     await tester.tap(find.text('Explore').first);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Cancel'), findsOneWidget);
     expect(find.text('Explore'), findsOneWidget);
@@ -11162,10 +11137,14 @@ void main() {
     final transport = _RecordingV1ListTransport(
       worldRelationStatus: 'owner',
       worldDetailTickCountsByRequest: const [26],
-      worldInfoStatusesByRequest: const [20, 10],
       worldTickListCompleter: tickListCompleter,
     );
-    final services = await _testServices(transport: transport, useMock: false);
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+    );
     final initialWorld = WorldDetail(
       id: 0,
       worldId: 'w_test_1',
@@ -11248,6 +11227,19 @@ void main() {
       find.image(const AssetImage('assets/images/default_list_image.png')),
       findsOneWidget,
     );
+    chatroom.session.emit(
+      const ChatroomWorldNotification(
+        worldId: 'w_test_1',
+        locationId: '',
+        eventType: 'tick_done',
+        title: '',
+        summary: '',
+        detailUrl: '',
+        ts: null,
+        broadcast: true,
+      ),
+    );
+    await tester.pump();
     for (
       var attempt = 0;
       attempt < 70 && transport.requestsFor('/api/v1/world/tick/list').isEmpty;
@@ -11657,14 +11649,15 @@ void main() {
       );
 
       await tester.tap(find.text('Locations'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       final childRow = find.ancestor(
         of: find.text('Child Location').last,
         matching: find.byType(InkWell),
       );
       await tester.tap(childRow.last);
       await tester.pump();
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 300));
 
       expect(_visibleText('Child Location (1)'), findsOneWidget);
       await tester.pump();
@@ -11684,15 +11677,120 @@ void main() {
         ),
         findsOneWidget,
       );
+      chatroom.session.emit(
+        const ChatroomWorldNotification(
+          worldId: 'w_test_1',
+          locationId: '',
+          eventType: 'tick_done',
+          title: '',
+          summary: '',
+          detailUrl: '',
+          ts: null,
+          broadcast: true,
+        ),
+      );
+      await tester.pump();
     },
   );
+
+  testWidgets('joined progressing world re-entry keeps content visible', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldRelationStatus: 'joined');
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+    );
+    final initialWorld = WorldDetail(
+      id: 0,
+      worldId: 'w_test_1',
+      originId: 0,
+      ownerUid: 'u_owner',
+      name: 'World detail w_test_1',
+      tickCount: 3,
+      connectCount: 4,
+      characterCount: 1,
+      playerCount: 1,
+      currentTime: 'Day 1',
+      mapImageUrl: '',
+      latestTickAt: null,
+      latestNarrator: '',
+      isProgressing: true,
+      relationStatus: 'joined',
+      metric: const <String, dynamic>{},
+      inviteToken: '',
+      createdAt: null,
+      updatedAt: null,
+      origin: const OriginSummary(
+        id: 0,
+        oid: 'o_test_1',
+        name: 'Origin',
+        description: '',
+        mapImage: '',
+        worldMap: '',
+        worldView: '',
+        deleted: false,
+        copyCount: 0,
+        interactCount: 0,
+        tags: <String>[],
+        createdAt: null,
+        updatedAt: null,
+        characters: <OriginCharacter>[],
+        locations: <OriginLocation>[],
+      ),
+      characters: const <Map<String, dynamic>>[],
+      ticks: const <Map<String, dynamic>>[],
+      locations: const <Map<String, dynamic>>[
+        {
+          'location_id': 'l_w_test_1',
+          'location_name': 'World Location',
+          'location_summary': 'A world location.',
+          'x_percent': 35,
+          'y_percent': 45,
+        },
+        {
+          'location_id': 'l_w_test_1_child',
+          'location_pid': 'l_w_test_1',
+          'location_name': 'Child Location',
+          'location_summary': 'A child world location.',
+          'x_percent': 55,
+          'y_percent': 45,
+        },
+      ],
+      characterPositions: const <Map<String, dynamic>>[],
+      userPositions: const <Map<String, dynamic>>[],
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          home: WorldPage(wid: 'w_test_1', initialWorldDetail: initialWorld),
+        ),
+      ),
+    );
+    for (var i = 0; i < 8; i += 1) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(find.text('World detail w_test_1'), findsWidgets);
+    expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(FilledButton),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
+  });
 
   testWidgets(
     'joined map can request progress wait overlay while remote progress runs',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport(
         worldRelationStatus: 'joined',
-        worldInfoProgressingByRequest: const [true],
       );
       final chatroom = _FakeChatroomClient();
       final services = await _testServices(
@@ -11729,9 +11827,16 @@ void main() {
         findsNothing,
       );
 
-      final progressButton = find.widgetWithText(FilledButton, 'Progress');
-      await tester.ensureVisible(progressButton);
-      await tester.tap(progressButton);
+      final progressSpinner = find.descendant(
+        of: find.byType(FilledButton),
+        matching: find.byType(CircularProgressIndicator),
+      );
+      expect(progressSpinner, findsOneWidget);
+      final runningProgressButtonTapTarget = find
+          .ancestor(of: progressSpinner, matching: find.byType(GestureDetector))
+          .first;
+      await tester.ensureVisible(runningProgressButtonTapTarget);
+      await tester.tap(runningProgressButtonTapTarget, warnIfMissed: false);
       await tester.pump();
 
       expect(
