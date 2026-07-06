@@ -20,6 +20,7 @@ import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
 import '../../components/world_tick1_wait_dialog.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
+import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/world.dart';
 import '../../platform/auth/auth_session.dart';
@@ -74,6 +75,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _worldTickInProgress = false;
   bool _openEventsAfterTickDone = false;
   bool _worldBottomSheetOpen = false;
+  bool _hasUnreadNewUserJoin = false;
   bool _openEventsAfterCurrentBottomSheetClosed = false;
   int? _eventsAfterCurrentBottomSheetClosedTargetTickNumber;
   BuildContext? _worldBottomSheetContext;
@@ -87,6 +89,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _mapBubbleMessagesReady = false;
   int _eventsLatestRevision = 0;
   int? _eventsTargetTickNumber;
+  int _lastAppliedNewUserJoinRevision = 0;
+  WorldNewUserJoinNotice? _pendingNewUserJoinNotice;
   bool _tick1WaitDialogStarted = false;
   Timer? _worldInfoPollTimer;
   Future<void>? _worldInfoPollFuture;
@@ -105,6 +109,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       eventsLatestRevision: 0,
     ),
   );
+  final ValueNotifier<List<WorldNewUserJoinNotice>>
+  _newUserJoinNoticesNotifier = ValueNotifier<List<WorldNewUserJoinNotice>>(
+    const <WorldNewUserJoinNotice>[],
+  );
   final _sectionsEventsCache = WorldSectionsEventsCache();
 
   @override
@@ -112,6 +120,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     super.initState();
     _mainTabController = TabController(length: worldMainPageCount, vsync: this);
     _mainTabController.addListener(_handleWorldMainTabChanged);
+    _worldBottomSheetSelection.addListener(
+      _handleWorldBottomSheetSelectionChanged,
+    );
     _syncWorldStatusBarForMainTab();
     final initialWorld = widget.initialWorldDetail;
     if (initialWorld != null) {
@@ -164,7 +175,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _sectionsEventsCache.clear();
     _locationChatPageCache.dispose();
     _sectionsWorldNotifier.dispose();
+    _worldBottomSheetSelection.removeListener(
+      _handleWorldBottomSheetSelectionChanged,
+    );
     _worldBottomSheetSelection.dispose();
+    _newUserJoinNoticesNotifier.dispose();
     super.dispose();
   }
 
@@ -178,6 +193,17 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _syncWorldStatusBarForMainTab(nextIndex);
     if (_worldMainTabIndex == nextIndex) return;
     setState(() => _worldMainTabIndex = nextIndex);
+  }
+
+  bool get _isDetailBottomSheetVisible {
+    return _worldBottomSheetOpen &&
+        _worldBottomSheetSelection.value.kind == WorldBottomSheetKind.detail;
+  }
+
+  void _handleWorldBottomSheetSelectionChanged() {
+    if (!_isDetailBottomSheetVisible) return;
+    if (!_hasUnreadNewUserJoin && _pendingNewUserJoinNotice == null) return;
+    setState(_activateDetailNewUserJoinNotices);
   }
 
   void _syncWorldStatusBarForMainTab([int? index]) {
@@ -306,6 +332,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   void _startWorldChatroom() {
     if (_worldChatroom != null) return;
     final services = AppServicesScope.read(context);
+    _lastAppliedNewUserJoinRevision = 0;
     final service = WorldChatroomService(
       api: services.api,
       client: services.chatroom,
@@ -330,6 +357,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (!mounted) return;
     final world = state.world;
     final currentWorld = world ?? _world;
+    final latestNewUserJoin = state.latestNewUserJoin;
+    final hasNewUserJoin =
+        latestNewUserJoin != null &&
+        state.latestNewUserJoinRevision > _lastAppliedNewUserJoinRevision;
+    final newUserJoinNotice = hasNewUserJoin
+        ? _newUserJoinNoticeFromEvent(latestNewUserJoin)
+        : null;
     var shouldSyncRelationStatus = false;
     final tickDoneFromPush = _worldTickInProgress && !state.inputBlocked;
     final socketCurrentTime = state.latestSocketCurrentTime.trim();
@@ -357,6 +391,12 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _replaceMapBubbleCandidates(
         _buildMapBubbleCandidates(state, currentWorld),
       );
+      if (newUserJoinNotice != null) {
+        _applyNewUserJoinNotice(
+          newUserJoinNotice,
+          state.latestNewUserJoinRevision,
+        );
+      }
     });
     if (shouldSyncRelationStatus) {
       _syncWorldChatroomForRelationStatus(world!.relationStatus);
@@ -364,6 +404,40 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (tickDoneFromPush) {
       unawaited(_handleWorldTickDone());
     }
+  }
+
+  WorldNewUserJoinNotice _newUserJoinNoticeFromEvent(
+    ChatroomNewUserJoinEvent event,
+  ) {
+    return WorldNewUserJoinNotice(
+      characterId: event.characterId,
+      characterType: event.characterType,
+      characterName: event.characterName,
+      playerUid: event.playerUid,
+      playerUsername: event.playerUsername,
+      ts: event.ts,
+    );
+  }
+
+  void _applyNewUserJoinNotice(WorldNewUserJoinNotice notice, int revision) {
+    _lastAppliedNewUserJoinRevision = revision;
+    if (_isDetailBottomSheetVisible) {
+      _pendingNewUserJoinNotice = null;
+      _hasUnreadNewUserJoin = false;
+      _newUserJoinNoticesNotifier.value = <WorldNewUserJoinNotice>[notice];
+      return;
+    }
+    _pendingNewUserJoinNotice = notice;
+    _hasUnreadNewUserJoin = true;
+  }
+
+  void _activateDetailNewUserJoinNotices() {
+    final pending = _pendingNewUserJoinNotice;
+    if (pending != null) {
+      _newUserJoinNoticesNotifier.value = <WorldNewUserJoinNotice>[pending];
+      _pendingNewUserJoinNotice = null;
+    }
+    _hasUnreadNewUserJoin = false;
   }
 
   void _syncWorldChatroomForRelationStatus(String relationStatus) {
@@ -1424,6 +1498,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       action: worldBottomSheetPageName(kind),
       object1: widget.wid,
     );
+    if (kind == WorldBottomSheetKind.detail &&
+        (_hasUnreadNewUserJoin || _pendingNewUserJoinNotice != null)) {
+      setState(_activateDetailNewUserJoinNotices);
+    }
     if (scrollEventsToLatest) {
       _eventsLatestRevision += 1;
     }
@@ -1452,6 +1530,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             services: services,
             initialWorld: world,
             worldListenable: _sectionsWorldNotifier,
+            newUserJoinNoticesListenable: _newUserJoinNoticesNotifier,
             eventsCache: _sectionsEventsCache,
             currentUid: _currentUid,
             locationPoints: locationPoints,
@@ -1652,6 +1731,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               bottom: collapsedPanelHeight - worldMainTabsHeight,
               height: worldMainTabsHeight,
               child: WorldBottomTags(
+                showDetailUnreadDot: _hasUnreadNewUserJoin,
                 onTap: (kind) => _openWorldBottomSheet(
                   kind,
                   locationPoints: listPoints,

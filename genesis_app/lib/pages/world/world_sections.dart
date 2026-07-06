@@ -25,6 +25,7 @@ import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import 'world_constants.dart';
 import 'world_header.dart';
+import 'world_models.dart';
 import 'world_value_helpers.dart';
 
 class WorldDetailsLoadingContent extends StatelessWidget {
@@ -151,10 +152,15 @@ class WorldLoadingBone extends StatelessWidget {
 }
 
 class WorldDetailSection extends StatelessWidget {
-  const WorldDetailSection({required this.world, required this.currentUid});
+  const WorldDetailSection({
+    required this.world,
+    required this.currentUid,
+    this.newUserJoinNotice,
+  });
 
   final WorldDetail world;
   final String currentUid;
+  final WorldNewUserJoinNotice? newUserJoinNotice;
 
   @override
   Widget build(BuildContext context) {
@@ -245,23 +251,37 @@ class WorldDetailSection extends StatelessWidget {
           trailingIconSize: 16,
         ),
         const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: GenesisPrimaryButton(
-            label: 'Invite',
-            onPressed: () => _copyInviteText(context, worldName: title),
-            height: 35,
-            width: 140,
-            backgroundColor: const Color(0xFFFF2442),
-            disabledBackgroundColor: const Color(
-              0xFFFF2442,
-            ).withValues(alpha: 0.62),
-            foregroundColor: Colors.white,
-            fontSize: 16,
-            padding: EdgeInsets.zero,
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (newUserJoinNotice == null)
+              const Spacer()
+            else
+              Expanded(
+                child: SizedBox(
+                  height: 35,
+                  child: _WorldNewUserJoinNoticeSwitcher(
+                    notice: newUserJoinNotice!,
+                  ),
+                ),
+              ),
+            const SizedBox(width: 16),
+            GenesisPrimaryButton(
+              label: 'Invite',
+              onPressed: () => _copyInviteText(context, worldName: title),
+              height: 35,
+              width: 140,
+              backgroundColor: const Color(0xFFFF2442),
+              disabledBackgroundColor: const Color(
+                0xFFFF2442,
+              ).withValues(alpha: 0.62),
+              foregroundColor: Colors.white,
+              fontSize: 16,
+              padding: EdgeInsets.zero,
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ],
         ),
         const SizedBox(height: 24),
         const WorldDetailSectionTitle(
@@ -315,6 +335,100 @@ String worldInviteShareTextForTesting({
       '$resolvedWid\n'
       'Search this WID on Worldo to find and join.\n'
       'https://worldo.ai/download';
+}
+
+class _WorldNewUserJoinNoticeSwitcher extends StatelessWidget {
+  const _WorldNewUserJoinNoticeSwitcher({required this.notice});
+
+  final WorldNewUserJoinNotice notice;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentKey = ValueKey<String>(_noticeAnimationKey(notice));
+    return ClipRect(
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          final isIncoming = child.key == currentKey;
+          final offset = isIncoming
+              ? Tween<Offset>(
+                  begin: const Offset(0, 1),
+                  end: Offset.zero,
+                ).animate(animation)
+              : Tween<Offset>(
+                  begin: const Offset(0, -1),
+                  end: Offset.zero,
+                ).animate(animation);
+          return SlideTransition(position: offset, child: child);
+        },
+        child: _WorldNewUserJoinNoticeText(key: currentKey, notice: notice),
+      ),
+    );
+  }
+
+  String _noticeAnimationKey(WorldNewUserJoinNotice notice) {
+    return [
+      notice.characterId,
+      notice.playerUid,
+      notice.playerUsername,
+      notice.characterName,
+      notice.ts?.millisecondsSinceEpoch ?? 0,
+    ].join('|');
+  }
+}
+
+class _WorldNewUserJoinNoticeText extends StatelessWidget {
+  const _WorldNewUserJoinNoticeText({super.key, required this.notice});
+
+  final WorldNewUserJoinNotice notice;
+
+  @override
+  Widget build(BuildContext context) {
+    const baseStyle = TextStyle(
+      color: worldHeaderMetaColor,
+      fontSize: 12,
+      height: 1.2,
+      fontWeight: FontWeight.w400,
+    );
+    const emphasisStyle = TextStyle(
+      color: Color(0xFF111111),
+      fontWeight: FontWeight.w700,
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: constraints.maxWidth,
+              child: RichText(
+                maxLines: 2,
+                overflow: TextOverflow.clip,
+                text: TextSpan(
+                  style: baseStyle,
+                  children: [
+                    TextSpan(
+                      text: notice.displayPlayerUsername,
+                      style: emphasisStyle,
+                    ),
+                    const TextSpan(text: ' joined and is playing the role of '),
+                    TextSpan(
+                      text: notice.displayCharacterName,
+                      style: emphasisStyle,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class WorldDetailSectionTitle extends StatelessWidget {

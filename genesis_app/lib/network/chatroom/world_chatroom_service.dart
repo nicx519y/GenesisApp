@@ -1047,6 +1047,8 @@ class WorldChatroomService {
     switch (event) {
       case ChatroomWorldNotification e:
         await _handleWorldNotification(e);
+      case ChatroomNewUserJoinEvent e:
+        _handleNewUserJoin(e);
       case ChatroomUserMessage e:
         await _handleIncomingMessage(WorldChatroomMessage.fromUserMessage(e));
       case ChatroomNarratorMessage e:
@@ -1075,6 +1077,15 @@ class WorldChatroomService {
       case ChatroomAck():
         break;
     }
+  }
+
+  void _handleNewUserJoin(ChatroomNewUserJoinEvent event) {
+    _setState(
+      _state.copyWith(
+        latestNewUserJoin: event,
+        latestNewUserJoinRevision: _state.latestNewUserJoinRevision + 1,
+      ),
+    );
   }
 
   Future<void> _handleWorldNotification(ChatroomWorldNotification event) async {
@@ -2329,6 +2340,8 @@ class WorldChatroomState {
     this.latestSocketCurrentTime = '',
     this.latestSocketTickNo = 0,
     this.latestSocketCurrentTimeRevision = 0,
+    this.latestNewUserJoin,
+    this.latestNewUserJoinRevision = 0,
     this.lastFailure,
   });
 
@@ -2349,6 +2362,8 @@ class WorldChatroomState {
   final String latestSocketCurrentTime;
   final int latestSocketTickNo;
   final int latestSocketCurrentTimeRevision;
+  final ChatroomNewUserJoinEvent? latestNewUserJoin;
+  final int latestNewUserJoinRevision;
   final ChatroomFailureEvent? lastFailure;
 
   WorldChatroomState copyWith({
@@ -2369,6 +2384,8 @@ class WorldChatroomState {
     String? latestSocketCurrentTime,
     int? latestSocketTickNo,
     int? latestSocketCurrentTimeRevision,
+    ChatroomNewUserJoinEvent? latestNewUserJoin,
+    int? latestNewUserJoinRevision,
     ChatroomFailureEvent? lastFailure,
   }) {
     return WorldChatroomState(
@@ -2393,6 +2410,9 @@ class WorldChatroomState {
       latestSocketCurrentTimeRevision:
           latestSocketCurrentTimeRevision ??
           this.latestSocketCurrentTimeRevision,
+      latestNewUserJoin: latestNewUserJoin ?? this.latestNewUserJoin,
+      latestNewUserJoinRevision:
+          latestNewUserJoinRevision ?? this.latestNewUserJoinRevision,
       lastFailure: lastFailure ?? this.lastFailure,
     );
   }

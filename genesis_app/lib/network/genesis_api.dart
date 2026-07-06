@@ -2059,6 +2059,7 @@ Map<String, dynamic> _worldCharacterFromV1(Map<String, dynamic> raw) {
     'avatar': _resolveImageAssetUrl(raw['avatar']),
     'initial_location_id': asString(raw['initial_location_id']),
     'location_id': asString(raw['location_id']),
+    'player_joined_at': asInt(raw['player_joined_at']),
     'metric_value': raw['metric_value'],
   };
 }
