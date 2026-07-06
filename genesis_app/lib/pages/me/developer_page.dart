@@ -28,6 +28,8 @@ const String _buildModeLabel = kReleaseMode
     ? 'profile'
     : 'debug';
 
+const String _launchPreviewOriginId = 'o_G7DBQM';
+
 class DeveloperPage extends StatelessWidget {
   const DeveloperPage({super.key});
 
@@ -391,6 +393,56 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     );
   }
 
+  Future<void> _showLaunchingWaitOverlayPreview() async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final api = AppServicesScope.read(context).api;
+    if (widget.dismissBeforePreview) {
+      await widget.onDismissBeforePreview?.call();
+    }
+    final origin = await () async {
+      try {
+        return await api.getOrigin(_launchPreviewOriginId);
+      } catch (_) {
+        return null;
+      }
+    }();
+    if (origin == null) {
+      if (navigator.mounted) {
+        showGenesisToast(
+          navigator.context,
+          'Failed to load launch preview origin.',
+        );
+      }
+      return;
+    }
+    final avatars = origin.characters
+        .map((character) {
+          return GenesisGenerationWaitAvatar(
+            name: character.name.trim(),
+            url: character.avatar.trim(),
+          );
+        })
+        .where((avatar) => avatar.name.isNotEmpty || avatar.url.isNotEmpty)
+        .toList(growable: false);
+    if (!navigator.mounted) return;
+    await showGeneralDialog<void>(
+      context: navigator.context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: false,
+      transitionDuration: Duration.zero,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return GenesisGenerationWaitOverlay(
+          title: 'Launching your Worldo',
+          characterAvatars: avatars,
+          contentMinHeight:
+              GenesisGenerationWaitOverlay.perspectiveContentHeight,
+          onBarrierTap: () => Navigator.of(dialogContext).maybePop(),
+          onBackPressed: () => Navigator.of(dialogContext).maybePop(),
+        );
+      },
+    );
+  }
+
   Widget _buildDeviceIdDiagnostics(DeviceIdDiagnostics? diagnostics) {
     final deviceId = _infoValue(diagnostics?.deviceId);
     if (diagnostics?.hasAndroidBreakdown != true) {
@@ -536,6 +588,13 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           GenesisPrimaryButton(
             label: 'Creating',
             onPressed: _showCreatingWaitOverlayPreview,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            label: 'Launching',
+            onPressed: _showLaunchingWaitOverlayPreview,
             backgroundColor: const Color(0xFFE1E1E3),
             foregroundColor: Colors.black,
           ),

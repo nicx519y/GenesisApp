@@ -114,6 +114,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   bool _didResumePendingLaunch = false;
   bool _showLocationPage = false;
   int _detailSheetCollapseRequest = 0;
+  List<GenesisGenerationWaitAvatar> _launchWaitAvatars =
+      const <GenesisGenerationWaitAvatar>[];
   _OriginLocationChatDescriptor? _activeChatLocation;
   late final VoidCallback _removeLaunchOutcomeListener;
 
@@ -177,7 +179,43 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   Future<OriginDetail> _loadOriginDetail() async {
     final api = AppServicesScope.read(context).api;
     final origin = await api.getOrigin(widget.oid);
+    _cacheLaunchWaitAvatars(origin);
     return origin;
+  }
+
+  void _cacheLaunchWaitAvatars(OriginDetail origin) {
+    final avatars = _launchWaitAvatarsFromOrigin(origin);
+    if (_sameWaitAvatars(_launchWaitAvatars, avatars)) return;
+    if (!mounted) {
+      _launchWaitAvatars = avatars;
+      return;
+    }
+    setState(() => _launchWaitAvatars = avatars);
+  }
+
+  List<GenesisGenerationWaitAvatar> _launchWaitAvatarsFromOrigin(
+    OriginDetail origin,
+  ) {
+    return origin.characters
+        .map((character) {
+          return GenesisGenerationWaitAvatar(
+            name: character.name.trim(),
+            url: _resolveAssetUrl(character.avatar).trim(),
+          );
+        })
+        .where((avatar) => avatar.name.isNotEmpty || avatar.url.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  bool _sameWaitAvatars(
+    List<GenesisGenerationWaitAvatar> a,
+    List<GenesisGenerationWaitAvatar> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].name != b[i].name || a[i].url != b[i].url) return false;
+    }
+    return true;
   }
 
   void _refreshOriginDetail() {
@@ -333,7 +371,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     OriginRoleLaunchSelection roleSelection,
   ) async {
     if (_launching) return;
-    setState(() => _launching = true);
+    final avatars = _launchWaitAvatarsFromOrigin(origin);
+    setState(() {
+      _launchWaitAvatars = avatars;
+      _launching = true;
+    });
     final started = await startOriginLaunch(
       context: context,
       origin: origin,
@@ -434,6 +476,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         if (_launching)
           Positioned.fill(
             child: _OriginPendingLaunchWaitOverlay(
+              avatars: _launchWaitAvatars,
               onBackPressed: _handleLaunchWaitBack,
             ),
           ),

@@ -4633,7 +4633,8 @@ void main() {
     );
     final waitTitleFinder = find.byWidgetPredicate(
       (widget) =>
-          widget is Text && (widget.data ?? '').startsWith('AI is generating'),
+          widget is Text &&
+          (widget.data ?? '').startsWith('Launching your Worldo'),
     );
     expect(waitTitleFinder, findsOneWidget);
     final waitTitle = tester.widget<Text>(waitTitleFinder);

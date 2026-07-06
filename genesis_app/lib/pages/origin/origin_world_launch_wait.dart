@@ -1,12 +1,21 @@
 part of 'origin_world_page.dart';
 
 class _OriginPendingLaunchWaitOverlay extends StatelessWidget {
-  const _OriginPendingLaunchWaitOverlay({required this.onBackPressed});
+  const _OriginPendingLaunchWaitOverlay({
+    required this.avatars,
+    required this.onBackPressed,
+  });
 
+  final List<GenesisGenerationWaitAvatar> avatars;
   final VoidCallback onBackPressed;
 
   @override
   Widget build(BuildContext context) {
-    return GenesisGenerationWaitOverlay(onBackPressed: onBackPressed);
+    return GenesisGenerationWaitOverlay(
+      title: 'Launching your Worldo',
+      characterAvatars: avatars,
+      contentMinHeight: GenesisGenerationWaitOverlay.perspectiveContentHeight,
+      onBackPressed: onBackPressed,
+    );
   }
 }
