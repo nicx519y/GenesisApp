@@ -107,6 +107,7 @@ class WorldMap extends StatefulWidget {
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
     this.initialZoomScale = _ZoomableMapContent.minScale,
+    this.enableAvatarScaleReboundHint = false,
   });
 
   final List<WorldPoint> points;
@@ -131,6 +132,7 @@ class WorldMap extends StatefulWidget {
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
   final double initialZoomScale;
+  final bool enableAvatarScaleReboundHint;
 
   @override
   State<WorldMap> createState() => _WorldMapState();
@@ -389,6 +391,9 @@ class _WorldMapState extends State<WorldMap> {
                                                       width: viewport.width,
                                                       height: viewport.height,
                                                       transform: transform,
+                                                      enableAvatarScaleReboundHint:
+                                                          widget
+                                                              .enableAvatarScaleReboundHint,
                                                       messageBubble:
                                                           _bubbleForPoint(
                                                             p,
@@ -2144,6 +2149,7 @@ class _WorldPointPositioned extends StatelessWidget {
     required this.width,
     required this.height,
     this.transform,
+    required this.enableAvatarScaleReboundHint,
     this.messageBubble,
     required this.onPointerDown,
     required this.onTap,
@@ -2153,6 +2159,7 @@ class _WorldPointPositioned extends StatelessWidget {
   final double width;
   final double height;
   final Matrix4? transform;
+  final bool enableAvatarScaleReboundHint;
   final WorldMapMessageBubble? messageBubble;
   final ValueChanged<PointerDownEvent> onPointerDown;
   final VoidCallback? onTap;
@@ -2279,6 +2286,7 @@ class _WorldPointPositioned extends StatelessWidget {
         markerWidth: markerWidth,
         markerHeight: markerHeight,
         pointCenterY: pointCenterY,
+        enableAvatarScaleReboundHint: enableAvatarScaleReboundHint,
         messageBubble: messageBubble,
         onPointerDown: onPointerDown,
         onTap: onTap,
@@ -2305,6 +2313,7 @@ class _WorldPointMarker extends StatelessWidget {
     required this.markerWidth,
     required this.markerHeight,
     required this.pointCenterY,
+    required this.enableAvatarScaleReboundHint,
     this.messageBubble,
     required this.onPointerDown,
     this.onTap,
@@ -2316,6 +2325,7 @@ class _WorldPointMarker extends StatelessWidget {
   final double markerWidth;
   final double markerHeight;
   final double pointCenterY;
+  final bool enableAvatarScaleReboundHint;
   final WorldMapMessageBubble? messageBubble;
   final ValueChanged<PointerDownEvent> onPointerDown;
   final VoidCallback? onTap;
@@ -2407,6 +2417,7 @@ class _WorldPointMarker extends StatelessWidget {
                     user: avatars[i],
                     left: _avatarLeft(i, avatars.length),
                     top: _avatarTop(i, avatars.length),
+                    enableScaleReboundHint: enableAvatarScaleReboundHint,
                   ),
               if (messageBubble != null && bubbleIndex >= 0)
                 _PositionedMapMessageBubble(
@@ -2633,24 +2644,91 @@ class _PositionedMapAvatar extends StatelessWidget {
     required this.user,
     required this.left,
     required this.top,
+    required this.enableScaleReboundHint,
   });
 
   final UserAvatar user;
   final double left;
   final double top;
+  final bool enableScaleReboundHint;
 
   @override
   Widget build(BuildContext context) {
+    final avatar = _MapAvatarImage(
+      key: ValueKey<String>('map-avatar-${_mapAvatarStableKey(user)}'),
+      url: user.avatarUrl,
+      name: (user.name ?? user.initials).trim(),
+      showStar: user.showStar,
+      isPlayerControlledRole: user.isPlayerControlledRole,
+    );
     return Positioned(
       left: left,
       top: top,
-      child: _MapAvatarImage(
-        key: ValueKey<String>('map-avatar-${_mapAvatarStableKey(user)}'),
-        url: user.avatarUrl,
-        name: (user.name ?? user.initials).trim(),
-        showStar: user.showStar,
-        isPlayerControlledRole: user.isPlayerControlledRole,
-      ),
+      child: enableScaleReboundHint
+          ? _MapAvatarScaleReboundHint(child: avatar)
+          : avatar,
+    );
+  }
+}
+
+class _MapAvatarScaleReboundHint extends StatefulWidget {
+  const _MapAvatarScaleReboundHint({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_MapAvatarScaleReboundHint> createState() =>
+      _MapAvatarScaleReboundHintState();
+}
+
+class _MapAvatarScaleReboundHintState extends State<_MapAvatarScaleReboundHint>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scheduleNext();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _scheduleNext() {
+    _timer?.cancel();
+    _timer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      _controller.forward(from: 0).whenComplete(() {
+        if (mounted) _scheduleNext();
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      child: widget.child,
+      builder: (context, child) {
+        final progress = _controller.value;
+        final rebound =
+            math.sin(math.pi * 2.2 * progress) * math.pow(1 - progress, 1.4);
+        return Transform.scale(
+          scale: 1 + 0.08 * rebound,
+          child: child,
+        );
+      },
     );
   }
 }

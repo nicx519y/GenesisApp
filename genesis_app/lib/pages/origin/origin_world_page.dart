@@ -675,6 +675,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                 dimmed: _showLocationPage,
                 showPointsList: _showLocationPage,
                 initialZoomScale: _showLocationPage ? 1 : 1.2,
+                enableAvatarScaleReboundHint: true,
                 pointsListOuterScrollHandoff: false,
                 overlayTop: topPadding + 8 + 48,
                 drillExitTop: topPadding + 68,

@@ -665,6 +665,39 @@ class ChatroomWorldNotification extends ChatroomEvent {
   }
 }
 
+class ChatroomNewUserJoinEvent extends ChatroomEvent {
+  const ChatroomNewUserJoinEvent({
+    required this.worldId,
+    required this.characterId,
+    required this.characterType,
+    required this.characterName,
+    required this.playerUid,
+    required this.playerUsername,
+    required this.ts,
+  });
+
+  final String worldId;
+  final String characterId;
+  final String characterType;
+  final String characterName;
+  final String playerUid;
+  final String playerUsername;
+  final DateTime? ts;
+
+  factory ChatroomNewUserJoinEvent.fromEnvelope(ChatroomEnvelope envelope) {
+    final payload = envelope.mergedPayload;
+    return ChatroomNewUserJoinEvent(
+      worldId: asString(payload['world_id'], fallback: envelope.worldId),
+      characterId: asString(payload['char_id']),
+      characterType: asString(payload['type']),
+      characterName: asString(payload['name']),
+      playerUid: asString(payload['player_uid']),
+      playerUsername: asString(payload['player_username']),
+      ts: asDateTime(payload['ts'] ?? envelope.ts),
+    );
+  }
+}
+
 class ChatroomErrorEvent extends ChatroomEvent implements Exception {
   const ChatroomErrorEvent({
     required this.code,
@@ -748,6 +781,8 @@ class ChatroomMessageHandlers {
         onFailure?.call(e);
       case ChatroomWorldNotification e:
         onWorldNotification?.call(e);
+      case ChatroomNewUserJoinEvent():
+        break;
       case ChatroomUserMessage e:
         onUserMessage?.call(e);
       case ChatroomNarratorMessage e:
@@ -774,6 +809,8 @@ ChatroomEvent chatroomEventFromEnvelope(ChatroomEnvelope envelope) {
     case 'user_location_change':
     case 'world_new_message':
       return ChatroomWorldNotification.fromEnvelope(envelope);
+    case 'new_user_join':
+      return ChatroomNewUserJoinEvent.fromEnvelope(envelope);
     case 'tick_advance':
       return ChatroomTickAdvanceMessage.fromEnvelope(envelope);
     case 'nar_new_message':
@@ -805,6 +842,8 @@ String chatroomEventType(ChatroomEvent event) {
       return e.sourceType;
     case ChatroomWorldNotification e:
       return e.eventType;
+    case ChatroomNewUserJoinEvent():
+      return 'new_user_join';
     case ChatroomUserMessage():
       return 'user_message';
     case ChatroomNarratorMessage():

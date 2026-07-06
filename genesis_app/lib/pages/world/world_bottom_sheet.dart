@@ -18,10 +18,15 @@ import 'world_models.dart';
 import 'world_sections.dart';
 
 class WorldBottomTags extends StatelessWidget {
-  const WorldBottomTags({required this.onTap, this.eventsUnread = false});
+  const WorldBottomTags({
+    required this.onTap,
+    this.eventsUnread = false,
+    this.showDetailUnreadDot = false,
+  });
 
   final ValueChanged<WorldBottomSheetKind> onTap;
   final bool eventsUnread;
+  final bool showDetailUnreadDot;
 
   @override
   Widget build(BuildContext context) {
@@ -49,9 +54,11 @@ class WorldBottomTags extends StatelessWidget {
                 for (final entry in worldBottomTagItems.indexed) ...[
                   WorldBottomTagContent(
                     item: entry.$2,
-                    unread:
+                    showUnreadDot:
                         eventsUnread &&
-                        entry.$2.kind == WorldBottomSheetKind.events,
+                            entry.$2.kind == WorldBottomSheetKind.events ||
+                        showDetailUnreadDot &&
+                            entry.$2.kind == WorldBottomSheetKind.detail,
                     onTap: () => onTap(entry.$2.kind),
                   ),
                   if (entry.$1 != worldBottomTagItems.length - 1)
@@ -70,12 +77,12 @@ class WorldBottomTagContent extends StatelessWidget {
   const WorldBottomTagContent({
     required this.item,
     required this.onTap,
-    this.unread = false,
+    this.showUnreadDot = false,
   });
 
   final WorldBottomTagItem item;
   final VoidCallback onTap;
-  final bool unread;
+  final bool showUnreadDot;
 
   @override
   Widget build(BuildContext context) {
@@ -123,18 +130,19 @@ class WorldBottomTagContent extends StatelessWidget {
               ],
             ),
           ),
-          if (unread)
+          if (showUnreadDot)
             Positioned(
-              key: const ValueKey('world-events-unread-dot'),
-              top: 3,
-              right: 3,
+              key: item.kind == WorldBottomSheetKind.events
+                  ? const ValueKey('world-events-unread-dot')
+                  : null,
+              top: 2,
+              right: 2,
               child: Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE7384F),
+                width: 7,
+                height: 7,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFF2442),
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
                 ),
               ),
             ),
@@ -150,6 +158,7 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
     required this.services,
     required this.initialWorld,
     required this.worldListenable,
+    required this.newUserJoinNoticesListenable,
     required this.eventsCache,
     required this.currentUid,
     required this.locationPoints,
@@ -161,6 +170,8 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
   final AppServices services;
   final WorldDetail initialWorld;
   final ValueListenable<WorldDetail?> worldListenable;
+  final ValueListenable<List<WorldNewUserJoinNotice>>
+  newUserJoinNoticesListenable;
   final WorldSectionsEventsCache eventsCache;
   final String currentUid;
   final List<WorldPoint> locationPoints;
@@ -201,6 +212,9 @@ class WorldSingleSectionBottomSheetState
     );
     widget.worldListenable.addListener(_handleWorldDetailChanged);
     widget.selectionListenable.addListener(_handleSelectionChanged);
+    widget.newUserJoinNoticesListenable.addListener(
+      _handleNewUserJoinNoticesChanged,
+    );
   }
 
   @override
@@ -222,6 +236,15 @@ class WorldSingleSectionBottomSheetState
       oldWidget.selectionListenable.removeListener(_handleSelectionChanged);
       widget.selectionListenable.addListener(_handleSelectionChanged);
     }
+    if (oldWidget.newUserJoinNoticesListenable !=
+        widget.newUserJoinNoticesListenable) {
+      oldWidget.newUserJoinNoticesListenable.removeListener(
+        _handleNewUserJoinNoticesChanged,
+      );
+      widget.newUserJoinNoticesListenable.addListener(
+        _handleNewUserJoinNoticesChanged,
+      );
+    }
     if (_isEventsSheet &&
         (oldWidget.eventsCache != widget.eventsCache ||
             oldWidget.selectionListenable.value.kind != _selection.kind)) {
@@ -233,6 +256,9 @@ class WorldSingleSectionBottomSheetState
   void dispose() {
     widget.worldListenable.removeListener(_handleWorldDetailChanged);
     widget.selectionListenable.removeListener(_handleSelectionChanged);
+    widget.newUserJoinNoticesListenable.removeListener(
+      _handleNewUserJoinNoticesChanged,
+    );
     _pageController.dispose();
     super.dispose();
   }
@@ -243,6 +269,11 @@ class WorldSingleSectionBottomSheetState
     if (_isEventsSheet) {
       _ensureEventsForCurrentWorld();
     }
+    if (mounted) setState(() {});
+  }
+
+  void _handleNewUserJoinNoticesChanged() {
+    if (_selection.kind != WorldBottomSheetKind.detail) return;
     if (mounted) setState(() {});
   }
 
@@ -458,13 +489,29 @@ class WorldSingleSectionBottomSheetState
   }
 
   Widget _buildDetailSectionPage() {
+    final latestDetailJoinNotice = worldLatestPlayerJoinNotice(
+      _currentWorld.characters,
+    );
+    final newUserJoinNotice = _detailNewUserJoinNotice(
+      latestDetailJoinNotice,
+      widget.newUserJoinNoticesListenable.value,
+    );
     return WorldSectionListView(
       storageKey: 'world-detail-section-bottom-sheet',
       child: WorldDetailSection(
         world: _currentWorld,
         currentUid: widget.currentUid,
+        newUserJoinNotice: newUserJoinNotice,
       ),
     );
+  }
+
+  WorldNewUserJoinNotice? _detailNewUserJoinNotice(
+    WorldNewUserJoinNotice? latestDetailJoinNotice,
+    List<WorldNewUserJoinNotice> socketNotices,
+  ) {
+    if (socketNotices.isNotEmpty) return socketNotices.last;
+    return latestDetailJoinNotice;
   }
 
   Widget _buildSheetPage(WorldBottomSheetKind kind) {

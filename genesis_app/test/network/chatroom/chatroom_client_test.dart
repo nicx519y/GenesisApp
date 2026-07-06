@@ -508,6 +508,16 @@ void main() {
         'detail_url': '/api/v1/world/world-1/events/weather',
       },
     });
+    socket.serverFrame('new_user_join', {
+      'world_id': 'world-1',
+      'payload': {
+        'char_id': 'char-2',
+        'type': 'ai',
+        'name': '老沈',
+        'player_uid': 'user-2',
+        'player_username': 'Nikos',
+      },
+    });
     socket.serverFrame('user_message', {
       'world_id': 'world-1',
       'session_id': 'sess-1',
@@ -543,6 +553,13 @@ void main() {
       events.whereType<ChatroomWorldNotification>().map((e) => e.eventType),
       containsAll(['tick_start', 'world_change']),
     );
+    final join = events.whereType<ChatroomNewUserJoinEvent>().single;
+    expect(join.worldId, 'world-1');
+    expect(join.characterId, 'char-2');
+    expect(join.characterType, 'ai');
+    expect(join.characterName, '老沈');
+    expect(join.playerUid, 'user-2');
+    expect(join.playerUsername, 'Nikos');
     expect(events.whereType<ChatroomUserMessage>().single.content, '你好');
     final tick = events.whereType<ChatroomTickAdvanceMessage>().single;
     expect(tick.currentTime, 'Day 45, 19:30');

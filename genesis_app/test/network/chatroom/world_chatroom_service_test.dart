@@ -58,6 +58,48 @@ void main() {
     await service.dispose();
   });
 
+  test('new user join notification publishes latest join state', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+    );
+
+    await service.connect(worldId: 'world-1', identity: _identity());
+
+    socket.serverFrame('new_user_join', {
+      'world_id': 'world-1',
+      'payload': {
+        'char_id': 'char-1',
+        'type': 'ai',
+        'name': 'Old Name',
+        'player_uid': 'user-1',
+        'player_username': 'Player One',
+      },
+    });
+    await _waitFor(() => service.state.latestNewUserJoinRevision == 1);
+
+    socket.serverFrame('new_user_join', {
+      'world_id': 'world-1',
+      'payload': {
+        'char_id': 'char-2',
+        'type': 'custom',
+        'name': 'New Name',
+        'player_uid': 'user-2',
+        'player_username': 'Player Two',
+      },
+    });
+    await _waitFor(() => service.state.latestNewUserJoinRevision == 2);
+
+    final latest = service.state.latestNewUserJoin;
+    expect(latest?.characterId, 'char-2');
+    expect(latest?.characterType, 'custom');
+    expect(latest?.characterName, 'New Name');
+    expect(latest?.playerUid, 'user-2');
+    expect(latest?.playerUsername, 'Player Two');
+
+    await service.dispose();
+  });
+
   test('connect hydrates world detail and user locations', () async {
     final socket = _FakeChatroomSocket();
     final http = _WorldChatroomHttpTransport();
