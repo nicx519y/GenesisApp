@@ -278,10 +278,6 @@ class _OriginCharacterRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final identity = _splitTags(character.tags).join(' · ');
     final tagline = character.tagline.trim();
-    final description = character.description.trim();
-    final visibleDescription = _sameCharacterText(tagline, description)
-        ? ''
-        : description;
     final goal = character.goal.trim();
     final avatarUrl = _resolveAssetUrl(character.avatar);
 
@@ -322,12 +318,8 @@ class _OriginCharacterRow extends StatelessWidget {
                   ),
                 ),
               ],
-              if (visibleDescription.isNotEmpty) ...[
-                const SizedBox(height: 9),
-                Text(visibleDescription, style: _characterBodyTextStyle),
-              ],
               if (goal.isNotEmpty) ...[
-                const SizedBox(height: 9),
+                const SizedBox(height: 5),
                 Text('Goal: $goal', style: _characterBodyTextStyle),
               ],
             ],
@@ -425,7 +417,7 @@ class _OriginCharacterPortrait extends StatelessWidget {
 
 const _bodyTextStyle = TextStyle(
   fontSize: 13,
-  height: 1.45,
+  height: 1.4,
   fontWeight: FontWeight.w400,
   color: Color(0xFF111111),
   decoration: TextDecoration.none,
@@ -433,7 +425,7 @@ const _bodyTextStyle = TextStyle(
 
 const _characterBodyTextStyle = TextStyle(
   fontSize: 13,
-  height: 1.35,
+  height: 1.4,
   fontWeight: FontWeight.w400,
   color: Color(0xFF111111),
   decoration: TextDecoration.none,
@@ -485,12 +477,6 @@ List<String> _splitTags(String tags) {
       .map((e) => e.trim())
       .where((e) => e.isNotEmpty)
       .toList();
-}
-
-bool _sameCharacterText(String a, String b) {
-  final left = a.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
-  final right = b.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
-  return left.isNotEmpty && left == right;
 }
 
 Map<String, dynamic>? _originPreviewTick(OriginDetail origin) {
