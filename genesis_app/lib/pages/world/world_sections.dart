@@ -4,9 +4,12 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/ai_content_disclaimer.dart';
 import '../../components/common/copyable_id_label.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/world_tick_event_item.dart';
@@ -14,6 +17,7 @@ import '../../icons/my_flutter_app_icons.dart';
 import '../../network/models/world.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/entity_deleted.dart';
@@ -147,9 +151,10 @@ class WorldLoadingBone extends StatelessWidget {
 }
 
 class WorldDetailSection extends StatelessWidget {
-  const WorldDetailSection({required this.world});
+  const WorldDetailSection({required this.world, required this.currentUid});
 
   final WorldDetail world;
+  final String currentUid;
 
   @override
   Widget build(BuildContext context) {
@@ -205,7 +210,7 @@ class WorldDetailSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 4),
         GenesisPairedMetaRow(
           leftLabel: 'WID',
           leftValue: world.worldId,
@@ -239,6 +244,25 @@ class WorldDetailSection extends StatelessWidget {
           trailingIconColor: worldHeaderMetaColor,
           trailingIconSize: 16,
         ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: GenesisPrimaryButton(
+            label: 'Invite',
+            onPressed: () => _copyInviteText(context, worldName: title),
+            height: 35,
+            width: 140,
+            backgroundColor: const Color(0xFFFF2442),
+            disabledBackgroundColor: const Color(
+              0xFFFF2442,
+            ).withValues(alpha: 0.62),
+            foregroundColor: Colors.white,
+            fontSize: 16,
+            padding: EdgeInsets.zero,
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
         const SizedBox(height: 24),
         const WorldDetailSectionTitle(
           icon: MyFlutterApp.eye,
@@ -249,27 +273,79 @@ class WorldDetailSection extends StatelessWidget {
         Text(brief, style: worldDetailBodyTextStyle),
         const SizedBox(height: 8),
         WorldDetailCoverImage(url: cover),
+        const SizedBox(height: 24),
+        const WorldDetailSectionTitle(
+          asset: worldSectionCastIconAsset,
+          iconSize: 17,
+          iconColor: Color(0xFF666666),
+          title: 'Cast',
+        ),
+        const SizedBox(height: 8),
+        WorldCharactersSection(world: world, currentUid: currentUid),
       ],
     );
   }
+
+  Future<void> _copyInviteText(
+    BuildContext context, {
+    required String worldName,
+  }) async {
+    await Clipboard.setData(
+      ClipboardData(
+        text: worldInviteShareTextForTesting(
+          worldName: worldName,
+          wid: world.worldId,
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    showGenesisToast(context, 'Link copied. Share it with your friends.');
+  }
+}
+
+String worldInviteShareTextForTesting({
+  required String worldName,
+  required String wid,
+}) {
+  final resolvedWid = wid.trim();
+  final resolvedWorldName = worldName.trim().isEmpty
+      ? resolvedWid
+      : worldName.trim();
+  return 'Join my world "$resolvedWorldName" on Worldo!\n'
+      '$resolvedWid\n'
+      'Search this WID on Worldo to find and join.\n'
+      'https://worldo.ai/download';
 }
 
 class WorldDetailSectionTitle extends StatelessWidget {
   const WorldDetailSectionTitle({
-    required this.icon,
+    this.icon,
+    this.asset,
+    this.iconSize = 14,
     required this.iconColor,
     required this.title,
-  });
+  }) : assert(icon != null || asset != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final String? asset;
+  final double iconSize;
   final Color iconColor;
   final String title;
 
   @override
   Widget build(BuildContext context) {
+    final asset = this.asset;
     return Row(
       children: [
-        Icon(icon, size: 14, color: iconColor),
+        if (asset != null)
+          SvgPicture.asset(
+            asset,
+            width: iconSize,
+            height: iconSize,
+            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+          )
+        else
+          Icon(icon, size: iconSize, color: iconColor),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
@@ -381,7 +457,7 @@ class WorldSectionListView extends StatelessWidget {
       key: PageStorageKey<String>(storageKey),
       primary: false,
       physics: const ClampingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
       children: [child],
     );
   }
@@ -1220,6 +1296,7 @@ class WorldStatusSection extends StatelessWidget {
       subtitleBuilder: (character) =>
           worldMetricStatusText(world.metric, character),
       subtitleColor: const Color(0xFF666666),
+      showCharacterDetails: false,
     );
   }
 }
@@ -1238,6 +1315,7 @@ class WorldCharactersSection extends StatelessWidget {
       emptyText: 'No characters yet.',
       subtitleBuilder: worldCharacterDescriptionText,
       subtitleColor: const Color(0xFF666666),
+      showCharacterDetails: true,
     );
   }
 }
@@ -1249,6 +1327,7 @@ class WorldCharacterList extends StatelessWidget {
     required this.emptyText,
     required this.subtitleBuilder,
     required this.subtitleColor,
+    required this.showCharacterDetails,
   });
 
   final List<Map<String, dynamic>> characters;
@@ -1256,6 +1335,7 @@ class WorldCharacterList extends StatelessWidget {
   final String emptyText;
   final String Function(Map<String, dynamic> character) subtitleBuilder;
   final Color subtitleColor;
+  final bool showCharacterDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -1276,6 +1356,7 @@ class WorldCharacterList extends StatelessWidget {
               currentUid: currentUid,
               subtitle: subtitleBuilder(sortedCharacters[i]),
               subtitleColor: subtitleColor,
+              showCharacterDetails: showCharacterDetails,
             ),
             if (i != sortedCharacters.length - 1) const SizedBox(height: 22),
           ],
@@ -1291,12 +1372,14 @@ class WorldCharacterRow extends StatelessWidget {
     required this.currentUid,
     required this.subtitle,
     required this.subtitleColor,
+    required this.showCharacterDetails,
   });
 
   final Map<String, dynamic> character;
   final String currentUid;
   final String subtitle;
   final Color subtitleColor;
+  final bool showCharacterDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -1315,21 +1398,30 @@ class WorldCharacterRow extends StatelessWidget {
     );
     final isCharacterRole = worldIsCharacterRole(character);
     final roleLabel = isCharacterRole ? 'Character' : 'Player';
+    final showAiCharacterDetails = showCharacterDetails && isCharacterRole;
+    final identity = worldMapString(character, const ['identity']);
+    final brief = worldMapString(character, const ['brief']);
+    final goal = worldMapString(character, const ['goal']);
+    final hasOriginStyleDetails =
+        identity.isNotEmpty || brief.isNotEmpty || goal.isNotEmpty;
+    const bodyStyle = TextStyle(
+      fontSize: 13,
+      height: 1.4,
+      fontWeight: FontWeight.w400,
+      color: Color(0xFF111111),
+    );
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: EdgeInsets.only(right: isCharacterRole ? 6 : 0),
-          child: GenesisCharacterAvatar(
-            url: avatarUrl,
-            name: name,
-            showStar: isCharacterRole,
-            starSize: 20,
-            showFallbackWhileLoading: false,
-          ),
+        GenesisCharacterAvatar(
+          url: avatarUrl,
+          name: name,
+          showStar: isCharacterRole,
+          starSize: 20,
+          showFallbackWhileLoading: false,
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.only(top: 2),
@@ -1378,17 +1470,64 @@ class WorldCharacterRow extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.35,
-                    fontWeight: FontWeight.w400,
-                  ).copyWith(color: subtitleColor),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                if (showAiCharacterDetails) ...[
+                  if (identity.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      identity,
+                      style: bodyStyle,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  if (brief.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      brief,
+                      style: bodyStyle.copyWith(color: const Color(0xFFFF2442)),
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  if (goal.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      'Goal: $goal',
+                      style: bodyStyle,
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  if (!hasOriginStyleDetails) ...[
+                    const SizedBox(height: 5),
+                    Text(
+                      'No character details yet.',
+                      style: bodyStyle.copyWith(color: subtitleColor),
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ] else if (showCharacterDetails) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    subtitle,
+                    style: bodyStyle,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ] else ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.35,
+                      fontWeight: FontWeight.w400,
+                    ).copyWith(color: subtitleColor),
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
             ),
           ),
@@ -1502,9 +1641,19 @@ String worldEventBody(WorldDetail world) {
 }
 
 String worldCharacterDescriptionText(Map<String, dynamic> character) {
-  return worldMapString(character, const [
-    'identity',
-  ], fallback: 'No character details yet.');
+  final identity = worldMapString(character, const ['identity']);
+  if (!worldIsCharacterRole(character)) {
+    return identity.isEmpty ? 'No character details yet.' : identity;
+  }
+
+  final brief = worldMapString(character, const ['brief']);
+  final goal = worldMapString(character, const ['goal']);
+  final details = worldOrderedNonEmptyStrings([
+    identity,
+    brief,
+    goal.isEmpty ? '' : 'Goal: $goal',
+  ]);
+  return details.isEmpty ? 'No character details yet.' : details.join('\n');
 }
 
 String worldMetricStatusText(

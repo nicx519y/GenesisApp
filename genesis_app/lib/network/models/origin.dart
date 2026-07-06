@@ -347,7 +347,6 @@ class OriginCharacter {
     required this.avatar,
     required this.tags,
     this.tagline = '',
-    required this.description,
     this.goal = '',
     required this.currentLocationId,
     required this.initialLocationId,
@@ -365,7 +364,6 @@ class OriginCharacter {
   final String avatar;
   final String tags;
   final String tagline;
-  final String description;
   final String goal;
   final int currentLocationId;
   final int initialLocationId;
@@ -409,11 +407,7 @@ class OriginCharacter {
       ),
       avatar: asImageUrl(json['avatar']),
       tags: asString(json['tags'], fallback: asString(json['identity'])),
-      tagline: asString(json['tagline'], fallback: asString(json['brief'])),
-      description: asString(
-        json['description'],
-        fallback: asString(json['bio']),
-      ),
+      tagline: asString(json['brief']),
       goal: asString(json['goal']),
       currentLocationId: currentLocationId,
       initialLocationId: asInt(json['initial_location_id']),

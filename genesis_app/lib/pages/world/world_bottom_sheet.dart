@@ -375,7 +375,7 @@ class WorldSingleSectionBottomSheetState
         error: _eventsCache.error,
         latestRevision: _selection.eventsLatestRevision,
         targetTickNumber: _selection.eventsTargetTickNumber,
-        contentPadding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+        contentPadding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
         onLoadMore: _loadNextEventsPage,
       ),
     );
@@ -408,7 +408,7 @@ class WorldSingleSectionBottomSheetState
         points: widget.locationPoints,
         locationNodes: widget.locationNodes,
         enableOuterScrollHandoff: false,
-        padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
         onPointTap: (point) {
           final locationId = point.sceneId.trim().isNotEmpty
               ? point.sceneId.trim()
@@ -431,7 +431,10 @@ class WorldSingleSectionBottomSheetState
   Widget _buildDetailSectionPage() {
     return WorldSectionListView(
       storageKey: 'world-detail-section-bottom-sheet',
-      child: WorldDetailSection(world: _currentWorld),
+      child: WorldDetailSection(
+        world: _currentWorld,
+        currentUid: widget.currentUid,
+      ),
     );
   }
 

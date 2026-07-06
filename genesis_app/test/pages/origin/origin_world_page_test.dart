@@ -1,8 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 
 void main() {
+  final originSectionsSource = File(
+    'lib/pages/origin/origin_world_sections.dart',
+  );
+
   test('origin detail sheet uses main ui horizontal padding', () {
     expect(originDetailSheetHorizontalPaddingForTesting, 12);
   });
@@ -154,7 +160,6 @@ void main() {
           name: 'Sam',
           avatar: 'https://example.com/sam.png',
           tags: '',
-          description: '',
           currentLocationId: 0,
           initialLocationId: 0,
           createdAt: null,
@@ -169,4 +174,43 @@ void main() {
     expect(entities.single.avatarUrl, 'https://example.com/sam.png');
     expect(entities.single.isAi, isTrue);
   });
+
+  test('origin character tagline reads brief directly', () {
+    final character = OriginCharacter.fromJson(const {
+      'character_id': 'char_1',
+      'name': 'Sam',
+      'identity': 'Archivist',
+      'tagline': 'Old tagline should be ignored',
+      'brief': 'Brief from API',
+      'description': 'Description should be ignored',
+      'goal': 'Protect the archive',
+    });
+
+    expect(character.tagline, 'Brief from API');
+  });
+
+  test(
+    'origin character section omits description and uses unified body rhythm',
+    () {
+      final source = originSectionsSource.readAsStringSync();
+      final characterRow = source.substring(
+        source.indexOf('class _OriginCharacterRow'),
+        source.indexOf('class _OriginCharacterPortrait'),
+      );
+      final bodyStyle = source.substring(
+        source.indexOf('const _bodyTextStyle'),
+        source.indexOf('const _mutedBodyTextStyle'),
+      );
+
+      expect(characterRow, isNot(contains('visibleDescription')));
+      expect(characterRow, isNot(contains('character.description')));
+      expect(characterRow, isNot(contains('_sameCharacterText')));
+      expect(characterRow, isNot(contains('SizedBox(height: 9)')));
+      expect(characterRow, contains("Text('Goal: \$goal'"));
+      expect(bodyStyle, contains('height: 1.4'));
+      expect(bodyStyle, isNot(contains('height: 1.45')));
+      expect(bodyStyle, isNot(contains('height: 1.35')));
+      expect(source, isNot(contains('bool _sameCharacterText')));
+    },
+  );
 }

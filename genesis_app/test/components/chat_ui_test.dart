@@ -572,6 +572,46 @@ void main() {
     expect(find.text('PN'), findsOneWidget);
   });
 
+  testWidgets('char npc message renders fixed NPC avatar', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'm1',
+              senderId: 'char_npc',
+              senderName: 'Village Guide',
+              text: 'hello',
+              isMe: false,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+            style: kLocationChatStyle,
+          ),
+        ),
+      ),
+    );
+
+    final avatarFinder = find.byKey(const ValueKey('chat-npc-avatar'));
+    expect(avatarFinder, findsOneWidget);
+    expect(tester.getSize(avatarFinder), const Size(36, 36));
+    expect(find.text('NPC'), findsOneWidget);
+    expect(find.text('VG'), findsNothing);
+
+    final avatarBox = tester.widget<DecoratedBox>(
+      find.descendant(of: avatarFinder, matching: find.byType(DecoratedBox)),
+    );
+    final decoration = avatarBox.decoration as BoxDecoration;
+    expect(decoration.color, const Color(0xFF4A5F7A));
+    expect(decoration.shape, BoxShape.circle);
+
+    final label = tester.widget<Text>(find.text('NPC'));
+    expect(label.style?.color, Colors.white);
+    expect(label.style?.fontWeight, FontWeight.w700);
+  });
+
   testWidgets('chat message bubble parses markdown italic text', (
     WidgetTester tester,
   ) async {
@@ -976,7 +1016,7 @@ void main() {
     expect(tickBar.right, closeTo(400 - expectedOuterPadding, 1));
     expect(
       narratorText.left,
-      closeTo(expectedBubbleEdge + style.systemMessagePadding.left, 1),
+      closeTo(expectedBubbleEdge + style.systemMessagePadding.left + 20, 1),
     );
     expect(
       tickText.left,

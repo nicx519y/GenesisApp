@@ -656,7 +656,46 @@ void main() {
     },
   );
 
-  test('chatroom message storage does not fallback to message id', () async {
+  test(
+    'chatroom message storage keeps cursorless messages before location ids',
+    () async {
+      final storage = MemoryChatroomMessageStorage();
+      await storage.mergeMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        messages: [
+          _storageMessageJson(
+            messageId: 100,
+            locationMessageId: 0,
+            locationId: 'loc-1',
+            content: 'missing location queue id',
+          ),
+          _storageMessageJson(
+            messageId: 101,
+            locationMessageId: 1,
+            locationId: 'loc-1',
+            content: 'first location queue message',
+          ),
+        ],
+      );
+
+      final records = await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 20,
+      );
+
+      expect(records.map((message) => message['msg_id']).toList(), [100, 101]);
+      expect(records.map((message) => message['location_msg_id']).toList(), [
+        0,
+        1,
+      ]);
+    },
+  );
+
+  test('chatroom message storage orders ticks by message id', () async {
     final storage = MemoryChatroomMessageStorage();
     await storage.mergeMessages(
       ownerUid: 'user-1',
@@ -665,15 +704,22 @@ void main() {
       messages: [
         _storageMessageJson(
           messageId: 100,
-          locationMessageId: 0,
+          locationMessageId: 200,
           locationId: 'loc-1',
-          content: 'missing location queue id',
+          content: 'location 200',
         ),
         _storageMessageJson(
-          messageId: 101,
-          locationMessageId: 1,
+          messageId: 150,
+          locationMessageId: 0,
           locationId: 'loc-1',
-          content: 'first location queue message',
+          content: 'tick 150',
+          senderType: 'tick',
+        ),
+        _storageMessageJson(
+          messageId: 200,
+          locationMessageId: 201,
+          locationId: 'loc-1',
+          content: 'location 201',
         ),
       ],
     );
@@ -685,8 +731,16 @@ void main() {
       limit: 20,
     );
 
-    expect(records.map((message) => message['msg_id']).toList(), [101]);
-    expect(records.map((message) => message['location_msg_id']).toList(), [1]);
+    expect(records.map((message) => message['msg_id']).toList(), [
+      100,
+      150,
+      200,
+    ]);
+    expect(records.map((message) => message['location_msg_id']).toList(), [
+      200,
+      0,
+      201,
+    ]);
   });
 
   test('clearCachedMessages clears persisted and in-memory history', () async {
@@ -1108,9 +1162,11 @@ void main() {
       final http = _WorldChatroomHttpTransport()
         ..messagesByLocation['loc-1'] = const <Map<String, dynamic>>[]
         ..messagesByLocation['loc-2'] = const <Map<String, dynamic>>[];
+      final storage = MemoryChatroomMessageStorage();
       final service = await _service(
         socketTransport: _FakeChatroomTransport(socket),
         httpTransport: http,
+        messageStorage: storage,
       );
 
       await service.connect(worldId: 'world-1', identity: _identity());
@@ -1151,12 +1207,25 @@ void main() {
       expect(service.state.latestSocketCurrentTime, 'Day 45, 19:30');
       expect(service.state.latestSocketTickNo, 7);
       expect(service.state.messagesByLocation.containsKey('loc-root'), isFalse);
+      for (final locationId in const ['loc-1', 'loc-2']) {
+        final records = await storage.loadLatestMessages(
+          ownerUid: 'user-1',
+          worldId: 'world-1',
+          locationId: locationId,
+          limit: 20,
+        );
+        final cached = records.singleWhere(
+          (message) => message['msg_id'] == 154,
+        );
+        expect(cached['sender_type'], 'tick');
+        expect(cached['location_msg_id'], 0);
+      }
       await service.dispose();
     },
   );
 
   test(
-    'non-tick push without location message id stays out of queue',
+    'non-tick push without location message id enters queue before location ids',
     () async {
       final socket = _FakeChatroomSocket();
       final http = _WorldChatroomHttpTransport()
@@ -1169,6 +1238,18 @@ void main() {
 
       await service.connect(worldId: 'world-1', identity: _identity());
       socket.serverFrame('nar_new_message', {
+        'ts': 1780840607640,
+        'world_id': 'world-1',
+        'payload': {'content': 'valid location message'},
+        'global_msg_id': 90155,
+        'msg_id': 155,
+        'location_msg_id': 55,
+        'conversation_round_id': 1349,
+        'sender_id': 'nar',
+        'sender_name': 'Narrator',
+        'location_id': 'loc-1',
+      });
+      socket.serverFrame('nar_new_message', {
         'ts': 1780840607650,
         'world_id': 'world-1',
         'payload': {'content': '*dirty record without location id*'},
@@ -1180,16 +1261,32 @@ void main() {
         'sender_name': 'Character',
         'location_id': 'loc-1',
       });
+      socket.serverFrame('nar_new_message', {
+        'ts': 1780840607660,
+        'world_id': 'world-1',
+        'payload': {'content': '*second dirty record without location id*'},
+        'global_msg_id': 90157,
+        'msg_id': 157,
+        'location_msg_id': 0,
+        'conversation_round_id': 1350,
+        'sender_id': 'char_1',
+        'sender_name': 'Character',
+        'location_id': 'loc-1',
+      });
 
-      await Future<void>.delayed(Duration.zero);
+      await _waitFor(
+        () => (service.state.messagesByLocation['loc-1']?.length ?? 0) >= 3,
+      );
 
       expect(
-        service.state.messagesByLocation['loc-1']?.any(
-              (message) => message.messageId == 156,
-            ) ??
-            false,
-        isFalse,
+        service.state.messagesByLocation['loc-1']!
+            .map((message) => message.messageId)
+            .toList(),
+        [156, 157, 155],
       );
+      final cursorless = service.state.messagesByLocation['loc-1']!.first;
+      expect(cursorless.locationMessageId, 0);
+      expect(cursorless.content, '*dirty record without location id*');
       expect(
         service.state.worldMessages.any((message) => message.messageId == 156),
         isTrue,
@@ -1812,6 +1909,7 @@ Map<String, dynamic> _storageMessageJson({
   required String locationId,
   required String content,
   int? locationMessageId,
+  String senderType = 'user',
 }) {
   return {
     'global_msg_id': 90000 + messageId,
@@ -1821,7 +1919,7 @@ Map<String, dynamic> _storageMessageJson({
     'conversation_round_id': messageId,
     'round_order': 1,
     'tick_no': 0,
-    'sender_type': 'user',
+    'sender_type': senderType,
     'sender_id': 'user-$messageId',
     'sender_name': 'User $messageId',
     'user_id': 'user-$messageId',

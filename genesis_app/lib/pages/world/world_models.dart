@@ -61,11 +61,6 @@ const worldBottomTagItems = <WorldBottomTagItem>[
     kind: WorldBottomSheetKind.status,
     asset: worldSectionStatusIconAsset,
   ),
-  WorldBottomTagItem(
-    label: 'Cast',
-    kind: WorldBottomSheetKind.cast,
-    asset: worldSectionCastIconAsset,
-  ),
 ];
 
 enum WorldHeaderActionKind { request, pending, launch, progress, unavailable }

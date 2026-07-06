@@ -273,34 +273,36 @@ void main() {
     },
   );
 
-  test(
-    'visible location chat messages keep leading tick before dirty records',
-    () {
-      final source = [
-        _message(
-          messageId: 1,
-          locationMessageId: 0,
-          senderType: 'tick',
-          content: 'Day 1, 20:00',
-        ),
-        _message(
-          messageId: 5,
-          locationMessageId: 0,
-          senderType: 'character',
-          content: 'dirty record without location id',
-        ),
-        _message(messageId: 45, locationMessageId: 12, content: 'first valid'),
-        _message(messageId: 46, locationMessageId: 13, content: 'second valid'),
-      ];
+  test('visible location chat messages keep leading cursorless records', () {
+    final source = [
+      _message(
+        messageId: 1,
+        locationMessageId: 0,
+        senderType: 'tick',
+        content: 'Day 1, 20:00',
+      ),
+      _message(
+        messageId: 5,
+        locationMessageId: 0,
+        senderType: 'character',
+        content: 'dirty record without location id',
+      ),
+      _message(messageId: 45, locationMessageId: 12, content: 'first valid'),
+      _message(messageId: 46, locationMessageId: 13, content: 'second valid'),
+    ];
 
-      expect(
-        visibleLocationChatMessagesForTesting(
-          source,
-        ).map((message) => message.content),
-        ['Day 1, 20:00', 'first valid', 'second valid'],
-      );
-    },
-  );
+    expect(
+      visibleLocationChatMessagesForTesting(
+        source,
+      ).map((message) => message.content),
+      [
+        'Day 1, 20:00',
+        'dirty record without location id',
+        'first valid',
+        'second valid',
+      ],
+    );
+  });
 
   test('visible location chat messages collapse consecutive ticks', () {
     final source = [

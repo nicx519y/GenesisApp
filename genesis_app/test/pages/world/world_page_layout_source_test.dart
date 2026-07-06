@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 
 void main() {
   final worldPageSource = File('lib/pages/world/world_page.dart');
@@ -98,7 +99,7 @@ void main() {
     expect(tags, contains('worldDetailIconAsset'));
     expect(tags, contains("label: 'Events'"));
     expect(tags, contains("label: 'Status'"));
-    expect(tags, contains("label: 'Cast'"));
+    expect(tags, isNot(contains("label: 'Cast'")));
     expect(tags, isNot(contains("label: 'Map'")));
     expect(bottomTags, contains('Color(0xFFFFFFFF)'));
     expect(bottomTags, contains('physics: const ClampingScrollPhysics()'));
@@ -107,6 +108,14 @@ void main() {
     expect(eventsSectionBuilder, contains('overscroll: false'));
     expect(locationsSectionBuilder, contains('ScrollConfiguration'));
     expect(locationsSectionBuilder, contains('overscroll: false'));
+    expect(
+      eventsSectionBuilder,
+      contains('EdgeInsets.fromLTRB(12, 14, 12, 32)'),
+    );
+    expect(
+      locationsSectionBuilder,
+      contains('EdgeInsets.fromLTRB(12, 14, 12, 32)'),
+    );
     expect(singleSectionSheet, contains('Expanded('));
     expect(singleSectionSheet, contains('_buildDismissibleSheetContent()'));
     expect(singleSectionSheet, contains('Listener('));
@@ -117,6 +126,8 @@ void main() {
     expect(singleSectionSheet, contains('ScrollConfiguration('));
     expect(singleSectionSheet, contains('overscroll: false'));
     expect(sectionListView, contains('physics: const ClampingScrollPhysics()'));
+    expect(sectionListView, contains('EdgeInsets.fromLTRB(12, 14, 12, 32)'));
+    expect(source, isNot(contains('EdgeInsets.fromLTRB(24, 14, 24, 32)')));
     expect(bottomTags, isNot(contains('TabBar(')));
     expect(source, contains('_openWorldBottomSheet('));
     expect(source, contains('enableDrag: false'));
@@ -134,6 +145,99 @@ void main() {
     expect(source, contains('fontWeight: FontWeight.w600'));
     expect(source, contains('minimumSize: const Size(28, 28)'));
     expect(source, isNot(contains('WorldSectionsSheetTabs')));
+  });
+
+  test('world detail includes cast content below the brief', () {
+    final sections = worldSectionsSource.readAsStringSync();
+    final detailSection = sections.substring(
+      sections.indexOf('class WorldDetailSection'),
+      sections.indexOf('class WorldDetailSectionTitle'),
+    );
+    final briefIndex = detailSection.indexOf("title: 'World Brief'");
+    final castIndex = detailSection.indexOf('WorldCharactersSection(');
+
+    expect(detailSection, contains('final String currentUid;'));
+    expect(castIndex, greaterThan(briefIndex));
+    expect(detailSection, contains('asset: worldSectionCastIconAsset'));
+    expect(detailSection, contains('iconSize: 17'));
+    expect(detailSection, contains('currentUid: currentUid'));
+    expect(detailSection, contains("label: 'Invite'"));
+    expect(detailSection, contains('width: 140'));
+    expect(detailSection, contains('height: 35'));
+    expect(detailSection, contains('Color(0xFFFF2442)'));
+    expect(detailSection, contains('Clipboard.setData'));
+    expect(detailSection, contains('Link copied. Share it with your friends.'));
+    expect(
+      detailSection,
+      contains(
+        'WorldDetailSectionTitle(\n          asset: worldSectionCastIconAsset',
+      ),
+    );
+    expect(
+      detailSection,
+      contains('const SizedBox(height: 8),\n        WorldCharactersSection'),
+    );
+    expect(
+      detailSection,
+      contains('const SizedBox(height: 4),\n        GenesisPairedMetaRow'),
+    );
+  });
+
+  test('world cast subtitle uses readable body sizing', () {
+    final sections = worldSectionsSource.readAsStringSync();
+    final characterRow = sections.substring(
+      sections.indexOf('class WorldCharacterRow'),
+      sections.indexOf('String worldResizedCharacterAvatarUrl'),
+    );
+
+    expect(characterRow, contains('fontSize: 13'));
+    expect(characterRow, contains('maxLines: 4'));
+    expect(characterRow, contains('Color(0xFFFF2442)'));
+    expect(characterRow, contains('height: 1.4'));
+    expect(characterRow, contains('SizedBox(height: 5)'));
+    expect(characterRow, contains('SizedBox(width: 14)'));
+    expect(characterRow, isNot(contains('isCharacterRole ? 6 : 0')));
+    expect(characterRow, contains("const ['brief']"));
+    expect(characterRow, isNot(contains('personality')));
+    expect(characterRow, contains('else if (showCharacterDetails)'));
+  });
+
+  test('world cast AI subtitle reads identity brief and goal', () {
+    expect(
+      worldCharacterDescriptionText(const {
+        'player_uid': '',
+        'identity': 'Archivist',
+        'brief': 'Keeps every forgotten story indexed',
+        'goal': 'Protect the archive',
+      }),
+      'Archivist\nKeeps every forgotten story indexed\nGoal: Protect the archive',
+    );
+    expect(
+      worldCharacterDescriptionText(const {
+        'player_uid': 'user_1',
+        'identity': 'Visitor',
+        'brief': 'Should stay hidden',
+        'goal': 'Should stay hidden',
+      }),
+      'Visitor',
+    );
+  });
+
+  test('world invite copy highlights world name and wid', () {
+    expect(
+      worldInviteShareTextForTesting(worldName: 'Dream Bazaar', wid: 'w_123'),
+      'Join my world "Dream Bazaar" on Worldo!\n'
+      'w_123\n'
+      'Search this WID on Worldo to find and join.\n'
+      'https://worldo.ai/download',
+    );
+    expect(
+      worldInviteShareTextForTesting(worldName: '', wid: 'w_empty'),
+      'Join my world "w_empty" on Worldo!\n'
+      'w_empty\n'
+      'Search this WID on Worldo to find and join.\n'
+      'https://worldo.ai/download',
+    );
   });
 
   test('world bottom sheet supports horizontal page switching', () {

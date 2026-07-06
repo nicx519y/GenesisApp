@@ -49,6 +49,8 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
 
 const double _locationChatOuterPadding = 10;
 const double _locationChatAvatarOneThird = 40 / 3;
+const double _npcChatAvatarSize = 36;
+const Color _npcChatAvatarBackgroundColor = Color(0xFF4A5F7A);
 const Color _locationChatBackgroundColor = Color(0xFF111111);
 const Color _locationChatChromeStrong = Color(0xF2111111);
 const Color _locationChatChromeSoft = Color(0x80111111);
@@ -349,6 +351,7 @@ class ChatComposer extends StatelessWidget {
     required this.onSend,
     this.onHeightChanged,
     this.sendLabel,
+    this.hintText,
     this.style,
     this.bottomSafeAreaInset,
     this.focusNode,
@@ -362,6 +365,7 @@ class ChatComposer extends StatelessWidget {
   final Future<void> Function() onSend;
   final ValueChanged<double>? onHeightChanged;
   final String? sendLabel;
+  final String? hintText;
   final ChatUiStyleConfig? style;
   final double? bottomSafeAreaInset;
   final FocusNode? focusNode;
@@ -443,6 +447,7 @@ class ChatComposer extends StatelessWidget {
                         ),
                         decoration: InputDecoration(
                           border: InputBorder.none,
+                          hintText: hintText,
                           contentPadding: EdgeInsets.symmetric(
                             horizontal: style.inputHorizontalPadding,
                             vertical: style.inputVerticalPadding,
@@ -1003,6 +1008,7 @@ class ChatMessageRow extends StatelessWidget {
         textAlign: message.isTick || message.isNarrator
             ? TextAlign.left
             : TextAlign.center,
+        leadingIconAsset: message.isNarrator ? paragraphIconAsset : null,
         bubbleKey: message.isTick
             ? const ValueKey('chat-tick-message-bubble')
             : const ValueKey('chat-system-message-bubble'),
@@ -1109,16 +1115,18 @@ class ChatMessageRow extends StatelessWidget {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: onAvatarTap,
-                child: ChatAvatar(
-                  label: chatInitials(message.senderName),
-                  imageUrl: message.avatarUrl,
-                  colors: style.otherAvatarColors,
-                  seed: message.senderName,
-                  borderColor: message.isPlayerControlledRole
-                      ? GenesisColors.brand
-                      : null,
-                  style: style,
-                ),
+                child: _isNpcSender(message.senderId)
+                    ? const ChatNpcAvatar()
+                    : ChatAvatar(
+                        label: chatInitials(message.senderName),
+                        imageUrl: message.avatarUrl,
+                        colors: style.otherAvatarColors,
+                        seed: message.senderName,
+                        borderColor: message.isPlayerControlledRole
+                            ? GenesisColors.brand
+                            : null,
+                        style: style,
+                      ),
               ),
             ],
           ),
@@ -1311,6 +1319,35 @@ class ChatAvatar extends StatelessWidget {
   }
 }
 
+class ChatNpcAvatar extends StatelessWidget {
+  const ChatNpcAvatar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.square(
+      key: ValueKey('chat-npc-avatar'),
+      dimension: _npcChatAvatarSize,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _npcChatAvatarBackgroundColor,
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Text(
+            'NPC',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ChatAiBadge extends StatelessWidget {
   const ChatAiBadge({super.key, this.style});
 
@@ -1408,6 +1445,7 @@ class ChatSystemMessage extends StatelessWidget {
     this.fullWidth = false,
     this.singleLine = false,
     this.textAlign = TextAlign.center,
+    this.leadingIconAsset,
     this.bubbleKey = const ValueKey('chat-system-message-bubble'),
     this.onLongPressStart,
     this.style,
@@ -1417,6 +1455,7 @@ class ChatSystemMessage extends StatelessWidget {
   final bool fullWidth;
   final bool singleLine;
   final TextAlign textAlign;
+  final String? leadingIconAsset;
   final Key bubbleKey;
   final GestureLongPressStartCallback? onLongPressStart;
   final ChatUiStyleConfig? style;
@@ -1447,18 +1486,68 @@ class ChatSystemMessage extends StatelessWidget {
                     style.systemMessageBorderRadius,
                   ),
                 ),
-                child: _InlineMarkdownText(
-                  text: text,
-                  maxLines: singleLine ? 1 : null,
-                  overflow: singleLine ? TextOverflow.ellipsis : null,
-                  textAlign: textAlign,
-                  style: style.systemMessageTextStyle,
-                ),
+                child: leadingIconAsset == null
+                    ? _InlineMarkdownText(
+                        text: text,
+                        maxLines: singleLine ? 1 : null,
+                        overflow: singleLine ? TextOverflow.ellipsis : null,
+                        textAlign: textAlign,
+                        style: style.systemMessageTextStyle,
+                      )
+                    : _SystemMessageWithLeadingIcon(
+                        iconAsset: leadingIconAsset!,
+                        text: text,
+                        textAlign: textAlign,
+                        style: style,
+                      ),
               ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _SystemMessageWithLeadingIcon extends StatelessWidget {
+  const _SystemMessageWithLeadingIcon({
+    required this.iconAsset,
+    required this.text,
+    required this.textAlign,
+    required this.style,
+  });
+
+  final String iconAsset;
+  final String text;
+  final TextAlign textAlign;
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = style.systemMessageTextStyle.color ?? Colors.white;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 3),
+          child: SvgPicture.asset(
+            iconAsset,
+            width: 14,
+            height: 14,
+            fit: BoxFit.contain,
+            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+            excludeFromSemantics: true,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _InlineMarkdownText(
+            text: text,
+            textAlign: textAlign,
+            style: style.systemMessageTextStyle,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1639,6 +1728,10 @@ String _tickAdvanceText(ChatMessageVm message) {
 
 String chatInitials(String value) {
   return initialsForAvatarName(value);
+}
+
+bool _isNpcSender(String senderId) {
+  return senderId.trim().toLowerCase() == 'char_npc';
 }
 
 String firstNonEmpty(List<String?> values) {

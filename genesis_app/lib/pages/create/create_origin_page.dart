@@ -5,8 +5,11 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
+import '../../components/common/genesis_generation_wait_overlay.dart';
+import '../../components/genesis_logo.dart';
 import '../origin_editor/origin_draft_repository.dart';
 import '../origin_editor/origin_editor_pages.dart';
+import '../origin_editor/origin_generation_wait_content.dart';
 import '../origin_editor/origin_pending_submission_coordinator.dart';
 import 'create_basics_page.dart';
 import 'create_characters_page.dart';
@@ -27,11 +30,11 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
 
   final OriginPendingSubmissionCoordinator _pendingCoordinator =
       OriginPendingSubmissionCoordinator.instance;
-  OriginDraftSubmitStatus _submitStatus =
-      OriginDraftSubmitStatus.checkingPending;
+  OriginDraftSubmitStatus _submitStatus = OriginDraftSubmitStatus.idle;
   int _reloadSignal = 0;
   late final VoidCallback _removeCreateOutcomeListener;
   bool _didResumePendingCreate = false;
+  List<String> _generationWaitLines = const <String>[];
 
   @override
   void initState() {
@@ -63,7 +66,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return OriginDraftFlowPage(
+    final flow = OriginDraftFlowPage(
       title: 'Create Worldo',
       repository: _repository,
       basicsPageBuilder: (_) => const CreateBasicsPage(),
@@ -79,6 +82,21 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       confirmLeaveWithDraftOptions: true,
       onDiscardDraft: (_) => CreateOriginDraftStore.clear(),
     );
+    if (_submitStatus == OriginDraftSubmitStatus.idle) return flow;
+    return Stack(
+      children: [
+        flow,
+        Positioned.fill(
+          child: GenesisGenerationWaitOverlay(
+            title: 'Creating your Worldo',
+            illustration: const Center(
+              child: GenesisLogo(height: 88, width: 152),
+            ),
+            perspectiveLines: _generationWaitLines,
+          ),
+        ),
+      ],
+    );
   }
 
   Future<OriginSubmitResult> _onCreate(
@@ -93,6 +111,11 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       return const OriginSubmitResult(message: '', showMessage: false);
     }
     final api = AppServicesScope.read(context).api;
+    if (mounted) {
+      setState(
+        () => _generationWaitLines = originDraftGenerationWaitLines(draft),
+      );
+    }
     GenesisTelemetry.collectLog(
       actionType: 'event',
       action: 'create_worldo_submit_start',
@@ -118,6 +141,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
 
   void _resumePendingCreate() {
     final api = AppServicesScope.read(context).api;
+    unawaited(_loadPendingCreateWaitLines());
     unawaited(
       _pendingCoordinator.ensureCreatingPolling(
         loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
@@ -125,6 +149,14 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       ),
     );
     _syncSubmitStatus();
+  }
+
+  Future<void> _loadPendingCreateWaitLines() async {
+    final draft = await CreateOriginDraftStore.loadFinal();
+    if (!mounted) return;
+    setState(() {
+      _generationWaitLines = originDraftGenerationWaitLines(draft);
+    });
   }
 
   void _syncSubmitStatus() {

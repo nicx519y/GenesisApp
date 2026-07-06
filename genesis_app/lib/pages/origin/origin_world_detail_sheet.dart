@@ -458,18 +458,22 @@ class _OriginSheetHeaderContent extends StatelessWidget {
         ),
         if (canEditOrigin) ...[
           const SizedBox(height: 8),
-          GenesisPrimaryButton(
-            label: 'Edit Worldo',
-            onPressed: () async {
-              await Navigator.of(context).pushNamed(
-                RouteNames.edit,
-                arguments: {'origin_id': origin.oid},
-              );
-              if (!context.mounted) return;
-              onOriginChanged();
-            },
-            backgroundColor: const Color(0xFF3B2468),
-            foregroundColor: Colors.white,
+          Center(
+            child: FractionallySizedBox(
+              widthFactor: 0.7,
+              child: GenesisPrimaryButton(
+                label: 'Edit Worldo',
+                leadingIcon: const Icon(Icons.edit, size: 14),
+                onPressed: () async {
+                  await Navigator.of(context).pushNamed(
+                    RouteNames.edit,
+                    arguments: {'origin_id': origin.oid},
+                  );
+                  if (!context.mounted) return;
+                  onOriginChanged();
+                },
+              ),
+            ),
           ),
         ],
       ],

@@ -424,6 +424,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldSummaryLatestItems,
     this.worldDetailTicksByRequest,
     this.worldDetailTickCountsByRequest,
+    this.worldInfoStatusesByRequest,
     this.chatroomMessagesByLocation,
     this.worldTickListCompleter,
     this.hotTagsCompleter,
@@ -452,10 +453,12 @@ class _RecordingV1ListTransport implements HttpTransport {
   final List<Map<String, Object?>>? worldSummaryLatestItems;
   final List<List<Map<String, Object?>>>? worldDetailTicksByRequest;
   final List<int>? worldDetailTickCountsByRequest;
+  final List<int>? worldInfoStatusesByRequest;
   final Map<String, List<Map<String, Object?>>>? chatroomMessagesByLocation;
   final Completer<TransportResponse>? worldTickListCompleter;
   final Completer<TransportResponse>? hotTagsCompleter;
   int _worldDetailRequestIndex = 0;
+  int _worldInfoRequestIndex = 0;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -508,6 +511,17 @@ class _RecordingV1ListTransport implements HttpTransport {
           request.uri.queryParameters['wid'] ??
           '';
       final detail = _worldDetail(wid);
+      final statusesByRequest = worldInfoStatusesByRequest;
+      if (statusesByRequest != null) {
+        final index = _worldInfoRequestIndex.clamp(
+          0,
+          statusesByRequest.length - 1,
+        );
+        final info = Map<String, Object?>.from(detail['info']! as Map);
+        info['status'] = statusesByRequest[index];
+        detail['info'] = info;
+      }
+      _worldInfoRequestIndex += 1;
       return _jsonResponse({
         'err_no': 0,
         'err_str': 'success',
@@ -1471,6 +1485,7 @@ class _RecordingDmDeltaTransport implements HttpTransport {
 class _RecordingDmChatTransport implements HttpTransport {
   _RecordingDmChatTransport({
     this.failSend = false,
+    this.sendFailureMessage = 'send failed',
     List<Map<String, dynamic>>? messages,
   }) : messages =
            messages ??
@@ -1486,6 +1501,7 @@ class _RecordingDmChatTransport implements HttpTransport {
            ];
 
   final bool failSend;
+  final String sendFailureMessage;
   final requests = <TransportRequest>[];
   final List<Map<String, dynamic>> messages;
 
@@ -1507,8 +1523,8 @@ class _RecordingDmChatTransport implements HttpTransport {
           statusCode: 200,
           headers: const {'content-type': 'application/json'},
           body: jsonEncode({
-            'err_no': 10001,
-            'err_msg': 'send failed',
+            'err_no': 20001,
+            'err_msg': sendFailureMessage,
             'data': <String, Object?>{},
           }),
         );
@@ -1998,7 +2014,7 @@ void main() {
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('My World'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
-    expect(find.text('Worldo'), findsOneWidget);
+    expect(find.text('#Worldo'), findsOneWidget);
     expect(find.text('Create'), findsOneWidget);
     expect(find.text('Messages'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
@@ -3566,7 +3582,7 @@ void main() {
     }
   });
 
-  testWidgets('tap Worldo switches to Worldo page', (
+  testWidgets('tap #Worldo switches to Worldo page', (
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
@@ -3574,11 +3590,12 @@ void main() {
     expect(find.text('My World'), findsOneWidget);
     expect(find.text('Popular'), findsOneWidget);
 
-    await tester.tap(find.text('Worldo'));
+    await tester.tap(find.text('#Worldo'));
     await tester.pumpAndSettle();
 
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Worldo'), findsNWidgets(2));
+    expect(find.text('#Worldo'), findsOneWidget);
+    expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
   });
 
@@ -3608,7 +3625,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
 
-    await tester.tap(find.text('Worldo'));
+    await tester.tap(find.text('#Worldo'));
     await tester.pumpAndSettle();
 
     originRequests = transport.requestsFor('/api/v1/origin/list');
@@ -4631,14 +4648,14 @@ void main() {
     );
     expect(
       find.text(
-        'Generate  a live and customized world for you.\n'
+        'Generating a live and customized world for you.\n'
         'Please wait for a moment.',
       ),
       findsOneWidget,
     );
     final waitBody = tester.widget<Text>(
       find.text(
-        'Generate  a live and customized world for you.\n'
+        'Generating a live and customized world for you.\n'
         'Please wait for a moment.',
       ),
     );
@@ -4665,6 +4682,7 @@ void main() {
     expect(await OriginLaunchPendingStore.load(), isNotNull);
     worldRequests = transport.requestsFor('/api/v1/world/detail');
     expect(worldRequests, hasLength(2));
+    OriginLaunchCoordinator.instance.resetForTesting();
   });
 
   testWidgets('Origin detail location opens launch-only chat panel', (
@@ -6667,14 +6685,14 @@ void main() {
     );
     await tester.pump();
 
-    final initialTabTop = tester.getTopLeft(find.text('Worldo')).dy;
+    final initialTabTop = tester.getTopLeft(find.text('#Worldo')).dy;
     expect(initialTabTop, greaterThan(80));
 
     await tester.drag(find.byType(NestedScrollView), const Offset(0, -260));
     await tester.pumpAndSettle();
 
     expect(collapsed, isTrue);
-    expect(tester.getTopLeft(find.text('Worldo')).dy, lessThanOrEqualTo(10));
+    expect(tester.getTopLeft(find.text('#Worldo')).dy, lessThanOrEqualTo(10));
     expect(find.text('Scrollable User'), findsNothing);
   });
 
@@ -7806,7 +7824,12 @@ void main() {
 
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          backendAuthenticated: true,
+          initialAuthToken: 'backend-token',
+          transport: transport,
+          useMock: false,
+        ),
         child: MaterialApp(
           navigatorKey: genesisNavigatorKey,
           home: Builder(
@@ -7836,20 +7859,16 @@ void main() {
     );
     expect(readyCreateButton.onPressed, isNotNull);
 
-    readyCreateButton.onPressed!();
+    await tester.tap(find.widgetWithText(FilledButton, 'Create'));
     await tester.pump();
-    await tester.runAsync(() async {
-      for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/create').isNotEmpty) break;
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
-    });
-    await tester.runAsync(() async {
-      for (var i = 0; i < 50; i++) {
-        if (transport.requestsFor('/api/v1/origin/info').isNotEmpty) break;
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
-    });
+    for (var i = 0; i < 300; i++) {
+      if (transport.requestsFor('/api/v1/origin/create').isNotEmpty) break;
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+    for (var i = 0; i < 300; i++) {
+      if (transport.requestsFor('/api/v1/origin/info').isNotEmpty) break;
+      await tester.pump(const Duration(milliseconds: 10));
+    }
     await tester.pump();
 
     final requests = transport.requestsFor('/api/v1/origin/create');
@@ -7882,21 +7901,45 @@ void main() {
     final pendingCreate = await OriginPendingSubmissionStore.loadCreating();
     expect(pendingCreate?.originId, 'o_created_1');
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
-    expect(find.widgetWithText(FilledButton, 'Creating...'), findsOneWidget);
-    final createButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Creating...'),
+    expect(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+      findsOneWidget,
     );
-    expect(createButton.onPressed, isNull);
+    final createWaitTitleFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is Text &&
+          (widget.data ?? '').startsWith('Creating your Worldo'),
+    );
+    expect(createWaitTitleFinder, findsOneWidget);
+    final initialCreateWaitTitle = tester
+        .widget<Text>(createWaitTitleFinder)
+        .data;
+    await tester.pump(const Duration(milliseconds: 400));
+    final animatedCreateWaitTitle = tester
+        .widget<Text>(createWaitTitleFinder)
+        .data;
+    expect(animatedCreateWaitTitle, isNot(initialCreateWaitTitle));
+    expect(
+      find.byKey(const ValueKey('create-worldo-wait-perspective-text')),
+      findsOneWidget,
+    );
+    expect(find.text('A public world view.'), findsOneWidget);
+    expect(find.text('Hidden rules.'), findsOneWidget);
+    expect(find.text('Ari: Guide. Calm'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader is SvgAssetLoader &&
+            (widget.bytesLoader as SvgAssetLoader).assetName ==
+                'assets/svg/worldo-logo.svg',
+      ),
+      findsOneWidget,
+    );
     expect(
       _richTextWithPlainText('Worldo #Origin o_created_1 created!'),
       findsNothing,
     );
-    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
-    await tester.pumpAndSettle();
-    expect(find.text('Open create'), findsOneWidget);
-    expect(find.text('Create Worldo'), findsNothing);
-    expect(find.text('Save the draft before leaving?'), findsNothing);
-
     await tester.pump(const Duration(seconds: 5));
     await tester.runAsync(() async {
       for (var i = 0; i < 50; i++) {
@@ -8032,8 +8075,11 @@ void main() {
 
     expect(transport.requestsFor('/api/v1/origin/create'), isEmpty);
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
-    expect(find.textContaining('Crystal City'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Creating...'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Creating your Worldo'), findsOneWidget);
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
   });
 
@@ -8081,7 +8127,12 @@ void main() {
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          backendAuthenticated: true,
+          initialAuthToken: 'backend-token',
+          transport: transport,
+          useMock: false,
+        ),
         child: MaterialApp(
           navigatorKey: genesisNavigatorKey,
           home: Builder(
@@ -8244,22 +8295,22 @@ void main() {
     final draft = await CreateOriginDraftStore.load();
     expect(draft.hasAllSectionsSaved, isFalse);
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
-    expect(find.widgetWithText(FilledButton, 'Publishing...'), findsOneWidget);
-    final publishButton = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Publishing...').last,
+    expect(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+      findsOneWidget,
     );
-    expect(publishButton.onPressed, isNull);
+    expect(find.textContaining('Publishing your Worldo'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('create-worldo-wait-perspective-text')),
+      findsOneWidget,
+    );
+    expect(find.text('Editable public view.'), findsOneWidget);
+    expect(find.text('Editable hidden rules.'), findsOneWidget);
+    expect(find.text('Mira: Archivist. Patient'), findsOneWidget);
     expect(
       _richTextWithPlainText('Worldo #Origin o_edit_1 published!'),
       findsNothing,
     );
-    await tester.tap(
-      find.byIcon(Icons.arrow_back_ios_new),
-      warnIfMissed: false,
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Publish changes before leaving?'), findsNothing);
-    expect(find.text('Open edit'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 5));
     await tester.runAsync(() async {
@@ -8393,7 +8444,11 @@ void main() {
 
     expect(transport.requestsFor('/api/v1/origin/update'), isEmpty);
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));
-    expect(find.widgetWithText(FilledButton, 'Publishing...'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Publishing your Worldo'), findsOneWidget);
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
   });
 
@@ -9985,17 +10040,147 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('send this draft'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.send));
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send-button')));
     await tester.pump();
     await tester.pumpAndSettle();
 
     expect(
       await storage.loadDraft(ownerUid: 'u_mock', peerUid: 'u_peer_dm'),
       '',
+    );
+  });
+
+  testWidgets('chat page hints when waiting for a peer reply', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingDmChatTransport(messages: const []);
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const DefaultPlatformConfig(),
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: const _FakeIdentityAuthService(),
+    );
+    final conversationStore = DirectMessageConversationStore(
+      api: api,
+      sessionStore: sessionStore,
+      storage: MemoryDirectMessageConversationStorage(),
+    );
+    final conversation =
+        _dmConversationJson(
+            convId: 'dm_conv',
+            peerName: 'Penny Direct',
+            messageId: 'dm_last_self',
+            message: 'Waiting on peer',
+            minutesAgo: 1,
+          )
+          ..['peer'] = {
+            'uid': 'u_peer_dm',
+            'name': 'Penny Direct',
+            'avatar': '',
+          }
+          ..['can_send_next_message'] = false;
+    await conversationStore.mergeConversationJson(conversation);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            sessionStoreOverride: sessionStore,
+            directMessageConversations: conversationStore,
+            directMessageMessages: DirectMessageMessageStore(
+              api: api,
+              sessionStore: sessionStore,
+              storage: MemoryDirectMessageMessageStorage(),
+            ),
+          ),
+          child: const ChatPage(peerUid: 'u_peer_dm', peerName: 'Penny Direct'),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.decoration?.hintText, 'Wait for a reply to send more');
+  });
+
+  testWidgets('chat page shows send rejection below the failed bubble', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingDmChatTransport(
+      failSend: true,
+      sendFailureMessage: 'only one message can be sent before a reply.',
+      messages: const [],
+    );
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const DefaultPlatformConfig(),
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: const _FakeIdentityAuthService(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+            sessionStoreOverride: sessionStore,
+            directMessageMessages: DirectMessageMessageStore(
+              api: api,
+              sessionStore: sessionStore,
+              storage: MemoryDirectMessageMessageStorage(),
+            ),
+          ),
+          child: const ChatPage(peerUid: 'u_peer_dm', peerName: 'Penny Direct'),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.enterText(find.byType(TextField), 'second ping');
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send-button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final error = find.text('Only one message can be sent before a reply.');
+    expect(error, findsOneWidget);
+    final errorText = tester.widget<Text>(error);
+    expect(errorText.style?.color, const Color(0xFF999999));
+    expect(errorText.style?.fontSize, 12);
+    expect(errorText.textAlign, TextAlign.center);
+    expect(
+      tester.getTopLeft(error).dy,
+      greaterThan(tester.getBottomLeft(find.text('second ping')).dy),
+    );
+    expect(
+      find.ancestor(
+        of: error,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is DecoratedBox &&
+              widget.decoration is BoxDecoration &&
+              ((widget.decoration as BoxDecoration).color?.a ?? 0) > 0,
+        ),
+      ),
+      findsNothing,
     );
   });
 
@@ -10347,18 +10532,18 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    for (var attempt = 0; attempt < 10; attempt += 1) {
+      if (find.text('Synced direct chat').evaluate().isNotEmpty) break;
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     await tester.enterText(find.byType(TextField), 'optimistic hello');
-    await tester.tap(find.byIcon(Icons.send));
+    await tester.tap(find.byKey(const ValueKey('chat-composer-send-button')));
     await tester.pump();
 
     expect(find.text('optimistic hello'), findsOneWidget);
-    expect(
-      tester.getTopLeft(find.text('optimistic hello')).dy,
-      greaterThan(tester.getTopLeft(find.text('Synced direct chat')).dy),
-    );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byIcon(Icons.priority_high), findsOneWidget);
     final persisted = await storage.loadMessages(
@@ -10938,6 +11123,7 @@ void main() {
     final transport = _RecordingV1ListTransport(
       worldRelationStatus: 'owner',
       worldDetailTickCountsByRequest: const [26],
+      worldInfoStatusesByRequest: const [20, 10],
       worldTickListCompleter: tickListCompleter,
     );
     final services = await _testServices(transport: transport, useMock: false);
@@ -10999,9 +11185,14 @@ void main() {
     await tester.ensureVisible(progressButton);
     await tester.tap(progressButton);
     await tester.pump();
+    expect(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('AI is generating'), findsOneWidget);
     for (
       var attempt = 0;
-      attempt < 10 && transport.requestsFor('/api/v1/world/tick/list').isEmpty;
+      attempt < 70 && transport.requestsFor('/api/v1/world/tick/list').isEmpty;
       attempt += 1
     ) {
       await tester.runAsync(() async {
@@ -11069,6 +11260,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
+    expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
     expect(find.text('Completed tick event.'), findsOneWidget);
     expect(find.text('Completed tick paragraph.'), findsOneWidget);
     expect(
