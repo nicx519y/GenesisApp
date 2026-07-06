@@ -2982,7 +2982,7 @@ List<WorldChatroomMessage> _visibleLocationChatMessagesWithTicks({
   required Set<int> visibleLocationMessageIds,
 }) {
   final visible = <WorldChatroomMessage>[];
-  final leadingTicks = <WorldChatroomMessage>[];
+  final leadingCursorlessMessages = <WorldChatroomMessage>[];
   var seenLocationMessage = false;
   var seenVisibleLocationMessage = false;
   var blockedByHiddenLocationAfterVisible = false;
@@ -2992,12 +2992,15 @@ List<WorldChatroomMessage> _visibleLocationChatMessagesWithTicks({
       if (seenVisibleLocationMessage && !blockedByHiddenLocationAfterVisible) {
         visible.add(message);
       } else if (!seenLocationMessage) {
-        leadingTicks.add(message);
+        leadingCursorlessMessages.add(message);
       }
       continue;
     }
 
     if (message.locationMessageId <= 0) {
+      if (!seenLocationMessage) {
+        leadingCursorlessMessages.add(message);
+      }
       continue;
     }
 
@@ -3006,7 +3009,7 @@ List<WorldChatroomMessage> _visibleLocationChatMessagesWithTicks({
     );
     if (messageIsVisible) {
       if (!seenVisibleLocationMessage && !seenLocationMessage) {
-        visible.addAll(leadingTicks);
+        visible.addAll(leadingCursorlessMessages);
       }
       visible.add(message);
       seenVisibleLocationMessage = true;
@@ -3015,7 +3018,7 @@ List<WorldChatroomMessage> _visibleLocationChatMessagesWithTicks({
       if (seenVisibleLocationMessage) {
         blockedByHiddenLocationAfterVisible = true;
       }
-      leadingTicks.clear();
+      leadingCursorlessMessages.clear();
     }
     seenLocationMessage = true;
   }

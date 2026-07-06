@@ -937,7 +937,8 @@ class WorldChatroomService {
     );
     byLocation[locationId] = List<WorldChatroomMessage>.unmodifiable(
       (byLocation[locationId] ?? const <WorldChatroomMessage>[]).where(
-        (message) => message.locationQueueMessageId > maxLocationMessageId,
+        (message) =>
+            !_messageIsAtOrBeforeLocationCursor(message, maxLocationMessageId),
       ),
     );
     final streamMessagesByKey = <String, WorldChatroomMessage>{
@@ -953,7 +954,10 @@ class WorldChatroomService {
             .where(
               (message) =>
                   message.locationId != locationId ||
-                  message.locationQueueMessageId > maxLocationMessageId,
+                  !_messageIsAtOrBeforeLocationCursor(
+                    message,
+                    maxLocationMessageId,
+                  ),
             )
             .toList(growable: false),
         messagesByLocation: byLocation,
@@ -1899,6 +1903,15 @@ class WorldChatroomService {
         b.locationMessageId > 0) {
       return a.locationMessageId == b.locationMessageId;
     }
+    if (a.locationId == b.locationId &&
+        a.messageId > 0 &&
+        b.messageId > 0 &&
+        (_isTickAdvanceWorldMessage(a) ||
+            _isTickAdvanceWorldMessage(b) ||
+            a.locationMessageId <= 0 ||
+            b.locationMessageId <= 0)) {
+      return a.messageId == b.messageId;
+    }
     if (a.locationId == b.locationId) {
       return a.conversationRoundId == b.conversationRoundId &&
           a.userId == b.userId &&
@@ -1916,10 +1929,26 @@ class WorldChatroomService {
   }
 
   int _compareMessages(WorldChatroomMessage a, WorldChatroomMessage b) {
-    if (a.locationId == b.locationId &&
-        a.locationMessageId > 0 &&
-        b.locationMessageId > 0) {
-      return a.locationMessageId.compareTo(b.locationMessageId);
+    if (a.locationId == b.locationId) {
+      final aIsTick = _isTickAdvanceWorldMessage(a);
+      final bIsTick = _isTickAdvanceWorldMessage(b);
+      if (aIsTick || bIsTick) {
+        final byMessageId = a.messageId.compareTo(b.messageId);
+        if (byMessageId != 0) return byMessageId;
+        final byLocationMessage = a.locationMessageId.compareTo(
+          b.locationMessageId,
+        );
+        if (byLocationMessage != 0) return byLocationMessage;
+      } else {
+        final aHasLocationMessageId = a.locationMessageId > 0;
+        final bHasLocationMessageId = b.locationMessageId > 0;
+        if (aHasLocationMessageId && bHasLocationMessageId) {
+          return a.locationMessageId.compareTo(b.locationMessageId);
+        }
+        if (aHasLocationMessageId != bHasLocationMessageId) {
+          return aHasLocationMessageId ? 1 : -1;
+        }
+      }
     }
     if (a.locationId == b.locationId) {
       final round = a.conversationRoundNumber.compareTo(
@@ -1978,7 +2007,21 @@ class WorldChatroomService {
   }
 
   bool _isLocationQueueMessage(WorldChatroomMessage message) {
-    return _isTickAdvanceWorldMessage(message) || message.locationMessageId > 0;
+    return _isTickAdvanceWorldMessage(message) ||
+        message.locationMessageId > 0 ||
+        message.messageId > 0;
+  }
+
+  bool _messageIsAtOrBeforeLocationCursor(
+    WorldChatroomMessage message,
+    int maxLocationMessageId,
+  ) {
+    if (maxLocationMessageId <= 0) return false;
+    if (_isTickAdvanceWorldMessage(message)) {
+      return message.messageId > 0 && message.messageId <= maxLocationMessageId;
+    }
+    if (message.locationMessageId <= 0) return true;
+    return message.locationMessageId <= maxLocationMessageId;
   }
 
   Map<String, WorldChatroomEntity> _entitiesFromWorld(WorldDetail world) {
