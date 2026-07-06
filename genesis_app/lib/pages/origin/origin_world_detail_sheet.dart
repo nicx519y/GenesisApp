@@ -451,20 +451,19 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                   context,
                 ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
         ),
-        const SizedBox(height: 0),
-        Text(
-          'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
-          style: CopyableIdLabel.textStyle,
-        ),
-        if (canEditOrigin) ...[
-          const SizedBox(height: 8),
-          Center(
-            child: FractionallySizedBox(
-              widthFactor: 0.7,
-              child: GenesisPrimaryButton(
-                label: 'Edit Worldo',
-                leadingIcon: const Icon(Icons.edit, size: 14),
-                onPressed: () async {
+        if (canEditOrigin) const SizedBox(height: 6),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
+                style: CopyableIdLabel.textStyle,
+              ),
+            ),
+            if (canEditOrigin)
+              _OriginInlineEditAction(
+                onTap: () async {
                   await Navigator.of(context).pushNamed(
                     RouteNames.edit,
                     arguments: {'origin_id': origin.oid},
@@ -473,10 +472,47 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                   onOriginChanged();
                 },
               ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ],
+    );
+  }
+}
+
+class _OriginInlineEditAction extends StatelessWidget {
+  const _OriginInlineEditAction({required this.onTap});
+
+  static const Color _color = Color(0xFF4B6192);
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      key: const ValueKey('origin-inline-edit-worldo'),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(Icons.edit, size: 16, color: _color),
+            SizedBox(width: 4),
+            Text(
+              'Edit Worldo',
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.2,
+                fontWeight: FontWeight.w500,
+                color: _color,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -88,6 +88,7 @@ import 'package:genesis_flutter_android/platform/privacy/app_tracking_transparen
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
 
@@ -4981,6 +4982,25 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Edit Worldo'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('origin-inline-edit-worldo')),
+      findsOneWidget,
+    );
+    expect(
+      find.widgetWithText(GenesisPrimaryButton, 'Edit Worldo'),
+      findsNothing,
+    );
+    final editText = tester.widget<Text>(find.text('Edit Worldo'));
+    expect(editText.style?.fontSize, 14);
+    expect(editText.style?.color, const Color(0xFF4B6192));
+    final editIcon = tester.widget<Icon>(
+      find.descendant(
+        of: find.byKey(const ValueKey('origin-inline-edit-worldo')),
+        matching: find.byIcon(Icons.edit),
+      ),
+    );
+    expect(editIcon.size, 16);
+    expect(editIcon.color, const Color(0xFF4B6192));
   });
 
   testWidgets('Origin detail hides edit button from non-owner', (
@@ -5003,6 +5023,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Edit Worldo'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('origin-inline-edit-worldo')),
+      findsNothing,
+    );
   });
 
   testWidgets('Origin detail launch sheet sends custom role payload', (
