@@ -161,6 +161,12 @@ void main() {
     expect(detailSection, contains('asset: worldSectionCastIconAsset'));
     expect(detailSection, contains('iconSize: 17'));
     expect(detailSection, contains('currentUid: currentUid'));
+    expect(detailSection, contains("label: 'Invite'"));
+    expect(detailSection, contains('width: 140'));
+    expect(detailSection, contains('height: 35'));
+    expect(detailSection, contains('Color(0xFFFF2442)'));
+    expect(detailSection, contains('Clipboard.setData'));
+    expect(detailSection, contains('Link copied. Share it with your friends.'));
     expect(
       detailSection,
       contains(
@@ -170,6 +176,10 @@ void main() {
     expect(
       detailSection,
       contains('const SizedBox(height: 8),\n        WorldCharactersSection'),
+    );
+    expect(
+      detailSection,
+      contains('const SizedBox(height: 4),\n        GenesisPairedMetaRow'),
     );
   });
 
@@ -210,6 +220,23 @@ void main() {
         'goal': 'Should stay hidden',
       }),
       'Visitor',
+    );
+  });
+
+  test('world invite copy highlights world name and wid', () {
+    expect(
+      worldInviteShareTextForTesting(worldName: 'Dream Bazaar', wid: 'w_123'),
+      'Join my world "Dream Bazaar" on Worldo!\n'
+      'w_123\n'
+      'Search this WID on Worldo to find and join.\n'
+      'https://worldo.ai/download',
+    );
+    expect(
+      worldInviteShareTextForTesting(worldName: '', wid: 'w_empty'),
+      'Join my world "w_empty" on Worldo!\n'
+      'w_empty\n'
+      'Search this WID on Worldo to find and join.\n'
+      'https://worldo.ai/download',
     );
   });
 

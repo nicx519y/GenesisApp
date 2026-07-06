@@ -4,10 +4,12 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/ai_content_disclaimer.dart';
 import '../../components/common/copyable_id_label.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/world_tick_event_item.dart';
@@ -15,6 +17,7 @@ import '../../icons/my_flutter_app_icons.dart';
 import '../../network/models/world.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/entity_deleted.dart';
@@ -207,7 +210,7 @@ class WorldDetailSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 4),
         GenesisPairedMetaRow(
           leftLabel: 'WID',
           leftValue: world.worldId,
@@ -241,6 +244,25 @@ class WorldDetailSection extends StatelessWidget {
           trailingIconColor: worldHeaderMetaColor,
           trailingIconSize: 16,
         ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: GenesisPrimaryButton(
+            label: 'Invite',
+            onPressed: () => _copyInviteText(context, worldName: title),
+            height: 35,
+            width: 140,
+            backgroundColor: const Color(0xFFFF2442),
+            disabledBackgroundColor: const Color(
+              0xFFFF2442,
+            ).withValues(alpha: 0.62),
+            foregroundColor: Colors.white,
+            fontSize: 16,
+            padding: EdgeInsets.zero,
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
         const SizedBox(height: 24),
         const WorldDetailSectionTitle(
           icon: MyFlutterApp.eye,
@@ -263,6 +285,36 @@ class WorldDetailSection extends StatelessWidget {
       ],
     );
   }
+
+  Future<void> _copyInviteText(
+    BuildContext context, {
+    required String worldName,
+  }) async {
+    await Clipboard.setData(
+      ClipboardData(
+        text: worldInviteShareTextForTesting(
+          worldName: worldName,
+          wid: world.worldId,
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    showGenesisToast(context, 'Link copied. Share it with your friends.');
+  }
+}
+
+String worldInviteShareTextForTesting({
+  required String worldName,
+  required String wid,
+}) {
+  final resolvedWid = wid.trim();
+  final resolvedWorldName = worldName.trim().isEmpty
+      ? resolvedWid
+      : worldName.trim();
+  return 'Join my world "$resolvedWorldName" on Worldo!\n'
+      '$resolvedWid\n'
+      'Search this WID on Worldo to find and join.\n'
+      'https://worldo.ai/download';
 }
 
 class WorldDetailSectionTitle extends StatelessWidget {
