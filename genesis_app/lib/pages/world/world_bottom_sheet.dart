@@ -18,9 +18,10 @@ import 'world_models.dart';
 import 'world_sections.dart';
 
 class WorldBottomTags extends StatelessWidget {
-  const WorldBottomTags({required this.onTap});
+  const WorldBottomTags({required this.onTap, this.eventsUnread = false});
 
   final ValueChanged<WorldBottomSheetKind> onTap;
+  final bool eventsUnread;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +49,9 @@ class WorldBottomTags extends StatelessWidget {
                 for (final entry in worldBottomTagItems.indexed) ...[
                   WorldBottomTagContent(
                     item: entry.$2,
+                    unread:
+                        eventsUnread &&
+                        entry.$2.kind == WorldBottomSheetKind.events,
                     onTap: () => onTap(entry.$2.kind),
                   ),
                   if (entry.$1 != worldBottomTagItems.length - 1)
@@ -63,53 +67,78 @@ class WorldBottomTags extends StatelessWidget {
 }
 
 class WorldBottomTagContent extends StatelessWidget {
-  const WorldBottomTagContent({required this.item, required this.onTap});
+  const WorldBottomTagContent({
+    required this.item,
+    required this.onTap,
+    this.unread = false,
+  });
 
   final WorldBottomTagItem item;
   final VoidCallback onTap;
+  final bool unread;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Container(
-        height: worldBottomTagHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEBEFF2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (item.asset != null)
-              SvgPicture.asset(
-                item.asset!,
-                width: 17,
-                height: 17,
-                colorFilter: const ColorFilter.mode(
-                  Color(0xFF666666),
-                  BlendMode.srcIn,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            height: worldBottomTagHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEBEFF2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (item.asset != null)
+                  SvgPicture.asset(
+                    item.asset!,
+                    width: 17,
+                    height: 17,
+                    colorFilter: const ColorFilter.mode(
+                      Color(0xFF666666),
+                      BlendMode.srcIn,
+                    ),
+                  )
+                else
+                  Icon(item.icon, size: 17, color: const Color(0xFF666666)),
+                const SizedBox(width: 5),
+                Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF111111),
+                    fontSize: 12,
+                    height: 1,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.none,
+                  ),
                 ),
-              )
-            else
-              Icon(item.icon, size: 17, color: const Color(0xFF666666)),
-            const SizedBox(width: 5),
-            Text(
-              item.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF111111),
-                fontSize: 12,
-                height: 1,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.none,
+              ],
+            ),
+          ),
+          if (unread)
+            Positioned(
+              key: const ValueKey('world-events-unread-dot'),
+              top: 3,
+              right: 3,
+              child: Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE7384F),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

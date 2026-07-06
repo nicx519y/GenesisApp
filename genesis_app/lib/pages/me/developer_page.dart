@@ -32,6 +32,12 @@ const String _launchPreviewOriginId = 'o_G7DBQM';
 const String _launchPreviewWaitTitle = 'Launching the Worldo';
 const String _launchPreviewWaitMessage =
     'In world, click the map, enter the location, and start interacting with the characters to move the world forward.';
+const String _progressPreviewWaitTitle = 'Progressing the World';
+const String _progressPreviewWaitMessage =
+    'Compressing recent memories\n'
+    'Advancing the world timeline\n'
+    'Generating the next story beat\n'
+    'Updating character locations';
 
 class DeveloperPage extends StatelessWidget {
   const DeveloperPage({super.key});
@@ -398,18 +404,11 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
 
   Future<void> _showLaunchingWaitOverlayPreview() async {
     final navigator = Navigator.of(context, rootNavigator: true);
-    final api = AppServicesScope.read(context).api;
     if (widget.dismissBeforePreview) {
       await widget.onDismissBeforePreview?.call();
     }
-    final origin = await () async {
-      try {
-        return await api.getOrigin(_launchPreviewOriginId);
-      } catch (_) {
-        return null;
-      }
-    }();
-    if (origin == null) {
+    final avatars = await _loadPreviewOriginAvatars();
+    if (avatars == null) {
       if (navigator.mounted) {
         showGenesisToast(
           navigator.context,
@@ -418,15 +417,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
       }
       return;
     }
-    final avatars = origin.characters
-        .map((character) {
-          return GenesisGenerationWaitAvatar(
-            name: character.name.trim(),
-            url: character.avatar.trim(),
-          );
-        })
-        .where((avatar) => avatar.name.isNotEmpty || avatar.url.isNotEmpty)
-        .toList(growable: false);
     if (!navigator.mounted) return;
     await showGeneralDialog<void>(
       context: navigator.context,
@@ -443,6 +433,57 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
         );
       },
     );
+  }
+
+  Future<void> _showProgressingWaitOverlayPreview() async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (widget.dismissBeforePreview) {
+      await widget.onDismissBeforePreview?.call();
+    }
+    final avatars = await _loadPreviewOriginAvatars();
+    if (avatars == null) {
+      if (navigator.mounted) {
+        showGenesisToast(
+          navigator.context,
+          'Failed to load progress preview origin.',
+        );
+      }
+      return;
+    }
+    if (!navigator.mounted) return;
+    await showGeneralDialog<void>(
+      context: navigator.context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: false,
+      transitionDuration: Duration.zero,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return GenesisGenerationWaitOverlay(
+          title: _progressPreviewWaitTitle,
+          message: _progressPreviewWaitMessage,
+          characterAvatars: avatars,
+          onBarrierTap: () => Navigator.of(dialogContext).maybePop(),
+          onBackPressed: () => Navigator.of(dialogContext).maybePop(),
+        );
+      },
+    );
+  }
+
+  Future<List<GenesisGenerationWaitAvatar>?> _loadPreviewOriginAvatars() async {
+    final api = AppServicesScope.read(context).api;
+    try {
+      final origin = await api.getOrigin(_launchPreviewOriginId);
+      return origin.characters
+          .map((character) {
+            return GenesisGenerationWaitAvatar(
+              name: character.name.trim(),
+              url: character.avatar.trim(),
+            );
+          })
+          .where((avatar) => avatar.name.isNotEmpty || avatar.url.isNotEmpty)
+          .toList(growable: false);
+    } catch (_) {
+      return null;
+    }
   }
 
   Widget _buildDeviceIdDiagnostics(DeviceIdDiagnostics? diagnostics) {
@@ -597,6 +638,13 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           GenesisPrimaryButton(
             label: 'Launching',
             onPressed: _showLaunchingWaitOverlayPreview,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            label: 'Progressing',
+            onPressed: _showProgressingWaitOverlayPreview,
             backgroundColor: const Color(0xFFE1E1E3),
             foregroundColor: Colors.black,
           ),

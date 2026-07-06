@@ -426,6 +426,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldDetailTicksByRequest,
     this.worldDetailTickCountsByRequest,
     this.worldInfoStatusesByRequest,
+    this.worldInfoProgressingByRequest,
     this.chatroomMessagesByLocation,
     this.worldTickListCompleter,
     this.hotTagsCompleter,
@@ -455,6 +456,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final List<List<Map<String, Object?>>>? worldDetailTicksByRequest;
   final List<int>? worldDetailTickCountsByRequest;
   final List<int>? worldInfoStatusesByRequest;
+  final List<bool>? worldInfoProgressingByRequest;
   final Map<String, List<Map<String, Object?>>>? chatroomMessagesByLocation;
   final Completer<TransportResponse>? worldTickListCompleter;
   final Completer<TransportResponse>? hotTagsCompleter;
@@ -520,6 +522,16 @@ class _RecordingV1ListTransport implements HttpTransport {
         );
         final info = Map<String, Object?>.from(detail['info']! as Map);
         info['status'] = statusesByRequest[index];
+        detail['info'] = info;
+      }
+      final progressingByRequest = worldInfoProgressingByRequest;
+      if (progressingByRequest != null) {
+        final index = _worldInfoRequestIndex.clamp(
+          0,
+          progressingByRequest.length - 1,
+        );
+        final info = Map<String, Object?>.from(detail['info']! as Map);
+        info['is_progressing'] = progressingByRequest[index];
         detail['info'] = info;
       }
       _worldInfoRequestIndex += 1;
@@ -10773,6 +10785,10 @@ void main() {
         ),
         findsNothing,
       );
+      expect(
+        find.byKey(const ValueKey('world-tick1-wait-dialog')),
+        findsNothing,
+      );
     },
   );
 
@@ -11185,7 +11201,13 @@ void main() {
         characters: <OriginCharacter>[],
         locations: <OriginLocation>[],
       ),
-      characters: const <Map<String, dynamic>>[],
+      characters: const <Map<String, dynamic>>[
+        {
+          'char_id': 'c_progress_wait',
+          'name': 'Progress Guide',
+          'avatar': 'assets/images/default_list_image.png',
+        },
+      ],
       ticks: const <Map<String, dynamic>>[],
       locations: const <Map<String, dynamic>>[
         {'location_id': 'l_w_test_1', 'location_name': 'World Location'},
@@ -11212,7 +11234,20 @@ void main() {
       find.byKey(const ValueKey('world-tick1-wait-dialog')),
       findsOneWidget,
     );
-    expect(find.textContaining('AI is generating'), findsOneWidget);
+    expect(find.textContaining('Progressing the World'), findsOneWidget);
+    expect(
+      find.text(
+        'Compressing recent memories\n'
+        'Advancing the world timeline\n'
+        'Generating the next story beat\n'
+        'Updating character locations',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.image(const AssetImage('assets/images/default_list_image.png')),
+      findsOneWidget,
+    );
     for (
       var attempt = 0;
       attempt < 70 && transport.requestsFor('/api/v1/world/tick/list').isEmpty;
@@ -11578,6 +11613,247 @@ void main() {
       expect(chatroom.session.joinCount, 2);
       expect(_visibleText('Child Location (1)'), findsOneWidget);
       expect(find.text('cached draft'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'joined location chat shows progress wait overlay on tick start',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+      );
+      final chatroom = _FakeChatroomClient();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      chatroom.session.emit(
+        const ChatroomWorldNotification(
+          worldId: 'w_test_1',
+          locationId: '',
+          eventType: 'tick_start',
+          title: '',
+          summary: '',
+          detailUrl: '',
+          ts: null,
+          broadcast: true,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        find.byKey(const ValueKey('world-tick1-wait-dialog')),
+        findsNothing,
+      );
+
+      await tester.tap(find.text('Locations'));
+      await tester.pumpAndSettle();
+      final childRow = find.ancestor(
+        of: find.text('Child Location').last,
+        matching: find.byType(InkWell),
+      );
+      await tester.tap(childRow.last);
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(_visibleText('Child Location (1)'), findsOneWidget);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(
+        find.byKey(const ValueKey('world-tick1-wait-dialog')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Progressing the World'), findsOneWidget);
+      expect(
+        find.text(
+          'Compressing recent memories\n'
+          'Advancing the world timeline\n'
+          'Generating the next story beat\n'
+          'Updating character locations',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'joined map can request progress wait overlay while remote progress runs',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+        worldInfoProgressingByRequest: const [true],
+      );
+      final chatroom = _FakeChatroomClient();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      chatroom.session.emit(
+        const ChatroomWorldNotification(
+          worldId: 'w_test_1',
+          locationId: '',
+          eventType: 'tick_start',
+          title: '',
+          summary: '',
+          detailUrl: '',
+          ts: null,
+          broadcast: true,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(
+        find.byKey(const ValueKey('world-tick1-wait-dialog')),
+        findsNothing,
+      );
+
+      final progressButton = find.widgetWithText(FilledButton, 'Progress');
+      await tester.ensureVisible(progressButton);
+      await tester.tap(progressButton);
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('world-tick1-wait-dialog')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(FilledButton),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      expect(transport.requestsFor('/api/v1/world/tick'), isEmpty);
+      chatroom.session.emit(
+        const ChatroomWorldNotification(
+          worldId: 'w_test_1',
+          locationId: '',
+          eventType: 'tick_done',
+          title: '',
+          summary: '',
+          detailUrl: '',
+          ts: null,
+          broadcast: true,
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('world-tick1-wait-dialog')),
+        findsNothing,
+      );
+      for (
+        var attempt = 0;
+        attempt < 10 &&
+            find
+                .byKey(
+                  const PageStorageKey<String>(
+                    'world-events-section-bottom-sheet',
+                  ),
+                )
+                .evaluate()
+                .isEmpty;
+        attempt += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(
+        find.byKey(
+          const PageStorageKey<String>('world-events-section-bottom-sheet'),
+        ),
+        findsOneWidget,
+      );
+      expect(transport.requestsFor('/api/v1/world/tick'), isEmpty);
+    },
+  );
+
+  testWidgets(
+    'joined world marks events unread when remote progress completes',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+      );
+      final chatroom = _FakeChatroomClient();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('world-events-unread-dot')),
+        findsNothing,
+      );
+      chatroom.session.emit(
+        const ChatroomWorldNotification(
+          worldId: 'w_test_1',
+          locationId: '',
+          eventType: 'tick_start',
+          title: '',
+          summary: '',
+          detailUrl: '',
+          ts: null,
+          broadcast: true,
+        ),
+      );
+      await tester.pump();
+      chatroom.session.emit(
+        const ChatroomWorldNotification(
+          worldId: 'w_test_1',
+          locationId: '',
+          eventType: 'tick_done',
+          title: '',
+          summary: '',
+          detailUrl: '',
+          ts: null,
+          broadcast: true,
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('world-events-unread-dot')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Events'));
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('world-events-unread-dot')),
+        findsNothing,
+      );
     },
   );
 

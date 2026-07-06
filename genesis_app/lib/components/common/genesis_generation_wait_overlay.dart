@@ -107,7 +107,7 @@ class _GenesisGenerationWaitOverlayState
         Text(
           widget.message,
           textAlign: TextAlign.left,
-          style: const TextStyle(fontSize: 14, height: 1.35),
+          style: const TextStyle(fontSize: 14, height: 1.4),
         ),
       );
       waitBody = Column(
