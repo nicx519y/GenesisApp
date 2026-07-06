@@ -4634,7 +4634,7 @@ void main() {
     final waitTitleFinder = find.byWidgetPredicate(
       (widget) =>
           widget is Text &&
-          (widget.data ?? '').startsWith('Launching your Worldo'),
+          (widget.data ?? '').startsWith('Launching the Worldo'),
     );
     expect(waitTitleFinder, findsOneWidget);
     final waitTitle = tester.widget<Text>(waitTitleFinder);
@@ -4649,15 +4649,13 @@ void main() {
     );
     expect(
       find.text(
-        'Generating a live and customized world for you.\n'
-        'Please wait for a moment.',
+        'In world, click the map, enter the location, and start interacting with the characters to move the world forward.',
       ),
       findsOneWidget,
     );
     final waitBody = tester.widget<Text>(
       find.text(
-        'Generating a live and customized world for you.\n'
-        'Please wait for a moment.',
+        'In world, click the map, enter the location, and start interacting with the characters to move the world forward.',
       ),
     );
     expect(waitBody.style?.fontSize, 14);

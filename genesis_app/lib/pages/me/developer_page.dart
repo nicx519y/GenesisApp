@@ -29,6 +29,9 @@ const String _buildModeLabel = kReleaseMode
     : 'debug';
 
 const String _launchPreviewOriginId = 'o_G7DBQM';
+const String _launchPreviewWaitTitle = 'Launching the Worldo';
+const String _launchPreviewWaitMessage =
+    'In world, click the map, enter the location, and start interacting with the characters to move the world forward.';
 
 class DeveloperPage extends StatelessWidget {
   const DeveloperPage({super.key});
@@ -432,10 +435,9 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
       transitionDuration: Duration.zero,
       pageBuilder: (dialogContext, animation, secondaryAnimation) {
         return GenesisGenerationWaitOverlay(
-          title: 'Launching your Worldo',
+          title: _launchPreviewWaitTitle,
+          message: _launchPreviewWaitMessage,
           characterAvatars: avatars,
-          contentMinHeight:
-              GenesisGenerationWaitOverlay.perspectiveContentHeight,
           onBarrierTap: () => Navigator.of(dialogContext).maybePop(),
           onBackPressed: () => Navigator.of(dialogContext).maybePop(),
         );

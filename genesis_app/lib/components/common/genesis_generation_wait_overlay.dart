@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../utils/genesis_image_resource.dart';
 
 class GenesisGenerationWaitAvatar {
   const GenesisGenerationWaitAvatar({required this.name, required this.url});
@@ -22,7 +23,6 @@ class GenesisGenerationWaitOverlay extends StatefulWidget {
         'Please wait for a moment.',
     this.illustration,
     this.characterAvatars = const <GenesisGenerationWaitAvatar>[],
-    this.contentMinHeight,
     this.perspectiveLines,
     this.animateTitleDots = true,
     this.onBackPressed,
@@ -35,7 +35,6 @@ class GenesisGenerationWaitOverlay extends StatefulWidget {
   final String message;
   final Widget? illustration;
   final List<GenesisGenerationWaitAvatar> characterAvatars;
-  final double? contentMinHeight;
   final List<String>? perspectiveLines;
   final bool animateTitleDots;
   final VoidCallback? onBackPressed;
@@ -71,6 +70,53 @@ class _GenesisGenerationWaitOverlayState
 
   @override
   Widget build(BuildContext context) {
+    final hasPerspectiveText = widget.perspectiveLines != null;
+    final title = widget.animateTitleDots
+        ? '${widget.title}${List.filled(_dotCount, '.').join()}'
+        : widget.title;
+    final Widget waitBody;
+    if (widget.perspectiveLines case final lines?) {
+      waitBody = _PerspectiveWaitText(
+        key: const ValueKey('create-worldo-wait-perspective-text'),
+        illustration: widget.illustration,
+        lines: lines,
+      );
+    } else {
+      final bodyChildren = <Widget>[];
+      if (widget.characterAvatars.isNotEmpty) {
+        bodyChildren.add(
+          Center(
+            child: GenerationAvatarCarousel(avatars: widget.characterAvatars),
+          ),
+        );
+        bodyChildren.add(const SizedBox(height: 18));
+      }
+      if (widget.illustration != null) {
+        bodyChildren.add(
+          Center(
+            child: SizedBox(
+              width: 152,
+              height: 112,
+              child: widget.illustration,
+            ),
+          ),
+        );
+        bodyChildren.add(const SizedBox(height: 14));
+      }
+      bodyChildren.add(
+        Text(
+          widget.message,
+          textAlign: TextAlign.left,
+          style: const TextStyle(fontSize: 14, height: 1.35),
+        ),
+      );
+      waitBody = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: bodyChildren,
+      );
+    }
+
     return PopScope(
       canPop: _allowRoutePop,
       onPopInvokedWithResult: (didPop, result) {
@@ -84,73 +130,59 @@ class _GenesisGenerationWaitOverlayState
           onTap: widget.onBarrierTap,
           child: ColoredBox(
             color: const Color(0x8A000000),
-            child: Align(
-              alignment: const Alignment(0, -0.22),
-              child: GestureDetector(
-                onTap: () {},
-                child: AlertDialog(
-                  key: const ValueKey('world-tick1-wait-dialog'),
-                  backgroundColor: const Color(0xFFFFFFFF),
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(8)),
-                  ),
-                  contentPadding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
-                  title: Text(
-                    widget.animateTitleDots
-                        ? '${widget.title}${List.filled(_dotCount, '.').join()}'
-                        : widget.title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      height: 1.2,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  content: SizedBox(
-                    width: 292,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: widget.contentMinHeight ?? 0,
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (widget.perspectiveLines case final lines?)
-                            _PerspectiveWaitText(
-                              key: const ValueKey(
-                                'create-worldo-wait-perspective-text',
-                              ),
-                              illustration: widget.illustration,
-                              lines: lines,
-                            )
-                          else ...[
-                            if (widget.characterAvatars.isNotEmpty) ...[
-                              GenerationAvatarCarousel(
-                                avatars: widget.characterAvatars,
-                              ),
-                              const SizedBox(height: 18),
-                            ],
-                            if (widget.illustration != null) ...[
-                              SizedBox(
-                                width: 152,
-                                height: 112,
-                                child: widget.illustration,
-                              ),
-                              const SizedBox(height: 14),
-                            ],
-                            Text(
-                              widget.message,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                height: 1.35,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Stack(
+                  children: [
+                    Positioned(
+                      top: constraints.maxHeight * 0.25,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: GestureDetector(
+                          onTap: () {},
+                          child: AlertDialog(
+                            key: const ValueKey('world-tick1-wait-dialog'),
+                            backgroundColor: const Color(0xFFFFFFFF),
+                            shape: const RoundedRectangleBorder(
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(8),
                               ),
                             ),
-                          ],
-                        ],
+                            titlePadding: EdgeInsets.zero,
+                            contentPadding: EdgeInsets.fromLTRB(
+                              10,
+                              16,
+                              10,
+                              hasPerspectiveText ? 0 : 16,
+                            ),
+                            content: SizedBox(
+                              width: 292,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(
+                                    title,
+                                    textAlign: TextAlign.left,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      height: 1.2,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  waitBody,
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              ),
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -252,16 +284,70 @@ class _GenerationAvatarCarouselState extends State<GenerationAvatarCarousel> {
             child: SlideTransition(position: offset, child: child),
           );
         },
-        child: GenesisAvatar(
+        child: _LaunchWaitAvatar(
           key: ValueKey<String>(
             'launch-wait-avatar-${avatar.name}|${avatar.url}',
           ),
-          name: avatar.name,
-          url: avatar.url,
+          avatar: avatar,
           size: widget.size,
-          borderRadius: GenesisAvatarRadii.character,
         ),
       ),
+    );
+  }
+}
+
+class _LaunchWaitAvatar extends StatelessWidget {
+  const _LaunchWaitAvatar({
+    super.key,
+    required this.avatar,
+    required this.size,
+  });
+
+  final GenesisGenerationWaitAvatar avatar;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedUrl = selectGenesisImageUrl(
+      avatar.url,
+      logicalWidth: size,
+      logicalHeight: size,
+      devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+    ).trim();
+    final fallback = GenesisAvatarFallback(
+      name: avatar.name,
+      width: size,
+      height: size,
+      borderRadius: GenesisAvatarRadii.character,
+    );
+
+    final Widget image;
+    if (resolvedUrl.isEmpty) {
+      image = fallback;
+    } else if (resolvedUrl.startsWith('assets/')) {
+      image = Image.asset(
+        resolvedUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        alignment: Alignment.topCenter,
+        errorBuilder: (context, error, stackTrace) => fallback,
+      );
+    } else {
+      image = Image.network(
+        resolvedUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        alignment: Alignment.topCenter,
+        gaplessPlayback: true,
+        errorBuilder: (context, error, stackTrace) => fallback,
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(GenesisAvatarRadii.character),
+      child: SizedBox(width: size, height: size, child: image),
     );
   }
 }

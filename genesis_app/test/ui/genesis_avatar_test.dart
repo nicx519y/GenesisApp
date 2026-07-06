@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/common/genesis_generation_wait_overlay.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
@@ -139,6 +140,32 @@ void main() {
     );
 
     expect(find.text('TL'), findsNothing);
+  });
+
+  testWidgets('launch wait avatar hides fallback while network image loads', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: GenerationAvatarCarousel(
+            avatars: [
+              GenesisGenerationWaitAvatar(
+                name: 'Tom Lee',
+                url: 'https://cdn.example.com/character.webp',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('TL'), findsNothing);
+    expect(find.byType(GenesisAvatar), findsNothing);
+    final image = tester.widget<Image>(find.byType(Image));
+    expect(image.image, isA<NetworkImage>());
+    expect(image.gaplessPlayback, isTrue);
+    expect(image.errorBuilder, isNotNull);
   });
 
   testWidgets(

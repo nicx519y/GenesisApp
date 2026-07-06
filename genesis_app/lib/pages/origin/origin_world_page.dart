@@ -105,6 +105,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   static const double _mapLoadingCollapsedHeightOffset = 100;
   static const double _mapLoadedCollapsedHeightOffset = 60;
   static const double _mapDefaultExposedChildSize = 0.31;
+  static const double _launchWaitAvatarSize = 88;
 
   late final TabController _tabController;
   final OriginLaunchCoordinator _launchCoordinator =
@@ -185,6 +186,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   void _cacheLaunchWaitAvatars(OriginDetail origin) {
     final avatars = _launchWaitAvatarsFromOrigin(origin);
+    _precacheLaunchWaitAvatarImages(avatars);
     if (_sameWaitAvatars(_launchWaitAvatars, avatars)) return;
     if (!mounted) {
       _launchWaitAvatars = avatars;
@@ -205,6 +207,26 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         })
         .where((avatar) => avatar.name.isNotEmpty || avatar.url.isNotEmpty)
         .toList(growable: false);
+  }
+
+  void _precacheLaunchWaitAvatarImages(
+    List<GenesisGenerationWaitAvatar> avatars,
+  ) {
+    final mediaQuery = MediaQuery.maybeOf(context);
+    final devicePixelRatio = mediaQuery?.devicePixelRatio ?? 1;
+    for (final avatar in avatars) {
+      final resolvedUrl = selectGenesisImageUrl(
+        avatar.url,
+        logicalWidth: _launchWaitAvatarSize,
+        logicalHeight: _launchWaitAvatarSize,
+        devicePixelRatio: devicePixelRatio,
+      ).trim();
+      if (resolvedUrl.isEmpty) continue;
+      final ImageProvider provider = resolvedUrl.startsWith('assets/')
+          ? AssetImage(resolvedUrl)
+          : NetworkImage(resolvedUrl);
+      unawaited(precacheImage(provider, context).catchError((Object _) {}));
+    }
   }
 
   bool _sameWaitAvatars(
