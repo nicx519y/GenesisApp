@@ -574,7 +574,7 @@ class _JoinRequestListItem extends StatelessWidget {
             ? _JoinRequestReviewSummaryText(item: item)
             : _JoinRequestSummaryText(item: item),
         const SizedBox(height: 8),
-        _StatusText(item: item),
+        _JoinRequestListStatusText(item: item),
       ],
     );
   }
@@ -596,12 +596,13 @@ class _JoinRequestReviewSummaryText extends StatelessWidget {
           fontWeight: FontWeight.w400,
         ),
         children: [
-          const TextSpan(text: 'Request to '),
+          const TextSpan(text: 'you request to join "'),
           TextSpan(
             text: item.requestWorldSummaryName,
             style: _originBlueTextStyle,
           ),
-          if (item.shouldShowRequestWorldId)
+          const TextSpan(text: '"'),
+          if (item.requestWorldIdLabel.trim().isNotEmpty)
             TextSpan(text: ' (${item.requestWorldIdLabel})'),
         ],
       ),
@@ -626,11 +627,31 @@ class _JoinRequestSummaryText extends StatelessWidget {
         ),
         children: [
           TextSpan(text: item.requesterName, style: _originBlueTextStyle),
-          const TextSpan(text: ' request to join '),
+          const TextSpan(text: ' request to join "'),
           TextSpan(text: item.requestWorldName, style: _originBlueTextStyle),
-          if (item.shouldShowRequestWorldId)
+          const TextSpan(text: '"'),
+          if (item.requestWorldIdLabel.trim().isNotEmpty)
             TextSpan(text: ' (${item.requestWorldIdLabel})'),
         ],
+      ),
+    );
+  }
+}
+
+class _JoinRequestListStatusText extends StatelessWidget {
+  const _JoinRequestListStatusText({required this.item});
+
+  final _NotificationItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      item.joinRequestListStatusText,
+      style: TextStyle(
+        color: item.joinRequestStatusColor,
+        fontSize: 12,
+        height: 1.2,
+        fontWeight: FontWeight.w400,
       ),
     );
   }
@@ -1013,6 +1034,21 @@ class _NotificationItem {
 
   _JoinRequestApprovalStatus get joinRequestApprovalStatus {
     return approvalStatus ?? _JoinRequestApprovalStatus.pending;
+  }
+
+  String get joinRequestListStatusText {
+    switch (approvalStatus) {
+      case _JoinRequestApprovalStatus.approved:
+        return 'Approved';
+      case _JoinRequestApprovalStatus.rejected:
+        return 'Rejected';
+      case _JoinRequestApprovalStatus.pending:
+        return isJoinRequestReview
+            ? 'Awaiting for approval'
+            : 'Awaiting your approval';
+      case null:
+        return isJoinRequestReview ? 'Approved' : 'Awaiting your approval';
+    }
   }
 
   String get joinRequestStatusText {
