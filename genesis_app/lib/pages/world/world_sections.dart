@@ -387,14 +387,14 @@ class _WorldNewUserJoinNoticeText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const baseStyle = TextStyle(
-      color: worldHeaderMetaColor,
+      color: Color(0xFF666666),
       fontSize: 12,
       height: 1.2,
       fontWeight: FontWeight.w400,
     );
     const emphasisStyle = TextStyle(
       color: Color(0xFF111111),
-      fontWeight: FontWeight.w700,
+      fontWeight: FontWeight.w600,
     );
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -415,7 +415,7 @@ class _WorldNewUserJoinNoticeText extends StatelessWidget {
                       text: notice.displayPlayerUsername,
                       style: emphasisStyle,
                     ),
-                    const TextSpan(text: ' joined and is playing the role of '),
+                    const TextSpan(text: ' launched as '),
                     TextSpan(
                       text: notice.displayCharacterName,
                       style: emphasisStyle,
