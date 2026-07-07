@@ -117,7 +117,10 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
 
   void _normalizeControllerText() {
     final value = widget.controller.value;
-    final sanitized = genesisDisplaySafeTextEditingValue(value);
+    var sanitized = genesisDisplaySafeTextEditingValue(value);
+    if (!_isSingleLine) {
+      sanitized = genesisConsecutiveNewlineLimitedTextEditingValue(sanitized);
+    }
     if (sanitized == value) return;
     widget.controller.value = sanitized;
   }
@@ -186,12 +189,16 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                     onChanged: widget.onChanged,
                     onTapOutside: (_) =>
                         FocusManager.instance.primaryFocus?.unfocus(),
-                    textInputAction:
-                        widget.textInputAction ?? TextInputAction.done,
-                    onEditingComplete: _handleEditingComplete,
+                    keyboardType: _resolvedKeyboardType,
+                    textInputAction: _resolvedTextInputAction,
+                    onEditingComplete: _shouldHandleEditingComplete
+                        ? _handleEditingComplete
+                        : null,
                     onSubmitted: widget.onSubmitted,
                     inputFormatters: [
                       const GenesisDisplaySafeTextInputFormatter(),
+                      if (!_isSingleLine)
+                        const GenesisConsecutiveNewlineLimiter(),
                       ...widget.inputFormatters,
                     ],
                     maxLength: widget.maxLength,
@@ -245,6 +252,21 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
 
   bool get _isSingleLine =>
       (widget.maxLines ?? widget.minLines) == 1 && widget.minLines == 1;
+
+  TextInputAction get _resolvedTextInputAction {
+    final action = widget.textInputAction;
+    if (action != null) return action;
+    return _isSingleLine ? TextInputAction.done : TextInputAction.newline;
+  }
+
+  TextInputType get _resolvedKeyboardType {
+    return _isSingleLine ? TextInputType.text : TextInputType.multiline;
+  }
+
+  bool get _shouldHandleEditingComplete {
+    if (widget.onEditingComplete != null) return true;
+    return _resolvedTextInputAction != TextInputAction.newline;
+  }
 
   FocusNode get _focusNode => widget.focusNode ?? _internalFocusNode;
 }

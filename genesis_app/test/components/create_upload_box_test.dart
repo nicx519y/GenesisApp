@@ -195,6 +195,42 @@ void main() {
     expect(firstFocusNode.hasFocus, isFalse);
     expect(secondFocusNode.hasFocus, isTrue);
   });
+
+  testWidgets('CreateTextFieldBlock uses newline action for multiline fields', (
+    WidgetTester tester,
+  ) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CreateTextFieldBlock(
+            label: 'Brief',
+            controller: controller,
+            hintText: 'Brief',
+            minLines: 4,
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    final input = tester.widget<TextField>(find.byType(TextField));
+    expect(input.textInputAction, TextInputAction.newline);
+    expect(input.keyboardType, TextInputType.multiline);
+    expect(input.onEditingComplete, isNull);
+
+    await tester.enterText(find.byType(TextField), 'a\n\n\n\nb');
+    await tester.pump();
+
+    expect(controller.text, 'a\n\nb');
+
+    controller.text = 'c\n\n\nd';
+    await tester.pump();
+
+    expect(controller.text, 'c\n\nd');
+  });
 }
 
 TextStyle? _firstSkewedWidgetFragmentStyle(
