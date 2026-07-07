@@ -61,6 +61,17 @@ class ChatroomHttpApi {
     return asBool(data['locked']);
   }
 
+  /// GET /aitown-chat/internal/tick/is_locked
+  Future<ChatroomTickLockStatus> tickLockStatus({
+    required String worldId,
+  }) async {
+    final data = await _getMap(
+      'aitown-chat/internal/tick/is_locked',
+      v1Query({'world_id': _required(worldId, 'worldId')}),
+    );
+    return ChatroomTickLockStatus.fromJson(data);
+  }
+
   /// GET /aitown-chat/internal/tick/progress
   Future<ChatroomTickProgress> tickProgress({required String worldId}) async {
     final data = await _getMap(

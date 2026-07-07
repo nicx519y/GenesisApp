@@ -1,8 +1,11 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_launch_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_launch_pending_store.dart';
+import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -65,7 +68,12 @@ void main() {
     removeListener();
   });
 
-  test('expired pending launch clears without polling', () async {
+  test('expired pending launch uses launched exit without polling', () async {
+    final outcomes = <OriginLaunchOutcome>[];
+    final removeListener = OriginLaunchCoordinator.instance.addOutcomeListener(
+      outcomes.add,
+    );
+    addTearDown(removeListener);
     await OriginLaunchPendingStore.save(
       originId: 'o_timeout_1',
       worldId: 'w_timeout_1',
@@ -87,7 +95,82 @@ void main() {
 
     expect(await OriginLaunchPendingStore.load(), isNull);
     expect(OriginLaunchCoordinator.instance.state.value, isNull);
+    expect(outcomes, hasLength(1));
+    expect(outcomes.single.completed, isTrue);
+    expect(outcomes.single.originId, 'o_timeout_1');
+    expect(outcomes.single.worldId, 'w_timeout_1');
+    expect(outcomes.single.world, isNull);
   });
+
+  testWidgets('expired pending launch shows launched exit and opens world', (
+    WidgetTester tester,
+  ) async {
+    await OriginLaunchPendingStore.save(
+      originId: 'o_timeout_1',
+      worldId: 'w_timeout_1',
+    );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'pending_origin_launch_started_at',
+      DateTime.now()
+          .toUtc()
+          .subtract(OriginLaunchPendingStore.timeout)
+          .subtract(const Duration(seconds: 1))
+          .toIso8601String(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: genesisNavigatorKey,
+        onGenerateRoute: (settings) {
+          if (settings.name == RouteNames.home) {
+            final args = settings.arguments as Map?;
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (_) =>
+                  Scaffold(body: Text('home_tab=${args?['home_tab']}')),
+            );
+          }
+          if (settings.name == RouteNames.world) {
+            final args = settings.arguments as Map?;
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (_) => Scaffold(body: Text('world_wid=${args?['wid']}')),
+            );
+          }
+          return null;
+        },
+        home: const Scaffold(body: Text('start')),
+      ),
+    );
+
+    final polling = OriginLaunchCoordinator.instance.ensurePolling(
+      originId: 'o_timeout_1',
+      loadWorld: (_) => fail('Expired launch should not poll world detail'),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.textContaining('Launch timed out'), findsNothing);
+    expect(
+      _richTextWithPlainText('Worldo #w_timeout_1 launched!'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Enter'));
+    await tester.pump();
+    await tester.pump();
+    await polling;
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('world_wid=w_timeout_1'), findsOneWidget);
+  });
+}
+
+Finder _richTextWithPlainText(String text) {
+  return find.byWidgetPredicate(
+    (widget) => widget is RichText && widget.text.toPlainText() == text,
+  );
 }
 
 WorldDetail _worldDetail({required String worldId, required int tickCount}) {
