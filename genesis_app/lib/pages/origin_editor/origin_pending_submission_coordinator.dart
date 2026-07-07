@@ -180,7 +180,7 @@ class _OriginPendingSubmissionPoller {
     this.clearDraft,
   });
 
-  static const Duration _pollInterval = Duration(seconds: 5);
+  static const Duration _pollInterval = Duration(seconds: 10);
 
   final OriginPendingSubmissionKind kind;
   final ValueNotifier<OriginPendingSubmissionRuntimeState?> state;

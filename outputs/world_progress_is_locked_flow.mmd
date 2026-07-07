@@ -1,0 +1,35 @@
+flowchart TD
+  A["主动：用户点击 Progress"] --> B["提交 world tick"]
+  B --> C{"提交成功?"}
+  C -- "否" --> D["退出 progressing / 提示 failed"]
+  C -- "是" --> P["进入 progressing 状态"]
+
+  A2["被动：页面加载发现 progressing / 收到 tick_start"] --> P
+
+  P --> Q["启动 progressing 监听"]
+  Q --> R["等待 chatroom tick_done"]
+  Q --> S["启动页面级 10 秒轮询 tick/is_locked"]
+
+  S --> T["请求 /aitown-chat/internal/tick/is_locked"]
+  T --> U{"is_locked == false?"}
+  U -- "否" --> S
+  U -- "是" --> V["完成信号"]
+
+  R --> W{"收到 tick_done?"}
+  W -- "否" --> R
+  W -- "是" --> V
+
+  V --> X["停止 is_locked 轮询 / 清空句柄"]
+  X --> Y["刷新 WorldDetail"]
+  Y --> Z["清理 progressing 状态"]
+  Z --> AA["标记 Events 有新内容"]
+
+  AA --> AB{"progress 来源?"}
+  AB -- "主动" --> AC{"当前是否在 location chat?"}
+  AC -- "否" --> AD["打开 Events"]
+  AC -- "是" --> AE["不打断聊天"]
+
+  AB -- "被动" --> AF["保持当前页面"]
+
+  P --> G["退出 WorldPage"]
+  G --> H["停止 is_locked 轮询 / 清空句柄"]

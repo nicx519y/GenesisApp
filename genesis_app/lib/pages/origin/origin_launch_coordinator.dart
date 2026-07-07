@@ -41,6 +41,7 @@ class OriginLaunchCoordinator {
     : state = ValueNotifier<OriginLaunchRuntimeState?>(null);
 
   static final OriginLaunchCoordinator instance = OriginLaunchCoordinator._();
+  static const Duration _pollInterval = Duration(seconds: 10);
 
   final ValueNotifier<OriginLaunchRuntimeState?> state;
   final Set<ValueChanged<OriginLaunchOutcome>> _outcomeListeners =
@@ -172,10 +173,7 @@ class OriginLaunchCoordinator {
       worldId: pending.worldId,
     );
     _timer?.cancel();
-    _timer = Timer(
-      kWorldTick1WaitPollInterval,
-      () => unawaited(_poll(pending)),
-    );
+    _timer = Timer(_pollInterval, () => unawaited(_poll(pending)));
   }
 
   Future<void> _handleCompleted({

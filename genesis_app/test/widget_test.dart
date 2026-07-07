@@ -426,6 +426,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldDetailTicksByRequest,
     this.worldDetailTickCountsByRequest,
     this.chatroomMessagesByLocation,
+    this.tickLockStatuses,
     this.worldTickListCompleter,
     this.hotTagsCompleter,
   });
@@ -454,9 +455,11 @@ class _RecordingV1ListTransport implements HttpTransport {
   final List<List<Map<String, Object?>>>? worldDetailTicksByRequest;
   final List<int>? worldDetailTickCountsByRequest;
   final Map<String, List<Map<String, Object?>>>? chatroomMessagesByLocation;
+  final List<bool>? tickLockStatuses;
   final Completer<TransportResponse>? worldTickListCompleter;
   final Completer<TransportResponse>? hotTagsCompleter;
   int _worldDetailRequestIndex = 0;
+  int _tickLockStatusRequestIndex = 0;
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -638,6 +641,17 @@ class _RecordingV1ListTransport implements HttpTransport {
             return id is int && id > previous ? id : previous;
           }),
         },
+      });
+    }
+    if (request.method == 'GET' &&
+        request.uri.path.endsWith('/aitown-chat/internal/tick/is_locked')) {
+      final statuses = tickLockStatuses ?? const <bool>[true];
+      final index = _tickLockStatusRequestIndex.clamp(0, statuses.length - 1);
+      _tickLockStatusRequestIndex += 1;
+      return _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {'is_locked': statuses[index]},
       });
     }
     if (request.method == 'POST' &&
@@ -11961,6 +11975,82 @@ void main() {
       );
     },
   );
+
+  testWidgets('joined world completes progress when tick lock poll unlocks', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'joined',
+      tickLockStatuses: const [false],
+      worldDetailTickCountsByRequest: const [3, 4],
+    );
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final initialDetailRequestCount = transport
+        .requestsFor('/api/v1/world/detail')
+        .length;
+    expect(find.byKey(const ValueKey('world-events-unread-dot')), findsNothing);
+
+    chatroom.session.emit(
+      const ChatroomWorldNotification(
+        worldId: 'w_test_1',
+        locationId: '',
+        eventType: 'tick_start',
+        title: '',
+        summary: '',
+        detailUrl: '',
+        ts: null,
+        broadcast: true,
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      find.descendant(
+        of: find.byType(FilledButton),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    final lockRequests = transport.requestsFor(
+      '/aitown-chat/internal/tick/is_locked',
+    );
+    expect(lockRequests, hasLength(1));
+    expect(lockRequests.single.uri.queryParameters['world_id'], 'w_test_1');
+    expect(
+      transport.requestsFor('/api/v1/world/detail'),
+      hasLength(initialDetailRequestCount + 1),
+    );
+    expect(
+      find.byKey(const ValueKey('world-events-unread-dot')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(FilledButton),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsNothing,
+    );
+  });
 
   testWidgets('world location chat shows skeleton before first panel frame', (
     WidgetTester tester,
