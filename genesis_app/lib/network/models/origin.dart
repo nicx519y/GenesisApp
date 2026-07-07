@@ -435,6 +435,7 @@ class OriginLocation {
     required this.updatedAt,
     this.locationId = '',
     this.parentLocationId = '',
+    this.dialogue = const <OriginDialogueLine>[],
     this.locations = const <OriginLocation>[],
   });
 
@@ -453,6 +454,7 @@ class OriginLocation {
   final DateTime? updatedAt;
   final String locationId;
   final String parentLocationId;
+  final List<OriginDialogueLine> dialogue;
   final List<OriginLocation> locations;
 
   factory OriginLocation.fromJson(Map<String, dynamic> json) {
@@ -485,6 +487,7 @@ class OriginLocation {
       updatedAt: asDateTime(json['updated_at']),
       locationId: asString(json['location_id']),
       parentLocationId: asString(json['location_pid']),
+      dialogue: _originDialogueLinesFromJson(json['dialogue']),
     );
   }
 
@@ -505,9 +508,50 @@ class OriginLocation {
       updatedAt: updatedAt,
       locationId: locationId,
       parentLocationId: parentLocationId,
+      dialogue: dialogue,
       locations: locations ?? this.locations,
     );
   }
+}
+
+@immutable
+class OriginDialogueLine {
+  const OriginDialogueLine({
+    required this.charId,
+    required this.charName,
+    required this.content,
+  });
+
+  final String charId;
+  final String charName;
+  final String content;
+
+  factory OriginDialogueLine.fromJson(Map<String, dynamic> json) {
+    return OriginDialogueLine(
+      charId: asString(
+        json['char_id'],
+        fallback: asString(
+          json['character_id'],
+          fallback: asString(json['sender_id']),
+        ),
+      ),
+      charName: asString(
+        json['char_name'],
+        fallback: asString(
+          json['name'],
+          fallback: asString(json['sender_name']),
+        ),
+      ),
+      content: asString(json['content'], fallback: asString(json['text'])),
+    );
+  }
+}
+
+List<OriginDialogueLine> _originDialogueLinesFromJson(Object? raw) {
+  if (raw is! List) return const <OriginDialogueLine>[];
+  return asJsonList(raw)
+      .map((item) => OriginDialogueLine.fromJson(asJsonMap(item)))
+      .toList(growable: false);
 }
 
 List<OriginLocation> buildOriginLocationHierarchy(

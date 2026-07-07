@@ -175,6 +175,69 @@ void main() {
     expect(entities.single.isAi, isTrue);
   });
 
+  test('origin location parses dialogue lines', () {
+    final location = OriginLocation.fromJson(const {
+      'id': 12,
+      'origin_id': 1,
+      'location_id': 'loc_1',
+      'location_name': 'Town Square',
+      'dialogue': [
+        {
+          'char_id': 'char_1',
+          'char_name': 'Casey',
+          'content': 'Doors open at eight.',
+        },
+      ],
+    });
+
+    expect(location.dialogue, hasLength(1));
+    expect(location.dialogue.single.charId, 'char_1');
+    expect(location.dialogue.single.charName, 'Casey');
+    expect(location.dialogue.single.content, 'Doors open at eight.');
+  });
+
+  test('origin map bubbles use location dialogue and character avatar ids', () {
+    final origin = _originDetail(
+      characters: [
+        OriginCharacter(
+          id: 7,
+          characterId: 'char_1',
+          originId: 1,
+          name: 'Casey',
+          avatar: '',
+          tags: '',
+          currentLocationId: 12,
+          initialLocationId: 12,
+          createdAt: null,
+          updatedAt: null,
+        ),
+      ],
+      locations: [
+        OriginLocation.fromJson(const {
+          'id': 12,
+          'origin_id': 1,
+          'location_id': 'loc_1',
+          'location_name': 'Town Square',
+          'dialogue': [
+            {
+              'char_id': 'char_1',
+              'content': '*Casey flips the sign.* 「Open before sunrise.」',
+            },
+            {'char_id': 'nar', 'content': 'Narration should not show.'},
+            {'char_id': 'missing', 'content': 'Missing character.'},
+            {'char_id': 'char_1', 'content': ''},
+          ],
+        }),
+      ],
+    );
+
+    final bubbles = originMapMessageBubblesForTesting(origin);
+
+    expect(bubbles, hasLength(1));
+    expect(bubbles.single.characterId, '7');
+    expect(bubbles.single.content, 'Open before sunrise.');
+  });
+
   test('origin character tagline reads brief directly', () {
     final character = OriginCharacter.fromJson(const {
       'character_id': 'char_1',
@@ -212,5 +275,27 @@ void main() {
       expect(bodyStyle, isNot(contains('height: 1.35')));
       expect(source, isNot(contains('bool _sameCharacterText')));
     },
+  );
+}
+
+OriginDetail _originDetail({
+  required List<OriginCharacter> characters,
+  required List<OriginLocation> locations,
+}) {
+  return OriginDetail(
+    id: 1,
+    oid: 'o_test',
+    name: 'Origin',
+    description: '',
+    mapImage: '',
+    worldMap: '',
+    worldView: '',
+    copyCount: 0,
+    interactCount: 0,
+    tags: const <String>[],
+    createdAt: null,
+    updatedAt: null,
+    characters: characters,
+    locations: locations,
   );
 }
