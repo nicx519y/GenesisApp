@@ -190,7 +190,7 @@ Map<String, List<UserAvatar>> _originAvatarsByLocation(
     if (locationId <= 0) continue;
     final avatar = UserAvatar(
       _initials(c.name),
-      id: '${c.id}',
+      id: _originCharacterMapAvatarId(c),
       name: c.name,
       avatarUrl: _resolveAssetUrl(c.avatar),
       showStar: true,
@@ -202,6 +202,69 @@ Map<String, List<UserAvatar>> _originAvatarsByLocation(
     }
   }
   return map;
+}
+
+String _originCharacterMapAvatarId(OriginCharacter character) {
+  if (character.id > 0) return '${character.id}';
+  return character.characterId.trim();
+}
+
+List<WorldMapMessageBubble> _originMapMessageBubbles(OriginDetail origin) {
+  return originMapMessageBubblesForTesting(origin);
+}
+
+@visibleForTesting
+List<WorldMapMessageBubble> originMapMessageBubblesForTesting(
+  OriginDetail origin,
+) {
+  final charactersByCharId = <String, OriginCharacter>{};
+  for (final character in origin.characters) {
+    final key = character.characterId.trim().toLowerCase();
+    if (key.isEmpty) continue;
+    charactersByCharId.putIfAbsent(key, () => character);
+  }
+  if (charactersByCharId.isEmpty) return const <WorldMapMessageBubble>[];
+
+  final bubbles = <WorldMapMessageBubble>[];
+  final locations = origin.allLocations.isNotEmpty
+      ? origin.allLocations
+      : _flattenOriginLocations(origin.locations);
+  for (final location in locations) {
+    for (final line in location.dialogue) {
+      final charId = line.charId.trim();
+      final normalizedCharId = charId.toLowerCase();
+      if (normalizedCharId.isEmpty ||
+          normalizedCharId == 'nar' ||
+          normalizedCharId == 'narrator') {
+        continue;
+      }
+      final character = charactersByCharId[normalizedCharId];
+      if (character == null) continue;
+      final content = worldMapBubbleDisplayContent(line.content);
+      if (content.isEmpty) continue;
+      final avatarId = _originCharacterMapAvatarId(character);
+      if (avatarId.isEmpty) continue;
+      bubbles.add(
+        WorldMapMessageBubble(characterId: avatarId, content: content),
+      );
+    }
+  }
+  return List<WorldMapMessageBubble>.unmodifiable(bubbles);
+}
+
+List<OriginLocation> _flattenOriginLocations(List<OriginLocation> locations) {
+  final out = <OriginLocation>[];
+  void visit(OriginLocation location) {
+    out.add(location);
+    for (final child in location.locations) {
+      visit(child);
+    }
+  }
+
+  for (final location in locations) {
+    visit(location);
+  }
+  return out;
 }
 
 String _userAvatarStableId(UserAvatar avatar) {

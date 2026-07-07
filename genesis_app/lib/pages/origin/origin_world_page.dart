@@ -48,6 +48,7 @@ import '../../utils/genesis_image_resource.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_page.dart';
 import '../world/world_header.dart';
+import '../world/world_map_bubble_candidates.dart';
 import 'origin_launch_coordinator.dart';
 import 'origin_launch_flow.dart';
 
@@ -672,6 +673,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                 locationNodes: locationNodes,
                 listLocationNodes: listLocationNodes,
                 mapImageUrl: mapImageUrl,
+                messageBubbles: _activeChatLocation == null
+                    ? _originMapMessageBubbles(origin)
+                    : const <WorldMapMessageBubble>[],
+                messageBubblePlaybackPaused: _activeChatLocation != null,
                 dimmed: _showLocationPage,
                 showPointsList: _showLocationPage,
                 initialZoomScale: _showLocationPage ? 1 : 1.2,

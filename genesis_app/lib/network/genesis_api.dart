@@ -2011,6 +2011,11 @@ OriginLocation _originLocationFromV1(Map<String, dynamic> raw, int originId) {
     updatedAt: _apiDateTime(raw['updated_at']),
     locationId: locationId,
     parentLocationId: parentLocationId,
+    dialogue: raw['dialogue'] is List
+        ? asJsonList(raw['dialogue'])
+              .map((item) => OriginDialogueLine.fromJson(asJsonMap(item)))
+              .toList(growable: false)
+        : const <OriginDialogueLine>[],
   );
 }
 
