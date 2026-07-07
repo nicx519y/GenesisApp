@@ -1,0 +1,126 @@
+{
+  "protocolVersion": 1,
+  "map": {
+    "id": "tilemap_demo_map2_rooms",
+    "width": 5,
+    "height": 4
+  },
+  "tileTypes": {
+    "room_1": "assets/tilemap/map2/compose/room_1.png",
+    "room_2": "assets/tilemap/map2/compose/room_2.png",
+    "room_3": "assets/tilemap/map2/compose/room_3.png",
+    "room_4": "assets/tilemap/map2/compose/room_4.png",
+    "room_5": "assets/tilemap/map2/compose/room_5.png",
+    "room_6": "assets/tilemap/map2/compose/room_6.png"
+  },
+  "tiles": [
+    {
+      "x": 1,
+      "y": 0,
+      "type": "room_1",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "type": "room_2",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "type": "room_3",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "type": "room_4",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "type": "room_5",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "type": "room_6",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "type": "room_1",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "type": "room_2",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "type": "room_3",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 3,
+      "y": 2,
+      "type": "room_4",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "type": "room_5",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "type": "room_6",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    }
+  ]
+}

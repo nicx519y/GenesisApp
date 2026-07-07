@@ -18,6 +18,7 @@ import '../../components/page_header.dart';
 import '../../network/genesis_api.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../ui/genesis_ui.dart';
+import '../tilemap_demo/tilemap_demo_page.dart';
 import 'about_us_page.dart';
 
 const String _buildModeLabel = kReleaseMode
@@ -322,6 +323,12 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     Navigator.of(context).maybePop();
   }
 
+  void _openTilemapDemo() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const TilemapDemoPage()));
+  }
+
   bool get _isUsingTestEndpointHost {
     return _effectiveEndpointHost(_apiBaseUrlController) == _testEndpointHost &&
         _effectiveEndpointHost(_gatewayApiBaseUrlController) ==
@@ -531,6 +538,13 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
               content: _gatewaySignatureVerifyResult!,
             ),
           ],
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            label: 'Tilemap demo',
+            onPressed: _openTilemapDemo,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
             label: 'Hide debug button',

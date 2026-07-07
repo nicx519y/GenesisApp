@@ -87,6 +87,11 @@ flutter:
     - assets/images/my_worlds_empty_worldo_launch.jpg
     - assets/images/default_list_image.png
     - assets/images/map_default/
+    - assets/tilemap/
+    - assets/tilemap/map1/compose/
+    - assets/tilemap/map2/compose/
+    - lib/pages/tilemap_demo/tilemap_demo_map.json
+    - lib/pages/tilemap_demo/tilemap_demo_map2_rooms.json
     - assets/custom-icons/png/
     - assets/custom-icons/svg/
 

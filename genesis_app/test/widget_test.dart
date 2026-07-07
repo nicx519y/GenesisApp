@@ -77,6 +77,7 @@ import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_store.dart';
+import 'package:genesis_flutter_android/pages/tilemap_demo/tilemap_demo_page.dart';
 import 'package:genesis_flutter_android/pages/world/world_page.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
@@ -9027,6 +9028,32 @@ void main() {
     expect(find.text('Clear endpoint overrides'), findsNothing);
     await tester.pump(const Duration(seconds: 2));
     await AppEndpointOverrideStore.clear();
+  });
+
+  testWidgets('developer page opens tilemap demo', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scrollable = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(
+      find.text('Tilemap demo'),
+      180,
+      scrollable: scrollable,
+    );
+    expect(find.text('Tilemap demo'), findsOneWidget);
+
+    await tester.tap(find.text('Tilemap demo'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TilemapDemoPage), findsOneWidget);
+    expect(find.text('tilemap_demo_01'), findsOneWidget);
   });
 
   testWidgets('developer page sheet leaves keyboard avoidance to route', (
