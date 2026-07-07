@@ -249,6 +249,13 @@ void main() {
 
     expect(candidates.single.content, 'Musk. Sit down.');
   });
+
+  test('unescapes apostrophes and quotes in bubble content', () {
+    expect(
+      worldMapBubbleDisplayContent("He\\'s holding \\\"the key\\\"."),
+      'He\'s holding "the key".',
+    );
+  });
 }
 
 WorldChatroomMessage _message({
