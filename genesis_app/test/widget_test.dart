@@ -7907,7 +7907,7 @@ void main() {
     expect(locationList.single['location_name'], 'Gate');
 
     final draft = await CreateOriginDraftStore.load();
-    expect(draft.hasAllSectionsSaved, isTrue);
+    expect(draft.hasAllSectionsSaved, isFalse);
     final pendingCreate = await OriginPendingSubmissionStore.loadCreating();
     expect(pendingCreate?.originId, 'o_created_1');
     expect(transport.requestsFor('/api/v1/origin/info'), hasLength(1));

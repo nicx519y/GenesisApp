@@ -56,6 +56,7 @@ class OriginPendingSubmissionCoordinator {
       clearPending: OriginPendingSubmissionStore.clearCreating,
       clearDraft: CreateOriginDraftStore.clear,
       timeoutMessage: 'Worldo creation timed out.',
+      completeOnTimeout: true,
       successTitle: (originName) => 'Worldo #$originName created!',
       notifyOutcome: _notifyCreateOutcome,
     );
@@ -175,6 +176,7 @@ class _OriginPendingSubmissionPoller {
     required this.timeoutMessage,
     required this.successTitle,
     required this.notifyOutcome,
+    this.completeOnTimeout = false,
     this.clearDraft,
   });
 
@@ -189,6 +191,7 @@ class _OriginPendingSubmissionPoller {
   final String timeoutMessage;
   final String Function(String originName) successTitle;
   final ValueChanged<OriginPendingSubmissionOutcome> notifyOutcome;
+  final bool completeOnTimeout;
 
   Timer? _timer;
   String? _originId;
@@ -219,7 +222,7 @@ class _OriginPendingSubmissionPoller {
       return;
     }
     if (pending.isExpired) {
-      await _handleTimedOut(pending.originId);
+      await _handleExpired(pending.originId);
       return;
     }
     _begin(pending: pending, loadOriginInfo: loadOriginInfo);
@@ -266,7 +269,7 @@ class _OriginPendingSubmissionPoller {
   Future<void> _poll(OriginPendingSubmission pending) async {
     if (_originId != pending.originId || _pollInFlight) return;
     if (pending.isExpired) {
-      await _handleTimedOut(pending.originId);
+      await _handleExpired(pending.originId);
       return;
     }
 
@@ -296,7 +299,7 @@ class _OriginPendingSubmissionPoller {
   void _scheduleNextPoll(OriginPendingSubmission pending) {
     if (_originId != pending.originId) return;
     if (pending.isExpired) {
-      unawaited(_handleTimedOut(pending.originId));
+      unawaited(_handleExpired(pending.originId));
       return;
     }
     state.value = OriginPendingSubmissionRuntimeState(
@@ -366,6 +369,13 @@ class _OriginPendingSubmissionPoller {
       ),
       actions: const [GenesisActionBoxAction<bool>(label: 'View', value: true)],
     );
+  }
+
+  Future<void> _handleExpired(String originId) {
+    if (!completeOnTimeout) {
+      return _handleTimedOut(originId);
+    }
+    return _handleCompleted(originId: originId, originName: originId);
   }
 
   Future<void> _handleTimedOut(String originId) async {

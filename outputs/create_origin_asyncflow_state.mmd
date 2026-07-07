@@ -1,0 +1,16 @@
+stateDiagram-v2
+  [*] --> Idle
+
+  Idle --> CreatingRecord: submit
+  CreatingRecord --> DraftCleared: originId returned
+  DraftCleared --> Pending
+  Pending --> Polling
+
+  Polling --> Created: status completed
+  Polling --> Created: timeout
+
+  Created --> EnterOriginWorld: clear pending + show created
+  EnterOriginWorld --> [*]
+
+  Polling --> UiExited: user leaves wait page
+  UiExited --> Polling: pending resumes
