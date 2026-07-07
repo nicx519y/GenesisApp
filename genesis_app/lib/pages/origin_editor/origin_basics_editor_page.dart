@@ -405,6 +405,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         note:
                             'The public hook players see first — the setting, the core conflict, and what makes it intriguing.',
                         minLines: 4,
+                        maxLines: 8,
                         labelInputGap: _fieldLabelInputGap,
                         focusNode: _worldViewFocusNode,
                         nextFocusNode: _worldLogicFocusNode,
@@ -455,6 +456,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                         note:
                             'The hidden rules and backstory that drive the story — agendas, mechanics, and secret limits.',
                         minLines: 5,
+                        maxLines: 12,
                         labelInputGap: _fieldLabelInputGap,
                         focusNode: _worldLogicFocusNode,
                         nextFocusNode: _worldStartTimeFocusNode,
