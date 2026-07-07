@@ -17,7 +17,7 @@ class OriginPendingSubmission {
 class OriginPendingSubmissionStore {
   OriginPendingSubmissionStore._();
 
-  static const Duration timeout = Duration(minutes: 1);
+  static const Duration timeout = Duration(minutes: 2);
 
   static const String _creatingOriginIdKey = 'creaing_origin_id';
   static const String _creatingStartedAtKey = 'creating_origin_started_at';

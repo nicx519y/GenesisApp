@@ -291,6 +291,10 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_state.lockChatroomWorld(worldId));
     }
 
+    if (method == 'GET' && path == 'aitown-chat/internal/tick/is_locked') {
+      return _v1Ok(_state.chatroomTickLockStatus(query['world_id'] ?? ''));
+    }
+
     if (method == 'GET' && path == 'aitown-chat/internal/tick/progress') {
       return _v1Ok(_state.chatroomTickProgress(query['world_id'] ?? ''));
     }
@@ -1225,6 +1229,11 @@ class _MockState {
     final resolved = _resolveChatroomWorldId(worldId);
     _chatroomWorldLocks[resolved] = false;
     return {'unlocked': true};
+  }
+
+  Map<String, dynamic> chatroomTickLockStatus(String worldId) {
+    final resolved = _resolveChatroomWorldId(worldId);
+    return {'is_locked': _chatroomWorldLocks[resolved] ?? false};
   }
 
   Map<String, dynamic> chatroomTickProgress(String worldId) {

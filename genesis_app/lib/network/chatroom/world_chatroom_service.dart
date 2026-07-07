@@ -1081,9 +1081,12 @@ class WorldChatroomService {
 
   void _handleNewUserJoin(ChatroomNewUserJoinEvent event) {
     _setState(
-      _state.copyWith(
-        latestNewUserJoin: event,
-        latestNewUserJoinRevision: _state.latestNewUserJoinRevision + 1,
+      _stateWithSocketWorldProgress(
+        _state.copyWith(
+          latestNewUserJoin: event,
+          latestNewUserJoinRevision: _state.latestNewUserJoinRevision + 1,
+        ),
+        socketCurrentTime: event.currentTime,
       ),
     );
   }
@@ -1095,9 +1098,9 @@ class WorldChatroomService {
     );
     switch (event.eventType) {
       case 'world_change':
-        await _refreshWorld();
+        await _refreshWorld(socketCurrentTime: event.currentTime);
       case 'user_location_change':
-        await _refreshUserLocations();
+        await _refreshUserLocations(socketCurrentTime: event.currentTime);
       case 'world_new_message':
         _logChatroomSocketEvent(
           'world_new_message fetch start location=${event.locationId} '
@@ -1109,36 +1112,56 @@ class WorldChatroomService {
           'world=$_worldId',
         );
       case 'tick_start':
-        _setState(_state.copyWith(inputBlocked: true));
+        _setState(
+          _stateWithSocketWorldProgress(
+            _state.copyWith(inputBlocked: true),
+            socketCurrentTime: event.currentTime,
+          ),
+        );
         break;
       case 'tick_done':
-        _setState(_state.copyWith(inputBlocked: false));
+        _setState(
+          _stateWithSocketWorldProgress(
+            _state.copyWith(inputBlocked: false),
+            socketCurrentTime: event.currentTime,
+          ),
+        );
         break;
       default:
         break;
     }
   }
 
-  Future<WorldDetail> _refreshWorld() async {
+  Future<WorldDetail> _refreshWorld({String socketCurrentTime = ''}) async {
     final world = await _api.getWorld(_worldId);
-    final entities = _entitiesFromWorld(world);
-    _setState(
-      _state.copyWith(
-        world: world,
-        locationTree: world.locationTree,
-        processedLocationTree: world.processedLocationTree,
-        entitiesById: entities,
-        entitiesByLocation: _entitiesByLocation(entities),
-        messagesByLocation: _leafLocationMessageQueues(
+    final updatedWorld =
+        _worldWithSocketProgress(
           world,
-          _state.messagesByLocation,
+          currentTime: socketCurrentTime,
+          tickNo: 0,
+        ) ??
+        world;
+    final entities = _entitiesFromWorld(updatedWorld);
+    _setState(
+      _stateWithSocketWorldProgress(
+        _state.copyWith(
+          world: updatedWorld,
+          locationTree: updatedWorld.locationTree,
+          processedLocationTree: updatedWorld.processedLocationTree,
+          entitiesById: entities,
+          entitiesByLocation: _entitiesByLocation(entities),
+          messagesByLocation: _leafLocationMessageQueues(
+            updatedWorld,
+            _state.messagesByLocation,
+          ),
         ),
+        socketCurrentTime: socketCurrentTime,
       ),
     );
-    return world;
+    return updatedWorld;
   }
 
-  Future<void> _refreshUserLocations() async {
+  Future<void> _refreshUserLocations({String socketCurrentTime = ''}) async {
     final response = await _api.chatroomHttp.getUserLocations(
       worldId: _worldId,
     );
@@ -1175,14 +1198,25 @@ class WorldChatroomService {
       'located=$locatedEntities realUsers=$realUsers world=$_worldId',
     );
     final world = _state.world;
-    final updatedWorld = world == null
+    final worldWithEntityLocations = world == null
         ? null
         : _worldWithEntityLocations(world, entities);
+    final updatedWorld = world == null
+        ? null
+        : _worldWithSocketProgress(
+                worldWithEntityLocations,
+                currentTime: socketCurrentTime,
+                tickNo: 0,
+              ) ??
+              worldWithEntityLocations;
     _setState(
-      _state.copyWith(
-        world: updatedWorld,
-        entitiesById: entities,
-        entitiesByLocation: _entitiesByLocation(entities),
+      _stateWithSocketWorldProgress(
+        _state.copyWith(
+          world: updatedWorld,
+          entitiesById: entities,
+          entitiesByLocation: _entitiesByLocation(entities),
+        ),
+        socketCurrentTime: socketCurrentTime,
       ),
     );
   }
@@ -1732,6 +1766,7 @@ class WorldChatroomService {
           message: 'Missing LLM stream start for ${event.conversationRoundId}',
           sourceType: 'llm_chunk',
         ),
+        socketCurrentTime: event.currentTime,
       );
       return;
     }
@@ -1756,6 +1791,7 @@ class WorldChatroomService {
           message: 'Missing LLM stream start for ${event.conversationRoundId}',
           sourceType: 'llm_stream_end',
         ),
+        socketCurrentTime: event.currentTime,
       );
       return;
     }
@@ -1770,6 +1806,44 @@ class WorldChatroomService {
         streaming: false,
       ),
       socketCurrentTime: event.currentTime,
+    );
+  }
+
+  WorldChatroomState _stateWithSocketWorldProgress(
+    WorldChatroomState state, {
+    String socketCurrentTime = '',
+    int socketTickNo = 0,
+  }) {
+    final resolvedSocketCurrentTime = socketCurrentTime.trim();
+    final resolvedSocketTickNo = socketTickNo > 0 ? socketTickNo : 0;
+    final hasSocketWorldProgress =
+        resolvedSocketCurrentTime.isNotEmpty || resolvedSocketTickNo > 0;
+    if (!hasSocketWorldProgress) return state;
+    return state.copyWith(
+      world: _worldWithSocketProgress(
+        state.world,
+        currentTime: resolvedSocketCurrentTime,
+        tickNo: resolvedSocketTickNo,
+      ),
+      latestSocketCurrentTime: resolvedSocketCurrentTime,
+      latestSocketTickNo: resolvedSocketTickNo,
+      latestSocketCurrentTimeRevision:
+          state.latestSocketCurrentTimeRevision + 1,
+    );
+  }
+
+  WorldDetail? _worldWithSocketProgress(
+    WorldDetail? world, {
+    required String currentTime,
+    required int tickNo,
+  }) {
+    if (world == null) return null;
+    final resolvedCurrentTime = currentTime.trim();
+    final resolvedTickNo = tickNo > 0 ? tickNo : 0;
+    if (resolvedCurrentTime.isEmpty && resolvedTickNo <= 0) return world;
+    return world.copyWith(
+      currentTime: resolvedCurrentTime.isEmpty ? null : resolvedCurrentTime,
+      tickCount: resolvedTickNo > 0 ? resolvedTickNo : null,
     );
   }
 
@@ -1796,8 +1870,6 @@ class WorldChatroomService {
     if (messages.isEmpty) return;
     final resolvedSocketCurrentTime = socketCurrentTime.trim();
     final resolvedSocketTickNo = socketTickNo > 0 ? socketTickNo : 0;
-    final hasSocketWorldProgress =
-        resolvedSocketCurrentTime.isNotEmpty || resolvedSocketTickNo > 0;
     var worldMessages = _state.worldMessages;
     final byLocation = _leafLocationMessageQueues(
       _state.world,
@@ -1827,20 +1899,15 @@ class WorldChatroomService {
       if (message.messageId > lastMessageId) lastMessageId = message.messageId;
     }
     _setState(
-      _state.copyWith(
-        worldMessages: worldMessages,
-        messagesByLocation: byLocation,
-        streamMessagesByKey: streamKeys,
-        lastMessageId: lastMessageId,
-        latestSocketCurrentTime: hasSocketWorldProgress
-            ? resolvedSocketCurrentTime
-            : null,
-        latestSocketTickNo: hasSocketWorldProgress
-            ? resolvedSocketTickNo
-            : null,
-        latestSocketCurrentTimeRevision: hasSocketWorldProgress
-            ? _state.latestSocketCurrentTimeRevision + 1
-            : null,
+      _stateWithSocketWorldProgress(
+        _state.copyWith(
+          worldMessages: worldMessages,
+          messagesByLocation: byLocation,
+          streamMessagesByKey: streamKeys,
+          lastMessageId: lastMessageId,
+        ),
+        socketCurrentTime: resolvedSocketCurrentTime,
+        socketTickNo: resolvedSocketTickNo,
       ),
     );
     final changedLocationIds = messages
@@ -2195,9 +2262,19 @@ class WorldChatroomService {
     return '$location|$round';
   }
 
-  void _recordFailure(ChatroomFailureEvent failure) {
+  void _recordFailure(
+    ChatroomFailureEvent failure, {
+    String socketCurrentTime = '',
+    int socketTickNo = 0,
+  }) {
     if (!_failures.isClosed) _failures.add(failure);
-    _setState(_state.copyWith(lastFailure: failure));
+    _setState(
+      _stateWithSocketWorldProgress(
+        _state.copyWith(lastFailure: failure),
+        socketCurrentTime: socketCurrentTime,
+        socketTickNo: socketTickNo,
+      ),
+    );
   }
 
   Future<void> _persistMessage(WorldChatroomMessage message) async {

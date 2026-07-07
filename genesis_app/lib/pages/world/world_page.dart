@@ -103,6 +103,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   bool _tick1WaitDialogStarted = false;
   bool? _lastChatroomInputBlocked;
   bool _worldTickDoneHandling = false;
+  bool _worldTickLockPollInFlight = false;
+  int _worldTickLockPollingGeneration = 0;
+  Timer? _worldTickLockPollingTimer;
   int _lastAppliedChatroomWorldProgressRevision = 0;
   List<WorldMapBubbleCandidate> _mapBubbleCandidates =
       const <WorldMapBubbleCandidate>[];
@@ -124,6 +127,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     const <WorldNewUserJoinNotice>[],
   );
   final _sectionsEventsCache = WorldSectionsEventsCache();
+  static const _worldTickLockPollInterval = Duration(seconds: 10);
 
   @override
   void initState() {
@@ -171,6 +175,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _stopWorldTickLockPolling();
     _mainTabController.removeListener(_handleWorldMainTabChanged);
     _worldBottomSheetSelection.removeListener(
       _handleWorldBottomSheetSelectionChanged,
@@ -796,6 +801,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   void _startWorldTickTracking({bool openEventsAfterDone = false}) {
     if (openEventsAfterDone) _openEventsAfterTickDone = true;
+    _startWorldTickLockPolling();
     _setWorldTickInProgress(true);
     if (!_worldActionRunning) {
       if (mounted) {
@@ -807,6 +813,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   }
 
   void _setWorldTickInProgress(bool inProgress) {
+    if (!inProgress) {
+      _stopWorldTickLockPolling();
+    }
     final changed = _worldTickInProgress != inProgress;
     if (changed) {
       if (mounted) {
@@ -831,6 +840,53 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       setState(() => _worldTickWaitOverlayRequested = requested);
     } else {
       _worldTickWaitOverlayRequested = requested;
+    }
+  }
+
+  void _startWorldTickLockPolling() {
+    if (_worldTickLockPollingTimer?.isActive == true) return;
+    _worldTickLockPollingTimer = Timer.periodic(_worldTickLockPollInterval, (
+      _,
+    ) {
+      unawaited(_pollWorldTickLockStatus(_worldTickLockPollingGeneration));
+    });
+  }
+
+  void _stopWorldTickLockPolling() {
+    _worldTickLockPollingTimer?.cancel();
+    _worldTickLockPollingTimer = null;
+    _worldTickLockPollInFlight = false;
+    _worldTickLockPollingGeneration += 1;
+  }
+
+  Future<void> _pollWorldTickLockStatus(int generation) async {
+    if (!mounted ||
+        !_worldTickInProgress ||
+        _worldTickDoneHandling ||
+        _worldTickLockPollInFlight ||
+        generation != _worldTickLockPollingGeneration) {
+      return;
+    }
+    _worldTickLockPollInFlight = true;
+    try {
+      final status = await AppServicesScope.read(
+        context,
+      ).api.chatroomHttp.tickLockStatus(worldId: widget.wid);
+      if (!mounted ||
+          !_worldTickInProgress ||
+          _worldTickDoneHandling ||
+          generation != _worldTickLockPollingGeneration) {
+        return;
+      }
+      if (!status.isLocked) {
+        unawaited(_handleWorldTickDone());
+      }
+    } catch (_) {
+      // Polling is a fallback; keep waiting for tick_done or the next poll.
+    } finally {
+      if (generation == _worldTickLockPollingGeneration) {
+        _worldTickLockPollInFlight = false;
+      }
     }
   }
 
@@ -863,6 +919,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   bool get _shouldSuppressAutoEventsAfterTick {
     if (_activeChatLocationId.isNotEmpty) {
+      return true;
+    }
+    if (_locationChatPageCache.activeLocationId.isNotEmpty) {
+      return true;
+    }
+    final route = ModalRoute.of(context);
+    if (route != null && !route.isCurrent) {
       return true;
     }
     return false;

@@ -82,6 +82,9 @@ class _FakeTransport implements HttpTransport {
     if (path == '/aitown-chat/internal/tick/lock') {
       return _camelOk({'locked': true});
     }
+    if (path == '/aitown-chat/internal/tick/is_locked') {
+      return _ok({'is_locked': true});
+    }
     if (path == '/aitown-chat/internal/tick/progress') {
       return _camelOk({
         'progress': 1,
@@ -200,6 +203,8 @@ void main() {
     expect(historyMessage.createdAt, DateTime(2026, 7, 1, 10));
 
     expect(await api.lockWorld(worldId: 'w_1'), true);
+    final lockStatus = await api.tickLockStatus(worldId: 'w_1');
+    expect(lockStatus.isLocked, true);
     final progress = await api.tickProgress(worldId: 'w_1');
     expect(progress.progress, 1);
     expect(await api.unlockWorld(worldId: 'w_1'), true);
@@ -229,6 +234,7 @@ void main() {
       '/aitown-chat/internal/world/messages',
       '/aitown-chat/api/messages',
       '/aitown-chat/internal/tick/lock',
+      '/aitown-chat/internal/tick/is_locked',
       '/aitown-chat/internal/tick/progress',
       '/aitown-chat/internal/tick/unlock',
       '/aitown-chat/internal/narrator/write',
@@ -244,6 +250,10 @@ void main() {
     expect(
       utf8.decode(transport.requests[3].bodyBytes!),
       contains('name="world_id"'),
+    );
+    expect(
+      transport.requests[4].uri.queryParameters,
+      containsPair('world_id', 'w_1'),
     );
   });
 }
