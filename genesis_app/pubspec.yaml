@@ -53,6 +53,7 @@ dependencies:
   firebase_performance: ^0.11.4+3
   firebase_crashlytics: ^5.2.4
   posthog_flutter: ^5.28.0
+  in_app_purchase: ^3.3.0
 
 dependency_overrides:
   firebase_auth:
