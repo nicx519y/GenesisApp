@@ -11,9 +11,13 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_content_submission_dialog.dart';
 import '../../components/login_provider_button.dart';
 import '../../components/page_header.dart';
+import '../../network/api_exception.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
+import '../../network/genesis_api.dart';
+import '../../network/json_utils.dart';
 import '../../ui/genesis_ui.dart';
+import '../../utils/display_name_formatter.dart';
 import 'about_us_page.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -50,6 +54,12 @@ class _SettingsPageState extends State<SettingsPage> {
     if (loggedOut == true && context.mounted) {
       Navigator.of(context).pop(true);
     }
+  }
+
+  Future<void> _openPrivacyPage(BuildContext context) async {
+    await Navigator.of(
+      context,
+    ).push<void>(MaterialPageRoute<void>(builder: (_) => const PrivacyPage()));
   }
 
   Future<void> _logout(BuildContext context) async {
@@ -172,6 +182,33 @@ class _SettingsPageState extends State<SettingsPage> {
               const Divider(height: 1, color: Color(0xFFE7E7E7)),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
+                onTap: () => _openPrivacyPage(context),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Privacy',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.black,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right,
+                        color: Color(0xFFB5B5B5),
+                        size: 30,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFE7E7E7)),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => _showFeedbackDialog(context),
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
@@ -250,6 +287,353 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
   }
+}
+
+class PrivacyPage extends StatelessWidget {
+  const PrivacyPage({super.key});
+
+  Future<void> _openBlockedUsersPage(BuildContext context) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const BlockedUsersPage()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const GenesisBackAppBar(pageName: 'Privacy'),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            children: [
+              const SizedBox(height: 18),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _openBlockedUsersPage(context),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Blocked users',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.black,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right,
+                        color: Color(0xFFB5B5B5),
+                        size: 30,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFE7E7E7)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class BlockedUsersPage extends StatefulWidget {
+  const BlockedUsersPage({super.key});
+
+  @override
+  State<BlockedUsersPage> createState() => _BlockedUsersPageState();
+}
+
+class _BlockedUsersPageState extends State<BlockedUsersPage> {
+  late Future<List<_BlockedUserItem>> _future;
+  final Set<String> _updatingUids = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _loadBlockedUsers();
+  }
+
+  Future<List<_BlockedUserItem>> _loadBlockedUsers() async {
+    final response = await AppServicesScope.read(
+      context,
+    ).api.v1.user.blocks(pn: 1, rn: 100);
+    final rawList = response['list'];
+    final list = rawList is List ? rawList : const <Object?>[];
+    return list
+        .map(_BlockedUserItem.fromJson)
+        .where((item) => item.uid.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  Future<void> _refresh() async {
+    final next = _loadBlockedUsers();
+    setState(() => _future = next);
+    await next;
+  }
+
+  Future<void> _toggleBlock(_BlockedUserItem item) async {
+    if (item.uid.isEmpty || _updatingUids.contains(item.uid)) return;
+    setState(() => _updatingUids.add(item.uid));
+    try {
+      final api = AppServicesScope.read(context).api;
+      if (item.isBlocked) {
+        await api.v1.user.unblock(targetUid: item.uid);
+      } else {
+        await api.v1.user.block(targetUid: item.uid);
+      }
+      if (!mounted) return;
+      final wasBlocked = item.isBlocked;
+      setState(() {
+        item.isBlocked = !wasBlocked;
+      });
+      showGenesisToast(context, wasBlocked ? 'User unblocked' : 'User blocked');
+    } catch (error, stackTrace) {
+      debugPrint('Failed to update blocked user ${item.uid}: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) return;
+      showGenesisToast(context, _blockedUserActionFailureMessage(error));
+    } finally {
+      if (mounted) {
+        setState(() => _updatingUids.remove(item.uid));
+      }
+    }
+  }
+
+  void _openProfile(_BlockedUserItem item) {
+    if (item.uid.isEmpty) return;
+    Navigator.of(
+      context,
+    ).pushNamed(RouteNames.userInfo, arguments: {'uid': item.uid});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const GenesisBackAppBar(pageName: 'Blocked users'),
+      body: SafeArea(
+        child: FutureBuilder<List<_BlockedUserItem>>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: SizedBox.square(
+                  dimension: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Load failed',
+                        style: TextStyle(
+                          color: Color(0xFF777777),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      GenesisPrimaryButton(
+                        label: 'Retry',
+                        fullWidth: false,
+                        width: 140,
+                        onPressed: () {
+                          setState(() => _future = _loadBlockedUsers());
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            final items = snapshot.data ?? const <_BlockedUserItem>[];
+            if (items.isEmpty) {
+              return RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 120, 20, 24),
+                  children: const [
+                    Center(
+                      child: Text(
+                        'No blocked users yet.',
+                        style: TextStyle(
+                          color: Color(0xFF999999),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                itemCount: items.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: Color(0xFFE7E7E7)),
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return _BlockedUserTile(
+                    item: item,
+                    isUpdating: _updatingUids.contains(item.uid),
+                    onTap: () => _openProfile(item),
+                    onToggle: () => _toggleBlock(item),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _BlockedUserItem {
+  _BlockedUserItem({
+    required this.uid,
+    required this.displayName,
+    required this.avatarUrl,
+    required this.isBlocked,
+  });
+
+  factory _BlockedUserItem.fromJson(Object? value) {
+    final map = asJsonMap(value);
+    final user = asJsonMap(map['user']);
+    final relation = map['relation'] == null
+        ? const <String, dynamic>{}
+        : asJsonMap(map['relation']);
+    final uid = asString(user['uid']).trim();
+    final name = asString(user['name'], fallback: uid).trim();
+    return _BlockedUserItem(
+      uid: uid,
+      displayName: name.isEmpty
+          ? formatUidForDisplay(uid, fallback: 'User')
+          : name,
+      avatarUrl: asResolvedImageUrl(user['avatar'], resolveAssetUrl),
+      isBlocked: asBool(relation['is_blocked'], fallback: true),
+    );
+  }
+
+  final String uid;
+  final String displayName;
+  final String avatarUrl;
+  bool isBlocked;
+}
+
+class _BlockedUserTile extends StatelessWidget {
+  const _BlockedUserTile({
+    required this.item,
+    required this.isUpdating,
+    required this.onTap,
+    required this.onToggle,
+  });
+
+  final _BlockedUserItem item;
+  final bool isUpdating;
+  final VoidCallback onTap;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = item.isBlocked ? 'Unblock' : 'Block';
+    const backgroundColor = Color(0xFFE1E1E3);
+    const foregroundColor = Colors.black;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          children: [
+            GenesisAvatar(
+              name: item.displayName,
+              url: item.avatarUrl,
+              size: 54,
+              borderRadius: 8,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'UID: ${formatUidForDisplay(item.uid)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF777777),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            GenesisPrimaryButton(
+              label: label,
+              width: 92,
+              height: 36,
+              fullWidth: false,
+              padding: EdgeInsets.zero,
+              fontSize: 14,
+              backgroundColor: backgroundColor,
+              foregroundColor: foregroundColor,
+              disabledBackgroundColor: backgroundColor.withValues(alpha: 0.6),
+              disabledForegroundColor: foregroundColor,
+              isLoading: isUpdating,
+              loadingSize: 16,
+              onPressed: onToggle,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _blockedUserActionFailureMessage(Object error) {
+  if (error is ApiException) {
+    final message = error.message.trim().isEmpty
+        ? 'Request failed'
+        : error.message;
+    return '$message[${error.code}]';
+  }
+  return 'Update failed';
 }
 
 class AccountPage extends StatefulWidget {

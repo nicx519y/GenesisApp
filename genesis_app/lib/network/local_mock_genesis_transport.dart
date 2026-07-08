@@ -361,13 +361,19 @@ class LocalMockGenesisTransport implements HttpTransport {
     if (method == 'POST' && path == 'user/block') {
       final targetUid = '${body['target_uid'] ?? ''}'.trim();
       if (targetUid.isEmpty) return _v1Error(4004, 'ErrorParamInvalid');
+      _state.blockV1User(targetUid);
       return _v1Ok(<String, dynamic>{});
     }
 
     if (method == 'POST' && path == 'user/unblock') {
       final targetUid = '${body['target_uid'] ?? ''}'.trim();
       if (targetUid.isEmpty) return _v1Error(4004, 'ErrorParamInvalid');
+      _state.unblockV1User(targetUid);
       return _v1Ok(<String, dynamic>{});
+    }
+
+    if (method == 'GET' && path == 'user/blocks') {
+      return _v1Ok(_paged(_state.v1UserBlocks(), query));
     }
 
     if (method == 'GET' && path == 'user/profile') {
@@ -885,6 +891,7 @@ class _MockState {
   late final Map<String, List<Map<String, dynamic>>> _v1DmMessagesByPeer =
       _mockDirectMessageMessagesByPeer();
   final Set<String> _v1BlockedDirectMessagePeers = <String>{};
+  final Set<String> _v1BlockedUsers = <String>{'u_mock_peer'};
   int _v1DirectMessageUnreadCount = 1;
   String _v1DmConversationCursor = 'dm_sync_1';
   bool _v1DmConversationDeltaSent = false;
@@ -1431,6 +1438,30 @@ class _MockState {
         isSelf ? kMockV1SelfRelation : _relationForSearchUser(user),
       ),
     };
+  }
+
+  void blockV1User(String? targetUid) {
+    final uid = targetUid?.trim();
+    if (uid == null || uid.isEmpty || uid == _v1User['uid']) return;
+    _v1BlockedUsers.add(uid);
+  }
+
+  void unblockV1User(String? targetUid) {
+    final uid = targetUid?.trim();
+    if (uid == null || uid.isEmpty) return;
+    _v1BlockedUsers.remove(uid);
+  }
+
+  List<Map<String, dynamic>> v1UserBlocks() {
+    return _v1BlockedUsers
+        .map((uid) {
+          final user = _v1UserForUid(uid);
+          return {
+            'user': _v1UserPayload(user),
+            'relation': {..._relationForSearchUser(user), 'is_blocked': true},
+          };
+        })
+        .toList(growable: false);
   }
 
   Map<String, dynamic> _v1UserForUid(String uid) {
@@ -2958,6 +2989,7 @@ class _MockState {
 
   Map<String, dynamic> _relationForSearchUser(Map<String, dynamic> item) {
     if (item['uid'] == _v1User['uid']) return _deepCopyMap(kMockV1SelfRelation);
+    final uid = '${item['uid'] ?? ''}'.trim();
     return {
       ..._deepCopyMap(kMockV1PeerRelation),
       'target_user_id': item['uid'],
@@ -2965,6 +2997,7 @@ class _MockState {
       'i_followed': item['i_followed'] ?? false,
       'followed_me': item['followed_me'] ?? false,
       'is_friend': item['is_friend'] ?? false,
+      'is_blocked': uid.isNotEmpty && _v1BlockedUsers.contains(uid),
       'follow_button_state': item['follow_button_state'] ?? 'follow',
     };
   }

@@ -157,6 +157,21 @@ class UserV1Api extends V1ApiResource {
     await postData('user/unblock', {'target_uid': targetUid});
   }
 
+  /// GET /api/v1/user/blocks
+  ///
+  /// 提交参数:
+  /// ```json
+  /// {"pn":1,"rn":10}
+  /// ```
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"user":{},"relation":{}}],"total":0,"pn":1,"rn":10}}
+  /// ```
+  Future<Map<String, dynamic>> blocks({int? pn, int? rn}) {
+    return getMap('user/blocks', v1Query({'pn': pn, 'rn': rn}));
+  }
+
   /// GET /api/v1/user/profile
   ///
   /// 提交参数:

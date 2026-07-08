@@ -162,7 +162,7 @@ class _UserProfileContentState extends State<UserProfileContent>
     if (widget.isBlocked) {
       return const Center(
         child: Text(
-          'You have blocked this user',
+          'User blocked',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: Color(0xFF888888),
