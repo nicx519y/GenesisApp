@@ -253,6 +253,9 @@ class _UserInfoPageState extends State<UserInfoPage> {
         pageName: _profileCollapsed ? _profileTitle : '',
         actions: [
           GenesisMoreActionMenuButton(
+            menuRightInset: 16,
+            menuVerticalOffset: -8,
+            visualRightInset: 16,
             items: [
               genesisReportMenuItem(
                 context: context,
@@ -260,6 +263,11 @@ class _UserInfoPageState extends State<UserInfoPage> {
                 targetId: _profileUid.trim().isEmpty
                     ? widget.uid.trim()
                     : _profileUid.trim(),
+              ),
+              GenesisActionMenuItem(
+                label: 'Block',
+                iconData: Icons.block,
+                onSelected: () {},
               ),
             ],
           ),
