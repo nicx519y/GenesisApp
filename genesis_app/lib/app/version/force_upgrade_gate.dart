@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../network/models/app_version_check.dart';
 import '../../ui/genesis_ui.dart';
 import '../bootstrap/app_services_scope.dart';
+import '../startup/app_startup_coordinator.dart';
 import 'app_version_check_service.dart';
 
 class ForceUpgradeGate extends StatefulWidget {
@@ -28,6 +29,9 @@ class _ForceUpgradeGateState extends State<ForceUpgradeGate>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AppStartupCoordinator.postLaunchWorkAllowedListenable.addListener(
+      _handlePostLaunchWorkAllowed,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) => _requestCheck());
   }
 
@@ -52,12 +56,20 @@ class _ForceUpgradeGateState extends State<ForceUpgradeGate>
   @override
   void dispose() {
     _sessionRevision?.removeListener(_requestCheck);
+    AppStartupCoordinator.postLaunchWorkAllowedListenable.removeListener(
+      _handlePostLaunchWorkAllowed,
+    );
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
+  void _handlePostLaunchWorkAllowed() {
+    if (AppStartupCoordinator.isPostLaunchWorkAllowed) _requestCheck();
+  }
+
   void _requestCheck() {
     if (!mounted) return;
+    if (!AppStartupCoordinator.isPostLaunchWorkAllowed) return;
     if (_checking) {
       _pendingCheck = true;
       return;

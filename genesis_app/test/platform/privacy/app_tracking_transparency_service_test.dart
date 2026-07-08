@@ -48,6 +48,26 @@ void main() {
     expect(status.allowsTracking, true);
   });
 
+  test(
+    'iOS status maps native authorization status without requesting',
+    () async {
+      final calls = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call.method);
+            return 'notDetermined';
+          });
+
+      final status = await AppTrackingTransparencyService.authorizationStatus(
+        channel: channel,
+        platform: TargetPlatform.iOS,
+      );
+
+      expect(status, AppTrackingAuthorizationStatus.notDetermined);
+      expect(calls, [GenesisMethodChannels.trackingAuthorizationStatus]);
+    },
+  );
+
   test('denied native authorization does not allow tracking', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (_) async => 'denied');
