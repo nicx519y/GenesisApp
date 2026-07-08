@@ -397,7 +397,12 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
       setState(() {
         item.isBlocked = !wasBlocked;
       });
-      showGenesisToast(context, wasBlocked ? 'User unblocked' : 'User blocked');
+      showGenesisToast(
+        context,
+        wasBlocked
+            ? 'User unblocked'
+            : 'User blocked. This content has been reported to Worldo team.',
+      );
     } catch (error, stackTrace) {
       debugPrint('Failed to update blocked user ${item.uid}: $error');
       debugPrintStack(stackTrace: stackTrace);

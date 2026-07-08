@@ -236,6 +236,10 @@ class _UserInfoPageState extends State<UserInfoPage> {
         _isBlockingUser = false;
         _profileBlocked = true;
       });
+      showGenesisToast(
+        context,
+        'User blocked. This content has been reported to Worldo team.',
+      );
     } catch (error, stackTrace) {
       debugPrint('[UserInfo][Block] failed: $error');
       debugPrint('[UserInfo][Block] stacktrace:\n$stackTrace');
