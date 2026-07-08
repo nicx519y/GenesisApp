@@ -2866,6 +2866,44 @@ void main() {
       'content': '希望增加夜间模式',
     });
   });
+
+  test(
+    'user followers 1404 stays in list error path without page-not-found callback',
+    () async {
+      var pageNotFoundCount = 0;
+      final transport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":1404,"err_msg":"Page not found","data":{}}',
+        ),
+      );
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveAuthToken('token');
+      final api = GenesisApi(
+        useMock: false,
+        transport: transport,
+        platformConfig: const _TestPlatformConfig(),
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+        onPageNotFound: (_) async {
+          pageNotFoundCount += 1;
+        },
+      );
+
+      await expectLater(
+        api.v1.follow.followers(uid: 'u_peer', pn: 1, rn: 50),
+        throwsA(
+          isA<ApiException>()
+              .having((error) => error.code, 'code', 1404)
+              .having((error) => error.kind, 'kind', ApiExceptionKind.business),
+        ),
+      );
+
+      expect(transport.lastRequest!.uri.path, '/api/v1/user/followers');
+      expect(pageNotFoundCount, 0);
+    },
+  );
 }
 
 TransportResponse _gatewayAuthResponse(TransportRequest request) {

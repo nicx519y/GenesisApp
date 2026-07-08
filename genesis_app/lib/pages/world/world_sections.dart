@@ -1181,6 +1181,7 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
   }
 
   void _handlePointerDown(PointerDownEvent event) {
+    if (!mounted) return;
     _dragDeltaY = 0;
     _dragStartedAtTop = _atTop;
     _dragStartedAtBottom = _atBottom;
@@ -1188,6 +1189,7 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
+    if (!mounted) return;
     _dragDeltaY += event.delta.dy;
     _setEdgePullDistance(
       top: _dragStartedAtTop && widget.hasTopEdgePage
@@ -1200,6 +1202,7 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
   }
 
   void _handlePointerUp(PointerUpEvent event) {
+    if (!mounted) return;
     final dragDeltaY = _dragDeltaY;
     _dragDeltaY = 0;
     _setEdgePullDistance(top: 0, bottom: 0);
@@ -1211,11 +1214,13 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
   }
 
   void _handlePointerCancel(PointerCancelEvent event) {
+    if (!mounted) return;
     _dragDeltaY = 0;
     _setEdgePullDistance(top: 0, bottom: 0);
   }
 
   void _setEdgePullDistance({required double top, required double bottom}) {
+    if (!mounted) return;
     final nextTop = top.clamp(0, _turnDragThreshold).toDouble();
     final nextBottom = bottom.clamp(0, _turnDragThreshold).toDouble();
     if (nextTop == _topPullDistance && nextBottom == _bottomPullDistance) {

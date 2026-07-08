@@ -819,7 +819,9 @@ void _chatroomTelemetry(
 }
 
 class ChatroomAiMessageStream {
-  ChatroomAiMessageStream._(this.start);
+  ChatroomAiMessageStream._(this.start) {
+    unawaited(_done.future.then<void>((_) {}, onError: (Object _) {}));
+  }
 
   final ChatroomAiStreamStart start;
   final _chunks = StreamController<ChatroomAiStreamChunk>.broadcast();

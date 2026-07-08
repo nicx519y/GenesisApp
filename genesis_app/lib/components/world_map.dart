@@ -151,6 +151,7 @@ class _WorldMapState extends State<WorldMap> {
   int _messageBubblePageIndex = 0;
   bool _messageBubbleVisible = true;
   double _mapZoomScale = _ZoomableMapContent.minScale;
+  bool _mapZoomScaleRebuildScheduled = false;
   String _messageBubblePlaybackSignature = '';
   List<WorldMapMessageBubble> _visibleMessageBubblesForPlayback =
       const <WorldMapMessageBubble>[];
@@ -508,10 +509,21 @@ class _WorldMapState extends State<WorldMap> {
   }
 
   void _handleMapZoomScaleChanged(double scale) {
+    if (!mounted) return;
     if ((_mapZoomScale - scale).abs() < 0.001) return;
-    setState(() {
-      _mapZoomScale = scale;
-    });
+    _mapZoomScale = scale;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      if (!_mapZoomScaleRebuildScheduled) {
+        _mapZoomScaleRebuildScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _mapZoomScaleRebuildScheduled = false;
+          if (mounted) setState(() {});
+        });
+      }
+    } else if (mounted) {
+      setState(() {});
+    }
     _scheduleHorizontalPanStateNotification();
   }
 
@@ -1451,7 +1463,15 @@ class _MapBackgroundDeckState extends State<_MapBackgroundDeck> {
     for (final url in avatarUrls) {
       if (!mounted || generation != _preloadGeneration) return;
       try {
-        await precacheImage(_avatarImageProvider(url), context);
+        await precacheImage(
+          _avatarImageProvider(url),
+          context,
+          onError: (exception, stackTrace) {
+            debugPrint(
+              '[WorldMap] preload avatar failed url="$url": $exception',
+            );
+          },
+        );
       } catch (error) {
         debugPrint('[WorldMap] preload avatar failed url="$url": $error');
       }
@@ -1466,7 +1486,15 @@ class _MapBackgroundDeckState extends State<_MapBackgroundDeck> {
     for (final url in urls) {
       if (!mounted || generation != _preloadGeneration) return;
       try {
-        await precacheImage(_mapImageProvider(url), context);
+        await precacheImage(
+          _mapImageProvider(url),
+          context,
+          onError: (exception, stackTrace) {
+            debugPrint(
+              '[WorldMap] preload map image failed url="$url": $exception',
+            );
+          },
+        );
       } catch (error) {
         debugPrint('[WorldMap] preload map image failed url="$url": $error');
       }
@@ -1618,6 +1646,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _dispatchMapInteraction(bool active) {
+    if (!mounted) return;
     if (_interactionActive == active) return;
     _interactionActive = active;
     WorldMapInteractionNotification(active: active).dispatch(context);
@@ -1741,8 +1770,11 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _setTransform(double scale, Offset translation) {
-    final box = context.findRenderObject() as RenderBox?;
-    final size = box?.size ?? Size.zero;
+    if (!mounted) return;
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.attached) return;
+    final size = renderObject.size;
+    if (size.isEmpty) return;
     _transformationController.value = _transformMatrixForSize(
       size: size,
       scale: scale,

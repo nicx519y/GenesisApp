@@ -596,7 +596,7 @@ class _JoinRequestReviewSummaryText extends StatelessWidget {
           fontWeight: FontWeight.w400,
         ),
         children: [
-          const TextSpan(text: 'you request to join "'),
+          const TextSpan(text: 'You request to join "'),
           TextSpan(
             text: item.requestWorldSummaryName,
             style: _originBlueTextStyle,

@@ -226,7 +226,18 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       final ImageProvider provider = resolvedUrl.startsWith('assets/')
           ? AssetImage(resolvedUrl)
           : NetworkImage(resolvedUrl);
-      unawaited(precacheImage(provider, context).catchError((Object _) {}));
+      unawaited(
+        precacheImage(
+          provider,
+          context,
+          onError: (exception, stackTrace) {
+            debugPrint(
+              '[OriginWorldPage] launch avatar precache failed '
+              'url="$resolvedUrl": $exception',
+            );
+          },
+        ),
+      );
     }
   }
 

@@ -16,6 +16,34 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test('WorldChatroomMessage defaults missing location message id to zero', () {
+    final constructed = WorldChatroomMessage(
+      messageId: 1,
+      locationMessageId: null,
+      conversationRoundId: '1',
+      roundOrder: 0,
+      locationId: 'loc-1',
+      senderType: 'character',
+      senderId: 'char-1',
+      senderName: 'Guide',
+      content: 'hello',
+      createdAt: null,
+    );
+    final stored = WorldChatroomMessage.fromStorageJson({
+      'msg_id': 2,
+      'location_msg_id': null,
+      'conversation_round_id': '1',
+      'location_id': 'loc-1',
+      'sender_type': 'character',
+      'sender_id': 'char-1',
+      'sender_name': 'Guide',
+      'content': 'hello',
+    });
+
+    expect(constructed.locationMessageId, 0);
+    expect(stored.locationMessageId, 0);
+  });
+
   test('setInputBlocked publishes shared composer block state', () async {
     final service = await _service(
       socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),

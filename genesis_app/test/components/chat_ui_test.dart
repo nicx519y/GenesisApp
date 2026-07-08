@@ -427,6 +427,33 @@ void main() {
     expect(name.style?.color, const Color(0xFF111111));
   });
 
+  testWidgets('chat row sanitizes malformed UTF-16 text before layout', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'bad-utf16',
+              senderId: 'peer',
+              senderName: 'bad \uD800 name',
+              text: 'hello \uD800 world',
+              currentTime: 'time \uDC00',
+              isMe: false,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('bad \uFFFD name'), findsOneWidget);
+    expect(find.text('time \uFFFD'), findsOneWidget);
+  });
+
   testWidgets('player controlled chat avatar uses highlighted border', (
     WidgetTester tester,
   ) async {

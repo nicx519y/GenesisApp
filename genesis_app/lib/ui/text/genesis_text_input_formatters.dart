@@ -73,9 +73,9 @@ String genesisDisplaySafeText(String text) {
       continue;
     }
 
-    final rune = _runeAt(text, index);
-    buffer.writeCharCode(rune);
-    index += rune > 0xFFFF ? 2 : 1;
+    final rune = _displaySafeRuneAt(text, index);
+    buffer.writeCharCode(rune.codePoint);
+    index += rune.sourceLength;
   }
   return buffer.toString();
 }
@@ -91,15 +91,26 @@ String genesisLimitConsecutiveNewlines(
   );
 }
 
-int _runeAt(String text, int index) {
+_DisplaySafeRune _displaySafeRuneAt(String text, int index) {
   final codeUnit = text.codeUnitAt(index);
-  if (codeUnit < 0xD800 || codeUnit > 0xDBFF || index + 1 >= text.length) {
-    return codeUnit;
+  if (codeUnit < 0xD800 || codeUnit > 0xDFFF) {
+    return _DisplaySafeRune(codeUnit, 1);
+  }
+  if (codeUnit > 0xDBFF) {
+    return const _DisplaySafeRune(0xFFFD, 1);
+  }
+  if (index + 1 >= text.length) {
+    return const _DisplaySafeRune(0xFFFD, 1);
   }
 
   final next = text.codeUnitAt(index + 1);
-  if (next < 0xDC00 || next > 0xDFFF) return codeUnit;
-  return 0x10000 + ((codeUnit - 0xD800) << 10) + (next - 0xDC00);
+  if (next < 0xDC00 || next > 0xDFFF) {
+    return const _DisplaySafeRune(0xFFFD, 1);
+  }
+  return _DisplaySafeRune(
+    0x10000 + ((codeUnit - 0xD800) << 10) + (next - 0xDC00),
+    2,
+  );
 }
 
 TextSelection _shiftSelectionForTransformedText(TextEditingValue value) {
@@ -188,4 +199,11 @@ class _DecorativeReplacement {
   final String text;
 
   int get sourceLength => source.length;
+}
+
+class _DisplaySafeRune {
+  const _DisplaySafeRune(this.codePoint, this.sourceLength);
+
+  final int codePoint;
+  final int sourceLength;
 }

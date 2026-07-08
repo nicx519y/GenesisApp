@@ -110,6 +110,8 @@ class WorldChatroomService {
 
   ChatroomConnectionIdentity? get identity => _identity;
 
+  bool get isDisposed => _disposed;
+
   void setInputBlocked(bool blocked) {
     _throwIfDisposed();
     if (_state.inputBlocked == blocked) return;
@@ -2519,7 +2521,7 @@ class WorldChatroomMessage {
   const WorldChatroomMessage({
     this.globalMessageId = 0,
     required this.messageId,
-    this.locationMessageId = 0,
+    int? locationMessageId,
     required this.conversationRoundId,
     required this.roundOrder,
     this.tickNo = 0,
@@ -2533,7 +2535,7 @@ class WorldChatroomMessage {
     this.currentTime = '',
     required this.createdAt,
     this.streaming = false,
-  });
+  }) : locationMessageId = locationMessageId ?? 0;
 
   final int globalMessageId;
   final int messageId;
@@ -2560,7 +2562,9 @@ class WorldChatroomMessage {
     return WorldChatroomMessage(
       globalMessageId: message.globalMessageId,
       messageId: message.messageId,
-      locationMessageId: message.locationMessageId,
+      locationMessageId: _safeLocationMessageId(
+        () => message.locationMessageId,
+      ),
       conversationRoundId: '${message.conversationRoundId}',
       roundOrder: 0,
       tickNo: message.tickNo,
@@ -2603,7 +2607,9 @@ class WorldChatroomMessage {
     return WorldChatroomMessage(
       globalMessageId: message.globalMessageId,
       messageId: message.messageId,
-      locationMessageId: message.locationMessageId,
+      locationMessageId: _safeLocationMessageId(
+        () => message.locationMessageId,
+      ),
       conversationRoundId: message.conversationRoundId,
       roundOrder: message.roundOrder,
       locationId: message.locationId,
@@ -2624,7 +2630,9 @@ class WorldChatroomMessage {
     return WorldChatroomMessage(
       globalMessageId: message.globalMessageId,
       messageId: message.messageId,
-      locationMessageId: message.locationMessageId,
+      locationMessageId: _safeLocationMessageId(
+        () => message.locationMessageId,
+      ),
       conversationRoundId: message.conversationRoundId,
       roundOrder: message.roundOrder,
       locationId: message.locationId,
@@ -2646,7 +2654,9 @@ class WorldChatroomMessage {
     return WorldChatroomMessage(
       globalMessageId: message.globalMessageId,
       messageId: message.messageId,
-      locationMessageId: message.locationMessageId,
+      locationMessageId: _safeLocationMessageId(
+        () => message.locationMessageId,
+      ),
       conversationRoundId: message.conversationRoundId,
       roundOrder: message.roundOrder,
       tickNo: message.tickNo,
@@ -2665,7 +2675,7 @@ class WorldChatroomMessage {
     return WorldChatroomMessage(
       globalMessageId: event.globalMessageId,
       messageId: event.messageId,
-      locationMessageId: event.locationMessageId,
+      locationMessageId: _safeLocationMessageId(() => event.locationMessageId),
       conversationRoundId: event.conversationRoundId,
       roundOrder: event.roundOrder,
       tickNo: 0,
@@ -2717,6 +2727,14 @@ class WorldChatroomMessage {
       createdAt: createdAt ?? this.createdAt,
       streaming: streaming ?? this.streaming,
     );
+  }
+}
+
+int _safeLocationMessageId(int Function() read) {
+  try {
+    return read();
+  } on TypeError {
+    return 0;
   }
 }
 
