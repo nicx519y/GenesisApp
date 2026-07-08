@@ -557,8 +557,10 @@ class _BlockedUserTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = item.isBlocked ? 'Unblock' : 'Block';
-    const backgroundColor = Color(0xFFE1E1E3);
-    const foregroundColor = Colors.black;
+    final backgroundColor = item.isBlocked
+        ? const Color(0xFFFF2442)
+        : const Color(0xFFE5E5E5);
+    final foregroundColor = item.isBlocked ? Colors.white : Colors.black;
 
     return InkWell(
       onTap: onTap,
@@ -606,17 +608,19 @@ class _BlockedUserTile extends StatelessWidget {
             const SizedBox(width: 12),
             GenesisPrimaryButton(
               label: label,
-              width: 92,
-              height: 36,
+              width: 86,
+              height: 28,
               fullWidth: false,
               padding: EdgeInsets.zero,
-              fontSize: 14,
+              fontSize: 12,
               backgroundColor: backgroundColor,
               foregroundColor: foregroundColor,
-              disabledBackgroundColor: backgroundColor.withValues(alpha: 0.6),
+              disabledBackgroundColor: backgroundColor,
               disabledForegroundColor: foregroundColor,
               isLoading: isUpdating,
-              loadingSize: 16,
+              loadingSize: 15,
+              minimumSize: const Size(86, 28),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               onPressed: onToggle,
             ),
           ],
