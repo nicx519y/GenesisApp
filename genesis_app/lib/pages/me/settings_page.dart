@@ -56,10 +56,10 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _openPrivacyPage(BuildContext context) async {
-    await Navigator.of(
-      context,
-    ).push<void>(MaterialPageRoute<void>(builder: (_) => const PrivacyPage()));
+  Future<void> _openBlockedUsersPage(BuildContext context) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const BlockedUsersPage()),
+    );
   }
 
   Future<void> _logout(BuildContext context) async {
@@ -182,14 +182,14 @@ class _SettingsPageState extends State<SettingsPage> {
               const Divider(height: 1, color: Color(0xFFE7E7E7)),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => _openPrivacyPage(context),
+                onTap: () => _openBlockedUsersPage(context),
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: Row(
                     children: [
                       Expanded(
                         child: Text(
-                          'Privacy',
+                          'Blocked users',
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.black,
@@ -281,60 +281,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 foregroundColor: Colors.black,
               ),
               const SizedBox(height: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class PrivacyPage extends StatelessWidget {
-  const PrivacyPage({super.key});
-
-  Future<void> _openBlockedUsersPage(BuildContext context) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (_) => const BlockedUsersPage()),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: const GenesisBackAppBar(pageName: 'Privacy'),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            children: [
-              const SizedBox(height: 18),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _openBlockedUsersPage(context),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Blocked users',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.black,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right,
-                        color: Color(0xFFB5B5B5),
-                        size: 30,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const Divider(height: 1, color: Color(0xFFE7E7E7)),
             ],
           ),
         ),
