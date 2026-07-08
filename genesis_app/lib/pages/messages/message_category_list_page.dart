@@ -12,6 +12,7 @@ import '../../components/page_header.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
@@ -284,10 +285,10 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
         _followStateOverrides[uid] = !isFollowed;
         _loadingFollowUids.remove(uid);
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _loadingFollowUids.remove(uid));
-      showGenesisToast(context, 'Follow update failed');
+      showGenesisToast(context, apiErrorMessage(error));
     }
   }
 

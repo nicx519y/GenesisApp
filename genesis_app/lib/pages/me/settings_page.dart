@@ -380,6 +380,10 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
 
   Future<void> _toggleBlock(_BlockedUserItem item) async {
     if (item.uid.isEmpty || _updatingUids.contains(item.uid)) return;
+    if (!item.isBlocked) {
+      final confirmed = await _confirmBlockUser();
+      if (!confirmed || !mounted) return;
+    }
     setState(() => _updatingUids.add(item.uid));
     try {
       final api = AppServicesScope.read(context).api;
@@ -404,6 +408,21 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
         setState(() => _updatingUids.remove(item.uid));
       }
     }
+  }
+
+  Future<bool> _confirmBlockUser() async {
+    final confirmed = await showGenesisActionBox<bool>(
+      context: context,
+      title: 'Block this user?',
+      actions: const [
+        GenesisActionBoxAction<bool>(
+          label: 'Block',
+          value: true,
+          color: Color(0xFFFF2442),
+        ),
+      ],
+    );
+    return confirmed == true;
   }
 
   void _openProfile(_BlockedUserItem item) {

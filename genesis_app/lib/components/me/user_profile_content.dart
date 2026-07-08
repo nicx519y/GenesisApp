@@ -13,6 +13,7 @@ import '../../icons/my_flutter_app_icons.dart';
 import '../../routers/app_router.dart';
 import '../../ui/genesis_ui.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -341,10 +342,10 @@ class _UserProfileContentState extends State<UserProfileContent>
             : _decrementCount(currentFollowerCount);
         _followLoading = false;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _followLoading = false);
-      showGenesisToast(context, 'Follow update failed');
+      showGenesisToast(context, apiErrorMessage(error));
     }
   }
 

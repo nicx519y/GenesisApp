@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/auth/login_guard.dart';
+import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/page_header.dart';
@@ -222,6 +223,8 @@ class _UserInfoPageState extends State<UserInfoPage> {
     }
     if (!await ensureGenesisLogin(context)) return;
     if (!mounted) return;
+    final confirmed = await _confirmBlockUser();
+    if (!confirmed || !mounted) return;
     setState(() => _isBlockingUser = true);
     try {
       await AppServicesScope.read(
@@ -243,6 +246,21 @@ class _UserInfoPageState extends State<UserInfoPage> {
         _blockActionFailureMessage(error, 'Block failed'),
       );
     }
+  }
+
+  Future<bool> _confirmBlockUser() async {
+    final confirmed = await showGenesisActionBox<bool>(
+      context: context,
+      title: 'Block this user?',
+      actions: const [
+        GenesisActionBoxAction<bool>(
+          label: 'Block',
+          value: true,
+          color: Color(0xFFFF2442),
+        ),
+      ],
+    );
+    return confirmed == true;
   }
 
   Future<void> _unblockUser() async {
