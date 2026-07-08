@@ -52,6 +52,7 @@ class _GenesisGenerationWaitOverlayState
   Timer? _dotsTimer;
   int _dotCount = 1;
   bool _allowRoutePop = false;
+  bool _backRequestQueued = false;
 
   @override
   void initState() {
@@ -190,19 +191,22 @@ class _GenesisGenerationWaitOverlayState
     );
   }
 
-  void _handleBackRequest() {
+  Future<void> _handleBackRequest() async {
     final onBackPressed = widget.onBackPressed;
     if (onBackPressed == null) return;
+    if (_backRequestQueued) return;
+    _backRequestQueued = true;
     if (!_allowRoutePop && mounted) {
       setState(() => _allowRoutePop = true);
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        onBackPressed();
-      });
-    });
+    await WidgetsBinding.instance.endOfFrame;
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+    try {
+      onBackPressed();
+    } finally {
+      if (mounted) _backRequestQueued = false;
+    }
   }
 }
 
@@ -254,7 +258,9 @@ class _GenerationAvatarCarouselState extends State<GenerationAvatarCarousel> {
     if (widget.avatars.length < 2) return;
     _timer = Timer.periodic(_interval, (_) {
       if (!mounted) return;
-      setState(() => _index = (_index + 1) % widget.avatars.length);
+      final length = widget.avatars.length;
+      if (length < 2) return;
+      setState(() => _index = (_normalizedIndex(_index) + 1) % length);
     });
   }
 

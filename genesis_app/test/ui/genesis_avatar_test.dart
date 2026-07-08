@@ -168,6 +168,34 @@ void main() {
     expect(image.errorBuilder, isNotNull);
   });
 
+  testWidgets('GenerationAvatarCarousel tolerates empty updates and disposal', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: GenerationAvatarCarousel(
+            avatars: [
+              GenesisGenerationWaitAvatar(name: 'Tom Lee', url: ''),
+              GenesisGenerationWaitAvatar(name: 'Iris Chen', url: ''),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: GenerationAvatarCarousel(avatars: [])),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 1800));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(milliseconds: 1800));
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'GenesisCharacterAvatar keeps decorations while network image loads',
     (tester) async {

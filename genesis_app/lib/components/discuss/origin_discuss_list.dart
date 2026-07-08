@@ -306,6 +306,7 @@ class OriginDiscussListController extends ChangeNotifier {
   final Map<String, int> _replyCurrentPages = <String, int>{};
   final Map<String, int> _replyTotals = <String, int>{};
   final Map<String, int> _replyRequestSerials = <String, int>{};
+  bool _isDisposed = false;
 
   List<OriginDiscussListItem> get items => List.unmodifiable(_items);
   int get totalAll => _totalAll;
@@ -323,12 +324,27 @@ class OriginDiscussListController extends ChangeNotifier {
   bool get shouldShowViewMore =>
       _expanded ? hasMore : _totalAll > 2 && _items.isNotEmpty;
 
+  @override
+  void dispose() {
+    _isDisposed = true;
+    _requestSerial += 1;
+    _replyRequestSerials.clear();
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (_isDisposed) return;
+    super.notifyListeners();
+  }
+
   List<OriginDiscussListItem> get visibleItems {
     if (_expanded) return items;
     return _items.take(2).toList(growable: false);
   }
 
   void seedSingleItem(OriginDiscussListItem item) {
+    if (_isDisposed) return;
     _requestSerial += 1;
     _items
       ..clear()
@@ -356,6 +372,7 @@ class OriginDiscussListController extends ChangeNotifier {
     required String rootDiscussId,
     required OriginDiscussRepliesPage page,
   }) {
+    if (_isDisposed) return false;
     final comment = page.comment;
     if (comment == null) return false;
 
@@ -397,6 +414,7 @@ class OriginDiscussListController extends ChangeNotifier {
     required List<OriginDiscussListItem> items,
     required int totalAll,
   }) {
+    if (_isDisposed) return;
     _requestSerial += 1;
     _oid = oid.trim();
     _loader = null;
@@ -431,6 +449,7 @@ class OriginDiscussListController extends ChangeNotifier {
     required String oid,
     required OriginDiscussPageLoader loader,
   }) {
+    if (_isDisposed) return;
     final resolvedOid = oid.trim();
     final changed = resolvedOid != _oid;
     _oid = resolvedOid;
@@ -777,6 +796,7 @@ class OriginDiscussListController extends ChangeNotifier {
   }
 
   Future<void> _loadPage(int pageNumber, _LoadMode mode) async {
+    if (_isDisposed) return;
     final loader = _loader;
     final oid = _oid;
     if (loader == null || oid.isEmpty) return;
@@ -802,7 +822,7 @@ class OriginDiscussListController extends ChangeNotifier {
         pn: pageNumber,
         rn: originDiscussPageSize,
       );
-      if (serial != _requestSerial || oid != _oid) return;
+      if (_isDisposed || serial != _requestSerial || oid != _oid) return;
       _mergePage(page, mode);
       _totalAll = page.topTotal;
       _currentPage = mode == _LoadMode.refresh
@@ -810,10 +830,10 @@ class OriginDiscussListController extends ChangeNotifier {
           : page.pn;
       _hasLoaded = true;
     } catch (error) {
-      if (serial != _requestSerial || oid != _oid) return;
+      if (_isDisposed || serial != _requestSerial || oid != _oid) return;
       _error = error;
     } finally {
-      if (serial == _requestSerial && oid == _oid) {
+      if (!_isDisposed && serial == _requestSerial && oid == _oid) {
         _isInitialLoading = false;
         _isLoadingMore = false;
         _isRefreshing = false;

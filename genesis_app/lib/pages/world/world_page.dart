@@ -650,7 +650,23 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       final ImageProvider provider = resolvedUrl.startsWith('assets/')
           ? AssetImage(resolvedUrl)
           : NetworkImage(resolvedUrl);
-      unawaited(precacheImage(provider, context).catchError((Object _) {}));
+      unawaited(
+        precacheImage(
+          provider,
+          context,
+          onError: (exception, stackTrace) {
+            debugPrint(
+              '[WorldPage] progress avatar precache failed url="$resolvedUrl": '
+              '$exception',
+            );
+          },
+        ).catchError((Object error, StackTrace stackTrace) {
+          debugPrint(
+            '[WorldPage] progress avatar precache future failed '
+            'url="$resolvedUrl": $error',
+          );
+        }),
+      );
     }
   }
 

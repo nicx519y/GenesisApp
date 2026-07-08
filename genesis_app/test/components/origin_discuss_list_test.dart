@@ -18,6 +18,24 @@ import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 
 void main() {
+  test('ignores first page completion after controller dispose', () async {
+    final pageCompleter = Completer<OriginDiscussPage>();
+    final controller = OriginDiscussListController()
+      ..configure(
+        oid: 'o_alpha',
+        loader: ({required oid, required pn, required rn}) =>
+            pageCompleter.future,
+      );
+
+    final load = controller.loadInitialIfNeeded();
+    controller.dispose();
+    pageCompleter.complete(
+      _page(pn: 1, rn: originDiscussPageSize, totalAll: 1, contents: ['Late']),
+    );
+
+    await expectLater(load, completes);
+  });
+
   testWidgets(
     'loads first page once with rn 20 and shows two collapsed items',
     (tester) async {

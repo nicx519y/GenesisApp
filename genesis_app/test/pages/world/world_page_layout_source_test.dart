@@ -6,9 +6,11 @@ import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 void main() {
   final worldPageSource = File('lib/pages/world/world_page.dart');
   final worldHeaderSource = File('lib/pages/world/world_header.dart');
+  final worldMapSource = File('lib/components/world_map.dart');
   final worldBottomSheetSource = File(
     'lib/pages/world/world_bottom_sheet.dart',
   );
+  final originWorldPageSource = File('lib/pages/origin/origin_world_page.dart');
   final worldModelsSource = File('lib/pages/world/world_models.dart');
   final worldSectionsSource = File('lib/pages/world/world_sections.dart');
   final worldLocationChatSource = File(
@@ -282,6 +284,53 @@ void main() {
     expect(source, isNot(contains('WorldMapBubbleCoordinator')));
   });
 
+  test('image precaches handle failures with onError', () {
+    final worldMap = worldMapSource.readAsStringSync();
+    final worldPage = worldPageSource.readAsStringSync();
+    final originWorldPage = originWorldPageSource.readAsStringSync();
+    final preloadSecondaryImages = worldMap.substring(
+      worldMap.indexOf('Future<void> _preloadSecondaryImages'),
+      worldMap.indexOf('ImageProvider _mapImageProvider'),
+    );
+    final progressWaitAvatarPrecache = worldPage.substring(
+      worldPage.indexOf('void _precacheProgressWaitAvatarImages'),
+      worldPage.indexOf('String _rootMapImageUrlForWorld'),
+    );
+    final launchWaitAvatarPrecache = originWorldPage.substring(
+      originWorldPage.indexOf('void _precacheLaunchWaitAvatarImages'),
+      originWorldPage.indexOf('bool _sameWaitAvatars'),
+    );
+
+    expect(
+      preloadSecondaryImages,
+      contains('onError: (exception, stackTrace)'),
+    );
+    expect(
+      preloadSecondaryImages,
+      isNot(contains('precacheImage(_mapImageProvider(url), context)')),
+    );
+    expect(
+      preloadSecondaryImages,
+      isNot(contains('precacheImage(_avatarImageProvider(url), context)')),
+    );
+    expect(
+      progressWaitAvatarPrecache,
+      contains('onError: (exception, stackTrace)'),
+    );
+    expect(
+      progressWaitAvatarPrecache,
+      contains(').catchError((Object error, StackTrace stackTrace)'),
+    );
+    expect(
+      launchWaitAvatarPrecache,
+      contains('onError: (exception, stackTrace)'),
+    );
+    expect(
+      launchWaitAvatarPrecache,
+      isNot(contains('precacheImage(provider, context).catchError')),
+    );
+  });
+
   test('world tick completion closes other sheets before opening events', () {
     final source = worldPageSource.readAsStringSync();
     final tickDone = source.substring(
@@ -388,6 +437,25 @@ void main() {
     expect(
       eventsSectionState,
       isNot(contains('final hasRequestedTickPage = _requestedTickNumber')),
+    );
+  });
+
+  test('world tick edge pull ignores stale pointer callbacks', () {
+    final sections = worldSectionsSource.readAsStringSync();
+    final tickCardState = sections.substring(
+      sections.indexOf('class WorldTickEventCardPageState'),
+      sections.indexOf('class WorldTickCardScrollPhysics'),
+    );
+    final setEdgePullDistance = tickCardState.substring(
+      tickCardState.indexOf('void _setEdgePullDistance'),
+      tickCardState.indexOf('Widget _buildEdgeArrow'),
+    );
+
+    expect(tickCardState, contains('void _handlePointerMove'));
+    expect(setEdgePullDistance, contains('if (!mounted) return;'));
+    expect(
+      setEdgePullDistance.indexOf('if (!mounted) return;'),
+      lessThan(setEdgePullDistance.indexOf('setState(()')),
     );
   });
 

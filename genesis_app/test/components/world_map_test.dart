@@ -686,6 +686,28 @@ void main() {
     );
   });
 
+  testWidgets('world map defers zoom scale rebuilds during widget update', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      mapImageUrl: kMockV1SteamMapImage,
+      users: const [],
+      initialZoomScale: 1,
+    );
+
+    await _pumpWorldMap(
+      tester,
+      mapImageUrl: kMockV1SteamMapImage,
+      users: const [],
+      initialZoomScale: 1.5,
+    );
+
+    expect(tester.takeException(), isNull);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('world map uses fallback background when map URL is empty', (
     tester,
   ) async {
@@ -1985,6 +2007,7 @@ Future<void> _pumpWorldMap(
   WorldMapMessageBubble? activeBubble,
   List<WorldMapMessageBubble> messageBubbles = const <WorldMapMessageBubble>[],
   bool messageBubblePlaybackPaused = false,
+  double initialZoomScale = 1,
 }) async {
   tester.view.physicalSize = const Size(430, 820);
   tester.view.devicePixelRatio = 1;
@@ -2014,6 +2037,7 @@ Future<void> _pumpWorldMap(
                 activeBubble: activeBubble,
                 messageBubbles: messageBubbles,
                 messageBubblePlaybackPaused: messageBubblePlaybackPaused,
+                initialZoomScale: initialZoomScale,
                 onDrillIntoLocation: onDrillIntoLocation,
                 onMapTap: onMapTap,
                 onPointTap: onPointTap,

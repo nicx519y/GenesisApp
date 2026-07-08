@@ -200,6 +200,8 @@ class GenesisApi {
   }
 
   void _throwIfPageNotFound(ApiResponse response) {
+    if (_isRecoverableListNotFound(response.uri)) return;
+
     final data = response.data;
     final int? errNo;
     if (data is Map) {
@@ -223,6 +225,10 @@ class GenesisApi {
       uri: response.uri,
       kind: ApiExceptionKind.business,
     );
+  }
+
+  bool _isRecoverableListNotFound(Uri uri) {
+    return uri.path == '/api/v1/user/followers';
   }
 
   Future<String> ensureUid() => _ensureUid();
