@@ -358,6 +358,18 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok({'user': _state.updateV1User(body)});
     }
 
+    if (method == 'POST' && path == 'user/block') {
+      final targetUid = '${body['target_uid'] ?? ''}'.trim();
+      if (targetUid.isEmpty) return _v1Error(4004, 'ErrorParamInvalid');
+      return _v1Ok(<String, dynamic>{});
+    }
+
+    if (method == 'POST' && path == 'user/unblock') {
+      final targetUid = '${body['target_uid'] ?? ''}'.trim();
+      if (targetUid.isEmpty) return _v1Error(4004, 'ErrorParamInvalid');
+      return _v1Ok(<String, dynamic>{});
+    }
+
     if (method == 'GET' && path == 'user/profile') {
       return _v1Ok(_state.v1UserProfile(query['uid']));
     }

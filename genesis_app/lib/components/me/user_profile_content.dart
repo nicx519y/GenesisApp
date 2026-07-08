@@ -38,6 +38,8 @@ class UserProfileContent extends StatefulWidget {
     this.onCollapsedChanged,
     this.nameUidGap = 4,
     this.tabLabelFontSize = 16,
+    this.isBlocking = false,
+    this.isBlocked = false,
   });
 
   final UserProfileData data;
@@ -59,6 +61,8 @@ class UserProfileContent extends StatefulWidget {
   final ValueChanged<bool>? onCollapsedChanged;
   final double nameUidGap;
   final double? tabLabelFontSize;
+  final bool isBlocking;
+  final bool isBlocked;
 
   @override
   State<UserProfileContent> createState() => _UserProfileContentState();
@@ -122,43 +126,71 @@ class _UserProfileContentState extends State<UserProfileContent>
           SliverToBoxAdapter(
             child: _buildProfileHeader(data, isFollowed, followerCount),
           ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _ProfileTabsHeaderDelegate(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: GenesisTabBar(
-                  controller: _tabController,
-                  labels: const ['#Worldo', 'World'],
-                  horizontalPadding: 8,
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-                  labelFontSize: widget.tabLabelFontSize,
-                  onTap: _reportCollectionTab,
+          if (!widget.isBlocking && !widget.isBlocked)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _ProfileTabsHeaderDelegate(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: GenesisTabBar(
+                    controller: _tabController,
+                    labels: const ['#Worldo', 'World'],
+                    horizontalPadding: 8,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    labelFontSize: widget.tabLabelFontSize,
+                    onTap: _reportCollectionTab,
+                  ),
                 ),
               ),
             ),
-          ),
         ];
       },
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            _OriginProfileCollectionList(
-              items: data.origins,
-              isLoading: widget.originsLoading,
-              listenable: widget.originsListenable,
-              onRefresh: widget.onRefreshOrigins,
-            ),
-            _WorldProfileCollectionList(
-              items: data.worlds,
-              isLoading: widget.worldsLoading,
-              listenable: widget.worldsListenable,
-              onRefresh: widget.onRefreshWorlds,
-            ),
-          ],
+      body: _buildCollectionBody(data),
+    );
+  }
+
+  Widget _buildCollectionBody(UserProfileData data) {
+    if (widget.isBlocking) {
+      return const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2.4),
         ),
+      );
+    }
+    if (widget.isBlocked) {
+      return const Center(
+        child: Text(
+          'You have blocked this user',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Color(0xFF888888),
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: TabBarView(
+        controller: _tabController,
+        children: [
+          _OriginProfileCollectionList(
+            items: data.origins,
+            isLoading: widget.originsLoading,
+            listenable: widget.originsListenable,
+            onRefresh: widget.onRefreshOrigins,
+          ),
+          _WorldProfileCollectionList(
+            items: data.worlds,
+            isLoading: widget.worldsLoading,
+            listenable: widget.worldsListenable,
+            onRefresh: widget.onRefreshWorlds,
+          ),
+        ],
       ),
     );
   }

@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/auth/login_guard.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/page_header.dart';
 import '../../components/me/user_profile_content.dart';
+import '../../network/api_exception.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
@@ -26,6 +31,9 @@ class _UserInfoPageState extends State<UserInfoPage> {
   late Future<UserProfileData> _future;
   String _profileUid = '';
   String _profileTitle = '';
+  bool _profileIsSelf = true;
+  bool _profileBlocked = false;
+  bool _isBlockingUser = false;
   bool _profileCollapsed = false;
   final ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>
   _originsState =
@@ -71,19 +79,31 @@ class _UserInfoPageState extends State<UserInfoPage> {
         : const <String, dynamic>{};
     final resolvedUid = _mapString(user, 'uid', fallback: uid);
     final displayName = _mapString(user, 'name', fallback: 'User');
-    if (mounted && _profileTitle != displayName) {
-      setState(() => _profileTitle = displayName);
-    }
     final avatarUrl = asResolvedImageUrl(
       user['avatar'],
       resolveAssetUrl,
       fallback: user['avatar_url'],
     );
     final profileUid = resolvedUid.trim().isNotEmpty ? resolvedUid : uid;
-    if (mounted) _profileUid = profileUid;
+    final isSelf =
+        _mapBool(relation, 'is_self') ||
+        (localUid.isNotEmpty && localUid == profileUid);
+    final isBlocked = !isSelf && _mapBool(relation, 'is_blocked');
+    if (mounted &&
+        (_profileUid != profileUid ||
+            _profileTitle != displayName ||
+            _profileIsSelf != isSelf ||
+            _profileBlocked != isBlocked)) {
+      setState(() {
+        _profileUid = profileUid;
+        _profileTitle = displayName;
+        _profileIsSelf = isSelf;
+        _profileBlocked = isBlocked;
+      });
+    }
 
     List<UserProfileOriginItem> origins = const [];
-    if (profileUid.trim().isNotEmpty) {
+    if (profileUid.trim().isNotEmpty && !isBlocked) {
       try {
         origins = await _loadOriginItems(api, profileUid);
       } catch (_) {}
@@ -96,7 +116,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
     }
 
     List<UserProfileWorldItem> worldItems = const [];
-    if (profileUid.trim().isNotEmpty) {
+    if (profileUid.trim().isNotEmpty && !isBlocked) {
       try {
         worldItems = await _loadWorldItems(api, profileUid);
       } catch (_) {}
@@ -115,9 +135,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
       followingCount: _mapInt(user, 'following_cnt'),
       followerCount: _mapInt(user, 'follower_cnt'),
       deleted: entityDeleted(user['deleted']),
-      isSelf:
-          _mapBool(relation, 'is_self') ||
-          (localUid.isNotEmpty && localUid == profileUid),
+      isSelf: isSelf,
       isFollowed:
           _mapBool(relation, 'is_followed') || _mapBool(relation, 'i_followed'),
       origins: origins,
@@ -187,6 +205,115 @@ class _UserInfoPageState extends State<UserInfoPage> {
     setState(() => _profileCollapsed = collapsed);
   }
 
+  void _handleBlockUser() {
+    unawaited(_blockUser());
+  }
+
+  void _handleUnblockUser() {
+    unawaited(_unblockUser());
+  }
+
+  Future<void> _blockUser() async {
+    if (_isBlockingUser || _profileBlocked) return;
+    final targetUid = _targetUid();
+    if (targetUid.isEmpty) {
+      showGenesisToast(context, 'Block failed');
+      return;
+    }
+    if (!await ensureGenesisLogin(context)) return;
+    if (!mounted) return;
+    setState(() => _isBlockingUser = true);
+    try {
+      await AppServicesScope.read(
+        context,
+      ).api.v1.user.block(targetUid: targetUid);
+      if (!mounted) return;
+      _clearProfileCollections();
+      setState(() {
+        _isBlockingUser = false;
+        _profileBlocked = true;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('[UserInfo][Block] failed: $error');
+      debugPrint('[UserInfo][Block] stacktrace:\n$stackTrace');
+      if (!mounted) return;
+      setState(() => _isBlockingUser = false);
+      showGenesisToast(
+        context,
+        _blockActionFailureMessage(error, 'Block failed'),
+      );
+    }
+  }
+
+  Future<void> _unblockUser() async {
+    if (_isBlockingUser || !_profileBlocked) return;
+    final targetUid = _targetUid();
+    if (targetUid.isEmpty) {
+      showGenesisToast(context, 'Unblock failed');
+      return;
+    }
+    if (!await ensureGenesisLogin(context)) return;
+    if (!mounted) return;
+    setState(() => _isBlockingUser = true);
+    try {
+      await AppServicesScope.read(
+        context,
+      ).api.v1.user.unblock(targetUid: targetUid);
+      if (!mounted) return;
+      _markProfileCollectionsLoading();
+      setState(() {
+        _isBlockingUser = false;
+        _profileBlocked = false;
+      });
+      unawaited(_refreshOrigins());
+      unawaited(_refreshWorlds());
+    } catch (error, stackTrace) {
+      debugPrint('[UserInfo][Unblock] failed: $error');
+      debugPrint('[UserInfo][Unblock] stacktrace:\n$stackTrace');
+      if (!mounted) return;
+      setState(() => _isBlockingUser = false);
+      showGenesisToast(
+        context,
+        _blockActionFailureMessage(error, 'Unblock failed'),
+      );
+    }
+  }
+
+  String _targetUid() {
+    return _profileUid.trim().isEmpty ? widget.uid.trim() : _profileUid.trim();
+  }
+
+  void _clearProfileCollections() {
+    _originsState.value =
+        const UserProfileCollectionState<UserProfileOriginItem>(
+          items: <UserProfileOriginItem>[],
+          isLoading: false,
+        );
+    _worldsState.value = const UserProfileCollectionState<UserProfileWorldItem>(
+      items: <UserProfileWorldItem>[],
+      isLoading: false,
+    );
+  }
+
+  void _markProfileCollectionsLoading() {
+    _originsState.value =
+        const UserProfileCollectionState<UserProfileOriginItem>(
+          items: <UserProfileOriginItem>[],
+          isLoading: true,
+        );
+    _worldsState.value = const UserProfileCollectionState<UserProfileWorldItem>(
+      items: <UserProfileWorldItem>[],
+      isLoading: true,
+    );
+  }
+
+  String _blockActionFailureMessage(Object error, String fallback) {
+    if (error is ApiException && error.code != null) {
+      return '${error.message}[${error.code}]';
+    }
+    return fallback;
+  }
+
   Future<List<UserProfileOriginItem>> _loadOriginItems(
     GenesisApi api,
     String uid,
@@ -252,25 +379,28 @@ class _UserInfoPageState extends State<UserInfoPage> {
       appBar: GenesisBackAppBar(
         pageName: _profileCollapsed ? _profileTitle : '',
         actions: [
-          GenesisMoreActionMenuButton(
-            menuRightInset: 16,
-            menuVerticalOffset: -8,
-            visualRightInset: 16,
-            items: [
-              genesisReportMenuItem(
-                context: context,
-                targetType: 'user',
-                targetId: _profileUid.trim().isEmpty
-                    ? widget.uid.trim()
-                    : _profileUid.trim(),
-              ),
-              GenesisActionMenuItem(
-                label: 'Block',
-                iconData: Icons.block,
-                onSelected: () {},
-              ),
-            ],
-          ),
+          if (!_profileIsSelf)
+            GenesisMoreActionMenuButton(
+              menuRightInset: 16,
+              menuVerticalOffset: -8,
+              visualRightInset: 16,
+              items: [
+                genesisReportMenuItem(
+                  context: context,
+                  targetType: 'user',
+                  targetId: _profileUid.trim().isEmpty
+                      ? widget.uid.trim()
+                      : _profileUid.trim(),
+                ),
+                GenesisActionMenuItem(
+                  label: _profileBlocked ? 'Unblock' : 'Block',
+                  iconData: Icons.block,
+                  onSelected: _profileBlocked
+                      ? _handleUnblockUser
+                      : _handleBlockUser,
+                ),
+              ],
+            ),
         ],
       ),
       body: SafeArea(
@@ -306,6 +436,8 @@ class _UserInfoPageState extends State<UserInfoPage> {
               onRefreshOrigins: _refreshOrigins,
               onRefreshWorlds: _refreshWorlds,
               onCollapsedChanged: _handleProfileCollapsedChanged,
+              isBlocking: _isBlockingUser,
+              isBlocked: _profileBlocked,
             );
           },
         ),
