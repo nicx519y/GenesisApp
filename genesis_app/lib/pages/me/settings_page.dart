@@ -337,6 +337,11 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
         await api.v1.user.unblock(targetUid: item.uid);
       } else {
         await api.v1.user.block(targetUid: item.uid);
+        await api.v1.report.create(
+          targetType: 'user',
+          targetId: item.uid,
+          content: 'User blocked from blocked users settings.',
+        );
       }
       if (!mounted) return;
       final wasBlocked = item.isBlocked;

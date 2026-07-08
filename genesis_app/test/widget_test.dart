@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
+import 'package:genesis_flutter_android/app/blocked_user_review_return.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
@@ -1892,6 +1893,7 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    BlockedUserReviewReturn.resetForTesting();
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
     OriginLaunchCoordinator.instance.resetForTesting();
   });
@@ -1899,6 +1901,7 @@ void main() {
   tearDown(() async {
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
     OriginLaunchCoordinator.instance.resetForTesting();
+    BlockedUserReviewReturn.resetForTesting();
     await OriginLaunchPendingStore.clear();
   });
 
@@ -9724,6 +9727,85 @@ void main() {
     expect(chatPage.peerName, 'Peer User');
   });
 
+  testWidgets('blocking a peer profile also reports the user to moderation', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingProfileActionTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
+        child: const MaterialApp(home: UserInfoPage(uid: 'u_peer')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_horiz_sharp));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Block').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Block').last);
+    await tester.pumpAndSettle();
+
+    expect(transport.blockRequests, hasLength(1));
+    expect(transport.decodedBody(transport.blockRequests.single), {
+      'target_uid': 'u_peer',
+    });
+    expect(transport.reportRequests, hasLength(1));
+    expect(transport.decodedBody(transport.reportRequests.single), {
+      'target_type': 'user',
+      'target_id': 'u_peer',
+      'content': 'User blocked from profile.',
+    });
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('back after blocking a peer profile returns to Home Popular', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingProfileActionTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
+        child: MaterialApp(
+          home: const UserInfoPage(uid: 'u_peer'),
+          onGenerateRoute: (settings) {
+            if (settings.name == RouteNames.home) {
+              return MaterialPageRoute<void>(
+                settings: settings,
+                builder: (_) {
+                  final args = settings.arguments as Map?;
+                  return Scaffold(body: Text('Home tab: ${args?['home_tab']}'));
+                },
+              );
+            }
+            return null;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_horiz_sharp));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Block').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Block').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Home tab: popular'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
   testWidgets('follows page loads following and followers lists', (
     WidgetTester tester,
   ) async {
@@ -13868,6 +13950,26 @@ class _RecordingProfileActionTransport implements HttpTransport {
           (request) =>
               request.method == 'POST' &&
               request.uri.path == '/api/v1/user/follow',
+        )
+        .toList(growable: false);
+  }
+
+  List<TransportRequest> get blockRequests {
+    return requests
+        .where(
+          (request) =>
+              request.method == 'POST' &&
+              request.uri.path == '/api/v1/user/block',
+        )
+        .toList(growable: false);
+  }
+
+  List<TransportRequest> get reportRequests {
+    return requests
+        .where(
+          (request) =>
+              request.method == 'POST' &&
+              request.uri.path == '/api/v1/report/create',
         )
         .toList(growable: false);
   }

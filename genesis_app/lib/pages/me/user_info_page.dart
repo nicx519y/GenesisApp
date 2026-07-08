@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/blocked_user_review_return.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_action_box.dart';
@@ -13,6 +14,7 @@ import '../../network/api_exception.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
+import '../../routers/app_router.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
@@ -227,9 +229,14 @@ class _UserInfoPageState extends State<UserInfoPage> {
     if (!confirmed || !mounted) return;
     setState(() => _isBlockingUser = true);
     try {
-      await AppServicesScope.read(
-        context,
-      ).api.v1.user.block(targetUid: targetUid);
+      final api = AppServicesScope.read(context).api;
+      await api.v1.user.block(targetUid: targetUid);
+      await api.v1.report.create(
+        targetType: 'user',
+        targetId: targetUid,
+        content: 'User blocked from profile.',
+      );
+      BlockedUserReviewReturn.markPendingHomePopularRefresh();
       if (!mounted) return;
       _clearProfileCollections();
       setState(() {
@@ -336,6 +343,18 @@ class _UserInfoPageState extends State<UserInfoPage> {
     return fallback;
   }
 
+  void _handleBack() {
+    if (!BlockedUserReviewReturn.consumePendingHomePopularRefresh()) {
+      Navigator.of(context).maybePop();
+      return;
+    }
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      RouteNames.home,
+      (route) => false,
+      arguments: const {'home_tab': 'popular'},
+    );
+  }
+
   Future<List<UserProfileOriginItem>> _loadOriginItems(
     GenesisApi api,
     String uid,
@@ -397,71 +416,87 @@ class _UserInfoPageState extends State<UserInfoPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: GenesisBackAppBar(
-        pageName: _profileCollapsed ? _profileTitle : '',
-        actions: [
-          if (!_profileIsSelf)
-            GenesisMoreActionMenuButton(
-              menuRightInset: 16,
-              menuVerticalOffset: -8,
-              visualRightInset: 16,
-              items: [
-                genesisReportMenuItem(
-                  context: context,
-                  targetType: 'user',
-                  targetId: _profileUid.trim().isEmpty
-                      ? widget.uid.trim()
-                      : _profileUid.trim(),
-                ),
-                GenesisActionMenuItem(
-                  label: _profileBlocked ? 'Unblock' : 'Block',
-                  iconData: Icons.block,
-                  onSelected: _profileBlocked
-                      ? _handleUnblockUser
-                      : _handleBlockUser,
-                ),
-              ],
-            ),
-        ],
-      ),
-      body: SafeArea(
-        bottom: false,
-        child: FutureBuilder<UserProfileData>(
-          future: _future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const _UserInfoLoadingSkeleton();
-            }
-            if (snapshot.hasError) {
-              return Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('Load failed'),
-                    const SizedBox(height: 8),
-                    FilledButton(
-                      onPressed: _refresh,
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              );
-            }
+    return PopScope(
+      canPop: !BlockedUserReviewReturn.hasPendingHomePopularRefresh,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (!BlockedUserReviewReturn.consumePendingHomePopularRefresh()) {
+          Navigator.of(context).maybePop();
+          return;
+        }
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          RouteNames.home,
+          (route) => false,
+          arguments: const {'home_tab': 'popular'},
+        );
+      },
+      child: Scaffold(
+        appBar: GenesisBackAppBar(
+          pageName: _profileCollapsed ? _profileTitle : '',
+          onBack: _handleBack,
+          actions: [
+            if (!_profileIsSelf)
+              GenesisMoreActionMenuButton(
+                menuRightInset: 16,
+                menuVerticalOffset: -8,
+                visualRightInset: 16,
+                items: [
+                  genesisReportMenuItem(
+                    context: context,
+                    targetType: 'user',
+                    targetId: _profileUid.trim().isEmpty
+                        ? widget.uid.trim()
+                        : _profileUid.trim(),
+                  ),
+                  GenesisActionMenuItem(
+                    label: _profileBlocked ? 'Unblock' : 'Block',
+                    iconData: Icons.block,
+                    onSelected: _profileBlocked
+                        ? _handleUnblockUser
+                        : _handleBlockUser,
+                  ),
+                ],
+              ),
+          ],
+        ),
+        body: SafeArea(
+          bottom: false,
+          child: FutureBuilder<UserProfileData>(
+            future: _future,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const _UserInfoLoadingSkeleton();
+              }
+              if (snapshot.hasError) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Load failed'),
+                      const SizedBox(height: 8),
+                      FilledButton(
+                        onPressed: _refresh,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                );
+              }
 
-            final data = snapshot.data;
-            if (data == null) return const SizedBox.shrink();
-            return UserProfileContent(
-              data: data,
-              originsListenable: _originsState,
-              worldsListenable: _worldsState,
-              onRefreshOrigins: _refreshOrigins,
-              onRefreshWorlds: _refreshWorlds,
-              onCollapsedChanged: _handleProfileCollapsedChanged,
-              isBlocking: _isBlockingUser,
-              isBlocked: _profileBlocked,
-            );
-          },
+              final data = snapshot.data;
+              if (data == null) return const SizedBox.shrink();
+              return UserProfileContent(
+                data: data,
+                originsListenable: _originsState,
+                worldsListenable: _worldsState,
+                onRefreshOrigins: _refreshOrigins,
+                onRefreshWorlds: _refreshWorlds,
+                onCollapsedChanged: _handleProfileCollapsedChanged,
+                isBlocking: _isBlockingUser,
+                isBlocked: _profileBlocked,
+              );
+            },
+          ),
         ),
       ),
     );

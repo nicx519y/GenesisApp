@@ -90,7 +90,7 @@ class _DebugPasswordDialogState extends State<_DebugPasswordDialog> {
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _submit(),
                     decoration: InputDecoration(
-                      hintText: '请输入密码',
+                      hintText: 'Enter password',
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 11,
@@ -131,7 +131,7 @@ class _DebugPasswordDialogState extends State<_DebugPasswordDialog> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  child: const Text('确定'),
+                  child: const Text('OK'),
                 ),
               ),
             ],
