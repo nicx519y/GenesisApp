@@ -37,9 +37,17 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>com.posthog.posthog.AUTO_INIT</key>
-	<false/>
-	<key>GIDClientID</key>
+		<key>com.posthog.posthog.AUTO_INIT</key>
+		<false/>
+		<key>FirebaseCrashlyticsCollectionEnabled</key>
+		<false/>
+		<key>FirebaseDataCollectionDefaultEnabled</key>
+		<false/>
+		<key>FirebasePerformanceCollectionEnabled</key>
+		<false/>
+		<key>FirebasePerformanceInstrumentationEnabled</key>
+		<false/>
+		<key>GIDClientID</key>
 	<string>876583138986-igmuf8cnqkqfau2k4k30bamjn6482u2j.apps.googleusercontent.com</string>
 	<key>GIDServerClientID</key>
 	<string>876583138986-ivso4uo5cdj99hocecj78jhsudckuscg.apps.googleusercontent.com</string>

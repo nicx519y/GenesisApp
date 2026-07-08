@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../platform/app/app_metadata_service.dart';
@@ -17,6 +18,14 @@ class AppStartupCoordinator {
   static bool _warmUpStarted = false;
   static bool _telemetryLifecycleObserverAdded = false;
   static bool _startupFirstReportRecorded = false;
+  static final ValueNotifier<bool> _postLaunchWorkAllowed = ValueNotifier<bool>(
+    true,
+  );
+
+  static ValueListenable<bool> get postLaunchWorkAllowedListenable =>
+      _postLaunchWorkAllowed;
+
+  static bool get isPostLaunchWorkAllowed => _postLaunchWorkAllowed.value;
 
   static void configure({
     required DateTime startedAt,
@@ -24,6 +33,12 @@ class AppStartupCoordinator {
   }) {
     _startedAt = startedAt;
     _appVersion = appVersion;
+    _postLaunchWorkAllowed.value = defaultTargetPlatform != TargetPlatform.iOS;
+  }
+
+  static void markPostLaunchWorkAllowed() {
+    if (_postLaunchWorkAllowed.value) return;
+    _postLaunchWorkAllowed.value = true;
   }
 
   static void startFirebasePerformance() {
@@ -84,5 +99,6 @@ class AppStartupCoordinator {
     _warmUpStarted = false;
     _telemetryLifecycleObserverAdded = false;
     _startupFirstReportRecorded = false;
+    _postLaunchWorkAllowed.value = true;
   }
 }
