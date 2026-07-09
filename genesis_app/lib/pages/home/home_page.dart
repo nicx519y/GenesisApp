@@ -87,6 +87,8 @@ class HomePage extends StatefulWidget {
         AppTrackingTransparencyService.requestAuthorization,
     this.initializeRuntime = _initializeDefaultStartupRuntime,
     this.initialRequestMetricWindow = const Duration(milliseconds: 200),
+    this.networkPermissionDialogSettleTimeout = const Duration(seconds: 2),
+    this.postSystemDialogResumeDelay = const Duration(milliseconds: 350),
   });
 
   static const List<String> tabs = ['My Worlds', 'Popular'];
@@ -101,6 +103,8 @@ class HomePage extends StatefulWidget {
   final TrackingAuthorizationRequester requestTrackingAuthorization;
   final StartupRuntimeInitializer initializeRuntime;
   final Duration initialRequestMetricWindow;
+  final Duration networkPermissionDialogSettleTimeout;
+  final Duration postSystemDialogResumeDelay;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -113,9 +117,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<int>? _initialTabIndexFuture;
   late final ValueNotifier<bool> _homeNetworkRequestsAllowed;
   var _startupGateStarted = false;
-  var _cacheGateReady = false;
   AppLifecycleState? _lifecycleState;
   Completer<void>? _resumedCompleter;
+  Completer<void>? _inactiveCompleter;
+  var _watchingNetworkPermissionDialog = false;
 
   @override
   void initState() {
@@ -133,6 +138,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _resumedCompleter?.complete();
+    _inactiveCompleter?.complete();
     _homeNetworkRequestsAllowed.dispose();
     super.dispose();
   }
@@ -143,6 +149,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _resumedCompleter?.complete();
       _resumedCompleter = null;
+    } else if (_watchingNetworkPermissionDialog) {
+      _inactiveCompleter?.complete();
+      _inactiveCompleter = null;
     }
   }
 
@@ -155,11 +164,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _resolveInitialTabIndex() {
-    if (_requiresStartupGate && !_cacheGateReady) {
-      _initialTabIndex = null;
-      _initialTabIndexFuture = null;
-      return;
-    }
     final requestedIndex = widget.initialTabIndex;
     if (requestedIndex != null) {
       _initialTabIndex = requestedIndex.clamp(0, HomePage.tabs.length - 1);
@@ -186,7 +190,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!mounted || _startupGateStarted) return;
     _startupGateStarted = true;
     if (!_requiresStartupGate) {
-      _cacheGateReady = true;
       _homeNetworkRequestsAllowed.value = true;
       return;
     }
@@ -195,16 +198,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _runIosStartupGate() async {
     final services = AppServicesScope.read(context);
+    await _waitForAppResumed();
+    if (!mounted) return;
+    await _primeNetworkPermissionThenWaitForSystemDialog(services);
+    if (!mounted) return;
     final trackingAuthorizationStatus = await _resolveTrackingAuthorization();
     if (!mounted) return;
     setState(() {
-      _cacheGateReady = true;
       _resolveInitialTabIndex();
     });
     await WidgetsBinding.instance.endOfFrame;
     await widget.initializeRuntime(services, trackingAuthorizationStatus);
     if (!mounted) return;
     AppStartupCoordinator.markPostLaunchWorkAllowed();
+    services.startupNetworkGate.open();
     _homeNetworkRequestsAllowed.value = true;
   }
 
@@ -214,13 +221,51 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         currentStatus != AppTrackingAuthorizationStatus.unknown) {
       return currentStatus;
     }
+    await _waitForAppResumed();
     final requestedStatus = await widget.requestTrackingAuthorization();
     await _waitForSystemDialogToClose();
     return requestedStatus;
   }
 
+  Future<void> _primeNetworkPermissionThenWaitForSystemDialog(
+    AppServices services,
+  ) async {
+    _watchingNetworkPermissionDialog = true;
+    _inactiveCompleter ??= Completer<void>();
+    try {
+      unawaited(
+        widget.primeNetworkPermission(services).catchError((
+          Object error,
+          StackTrace stackTrace,
+        ) {
+          debugPrint(
+            '[Home][StartupGate] network permission prime failed: $error',
+          );
+          debugPrint('[Home][StartupGate] stacktrace:\n$stackTrace');
+          return false;
+        }),
+      );
+      await _waitForNetworkPermissionDialogToSettle();
+    } finally {
+      _watchingNetworkPermissionDialog = false;
+    }
+  }
+
+  Future<void> _waitForNetworkPermissionDialogToSettle() async {
+    final inactiveCompleter = _inactiveCompleter ?? Completer<void>();
+    _inactiveCompleter = inactiveCompleter;
+    final timeout = widget.networkPermissionDialogSettleTimeout;
+    if (timeout <= Duration.zero) return;
+    final inactiveObserved = await inactiveCompleter.future
+        .then((_) => true)
+        .timeout(timeout, onTimeout: () => false);
+    if (!inactiveObserved) return;
+    await _waitForAppResumed();
+    await _waitAfterSystemDialogResume();
+  }
+
   Future<void> _waitForSystemDialogToClose() async {
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await _waitAfterSystemDialogResume();
     if (_lifecycleState == AppLifecycleState.resumed ||
         _lifecycleState == null) {
       return;
@@ -232,6 +277,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       onTimeout: () {},
     );
     await Future<void>.delayed(const Duration(milliseconds: 150));
+  }
+
+  Future<void> _waitForAppResumed() async {
+    if (_lifecycleState == AppLifecycleState.resumed ||
+        _lifecycleState == null) {
+      return;
+    }
+    final completer = _resumedCompleter ?? Completer<void>();
+    _resumedCompleter = completer;
+    await completer.future.timeout(
+      const Duration(seconds: 30),
+      onTimeout: () {},
+    );
+  }
+
+  Future<void> _waitAfterSystemDialogResume() async {
+    final delay = widget.postSystemDialogResumeDelay;
+    if (delay <= Duration.zero) return;
+    await Future<void>.delayed(delay);
   }
 
   Future<int> _initialTabIndexFromSession() async {
@@ -261,9 +325,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if (_requiresStartupGate && !_cacheGateReady) {
-      return const _HomeStartupGateView();
-    }
     final initialTabIndex = _initialTabIndex;
     if (initialTabIndex != null) {
       return _HomeTabScaffold(
@@ -278,10 +339,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return FutureBuilder<int>(
       future: _initialTabIndexFuture,
       builder: (context, snapshot) {
-        final initialIndex = snapshot.data;
-        if (initialIndex == null) {
-          return const _HomeStartupGateView();
-        }
+        final initialIndex = snapshot.data ?? HomePage.myWorldsTabIndex;
 
         return _HomeTabScaffold(
           initialIndex: initialIndex,
@@ -330,26 +388,6 @@ class _HomeTabScaffold extends StatelessWidget {
               initialRequestMetricWindow: initialRequestMetricWindow,
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HomeLoadingScaffold extends StatelessWidget {
-  const _HomeLoadingScaffold();
-
-  @override
-  Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: HomePage.tabs.length,
-      initialIndex: HomePage.popularTabIndex,
-      child: const Column(
-        children: [
-          _HomeHeader(),
-          SizedBox(height: 4),
-          _HomeTabs(),
-          Expanded(child: GenesisListLoadingSkeleton.popularOriginList()),
         ],
       ),
     );
@@ -439,15 +477,6 @@ class _HomeHeader extends StatelessWidget {
   }
 }
 
-class _HomeStartupGateView extends StatelessWidget {
-  const _HomeStartupGateView();
-
-  @override
-  Widget build(BuildContext context) {
-    return const _HomeLoadingScaffold();
-  }
-}
-
 class _MyWorldFeed extends StatefulWidget {
   const _MyWorldFeed({
     required this.index,
@@ -483,6 +512,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   var _hasRequested = false;
   var _hasAttemptedCachePreload = false;
   var _hasLoadedCachedPage = false;
+  var _hasResolvedLocalSession = false;
   var _scrollListenerAttached = false;
   var _isInitialLoading = false;
   var _isLoadingMore = false;
@@ -558,6 +588,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _hasRequested = false;
     _hasAttemptedCachePreload = false;
     _hasLoadedCachedPage = false;
+    _hasResolvedLocalSession = false;
     _isInitialLoading = false;
     _isLoadingMore = false;
     _isRefreshing = false;
@@ -635,13 +666,14 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isLoadingMore = false;
         _isRefreshing = false;
         _isSignedOut = true;
+        _hasResolvedLocalSession = true;
       });
       return;
     }
-    if (_items.isEmpty) {
+    if (_isSignedOut || !_hasResolvedLocalSession) {
       setState(() {
-        _isInitialLoading = true;
         _isSignedOut = false;
+        _hasResolvedLocalSession = true;
       });
     }
     await _loadCachedItemsOnce();
@@ -661,13 +693,16 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isLoadingMore = false;
         _isRefreshing = false;
         _isSignedOut = true;
+        _hasResolvedLocalSession = true;
       });
       return;
     }
-    if (mounted && _items.isEmpty) {
+    if (mounted &&
+        (_items.isEmpty || _isSignedOut || !_hasResolvedLocalSession)) {
       setState(() {
-        _isInitialLoading = true;
+        _hasResolvedLocalSession = true;
         _isSignedOut = false;
+        _isInitialLoading = _items.isEmpty;
       });
     }
     final didLoadCache = await _loadCachedItemsOnce();
@@ -779,6 +814,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isLoadingMore = false;
         _isRefreshing = false;
         _isSignedOut = true;
+        _hasResolvedLocalSession = true;
       });
       return;
     }
@@ -786,6 +822,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     setState(() {
       _error = null;
       _isSignedOut = false;
+      _hasResolvedLocalSession = true;
       _isInitialLoading = _items.isEmpty && !_hasLoadedCachedPage;
       _isRefreshing = true;
     });
@@ -887,8 +924,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (_isInitialLoading ||
-        (!_hasRequested && !_hasLoadedCachedPage && _items.isEmpty)) {
+    final waitingForStartupNetwork = !widget.networkRequestsAllowed.value;
+    if (!waitingForStartupNetwork &&
+        _hasResolvedLocalSession &&
+        !_isSignedOut &&
+        (_isInitialLoading ||
+            (!_hasRequested && !_hasLoadedCachedPage && _items.isEmpty))) {
       return const GenesisListLoadingSkeleton.worldList();
     }
 
@@ -902,6 +943,14 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
             FilledButton(onPressed: _refreshItems, child: const Text('Retry')),
           ],
         ),
+      );
+    }
+
+    if (_items.isEmpty && !_hasResolvedLocalSession) {
+      return ListView(
+        key: const PageStorageKey<String>('home-feed-my-world-pending'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [SizedBox(height: MediaQuery.sizeOf(context).height * 0.62)],
       );
     }
 
@@ -1222,11 +1271,6 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   void _preloadCachedItemsIfNeeded() {
     if (_hasAttemptedCachePreload) return;
     _hasAttemptedCachePreload = true;
-    if (mounted && _items.isEmpty) {
-      setState(() {
-        _isInitialLoading = true;
-      });
-    }
     unawaited(_loadCachedItemsOnce());
   }
 
@@ -1496,8 +1540,11 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final waitingForStartupNetwork = !widget.networkRequestsAllowed.value;
     if (_items.isEmpty &&
-        (_isInitialLoading || (!_hasRequested && !_hasLoadedCachedPage))) {
+        (_isInitialLoading ||
+            (!_hasRequested && !_hasLoadedCachedPage) ||
+            (waitingForStartupNetwork && !_hasLoadedCachedPage))) {
       return const GenesisListLoadingSkeleton.popularOriginList();
     }
 

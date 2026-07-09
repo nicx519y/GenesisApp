@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../../components/common/genesis_center_toast.dart';
@@ -17,6 +18,7 @@ import '../../platform/platform_services.dart';
 import '../config/app_config.dart';
 import '../config/platform_config.dart';
 import '../debug/location_chat_debug_storage.dart';
+import '../startup/startup_network_gate.dart';
 import '../version/app_version_check_service.dart';
 
 class AppServices {
@@ -34,6 +36,7 @@ class AppServices {
     required this.directMessageMessages,
     required this.appVersionCheck,
     required this.externalUrlOpener,
+    required this.startupNetworkGate,
     this.gatewayAuth,
     ValueNotifier<int>? sessionRevision,
   }) : sessionRevision = sessionRevision ?? ValueNotifier<int>(0);
@@ -51,6 +54,7 @@ class AppServices {
   final DirectMessageMessageStore directMessageMessages;
   final AppVersionCheckService appVersionCheck;
   final ExternalUrlOpener externalUrlOpener;
+  final StartupNetworkGate startupNetworkGate;
   final GatewayAuthCoordinator? gatewayAuth;
   final ValueNotifier<int> sessionRevision;
 
@@ -69,6 +73,7 @@ class ServiceRegistry {
     IdentityAuthService? identityAuthOverride,
     ValueNotifier<int>? sessionRevisionOverride,
     ChatroomMessageStorage? chatroomMessagesOverride,
+    StartupNetworkGate? startupNetworkGateOverride,
   }) {
     final platformConfig = DefaultPlatformConfig(appConfig: config);
     final deviceId = deviceIdOverride ?? const NativeDeviceIdService();
@@ -76,6 +81,13 @@ class ServiceRegistry {
     final identityAuth =
         identityAuthOverride ?? const FirebaseIdentityAuthService();
     final sessionRevision = sessionRevisionOverride ?? ValueNotifier<int>(0);
+    final startupNetworkGate =
+        startupNetworkGateOverride ??
+        StartupNetworkGate(
+          initiallyOpen:
+              config.useMock == true ||
+              defaultTargetPlatform != TargetPlatform.iOS,
+        );
     var handlingPageNotFound = false;
     var handlingSessionExpired = false;
     Future<void> handlePageNotFound(String _) async {
@@ -167,6 +179,7 @@ class ServiceRegistry {
       identityAuthService: identityAuth,
       appHeaderProvider: appRequestHeaders.headers,
       gatewayRequestInterceptor: gatewayRequestInterceptor,
+      startupRequestInterceptor: startupNetworkGate.wrap,
       onSessionExpired: handleSessionExpired,
       onPageNotFound: handlePageNotFound,
     );
@@ -218,6 +231,7 @@ class ServiceRegistry {
       directMessageMessages: directMessageMessages,
       appVersionCheck: appVersionCheck,
       externalUrlOpener: const NativeExternalUrlOpener(),
+      startupNetworkGate: startupNetworkGate,
       gatewayAuth: gatewayAuthCoordinator,
       sessionRevision: sessionRevision,
     );
@@ -234,6 +248,7 @@ class ServiceRegistry {
       identityAuthOverride: current.identityAuth,
       sessionRevisionOverride: current.sessionRevision,
       chatroomMessagesOverride: current.chatroomMessages,
+      startupNetworkGateOverride: current.startupNetworkGate,
     );
   }
 }
