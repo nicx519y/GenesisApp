@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
-import '../auth/login_guard.dart';
 import 'genesis_content_submission_dialog.dart';
 
 const TextStyle _genesisActionMenuTextStyle = TextStyle(
@@ -845,7 +844,6 @@ Future<bool> showGenesisReportDialog({
   required String targetType,
   required String targetId,
 }) async {
-  if (!await ensureGenesisLogin(context)) return false;
   if (!context.mounted) return false;
   final api = AppServicesScope.read(context).api;
   return showGenesisContentSubmissionDialog(
