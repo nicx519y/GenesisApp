@@ -832,10 +832,13 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       if (!mounted) return;
       _startupInitialRetryTimer?.cancel();
       _startupInitialRetryTimer = null;
+      final shouldReplaceItems = !_worldPageMatchesCurrent(page);
       setState(() {
-        _items
-          ..clear()
-          ..addAll(page.items);
+        if (shouldReplaceItems) {
+          _items
+            ..clear()
+            ..addAll(page.items);
+        }
         _total = page.total;
         _nextPage = 2;
         _hasMore = _items.length < _total && page.items.isNotEmpty;
@@ -859,6 +862,50 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isRefreshing = false;
       });
     }
+  }
+
+  bool _worldPageMatchesCurrent(_WorldListPage page) {
+    if (_total != page.total || _items.length != page.items.length) {
+      return false;
+    }
+    for (var index = 0; index < _items.length; index += 1) {
+      if (_worldItemSignature(_items[index]) !=
+          _worldItemSignature(page.items[index])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  String _worldItemSignature(WorldListItem item) {
+    return <Object?>[
+      item.oid,
+      item.originVersionNum,
+      item.originVersionCreateAt,
+      item.wid,
+      item.status,
+      item.name,
+      item.deleted,
+      item.cover,
+      item.displaySubtitle,
+      item.createdUid,
+      item.createdUserName,
+      item.ownerUid,
+      item.ownerName,
+      item.createdAt,
+      item.updatedAt,
+      item.lastProgressAt,
+      item.lastProgressSummary,
+      item.lastProgressTickNo,
+      item.lastProgressCurrentTime,
+      item.previewImages.join('\n'),
+      item.tags.join('\n'),
+      item.tickCnt,
+      item.connectCnt,
+      item.aiCharacterCnt,
+      item.playerCnt,
+      item.locationCnt,
+    ].join('\u001F');
   }
 
   bool _shouldKeepInitialNetworkFailureLoading(Object error) {
@@ -1007,6 +1054,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                 }
                 final vm = _items[index];
                 return GestureDetector(
+                  key: ValueKey<String>('home-my-world-${vm.wid}'),
                   behavior: HitTestBehavior.opaque,
                   onTap: vm.deleted
                       ? null
@@ -1454,13 +1502,16 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
       if (!mounted) return;
       _startupInitialRetryTimer?.cancel();
       _startupInitialRetryTimer = null;
+      final shouldReplaceItems = !_originPageMatchesCurrent(page);
       setState(() {
-        _items
-          ..clear()
-          ..addAll(page.items);
-        _discussPreviews
-          ..clear()
-          ..addAll(page.discussPreviews);
+        if (shouldReplaceItems) {
+          _items
+            ..clear()
+            ..addAll(page.items);
+          _discussPreviews
+            ..clear()
+            ..addAll(page.discussPreviews);
+        }
         _total = page.total;
         _nextPage = 2;
         _hasMore = _items.length < _total && page.items.isNotEmpty;
@@ -1484,6 +1535,64 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
         _isRefreshing = false;
       });
     }
+  }
+
+  bool _originPageMatchesCurrent(_OriginListPage page) {
+    if (_total != page.total || _items.length != page.items.length) {
+      return false;
+    }
+    for (var index = 0; index < _items.length; index += 1) {
+      final current = _items[index];
+      final next = page.items[index];
+      if (_originItemSignature(current) != _originItemSignature(next)) {
+        return false;
+      }
+      if (_originDiscussSignature(_discussPreviews[current.oid]) !=
+          _originDiscussSignature(page.discussPreviews[next.oid])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  String _originItemSignature(OriginListItem item) {
+    return <Object?>[
+      item.oid,
+      item.wid,
+      item.status,
+      item.versionNum,
+      item.tickCount,
+      item.name,
+      item.deleted,
+      item.cover,
+      item.displaySubtitle,
+      item.worldView,
+      item.createdUid,
+      item.createdUserName,
+      item.ownerName,
+      item.createdAt,
+      item.updatedAt,
+      item.tags.join('\n'),
+      item.copyCnt,
+      item.connectCnt,
+      item.discussCnt,
+      item.characterCnt,
+      item.locationCnt,
+    ].join('\u001F');
+  }
+
+  String _originDiscussSignature(List<OriginDiscussPreviewItem>? items) {
+    return (items ?? const <OriginDiscussPreviewItem>[])
+        .map(
+          (item) => <Object?>[
+            item.discussId,
+            item.authorName,
+            item.content,
+            item.replyCount,
+            item.createdAt,
+          ].join('\u001E'),
+        )
+        .join('\u001F');
   }
 
   bool _shouldKeepInitialNetworkFailureLoading(Object error) {
