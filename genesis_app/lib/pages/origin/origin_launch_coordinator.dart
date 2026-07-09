@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../app/genesis_navigator.dart';
 import '../../components/common/genesis_action_box.dart';
-import '../../components/common/genesis_center_toast.dart';
 import '../../components/world_tick1_wait_dialog.dart';
 import '../../network/models/world.dart';
 import '../../routers/app_router.dart';
@@ -42,6 +41,7 @@ class OriginLaunchCoordinator {
     : state = ValueNotifier<OriginLaunchRuntimeState?>(null);
 
   static final OriginLaunchCoordinator instance = OriginLaunchCoordinator._();
+  static const Duration _pollInterval = Duration(seconds: 10);
 
   final ValueNotifier<OriginLaunchRuntimeState?> state;
   final Set<ValueChanged<OriginLaunchOutcome>> _outcomeListeners =
@@ -51,7 +51,6 @@ class OriginLaunchCoordinator {
   String? _originId;
   String? _worldId;
   OriginLaunchWorldLoader? _loadWorld;
-  BuildContext? _fallbackContext;
   bool _pollInFlight = false;
   bool _completionDialogShowing = false;
 
@@ -66,7 +65,6 @@ class OriginLaunchCoordinator {
     required OriginLaunchWorldLoader loadWorld,
     BuildContext? context,
   }) async {
-    _rememberContext(context);
     await OriginLaunchPendingStore.save(originId: originId, worldId: worldId);
     final pending = await OriginLaunchPendingStore.load();
     if (pending == null) return;
@@ -78,7 +76,6 @@ class OriginLaunchCoordinator {
     String? originId,
     BuildContext? context,
   }) async {
-    _rememberContext(context);
     final pending = await OriginLaunchPendingStore.load();
     if (pending == null) {
       if (_originId == null) state.value = null;
@@ -89,7 +86,7 @@ class OriginLaunchCoordinator {
       return;
     }
     if (pending.isExpired) {
-      await _handleTimedOut(pending);
+      await _handleCompleted(pending: pending);
       return;
     }
     _begin(pending: pending, loadWorld: loadWorld);
@@ -112,7 +109,6 @@ class OriginLaunchCoordinator {
     _originId = null;
     _worldId = null;
     _loadWorld = null;
-    _fallbackContext = null;
     _pollInFlight = false;
   }
 
@@ -136,12 +132,6 @@ class OriginLaunchCoordinator {
     unawaited(_poll(pending));
   }
 
-  void _rememberContext(BuildContext? context) {
-    if (context != null && context.mounted) {
-      _fallbackContext = context;
-    }
-  }
-
   Future<void> _poll(OriginLaunchPending pending) async {
     if (_originId != pending.originId ||
         _worldId != pending.worldId ||
@@ -149,7 +139,7 @@ class OriginLaunchCoordinator {
       return;
     }
     if (pending.isExpired) {
-      await _handleTimedOut(pending);
+      await _handleCompleted(pending: pending);
       return;
     }
 
@@ -175,7 +165,7 @@ class OriginLaunchCoordinator {
   void _scheduleNextPoll(OriginLaunchPending pending) {
     if (_originId != pending.originId || _worldId != pending.worldId) return;
     if (pending.isExpired) {
-      unawaited(_handleTimedOut(pending));
+      unawaited(_handleCompleted(pending: pending));
       return;
     }
     state.value = OriginLaunchRuntimeState(
@@ -183,15 +173,12 @@ class OriginLaunchCoordinator {
       worldId: pending.worldId,
     );
     _timer?.cancel();
-    _timer = Timer(
-      kWorldTick1WaitPollInterval,
-      () => unawaited(_poll(pending)),
-    );
+    _timer = Timer(_pollInterval, () => unawaited(_poll(pending)));
   }
 
   Future<void> _handleCompleted({
     required OriginLaunchPending pending,
-    required WorldDetail world,
+    WorldDetail? world,
   }) async {
     cancel();
     await OriginLaunchPendingStore.clear();
@@ -213,28 +200,6 @@ class OriginLaunchCoordinator {
     await _showCompletionDialog(world, fallbackWorldId: pending.worldId);
   }
 
-  Future<void> _handleTimedOut(OriginLaunchPending pending) async {
-    final overlay = genesisNavigatorKey.currentState?.overlay;
-    final context = _fallbackContext;
-    cancel();
-    await OriginLaunchPendingStore.clear();
-    state.value = null;
-    _notifyOutcome(
-      OriginLaunchOutcome(
-        originId: pending.originId,
-        worldId: pending.worldId,
-        completed: false,
-      ),
-    );
-    if (overlay != null) {
-      showGenesisToastInOverlay(overlay, 'Launch timed out');
-      return;
-    }
-    if (context != null && context.mounted) {
-      showGenesisToast(context, 'Launch timed out');
-    }
-  }
-
   void _notifyOutcome(OriginLaunchOutcome outcome) {
     for (final listener in List.of(_outcomeListeners)) {
       listener(outcome);
@@ -242,7 +207,7 @@ class OriginLaunchCoordinator {
   }
 
   Future<void> _showCompletionDialog(
-    WorldDetail world, {
+    WorldDetail? world, {
     required String fallbackWorldId,
   }) async {
     if (_completionDialogShowing) return;
@@ -250,9 +215,9 @@ class OriginLaunchCoordinator {
     if (context == null) return;
     _completionDialogShowing = true;
     try {
-      final worldName = world.name.trim().isEmpty
+      final worldName = (world?.name.trim().isEmpty ?? true)
           ? fallbackWorldId
-          : world.name.trim();
+          : world!.name.trim();
       final title = 'Worldo #$worldName launched!';
       final shouldGo = await showGenesisActionBox<bool>(
         context: context,
@@ -274,12 +239,12 @@ class OriginLaunchCoordinator {
     }
   }
 
-  void _navigateToWorld(WorldDetail world, {required String fallbackWorldId}) {
+  void _navigateToWorld(WorldDetail? world, {required String fallbackWorldId}) {
     final navigator = genesisNavigatorKey.currentState;
     if (navigator == null) return;
-    final wid = world.worldId.trim().isEmpty
+    final wid = (world?.worldId.trim().isEmpty ?? true)
         ? fallbackWorldId
-        : world.worldId.trim();
+        : world!.worldId.trim();
     navigator.pushNamedAndRemoveUntil(
       RouteNames.home,
       (_) => false,
@@ -289,7 +254,10 @@ class OriginLaunchCoordinator {
       if (!navigator.mounted) return;
       navigator.pushNamed(
         RouteNames.world,
-        arguments: {'wid': wid, 'initial_world_detail': world},
+        arguments: {
+          'wid': wid,
+          if (world != null) 'initial_world_detail': world,
+        },
       );
     });
   }

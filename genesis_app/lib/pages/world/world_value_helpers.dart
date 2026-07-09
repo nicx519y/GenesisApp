@@ -73,10 +73,6 @@ List<OriginCharacter> worldPresetRoleCharacters(WorldDetail world) {
           avatar: worldMapString(character, const ['avatar']),
           tags: worldMapString(character, const ['identity']),
           tagline: worldMapString(character, const ['brief']),
-          description: worldMapString(character, const [
-            'description',
-            'brief',
-          ]),
           goal: worldMapString(character, const ['goal']),
           currentLocationId: locationInt,
           initialLocationId: locationInt,

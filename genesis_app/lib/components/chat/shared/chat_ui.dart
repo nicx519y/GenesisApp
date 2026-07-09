@@ -242,7 +242,7 @@ class ChatHeader extends StatelessWidget {
                             ],
                             Flexible(
                               child: Text(
-                                title,
+                                genesisDisplaySafeText(title),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: style.headerTitleTextStyle,
@@ -277,7 +277,7 @@ class ChatHeader extends StatelessWidget {
                               SizedBox(width: style.headerStatusIconGap),
                               Flexible(
                                 child: Text(
-                                  subtitle,
+                                  genesisDisplaySafeText(subtitle),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.center,
@@ -646,7 +646,7 @@ class _ComposerSendButton extends StatelessWidget {
                   size: style.composerSendButtonIconSize,
                 )
               : Text(
-                  label!,
+                  genesisDisplaySafeText(label!),
                   maxLines: 1,
                   overflow: TextOverflow.clip,
                   style: TextStyle(
@@ -973,12 +973,15 @@ class _ChatTopTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (name.trim().isEmpty) return SizedBox(height: style.topTitleEmptyHeight);
+    final safeName = genesisDisplaySafeText(name);
+    if (safeName.trim().isEmpty) {
+      return SizedBox(height: style.topTitleEmptyHeight);
+    }
     return Padding(
       padding: EdgeInsets.only(bottom: style.topTitleBottomPadding),
       child: Center(
         child: Text(
-          name,
+          safeName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: style.topTitleTextStyle,
@@ -1087,7 +1090,10 @@ class ChatMessageRow extends StatelessWidget {
                 ),
                 if (showStatusText) ...[
                   SizedBox(height: style.statusTextTopGap),
-                  Text(message.status, style: style.statusTextStyle),
+                  Text(
+                    genesisDisplaySafeText(message.status),
+                    style: style.statusTextStyle,
+                  ),
                 ],
               ],
             ),
@@ -1110,7 +1116,8 @@ class ChatMessageRow extends StatelessWidget {
 
   Widget _buildOther(BuildContext context, ChatUiStyleConfig style) {
     final maxBubbleWidth = _normalBubbleMaxWidth(context, style);
-    final currentTime = message.currentTime.trim();
+    final senderName = genesisDisplaySafeText(message.senderName);
+    final currentTime = genesisDisplaySafeText(message.currentTime).trim();
     return Padding(
       padding: EdgeInsets.only(bottom: style.rowBottomPadding),
       child: Row(
@@ -1149,7 +1156,7 @@ class ChatMessageRow extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            message.senderName,
+                            senderName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: message.isPlayerControlledRole
@@ -1734,7 +1741,7 @@ String _tickAdvanceText(ChatMessageVm message) {
 }
 
 String chatInitials(String value) {
-  return initialsForAvatarName(value);
+  return initialsForAvatarName(genesisDisplaySafeText(value));
 }
 
 bool _isNpcSender(String senderId) {

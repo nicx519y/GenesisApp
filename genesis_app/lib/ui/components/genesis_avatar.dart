@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'genesis_static_network_image.dart';
+import '../text/genesis_text_input_formatters.dart';
 import '../tokens/genesis_avatar_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
@@ -38,6 +39,7 @@ class GenesisAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final safeName = genesisDisplaySafeText(name);
     final resolvedWidth = width ?? size;
     final resolvedHeight = height ?? size;
     final imageWidth = resolvedWidth.isFinite ? resolvedWidth : null;
@@ -49,7 +51,7 @@ class GenesisAvatar extends StatelessWidget {
       devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
     ).trim();
     final fallback = GenesisAvatarFallback(
-      name: name,
+      name: safeName,
       width: resolvedWidth,
       height: resolvedHeight,
       borderRadius: borderRadius,
@@ -182,7 +184,9 @@ class GenesisAvatarFallback extends StatelessWidget {
 }
 
 String initialsForAvatarName(String name) {
-  final cleaned = name.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final cleaned = genesisDisplaySafeText(
+    name,
+  ).trim().replaceAll(RegExp(r'\s+'), ' ');
   if (cleaned.isEmpty) return '?';
 
   final cjkChars = cleaned.characters
@@ -208,7 +212,8 @@ String initialsForAvatarName(String name) {
 }
 
 Color avatarColorForName(String name) {
-  final seed = name.trim().isEmpty ? '?' : name.trim();
+  final safeName = genesisDisplaySafeText(name);
+  final seed = safeName.trim().isEmpty ? '?' : safeName.trim();
   final hash = seed.runes.fold<int>(
     0,
     (value, rune) => ((value * 131) + rune) & 0x7fffffff,

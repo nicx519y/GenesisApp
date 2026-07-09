@@ -156,6 +156,12 @@ class WorldListItem {
   final double coverHeight;
 
   String get title => name.trim().isEmpty ? wid : name.trim();
+  String get displayTitle {
+    final value = title.trim();
+    if (value.isEmpty || value.startsWith('#')) return value;
+    return '#$value';
+  }
+
   String get ownerLabel {
     final owner = ownerName.trim();
     if (owner.isNotEmpty) return formatUidForDisplay(owner);
@@ -420,7 +426,7 @@ class _WorldSummary extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          item.title,
+          item.displayTitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(

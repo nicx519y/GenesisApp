@@ -66,7 +66,7 @@ class ChatroomEnvelope {
       senderName: asString(json['sender_name']),
       errNo: asString(json['err_no']),
       errMsg: asString(json['err_msg']),
-      currentTime: asString(json['current_time']),
+      currentTime: _currentTime(json),
       globalMsgId: json['global_msg_id'] == null
           ? null
           : asInt(json['global_msg_id']),
@@ -383,7 +383,7 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
       senderId: asString(payload['sender_id']),
       senderName: asString(payload['sender_name']),
       content: asString(payload['content']),
-      currentTime: asString(payload['current_time']),
+      currentTime: _currentTime(payload),
       broadcast: asBool(payload['broadcast']),
       clientMsgId: asString(payload['client_msg_id']),
       createdAt: asDateTime(payload['ts'] ?? envelope.ts),
@@ -436,7 +436,7 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
       senderId: asString(payload['sender_id']),
       senderName: asString(payload['sender_name'], fallback: 'Narrator'),
       content: asString(payload['content']),
-      currentTime: asString(payload['current_time']),
+      currentTime: _currentTime(payload),
       broadcast: asBool(payload['broadcast']),
       createdAt: asDateTime(payload['ts'] ?? envelope.ts),
     );
@@ -471,7 +471,7 @@ class ChatroomTickAdvanceMessage extends ChatroomMessageEvent {
 
   factory ChatroomTickAdvanceMessage.fromEnvelope(ChatroomEnvelope envelope) {
     final payload = envelope.mergedPayload;
-    final currentTime = asString(payload['current_time']);
+    final currentTime = _currentTime(payload);
     return ChatroomTickAdvanceMessage(
       sessionId: asString(payload['session_id']),
       worldId: _worldId(payload),
@@ -537,7 +537,7 @@ class ChatroomAiStreamStart extends ChatroomEvent {
       senderType: asString(payload['sender_type'], fallback: 'character'),
       senderId: asString(payload['sender_id']),
       senderName: asString(payload['sender_name'], fallback: 'AI'),
-      currentTime: asString(payload['current_time']),
+      currentTime: _currentTime(payload),
     );
   }
 }
@@ -582,7 +582,7 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
       seq: asInt(payload['seq']),
       chunk: asString(payload['content']),
       isDelta: true,
-      currentTime: asString(payload['current_time']),
+      currentTime: _currentTime(payload),
     );
   }
 }
@@ -624,7 +624,7 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
       senderId: asString(payload['sender_id']),
       content: asString(payload['content']),
       createdAt: asDateTime(payload['ts'] ?? envelope.ts),
-      currentTime: asString(payload['current_time']),
+      currentTime: _currentTime(payload),
     );
   }
 }
@@ -639,6 +639,7 @@ class ChatroomWorldNotification extends ChatroomEvent {
     required this.detailUrl,
     required this.ts,
     required this.broadcast,
+    this.currentTime = '',
   });
 
   final String worldId;
@@ -649,6 +650,7 @@ class ChatroomWorldNotification extends ChatroomEvent {
   final String detailUrl;
   final DateTime? ts;
   final bool broadcast;
+  final String currentTime;
 
   factory ChatroomWorldNotification.fromEnvelope(ChatroomEnvelope envelope) {
     final payload = envelope.mergedPayload;
@@ -661,6 +663,43 @@ class ChatroomWorldNotification extends ChatroomEvent {
       detailUrl: asString(payload['detail_url']),
       ts: asDateTime(payload['ts'] ?? envelope.ts),
       broadcast: asBool(payload['broadcast']),
+      currentTime: _currentTime(payload),
+    );
+  }
+}
+
+class ChatroomNewUserJoinEvent extends ChatroomEvent {
+  const ChatroomNewUserJoinEvent({
+    required this.worldId,
+    required this.characterId,
+    required this.characterType,
+    required this.characterName,
+    required this.playerUid,
+    required this.playerUsername,
+    required this.ts,
+    this.currentTime = '',
+  });
+
+  final String worldId;
+  final String characterId;
+  final String characterType;
+  final String characterName;
+  final String playerUid;
+  final String playerUsername;
+  final DateTime? ts;
+  final String currentTime;
+
+  factory ChatroomNewUserJoinEvent.fromEnvelope(ChatroomEnvelope envelope) {
+    final payload = envelope.mergedPayload;
+    return ChatroomNewUserJoinEvent(
+      worldId: asString(payload['world_id'], fallback: envelope.worldId),
+      characterId: asString(payload['char_id']),
+      characterType: asString(payload['type']),
+      characterName: asString(payload['name']),
+      playerUid: asString(payload['player_uid']),
+      playerUsername: asString(payload['player_username']),
+      ts: asDateTime(payload['ts'] ?? envelope.ts),
+      currentTime: _currentTime(payload),
     );
   }
 }
@@ -748,6 +787,8 @@ class ChatroomMessageHandlers {
         onFailure?.call(e);
       case ChatroomWorldNotification e:
         onWorldNotification?.call(e);
+      case ChatroomNewUserJoinEvent():
+        break;
       case ChatroomUserMessage e:
         onUserMessage?.call(e);
       case ChatroomNarratorMessage e:
@@ -774,6 +815,8 @@ ChatroomEvent chatroomEventFromEnvelope(ChatroomEnvelope envelope) {
     case 'user_location_change':
     case 'world_new_message':
       return ChatroomWorldNotification.fromEnvelope(envelope);
+    case 'new_user_join':
+      return ChatroomNewUserJoinEvent.fromEnvelope(envelope);
     case 'tick_advance':
       return ChatroomTickAdvanceMessage.fromEnvelope(envelope);
     case 'nar_new_message':
@@ -805,6 +848,8 @@ String chatroomEventType(ChatroomEvent event) {
       return e.sourceType;
     case ChatroomWorldNotification e:
       return e.eventType;
+    case ChatroomNewUserJoinEvent():
+      return 'new_user_join';
     case ChatroomUserMessage():
       return 'user_message';
     case ChatroomNarratorMessage():
@@ -827,6 +872,29 @@ Map<String, dynamic> _optionalJsonMap(Object? value) {
 
 String _worldId(Map<String, dynamic> payload) {
   return asString(payload['world_id']);
+}
+
+String _currentTime(Map<String, dynamic> payload) {
+  return _findCurrentTime(payload);
+}
+
+String _findCurrentTime(Object? value) {
+  if (value is Map) {
+    final snakeCase = asString(value['current_time']);
+    if (snakeCase.trim().isNotEmpty) return snakeCase;
+    final camelCase = asString(value['currentTime']);
+    if (camelCase.trim().isNotEmpty) return camelCase;
+    for (final child in value.values) {
+      final currentTime = _findCurrentTime(child);
+      if (currentTime.trim().isNotEmpty) return currentTime;
+    }
+  } else if (value is Iterable) {
+    for (final child in value) {
+      final currentTime = _findCurrentTime(child);
+      if (currentTime.trim().isNotEmpty) return currentTime;
+    }
+  }
+  return '';
 }
 
 int _wsCode(Map<String, dynamic> payload) {

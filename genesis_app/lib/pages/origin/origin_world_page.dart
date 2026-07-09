@@ -48,6 +48,7 @@ import '../../utils/genesis_image_resource.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_page.dart';
 import '../world/world_header.dart';
+import '../world/world_map_bubble_candidates.dart';
 import 'origin_launch_coordinator.dart';
 import 'origin_launch_flow.dart';
 
@@ -105,6 +106,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   static const double _mapLoadingCollapsedHeightOffset = 100;
   static const double _mapLoadedCollapsedHeightOffset = 60;
   static const double _mapDefaultExposedChildSize = 0.31;
+  static const double _launchWaitAvatarSize = 88;
 
   late final TabController _tabController;
   final OriginLaunchCoordinator _launchCoordinator =
@@ -114,6 +116,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   bool _didResumePendingLaunch = false;
   bool _showLocationPage = false;
   int _detailSheetCollapseRequest = 0;
+  List<GenesisGenerationWaitAvatar> _launchWaitAvatars =
+      const <GenesisGenerationWaitAvatar>[];
   _OriginLocationChatDescriptor? _activeChatLocation;
   late final VoidCallback _removeLaunchOutcomeListener;
 
@@ -177,7 +181,75 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   Future<OriginDetail> _loadOriginDetail() async {
     final api = AppServicesScope.read(context).api;
     final origin = await api.getOrigin(widget.oid);
+    _cacheLaunchWaitAvatars(origin);
     return origin;
+  }
+
+  void _cacheLaunchWaitAvatars(OriginDetail origin) {
+    final avatars = _launchWaitAvatarsFromOrigin(origin);
+    _precacheLaunchWaitAvatarImages(avatars);
+    if (_sameWaitAvatars(_launchWaitAvatars, avatars)) return;
+    if (!mounted) {
+      _launchWaitAvatars = avatars;
+      return;
+    }
+    setState(() => _launchWaitAvatars = avatars);
+  }
+
+  List<GenesisGenerationWaitAvatar> _launchWaitAvatarsFromOrigin(
+    OriginDetail origin,
+  ) {
+    return origin.characters
+        .map((character) {
+          return GenesisGenerationWaitAvatar(
+            name: character.name.trim(),
+            url: _resolveAssetUrl(character.avatar).trim(),
+          );
+        })
+        .where((avatar) => avatar.name.isNotEmpty || avatar.url.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  void _precacheLaunchWaitAvatarImages(
+    List<GenesisGenerationWaitAvatar> avatars,
+  ) {
+    final mediaQuery = MediaQuery.maybeOf(context);
+    final devicePixelRatio = mediaQuery?.devicePixelRatio ?? 1;
+    for (final avatar in avatars) {
+      final resolvedUrl = selectGenesisImageUrl(
+        avatar.url,
+        logicalWidth: _launchWaitAvatarSize,
+        logicalHeight: _launchWaitAvatarSize,
+        devicePixelRatio: devicePixelRatio,
+      ).trim();
+      if (resolvedUrl.isEmpty) continue;
+      final ImageProvider provider = resolvedUrl.startsWith('assets/')
+          ? AssetImage(resolvedUrl)
+          : NetworkImage(resolvedUrl);
+      unawaited(
+        precacheImage(
+          provider,
+          context,
+          onError: (exception, stackTrace) {
+            debugPrint(
+              '[OriginWorldPage] launch avatar precache failed '
+              'url="$resolvedUrl": $exception',
+            );
+          },
+        ),
+      );
+    }
+  }
+
+  bool _sameWaitAvatars(
+    List<GenesisGenerationWaitAvatar> a,
+    List<GenesisGenerationWaitAvatar> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].name != b[i].name || a[i].url != b[i].url) return false;
+    }
+    return true;
   }
 
   void _refreshOriginDetail() {
@@ -333,7 +405,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     OriginRoleLaunchSelection roleSelection,
   ) async {
     if (_launching) return;
-    setState(() => _launching = true);
+    final avatars = _launchWaitAvatarsFromOrigin(origin);
+    setState(() {
+      _launchWaitAvatars = avatars;
+      _launching = true;
+    });
     final started = await startOriginLaunch(
       context: context,
       origin: origin,
@@ -434,6 +510,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         if (_launching)
           Positioned.fill(
             child: _OriginPendingLaunchWaitOverlay(
+              avatars: _launchWaitAvatars,
               onBackPressed: _handleLaunchWaitBack,
             ),
           ),
@@ -607,9 +684,14 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                 locationNodes: locationNodes,
                 listLocationNodes: listLocationNodes,
                 mapImageUrl: mapImageUrl,
+                messageBubbles: _activeChatLocation == null
+                    ? _originMapMessageBubbles(origin)
+                    : const <WorldMapMessageBubble>[],
+                messageBubblePlaybackPaused: _activeChatLocation != null,
                 dimmed: _showLocationPage,
                 showPointsList: _showLocationPage,
-                initialZoomScale: _showLocationPage ? 1 : 1.5,
+                initialZoomScale: _showLocationPage ? 1 : 1.2,
+                enableAvatarScaleReboundHint: true,
                 pointsListOuterScrollHandoff: false,
                 overlayTop: topPadding + 8 + 48,
                 drillExitTop: topPadding + 68,

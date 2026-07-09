@@ -33,9 +33,7 @@ class AppBootstrap {
 
   static Future<bool> primeNetworkPermission(AppServices services) async {
     try {
-      await services.api.v1.origin.homeNav().timeout(
-        _networkPermissionPrimeTimeout,
-      );
+      await services.api.health().timeout(_networkPermissionPrimeTimeout);
       return true;
     } catch (e, st) {
       debugPrint('[Auth][Bootstrap] network permission prime failed: $e');

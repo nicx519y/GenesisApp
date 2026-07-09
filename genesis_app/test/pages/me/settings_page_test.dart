@@ -7,6 +7,7 @@ import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
+import 'package:genesis_flutter_android/app/startup/startup_network_gate.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
@@ -200,6 +201,7 @@ AppServices _feedbackTestServices(_RecordingFeedbackTransport transport) {
     ),
     appVersionCheck: const _NoUpgradeVersionCheckService(),
     externalUrlOpener: const _FakeExternalUrlOpener(),
+    startupNetworkGate: StartupNetworkGate.open(),
   );
 }
 

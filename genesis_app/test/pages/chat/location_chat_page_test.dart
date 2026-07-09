@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
@@ -191,6 +193,39 @@ void main() {
     );
   });
 
+  test('local hydrate ignores stale disposed provided chatroom services', () {
+    final panelSource = File(
+      'lib/pages/chat/location_chat_page.dart',
+    ).readAsStringSync();
+    final serviceSource = File(
+      'lib/network/chatroom/world_chatroom_service.dart',
+    ).readAsStringSync();
+
+    expect(serviceSource, contains('bool get isDisposed => _disposed;'));
+    expect(panelSource, contains('int _serviceGeneration = 0;'));
+    expect(
+      panelSource,
+      contains('_startHydrateLocalMessages(provided, services);'),
+    );
+    expect(
+      panelSource,
+      isNot(contains('unawaited(_hydrateLocalMessages(provided, services))')),
+    );
+    expect(panelSource, contains('identical(_service, service)'));
+    expect(panelSource, contains('!service.isDisposed'));
+    expect(panelSource, contains('on ChatroomProtocolException catch (error)'));
+    expect(
+      panelSource,
+      contains('.catchError((Object error, StackTrace stackTrace)'),
+    );
+    expect(
+      panelSource,
+      contains('Error.throwWithStackTrace(error, stackTrace)'),
+    );
+    expect(panelSource, contains('hydrateLocalStaleService'));
+    expect(panelSource, contains('_serviceGeneration++;'));
+  });
+
   test(
     'visible location chat messages keep latest continuous location id suffix',
     () {
@@ -273,34 +308,36 @@ void main() {
     },
   );
 
-  test(
-    'visible location chat messages keep leading tick before dirty records',
-    () {
-      final source = [
-        _message(
-          messageId: 1,
-          locationMessageId: 0,
-          senderType: 'tick',
-          content: 'Day 1, 20:00',
-        ),
-        _message(
-          messageId: 5,
-          locationMessageId: 0,
-          senderType: 'character',
-          content: 'dirty record without location id',
-        ),
-        _message(messageId: 45, locationMessageId: 12, content: 'first valid'),
-        _message(messageId: 46, locationMessageId: 13, content: 'second valid'),
-      ];
+  test('visible location chat messages keep leading cursorless records', () {
+    final source = [
+      _message(
+        messageId: 1,
+        locationMessageId: 0,
+        senderType: 'tick',
+        content: 'Day 1, 20:00',
+      ),
+      _message(
+        messageId: 5,
+        locationMessageId: 0,
+        senderType: 'character',
+        content: 'dirty record without location id',
+      ),
+      _message(messageId: 45, locationMessageId: 12, content: 'first valid'),
+      _message(messageId: 46, locationMessageId: 13, content: 'second valid'),
+    ];
 
-      expect(
-        visibleLocationChatMessagesForTesting(
-          source,
-        ).map((message) => message.content),
-        ['Day 1, 20:00', 'first valid', 'second valid'],
-      );
-    },
-  );
+    expect(
+      visibleLocationChatMessagesForTesting(
+        source,
+      ).map((message) => message.content),
+      [
+        'Day 1, 20:00',
+        'dirty record without location id',
+        'first valid',
+        'second valid',
+      ],
+    );
+  });
 
   test('visible location chat messages collapse consecutive ticks', () {
     final source = [

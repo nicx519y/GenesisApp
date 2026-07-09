@@ -131,7 +131,7 @@ String worldMapBubbleDisplayContent(String raw) {
   var text = raw.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
   text = _removeItalicMarkdownSpans(text);
   text = text.replaceAllMapped(
-    RegExp(r'\\([\\`*_{}\[\]()#+\-.!|>])'),
+    RegExp(r'\\([^nr])'),
     (match) => match.group(1) ?? '',
   );
   text = text.replaceAll(RegExp(r'[「」]'), '');

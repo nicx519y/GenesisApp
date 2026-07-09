@@ -428,10 +428,16 @@ void main() {
     expect(historyMessage.messageId, greaterThan(0));
     expect(historyMessage.locationMessageId, greaterThan(0));
     expect(historyMessage.createdAt, isNotNull);
+    var lockStatus = await api.chatroomHttp.tickLockStatus(worldId: world);
+    expect(lockStatus.isLocked, false);
     expect(await api.chatroomHttp.lockWorld(worldId: world), true);
+    lockStatus = await api.chatroomHttp.tickLockStatus(worldId: world);
+    expect(lockStatus.isLocked, true);
     var tickProgress = await api.chatroomHttp.tickProgress(worldId: world);
     expect(tickProgress.progress, 0);
     expect(await api.chatroomHttp.unlockWorld(worldId: world), true);
+    lockStatus = await api.chatroomHttp.tickLockStatus(worldId: world);
+    expect(lockStatus.isLocked, false);
     tickProgress = await api.chatroomHttp.tickProgress(worldId: world);
     expect(tickProgress.progress, 1);
     final narratorMessageId = await api.chatroomHttp.writeNarrator(

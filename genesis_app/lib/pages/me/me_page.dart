@@ -75,6 +75,7 @@ class _MePageState extends State<MePage> {
   bool _hasPendingActivationRefresh = false;
   int _selectedCollectionTabIndex = 0;
   ValueListenable<int>? _sessionRevisionListenable;
+  bool _isDisposed = false;
 
   @override
   void initState() {
@@ -104,6 +105,8 @@ class _MePageState extends State<MePage> {
 
   @override
   void dispose() {
+    _isDisposed = true;
+    _loadGeneration += 1;
     _sessionRevisionListenable?.removeListener(_handleSessionChanged);
     widget.activationListenable?.removeListener(_handleTabActivated);
     _isUpdatingProfile.dispose();
@@ -116,6 +119,9 @@ class _MePageState extends State<MePage> {
 
   Future<_MePageContent> _loadData() async {
     if (!await _hasLocalLoginSession()) {
+      if (!_canUpdateAsyncState) {
+        return const _MePageContent.signedOut();
+      }
       _loadGeneration += 1;
       _setOriginsState(const <UserProfileOriginItem>[], isLoading: false);
       _setWorldsState(const <UserProfileWorldItem>[], isLoading: false);
@@ -205,6 +211,7 @@ class _MePageState extends State<MePage> {
       origins: const [],
       worlds: const [],
     );
+    if (!_canUpdateAsyncState || generation != _loadGeneration) return data;
     _avatarUrl.value = data.avatarUrl;
     _displayName.value = data.displayName;
     unawaited(
@@ -298,6 +305,7 @@ class _MePageState extends State<MePage> {
   }
 
   bool get _isTabActive => widget.isActiveListenable?.value ?? true;
+  bool get _canUpdateAsyncState => mounted && !_isDisposed;
 
   void _handleCollectionTabChanged(int index) {
     if (_selectedCollectionTabIndex == index) return;
@@ -379,6 +387,7 @@ class _MePageState extends State<MePage> {
   }
 
   void _setCollectionLoading(int tabIndex, {required bool isLoading}) {
+    if (!_canUpdateAsyncState) return;
     if (tabIndex == 1) {
       _setWorldsState(_worldsState.value.items, isLoading: isLoading);
       return;
@@ -390,6 +399,7 @@ class _MePageState extends State<MePage> {
     List<UserProfileOriginItem> items, {
     required bool isLoading,
   }) {
+    if (!_canUpdateAsyncState) return;
     final current = _originsState.value;
     if (current.isLoading == isLoading &&
         _sameOriginItems(current.items, items)) {
@@ -405,6 +415,7 @@ class _MePageState extends State<MePage> {
     List<UserProfileWorldItem> items, {
     required bool isLoading,
   }) {
+    if (!_canUpdateAsyncState) return;
     final current = _worldsState.value;
     if (current.isLoading == isLoading &&
         _sameWorldItems(current.items, items)) {
@@ -501,6 +512,7 @@ class _MePageState extends State<MePage> {
   Future<void> _refreshOrigins() async {
     final services = AppServicesScope.read(context);
     final uid = await _readCurrentBackendUid();
+    if (!_canUpdateAsyncState) return;
     debugPrint('[MePage] refresh origins uid: $uid');
     final current = _originsState.value;
     _setOriginsState(current.items, isLoading: true);
@@ -527,6 +539,7 @@ class _MePageState extends State<MePage> {
   Future<void> _refreshWorlds() async {
     final services = AppServicesScope.read(context);
     final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (!_canUpdateAsyncState) return;
     final current = _worldsState.value;
     _setWorldsState(current.items, isLoading: true);
     try {

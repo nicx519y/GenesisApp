@@ -16,6 +16,7 @@ import '../../components/home/world_item_card.dart';
 import '../../components/origin/origin_item_card.dart';
 import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
+import '../../network/api_exception.dart';
 import '../../network/json_utils.dart';
 import '../../platform/privacy/app_tracking_transparency_service.dart';
 import '../../routers/app_router.dart';
@@ -30,10 +31,47 @@ void _ignoreHomeFeedCacheWrite(Future<void> write) {
 
 typedef TrackingAuthorizationRequester =
     Future<AppTrackingAuthorizationStatus> Function();
+typedef TrackingAuthorizationStatusReader =
+    Future<AppTrackingAuthorizationStatus> Function();
+typedef StartupRuntimeInitializer =
+    Future<void> Function(
+      AppServices services,
+      AppTrackingAuthorizationStatus trackingAuthorizationStatus,
+    );
 
 Future<void> _waitHomeInitialRequestMetricWindow(Duration delay) async {
   if (delay <= Duration.zero) return;
   await Future<void>.delayed(delay);
+}
+
+const Duration _homeInitialNetworkRetryDelay = Duration(seconds: 2);
+
+bool _isNetworkLikeHomeError(Object error) {
+  if (error is ApiException) {
+    return error.kind == ApiExceptionKind.timeout ||
+        error.kind == ApiExceptionKind.transport ||
+        error.transportErrorKind == TransportErrorKind.timeout ||
+        error.transportErrorKind == TransportErrorKind.connection;
+  }
+  if (error is TimeoutException) return true;
+  final text = error.toString().toLowerCase();
+  return text.contains('timeout') ||
+      text.contains('socket') ||
+      text.contains('connection') ||
+      text.contains('network') ||
+      text.contains('host lookup');
+}
+
+Future<void> _initializeDefaultStartupRuntime(
+  AppServices services,
+  AppTrackingAuthorizationStatus trackingAuthorizationStatus,
+) async {
+  await AppBootstrap.ensureFirebasePerformanceMonitoring();
+  await AppStartupCoordinator.initializeTelemetry(
+    services: services,
+    trackingAuthorizationStatus: trackingAuthorizationStatus,
+  );
+  AppStartupCoordinator.startWarmUp(services);
 }
 
 class HomePage extends StatefulWidget {
@@ -43,9 +81,14 @@ class HomePage extends StatefulWidget {
     this.activationListenable,
     this.startupPlatform,
     this.primeNetworkPermission = AppBootstrap.primeNetworkPermission,
+    this.trackingAuthorizationStatus =
+        AppTrackingTransparencyService.authorizationStatus,
     this.requestTrackingAuthorization =
         AppTrackingTransparencyService.requestAuthorization,
+    this.initializeRuntime = _initializeDefaultStartupRuntime,
     this.initialRequestMetricWindow = const Duration(milliseconds: 200),
+    this.networkPermissionDialogSettleTimeout = const Duration(seconds: 2),
+    this.postSystemDialogResumeDelay = const Duration(milliseconds: 350),
   });
 
   static const List<String> tabs = ['My Worlds', 'Popular'];
@@ -56,29 +99,60 @@ class HomePage extends StatefulWidget {
   final ValueListenable<int>? activationListenable;
   final TargetPlatform? startupPlatform;
   final Future<bool> Function(AppServices services) primeNetworkPermission;
+  final TrackingAuthorizationStatusReader trackingAuthorizationStatus;
   final TrackingAuthorizationRequester requestTrackingAuthorization;
+  final StartupRuntimeInitializer initializeRuntime;
   final Duration initialRequestMetricWindow;
+  final Duration networkPermissionDialogSettleTimeout;
+  final Duration postSystemDialogResumeDelay;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   static int? _lastResolvedInitialTabIndex;
 
   int? _initialTabIndex;
   Future<int>? _initialTabIndexFuture;
+  late final ValueNotifier<bool> _homeNetworkRequestsAllowed;
   var _startupGateStarted = false;
-  var _startupGateReady = false;
-  var _startupGateFailed = false;
+  AppLifecycleState? _lifecycleState;
+  Completer<void>? _resumedCompleter;
+  Completer<void>? _inactiveCompleter;
+  var _watchingNetworkPermissionDialog = false;
 
   @override
   void initState() {
     super.initState();
+    _homeNetworkRequestsAllowed = ValueNotifier<bool>(!_requiresStartupGate);
+    _lifecycleState = WidgetsBinding.instance.lifecycleState;
+    WidgetsBinding.instance.addObserver(this);
     _resolveInitialTabIndex();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startStartupGateIfNeeded();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _resumedCompleter?.complete();
+    _inactiveCompleter?.complete();
+    _homeNetworkRequestsAllowed.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycleState = state;
+    if (state == AppLifecycleState.resumed) {
+      _resumedCompleter?.complete();
+      _resumedCompleter = null;
+    } else if (_watchingNetworkPermissionDialog) {
+      _inactiveCompleter?.complete();
+      _inactiveCompleter = null;
+    }
   }
 
   @override
@@ -116,49 +190,112 @@ class _HomePageState extends State<HomePage> {
     if (!mounted || _startupGateStarted) return;
     _startupGateStarted = true;
     if (!_requiresStartupGate) {
-      _startupGateReady = true;
+      _homeNetworkRequestsAllowed.value = true;
       return;
     }
     unawaited(_runIosStartupGate());
   }
 
   Future<void> _runIosStartupGate() async {
-    setState(() {
-      _startupGateFailed = false;
-    });
     final services = AppServicesScope.read(context);
-    final allowed = await widget.primeNetworkPermission(services);
+    await _waitForAppResumed();
     if (!mounted) return;
-    if (!allowed) {
-      setState(() {
-        _startupGateReady = false;
-        _startupGateFailed = true;
-      });
-      return;
-    }
+    await _primeNetworkPermissionThenWaitForSystemDialog(services);
+    if (!mounted) return;
+    final trackingAuthorizationStatus = await _resolveTrackingAuthorization();
+    if (!mounted) return;
     setState(() {
-      _startupGateReady = true;
-      _startupGateFailed = false;
+      _resolveInitialTabIndex();
     });
-    unawaited(_requestTrackingAndInitializeTelemetry(services));
+    await WidgetsBinding.instance.endOfFrame;
+    await widget.initializeRuntime(services, trackingAuthorizationStatus);
+    if (!mounted) return;
+    AppStartupCoordinator.markPostLaunchWorkAllowed();
+    services.startupNetworkGate.open();
+    _homeNetworkRequestsAllowed.value = true;
   }
 
-  Future<void> _requestTrackingAndInitializeTelemetry(
+  Future<AppTrackingAuthorizationStatus> _resolveTrackingAuthorization() async {
+    final currentStatus = await widget.trackingAuthorizationStatus();
+    if (currentStatus != AppTrackingAuthorizationStatus.notDetermined &&
+        currentStatus != AppTrackingAuthorizationStatus.unknown) {
+      return currentStatus;
+    }
+    await _waitForAppResumed();
+    final requestedStatus = await widget.requestTrackingAuthorization();
+    await _waitForSystemDialogToClose();
+    return requestedStatus;
+  }
+
+  Future<void> _primeNetworkPermissionThenWaitForSystemDialog(
     AppServices services,
   ) async {
-    final trackingAuthorizationStatus = await widget
-        .requestTrackingAuthorization();
-    await AppStartupCoordinator.initializeTelemetry(
-      services: services,
-      trackingAuthorizationStatus: trackingAuthorizationStatus,
+    _watchingNetworkPermissionDialog = true;
+    _inactiveCompleter ??= Completer<void>();
+    try {
+      unawaited(
+        widget.primeNetworkPermission(services).catchError((
+          Object error,
+          StackTrace stackTrace,
+        ) {
+          debugPrint(
+            '[Home][StartupGate] network permission prime failed: $error',
+          );
+          debugPrint('[Home][StartupGate] stacktrace:\n$stackTrace');
+          return false;
+        }),
+      );
+      await _waitForNetworkPermissionDialogToSettle();
+    } finally {
+      _watchingNetworkPermissionDialog = false;
+    }
+  }
+
+  Future<void> _waitForNetworkPermissionDialogToSettle() async {
+    final inactiveCompleter = _inactiveCompleter ?? Completer<void>();
+    _inactiveCompleter = inactiveCompleter;
+    final timeout = widget.networkPermissionDialogSettleTimeout;
+    if (timeout <= Duration.zero) return;
+    final inactiveObserved = await inactiveCompleter.future
+        .then((_) => true)
+        .timeout(timeout, onTimeout: () => false);
+    if (!inactiveObserved) return;
+    await _waitForAppResumed();
+    await _waitAfterSystemDialogResume();
+  }
+
+  Future<void> _waitForSystemDialogToClose() async {
+    await _waitAfterSystemDialogResume();
+    if (_lifecycleState == AppLifecycleState.resumed ||
+        _lifecycleState == null) {
+      return;
+    }
+    final completer = _resumedCompleter ?? Completer<void>();
+    _resumedCompleter = completer;
+    await completer.future.timeout(
+      const Duration(seconds: 30),
+      onTimeout: () {},
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+  }
+
+  Future<void> _waitForAppResumed() async {
+    if (_lifecycleState == AppLifecycleState.resumed ||
+        _lifecycleState == null) {
+      return;
+    }
+    final completer = _resumedCompleter ?? Completer<void>();
+    _resumedCompleter = completer;
+    await completer.future.timeout(
+      const Duration(seconds: 30),
+      onTimeout: () {},
     );
   }
 
-  void _retryStartupGate() {
-    if (!_requiresStartupGate) return;
-    _startupGateStarted = false;
-    _startupGateFailed = false;
-    _startStartupGateIfNeeded();
+  Future<void> _waitAfterSystemDialogResume() async {
+    final delay = widget.postSystemDialogResumeDelay;
+    if (delay <= Duration.zero) return;
+    await Future<void>.delayed(delay);
   }
 
   Future<int> _initialTabIndexFromSession() async {
@@ -188,17 +325,13 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_requiresStartupGate && !_startupGateReady) {
-      return _HomeStartupGateView(
-        failed: _startupGateFailed,
-        onRetry: _retryStartupGate,
-      );
-    }
     final initialTabIndex = _initialTabIndex;
     if (initialTabIndex != null) {
       return _HomeTabScaffold(
         initialIndex: initialTabIndex,
         activationListenable: widget.activationListenable,
+        networkRequestsAllowed: _homeNetworkRequestsAllowed,
+        keepInitialNetworkFailureLoading: _requiresStartupGate,
         initialRequestMetricWindow: widget.initialRequestMetricWindow,
       );
     }
@@ -206,20 +339,13 @@ class _HomePageState extends State<HomePage> {
     return FutureBuilder<int>(
       future: _initialTabIndexFuture,
       builder: (context, snapshot) {
-        final initialIndex = snapshot.data;
-        if (initialIndex == null) {
-          return const Column(
-            children: [
-              _HomeHeader(),
-              SizedBox(height: 4),
-              Expanded(child: GenesisListLoadingSkeleton.popularOriginList()),
-            ],
-          );
-        }
+        final initialIndex = snapshot.data ?? HomePage.myWorldsTabIndex;
 
         return _HomeTabScaffold(
           initialIndex: initialIndex,
           activationListenable: widget.activationListenable,
+          networkRequestsAllowed: _homeNetworkRequestsAllowed,
+          keepInitialNetworkFailureLoading: _requiresStartupGate,
           initialRequestMetricWindow: widget.initialRequestMetricWindow,
         );
       },
@@ -231,11 +357,15 @@ class _HomeTabScaffold extends StatelessWidget {
   const _HomeTabScaffold({
     required this.initialIndex,
     required this.activationListenable,
+    required this.networkRequestsAllowed,
+    required this.keepInitialNetworkFailureLoading,
     required this.initialRequestMetricWindow,
   });
 
   final int initialIndex;
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<bool> networkRequestsAllowed;
+  final bool keepInitialNetworkFailureLoading;
   final Duration initialRequestMetricWindow;
 
   @override
@@ -252,6 +382,9 @@ class _HomeTabScaffold extends StatelessWidget {
           Expanded(
             child: _HomeTabView(
               activationListenable: activationListenable,
+              networkRequestsAllowed: networkRequestsAllowed,
+              keepInitialNetworkFailureLoading:
+                  keepInitialNetworkFailureLoading,
               initialRequestMetricWindow: initialRequestMetricWindow,
             ),
           ),
@@ -277,10 +410,14 @@ class _HomeTabs extends StatelessWidget {
 class _HomeTabView extends StatelessWidget {
   const _HomeTabView({
     this.activationListenable,
+    required this.networkRequestsAllowed,
+    required this.keepInitialNetworkFailureLoading,
     required this.initialRequestMetricWindow,
   });
 
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<bool> networkRequestsAllowed;
+  final bool keepInitialNetworkFailureLoading;
   final Duration initialRequestMetricWindow;
 
   @override
@@ -290,11 +427,15 @@ class _HomeTabView extends StatelessWidget {
         _MyWorldFeed(
           index: 0,
           activationListenable: activationListenable,
+          networkRequestsAllowed: networkRequestsAllowed,
+          keepInitialNetworkFailureLoading: keepInitialNetworkFailureLoading,
           initialRequestMetricWindow: initialRequestMetricWindow,
         ),
         _PopularOriginFeed(
           index: 1,
           activationListenable: activationListenable,
+          networkRequestsAllowed: networkRequestsAllowed,
+          keepInitialNetworkFailureLoading: keepInitialNetworkFailureLoading,
           initialRequestMetricWindow: initialRequestMetricWindow,
         ),
       ],
@@ -336,43 +477,19 @@ class _HomeHeader extends StatelessWidget {
   }
 }
 
-class _HomeStartupGateView extends StatelessWidget {
-  const _HomeStartupGateView({required this.failed, required this.onRetry});
-
-  final bool failed;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const _HomeHeader(),
-        const SizedBox(height: 4),
-        if (failed)
-          Expanded(
-            child: Center(
-              child: FilledButton(
-                onPressed: onRetry,
-                child: const Text('Retry'),
-              ),
-            ),
-          )
-        else
-          const Expanded(child: GenesisListLoadingSkeleton.popularOriginList()),
-      ],
-    );
-  }
-}
-
 class _MyWorldFeed extends StatefulWidget {
   const _MyWorldFeed({
     required this.index,
     required this.initialRequestMetricWindow,
+    required this.networkRequestsAllowed,
+    required this.keepInitialNetworkFailureLoading,
     this.activationListenable,
   });
 
   final int index;
   final Duration initialRequestMetricWindow;
+  final ValueListenable<bool> networkRequestsAllowed;
+  final bool keepInitialNetworkFailureLoading;
   final ValueListenable<int>? activationListenable;
 
   @override
@@ -387,6 +504,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   TabController? _tabController;
   final ScrollController _scrollController = ScrollController();
   final List<WorldListItem> _items = <WorldListItem>[];
+  Timer? _startupInitialRetryTimer;
   Future<bool>? _cacheLoadFuture;
   var _nextPage = 1;
   var _total = 0;
@@ -394,6 +512,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   var _hasRequested = false;
   var _hasAttemptedCachePreload = false;
   var _hasLoadedCachedPage = false;
+  var _hasResolvedLocalSession = false;
   var _scrollListenerAttached = false;
   var _isInitialLoading = false;
   var _isLoadingMore = false;
@@ -405,6 +524,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   void initState() {
     super.initState();
     widget.activationListenable?.addListener(_handlePageActivated);
+    widget.networkRequestsAllowed.addListener(_handleNetworkRequestsAllowed);
   }
 
   @override
@@ -433,6 +553,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       oldWidget.activationListenable?.removeListener(_handlePageActivated);
       widget.activationListenable?.addListener(_handlePageActivated);
     }
+    if (oldWidget.networkRequestsAllowed != widget.networkRequestsAllowed) {
+      oldWidget.networkRequestsAllowed.removeListener(
+        _handleNetworkRequestsAllowed,
+      );
+      widget.networkRequestsAllowed.addListener(_handleNetworkRequestsAllowed);
+    }
     if (oldWidget.index != widget.index) {
       _resetListState();
       _requestIfCurrentTab();
@@ -441,7 +567,9 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   @override
   void dispose() {
+    _startupInitialRetryTimer?.cancel();
     widget.activationListenable?.removeListener(_handlePageActivated);
+    widget.networkRequestsAllowed.removeListener(_handleNetworkRequestsAllowed);
     _tabController?.removeListener(_handleTabChange);
     _scrollController
       ..removeListener(_handleScroll)
@@ -450,6 +578,8 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }
 
   void _resetListState() {
+    _startupInitialRetryTimer?.cancel();
+    _startupInitialRetryTimer = null;
     _items.clear();
     _nextPage = 1;
     _total = 0;
@@ -458,6 +588,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _hasRequested = false;
     _hasAttemptedCachePreload = false;
     _hasLoadedCachedPage = false;
+    _hasResolvedLocalSession = false;
     _isInitialLoading = false;
     _isLoadingMore = false;
     _isRefreshing = false;
@@ -469,6 +600,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _requestIfCurrentTab();
   }
 
+  void _handleNetworkRequestsAllowed() {
+    if (widget.networkRequestsAllowed.value) {
+      _requestIfCurrentTab();
+    }
+  }
+
   void _handlePageActivated() {
     final controller = _tabController;
     if (controller == null || controller.index != widget.index) return;
@@ -476,18 +613,21 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _requestIfCurrentTab();
       return;
     }
-    GenesisTelemetry.collectLog(
-      actionType: 'pageview',
-      action: 'home_my_worlds',
-    );
-    unawaited(_refreshItems());
+    if (widget.networkRequestsAllowed.value) {
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'home_my_worlds',
+      );
+      unawaited(_refreshItems());
+    }
   }
 
   void _requestIfCurrentTab() {
     final controller = _tabController;
     if (controller == null ||
         controller.index != widget.index ||
-        _hasRequested) {
+        _hasRequested ||
+        !widget.networkRequestsAllowed.value) {
       return;
     }
     _hasRequested = true;
@@ -509,18 +649,60 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   void _preloadCachedItemsIfNeeded() {
     if (_hasAttemptedCachePreload) return;
     _hasAttemptedCachePreload = true;
-    if (mounted && _items.isEmpty) {
+    unawaited(_preloadCachedItemsForSignedInSession());
+  }
+
+  Future<void> _preloadCachedItemsForSignedInSession() async {
+    final hasSession = await _hasLocalLoginSession();
+    if (!mounted) return;
+    if (!hasSession) {
       setState(() {
-        _isInitialLoading = true;
+        _items.clear();
+        _nextPage = 1;
+        _total = 0;
+        _hasMore = false;
+        _error = null;
+        _isInitialLoading = false;
+        _isLoadingMore = false;
+        _isRefreshing = false;
+        _isSignedOut = true;
+        _hasResolvedLocalSession = true;
+      });
+      return;
+    }
+    if (_isSignedOut || !_hasResolvedLocalSession) {
+      setState(() {
+        _isSignedOut = false;
+        _hasResolvedLocalSession = true;
       });
     }
-    unawaited(_loadCachedItemsOnce());
+    await _loadCachedItemsOnce();
   }
 
   Future<void> _requestInitialItems() async {
-    if (mounted && _items.isEmpty) {
+    final hasSession = await _hasLocalLoginSession();
+    if (!mounted) return;
+    if (!hasSession) {
       setState(() {
-        _isInitialLoading = true;
+        _items.clear();
+        _nextPage = 1;
+        _total = 0;
+        _hasMore = false;
+        _error = null;
+        _isInitialLoading = false;
+        _isLoadingMore = false;
+        _isRefreshing = false;
+        _isSignedOut = true;
+        _hasResolvedLocalSession = true;
+      });
+      return;
+    }
+    if (mounted &&
+        (_items.isEmpty || _isSignedOut || !_hasResolvedLocalSession)) {
+      setState(() {
+        _hasResolvedLocalSession = true;
+        _isSignedOut = false;
+        _isInitialLoading = _items.isEmpty;
       });
     }
     final didLoadCache = await _loadCachedItemsOnce();
@@ -530,12 +712,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isInitialLoading = true;
       });
     }
-    if (await _hasLocalLoginSession()) {
-      await _waitHomeInitialRequestMetricWindow(
-        widget.initialRequestMetricWindow,
-      );
-      if (!mounted) return;
-    }
+    await _waitHomeInitialRequestMetricWindow(
+      widget.initialRequestMetricWindow,
+    );
+    if (!mounted) return;
     await _refreshItems(force: true);
   }
 
@@ -567,6 +747,8 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     }
 
     final page = _parseWorldListPage(data);
+    _startupInitialRetryTimer?.cancel();
+    _startupInitialRetryTimer = null;
     setState(() {
       _items
         ..clear()
@@ -617,6 +799,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }
 
   Future<void> _refreshItems({bool force = false}) async {
+    if (!widget.networkRequestsAllowed.value) return;
     if ((!force && _isInitialLoading) || _isRefreshing) return;
     final hasSession = await _hasLocalLoginSession();
     if (!hasSession) {
@@ -631,6 +814,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isLoadingMore = false;
         _isRefreshing = false;
         _isSignedOut = true;
+        _hasResolvedLocalSession = true;
       });
       return;
     }
@@ -638,6 +822,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     setState(() {
       _error = null;
       _isSignedOut = false;
+      _hasResolvedLocalSession = true;
       _isInitialLoading = _items.isEmpty && !_hasLoadedCachedPage;
       _isRefreshing = true;
     });
@@ -645,10 +830,15 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     try {
       final page = await _fetchPage(1);
       if (!mounted) return;
+      _startupInitialRetryTimer?.cancel();
+      _startupInitialRetryTimer = null;
+      final shouldReplaceItems = !_worldPageMatchesCurrent(page);
       setState(() {
-        _items
-          ..clear()
-          ..addAll(page.items);
+        if (shouldReplaceItems) {
+          _items
+            ..clear()
+            ..addAll(page.items);
+        }
         _total = page.total;
         _nextPage = 2;
         _hasMore = _items.length < _total && page.items.isNotEmpty;
@@ -657,12 +847,84 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       });
     } catch (error) {
       if (!mounted) return;
+      if (_shouldKeepInitialNetworkFailureLoading(error)) {
+        setState(() {
+          _error = null;
+          _isInitialLoading = true;
+          _isRefreshing = false;
+        });
+        _scheduleStartupInitialRetry();
+        return;
+      }
       setState(() {
         _error = error;
         _isInitialLoading = false;
         _isRefreshing = false;
       });
     }
+  }
+
+  bool _worldPageMatchesCurrent(_WorldListPage page) {
+    if (_total != page.total || _items.length != page.items.length) {
+      return false;
+    }
+    for (var index = 0; index < _items.length; index += 1) {
+      if (_worldItemSignature(_items[index]) !=
+          _worldItemSignature(page.items[index])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  String _worldItemSignature(WorldListItem item) {
+    return <Object?>[
+      item.oid,
+      item.originVersionNum,
+      item.originVersionCreateAt,
+      item.wid,
+      item.status,
+      item.name,
+      item.deleted,
+      item.cover,
+      item.displaySubtitle,
+      item.createdUid,
+      item.createdUserName,
+      item.ownerUid,
+      item.ownerName,
+      item.createdAt,
+      item.updatedAt,
+      item.lastProgressAt,
+      item.lastProgressSummary,
+      item.lastProgressTickNo,
+      item.lastProgressCurrentTime,
+      item.previewImages.join('\n'),
+      item.tags.join('\n'),
+      item.tickCnt,
+      item.connectCnt,
+      item.aiCharacterCnt,
+      item.playerCnt,
+      item.locationCnt,
+    ].join('\u001F');
+  }
+
+  bool _shouldKeepInitialNetworkFailureLoading(Object error) {
+    return widget.keepInitialNetworkFailureLoading &&
+        _items.isEmpty &&
+        !_hasLoadedCachedPage &&
+        !_isSignedOut &&
+        _isNetworkLikeHomeError(error);
+  }
+
+  void _scheduleStartupInitialRetry() {
+    if (_startupInitialRetryTimer?.isActive ?? false) return;
+    _startupInitialRetryTimer = Timer(_homeInitialNetworkRetryDelay, () {
+      _startupInitialRetryTimer = null;
+      if (!mounted || !widget.networkRequestsAllowed.value) return;
+      final controller = _tabController;
+      if (controller == null || controller.index != widget.index) return;
+      unawaited(_refreshItems(force: true));
+    });
   }
 
   Future<bool> _hasLocalLoginSession() async {
@@ -675,7 +937,11 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }
 
   Future<void> _loadNextPage() async {
-    if (!_hasMore || _isInitialLoading || _isLoadingMore || _isRefreshing) {
+    if (!widget.networkRequestsAllowed.value ||
+        !_hasMore ||
+        _isInitialLoading ||
+        _isLoadingMore ||
+        _isRefreshing) {
       return;
     }
     setState(() {
@@ -705,7 +971,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (_isInitialLoading) {
+    final waitingForStartupNetwork = !widget.networkRequestsAllowed.value;
+    if (!waitingForStartupNetwork &&
+        _hasResolvedLocalSession &&
+        !_isSignedOut &&
+        (_isInitialLoading ||
+            (!_hasRequested && !_hasLoadedCachedPage && _items.isEmpty))) {
       return const GenesisListLoadingSkeleton.worldList();
     }
 
@@ -719,6 +990,14 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
             FilledButton(onPressed: _refreshItems, child: const Text('Retry')),
           ],
         ),
+      );
+    }
+
+    if (_items.isEmpty && !_hasResolvedLocalSession) {
+      return ListView(
+        key: const PageStorageKey<String>('home-feed-my-world-pending'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [SizedBox(height: MediaQuery.sizeOf(context).height * 0.62)],
       );
     }
 
@@ -775,6 +1054,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                 }
                 final vm = _items[index];
                 return GestureDetector(
+                  key: ValueKey<String>('home-my-world-${vm.wid}'),
                   behavior: HitTestBehavior.opaque,
                   onTap: vm.deleted
                       ? null
@@ -875,11 +1155,15 @@ class _PopularOriginFeed extends StatefulWidget {
   const _PopularOriginFeed({
     required this.index,
     required this.initialRequestMetricWindow,
+    required this.networkRequestsAllowed,
+    required this.keepInitialNetworkFailureLoading,
     this.activationListenable,
   });
 
   final int index;
   final Duration initialRequestMetricWindow;
+  final ValueListenable<bool> networkRequestsAllowed;
+  final bool keepInitialNetworkFailureLoading;
   final ValueListenable<int>? activationListenable;
 
   @override
@@ -896,6 +1180,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   final List<OriginListItem> _items = <OriginListItem>[];
   final Map<String, List<OriginDiscussPreviewItem>> _discussPreviews =
       <String, List<OriginDiscussPreviewItem>>{};
+  Timer? _startupInitialRetryTimer;
   Future<bool>? _cacheLoadFuture;
   var _nextPage = 1;
   var _total = 0;
@@ -913,6 +1198,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   void initState() {
     super.initState();
     widget.activationListenable?.addListener(_handlePageActivated);
+    widget.networkRequestsAllowed.addListener(_handleNetworkRequestsAllowed);
   }
 
   @override
@@ -941,6 +1227,12 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
       oldWidget.activationListenable?.removeListener(_handlePageActivated);
       widget.activationListenable?.addListener(_handlePageActivated);
     }
+    if (oldWidget.networkRequestsAllowed != widget.networkRequestsAllowed) {
+      oldWidget.networkRequestsAllowed.removeListener(
+        _handleNetworkRequestsAllowed,
+      );
+      widget.networkRequestsAllowed.addListener(_handleNetworkRequestsAllowed);
+    }
     if (oldWidget.index != widget.index) {
       _resetListState();
       _requestIfCurrentTab();
@@ -949,7 +1241,9 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
 
   @override
   void dispose() {
+    _startupInitialRetryTimer?.cancel();
     widget.activationListenable?.removeListener(_handlePageActivated);
+    widget.networkRequestsAllowed.removeListener(_handleNetworkRequestsAllowed);
     _tabController?.removeListener(_handleTabChange);
     _scrollController
       ..removeListener(_handleScroll)
@@ -958,6 +1252,8 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   }
 
   void _resetListState() {
+    _startupInitialRetryTimer?.cancel();
+    _startupInitialRetryTimer = null;
     _items.clear();
     _discussPreviews.clear();
     _nextPage = 1;
@@ -977,6 +1273,12 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
     _requestIfCurrentTab();
   }
 
+  void _handleNetworkRequestsAllowed() {
+    if (widget.networkRequestsAllowed.value) {
+      _requestIfCurrentTab();
+    }
+  }
+
   void _handlePageActivated() {
     final controller = _tabController;
     if (controller == null || controller.index != widget.index) return;
@@ -984,15 +1286,21 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
       _requestIfCurrentTab();
       return;
     }
-    GenesisTelemetry.collectLog(actionType: 'pageview', action: 'home_popular');
-    unawaited(_refreshItems());
+    if (widget.networkRequestsAllowed.value) {
+      GenesisTelemetry.collectLog(
+        actionType: 'pageview',
+        action: 'home_popular',
+      );
+      unawaited(_refreshItems());
+    }
   }
 
   void _requestIfCurrentTab() {
     final controller = _tabController;
     if (controller == null ||
         controller.index != widget.index ||
-        _hasRequested) {
+        _hasRequested ||
+        !widget.networkRequestsAllowed.value) {
       return;
     }
     _hasRequested = true;
@@ -1011,11 +1319,6 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   void _preloadCachedItemsIfNeeded() {
     if (_hasAttemptedCachePreload) return;
     _hasAttemptedCachePreload = true;
-    if (mounted && _items.isEmpty) {
-      setState(() {
-        _isInitialLoading = true;
-      });
-    }
     unawaited(_loadCachedItemsOnce());
   }
 
@@ -1069,6 +1372,8 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
       loadMissingDiscussPreviews: false,
     );
     if (!mounted) return false;
+    _startupInitialRetryTimer?.cancel();
+    _startupInitialRetryTimer = null;
     setState(() {
       _items
         ..clear()
@@ -1184,6 +1489,7 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   }
 
   Future<void> _refreshItems({bool force = false}) async {
+    if (!widget.networkRequestsAllowed.value) return;
     if ((!force && _isInitialLoading) || _isRefreshing) return;
     setState(() {
       _error = null;
@@ -1194,13 +1500,18 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
     try {
       final page = await _fetchPage(1);
       if (!mounted) return;
+      _startupInitialRetryTimer?.cancel();
+      _startupInitialRetryTimer = null;
+      final shouldReplaceItems = !_originPageMatchesCurrent(page);
       setState(() {
-        _items
-          ..clear()
-          ..addAll(page.items);
-        _discussPreviews
-          ..clear()
-          ..addAll(page.discussPreviews);
+        if (shouldReplaceItems) {
+          _items
+            ..clear()
+            ..addAll(page.items);
+          _discussPreviews
+            ..clear()
+            ..addAll(page.discussPreviews);
+        }
         _total = page.total;
         _nextPage = 2;
         _hasMore = _items.length < _total && page.items.isNotEmpty;
@@ -1209,6 +1520,15 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
       });
     } catch (error) {
       if (!mounted) return;
+      if (_shouldKeepInitialNetworkFailureLoading(error)) {
+        setState(() {
+          _error = null;
+          _isInitialLoading = true;
+          _isRefreshing = false;
+        });
+        _scheduleStartupInitialRetry();
+        return;
+      }
       setState(() {
         _error = error;
         _isInitialLoading = false;
@@ -1217,8 +1537,88 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
     }
   }
 
+  bool _originPageMatchesCurrent(_OriginListPage page) {
+    if (_total != page.total || _items.length != page.items.length) {
+      return false;
+    }
+    for (var index = 0; index < _items.length; index += 1) {
+      final current = _items[index];
+      final next = page.items[index];
+      if (_originItemSignature(current) != _originItemSignature(next)) {
+        return false;
+      }
+      if (_originDiscussSignature(_discussPreviews[current.oid]) !=
+          _originDiscussSignature(page.discussPreviews[next.oid])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  String _originItemSignature(OriginListItem item) {
+    return <Object?>[
+      item.oid,
+      item.wid,
+      item.status,
+      item.versionNum,
+      item.tickCount,
+      item.name,
+      item.deleted,
+      item.cover,
+      item.displaySubtitle,
+      item.worldView,
+      item.createdUid,
+      item.createdUserName,
+      item.ownerName,
+      item.createdAt,
+      item.updatedAt,
+      item.tags.join('\n'),
+      item.copyCnt,
+      item.connectCnt,
+      item.discussCnt,
+      item.characterCnt,
+      item.locationCnt,
+    ].join('\u001F');
+  }
+
+  String _originDiscussSignature(List<OriginDiscussPreviewItem>? items) {
+    return (items ?? const <OriginDiscussPreviewItem>[])
+        .map(
+          (item) => <Object?>[
+            item.discussId,
+            item.authorName,
+            item.content,
+            item.replyCount,
+            item.createdAt,
+          ].join('\u001E'),
+        )
+        .join('\u001F');
+  }
+
+  bool _shouldKeepInitialNetworkFailureLoading(Object error) {
+    return widget.keepInitialNetworkFailureLoading &&
+        _items.isEmpty &&
+        !_hasLoadedCachedPage &&
+        _isNetworkLikeHomeError(error);
+  }
+
+  void _scheduleStartupInitialRetry() {
+    if (_startupInitialRetryTimer?.isActive ?? false) return;
+    _startupInitialRetryTimer = Timer(_homeInitialNetworkRetryDelay, () {
+      _startupInitialRetryTimer = null;
+      if (!mounted || !widget.networkRequestsAllowed.value) return;
+      final controller = _tabController;
+      if (controller == null || controller.index != widget.index) return;
+      unawaited(_refreshItems(force: true));
+    });
+  }
+
   Future<void> _loadNextPage() async {
-    if (!_hasMore || _isInitialLoading || _isLoadingMore || _isRefreshing) {
+    if (!widget.networkRequestsAllowed.value ||
+        !_hasMore ||
+        _isInitialLoading ||
+        _isLoadingMore ||
+        _isRefreshing) {
       return;
     }
     setState(() {
@@ -1249,8 +1649,11 @@ class _PopularOriginFeedState extends State<_PopularOriginFeed>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final waitingForStartupNetwork = !widget.networkRequestsAllowed.value;
     if (_items.isEmpty &&
-        (_isInitialLoading || (!_hasRequested && !_hasLoadedCachedPage))) {
+        (_isInitialLoading ||
+            (!_hasRequested && !_hasLoadedCachedPage) ||
+            (waitingForStartupNetwork && !_hasLoadedCachedPage))) {
       return const GenesisListLoadingSkeleton.popularOriginList();
     }
 

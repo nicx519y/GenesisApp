@@ -18,9 +18,15 @@ import 'world_models.dart';
 import 'world_sections.dart';
 
 class WorldBottomTags extends StatelessWidget {
-  const WorldBottomTags({required this.onTap});
+  const WorldBottomTags({
+    required this.onTap,
+    this.eventsUnread = false,
+    this.showDetailUnreadDot = false,
+  });
 
   final ValueChanged<WorldBottomSheetKind> onTap;
+  final bool eventsUnread;
+  final bool showDetailUnreadDot;
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +54,11 @@ class WorldBottomTags extends StatelessWidget {
                 for (final entry in worldBottomTagItems.indexed) ...[
                   WorldBottomTagContent(
                     item: entry.$2,
+                    showUnreadDot:
+                        eventsUnread &&
+                            entry.$2.kind == WorldBottomSheetKind.events ||
+                        showDetailUnreadDot &&
+                            entry.$2.kind == WorldBottomSheetKind.detail,
                     onTap: () => onTap(entry.$2.kind),
                   ),
                   if (entry.$1 != worldBottomTagItems.length - 1)
@@ -63,53 +74,79 @@ class WorldBottomTags extends StatelessWidget {
 }
 
 class WorldBottomTagContent extends StatelessWidget {
-  const WorldBottomTagContent({required this.item, required this.onTap});
+  const WorldBottomTagContent({
+    required this.item,
+    required this.onTap,
+    this.showUnreadDot = false,
+  });
 
   final WorldBottomTagItem item;
   final VoidCallback onTap;
+  final bool showUnreadDot;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Container(
-        height: worldBottomTagHeight,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEBEFF2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (item.asset != null)
-              SvgPicture.asset(
-                item.asset!,
-                width: 17,
-                height: 17,
-                colorFilter: const ColorFilter.mode(
-                  Color(0xFF666666),
-                  BlendMode.srcIn,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            height: worldBottomTagHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEBEFF2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (item.asset != null)
+                  SvgPicture.asset(
+                    item.asset!,
+                    width: 17,
+                    height: 17,
+                    colorFilter: const ColorFilter.mode(
+                      Color(0xFF666666),
+                      BlendMode.srcIn,
+                    ),
+                  )
+                else
+                  Icon(item.icon, size: 17, color: const Color(0xFF666666)),
+                const SizedBox(width: 5),
+                Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF111111),
+                    fontSize: 12,
+                    height: 1,
+                    fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.none,
+                  ),
                 ),
-              )
-            else
-              Icon(item.icon, size: 17, color: const Color(0xFF666666)),
-            const SizedBox(width: 5),
-            Text(
-              item.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF111111),
-                fontSize: 12,
-                height: 1,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.none,
+              ],
+            ),
+          ),
+          if (showUnreadDot)
+            Positioned(
+              key: item.kind == WorldBottomSheetKind.events
+                  ? const ValueKey('world-events-unread-dot')
+                  : null,
+              top: 2,
+              right: 2,
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFF2442),
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -121,6 +158,7 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
     required this.services,
     required this.initialWorld,
     required this.worldListenable,
+    required this.newUserJoinNoticesListenable,
     required this.eventsCache,
     required this.currentUid,
     required this.locationPoints,
@@ -132,6 +170,8 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
   final AppServices services;
   final WorldDetail initialWorld;
   final ValueListenable<WorldDetail?> worldListenable;
+  final ValueListenable<List<WorldNewUserJoinNotice>>
+  newUserJoinNoticesListenable;
   final WorldSectionsEventsCache eventsCache;
   final String currentUid;
   final List<WorldPoint> locationPoints;
@@ -172,6 +212,9 @@ class WorldSingleSectionBottomSheetState
     );
     widget.worldListenable.addListener(_handleWorldDetailChanged);
     widget.selectionListenable.addListener(_handleSelectionChanged);
+    widget.newUserJoinNoticesListenable.addListener(
+      _handleNewUserJoinNoticesChanged,
+    );
   }
 
   @override
@@ -193,6 +236,15 @@ class WorldSingleSectionBottomSheetState
       oldWidget.selectionListenable.removeListener(_handleSelectionChanged);
       widget.selectionListenable.addListener(_handleSelectionChanged);
     }
+    if (oldWidget.newUserJoinNoticesListenable !=
+        widget.newUserJoinNoticesListenable) {
+      oldWidget.newUserJoinNoticesListenable.removeListener(
+        _handleNewUserJoinNoticesChanged,
+      );
+      widget.newUserJoinNoticesListenable.addListener(
+        _handleNewUserJoinNoticesChanged,
+      );
+    }
     if (_isEventsSheet &&
         (oldWidget.eventsCache != widget.eventsCache ||
             oldWidget.selectionListenable.value.kind != _selection.kind)) {
@@ -204,6 +256,9 @@ class WorldSingleSectionBottomSheetState
   void dispose() {
     widget.worldListenable.removeListener(_handleWorldDetailChanged);
     widget.selectionListenable.removeListener(_handleSelectionChanged);
+    widget.newUserJoinNoticesListenable.removeListener(
+      _handleNewUserJoinNoticesChanged,
+    );
     _pageController.dispose();
     super.dispose();
   }
@@ -214,6 +269,11 @@ class WorldSingleSectionBottomSheetState
     if (_isEventsSheet) {
       _ensureEventsForCurrentWorld();
     }
+    if (mounted) setState(() {});
+  }
+
+  void _handleNewUserJoinNoticesChanged() {
+    if (_selection.kind != WorldBottomSheetKind.detail) return;
     if (mounted) setState(() {});
   }
 
@@ -375,7 +435,7 @@ class WorldSingleSectionBottomSheetState
         error: _eventsCache.error,
         latestRevision: _selection.eventsLatestRevision,
         targetTickNumber: _selection.eventsTargetTickNumber,
-        contentPadding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+        contentPadding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
         onLoadMore: _loadNextEventsPage,
       ),
     );
@@ -408,7 +468,7 @@ class WorldSingleSectionBottomSheetState
         points: widget.locationPoints,
         locationNodes: widget.locationNodes,
         enableOuterScrollHandoff: false,
-        padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
         onPointTap: (point) {
           final locationId = point.sceneId.trim().isNotEmpty
               ? point.sceneId.trim()
@@ -429,10 +489,29 @@ class WorldSingleSectionBottomSheetState
   }
 
   Widget _buildDetailSectionPage() {
+    final latestDetailJoinNotice = worldLatestPlayerJoinNotice(
+      _currentWorld.characters,
+    );
+    final newUserJoinNotice = _detailNewUserJoinNotice(
+      latestDetailJoinNotice,
+      widget.newUserJoinNoticesListenable.value,
+    );
     return WorldSectionListView(
       storageKey: 'world-detail-section-bottom-sheet',
-      child: WorldDetailSection(world: _currentWorld),
+      child: WorldDetailSection(
+        world: _currentWorld,
+        currentUid: widget.currentUid,
+        newUserJoinNotice: newUserJoinNotice,
+      ),
     );
+  }
+
+  WorldNewUserJoinNotice? _detailNewUserJoinNotice(
+    WorldNewUserJoinNotice? latestDetailJoinNotice,
+    List<WorldNewUserJoinNotice> socketNotices,
+  ) {
+    if (socketNotices.isNotEmpty) return socketNotices.last;
+    return latestDetailJoinNotice;
   }
 
   Widget _buildSheetPage(WorldBottomSheetKind kind) {

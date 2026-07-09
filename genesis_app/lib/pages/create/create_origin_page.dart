@@ -93,6 +93,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
               child: GenesisLogo(height: 88, width: 152),
             ),
             perspectiveLines: _generationWaitLines,
+            onBackPressed: () => Navigator.of(context).maybePop(),
           ),
         ),
       ],
@@ -132,6 +133,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       action: 'create_worldo_submit_success',
       object1: originId,
     );
+    await CreateOriginDraftStore.clear();
     await _pendingCoordinator.startCreating(
       originId: originId,
       loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),

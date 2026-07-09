@@ -324,6 +324,7 @@ class OriginCharacterFormFields extends StatelessWidget {
                 ? "The character's goal or behavioral direction, which drives how they act."
                 : null,
             minLines: 2,
+            maxLines: 3,
             labelSize: labelSize,
             labelFontWeight: labelFontWeight,
             labelInputGap: labelInputGap,
@@ -345,7 +346,7 @@ class OriginCharacterFormFields extends StatelessWidget {
               ? "The character's background and relationships."
               : null,
           minLines: 3,
-          maxLines: bioMaxLines,
+          maxLines: bioMaxLines ?? 8,
           labelSize: labelSize,
           labelFontWeight: labelFontWeight,
           labelInputGap: labelInputGap,

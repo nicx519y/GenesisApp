@@ -216,6 +216,16 @@ class ChatroomTickProgress {
   }
 }
 
+class ChatroomTickLockStatus {
+  const ChatroomTickLockStatus({required this.isLocked});
+
+  final bool isLocked;
+
+  factory ChatroomTickLockStatus.fromJson(Map<String, dynamic> json) {
+    return ChatroomTickLockStatus(isLocked: asBool(json['is_locked']));
+  }
+}
+
 class ChatroomNarratorLocationGroup {
   const ChatroomNarratorLocationGroup({
     required this.locationId,

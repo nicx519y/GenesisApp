@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'world_constants.dart';
+import 'world_value_helpers.dart';
 
 enum WorldBottomSheetKind { detail, locations, events, status, cast }
 
@@ -40,6 +41,67 @@ class WorldBottomTagItem {
   final IconData? icon;
 }
 
+class WorldNewUserJoinNotice {
+  const WorldNewUserJoinNotice({
+    required this.characterId,
+    required this.characterType,
+    required this.characterName,
+    required this.playerUid,
+    required this.playerUsername,
+    required this.ts,
+  });
+
+  final String characterId;
+  final String characterType;
+  final String characterName;
+  final String playerUid;
+  final String playerUsername;
+  final DateTime? ts;
+
+  factory WorldNewUserJoinNotice.fromCharacter(Map<String, dynamic> character) {
+    return WorldNewUserJoinNotice(
+      characterId: worldMapString(character, const ['char_id', 'id']),
+      characterType: worldMapString(character, const ['type']),
+      characterName: worldMapString(character, const ['name']),
+      playerUid: worldMapString(character, const ['player_uid']),
+      playerUsername: worldMapString(character, const ['player_username']),
+      ts: null,
+    );
+  }
+
+  String get displayPlayerUsername {
+    final username = playerUsername.trim();
+    if (username.isNotEmpty) return username;
+    return 'Someone';
+  }
+
+  String get displayCharacterName {
+    final name = characterName.trim();
+    if (name.isNotEmpty) return name;
+    return 'a character';
+  }
+}
+
+WorldNewUserJoinNotice? worldLatestPlayerJoinNotice(
+  List<Map<String, dynamic>> characters,
+) {
+  Map<String, dynamic>? latestCharacter;
+  var latestJoinedAt = 0;
+  for (final character in characters) {
+    final playerUid = worldMapString(character, const ['player_uid']);
+    if (playerUid.isEmpty) continue;
+    final rawJoinedAt = character['player_joined_at'];
+    final joinedAt = rawJoinedAt is num
+        ? rawJoinedAt.toInt()
+        : int.tryParse('$rawJoinedAt'.trim()) ?? 0;
+    if (joinedAt <= 0 || joinedAt < latestJoinedAt) continue;
+    latestJoinedAt = joinedAt;
+    latestCharacter = character;
+  }
+  if (latestCharacter == null) return null;
+  return WorldNewUserJoinNotice.fromCharacter(latestCharacter);
+}
+
 const worldBottomTagItems = <WorldBottomTagItem>[
   WorldBottomTagItem(
     label: 'Detail',
@@ -60,11 +122,6 @@ const worldBottomTagItems = <WorldBottomTagItem>[
     label: 'Status',
     kind: WorldBottomSheetKind.status,
     asset: worldSectionStatusIconAsset,
-  ),
-  WorldBottomTagItem(
-    label: 'Cast',
-    kind: WorldBottomSheetKind.cast,
-    asset: worldSectionCastIconAsset,
   ),
 ];
 

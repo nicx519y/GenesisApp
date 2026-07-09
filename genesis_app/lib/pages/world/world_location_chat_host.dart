@@ -161,8 +161,8 @@ class WorldLocationChatPageCache {
     return _descriptors[locationId];
   }
 
-  void markReady(String locationId) {
-    _readyLocationIds.add(locationId);
+  bool markReady(String locationId) {
+    return _readyLocationIds.add(locationId);
   }
 
   String draftTextFor(String locationId) {
