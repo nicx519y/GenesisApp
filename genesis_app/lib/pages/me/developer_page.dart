@@ -38,6 +38,14 @@ const String _progressPreviewWaitMessage =
     'Advancing the world timeline\n'
     'Generating the next story beat\n'
     'Updating character locations';
+const List<String> _creatingPreviewWaitLines = [
+  'Originator',
+  'Eve',
+  'A floating city where every district changes its laws at sunrise, and every resident keeps a private map of the rules they trust.',
+  'Magic behaves like public infrastructure. Promises, debts, weather, and streetlights all run through the same civic engine.',
+  'Mira: Exiled route-maker. Patient, skeptical, and protective of anyone who admits they are lost.',
+  'Jon: Archive courier. Restless, charming, and far too willing to trade secrets for a shortcut.',
+];
 
 class DeveloperPage extends StatelessWidget {
   const DeveloperPage({super.key});
@@ -389,12 +397,8 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           illustration: const Center(
             child: GenesisLogo(height: 88, width: 152),
           ),
-          perspectiveLines: const [
-            'A floating city where every district changes its laws at sunrise, and every resident keeps a private map of the rules they trust.',
-            'Magic behaves like public infrastructure. Promises, debts, weather, and streetlights all run through the same civic engine.',
-            'Mira: Exiled route-maker. Patient, skeptical, and protective of anyone who admits they are lost.',
-            'Jon: Archive courier. Restless, charming, and far too willing to trade secrets for a shortcut.',
-          ],
+          perspectiveLines: _creatingPreviewWaitLines,
+          centeredPerspectiveLineCount: 2,
           onBarrierTap: () => Navigator.of(dialogContext).maybePop(),
           onBackPressed: () => Navigator.of(dialogContext).maybePop(),
         );

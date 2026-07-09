@@ -7,6 +7,8 @@ import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/genesis_logo.dart';
+import '../../network/json_utils.dart';
+import '../../utils/display_name_formatter.dart';
 import '../origin_editor/origin_draft_repository.dart';
 import '../origin_editor/origin_editor_pages.dart';
 import '../origin_editor/origin_generation_wait_content.dart';
@@ -93,6 +95,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
               child: GenesisLogo(height: 88, width: 152),
             ),
             perspectiveLines: _generationWaitLines,
+            centeredPerspectiveLineCount: 2,
             onBackPressed: () => Navigator.of(context).maybePop(),
           ),
         ),
@@ -113,8 +116,15 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
     }
     final api = AppServicesScope.read(context).api;
     if (mounted) {
+      final originatorName = await _readOriginatorName(context);
+      if (!context.mounted) {
+        return const OriginSubmitResult(message: '', showMessage: false);
+      }
       setState(
-        () => _generationWaitLines = originDraftGenerationWaitLines(draft),
+        () => _generationWaitLines = originDraftGenerationWaitLines(
+          draft,
+          originatorName: originatorName,
+        ),
       );
     }
     GenesisTelemetry.collectLog(
@@ -154,10 +164,14 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
   }
 
   Future<void> _loadPendingCreateWaitLines() async {
+    final originatorName = await _readOriginatorName(context);
     final draft = await CreateOriginDraftStore.loadFinal();
     if (!mounted) return;
     setState(() {
-      _generationWaitLines = originDraftGenerationWaitLines(draft);
+      _generationWaitLines = originDraftGenerationWaitLines(
+        draft,
+        originatorName: originatorName,
+      );
     });
   }
 
@@ -181,5 +195,21 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       _submitStatus = OriginDraftSubmitStatus.idle;
       _reloadSignal++;
     });
+  }
+
+  Future<String> _readOriginatorName(BuildContext context) async {
+    final services = AppServicesScope.read(context);
+    final userInfo = await services.sessionStore.readUserInfo();
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final rawName = userInfo == null
+        ? ''
+        : asString(
+            userInfo['name'] ??
+                userInfo['user_name'] ??
+                userInfo['username'] ??
+                userInfo['display_name'] ??
+                userInfo['nickname'],
+          );
+    return formatUidForDisplay(rawName, fallback: uid.isEmpty ? 'You' : uid);
   }
 }
