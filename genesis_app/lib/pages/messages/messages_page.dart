@@ -530,6 +530,7 @@ class _Avatar extends StatelessWidget {
             name: title,
             size: size,
             borderRadius: borderRadius,
+            showFallbackWhileLoading: false,
           ),
           Positioned(
             top: 0,

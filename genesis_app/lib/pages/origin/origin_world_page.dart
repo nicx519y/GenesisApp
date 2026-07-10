@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
@@ -112,6 +113,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   final OriginLaunchCoordinator _launchCoordinator =
       OriginLaunchCoordinator.instance;
   Future<OriginDetail>? _future;
+  Future<List<OriginLaunchedWorldRole>>? _launchedWorldsFuture;
+  List<OriginLaunchedWorldRole>? _preloadedLaunchedWorlds;
   bool _launching = false;
   bool _didResumePendingLaunch = false;
   bool _showLocationPage = false;
@@ -150,6 +153,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void didUpdateWidget(covariant OriginWorldPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.oid != widget.oid) {
+      _launchedWorldsFuture = null;
+      _preloadedLaunchedWorlds = null;
       _future = _loadOriginDetail();
       _activeChatLocation = null;
       _showLocationPage = false;
@@ -165,6 +170,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void reassemble() {
     super.reassemble();
     setState(() {
+      _launchedWorldsFuture = null;
+      _preloadedLaunchedWorlds = null;
       _future = _loadOriginDetail();
     });
   }
@@ -182,7 +189,26 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     final api = AppServicesScope.read(context).api;
     final origin = await api.getOrigin(widget.oid);
     _cacheLaunchWaitAvatars(origin);
+    _preloadLaunchedWorlds(origin);
     return origin;
+  }
+
+  void _preloadLaunchedWorlds(OriginDetail origin) {
+    final future = _launchedWorldsFuture ??= _loadLaunchedWorldRoles(origin);
+    unawaited(
+      future.then(
+        (worlds) {
+          if (!mounted) return;
+          _preloadedLaunchedWorlds = worlds;
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          debugPrint(
+            '[OriginWorldPage] launched worlds preload failed: '
+            '$error\n$stackTrace',
+          );
+        },
+      ),
+    );
   }
 
   void _cacheLaunchWaitAvatars(OriginDetail origin) {
@@ -223,20 +249,17 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         devicePixelRatio: devicePixelRatio,
       ).trim();
       if (resolvedUrl.isEmpty) continue;
-      final ImageProvider provider = resolvedUrl.startsWith('assets/')
-          ? AssetImage(resolvedUrl)
-          : NetworkImage(resolvedUrl);
-      unawaited(
-        precacheImage(
-          provider,
-          context,
-          onError: (exception, stackTrace) {
-            debugPrint(
-              '[OriginWorldPage] launch avatar precache failed '
-              'url="$resolvedUrl": $exception',
-            );
-          },
-        ),
+      if (resolvedUrl.startsWith('assets/')) continue;
+      unawaited(_precacheLaunchAvatarFile(resolvedUrl));
+    }
+  }
+
+  Future<void> _precacheLaunchAvatarFile(String url) async {
+    try {
+      await DefaultCacheManager().getSingleFile(url);
+    } catch (error) {
+      debugPrint(
+        '[OriginWorldPage] launch avatar precache failed url="$url": $error',
       );
     }
   }
@@ -385,6 +408,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     if (_launching) return;
     if (!await ensureGenesisLogin(context)) return;
     if (!mounted) return;
+    await _openLaunchRoleSheet(origin);
+  }
+
+  Future<void> _openLaunchRoleSheet(OriginDetail origin) async {
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
       action: 'launch_sheet',
@@ -395,9 +422,59 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       characters: origin.characters,
       resolveAvatarUrl: _resolveAssetUrl,
       onFillFromProfile: _customRoleFromProfile,
+      launchedWorldsLoader: () =>
+          _launchedWorldsFuture ??= _loadLaunchedWorldRoles(origin),
+      initialLaunchedWorlds: _preloadedLaunchedWorlds,
     );
     if (!mounted || selection == null) return;
+    final existingWorldId = selection.existingWorldId?.trim() ?? '';
+    if (existingWorldId.isNotEmpty) {
+      Navigator.of(
+        context,
+      ).pushNamed(RouteNames.world, arguments: {'wid': existingWorldId});
+      return;
+    }
     await _launchOrigin(origin, selection);
+  }
+
+  Future<List<OriginLaunchedWorldRole>> _loadLaunchedWorldRoles(
+    OriginDetail origin,
+  ) async {
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (uid.isEmpty) return const <OriginLaunchedWorldRole>[];
+    final response = await services.api.v1.world.list(
+      scene: 'mine',
+      originId: origin.oid,
+      pn: 1,
+      rn: 20,
+    );
+    final rawList = response['list'];
+    if (rawList is! List) return const <OriginLaunchedWorldRole>[];
+    final worldIds = rawList
+        .whereType<Map>()
+        .map((raw) {
+          final map = asJsonMap(raw);
+          final info = map['info'] is Map ? asJsonMap(map['info']) : map;
+          return asString(info['world_id'], fallback: asString(map['wid']));
+        })
+        .where((worldId) => worldId.isNotEmpty)
+        .toList(growable: false);
+    final worlds = await Future.wait(worldIds.map(services.api.getWorld));
+    return worlds
+        .map((world) {
+          final role = world.characters
+              .where((item) => asString(item['player_uid']) == uid)
+              .firstOrNull;
+          return OriginLaunchedWorldRole(
+            worldId: world.worldId,
+            roleName: role == null ? 'My role' : asString(role['name']),
+            avatarUrl: role == null ? '' : asString(role['avatar']),
+            tickCount: world.tickCount,
+            currentTime: world.currentTime,
+          );
+        })
+        .toList(growable: false);
   }
 
   Future<void> _launchOrigin(

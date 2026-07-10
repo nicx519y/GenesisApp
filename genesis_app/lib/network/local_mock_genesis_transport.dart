@@ -1711,29 +1711,41 @@ class _MockState {
   }
 
   List<Map<String, dynamic>> _filterV1Worlds(Map<String, String> query) {
+    final originId = (query['origin_id'] ?? '').trim();
+    List<Map<String, dynamic>> filterByOrigin(
+      List<Map<String, dynamic>> worlds,
+    ) => originId.isEmpty
+        ? worlds
+        : worlds
+              .where((world) => '${world['oid'] ?? ''}'.trim() == originId)
+              .toList(growable: false);
     final scene = (query['scene'] ?? '').trim();
     if (scene == 'mine') {
-      return _v1WorldsForOwner('${_v1User['uid'] ?? ''}');
+      return filterByOrigin(_v1WorldsForOwner('${_v1User['uid'] ?? ''}'));
     }
     if (scene == 'uid') {
-      return _v1WorldsForOwner(
-        query['uid'] ?? query['owner_uid'] ?? query['owner_id'] ?? '',
+      return filterByOrigin(
+        _v1WorldsForOwner(
+          query['uid'] ?? query['owner_uid'] ?? query['owner_id'] ?? '',
+        ),
       );
     }
     if (scene == 'tag') {
       final tag = (query['tag'] ?? query['tag_name'] ?? '').trim();
-      if (tag.isEmpty) return _v1Worlds;
-      return _v1Worlds
-          .where(
-            (world) => _stringList(
-              world['tags'],
-            ).map((item) => item.toLowerCase()).contains(tag.toLowerCase()),
-          )
-          .toList(growable: false);
+      if (tag.isEmpty) return filterByOrigin(_v1Worlds);
+      return filterByOrigin(
+        _v1Worlds
+            .where(
+              (world) => _stringList(
+                world['tags'],
+              ).map((item) => item.toLowerCase()).contains(tag.toLowerCase()),
+            )
+            .toList(growable: false),
+      );
     }
     final ownerUid = (query['owner_uid'] ?? '').trim();
-    if (ownerUid.isEmpty) return _v1Worlds;
-    return _v1WorldsForOwner(ownerUid);
+    if (ownerUid.isEmpty) return filterByOrigin(_v1Worlds);
+    return filterByOrigin(_v1WorldsForOwner(ownerUid));
   }
 
   List<Map<String, dynamic>> _v1WorldsForOwner(String ownerUid) {
