@@ -437,8 +437,6 @@ class _UserInfoPageState extends State<UserInfoPage> {
           actions: [
             if (!_profileIsSelf)
               GenesisMoreActionMenuButton(
-                menuRightInset: 16,
-                menuVerticalOffset: -8,
                 visualRightInset: 16,
                 items: [
                   genesisReportMenuItem(

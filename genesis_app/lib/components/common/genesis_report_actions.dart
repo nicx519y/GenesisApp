@@ -233,11 +233,14 @@ _GenesisActionMenuPosition _genesisActionMenuLeftPosition({
   final maxLeft =
       overlaySize.width - menuWidth - _genesisActionMenuScreenPadding;
   final desiredLeft = rightInset == null
-      ? triggerRect.right - menuWidth
+      ? triggerRect.left - menuWidth
       : overlaySize.width - rightInset - menuWidth;
   final maxTop =
       overlaySize.height - menuHeight - _genesisActionMenuScreenPadding;
-  final desiredTop = triggerRect.bottom + verticalOffset;
+  // Keep the first action row aligned with the trigger. Additional rows then
+  // expand below it, so a two-item profile menu keeps Block below Report.
+  final desiredTop =
+      triggerRect.center.dy - _genesisActionMenuRowHeight / 2 + verticalOffset;
   return _GenesisActionMenuPosition(
     left: desiredLeft
         .clamp(
