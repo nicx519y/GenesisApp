@@ -99,8 +99,10 @@ class UserV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"token":"string","user":{"uid":"string","name":"string","avatar":"string","bio":"string","last_login_at":"string","create_at":"string","follower_cnt":0,"following_cnt":0,"friend_cnt":0,"create_origin_cnt":0,"launch_world_cnt":0,"join_world_cnt":0},"relation":{"is_self":true,"is_followed":false,"followed_me":false,"is_friend":false,"is_blocked":false}}}
+  /// {"err_no":0,"err_msg":"succ","data":{"token":"string","user":{"uid":"string","name":"string","avatar":"string","bio":"string","last_login_at":"string","create_at":"string","follower_cnt":0,"following_cnt":0,"friend_cnt":0,"create_origin_cnt":0,"launch_world_cnt":0,"join_world_cnt":0},"relation":{"is_self":true,"is_followed":false,"followed_me":false,"is_friend":false,"is_blocked":false},"uuid":"string"}}
   /// ```
+  ///
+  /// For the current account, UUID is a sibling of `user` in this result.
   Future<Map<String, dynamic>> info({String? uid}) {
     return getMap('user/info', v1Query({'uid': uid}));
   }

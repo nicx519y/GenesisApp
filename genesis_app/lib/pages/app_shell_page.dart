@@ -127,6 +127,9 @@ class _AppShellPageState extends State<AppShellPage>
     if (!AppStartupCoordinator.isPostLaunchWorkAllowed) return;
     _recordSelectedTabPageView();
     _startMessagesPolling();
+    if (_selectedIndex == 4 && _meTabActivationNotifier.value == 0) {
+      _notifyActiveTabActivated();
+    }
   }
 
   void _startAppRuntime() {
@@ -313,6 +316,7 @@ class _AppShellPageState extends State<AppShellPage>
         _homeTabActivationNotifier.value += 1;
       case 4:
         _meTabActivationNotifier.value += 1;
+        unawaited(AppServicesScope.read(context).gemWallet.refresh());
     }
   }
 
@@ -332,6 +336,9 @@ class _AppShellPageState extends State<AppShellPage>
     unawaited(services.directMessageConversations.loadFromDb());
     if (_selectedIndex == 3) {
       unawaited(_messagesPoller.runNow());
+    }
+    if (_selectedIndex == 4) {
+      _notifyActiveTabActivated();
     }
   }
 

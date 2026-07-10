@@ -5,6 +5,7 @@ import 'discuss_api.dart';
 import 'dm_api.dart';
 import 'feedback_api.dart';
 import 'follow_api.dart';
+import 'gem_api.dart';
 import 'home_api.dart';
 import 'messages_api.dart';
 import 'origin_api.dart';
@@ -28,6 +29,7 @@ class GenesisV1Api {
       report = ReportV1Api(client),
       search = SearchV1Api(client),
       home = HomeV1Api(client),
+      gem = GemV1Api(client),
       upload = UploadV1Api(client),
       common = CommonV1Api(client);
 
@@ -43,6 +45,7 @@ class GenesisV1Api {
   final ReportV1Api report;
   final SearchV1Api search;
   final HomeV1Api home;
+  final GemV1Api gem;
   final UploadV1Api upload;
   final CommonV1Api common;
 }

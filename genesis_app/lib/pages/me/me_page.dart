@@ -791,6 +791,7 @@ class _MePageState extends State<MePage> {
           );
         }
         final data = content.data!;
+        final gemWalletState = AppServicesScope.of(context).gemWallet.state;
 
         return GenesisTopSafeArea(
           backgroundColor: Colors.white,
@@ -838,6 +839,7 @@ class _MePageState extends State<MePage> {
                   avatarUrlListenable: _avatarUrl,
                   displayNameListenable: _displayName,
                   isUpdatingProfileListenable: _isUpdatingProfile,
+                  gemWalletStateListenable: gemWalletState,
                   onEditAvatar: _editAvatar,
                   onEditDisplayName: _editNickName,
                   onRefreshOrigins: _refreshOrigins,

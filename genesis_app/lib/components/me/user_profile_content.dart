@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../app/gems/gem_wallet_store.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
@@ -32,6 +33,7 @@ class UserProfileContent extends StatefulWidget {
     this.avatarUrlListenable,
     this.displayNameListenable,
     this.isUpdatingProfileListenable,
+    this.gemWalletStateListenable,
     this.onEditAvatar,
     this.onEditDisplayName,
     this.onRefreshOrigins,
@@ -55,6 +57,7 @@ class UserProfileContent extends StatefulWidget {
   final ValueListenable<String>? avatarUrlListenable;
   final ValueListenable<String>? displayNameListenable;
   final ValueListenable<bool>? isUpdatingProfileListenable;
+  final ValueListenable<GemWalletState>? gemWalletStateListenable;
   final VoidCallback? onEditAvatar;
   final VoidCallback? onEditDisplayName;
   final Future<void> Function()? onRefreshOrigins;
@@ -275,9 +278,11 @@ class _UserProfileContentState extends State<UserProfileContent>
           ),
           if (data.isSelf) ...[
             const SizedBox(height: 20),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: _GemsBalanceEntry(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _GemsBalanceEntry(
+                stateListenable: widget.gemWalletStateListenable,
+              ),
             ),
           ],
           if (!data.isSelf) ...[
@@ -393,12 +398,21 @@ class _UserProfileContentState extends State<UserProfileContent>
 }
 
 class _GemsBalanceEntry extends StatelessWidget {
-  const _GemsBalanceEntry();
+  const _GemsBalanceEntry({this.stateListenable});
 
-  static const int _placeholderBalance = 430;
+  final ValueListenable<GemWalletState>? stateListenable;
 
   @override
   Widget build(BuildContext context) {
+    final listenable = stateListenable;
+    if (listenable == null) return _buildEntry(context, null);
+    return ValueListenableBuilder<GemWalletState>(
+      valueListenable: listenable,
+      builder: (context, state, _) => _buildEntry(context, state.balance),
+    );
+  }
+
+  Widget _buildEntry(BuildContext context, int? balance) {
     return GestureDetector(
       key: const ValueKey('user-profile-gems-entry'),
       behavior: HitTestBehavior.opaque,
@@ -419,9 +433,10 @@ class _GemsBalanceEntry extends StatelessWidget {
               height: 22,
             ),
             const SizedBox(width: 8),
-            const Text(
-              '$_placeholderBalance',
-              style: TextStyle(
+            Text(
+              balance == null ? '0' : _formatGemBalance(balance),
+              key: const ValueKey('user-profile-gems-balance'),
+              style: const TextStyle(
                 fontSize: 16,
                 height: 20 / 16,
                 fontWeight: FontWeight.w700,
@@ -445,6 +460,17 @@ class _GemsBalanceEntry extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatGemBalance(int value) {
+  final text = value.toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < text.length; i += 1) {
+    final remaining = text.length - i;
+    buffer.write(text[i]);
+    if (remaining > 1 && remaining % 3 == 1) buffer.write(',');
+  }
+  return buffer.toString();
 }
 
 class _ProfileTabsHeaderDelegate extends SliverPersistentHeaderDelegate {

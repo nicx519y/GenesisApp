@@ -178,8 +178,10 @@ void main() {
 
     final user = await api.v1.user.info();
     expect((user['user'] as Map)['uid'], 'u_mock_001');
+    expect(user['uuid'], '4b74ec68-7abc-4cce-a223-e997e31dc811');
     final peer = await api.v1.user.info(uid: 'u_mock_peer');
     expect((peer['user'] as Map)['uid'], 'u_mock_peer');
+    expect(peer.containsKey('uuid'), isFalse);
     final dmPeer = await api.v1.user.info(uid: 'u_mock_dm_002');
     expect((dmPeer['user'] as Map)['uid'], 'u_mock_dm_002');
     expect((dmPeer['user'] as Map)['name'], 'DM Contact 2');
@@ -211,6 +213,9 @@ void main() {
     final home = await api.v1.home.home();
     expect(((home['my_world'] as Map)['list'] as List).isNotEmpty, true);
     await api.v1.home.following(pn: 2, rn: 10);
+
+    final gemWallet = await api.v1.gem.wallet();
+    expect(gemWallet.balance, 430);
 
     final origins = await api.v1.origin.list(scene: 'foryou', pn: 1, rn: 10);
     expect(origins['total'], greaterThanOrEqualTo(100));

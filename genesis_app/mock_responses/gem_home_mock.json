@@ -1,0 +1,260 @@
+{
+  "err_no": 0,
+  "err_msg": "succ",
+  "data": {
+    "wallet": {
+      "balance": 430
+    },
+    "products": [
+      {
+        "product_id": "gem_pack_500",
+        "apple_product_id": "com.worldo.gems.500",
+        "google_product_id": "worldo_gems_500",
+        "base_gems": 500,
+        "bonus_gems": 50,
+        "price_currency_code": "USD",
+        "price_amount": 149,
+        "can_purchase": true,
+        "activity_type": "none"
+      },
+      {
+        "product_id": "gem_pack_1100",
+        "apple_product_id": "com.worldo.gems.1100",
+        "google_product_id": "worldo_gems_1100",
+        "base_gems": 1100,
+        "bonus_gems": 110,
+        "price_currency_code": "USD",
+        "price_amount": 590,
+        "can_purchase": true,
+        "activity_type": "first_purchase_bonus"
+      },
+      {
+        "product_id": "gem_pack_4400",
+        "apple_product_id": "com.worldo.gems.4400",
+        "google_product_id": "worldo_gems_4400",
+        "base_gems": 4400,
+        "bonus_gems": 440,
+        "price_currency_code": "USD",
+        "price_amount": 1990,
+        "can_purchase": true,
+        "activity_type": "first_purchase_bonus"
+      },
+      {
+        "product_id": "gem_pack_8800",
+        "apple_product_id": "com.worldo.gems.8800",
+        "google_product_id": "worldo_gems_8800",
+        "base_gems": 8800,
+        "bonus_gems": 880,
+        "price_currency_code": "USD",
+        "price_amount": 3890,
+        "can_purchase": true,
+        "activity_type": "first_purchase_bonus"
+      },
+      {
+        "product_id": "gem_pack_16500",
+        "apple_product_id": "com.worldo.gems.16500",
+        "google_product_id": "worldo_gems_16500",
+        "base_gems": 16500,
+        "bonus_gems": 1650,
+        "price_currency_code": "USD",
+        "price_amount": 6990,
+        "can_purchase": true,
+        "activity_type": "first_purchase_bonus"
+      },
+      {
+        "product_id": "gem_pack_55000",
+        "apple_product_id": "com.worldo.gems.55000",
+        "google_product_id": "worldo_gems_55000",
+        "base_gems": 55000,
+        "bonus_gems": 5500,
+        "price_currency_code": "USD",
+        "price_amount": 19990,
+        "can_purchase": true,
+        "activity_type": "first_purchase_bonus"
+      }
+    ],
+    "task_groups": [
+      {
+        "group_code": "starter",
+        "group_title": "Starter",
+        "display_order": 10,
+        "tasks": [
+          {
+            "task_code": "create_first_worldo",
+            "title": "Create your first worldo",
+            "description": "Create an Origin and launch a world.",
+            "reward_gems": 50,
+            "reward_valid_days": 30,
+            "cycle_type": "once",
+            "cycle_key": "",
+            "progress": 0,
+            "target_count": 1,
+            "progress_text": "0/1",
+            "status": "in_progress",
+            "action_type": "navigate",
+            "action_text": "Go",
+            "action_target": "create_origin",
+            "display_order": 10
+          },
+          {
+            "task_code": "join_first_world",
+            "title": "Join your first world",
+            "description": "Join a world and start your story.",
+            "reward_gems": 50,
+            "reward_valid_days": 30,
+            "cycle_type": "once",
+            "cycle_key": "",
+            "progress": 0,
+            "target_count": 1,
+            "progress_text": "0/1",
+            "status": "in_progress",
+            "action_type": "navigate",
+            "action_text": "Go",
+            "action_target": "origin",
+            "display_order": 20
+          }
+        ]
+      },
+      {
+        "group_code": "bonus",
+        "group_title": "Bonus",
+        "display_order": 20,
+        "tasks": [
+          {
+            "task_code": "invite_friend_world",
+            "title": "Invite a friend to a world",
+            "description": "Invite a friend and explore together.",
+            "reward_gems": 100,
+            "reward_valid_days": 30,
+            "cycle_type": "once",
+            "cycle_key": "",
+            "progress": 0,
+            "target_count": 1,
+            "progress_text": "0/1",
+            "status": "in_progress",
+            "action_type": "navigate",
+            "action_text": "Go",
+            "action_target": "invite_friend",
+            "display_order": 10
+          },
+          {
+            "task_code": "write_comment",
+            "title": "Write a comment",
+            "description": "Leave a comment on a Worldo.",
+            "reward_gems": 30,
+            "reward_valid_days": 30,
+            "cycle_type": "once",
+            "cycle_key": "",
+            "progress": 0,
+            "target_count": 1,
+            "progress_text": "0/1",
+            "status": "in_progress",
+            "action_type": "navigate",
+            "action_text": "Go",
+            "action_target": "comment",
+            "display_order": 20
+          },
+          {
+            "task_code": "share_worldo",
+            "title": "Share a worldo",
+            "description": "Share a Worldo with a friend.",
+            "reward_gems": 30,
+            "reward_valid_days": 30,
+            "cycle_type": "once",
+            "cycle_key": "",
+            "progress": 0,
+            "target_count": 1,
+            "progress_text": "0/1",
+            "status": "in_progress",
+            "action_type": "navigate",
+            "action_text": "Go",
+            "action_target": "share_worldo",
+            "display_order": 30
+          }
+        ]
+      },
+      {
+        "group_code": "daily",
+        "group_title": "Daily",
+        "display_order": 30,
+        "tasks": [
+          {
+            "task_code": "daily_checkin",
+            "title": "Daily check-in",
+            "description": "Check in every day to collect gems.",
+            "reward_gems": 20,
+            "reward_valid_days": 30,
+            "cycle_type": "daily",
+            "cycle_key": "today",
+            "progress": 0,
+            "target_count": 1,
+            "progress_text": "0/1",
+            "status": "claimable",
+            "action_type": "checkin",
+            "action_text": "Claim",
+            "action_target": "daily_checkin",
+            "display_order": 10
+          },
+          {
+            "task_code": "send_message",
+            "title": "Send a message (0/3)",
+            "description": "Send messages in a location chat today.",
+            "reward_gems": 50,
+            "reward_valid_days": 30,
+            "cycle_type": "daily",
+            "cycle_key": "today",
+            "progress": 0,
+            "target_count": 3,
+            "progress_text": "0/3",
+            "status": "in_progress",
+            "action_type": "navigate",
+            "action_text": "Go",
+            "action_target": "location_chat",
+            "display_order": 20
+          },
+          {
+            "task_code": "progress_world",
+            "title": "Progress a world",
+            "description": "Advance a world tick today.",
+            "reward_gems": 80,
+            "reward_valid_days": 30,
+            "cycle_type": "daily",
+            "cycle_key": "today",
+            "progress": 0,
+            "target_count": 1,
+            "progress_text": "0/1",
+            "status": "in_progress",
+            "action_type": "navigate",
+            "action_text": "Go",
+            "action_target": "world_tick",
+            "display_order": 30
+          }
+        ]
+      },
+      {
+        "group_code": "join_us",
+        "group_title": "Join us",
+        "display_order": 40,
+        "tasks": [
+          {
+            "task_code": "join_discord",
+            "title": "Discord",
+            "description": "Join our Discord community.",
+            "reward_gems": 20,
+            "reward_valid_days": 30,
+            "cycle_type": "once",
+            "cycle_key": "",
+            "progress": 0,
+            "target_count": 1,
+            "progress_text": "0/1",
+            "status": "in_progress",
+            "action_type": "navigate",
+            "action_text": "Follow",
+            "action_target": "discord",
+            "display_order": 10
+          }
+        ]
+      }
+    ]
+  }
+}

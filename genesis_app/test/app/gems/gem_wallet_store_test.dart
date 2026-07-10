@@ -1,0 +1,62 @@
+import 'dart:async';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
+import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
+
+void main() {
+  test('refresh publishes the exact server balance', () async {
+    final store = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 980),
+      readUid: () async => 'u_user',
+    );
+    addTearDown(store.dispose);
+
+    await store.refresh();
+
+    expect(store.state.value.ownerUid, 'u_user');
+    expect(store.state.value.balance, 980);
+    expect(store.state.value.isRefreshing, isFalse);
+    expect(store.state.value.lastError, isNull);
+  });
+
+  test('failed refresh retains the last successful balance', () async {
+    var shouldFail = false;
+    final store = GemWalletStore(
+      loadWallet: () async {
+        if (shouldFail) throw StateError('offline');
+        return const GemWallet(balance: 430);
+      },
+      readUid: () async => 'u_user',
+    );
+    addTearDown(store.dispose);
+
+    await store.refresh();
+    shouldFail = true;
+    await store.refresh();
+
+    expect(store.state.value.balance, 430);
+    expect(store.state.value.lastError, isA<StateError>());
+  });
+
+  test('an old account response is ignored after reset', () async {
+    var uid = 'u_first';
+    final response = Completer<GemWallet>();
+    final store = GemWalletStore(
+      loadWallet: () => response.future,
+      readUid: () async => uid,
+    );
+    addTearDown(store.dispose);
+
+    final refresh = store.refresh();
+    await Future<void>.delayed(Duration.zero);
+
+    uid = 'u_second';
+    store.reset();
+    response.complete(const GemWallet(balance: 430));
+    await refresh;
+
+    expect(store.state.value.ownerUid, isNull);
+    expect(store.state.value.balance, isNull);
+  });
+}

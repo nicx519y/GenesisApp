@@ -267,13 +267,96 @@ void main() {
     },
   );
 
+  test('v1 gem home parses wallet products and task groups', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"wallet":{"balance":430},"products":[{"product_id":"gem_pack_500","apple_product_id":"com.worldo.gems.500","google_product_id":"worldo_gems_500","base_gems":500,"bonus_gems":50,"price_currency_code":"USD","price_amount":149,"can_purchase":true,"activity_type":"first_purchase_bonus"}],"task_groups":[{"group_code":"daily","group_title":"Daily","display_order":30,"tasks":[{"task_code":"send_message","title":"Send a message (0/3)","description":"Send messages in a location chat today.","reward_gems":50,"reward_valid_days":30,"cycle_type":"daily","progress":0,"target_count":3,"progress_text":"0/3","status":"in_progress","action_type":"navigate","action_text":"Go","action_target":"location_chat","display_order":20}]}]}}',
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final home = await api.v1.gem.home();
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/gem/home');
+    expect(home.balance, 430);
+    expect(home.products.single.productId, 'gem_pack_500');
+    expect(home.products.single.totalGems, 550);
+    expect(home.products.single.tagText, 'First top-up');
+    expect(home.taskGroups.single.groupTitle, 'Daily');
+    expect(home.taskGroups.single.tasks.single.actionTarget, 'location_chat');
+  });
+
+  test('v1 gem wallet parses the server balance', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":0,"err_msg":"succ","data":{"wallet":{"balance":980}}}',
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final wallet = await api.v1.gem.wallet();
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/gem/wallet');
+    expect(wallet.balance, 980);
+  });
+
+  test(
+    'v1 gem wallet rejects a missing balance instead of using zero',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":0,"err_msg":"succ","data":{"wallet":{}}}',
+        ),
+      );
+      final api = _apiWith(
+        apiTransport,
+        _FakeTransport(
+          handler: (_) => const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body: '{"status":"ok"}',
+          ),
+        ),
+      );
+
+      await expectLater(api.v1.gem.wallet(), throwsA(isA<FormatException>()));
+    },
+  );
+
   test('bindDevice uses GET /v1/user/info', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
         headers: {'content-type': 'application/json'},
         body:
-            '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_1","name":"n","avatar":"a"}}}',
+            '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_1","name":"n","avatar":"a"},"uuid":"4b74ec68-7abc-4cce-a223-e997e31dc811"}}',
       ),
     );
     final healthTransport = _FakeTransport(
@@ -293,6 +376,32 @@ void main() {
       'http://localhost:8080/api/v1/user/info',
     );
     expect(user.uid, 'u_1');
+  });
+
+  test('v1 user info keeps UUID alongside user', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_1","name":"n"},"uuid":"4b74ec68-7abc-4cce-a223-e997e31dc811"}}',
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final response = await api.v1.user.info();
+
+    expect(response['uuid'], '4b74ec68-7abc-4cce-a223-e997e31dc811');
+    expect((response['user'] as Map).containsKey('uuid'), isFalse);
   });
 
   test('bindDevice does not persist guest uid when user info fails', () async {

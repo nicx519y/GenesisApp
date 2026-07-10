@@ -18,6 +18,7 @@ import '../../platform/platform_services.dart';
 import '../config/app_config.dart';
 import '../config/platform_config.dart';
 import '../debug/location_chat_debug_storage.dart';
+import '../gems/gem_wallet_store.dart';
 import '../startup/startup_network_gate.dart';
 import '../version/app_version_check_service.dart';
 
@@ -38,8 +39,15 @@ class AppServices {
     required this.externalUrlOpener,
     required this.startupNetworkGate,
     this.gatewayAuth,
+    GemWalletStore? gemWallet,
     ValueNotifier<int>? sessionRevision,
-  }) : sessionRevision = sessionRevision ?? ValueNotifier<int>(0);
+  }) : gemWallet =
+           gemWallet ??
+           GemWalletStore(
+             loadWallet: api.v1.gem.wallet,
+             readUid: sessionStore.readUid,
+           ),
+       sessionRevision = sessionRevision ?? ValueNotifier<int>(0);
 
   final AppConfig config;
   final PlatformConfig platformConfig;
@@ -56,9 +64,11 @@ class AppServices {
   final ExternalUrlOpener externalUrlOpener;
   final StartupNetworkGate startupNetworkGate;
   final GatewayAuthCoordinator? gatewayAuth;
+  final GemWalletStore gemWallet;
   final ValueNotifier<int> sessionRevision;
 
   void notifySessionChanged() {
+    gemWallet.reset();
     sessionRevision.value += 1;
   }
 }
@@ -81,6 +91,7 @@ class ServiceRegistry {
     final identityAuth =
         identityAuthOverride ?? const FirebaseIdentityAuthService();
     final sessionRevision = sessionRevisionOverride ?? ValueNotifier<int>(0);
+    GemWalletStore? gemWalletStore;
     final startupNetworkGate =
         startupNetworkGateOverride ??
         StartupNetworkGate(
@@ -110,6 +121,7 @@ class ServiceRegistry {
       handlingSessionExpired = true;
       try {
         await sessionStore.clearUid();
+        gemWalletStore?.reset();
         sessionRevision.value += 1;
         try {
           await identityAuth.signOutIdentity();
@@ -198,6 +210,11 @@ class ServiceRegistry {
       identityAuth: identityAuth,
       sessionStore: sessionStore,
     );
+    final gemWallet = GemWalletStore(
+      loadWallet: api.v1.gem.wallet,
+      readUid: sessionStore.readUid,
+    );
+    gemWalletStore = gemWallet;
     final directMessageConversations = DirectMessageConversationStore(
       api: api,
       sessionStore: sessionStore,
@@ -233,6 +250,7 @@ class ServiceRegistry {
       externalUrlOpener: const NativeExternalUrlOpener(),
       startupNetworkGate: startupNetworkGate,
       gatewayAuth: gatewayAuthCoordinator,
+      gemWallet: gemWallet,
       sessionRevision: sessionRevision,
     );
   }

@@ -715,6 +715,15 @@ class _RecordingV1ListTransport implements HttpTransport {
         },
       });
     }
+    if (request.uri.path.endsWith('/gem/wallet')) {
+      return _jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'wallet': {'balance': 430},
+        },
+      });
+    }
     if (request.uri.path.endsWith('/discuss/list')) {
       final bizId = request.uri.queryParameters['biz_id'] ?? '';
       final pn = int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1;
@@ -6735,6 +6744,53 @@ void main() {
 
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
+  });
+
+  testWidgets('switching to signed-in Me refreshes Gem wallet balance', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      GenesisApp(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialUid: 'u_cached',
+          initialAuthToken: 'backend-token',
+          initialUserInfo: {
+            'uid': 'u_cached',
+            'name': 'Cached User',
+            'avatar': '',
+            'following_cnt': 7,
+            'follower_cnt': 11,
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
+
+    final firstRefreshCount = transport
+        .requestsFor('/api/v1/gem/wallet')
+        .length;
+    expect(firstRefreshCount, 1);
+    expect(find.text('430'), findsOneWidget);
+
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+    expect(
+      transport.requestsFor('/api/v1/gem/wallet'),
+      hasLength(firstRefreshCount),
+    );
+
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
+
+    expect(
+      transport.requestsFor('/api/v1/gem/wallet'),
+      hasLength(firstRefreshCount + 1),
+    );
   });
 
   testWidgets('Me origin and world refresh preserve old list until response', (
