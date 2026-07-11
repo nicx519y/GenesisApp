@@ -429,12 +429,23 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     if (!mounted || selection == null) return;
     final existingWorldId = selection.existingWorldId?.trim() ?? '';
     if (existingWorldId.isNotEmpty) {
-      Navigator.of(
-        context,
-      ).pushNamed(RouteNames.world, arguments: {'wid': existingWorldId});
+      _enterLaunchedWorld(existingWorldId);
       return;
     }
     await _launchOrigin(origin, selection);
+  }
+
+  void _enterLaunchedWorld(String worldId) {
+    final navigator = Navigator.of(context);
+    navigator.pushNamedAndRemoveUntil(
+      RouteNames.home,
+      (_) => false,
+      arguments: const {'home_tab': 'my_world'},
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!navigator.mounted) return;
+      navigator.pushNamed(RouteNames.world, arguments: {'wid': worldId});
+    });
   }
 
   Future<List<OriginLaunchedWorldRole>> _loadLaunchedWorldRoles(

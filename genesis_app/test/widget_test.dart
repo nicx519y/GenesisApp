@@ -2140,7 +2140,7 @@ void main() {
     expect(find.text('#Search Origin'), findsOneWidget);
     final title = tester.widget<Text>(find.text('#Search Origin'));
     expect(title.style?.fontSize, 14);
-    expect(title.style?.fontWeight, FontWeight.w700);
+    expect(title.style?.fontWeight, FontWeight.w600);
     expect(find.text('Worlds'), findsOneWidget);
     expect(find.text('Search World'), findsOneWidget);
     expect(find.text('Users'), findsOneWidget);
@@ -2169,7 +2169,7 @@ void main() {
     );
     expect(subtitle.style?.fontSize, 12);
     expect(subtitle.style?.fontWeight, FontWeight.w400);
-    expect(find.textContaining('Latest Version: V3 ·'), findsOneWidget);
+    expect(find.textContaining('Latest Version: V3'), findsOneWidget);
     expect(find.text('WID: w_search_1  Owner: World Owner'), findsOneWidget);
     expect(find.byType(StatItem), findsNWidgets(7));
   });

@@ -18,7 +18,6 @@ import '../../ui/components/secend_tabs.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
-import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
 import 'search_history_store.dart';
 
@@ -1380,17 +1379,8 @@ String _originSearchSubtitle(
     'versionNo',
   ]);
   final version = _originVersionLabel(raw, fallbackVersionNum: versionNum);
-  final updated = formatGenesisTimestamp(
-    _firstSearchValue(raw, const [
-      'updated_at',
-      'origin_version_time',
-      'version_time',
-      'latest_version_time',
-      'latest_origin_version_time',
-    ]),
-  );
   return 'OID: $displayOid  Originator: $originator\n'
-      'Latest Version: $version · $updated';
+      'Latest Version: $version';
 }
 
 String _originVersionLabel(
@@ -1523,16 +1513,6 @@ int _firstSearchInt(Map<dynamic, dynamic> raw, List<String> keys) {
     if (value > 0) return value;
   }
   return 0;
-}
-
-Object? _firstSearchValue(Map<dynamic, dynamic> raw, List<String> keys) {
-  for (final key in keys) {
-    final value = raw[key];
-    if (value == null) continue;
-    final text = asString(value).trim();
-    if (!_isBlankSearchValue(text)) return value;
-  }
-  return null;
 }
 
 String _dashOrValue(String value) {

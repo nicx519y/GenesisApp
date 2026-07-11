@@ -19,7 +19,6 @@ import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
-import '../../utils/genesis_timestamp_formatter.dart';
 
 class UserInfoPage extends StatefulWidget {
   const UserInfoPage({super.key, required this.uid});
@@ -781,9 +780,8 @@ String _originSubtitle(OriginSummary item) {
       ? '-'
       : formatUidForDisplay(item.originator);
   final version = item.versionNum <= 0 ? '-' : 'V${item.versionNum}';
-  final updated = formatGenesisDateTime(item.updatedAt);
   return 'OID: $oid  Originator: $originator\n'
-      'Latest Version: $version · $updated';
+      'Latest Version: $version';
 }
 
 String _worldSubtitle(String wid, String ownerName, {bool deleted = false}) {
