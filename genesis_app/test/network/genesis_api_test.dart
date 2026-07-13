@@ -7,6 +7,7 @@ import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/gateway_auth.dart';
+import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/v1/upload_api.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
@@ -267,13 +268,14 @@ void main() {
     },
   );
 
-  test('v1 gem home parses wallet products and task groups', () async {
+  test('v1 gem product and task lists parse their independent endpoints', () async {
     final apiTransport = _FakeTransport(
-      handler: (_) => const TransportResponse(
+      handler: (request) => TransportResponse(
         statusCode: 200,
-        headers: {'content-type': 'application/json'},
-        body:
-            '{"err_no":0,"err_msg":"succ","data":{"wallet":{"balance":430},"products":[{"product_id":"gem_pack_500","apple_product_id":"com.worldo.gems.500","google_product_id":"worldo_gems_500","base_gems":500,"bonus_gems":50,"price_currency_code":"USD","price_amount":149,"can_purchase":true,"activity_type":"first_purchase_bonus"}],"task_groups":[{"group_code":"daily","group_title":"Daily","display_order":30,"tasks":[{"task_code":"send_message","title":"Send a message (0/3)","description":"Send messages in a location chat today.","reward_gems":50,"reward_valid_days":30,"cycle_type":"daily","progress":0,"target_count":3,"progress_text":"0/3","status":"in_progress","action_type":"navigate","action_text":"Go","action_target":"location_chat","display_order":20}]}]}}',
+        headers: const {'content-type': 'application/json'},
+        body: request.uri.path.endsWith('/products')
+            ? '{"err_no":0,"err_msg":"succ","data":{"list":[{"product_id":"gem_pack_500","apple_product_id":"com.worldo.gems.500","google_product_id":"worldo_gems_500","base_gems":500,"bonus_gems":50,"price_currency_code":"USD","price_amount":149,"can_purchase":true,"activity_type":"first_purchase_bonus","activity_ext":{"google_purchase_option_id":"500-gems-new","google_offer_id":"500-gems-new-discount"}}]}}'
+            : '{"err_no":0,"err_msg":"succ","data":{"list":[{"group_code":"daily","group_title":"Daily","tasks":[{"task_code":"send_message","title":"Send a message (0/3)","description":"Send messages in a location chat today.","reward_gems":50,"reward_valid_days":30,"cycle_type":"daily","cycle_key":"today","progress":0,"target_count":3,"progress_text":"0/3","status":"in_progress","action_text":"Go"}]}]}}',
       ),
     );
     final api = _apiWith(
@@ -287,16 +289,22 @@ void main() {
       ),
     );
 
-    final home = await api.v1.gem.home();
+    final products = await api.v1.gem.products();
+    final tasks = await api.v1.gem.tasks();
 
-    expect(apiTransport.lastRequest!.method, 'GET');
-    expect(apiTransport.lastRequest!.uri.path, '/api/v1/gem/home');
-    expect(home.balance, 430);
-    expect(home.products.single.productId, 'gem_pack_500');
-    expect(home.products.single.totalGems, 550);
-    expect(home.products.single.tagText, 'First top-up');
-    expect(home.taskGroups.single.groupTitle, 'Daily');
-    expect(home.taskGroups.single.tasks.single.actionTarget, 'location_chat');
+    expect(apiTransport.requests.map((request) => request.uri.path), [
+      '/api/v1/gem/products',
+      '/api/v1/gem/tasks',
+    ]);
+    expect(products.products.single.productId, 'gem_pack_500');
+    expect(products.products.single.googlePurchaseOptionId, '500-gems-new');
+    expect(products.products.single.googleOfferId, '500-gems-new-discount');
+    expect(products.products.single.totalGems, 550);
+    expect(products.products.single.tagText, 'First top-up');
+    expect(tasks.groups.single.groupTitle, 'Daily');
+    expect(tasks.groups.single.tasks.single.taskCode, 'send_message');
+    expect(tasks.groups.single.tasks.single.cycleKey, 'today');
+    expect(tasks.groups.single.tasks.single.actionText, 'Go');
   });
 
   test('v1 gem wallet parses the server balance', () async {
@@ -323,6 +331,122 @@ void main() {
     expect(apiTransport.lastRequest!.method, 'GET');
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/gem/wallet');
     expect(wallet.balance, 980);
+  });
+
+  test('v1 gem task report and claim send only task_code', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: request.uri.path.endsWith('/report')
+            ? '{"err_no":0,"err_msg":"succ","data":{"status":"claimable"}}'
+            : '{"err_no":0,"err_msg":"succ","data":{"status":"claimed"}}',
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final reported = await api.v1.gem.reportTask('discord_follow');
+    final claimed = await api.v1.gem.claimTask('discord_follow');
+
+    expect(reported.status, 'claimable');
+    expect(claimed.status, 'claimed');
+    expect(apiTransport.requests.map((request) => request.uri.path), [
+      '/api/v1/gem/task/report',
+      '/api/v1/gem/task/claim',
+    ]);
+    for (final request in apiTransport.requests) {
+      expect(jsonDecode(utf8.decode(request.bodyBytes!)), {
+        'task_code': 'discord_follow',
+      });
+    }
+  });
+
+  test('v1 gem records parses ledger items and sends scene query', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"list":[{"ledger_id":"gl_1","amount":-20,"scene":"world_tick","reason_code":"world_tick","title":"World progress","subtitle":"#Thorn Haven","created_at":1783586400,"expires_at":0}],"total":1,"pn":1,"rn":20}}',
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final records = await api.v1.gem.records(scene: 'spent', pn: 1, rn: 20);
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/gem/records');
+    expect(apiTransport.lastRequest!.uri.queryParameters['scene'], 'spent');
+    expect(apiTransport.lastRequest!.uri.queryParameters['pn'], '1');
+    expect(records.total, 1);
+    expect(records.items.single.ledgerId, 'gl_1');
+    expect(records.items.single.amount, -20);
+    expect(records.items.single.title, 'World progress');
+  });
+
+  test('v1 gem purchase report posts the Google purchase payload', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"report_id":"gpr_1","order_id":"gpo_1","report_status":"verified","order_status":"granted","granted":true,"granted_gems":550,"wallet":{"balance":980}}}',
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final report = await api.v1.gem.reportPurchase(
+      const GemPurchaseReportRequest(
+        provider: 'google',
+        productId: 'gem_pack_500',
+        storeProductId: 'worldo_gems_500',
+        transactionId: 'GPA.1',
+        purchaseToken: 'purchase-token-1',
+        requestId: 'pay_1',
+      ),
+    );
+
+    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/gem/purchase/report');
+    expect(jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)), {
+      'provider': 'google',
+      'environment': 'unknown',
+      'product_id': 'gem_pack_500',
+      'store_product_id': 'worldo_gems_500',
+      'transaction_id': 'GPA.1',
+      'purchase_token': 'purchase-token-1',
+      'request_id': 'pay_1',
+    });
+    expect(report.isGranted, isTrue);
+    expect(report.grantedGems, 550);
+    expect(report.walletBalance, 980);
   });
 
   test(

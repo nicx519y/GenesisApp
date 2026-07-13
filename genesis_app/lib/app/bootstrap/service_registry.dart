@@ -12,6 +12,7 @@ import '../../network/direct_message_conversation_store.dart';
 import '../../network/direct_message_message_store.dart';
 import '../../network/gateway_auth.dart';
 import '../../network/genesis_api.dart';
+import '../../network/json_utils.dart';
 import '../../network/network_runtime_factory.dart';
 import '../../routers/app_router.dart';
 import '../../platform/platform_services.dart';
@@ -21,6 +22,9 @@ import '../debug/location_chat_debug_storage.dart';
 import '../gems/gem_wallet_store.dart';
 import '../startup/startup_network_gate.dart';
 import '../version/app_version_check_service.dart';
+import '../../platform/billing/billing_service.dart';
+import '../../platform/billing/google_play_billing_platform.dart';
+import '../../platform/billing/pending_purchase_store.dart';
 
 class AppServices {
   AppServices({
@@ -40,6 +44,7 @@ class AppServices {
     required this.startupNetworkGate,
     this.gatewayAuth,
     GemWalletStore? gemWallet,
+    this.billing,
     ValueNotifier<int>? sessionRevision,
   }) : gemWallet =
            gemWallet ??
@@ -65,10 +70,12 @@ class AppServices {
   final StartupNetworkGate startupNetworkGate;
   final GatewayAuthCoordinator? gatewayAuth;
   final GemWalletStore gemWallet;
+  final BillingService? billing;
   final ValueNotifier<int> sessionRevision;
 
   void notifySessionChanged() {
     gemWallet.reset();
+    billing?.resetForSession();
     sessionRevision.value += 1;
   }
 }
@@ -215,6 +222,18 @@ class ServiceRegistry {
       readUid: sessionStore.readUid,
     );
     gemWalletStore = gemWallet;
+    final billing = GooglePlayBillingService(
+      platform: GooglePlayBillingPlatform(),
+      pendingPurchaseStore: SqfliteBillingPendingPurchaseStore(),
+      loadBillingAccountId: () async {
+        final userInfo = await api.v1.user.info();
+        return asString(userInfo['uuid']);
+      },
+      loadProductCatalog: () async => (await api.v1.gem.products()).products,
+      reportPurchase: api.v1.gem.reportPurchase,
+      refreshWallet: gemWallet.refreshAfterEntitlementGranted,
+      readUid: sessionStore.readUid,
+    );
     final directMessageConversations = DirectMessageConversationStore(
       api: api,
       sessionStore: sessionStore,
@@ -251,6 +270,7 @@ class ServiceRegistry {
       startupNetworkGate: startupNetworkGate,
       gatewayAuth: gatewayAuthCoordinator,
       gemWallet: gemWallet,
+      billing: billing,
       sessionRevision: sessionRevision,
     );
   }

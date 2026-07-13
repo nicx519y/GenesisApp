@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
+import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
 
 void main() {
   test('local mock app version check defaults to no upgrade', () async {
@@ -216,6 +217,64 @@ void main() {
 
     final gemWallet = await api.v1.gem.wallet();
     expect(gemWallet.balance, 430);
+    final gemProducts = await api.v1.gem.products();
+    expect(gemProducts.products.first.googlePurchaseOptionId, '500-gems-new');
+    expect(gemProducts.products.first.googleOfferId, '500-gems-new-discount');
+    final gemReport = await api.v1.gem.reportPurchase(
+      const GemPurchaseReportRequest(
+        provider: 'google',
+        productId: 'gem_pack_500',
+        storeProductId: 'worldo_gems_500',
+        transactionId: 'GPA.mock.1',
+        purchaseToken: 'mock-purchase-token-1',
+      ),
+    );
+    expect(gemReport.isGranted, isTrue);
+    expect(gemReport.grantedGems, 550);
+    expect(gemReport.walletBalance, 980);
+
+    final gemDuplicate = await api.v1.gem.reportPurchase(
+      const GemPurchaseReportRequest(
+        provider: 'google',
+        productId: 'gem_pack_500',
+        storeProductId: 'worldo_gems_500',
+        transactionId: 'GPA.mock.1',
+        purchaseToken: 'mock-purchase-token-1',
+      ),
+    );
+    expect(gemDuplicate.reportStatus, 'duplicate');
+    expect(gemDuplicate.walletBalance, 980);
+
+    final dailyCheckin = await api.v1.gem.reportTask('daily_checkin');
+    expect(dailyCheckin.status, 'claimed');
+    expect((await api.v1.gem.wallet()).balance, 1000);
+
+    final discordReport = await api.v1.gem.reportTask('discord_follow');
+    expect(discordReport.status, 'claimable');
+    final discordClaim = await api.v1.gem.claimTask('discord_follow');
+    expect(discordClaim.status, 'claimed');
+    expect((await api.v1.gem.wallet()).balance, 1020);
+
+    final refreshedGemTasks = await api.v1.gem.tasks();
+    final tasks = refreshedGemTasks.groups
+        .expand((group) => group.tasks)
+        .toList(growable: false);
+    expect(
+      tasks.singleWhere((task) => task.taskCode == 'daily_checkin').status,
+      'claimed',
+    );
+    expect(
+      tasks.singleWhere((task) => task.taskCode == 'discord_follow').status,
+      'claimed',
+    );
+
+    final spentRecords = await api.v1.gem.records(
+      scene: 'spent',
+      pn: 1,
+      rn: 10,
+    );
+    expect(spentRecords.items, isNotEmpty);
+    expect(spentRecords.items.every((record) => record.amount < 0), isTrue);
 
     final origins = await api.v1.origin.list(scene: 'foryou', pn: 1, rn: 10);
     expect(origins['total'], greaterThanOrEqualTo(100));

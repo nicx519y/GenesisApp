@@ -552,12 +552,39 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(<String, dynamic>{});
     }
 
-    if (method == 'GET' && path == 'gem/home') {
-      return _v1Ok(_state.v1GemHome());
+    if (method == 'GET' && path == 'gem/products') {
+      return _v1Ok(_state.v1GemProducts());
+    }
+
+    if (method == 'GET' && path == 'gem/tasks') {
+      return _v1Ok(_state.v1GemTasks());
     }
 
     if (method == 'GET' && path == 'gem/wallet') {
       return _v1Ok(_state.v1GemWallet());
+    }
+
+    if (method == 'GET' && path == 'gem/records') {
+      return _v1Ok(
+        _paged(
+          _state.v1GemRecords(query['scene']),
+          query,
+          defaultSize: 10,
+          maxSize: 100,
+        ),
+      );
+    }
+
+    if (method == 'POST' && path == 'gem/purchase/report') {
+      return _v1Ok(_state.v1GemPurchaseReport(body));
+    }
+
+    if (method == 'POST' && path == 'gem/task/report') {
+      return _v1Ok(_state.v1GemTaskReport(body));
+    }
+
+    if (method == 'POST' && path == 'gem/task/claim') {
+      return _v1Ok(_state.v1GemTaskClaim(body));
     }
 
     if (method == 'GET' && path == 'message/unread') {
@@ -900,6 +927,15 @@ class _MockState {
       _mockDirectMessageMessagesByPeer();
   final Set<String> _v1BlockedDirectMessagePeers = <String>{};
   final Set<String> _v1BlockedUsers = <String>{'u_mock_peer'};
+  final Map<String, int> _v1GrantedGemByPurchaseToken = <String, int>{};
+  final Map<String, String> _v1GemTaskStatuses = <String, String>{
+    'create_first_worldo': 'in_progress',
+    'launch_first_world': 'in_progress',
+    'daily_checkin': 'in_progress',
+    'send_message': 'in_progress',
+    'discord_follow': 'in_progress',
+  };
+  int _v1GemBalance = 430;
   int _v1DirectMessageUnreadCount = 1;
   String _v1DmConversationCursor = 'dm_sync_1';
   bool _v1DmConversationDeltaSent = false;
@@ -1432,10 +1468,9 @@ class _MockState {
     return _v1UserPayload(_v1User);
   }
 
-  Map<String, dynamic> v1GemHome() {
+  Map<String, dynamic> v1GemProducts() {
     return {
-      'wallet': {'balance': 430},
-      'products': const [
+      'list': const [
         {
           'product_id': 'gem_pack_500',
           'apple_product_id': 'com.worldo.gems.500',
@@ -1445,7 +1480,11 @@ class _MockState {
           'price_currency_code': 'USD',
           'price_amount': 149,
           'can_purchase': true,
-          'activity_type': 'none',
+          'activity_type': 'first_purchase_bonus',
+          'activity_ext': {
+            'google_purchase_option_id': '500-gems-new',
+            'google_offer_id': '500-gems-new-discount',
+          },
         },
         {
           'product_id': 'gem_pack_1100',
@@ -1457,6 +1496,7 @@ class _MockState {
           'price_amount': 590,
           'can_purchase': true,
           'activity_type': 'first_purchase_bonus',
+          'activity_ext': {},
         },
         {
           'product_id': 'gem_pack_4400',
@@ -1468,6 +1508,7 @@ class _MockState {
           'price_amount': 1990,
           'can_purchase': true,
           'activity_type': 'first_purchase_bonus',
+          'activity_ext': {},
         },
         {
           'product_id': 'gem_pack_8800',
@@ -1479,6 +1520,7 @@ class _MockState {
           'price_amount': 3890,
           'can_purchase': true,
           'activity_type': 'first_purchase_bonus',
+          'activity_ext': {},
         },
         {
           'product_id': 'gem_pack_16500',
@@ -1490,6 +1532,7 @@ class _MockState {
           'price_amount': 6990,
           'can_purchase': true,
           'activity_type': 'first_purchase_bonus',
+          'activity_ext': {},
         },
         {
           'product_id': 'gem_pack_55000',
@@ -1501,13 +1544,18 @@ class _MockState {
           'price_amount': 19990,
           'can_purchase': true,
           'activity_type': 'first_purchase_bonus',
+          'activity_ext': {},
         },
       ],
-      'task_groups': const [
+    };
+  }
+
+  Map<String, dynamic> v1GemTasks() {
+    return {
+      'list': [
         {
           'group_code': 'starter',
           'group_title': 'Starter',
-          'display_order': 10,
           'tasks': [
             {
               'task_code': 'create_first_worldo',
@@ -1516,37 +1564,35 @@ class _MockState {
               'reward_gems': 50,
               'reward_valid_days': 30,
               'cycle_type': 'once',
+              'cycle_key': '',
               'progress': 0,
               'target_count': 1,
               'progress_text': '0/1',
-              'status': 'in_progress',
-              'action_type': 'navigate',
-              'action_text': 'Go',
-              'action_target': 'create_origin',
-              'display_order': 10,
+              'status': _v1GemTaskStatuses['create_first_worldo'],
+              'action_text': _v1GemTaskActionText(
+                'create_first_worldo',
+                'Create',
+              ),
             },
             {
-              'task_code': 'join_first_world',
+              'task_code': 'launch_first_world',
               'title': 'Join your first world',
               'description': 'Join a world and start your story.',
               'reward_gems': 50,
               'reward_valid_days': 30,
               'cycle_type': 'once',
+              'cycle_key': '',
               'progress': 0,
               'target_count': 1,
               'progress_text': '0/1',
-              'status': 'in_progress',
-              'action_type': 'navigate',
-              'action_text': 'Go',
-              'action_target': 'origin',
-              'display_order': 20,
+              'status': _v1GemTaskStatuses['launch_first_world'],
+              'action_text': _v1GemTaskActionText('launch_first_world', 'Go'),
             },
           ],
         },
         {
           'group_code': 'daily',
           'group_title': 'Daily',
-          'display_order': 30,
           'tasks': [
             {
               'task_code': 'daily_checkin',
@@ -1559,11 +1605,8 @@ class _MockState {
               'progress': 0,
               'target_count': 1,
               'progress_text': '0/1',
-              'status': 'claimable',
-              'action_type': 'checkin',
-              'action_text': 'Claim',
-              'action_target': 'daily_checkin',
-              'display_order': 10,
+              'status': _v1GemTaskStatuses['daily_checkin'],
+              'action_text': _v1GemTaskActionText('daily_checkin', 'Check in'),
             },
             {
               'task_code': 'send_message',
@@ -1576,21 +1619,17 @@ class _MockState {
               'progress': 0,
               'target_count': 3,
               'progress_text': '0/3',
-              'status': 'in_progress',
-              'action_type': 'navigate',
-              'action_text': 'Go',
-              'action_target': 'location_chat',
-              'display_order': 20,
+              'status': _v1GemTaskStatuses['send_message'],
+              'action_text': _v1GemTaskActionText('send_message', 'Go'),
             },
           ],
         },
         {
           'group_code': 'join_us',
           'group_title': 'Join us',
-          'display_order': 40,
           'tasks': [
             {
-              'task_code': 'join_discord',
+              'task_code': 'discord_follow',
               'title': 'Discord',
               'description': 'Join our Discord community.',
               'reward_gems': 20,
@@ -1600,11 +1639,8 @@ class _MockState {
               'progress': 0,
               'target_count': 1,
               'progress_text': '0/1',
-              'status': 'in_progress',
-              'action_type': 'navigate',
-              'action_text': 'Follow',
-              'action_target': 'discord',
-              'display_order': 10,
+              'status': _v1GemTaskStatuses['discord_follow'],
+              'action_text': _v1GemTaskActionText('discord_follow', 'Follow'),
             },
           ],
         },
@@ -1614,7 +1650,137 @@ class _MockState {
 
   Map<String, dynamic> v1GemWallet() {
     return {
-      'wallet': {'balance': 430},
+      'wallet': {'balance': _v1GemBalance},
+    };
+  }
+
+  String _v1GemTaskActionText(String taskCode, String inProgressText) {
+    return switch (_v1GemTaskStatuses[taskCode]) {
+      'claimable' => 'Claim',
+      'claimed' => 'Claimed',
+      _ => inProgressText,
+    };
+  }
+
+  Map<String, dynamic> v1GemTaskReport(Map<String, dynamic> body) {
+    final taskCode = '${body['task_code'] ?? ''}'.trim();
+    switch (taskCode) {
+      case 'daily_checkin':
+        if (_v1GemTaskStatuses[taskCode] != 'claimed') {
+          _v1GemTaskStatuses[taskCode] = 'claimed';
+          _v1GemBalance += 20;
+        }
+        break;
+      case 'discord_follow':
+        if (_v1GemTaskStatuses[taskCode] != 'claimed') {
+          _v1GemTaskStatuses[taskCode] = 'claimable';
+        }
+        break;
+    }
+    return {'status': _v1GemTaskStatuses[taskCode] ?? 'in_progress'};
+  }
+
+  Map<String, dynamic> v1GemTaskClaim(Map<String, dynamic> body) {
+    final taskCode = '${body['task_code'] ?? ''}'.trim();
+    if (_v1GemTaskStatuses[taskCode] == 'claimable') {
+      _v1GemTaskStatuses[taskCode] = 'claimed';
+      _v1GemBalance += switch (taskCode) {
+        'discord_follow' => 20,
+        _ => 0,
+      };
+    }
+    return {'status': _v1GemTaskStatuses[taskCode] ?? 'in_progress'};
+  }
+
+  List<Map<String, dynamic>> v1GemRecords(String? scene) {
+    final normalizedScene = (scene ?? 'all').trim().toLowerCase();
+    final now = _unixSeconds();
+    final records = [
+      {
+        'ledger_id': 'gl_mock_purchase_1',
+        'amount': 550,
+        'scene': 'purchase',
+        'reason_code': 'google_purchase',
+        'title': 'Gem purchase',
+        'subtitle': '500 Gems pack',
+        'created_at': now,
+        'expires_at': 0,
+      },
+      {
+        'ledger_id': 'gl_mock_task_1',
+        'amount': 20,
+        'scene': 'task',
+        'reason_code': 'daily_checkin',
+        'title': 'Daily check-in',
+        'subtitle': 'Starter reward',
+        'created_at': now - 3600,
+        'expires_at': now + 86400 * 30,
+      },
+      {
+        'ledger_id': 'gl_mock_spent_1',
+        'amount': -20,
+        'scene': 'world_tick',
+        'reason_code': 'world_tick',
+        'title': 'World progress',
+        'subtitle': '#Thorn Haven',
+        'created_at': now - 7200,
+        'expires_at': 0,
+      },
+      {
+        'ledger_id': 'gl_mock_task_2',
+        'amount': 50,
+        'scene': 'task',
+        'reason_code': 'send_message',
+        'title': 'Send a message',
+        'subtitle': 'Daily task',
+        'created_at': now - 86400,
+        'expires_at': now + 86400 * 29,
+      },
+    ];
+    return records
+        .where((record) {
+          if (normalizedScene.isEmpty || normalizedScene == 'all') return true;
+          if (normalizedScene == 'earned') {
+            return asInt(record['amount']) > 0 && record['scene'] != 'purchase';
+          }
+          if (normalizedScene == 'spent') return asInt(record['amount']) < 0;
+          return record['scene'] == normalizedScene;
+        })
+        .map((record) => Map<String, dynamic>.from(record))
+        .toList();
+  }
+
+  Map<String, dynamic> v1GemPurchaseReport(Map<String, dynamic> body) {
+    final purchaseToken = '${body['purchase_token'] ?? ''}'.trim();
+    final productId = '${body['product_id'] ?? ''}'.trim();
+    final previousGrant = _v1GrantedGemByPurchaseToken[purchaseToken];
+    final grantedGems = previousGrant ?? _gemTotalForProduct(productId);
+    if (previousGrant == null) {
+      _v1GrantedGemByPurchaseToken[purchaseToken] = grantedGems;
+      _v1GemBalance += grantedGems;
+    }
+    return {
+      'report_id':
+          'gpr_mock_${purchaseToken.isEmpty ? 'unknown' : purchaseToken}',
+      'order_id':
+          'gpo_mock_${purchaseToken.isEmpty ? 'unknown' : purchaseToken}',
+      'report_status': previousGrant == null ? 'verified' : 'duplicate',
+      'order_status': 'granted',
+      'granted': true,
+      'granted_gems': grantedGems,
+      'wallet': {'balance': _v1GemBalance},
+    };
+  }
+
+  int _gemTotalForProduct(String productId) {
+    return switch (productId) {
+      'gem_pack_500' => 550,
+      'gem_pack_1100' => 1210,
+      'gem_pack_4400' => 4840,
+      'gem_pack_8800' => 9680,
+      'gem_pack_16500' => 18150,
+      'gem_pack_55000' => 60500,
+      _ => 0,
     };
   }
 

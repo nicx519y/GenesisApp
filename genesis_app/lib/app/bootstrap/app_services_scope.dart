@@ -29,6 +29,19 @@ class AppServicesScope extends StatefulWidget {
     return _fallbackServices ??= ServiceRegistry.build();
   }
 
+  static AppServices? maybeRead(BuildContext context) {
+    final element = context
+        .getElementForInheritedWidgetOfExactType<_AppServicesInheritedScope>();
+    final scope = element?.widget as _AppServicesInheritedScope?;
+    return scope?.services;
+  }
+
+  static AppServices? maybeOf(BuildContext context) {
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<_AppServicesInheritedScope>();
+    return scope?.services;
+  }
+
   static AppServices replaceWithConfig(BuildContext context, AppConfig config) {
     final current = read(context);
     final updated = ServiceRegistry.rebuildFrom(current, config: config);

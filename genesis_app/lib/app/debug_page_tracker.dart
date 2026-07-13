@@ -15,6 +15,8 @@ final ValueNotifier<Object?> genesisCurrentRouteArguments =
     ValueNotifier<Object?>(null);
 
 final NavigatorObserver genesisRouteObserver = _GenesisRouteObserver();
+final RouteObserver<PageRoute<dynamic>> genesisPageRouteObserver =
+    RouteObserver<PageRoute<dynamic>>();
 
 class _GenesisRouteObserver extends NavigatorObserver {
   void _sync(

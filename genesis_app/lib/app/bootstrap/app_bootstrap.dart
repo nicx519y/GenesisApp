@@ -22,7 +22,10 @@ class AppBootstrap {
     AppConfig config = const AppConfig(),
   }) {
     WidgetsFlutterBinding.ensureInitialized();
-    return ServiceRegistry.build(config: config);
+    final services = ServiceRegistry.build(config: config);
+    final billing = services.billing;
+    if (billing != null) unawaited(billing.start());
+    return services;
   }
 
   static Future<AppServices> initialize() async {

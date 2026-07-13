@@ -12,6 +12,7 @@ import '../components/login_sheet.dart';
 import '../network/models/unread_summary.dart';
 import '../platform/auth/auth_session.dart';
 import '../platform/privacy/app_tracking_transparency_service.dart';
+import '../platform/billing/billing_models.dart';
 import 'create/create_origin_page.dart';
 import 'home/home_page.dart';
 import 'me/me_page.dart';
@@ -94,6 +95,11 @@ class _AppShellPageState extends State<AppShellPage>
       if (AppStartupCoordinator.isPostLaunchWorkAllowed) {
         _startMessagesPolling();
         _notifyActiveTabActivated();
+        unawaited(
+          AppServicesScope.read(
+            context,
+          ).billing?.recover(BillingRecoverySource.foreground),
+        );
       }
     } else {
       _stopMessagesPolling();
@@ -333,6 +339,7 @@ class _AppShellPageState extends State<AppShellPage>
     _homeInitialTabIndexOverride = null;
     _resetSessionBoundState(selectedIndex: _selectedIndex);
     final services = AppServicesScope.read(context);
+    services.billing?.resetForSession();
     unawaited(services.directMessageConversations.loadFromDb());
     if (_selectedIndex == 3) {
       unawaited(_messagesPoller.runNow());

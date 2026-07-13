@@ -61,13 +61,19 @@ class PageHeader extends StatelessWidget {
 }
 
 class PageTitleText extends StatelessWidget {
-  const PageTitleText({super.key, required this.pageName});
+  const PageTitleText({super.key, required this.pageName, this.style});
 
   final String pageName;
+  final TextStyle? style;
 
   @override
   Widget build(BuildContext context) {
-    return GenesisPageTitle(text: pageName);
+    final overrideStyle = style;
+    if (overrideStyle == null) return GenesisPageTitle(text: pageName);
+    return Text(
+      pageName,
+      style: GenesisUiTheme.of(context).pageTitleStyle.merge(overrideStyle),
+    );
   }
 }
 
@@ -79,6 +85,7 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.actions,
     this.titleKey,
     this.onTitleTap,
+    this.titleStyle,
   });
 
   final String pageName;
@@ -86,6 +93,7 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
   final List<Widget>? actions;
   final Key? titleKey;
   final VoidCallback? onTitleTap;
+  final TextStyle? titleStyle;
 
   @override
   Size get preferredSize => const Size.fromHeight(kGenesisTopBarHeight);
@@ -119,7 +127,7 @@ class GenesisBackAppBar extends StatelessWidget implements PreferredSizeWidget {
         key: titleKey,
         behavior: HitTestBehavior.translucent,
         onTap: onTitleTap,
-        child: PageTitleText(pageName: pageName),
+        child: PageTitleText(pageName: pageName, style: titleStyle),
       ),
       actions: actions,
     );

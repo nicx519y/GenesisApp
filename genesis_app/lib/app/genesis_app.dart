@@ -27,7 +27,7 @@ class GenesisApp extends StatelessWidget {
           theme: GenesisTheme.light(),
           initialRoute: RouteNames.home,
           navigatorKey: genesisNavigatorKey,
-          navigatorObservers: [genesisRouteObserver],
+          navigatorObservers: [genesisRouteObserver, genesisPageRouteObserver],
           onGenerateRoute: AppRouter.onGenerateRoute,
           builder: (context, child) {
             return GenesisTelemetryTapRegion(
