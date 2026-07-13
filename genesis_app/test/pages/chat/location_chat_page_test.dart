@@ -1,9 +1,11 @@
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
+import 'package:genesis_flutter_android/routers/app_router.dart';
 
 void main() {
   const localAvatar = 'https://example.test/local-avatar.webp';
@@ -14,6 +16,75 @@ void main() {
     const panel = LocationChatPanel(worldId: 'world-1', locationId: 'loc-1');
 
     expect(panel.showMoreButton, isFalse);
+  });
+
+  test('selected model code reads the user info sibling field', () {
+    expect(
+      selectedModelCodeFromUserInfo({
+        'selected_model_code': 'cc_4_5',
+        'user': {'selected_model_code': 'legacy_model'},
+      }),
+      'cc_4_5',
+    );
+  });
+
+  test('selected model code accepts a nested compatibility fallback', () {
+    expect(
+      selectedModelCodeFromUserInfo({
+        'user': {'selected_model_code': 'legacy_model'},
+      }),
+      'legacy_model',
+    );
+  });
+
+  test('location chat model entry is server driven and world scoped', () {
+    final source = File(
+      'lib/pages/chat/location_chat_page.dart',
+    ).readAsStringSync();
+
+    expect(source, isNot(contains("modelLabel: 'CC4.5'")));
+    expect(source, contains('sessionStore.readUserInfo()'));
+    expect(source, isNot(contains('api.v1.user.info()')));
+    expect(source, contains('rootNavigator: true'));
+    expect(source, contains('pushNamed<String>('));
+    expect(source, contains("arguments: {'world_id': widget.worldId}"));
+  });
+
+  testWidgets('location chat model entry opens the current world model list', (
+    tester,
+  ) async {
+    Object? routeArguments;
+    await tester.pumpWidget(
+      MaterialApp(
+        onGenerateRoute: (settings) {
+          if (settings.name != RouteNames.memoryModel) return null;
+          routeArguments = settings.arguments;
+          return MaterialPageRoute<String>(
+            settings: settings,
+            builder: (_) => const Scaffold(body: Text('Model selection list')),
+          );
+        },
+        home: Navigator(
+          pages: const [
+            MaterialPage<void>(
+              child: LocationChatPanel(
+                worldId: 'world-current',
+                locationId: 'location-current',
+                active: false,
+              ),
+            ),
+          ],
+          onDidRemovePage: (_) {},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('memory-model-entry')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Model selection list'), findsOneWidget);
+    expect(routeArguments, {'world_id': 'world-current'});
   });
 
   test('location chat background falls back to bundled default when empty', () {

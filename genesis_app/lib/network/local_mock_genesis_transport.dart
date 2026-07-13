@@ -564,6 +564,14 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_state.v1GemWallet());
     }
 
+    if (method == 'GET' && path == 'gem/model/list') {
+      return _v1Ok(_state.v1GemModels(query['world_id'] ?? ''));
+    }
+
+    if (method == 'POST' && path == 'gem/model/select') {
+      return _v1Ok(_state.v1GemModelSelect(body));
+    }
+
     if (method == 'GET' && path == 'gem/records') {
       return _v1Ok(
         _paged(
@@ -928,6 +936,8 @@ class _MockState {
   final Set<String> _v1BlockedDirectMessagePeers = <String>{};
   final Set<String> _v1BlockedUsers = <String>{'u_mock_peer'};
   final Map<String, int> _v1GrantedGemByPurchaseToken = <String, int>{};
+  final Map<String, String> _v1SelectedGemModelByWorldId = <String, String>{};
+  String _v1SelectedGemModelCode = 'top_pick_v3';
   final Map<String, String> _v1GemTaskStatuses = <String, String>{
     'create_first_worldo': 'in_progress',
     'launch_first_world': 'in_progress',
@@ -1654,6 +1664,70 @@ class _MockState {
     };
   }
 
+  Map<String, dynamic> v1GemModels(String worldId) {
+    return {
+      'selected_model_code':
+          _v1SelectedGemModelByWorldId[worldId] ?? 'top_pick_v3',
+      'list': const [
+        {
+          'group_code': 'recommended',
+          'group_title': 'Recommended',
+          'models': [
+            {
+              'model_code': 'top_pick_v3',
+              'title': 'Top Pick V3',
+              'tag': ['hot'],
+              'estimated_next_message_gems': 4,
+              'estimated_next_tick_gems': 4,
+              'description':
+                  'Most recommended. Best storytelling model with a balanced price.',
+              'range_text': '4-320 gems (memory from 2K to 156K)',
+            },
+            {
+              'model_code': 'top_pick_v3_5',
+              'title': 'Top Pick V3.5',
+              'tag': [],
+              'estimated_next_message_gems': 6,
+              'estimated_next_tick_gems': 6,
+              'description':
+                  'Most recommended. Best storytelling model with a balanced price.',
+              'range_text': '6-480 gems (memory from 2K to 156K)',
+            },
+            {
+              'model_code': 'luxury_selection_v4',
+              'title': 'Luxury Selection V4.0',
+              'tag': ['new'],
+              'estimated_next_message_gems': 8,
+              'estimated_next_tick_gems': 8,
+              'description': 'Luxurious, pricey, but the best model of all.',
+              'range_text': '8-640 gems (memory from 2K to 156K)',
+            },
+            {
+              'model_code': 'sake_pro',
+              'title': 'Sake Pro',
+              'tag': ['new'],
+              'estimated_next_message_gems': 3,
+              'estimated_next_tick_gems': 3,
+              'description':
+                  'An experimental model exploring flexible storytelling.',
+              'range_text': '3-160 gems (memory from 2K to 156K)',
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  Map<String, dynamic> v1GemModelSelect(Map<String, dynamic> body) {
+    final worldId = '${body['world_id'] ?? ''}'.trim();
+    final modelCode = '${body['model_code'] ?? ''}'.trim();
+    if (worldId.isNotEmpty && modelCode.isNotEmpty) {
+      _v1SelectedGemModelByWorldId[worldId] = modelCode;
+      _v1SelectedGemModelCode = modelCode;
+    }
+    return {'selected_model_code': modelCode};
+  }
+
   String _v1GemTaskActionText(String taskCode, String inProgressText) {
     return switch (_v1GemTaskStatuses[taskCode]) {
       'claimable' => 'Claim',
@@ -1796,6 +1870,7 @@ class _MockState {
     };
     if (isSelf) {
       profile['uuid'] = '4b74ec68-7abc-4cce-a223-e997e31dc811';
+      profile['selected_model_code'] = _v1SelectedGemModelCode;
     }
     return profile;
   }

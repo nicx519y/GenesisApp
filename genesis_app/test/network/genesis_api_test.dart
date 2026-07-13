@@ -333,6 +333,52 @@ void main() {
     expect(wallet.balance, 980);
   });
 
+  test('v1 gem model list and selection send current world context', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: request.method == 'GET'
+            ? '{"err_no":0,"err_msg":"succ","data":{"selected_model_code":"top_pick_v3","list":[{"group_code":"recommended","group_title":"Recommended","models":[{"model_code":"top_pick_v3","title":"Top Pick V3","tag":["hot"],"estimated_next_message_gems":4,"estimated_next_tick_gems":4,"description":"Balanced storytelling.","range_text":"4-320 gems"}]}]}}'
+            : '{"err_no":0,"err_msg":"succ","data":{"selected_model_code":"sake_pro"}}',
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final catalog = await api.v1.gem.models(worldId: 'W_000001');
+    final selection = await api.v1.gem.selectModel(
+      worldId: 'W_000001',
+      modelCode: 'sake_pro',
+    );
+
+    final listRequest = apiTransport.requests.first;
+    expect(listRequest.method, 'GET');
+    expect(listRequest.uri.path, '/api/v1/gem/model/list');
+    expect(listRequest.uri.queryParameters, {'world_id': 'W_000001'});
+    expect(catalog.selectedModelCode, 'top_pick_v3');
+    expect(catalog.groups.single.groupTitle, 'Recommended');
+    expect(catalog.groups.single.models.single.tags, ['hot']);
+    expect(catalog.groups.single.models.single.estimatedNextMessageGems, 4);
+
+    final selectRequest = apiTransport.requests.last;
+    expect(selectRequest.method, 'POST');
+    expect(selectRequest.uri.path, '/api/v1/gem/model/select');
+    expect(jsonDecode(utf8.decode(selectRequest.bodyBytes!)), {
+      'world_id': 'W_000001',
+      'model_code': 'sake_pro',
+    });
+    expect(selection.selectedModelCode, 'sake_pro');
+  });
+
   test('v1 gem task report and claim send only task_code', () async {
     final apiTransport = _FakeTransport(
       handler: (request) => TransportResponse(
@@ -502,13 +548,13 @@ void main() {
     expect(user.uid, 'u_1');
   });
 
-  test('v1 user info keeps UUID alongside user', () async {
+  test('v1 user info keeps UUID and selected model alongside user', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
         headers: {'content-type': 'application/json'},
         body:
-            '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_1","name":"n"},"uuid":"4b74ec68-7abc-4cce-a223-e997e31dc811"}}',
+            '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_1","name":"n"},"uuid":"4b74ec68-7abc-4cce-a223-e997e31dc811","selected_model_code":"top_pick_v3"}}',
       ),
     );
     final api = _apiWith(
@@ -525,7 +571,12 @@ void main() {
     final response = await api.v1.user.info();
 
     expect(response['uuid'], '4b74ec68-7abc-4cce-a223-e997e31dc811');
+    expect(response['selected_model_code'], 'top_pick_v3');
     expect((response['user'] as Map).containsKey('uuid'), isFalse);
+    expect(
+      (response['user'] as Map).containsKey('selected_model_code'),
+      isFalse,
+    );
   });
 
   test('bindDevice does not persist guest uid when user info fails', () async {

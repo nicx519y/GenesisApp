@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+const double kMemoryModelEntryMinWidth = 82;
+
 class MemoryModelEntryButton extends StatelessWidget {
   const MemoryModelEntryButton({
     super.key,
@@ -28,7 +30,9 @@ class MemoryModelEntryButton extends StatelessWidget {
         onTap: onTap,
         child: Container(
           height: 38,
-          constraints: const BoxConstraints(minWidth: 82),
+          constraints: const BoxConstraints(
+            minWidth: kMemoryModelEntryMinWidth,
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Row(
             mainAxisSize: MainAxisSize.min,

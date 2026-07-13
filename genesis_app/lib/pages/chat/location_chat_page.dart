@@ -37,6 +37,12 @@ const int _locationChatMessageGapMaxAttempts = 3;
 const String _locationChatDefaultBackgroundAsset =
     'assets/images/map_default/location_default.webp';
 
+String selectedModelCodeFromUserInfo(Map<String, dynamic> userInfo) {
+  final direct = asString(userInfo['selected_model_code']).trim();
+  if (direct.isNotEmpty) return direct;
+  return asString(asJsonMap(userInfo['user'])['selected_model_code']).trim();
+}
+
 class LocationChatPage extends StatelessWidget {
   const LocationChatPage({
     super.key,
@@ -160,6 +166,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   String _mySenderId = '';
   String _mySenderName = '';
   String _myAvatarUrl = '';
+  String _selectedModelCode = '';
   double _devicePixelRatio = 1;
   bool _ownsService = false;
   bool _joinedLocation = false;
@@ -191,7 +198,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   String _scrollCenterLocalId = '';
   double _edgeSwipeBackDragDistance = 0;
   bool _edgeSwipeBackTriggered = false;
+  bool _openingModelPage = false;
   int _serviceGeneration = 0;
+  int _selectedModelLoadGeneration = 0;
 
   @override
   void initState() {
@@ -213,11 +222,13 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _textController.addListener(_handleDraftTextChanged);
     _scrollController.addListener(_handleMessageListScroll);
     _prepareConnection();
+    if (widget.active) unawaited(_loadSelectedModelCodeFromCache());
     _startInitialBottomScroll();
   }
 
   @override
   void dispose() {
+    _selectedModelLoadGeneration++;
     WidgetsBinding.instance.removeObserver(this);
     _recordPanelDebug(action: 'dispose', activeOverride: false);
     final service = _service;
@@ -238,6 +249,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void didUpdateWidget(LocationChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.active &&
+        (oldWidget.worldId != widget.worldId || !oldWidget.active)) {
+      unawaited(_loadSelectedModelCodeFromCache());
+    }
     final changedChatTarget =
         oldWidget.service != widget.service ||
         oldWidget.worldId != widget.worldId ||
@@ -313,6 +328,46 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // WorldChatroomService owns reconnect behavior; this page only joins/leaves
     // the current location.
+  }
+
+  Future<void> _loadSelectedModelCodeFromCache() async {
+    final generation = ++_selectedModelLoadGeneration;
+    try {
+      final userInfo =
+          await AppServicesScope.read(context).sessionStore.readUserInfo() ??
+          const <String, dynamic>{};
+      final modelCode = selectedModelCodeFromUserInfo(userInfo);
+      if (!mounted || generation != _selectedModelLoadGeneration) return;
+      setState(() => _selectedModelCode = modelCode);
+    } catch (error) {
+      debugPrint(
+        '[WorldChat][Model] load cached selected model failed: $error',
+      );
+    }
+  }
+
+  Future<void> _openMemoryModelPage() async {
+    if (_openingModelPage) return;
+    _openingModelPage = true;
+    _selectedModelLoadGeneration++;
+    try {
+      final selectedModelCode = await Navigator.of(context, rootNavigator: true)
+          .pushNamed<String>(
+            RouteNames.memoryModel,
+            arguments: {'world_id': widget.worldId},
+          );
+      if (!mounted) return;
+      final normalized = selectedModelCode?.trim() ?? '';
+      if (normalized.isEmpty) {
+        await _loadSelectedModelCodeFromCache();
+        return;
+      }
+      if (normalized != _selectedModelCode) {
+        setState(() => _selectedModelCode = normalized);
+      }
+    } finally {
+      _openingModelPage = false;
+    }
   }
 
   void _prepareConnection() {
@@ -2343,9 +2398,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       showSubtitle: widget.showConnectionStatus && aiRoleNames.isNotEmpty,
       showMoreButton: widget.showMoreButton,
       trailing: MemoryModelEntryButton(
-        modelLabel: 'CC4.5',
+        modelLabel: _selectedModelCode.isEmpty ? 'Model' : _selectedModelCode,
         darkHeader: true,
-        onTap: () => Navigator.of(context).pushNamed(RouteNames.memoryModel),
+        onTap: () => unawaited(_openMemoryModelPage()),
       ),
       style: style,
     );

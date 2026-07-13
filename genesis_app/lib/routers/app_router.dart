@@ -125,6 +125,23 @@ class _LegalRouteArgs {
   final LegalDocument document;
 }
 
+class _MemoryModelRouteArgs {
+  const _MemoryModelRouteArgs({required this.worldId});
+
+  factory _MemoryModelRouteArgs.from(Object? raw) {
+    final args = _RouteArgs(raw);
+    return _MemoryModelRouteArgs(
+      worldId: args.string(const [
+        'world_id',
+        'worldId',
+        'wid',
+      ], fallback: args.directString()).trim(),
+    );
+  }
+
+  final String worldId;
+}
+
 class _OriginWorldRouteArgs {
   const _OriginWorldRouteArgs({required this.oid, required this.originId});
 
@@ -596,9 +613,10 @@ sealed class AppRouter {
           builder: (_) => const GemRecordsPage(),
         );
       case RouteNames.memoryModel:
-        return MaterialPageRoute<void>(
+        final args = _MemoryModelRouteArgs.from(settings.arguments);
+        return MaterialPageRoute<String>(
           settings: settings,
-          builder: (_) => const MemoryModelPage(),
+          builder: (_) => MemoryModelPage(worldId: args.worldId),
         );
       case RouteNames.pageNotFound:
         return MaterialPageRoute<void>(

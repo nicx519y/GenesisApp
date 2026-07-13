@@ -62,14 +62,13 @@ void main() {
     expect(bottomHeader, contains('GenesisPrimaryButton'));
   });
 
-  test('world map top overlay does not expose Memory & Model entry', () {
+  test('world map top overlay does not expose a separate Model entry', () {
     final source = worldPageSource.readAsStringSync();
     final overlayStart = source.indexOf('Widget _buildPersistentMapOverlay(');
     final overlay = source.substring(overlayStart, source.length);
 
     expect(overlay, isNot(contains('MemoryModelEntryButton(')));
-    expect(overlay, isNot(contains("modelLabel: 'CC4.5'")));
-    expect(overlay, isNot(contains('RouteNames.memoryModel')));
+    expect(source, isNot(contains('RouteNames.memoryModel')));
   });
 
   test('world bottom tags open single-section sheets', () {

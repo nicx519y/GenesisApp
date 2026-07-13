@@ -1,3 +1,4 @@
+import '../models/gem_model.dart';
 import '../models/gem_product.dart';
 import '../models/gem_purchase_report.dart';
 import '../models/gem_records.dart';
@@ -17,6 +18,26 @@ class GemV1Api extends V1ApiResource {
   /// GET /api/v1/gem/tasks
   Future<GemTaskList> tasks() async {
     return GemTaskList.fromJson(await getMap('gem/tasks'));
+  }
+
+  /// GET /api/v1/gem/model/list
+  Future<GemModelCatalog> models({required String worldId}) async {
+    return GemModelCatalog.fromJson(
+      await getMap('gem/model/list', v1Query({'world_id': worldId})),
+    );
+  }
+
+  /// POST /api/v1/gem/model/select
+  Future<GemModelSelection> selectModel({
+    required String worldId,
+    required String modelCode,
+  }) async {
+    return GemModelSelection.fromJson(
+      await postMap(
+        'gem/model/select',
+        v1Body({'world_id': worldId, 'model_code': modelCode}),
+      ),
+    );
   }
 
   /// GET /api/v1/gem/wallet

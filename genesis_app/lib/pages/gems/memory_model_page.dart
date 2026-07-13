@@ -1,37 +1,483 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
+import '../../network/models/gem_model.dart';
 
-class MemoryModelPage extends StatelessWidget {
-  const MemoryModelPage({super.key});
+typedef GemModelCatalogLoader =
+    Future<GemModelCatalog> Function(String worldId);
+typedef GemModelSelectionHandler =
+    Future<GemModelSelection> Function(String worldId, String modelCode);
+typedef SelectedModelCodeCacheWriter = Future<void> Function(String modelCode);
+
+class MemoryModelPage extends StatefulWidget {
+  const MemoryModelPage({
+    super.key,
+    required this.worldId,
+    this.catalogLoader,
+    this.selectionHandler,
+    this.selectedModelCodeCacheWriter,
+  });
+
+  final String worldId;
+  final GemModelCatalogLoader? catalogLoader;
+  final GemModelSelectionHandler? selectionHandler;
+  final SelectedModelCodeCacheWriter? selectedModelCodeCacheWriter;
+
+  @override
+  State<MemoryModelPage> createState() => _MemoryModelPageState();
+}
+
+class _MemoryModelPageState extends State<MemoryModelPage> {
+  GemModelCatalog? _catalog;
+  Object? _error;
+  bool _loading = false;
+  String _selectingModelCode = '';
+  int _loadGeneration = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_refresh());
+  }
+
+  @override
+  void didUpdateWidget(covariant MemoryModelPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.worldId != widget.worldId) {
+      unawaited(_refresh());
+    }
+  }
+
+  Future<GemModelCatalog> _loadCatalog() {
+    final loader = widget.catalogLoader;
+    if (loader != null) return loader(widget.worldId);
+    return AppServicesScope.read(
+      context,
+    ).api.v1.gem.models(worldId: widget.worldId);
+  }
+
+  Future<GemModelSelection> _saveSelection(String modelCode) {
+    final handler = widget.selectionHandler;
+    if (handler != null) return handler(widget.worldId, modelCode);
+    return AppServicesScope.read(
+      context,
+    ).api.v1.gem.selectModel(worldId: widget.worldId, modelCode: modelCode);
+  }
+
+  SelectedModelCodeCacheWriter? _resolveSelectedModelCodeCacheWriter() {
+    final writer = widget.selectedModelCodeCacheWriter;
+    if (writer != null) return writer;
+    if (widget.selectionHandler != null) return null;
+    final sessionStore = AppServicesScope.read(context).sessionStore;
+    return (modelCode) async {
+      final current = await sessionStore.readUserInfo();
+      await sessionStore.saveUserInfo({
+        if (current != null) ...current,
+        'selected_model_code': modelCode,
+      });
+    };
+  }
+
+  Future<void> _refresh({bool preserveContent = false}) async {
+    final generation = ++_loadGeneration;
+    setState(() {
+      _loading = true;
+      _error = null;
+      if (!preserveContent) _catalog = null;
+    });
+    try {
+      final catalog = await _loadCatalog();
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _catalog = catalog;
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _error = error;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _selectModel(GemModel model) async {
+    final modelCode = model.modelCode.trim();
+    if (modelCode.isEmpty || _selectingModelCode.isNotEmpty) return;
+    final cacheWriter = _resolveSelectedModelCodeCacheWriter();
+    setState(() => _selectingModelCode = modelCode);
+    try {
+      final result = await _saveSelection(modelCode);
+      final responseModelCode = result.selectedModelCode.trim();
+      final selectedModelCode = responseModelCode.isEmpty
+          ? modelCode
+          : responseModelCode;
+      try {
+        await cacheWriter?.call(selectedModelCode);
+      } catch (error) {
+        debugPrint('[GemModel] cache selected model failed: $error');
+      }
+      if (!mounted) return;
+      setState(() {
+        _catalog = _catalog?.copyWith(selectedModelCode: selectedModelCode);
+      });
+    } catch (_) {
+      if (mounted) showGenesisToast(context, 'Model selection failed');
+    } finally {
+      if (mounted) setState(() => _selectingModelCode = '');
+    }
+  }
+
+  void _closePage() {
+    Navigator.of(context).pop(_catalog?.selectedModelCode ?? '');
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: GenesisBackAppBar(
-        pageName: 'Memory & Model',
-        onBack: () => Navigator.of(context).maybePop(),
-      ),
-      body: const SafeArea(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(height: 24),
-              Text(
-                'Memory & Model settings will be added next.',
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 18 / 12,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF999999),
-                ),
+      appBar: GenesisBackAppBar(pageName: 'Model', onBack: _closePage),
+      body: SafeArea(child: _buildBody()),
+    );
+  }
+
+  Widget _buildBody() {
+    final catalog = _catalog;
+    if (catalog == null && _loading) {
+      return const Center(
+        child: SizedBox.square(
+          dimension: 24,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    if (catalog == null && _error != null) {
+      return _ModelLoadError(onRetry: () => unawaited(_refresh()));
+    }
+    if (catalog == null || catalog.groups.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: () => _refresh(preserveContent: true),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            SizedBox(height: 180),
+            Center(
+              child: Text(
+                'No models available',
+                style: TextStyle(fontSize: 14, color: Color(0xFF999999)),
               ),
-            ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => _refresh(preserveContent: true),
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: catalog.groups.length,
+        itemBuilder: (context, index) {
+          final group = catalog.groups[index];
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: index == catalog.groups.length - 1 ? 0 : 24,
+            ),
+            child: _GemModelGroupSection(
+              group: group,
+              selectedModelCode: catalog.selectedModelCode,
+              selectingModelCode: _selectingModelCode,
+              onModelTap: _selectModel,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _GemModelGroupSection extends StatelessWidget {
+  const _GemModelGroupSection({
+    required this.group,
+    required this.selectedModelCode,
+    required this.selectingModelCode,
+    required this.onModelTap,
+  });
+
+  final GemModelGroup group;
+  final String selectedModelCode;
+  final String selectingModelCode;
+  final ValueChanged<GemModel> onModelTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          group.groupTitle,
+          style: const TextStyle(
+            fontSize: 12,
+            height: 16 / 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF333333),
           ),
         ),
+        const SizedBox(height: 8),
+        for (var index = 0; index < group.models.length; index += 1) ...[
+          _GemModelTile(
+            model: group.models[index],
+            selected: group.models[index].modelCode == selectedModelCode,
+            loading: group.models[index].modelCode == selectingModelCode,
+            enabled: selectingModelCode.isEmpty,
+            onTap: () => onModelTap(group.models[index]),
+          ),
+          if (index != group.models.length - 1) const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _GemModelTile extends StatelessWidget {
+  const _GemModelTile({
+    required this.model,
+    required this.selected,
+    required this.loading,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final GemModel model;
+  final bool selected;
+  final bool loading;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = selected
+        ? const Color(0xFFF42C47)
+        : const Color(0xFFE1E1E1);
+    return Semantics(
+      button: true,
+      selected: selected,
+      enabled: enabled,
+      child: Material(
+        key: ValueKey<String>('gem-model-${model.modelCode}'),
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(color: borderColor, width: selected ? 1.2 : 1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _GemModelTileContent(model: model)),
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: _GemModelSelectionIndicator(
+                    selected: selected,
+                    loading: loading,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GemModelTileContent extends StatelessWidget {
+  const _GemModelTileContent({required this.model});
+
+  final GemModel model;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                model.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  height: 15 / 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF333333),
+                ),
+              ),
+            ),
+            for (final tag in model.tags) ...[
+              const SizedBox(width: 5),
+              _GemModelTag(label: tag),
+            ],
+          ],
+        ),
+        const SizedBox(height: 3),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Container(
+            key: ValueKey<String>('gem-model-estimate-${model.modelCode}'),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFF444444).withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Text(
+              'Estimated next message: ${model.estimatedNextMessageGems} gems',
+              style: const TextStyle(
+                fontSize: 9,
+                height: 12 / 9,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF444444),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          model.description,
+          style: const TextStyle(
+            fontSize: 9,
+            height: 12 / 9,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFF666666),
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          model.rangeText,
+          style: const TextStyle(
+            fontSize: 8,
+            height: 11 / 8,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFFAAAAAA),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GemModelTag extends StatelessWidget {
+  const _GemModelTag({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalizedLabel = label.trim().toLowerCase();
+    final displayLabel = normalizedLabel.isEmpty
+        ? ''
+        : '${normalizedLabel[0].toUpperCase()}${normalizedLabel.substring(1)}';
+    final backgroundColor = normalizedLabel == 'hot'
+        ? const Color(0xFFFF7A1A)
+        : const Color(0xFFF42C47);
+    return Container(
+      key: ValueKey<String>('gem-model-tag-$normalizedLabel'),
+      height: 20,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        displayLabel,
+        style: const TextStyle(
+          fontSize: 10,
+          height: 12 / 10,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
+class _GemModelSelectionIndicator extends StatelessWidget {
+  const _GemModelSelectionIndicator({
+    required this.selected,
+    required this.loading,
+  });
+
+  final bool selected;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const SizedBox.square(
+        dimension: 15,
+        child: CircularProgressIndicator(
+          strokeWidth: 1.5,
+          color: Color(0xFFF42C47),
+        ),
+      );
+    }
+    return Container(
+      width: 15,
+      height: 15,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: selected ? const Color(0xFFF42C47) : const Color(0xFFCCCCCC),
+          width: 1,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: selected
+          ? const DecoratedBox(
+              decoration: BoxDecoration(
+                color: Color(0xFFF42C47),
+                shape: BoxShape.circle,
+              ),
+              child: SizedBox.square(dimension: 9),
+            )
+          : null,
+    );
+  }
+}
+
+class _ModelLoadError extends StatelessWidget {
+  const _ModelLoadError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Load failed',
+            style: TextStyle(fontSize: 14, color: Color(0xFF777777)),
+          ),
+          const SizedBox(height: 14),
+          FilledButton(onPressed: onRetry, child: const Text('Retry')),
+        ],
       ),
     );
   }

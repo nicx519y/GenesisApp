@@ -5,6 +5,26 @@ import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
 
 void main() {
+  test('local mock persists Gem model selection per world', () async {
+    final api = GenesisApi(useMock: true);
+
+    final initialUserInfo = await api.v1.user.info();
+    final initial = await api.v1.gem.models(worldId: 'W_MODEL_TEST');
+    final selected = await api.v1.gem.selectModel(
+      worldId: 'W_MODEL_TEST',
+      modelCode: 'sake_pro',
+    );
+    final refreshed = await api.v1.gem.models(worldId: 'W_MODEL_TEST');
+    final refreshedUserInfo = await api.v1.user.info();
+
+    expect(initial.groups.single.models.length, 4);
+    expect(initialUserInfo['selected_model_code'], 'top_pick_v3');
+    expect(initial.selectedModelCode, 'top_pick_v3');
+    expect(selected.selectedModelCode, 'sake_pro');
+    expect(refreshed.selectedModelCode, 'sake_pro');
+    expect(refreshedUserInfo['selected_model_code'], 'sake_pro');
+  });
+
   test('local mock app version check defaults to no upgrade', () async {
     final api = GenesisApi(useMock: true);
 
