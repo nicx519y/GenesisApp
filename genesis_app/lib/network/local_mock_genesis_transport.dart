@@ -1833,17 +1833,7 @@ class _MockState {
       _v1GrantedGemByPurchaseToken[purchaseToken] = grantedGems;
       _v1GemBalance += grantedGems;
     }
-    return {
-      'report_id':
-          'gpr_mock_${purchaseToken.isEmpty ? 'unknown' : purchaseToken}',
-      'order_id':
-          'gpo_mock_${purchaseToken.isEmpty ? 'unknown' : purchaseToken}',
-      'report_status': previousGrant == null ? 'verified' : 'duplicate',
-      'order_status': 'granted',
-      'granted': true,
-      'granted_gems': grantedGems,
-      'wallet': {'balance': _v1GemBalance},
-    };
+    return {'status': 'completed'};
   }
 
   int _gemTotalForProduct(String productId) {

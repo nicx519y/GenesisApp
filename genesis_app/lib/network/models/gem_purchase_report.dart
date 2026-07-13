@@ -41,39 +41,21 @@ class GemPurchaseReportRequest {
   }
 }
 
+enum GemPurchaseReportStatus { completed, accepted, rejected }
+
 class GemPurchaseReport {
-  const GemPurchaseReport({
-    required this.reportId,
-    required this.orderId,
-    required this.reportStatus,
-    required this.orderStatus,
-    required this.granted,
-    required this.grantedGems,
-    required this.walletBalance,
-  });
+  const GemPurchaseReport({required this.status});
 
   factory GemPurchaseReport.fromJson(Map<String, dynamic> json) {
-    final wallet = json['wallet'] is Map
-        ? asJsonMap(json['wallet'])
-        : const <String, dynamic>{};
-    return GemPurchaseReport(
-      reportId: asString(json['report_id']),
-      orderId: asString(json['order_id']),
-      reportStatus: asString(json['report_status']),
-      orderStatus: asString(json['order_status']),
-      granted: asBool(json['granted']),
-      grantedGems: asInt(json['granted_gems']),
-      walletBalance: asInt(wallet['balance']),
-    );
+    final value = asString(json['status']).trim().toLowerCase();
+    final status = switch (value) {
+      'completed' => GemPurchaseReportStatus.completed,
+      'accepted' => GemPurchaseReportStatus.accepted,
+      'rejected' => GemPurchaseReportStatus.rejected,
+      _ => throw FormatException('Unsupported purchase report status: $value'),
+    };
+    return GemPurchaseReport(status: status);
   }
 
-  final String reportId;
-  final String orderId;
-  final String reportStatus;
-  final String orderStatus;
-  final bool granted;
-  final int grantedGems;
-  final int walletBalance;
-
-  bool get isGranted => granted && orderStatus == 'granted';
+  final GemPurchaseReportStatus status;
 }

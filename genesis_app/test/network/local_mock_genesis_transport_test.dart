@@ -249,9 +249,7 @@ void main() {
         purchaseToken: 'mock-purchase-token-1',
       ),
     );
-    expect(gemReport.isGranted, isTrue);
-    expect(gemReport.grantedGems, 550);
-    expect(gemReport.walletBalance, 980);
+    expect(gemReport.status, GemPurchaseReportStatus.completed);
 
     final gemDuplicate = await api.v1.gem.reportPurchase(
       const GemPurchaseReportRequest(
@@ -262,8 +260,7 @@ void main() {
         purchaseToken: 'mock-purchase-token-1',
       ),
     );
-    expect(gemDuplicate.reportStatus, 'duplicate');
-    expect(gemDuplicate.walletBalance, 980);
+    expect(gemDuplicate.status, GemPurchaseReportStatus.completed);
 
     final dailyCheckin = await api.v1.gem.reportTask('daily_checkin');
     expect(dailyCheckin.status, 'claimed');

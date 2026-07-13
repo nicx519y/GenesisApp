@@ -28,8 +28,6 @@ abstract interface class BillingPlatform {
   Future<List<BillingPurchase>> queryPastPurchases({
     required String billingAccountId,
   });
-
-  Future<void> finalizePurchase(BillingPurchase purchase);
 }
 
 class GooglePlayBillingPlatform implements BillingPlatform {
@@ -204,23 +202,6 @@ class GooglePlayBillingPlatform implements BillingPlatform {
         .map(_toBillingPurchase)
         .toList(growable: false);
   }
-
-  @override
-  Future<void> finalizePurchase(BillingPurchase purchase) async {
-    final nativePurchase = purchase.nativePurchase;
-    if (nativePurchase is! PurchaseDetails) {
-      throw const BillingPlatformException('invalid_google_purchase');
-    }
-    final addition = _inAppPurchase
-        .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>();
-    final result = await addition.consumePurchase(nativePurchase);
-    if (result.responseCode != BillingResponse.ok) {
-      throw BillingPlatformException(
-        'consume_${result.responseCode.name}',
-        result.debugMessage ?? '',
-      );
-    }
-  }
 }
 
 void _logGoogleProductDetails(GooglePlayProductDetails product) {
@@ -358,6 +339,5 @@ BillingPurchase _toBillingPurchase(PurchaseDetails purchase) {
     status: status,
     errorCode: purchase.error?.code,
     errorMessage: purchase.error?.message,
-    nativePurchase: purchase,
   );
 }

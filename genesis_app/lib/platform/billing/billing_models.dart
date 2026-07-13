@@ -44,7 +44,13 @@ extension BillingRecoverySourceValue on BillingRecoverySource {
   };
 }
 
-enum BillingPendingPurchaseStatus { received, granted }
+enum BillingPendingPurchaseStatus {
+  received,
+  reported,
+
+  // Kept for records written by versions where the client owned consumption.
+  granted,
+}
 
 @immutable
 class BillingStoreProduct {
@@ -90,7 +96,6 @@ class BillingPurchase {
     required this.status,
     this.errorCode,
     this.errorMessage,
-    this.nativePurchase,
   });
 
   final BillingProvider provider;
@@ -103,7 +108,6 @@ class BillingPurchase {
   final BillingPurchaseStatus status;
   final String? errorCode;
   final String? errorMessage;
-  final Object? nativePurchase;
 }
 
 @immutable

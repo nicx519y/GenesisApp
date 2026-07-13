@@ -257,10 +257,22 @@ class GooglePlayBillingService implements BillingService {
     }
     for (final record in records) {
       if (record.provider != _platform.provider ||
-          record.billingAccountId != billingAccountId ||
-          pastPurchaseKeys.contains(record.key)) {
+          record.billingAccountId != billingAccountId) {
         continue;
       }
+      if (record.status == BillingPendingPurchaseStatus.reported) {
+        if (pastPurchaseQuerySucceeded &&
+            !pastPurchaseKeys.contains(record.key)) {
+          try {
+            await _pendingPurchaseStore.remove(
+              provider: record.provider,
+              purchaseToken: record.purchaseToken,
+            );
+          } catch (_) {}
+        }
+        continue;
+      }
+      if (pastPurchaseKeys.contains(record.key)) continue;
       await _processRecord(record);
     }
   }
@@ -381,7 +393,7 @@ class GooglePlayBillingService implements BillingService {
           return;
         }
       }
-      await _processRecord(record, nativePurchase: purchase);
+      await _processRecord(record, purchase: purchase);
     } finally {
       _processingPurchaseKeys.remove(processingKey);
     }
@@ -424,7 +436,7 @@ class GooglePlayBillingService implements BillingService {
 
   Future<void> _processRecord(
     BillingPendingPurchase record, {
-    BillingPurchase? nativePurchase,
+    BillingPurchase? purchase,
   }) async {
     String accountId;
     try {
@@ -434,78 +446,77 @@ class GooglePlayBillingService implements BillingService {
     }
     if (accountId.isEmpty || accountId != record.billingAccountId) return;
 
-    var current = record;
-    if (current.status == BillingPendingPurchaseStatus.received) {
-      try {
-        final report = await _reportPurchase(
-          GemPurchaseReportRequest(
-            provider: current.provider.apiValue,
-            productId: current.productId,
-            storeProductId: current.storeProductId,
-            transactionId: current.transactionId,
-            purchaseToken: current.purchaseToken,
-            requestId: current.attemptId,
-            payload: <String, Object?>{
-              'purchase_time': current.purchaseTime,
-              'original_json': current.originalJson,
-            },
-          ),
-        );
-        if (!report.isGranted) {
-          throw const BillingPlatformException('server_not_granted');
-        }
-        current = current.copyWith(
-          status: BillingPendingPurchaseStatus.granted,
-          updatedAt: DateTime.now(),
-        );
-        await _pendingPurchaseStore.upsert(current);
-        try {
-          await _refreshWallet();
-        } catch (_) {}
-        _events.add(
-          BillingUiEvent(
-            kind: BillingUiEventKind.success,
-            productId: current.productId,
-            attemptId: current.attemptId,
-            message: 'Purchase successful.',
-          ),
-        );
-      } catch (_) {
-        final next = current.copyWith(
-          retryCount: current.retryCount + 1,
-          updatedAt: DateTime.now(),
-        );
-        try {
-          await _pendingPurchaseStore.upsert(next);
-        } catch (_) {}
-        _emitDeferred(current.productId, current.attemptId);
-        _setBusy(current.productId, false);
-        return;
+    if (record.status == BillingPendingPurchaseStatus.reported) {
+      _completedPurchaseKeys.add(record.key);
+      if (purchase != null) {
+        _clearAttempt(purchase, _attemptByPurchaseToken[record.purchaseToken]);
+      } else {
+        _setBusy(record.productId, false);
       }
+      return;
     }
 
-    if (nativePurchase == null) return;
+    late final GemPurchaseReport report;
     try {
-      await _platform.finalizePurchase(nativePurchase);
-      await _pendingPurchaseStore.remove(
-        provider: current.provider,
-        purchaseToken: current.purchaseToken,
+      report = await _reportPurchase(
+        GemPurchaseReportRequest(
+          provider: record.provider.apiValue,
+          productId: record.productId,
+          storeProductId: record.storeProductId,
+          transactionId: record.transactionId,
+          purchaseToken: record.purchaseToken,
+          requestId: record.attemptId,
+          payload: <String, Object?>{
+            'purchase_time': record.purchaseTime,
+            'original_json': record.originalJson,
+          },
+        ),
       );
-      _clearAttempt(
-        nativePurchase,
-        _attemptByPurchaseToken[current.purchaseToken],
+      final reported = record.copyWith(
+        status: BillingPendingPurchaseStatus.reported,
+        updatedAt: DateTime.now(),
       );
-      _completedPurchaseKeys.add(current.key);
+      await _pendingPurchaseStore.upsert(reported);
     } catch (_) {
-      final next = current.copyWith(
-        retryCount: current.retryCount + 1,
+      final next = record.copyWith(
+        retryCount: record.retryCount + 1,
         updatedAt: DateTime.now(),
       );
       try {
         await _pendingPurchaseStore.upsert(next);
       } catch (_) {}
-    } finally {
-      _setBusy(current.productId, false);
+      _emitDeferred(record.productId, record.attemptId);
+      _setBusy(record.productId, false);
+      return;
+    }
+
+    _completedPurchaseKeys.add(record.key);
+    if (purchase != null) {
+      _clearAttempt(purchase, _attemptByPurchaseToken[record.purchaseToken]);
+    } else {
+      _setBusy(record.productId, false);
+    }
+
+    if (report.status == GemPurchaseReportStatus.completed) {
+      try {
+        await _refreshWallet();
+      } catch (_) {}
+      _events.add(
+        BillingUiEvent(
+          kind: BillingUiEventKind.success,
+          productId: record.productId,
+          attemptId: record.attemptId,
+          message: 'Purchase successful.',
+        ),
+      );
+    } else if (report.status == GemPurchaseReportStatus.accepted) {
+      _emitDeferred(record.productId, record.attemptId);
+    } else {
+      _emitFailure(
+        record.productId,
+        record.attemptId,
+        'Purchase was refunded.',
+      );
     }
   }
 

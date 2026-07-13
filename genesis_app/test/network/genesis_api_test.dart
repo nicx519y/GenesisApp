@@ -453,8 +453,7 @@ void main() {
       handler: (_) => const TransportResponse(
         statusCode: 200,
         headers: {'content-type': 'application/json'},
-        body:
-            '{"err_no":0,"err_msg":"succ","data":{"report_id":"gpr_1","order_id":"gpo_1","report_status":"verified","order_status":"granted","granted":true,"granted_gems":550,"wallet":{"balance":980}}}',
+        body: '{"err_no":0,"err_msg":"succ","data":{"status":"completed"}}',
       ),
     );
     final api = _apiWith(
@@ -490,9 +489,7 @@ void main() {
       'purchase_token': 'purchase-token-1',
       'request_id': 'pay_1',
     });
-    expect(report.isGranted, isTrue);
-    expect(report.grantedGems, 550);
-    expect(report.walletBalance, 980);
+    expect(report.status, GemPurchaseReportStatus.completed);
   });
 
   test(

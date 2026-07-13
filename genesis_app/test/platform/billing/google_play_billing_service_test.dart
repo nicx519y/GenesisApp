@@ -21,10 +21,8 @@ class _FakeBillingPlatform implements BillingPlatform {
   );
   bool available = true;
   bool buyAccepted = true;
-  bool consumeFails = false;
   int queryCount = 0;
   int buyCount = 0;
-  int consumeCount = 0;
   String? queriedPurchaseOptionId;
   String? queriedOfferId;
   String? purchasedOfferToken;
@@ -50,14 +48,6 @@ class _FakeBillingPlatform implements BillingPlatform {
     expect(product.type, BillingStoreProductType.inApp);
     expect(billingAccountId, '4b74ec68-7abc-4cce-a223-e997e31dc811');
     return buyAccepted;
-  }
-
-  @override
-  Future<void> finalizePurchase(BillingPurchase purchase) async {
-    consumeCount += 1;
-    if (consumeFails) {
-      throw const BillingPlatformException('consume_network_error');
-    }
   }
 
   @override
@@ -93,6 +83,7 @@ void main() {
   late GooglePlayBillingService service;
   var refreshCount = 0;
   var reportError = false;
+  var reportStatus = GemPurchaseReportStatus.completed;
 
   setUp(() {
     platform = _FakeBillingPlatform();
@@ -101,6 +92,7 @@ void main() {
     uiEvents = <BillingUiEvent>[];
     refreshCount = 0;
     reportError = false;
+    reportStatus = GemPurchaseReportStatus.completed;
     service = GooglePlayBillingService(
       platform: platform,
       pendingPurchaseStore: pendingStore,
@@ -114,15 +106,7 @@ void main() {
             kind: ApiExceptionKind.transport,
           );
         }
-        return const GemPurchaseReport(
-          reportId: 'gpr_1',
-          orderId: 'gpo_1',
-          reportStatus: 'verified',
-          orderStatus: 'granted',
-          granted: true,
-          grantedGems: 550,
-          walletBalance: 980,
-        );
+        return GemPurchaseReport(status: reportStatus);
       },
       refreshWallet: () async => refreshCount += 1,
       readUid: () async => 'u_1',
@@ -135,28 +119,25 @@ void main() {
     await platform.close();
   });
 
-  test(
-    'purchased reports, refreshes, consumes, and ignores duplicate callback',
-    () async {
-      await service.purchaseGem(_product);
-      platform.emit(_purchase(BillingPurchaseStatus.purchased));
-      await _settle();
+  test('completed report refreshes and ignores duplicate callback', () async {
+    await service.purchaseGem(_product);
+    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    await _settle();
 
-      expect(platform.queryCount, 1);
-      expect(platform.buyCount, 1);
-      expect(reports, hasLength(1));
-      expect(reports.single.purchaseToken, 'purchase-token-1');
-      expect(refreshCount, 1);
-      expect(platform.consumeCount, 1);
-      expect(await pendingStore.loadAll(), isEmpty);
-      expect(uiEvents.single.kind, BillingUiEventKind.success);
+    expect(platform.queryCount, 1);
+    expect(platform.buyCount, 1);
+    expect(reports, hasLength(1));
+    expect(reports.single.purchaseToken, 'purchase-token-1');
+    expect(refreshCount, 1);
+    final reported = await pendingStore.loadAll();
+    expect(reported, hasLength(1));
+    expect(reported.single.status, BillingPendingPurchaseStatus.reported);
+    expect(uiEvents.single.kind, BillingUiEventKind.success);
 
-      platform.emit(_purchase(BillingPurchaseStatus.purchased));
-      await _settle();
-      expect(reports, hasLength(1));
-      expect(platform.consumeCount, 1);
-    },
-  );
+    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    await _settle();
+    expect(reports, hasLength(1));
+  });
 
   test('pending callback does not persist a paid purchase', () async {
     await service.purchaseGem(_product);
@@ -164,7 +145,6 @@ void main() {
     await _settle();
 
     expect(await pendingStore.loadAll(), isEmpty);
-    expect(platform.consumeCount, 0);
     expect(uiEvents.single.kind, BillingUiEventKind.pending);
   });
 
@@ -178,32 +158,45 @@ void main() {
     expect(pending, hasLength(1));
     expect(pending.single.status, BillingPendingPurchaseStatus.received);
     expect(pending.single.retryCount, 1);
-    expect(platform.consumeCount, 0);
     expect(uiEvents.single.kind, BillingUiEventKind.deferred);
   });
 
-  test(
-    'consume failure keeps a granted purchase until the next retry',
-    () async {
-      platform.consumeFails = true;
-      await service.purchaseGem(_product);
-      platform.emit(_purchase(BillingPurchaseStatus.purchased));
-      await _settle();
+  test('accepted is terminal for report and waits for the server', () async {
+    reportStatus = GemPurchaseReportStatus.accepted;
+    await service.purchaseGem(_product);
+    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    await _settle();
 
-      final granted = await pendingStore.loadAll();
-      expect(granted.single.status, BillingPendingPurchaseStatus.granted);
-      expect(refreshCount, 1);
-      expect(platform.consumeCount, 1);
+    final reported = await pendingStore.loadAll();
+    expect(reported.single.status, BillingPendingPurchaseStatus.reported);
+    expect(refreshCount, 0);
+    expect(uiEvents.single.kind, BillingUiEventKind.deferred);
 
-      platform.consumeFails = false;
-      platform.emit(_purchase(BillingPurchaseStatus.purchased));
-      await _settle();
+    service.resetForSession();
+    platform.pastPurchases = [_purchase(BillingPurchaseStatus.purchased)];
+    await service.recover(BillingRecoverySource.foreground);
+    await _settle();
 
-      expect(await pendingStore.loadAll(), isEmpty);
-      expect(platform.consumeCount, 2);
-      expect(reports, hasLength(1));
-    },
-  );
+    expect(reports, hasLength(1));
+    expect(await pendingStore.loadAll(), hasLength(1));
+
+    platform.pastPurchases = const <BillingPurchase>[];
+    await service.recover(BillingRecoverySource.foreground);
+    expect(await pendingStore.loadAll(), isEmpty);
+  });
+
+  test('rejected is terminal and does not refresh the wallet', () async {
+    reportStatus = GemPurchaseReportStatus.rejected;
+    await service.purchaseGem(_product);
+    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    await _settle();
+
+    final reported = await pendingStore.loadAll();
+    expect(reported.single.status, BillingPendingPurchaseStatus.reported);
+    expect(refreshCount, 0);
+    expect(uiEvents.single.kind, BillingUiEventKind.failure);
+    expect(uiEvents.single.message, 'Purchase was refunded.');
+  });
 
   test('recovery clears a checkout that Google no longer reports', () async {
     await service.purchaseGem(_product);
@@ -272,7 +265,6 @@ BillingPurchase _purchase(BillingPurchaseStatus status) {
     originalJson: '{"purchaseToken":"purchase-token-1"}',
     purchaseTime: '1000',
     status: status,
-    nativePurchase: Object(),
   );
 }
 
