@@ -2521,11 +2521,15 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
       showSubtitle: widget.showConnectionStatus && aiRoleNames.isNotEmpty,
       showMoreButton: widget.showMoreButton,
-      trailing: MemoryModelEntryButton(
-        modelLabel: _selectedModelCode.isEmpty ? 'Model' : _selectedModelCode,
-        darkHeader: true,
-        onTap: () => unawaited(_openMemoryModelPage()),
-      ),
+      trailing: widget.active
+          ? MemoryModelEntryButton(
+              modelLabel: _selectedModelCode.isEmpty
+                  ? 'Model'
+                  : _selectedModelCode,
+              darkHeader: true,
+              onTap: () => unawaited(_openMemoryModelPage()),
+            )
+          : null,
       style: style,
     );
     final headerHeight = _locationChatHeaderHeight(style);

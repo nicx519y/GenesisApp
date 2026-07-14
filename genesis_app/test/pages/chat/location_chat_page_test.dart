@@ -173,7 +173,7 @@ void main() {
               child: LocationChatPanel(
                 worldId: 'world-current',
                 locationId: 'location-current',
-                active: false,
+                active: true,
               ),
             ),
           ],
@@ -188,6 +188,21 @@ void main() {
 
     expect(find.text('Model selection list'), findsOneWidget);
     expect(routeArguments, {'world_id': 'world-current'});
+  });
+
+  testWidgets('unlaunched location chat hides the model entry', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'world-current',
+          locationId: 'location-current',
+          active: false,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('memory-model-entry')), findsNothing);
   });
 
   testWidgets('location chat updates when cached selected model arrives', (
@@ -207,7 +222,7 @@ void main() {
           home: LocationChatPanel(
             worldId: 'world-current',
             locationId: 'location-current',
-            active: false,
+            active: true,
           ),
         ),
       ),
