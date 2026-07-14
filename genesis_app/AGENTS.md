@@ -154,6 +154,11 @@ HTTP 映射层的图片规则：
 
 如果多个页面使用同一个组件，优先改共享组件并检查所有 call site；只有明确是页面例外时才加 caller override。
 
+## 名称展示规则
+
+- Origin（即 Worldo）name 在所有展示位置前加 `#`；使用 `originDisplayName`，避免重复添加。
+- World name 在所有展示位置都不加 `#`；直接展示原始 world name（为空时可回退 WID）。
+
 ## 验证要求
 
 按改动范围选择最小能证明正确性的验证：

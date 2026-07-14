@@ -597,12 +597,11 @@ class _JoinRequestReviewSummaryText extends StatelessWidget {
           fontWeight: FontWeight.w400,
         ),
         children: [
-          const TextSpan(text: 'You request to join "'),
+          const TextSpan(text: 'You request to join '),
           TextSpan(
             text: item.requestWorldSummaryName,
             style: _originBlueTextStyle,
           ),
-          const TextSpan(text: '"'),
           if (item.requestWorldIdLabel.trim().isNotEmpty)
             TextSpan(text: ' (${item.requestWorldIdLabel})'),
         ],
@@ -628,9 +627,8 @@ class _JoinRequestSummaryText extends StatelessWidget {
         ),
         children: [
           TextSpan(text: item.requesterName, style: _originBlueTextStyle),
-          const TextSpan(text: ' request to join "'),
+          const TextSpan(text: ' request to join '),
           TextSpan(text: item.requestWorldName, style: _originBlueTextStyle),
-          const TextSpan(text: '"'),
           if (item.requestWorldIdLabel.trim().isNotEmpty)
             TextSpan(text: ' (${item.requestWorldIdLabel})'),
         ],
@@ -1153,8 +1151,11 @@ class _NotificationItem {
           ]);
     final time = createdAtText;
     if (source.isEmpty) return time;
-    if (time.isEmpty) return '#$source';
-    return '#$source · $time';
+    final displaySource = originName.trim().isEmpty
+        ? source
+        : originDisplayName(source);
+    if (time.isEmpty) return displaySource;
+    return '$displaySource · $time';
   }
 
   bool get discussSourceDeleted => originDeleted || worldDeleted;
