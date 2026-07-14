@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/gems/gem_wallet_store.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
-import '../../routers/app_router.dart';
-import '../common/genesis_action_box.dart';
+import '../../platform/billing/billing_service.dart';
+import 'gem_purchase_bottom_sheet.dart';
 
-const String insufficientGemBalancePrompt = '余额不足，请先充值';
-const String lowGemBalancePrompt = '余额不多了';
-const String rechargeGemBalanceAction = '去充值';
+const String insufficientGemBalancePrompt = 'Not enough Gems';
+const String lowGemBalancePrompt = 'Low on Gems';
 
 StreamSubscription<GemBalanceAlert> bindGemBalancePrompt(
   BuildContext context,
@@ -29,25 +29,16 @@ StreamSubscription<GemBalanceAlert> bindGemBalancePrompt(
 
 Future<void> showGemBalancePrompt(
   BuildContext context,
-  GemBalanceAlert alert,
-) async {
-  final shouldRecharge = await showGenesisActionBox<bool>(
-    context: context,
-    title: alert.kind == GemBalanceAlertKind.insufficient
-        ? insufficientGemBalancePrompt
-        : lowGemBalancePrompt,
-    actions: const [
-      GenesisActionBoxAction<bool>(
-        label: rechargeGemBalanceAction,
-        value: true,
-        color: Color(0xFFFF2D4F),
-      ),
-    ],
-    cancelLabel: '取消',
-  );
-  if (shouldRecharge != true || !context.mounted) return;
-  await Navigator.of(
+  GemBalanceAlert alert, {
+  GemPurchaseProductsLoader? productsLoader,
+  GemWalletStore? walletStore,
+  BillingService? billingService,
+}) {
+  return showGemPurchaseBottomSheet(
     context,
-    rootNavigator: true,
-  ).pushNamed(RouteNames.gemWallet);
+    alert: alert,
+    productsLoader: productsLoader,
+    walletStore: walletStore,
+    billingService: billingService,
+  );
 }

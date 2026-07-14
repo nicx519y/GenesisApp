@@ -64,6 +64,16 @@ void preserveUnmatchedLocationChatLocalMessages({
   }
 }
 
+String? recoverLocationChatDraftAfterInsufficientBalance({
+  required Object failure,
+  required ChatMessageVm localMessage,
+  required List<ChatMessageVm> messages,
+}) {
+  if (failure is! ChatroomFailureEvent || failure.code != '3001') return null;
+  messages.removeWhere((message) => identical(message, localMessage));
+  return localMessage.text;
+}
+
 class LocationChatPage extends StatelessWidget {
   const LocationChatPage({
     super.key,
@@ -1649,10 +1659,21 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        localMessage.status = 'failed';
-        localMessage.error = e is ChatroomFailureEvent && e.code == '3001'
-            ? null
-            : e.toString();
+        final restoredDraft = recoverLocationChatDraftAfterInsufficientBalance(
+          failure: e,
+          localMessage: localMessage,
+          messages: _messages,
+        );
+        if (restoredDraft != null) {
+          _hasDraftText = restoredDraft.trim().isNotEmpty;
+          _textController.value = TextEditingValue(
+            text: restoredDraft,
+            selection: TextSelection.collapsed(offset: restoredDraft.length),
+          );
+        } else {
+          localMessage.status = 'failed';
+          localMessage.error = e.toString();
+        }
         _awaitingAiResponse = false;
         _awaitingAiResponseRoundId = '';
         _sending = false;

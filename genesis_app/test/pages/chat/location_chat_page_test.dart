@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
@@ -85,6 +86,56 @@ void main() {
     );
 
     expect(reconciled, [sent, sending, failed]);
+  });
+
+  test('ack 3001 removes the optimistic message and restores its draft', () {
+    final localMessage = ChatMessageVm(
+      localId: 'local-balance',
+      clientMsgId: 'client-balance',
+      senderId: 'u_me',
+      senderName: 'Me',
+      text: 'Try this again after top up',
+      isMe: true,
+      status: 'sending',
+    );
+    final messages = <ChatMessageVm>[localMessage];
+
+    final restoredDraft = recoverLocationChatDraftAfterInsufficientBalance(
+      failure: const ChatroomFailureEvent(
+        code: '3001',
+        message: 'Insufficient balance',
+      ),
+      localMessage: localMessage,
+      messages: messages,
+    );
+
+    expect(restoredDraft, 'Try this again after top up');
+    expect(messages, isEmpty);
+  });
+
+  test('other send failures keep the optimistic message', () {
+    final localMessage = ChatMessageVm(
+      localId: 'local-failed',
+      clientMsgId: 'client-failed',
+      senderId: 'u_me',
+      senderName: 'Me',
+      text: 'Keep this failed message',
+      isMe: true,
+      status: 'sending',
+    );
+    final messages = <ChatMessageVm>[localMessage];
+
+    final restoredDraft = recoverLocationChatDraftAfterInsufficientBalance(
+      failure: const ChatroomFailureEvent(
+        code: 'send_failed',
+        message: 'Send failed',
+      ),
+      localMessage: localMessage,
+      messages: messages,
+    );
+
+    expect(restoredDraft, isNull);
+    expect(messages, [localMessage]);
   });
 
   test('location chat model entry is server driven and world scoped', () {

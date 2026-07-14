@@ -1672,6 +1672,14 @@ void main() {
     expect(find.byType(ChatSendingBadge), findsOneWidget);
     expect(find.byType(ChatFailedBadge), findsNothing);
 
+    final progressFinder = find.descendant(
+      of: find.byType(ChatSendingBadge),
+      matching: find.byType(CircularProgressIndicator),
+    );
+    final progress = tester.widget<CircularProgressIndicator>(progressFinder);
+    expect(tester.getSize(progressFinder), const Size.square(12));
+    expect(progress.strokeWidth, 2);
+
     final badgeCenter = tester.getCenter(find.byType(ChatSendingBadge));
     final bubbleCenter = tester.getCenter(find.byType(ChatMessageBubble));
     expect(badgeCenter.dy, closeTo(bubbleCenter.dy, 1));

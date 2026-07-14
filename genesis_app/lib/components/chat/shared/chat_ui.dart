@@ -1419,13 +1419,17 @@ class ChatSendingBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
+    final indicatorSize =
+        (style.sendingBadgeSize - (style.sendingBadgePadding * 2)) * (2 / 3);
     return SizedBox.square(
       dimension: style.sendingBadgeSize,
-      child: Padding(
-        padding: EdgeInsets.all(style.sendingBadgePadding),
-        child: CircularProgressIndicator(
-          strokeWidth: style.sendingBadgeStrokeWidth,
-          color: style.sendingBadgeColor,
+      child: Center(
+        child: SizedBox.square(
+          dimension: indicatorSize,
+          child: CircularProgressIndicator(
+            strokeWidth: style.sendingBadgeStrokeWidth,
+            color: style.sendingBadgeColor,
+          ),
         ),
       ),
     );
