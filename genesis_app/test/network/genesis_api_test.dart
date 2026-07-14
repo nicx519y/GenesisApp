@@ -300,7 +300,7 @@ void main() {
     expect(products.products.single.googlePurchaseOptionId, '500-gems-new');
     expect(products.products.single.googleOfferId, '500-gems-new-discount');
     expect(products.products.single.totalGems, 550);
-    expect(products.products.single.tagText, 'First top-up');
+    expect(products.products.single.tagText, 'first_purchase_bonus');
     expect(tasks.groups.single.groupTitle, 'Daily');
     expect(tasks.groups.single.tasks.single.taskCode, 'send_message');
     expect(tasks.groups.single.tasks.single.cycleKey, 'today');

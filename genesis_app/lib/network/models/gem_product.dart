@@ -81,9 +81,5 @@ class GemProduct {
 
   int get totalGems => baseGems + bonusGems;
 
-  String get tagText {
-    if (activityType == 'first_purchase_bonus') return 'First top-up';
-    if (bonusGems > 0) return 'Bonus';
-    return '';
-  }
+  String get tagText => activityType.trim();
 }

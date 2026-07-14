@@ -101,7 +101,6 @@ class GemProductGrid extends StatelessWidget {
           final product = products[index];
           return GemProductCard(
             product: product,
-            index: index,
             isBuying: billingState.isBusy(product.productId),
             isPurchaseInProgress: billingState.hasBusyPurchase,
             onPurchase: () => onPurchase(product),
@@ -116,25 +115,19 @@ class GemProductCard extends StatelessWidget {
   const GemProductCard({
     super.key,
     required this.product,
-    required this.index,
     required this.isBuying,
     required this.isPurchaseInProgress,
     required this.onPurchase,
   });
 
   final GemProduct product;
-  final int index;
   final bool isBuying;
   final bool isPurchaseInProgress;
   final VoidCallback onPurchase;
 
   @override
   Widget build(BuildContext context) {
-    final tag = product.tagText.isNotEmpty
-        ? product.tagText
-        : index == 0
-        ? 'New user'
-        : '';
+    final tag = product.tagText;
     const tagTextStyle = TextStyle(
       fontSize: 10,
       height: 1,
@@ -158,129 +151,151 @@ class GemProductCard extends StatelessWidget {
         onTap: enabled ? onPurchase : null,
         child: Opacity(
           opacity: product.canPurchase ? 1 : 0.45,
-          child: Container(
-            clipBehavior: Clip.none,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFEBEBEB)),
-            ),
-            child: Stack(
+          child: _UnavailableProductFilter(
+            unavailable: !product.canPurchase,
+            child: Container(
               clipBehavior: Clip.none,
-              children: [
-                if (tag.isNotEmpty)
-                  Positioned(
-                    left: -1,
-                    top: -1,
-                    child: SizedBox(
-                      width: tagWidth,
-                      height: 20,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF4B6192),
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(tag, maxLines: 1, style: tagTextStyle),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFEBEBEB)),
+              ),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  if (tag.isNotEmpty)
+                    Positioned(
+                      left: -1,
+                      top: -1,
+                      child: SizedBox(
+                        width: tagWidth,
+                        height: 20,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4B6192),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(tag, maxLines: 1, style: tagTextStyle),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                Positioned(
-                  top: 30,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: SvgPicture.asset(
-                      'assets/custom-icons/svg/ruby.svg',
-                      width: 24,
-                      height: 24,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 60,
-                  left: 8,
-                  right: 8,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      '+${formatGemInteger(product.baseGems)}',
-                      maxLines: 1,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        height: 20 / 15,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF333333),
+                  Positioned(
+                    top: 30,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: SvgPicture.asset(
+                        'assets/custom-icons/svg/ruby.svg',
+                        width: 24,
+                        height: 24,
                       ),
                     ),
                   ),
-                ),
-                if (product.bonusGems > 0)
                   Positioned(
-                    top: 84,
+                    top: 60,
                     left: 8,
                     right: 8,
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        '+${formatGemInteger(product.bonusGems)} Bonus',
+                        '+${formatGemInteger(product.baseGems)}',
                         maxLines: 1,
                         style: const TextStyle(
-                          fontSize: 10,
-                          height: 14 / 10,
+                          fontSize: 15,
+                          height: 20 / 15,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFFF42C47),
+                          color: Color(0xFF333333),
                         ),
                       ),
                     ),
                   ),
-                Positioned(
-                  left: 10,
-                  right: 10,
-                  bottom: 10,
-                  height: 24,
-                  child: Container(
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF42C47),
-                      borderRadius: BorderRadius.circular(14),
+                  if (product.bonusGems > 0)
+                    Positioned(
+                      top: 84,
+                      left: 8,
+                      right: 8,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          '+${formatGemInteger(product.bonusGems)} Bonus',
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            height: 14 / 10,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFF42C47),
+                          ),
+                        ),
+                      ),
                     ),
-                    child: isBuying
-                        ? const SizedBox(
-                            width: 13,
-                            height: 13,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.8,
-                              color: Colors.white,
-                            ),
-                          )
-                        : FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              formatGemPrice(
-                                product.priceAmount,
-                                product.priceCurrencyCode,
-                              ),
-                              maxLines: 1,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                height: 14 / 11,
-                                fontWeight: FontWeight.w800,
+                  Positioned(
+                    left: 10,
+                    right: 10,
+                    bottom: 10,
+                    height: 24,
+                    child: Container(
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF42C47),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: isBuying
+                          ? const SizedBox(
+                              width: 13,
+                              height: 13,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.8,
                                 color: Colors.white,
                               ),
+                            )
+                          : FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                formatGemPrice(
+                                  product.priceAmount,
+                                  product.priceCurrencyCode,
+                                ),
+                                maxLines: 1,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  height: 14 / 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
-                          ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _UnavailableProductFilter extends StatelessWidget {
+  const _UnavailableProductFilter({
+    required this.unavailable,
+    required this.child,
+  });
+
+  final bool unavailable;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!unavailable) return child;
+    return ColorFiltered(
+      colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
+      child: child,
     );
   }
 }
@@ -297,20 +312,9 @@ String formatGemInteger(int value) {
 }
 
 String formatGemPrice(int cents, String currencyCode) {
-  final sign = switch (currencyCode.toUpperCase()) {
-    'USD' => r'$',
-    'HKD' => r'HK$',
-    'TWD' => r'NT$',
-    'CNY' => r'¥',
-    'JPY' => r'¥',
-    'KRW' => r'₩',
-    'EUR' => r'€',
-    'GBP' => r'£',
-    _ => '${currencyCode.toUpperCase()} ',
-  };
   final amount = cents / 100;
   var text = amount.toStringAsFixed(2);
   if (text.endsWith('0')) text = text.substring(0, text.length - 1);
   if (text.endsWith('.0')) text = text.substring(0, text.length - 2);
-  return '$sign$text';
+  return '${currencyCode.trim()}$text';
 }

@@ -27,7 +27,7 @@ void main() {
     expect(find.text('430'), findsOneWidget);
     expect(find.text('+500'), findsOneWidget);
     expect(find.text('+50 Bonus'), findsOneWidget);
-    expect(find.text(r'$1.49'), findsOneWidget);
+    expect(find.text('USD1.49'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('gem-purchase-sheet-close')),
       findsOneWidget,
