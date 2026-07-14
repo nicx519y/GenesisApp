@@ -35,6 +35,8 @@ const Set<String> _passiveChatroomFailureSourceTypes = <String>{
 };
 
 bool shouldShowChatroomFailureToast(ChatroomFailureEvent failure) {
+  if (failure.code.trim() == '3001') return false;
+
   final requestType = failure.requestType.trim();
   if (_userInitiatedChatroomRequestTypes.contains(requestType)) return true;
 

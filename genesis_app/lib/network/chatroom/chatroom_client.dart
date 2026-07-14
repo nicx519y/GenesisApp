@@ -580,15 +580,15 @@ class ChatroomSession {
         _emitFailure(failure);
       }
     } else if (event is ChatroomAck) {
-      final pending = event.clientMsgId.isEmpty
-          ? null
-          : _pendingAcks.remove(event.clientMsgId);
+      final pendingEntry = _removePendingAckFor(event);
+      final pending = pendingEntry?.value;
       if (event.ok) {
         pending?.complete(event);
       } else {
         final failure = ChatroomFailureEvent.fromPayloadEvent(
           event,
           requestType: pending?.requestType ?? 'send_message',
+          clientMsgId: pendingEntry?.key ?? '',
         );
         _emitFailure(failure);
         pending?.completeError(failure);
@@ -639,6 +639,22 @@ class ChatroomSession {
     if (!_events.isClosed) {
       _events.add(event);
     }
+  }
+
+  MapEntry<String, _PendingAck>? _removePendingAckFor(ChatroomAck event) {
+    final clientMsgId = event.clientMsgId.trim();
+    if (clientMsgId.isNotEmpty) {
+      final pending = _pendingAcks.remove(clientMsgId);
+      return pending == null ? null : MapEntry(clientMsgId, pending);
+    }
+    if (event.code != 3001) return null;
+    final sendMessageEntries = _pendingAcks.entries
+        .where((entry) => entry.value.requestType == 'send_message')
+        .toList(growable: false);
+    if (sendMessageEntries.length != 1) return null;
+    final entry = sendMessageEntries.single;
+    _pendingAcks.remove(entry.key);
+    return MapEntry(entry.key, entry.value);
   }
 
   void _handleSocketError(Object error) {

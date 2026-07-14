@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/components/gems/memory_model_entry_button.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
@@ -62,6 +63,43 @@ void main() {
     );
   });
 
+  testWidgets('failed self message can be tapped to retry', (tester) async {
+    var retryCount = 0;
+    final message = ChatMessageVm(
+      localId: 'failed-message',
+      clientMsgId: 'failed-client-id',
+      senderId: 'me',
+      senderName: 'Me',
+      text: 'Retry me',
+      isMe: true,
+      status: 'failed',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageList(
+            controller: ScrollController(),
+            messages: [message],
+            topTitle: '',
+            showDateDividers: false,
+            onFailedMessageTap: (_) => retryCount += 1,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('chat-message-retry-failed-message')),
+    );
+    await tester.pump();
+    expect(retryCount, 1);
+
+    await tester.tap(find.text('Retry me'));
+    await tester.pump();
+    expect(retryCount, 2);
+  });
+
   testWidgets('chat header can show Memory & Model entry', (
     WidgetTester tester,
   ) async {
@@ -93,6 +131,43 @@ void main() {
     await tester.pump();
 
     expect(tapped, isTrue);
+  });
+
+  testWidgets('chat header constrains long model entry beside title', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(393, 852);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatHeader(
+            title: 'The Wisteria Terrace (1)',
+            subtitle: 'kitchen maid',
+            connected: true,
+            connecting: false,
+            onBack: () {},
+            showSubtitle: false,
+            trailing: MemoryModelEntryButton(
+              modelLabel: 'top_pick_v3_5',
+              darkHeader: true,
+              onTap: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final titleRect = tester.getRect(find.text('The Wisteria Terrace (1)'));
+    final modelRect = tester.getRect(
+      find.byKey(const ValueKey('memory-model-entry')),
+    );
+
+    expect(modelRect.width, lessThanOrEqualTo(kMemoryModelEntryMaxWidth));
+    expect(titleRect.right, lessThanOrEqualTo(modelRect.left + 1));
   });
 
   testWidgets('anchored message list shows loading instead of oldest notice', (

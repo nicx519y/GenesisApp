@@ -1,15 +1,22 @@
+import 'package:flutter/foundation.dart';
+
 import 'user_session_store.dart';
 
 class MemoryUserSessionStore implements UserSessionStore {
   String? _uid;
   String? _authToken;
   Map<String, dynamic>? _userInfo;
+  final ValueNotifier<int> _userInfoRevision = ValueNotifier<int>(0);
+
+  @override
+  ValueListenable<int> get userInfoRevision => _userInfoRevision;
 
   @override
   Future<void> clearUid() async {
     _uid = null;
     _authToken = null;
     _userInfo = null;
+    _userInfoRevision.value += 1;
   }
 
   @override
@@ -49,5 +56,6 @@ class MemoryUserSessionStore implements UserSessionStore {
   Future<void> saveUserInfo(Map<String, dynamic> userInfo) async {
     if (userInfo.isEmpty) return;
     _userInfo = Map<String, dynamic>.from(userInfo);
+    _userInfoRevision.value += 1;
   }
 }

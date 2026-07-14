@@ -14,6 +14,7 @@ import '../../components/chat/shared/chat_ui.dart';
 import '../../components/ai_content_disclaimer.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_report_actions.dart';
+import '../../components/gems/gem_balance_prompt.dart';
 import '../../components/gems/memory_model_entry_button.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
@@ -40,7 +41,27 @@ const String _locationChatDefaultBackgroundAsset =
 String selectedModelCodeFromUserInfo(Map<String, dynamic> userInfo) {
   final direct = asString(userInfo['selected_model_code']).trim();
   if (direct.isNotEmpty) return direct;
-  return asString(asJsonMap(userInfo['user'])['selected_model_code']).trim();
+  final nestedUser = userInfo['user'];
+  if (nestedUser is! Map) return '';
+  return asString(nestedUser['selected_model_code']).trim();
+}
+
+@visibleForTesting
+void preserveUnmatchedLocationChatLocalMessages({
+  required List<ChatMessageVm> previous,
+  required List<ChatMessageVm> reconciled,
+  required Set<String> usedLocalIds,
+}) {
+  for (final message in previous) {
+    if (usedLocalIds.contains(message.localId) ||
+        !message.isMe ||
+        message.clientMsgId.trim().isEmpty ||
+        (message.status != 'sending' && message.status != 'failed')) {
+      continue;
+    }
+    usedLocalIds.add(message.localId);
+    reconciled.add(message);
+  }
 }
 
 class LocationChatPage extends StatelessWidget {
@@ -159,6 +180,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   WorldChatroomService? _service;
   StreamSubscription<WorldChatroomState>? _stateSubscription;
   StreamSubscription<ChatroomFailureEvent>? _failuresSubscription;
+  StreamSubscription<GemBalanceAlert>? _balanceAlertSubscription;
   WorldChatroomState _chatroomState = const WorldChatroomState();
   final Set<String> _myUserIdKeys = <String>{};
   final Set<String> _mySenderIdKeys = <String>{};
@@ -201,6 +223,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _openingModelPage = false;
   int _serviceGeneration = 0;
   int _selectedModelLoadGeneration = 0;
+  ValueListenable<int>? _userInfoRevisionListenable;
 
   @override
   void initState() {
@@ -222,13 +245,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _textController.addListener(_handleDraftTextChanged);
     _scrollController.addListener(_handleMessageListScroll);
     _prepareConnection();
-    if (widget.active) unawaited(_loadSelectedModelCodeFromCache());
+    unawaited(_loadSelectedModelCodeFromCache());
     _startInitialBottomScroll();
   }
 
   @override
   void dispose() {
     _selectedModelLoadGeneration++;
+    _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
     WidgetsBinding.instance.removeObserver(this);
     _recordPanelDebug(action: 'dispose', activeOverride: false);
     final service = _service;
@@ -249,8 +273,8 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void didUpdateWidget(LocationChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.active &&
-        (oldWidget.worldId != widget.worldId || !oldWidget.active)) {
+    if (oldWidget.worldId != widget.worldId ||
+        (!oldWidget.active && widget.active)) {
       unawaited(_loadSelectedModelCodeFromCache());
     }
     final changedChatTarget =
@@ -300,6 +324,14 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final userInfoRevision = AppServicesScope.of(
+      context,
+    ).sessionStore.userInfoRevision;
+    if (!identical(_userInfoRevisionListenable, userInfoRevision)) {
+      _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
+      _userInfoRevisionListenable = userInfoRevision;
+      userInfoRevision.addListener(_handleCachedUserInfoChanged);
+    }
     final previousDevicePixelRatio = _devicePixelRatio;
     _devicePixelRatio =
         MediaQuery.maybeOf(context)?.devicePixelRatio ?? _devicePixelRatio;
@@ -338,12 +370,17 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           const <String, dynamic>{};
       final modelCode = selectedModelCodeFromUserInfo(userInfo);
       if (!mounted || generation != _selectedModelLoadGeneration) return;
+      if (modelCode == _selectedModelCode) return;
       setState(() => _selectedModelCode = modelCode);
     } catch (error) {
       debugPrint(
         '[WorldChat][Model] load cached selected model failed: $error',
       );
     }
+  }
+
+  void _handleCachedUserInfoChanged() {
+    unawaited(_loadSelectedModelCodeFromCache());
   }
 
   Future<void> _openMemoryModelPage() async {
@@ -494,8 +531,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _joinedLocation = false;
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
+    await _balanceAlertSubscription?.cancel();
     _stateSubscription = null;
     _failuresSubscription = null;
+    _balanceAlertSubscription = null;
     final service = _service;
     final shouldLeave =
         wasJoinedLocation ||
@@ -592,6 +631,12 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   }
 
   void _attachService(WorldChatroomService service) {
+    if (_ownsService && _balanceAlertSubscription == null) {
+      _balanceAlertSubscription = bindGemBalancePrompt(
+        context,
+        service.balanceAlerts,
+      );
+    }
     if (_stateSubscription != null || _failuresSubscription != null) {
       _syncFromServiceState(service);
       return;
@@ -1145,6 +1190,11 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         next.add(nextMessage);
       }
     }
+    preserveUnmatchedLocationChatLocalMessages(
+      previous: previous,
+      reconciled: next,
+      usedLocalIds: usedLocalIds,
+    );
     for (var i = 0; i < next.length && i < previous.length; i += 1) {
       if (next[i].localId != previous[i].localId) {
         changed = true;
@@ -1519,8 +1569,56 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     );
     _scrollToBottom();
 
+    await _submitLocalMessage(
+      service: service,
+      localMessage: localMessage,
+      clientMsgId: clientMsgId,
+    );
+  }
+
+  Future<void> _retryFailedMessage(ChatMessageVm message) async {
+    final service = _service;
+    if (!message.isMe ||
+        message.status != 'failed' ||
+        service == null ||
+        _chatroomState.joinedLocationId != widget.locationId ||
+        _chatroomState.inputBlocked ||
+        _awaitingAiResponse ||
+        _sending) {
+      return;
+    }
+
+    final clientMsgId = _nextClientMsgId();
+    setState(() {
+      message.clientMsgId = clientMsgId;
+      message.status = 'sending';
+      message.error = null;
+      _sending = true;
+      _awaitingAiResponse = true;
+      _awaitingAiResponseRoundId = '';
+    });
+    _recordPanelDebug(
+      action: 'retrySend',
+      details: {'clientMsgId': clientMsgId, 'localId': message.localId},
+    );
+
+    await _submitLocalMessage(
+      service: service,
+      localMessage: message,
+      clientMsgId: clientMsgId,
+    );
+  }
+
+  Future<void> _submitLocalMessage({
+    required WorldChatroomService service,
+    required ChatMessageVm localMessage,
+    required String clientMsgId,
+  }) async {
     try {
-      final ack = await service.sendMessage(text, clientMsgId: clientMsgId);
+      final ack = await service.sendMessage(
+        localMessage.text,
+        clientMsgId: clientMsgId,
+      );
       if (!mounted) return;
       GenesisTelemetry.collectLog(
         actionType: 'event',
@@ -1552,7 +1650,9 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       if (!mounted) return;
       setState(() {
         localMessage.status = 'failed';
-        localMessage.error = e.toString();
+        localMessage.error = e is ChatroomFailureEvent && e.code == '3001'
+            ? null
+            : e.toString();
         _awaitingAiResponse = false;
         _awaitingAiResponseRoundId = '';
         _sending = false;
@@ -2043,8 +2143,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
 
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
+    await _balanceAlertSubscription?.cancel();
     _stateSubscription = null;
     _failuresSubscription = null;
+    _balanceAlertSubscription = null;
 
     if (service != null) {
       final shouldLeave =
@@ -2424,6 +2526,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
           : null,
       oldestEdgeLoading: _loadingOlderMessages,
       onMessageLongPressStart: _showMessageActionMenu,
+      onFailedMessageTap: (message) => unawaited(_retryFailedMessage(message)),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       showDateDividers: false,
       style: listStyle,

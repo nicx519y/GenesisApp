@@ -2,9 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
+import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
+import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
+import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 
 void main() {
@@ -37,6 +41,52 @@ void main() {
     );
   });
 
+  test('selected model code is empty when cache has no model field', () {
+    expect(selectedModelCodeFromUserInfo({'uid': 'u_1'}), isEmpty);
+  });
+
+  test('message reconciliation preserves unmatched local send failures', () {
+    final sent = ChatMessageVm(
+      localId: 'server-message',
+      clientMsgId: 'server-client-id',
+      senderId: 'u_me',
+      senderName: 'Me',
+      avatarUrl: '',
+      text: 'Already sent',
+      isMe: true,
+      status: 'sent',
+    );
+    final sending = ChatMessageVm(
+      localId: 'local-sending',
+      clientMsgId: 'client-sending',
+      senderId: 'u_me',
+      senderName: 'Me',
+      avatarUrl: '',
+      text: 'Sending',
+      isMe: true,
+      status: 'sending',
+    );
+    final failed = ChatMessageVm(
+      localId: 'local-failed',
+      clientMsgId: 'client-failed',
+      senderId: 'u_me',
+      senderName: 'Me',
+      avatarUrl: '',
+      text: 'Insufficient balance',
+      isMe: true,
+      status: 'failed',
+    );
+    final reconciled = <ChatMessageVm>[sent];
+
+    preserveUnmatchedLocationChatLocalMessages(
+      previous: [sent, sending, failed],
+      reconciled: reconciled,
+      usedLocalIds: {sent.localId},
+    );
+
+    expect(reconciled, [sent, sending, failed]);
+  });
+
   test('location chat model entry is server driven and world scoped', () {
     final source = File(
       'lib/pages/chat/location_chat_page.dart',
@@ -44,6 +94,8 @@ void main() {
 
     expect(source, isNot(contains("modelLabel: 'CC4.5'")));
     expect(source, contains('sessionStore.readUserInfo()'));
+    expect(source, contains('sessionStore.userInfoRevision'));
+    expect(source, contains('_handleCachedUserInfoChanged'));
     expect(source, isNot(contains('api.v1.user.info()')));
     expect(source, contains('rootNavigator: true'));
     expect(source, contains('pushNamed<String>('));
@@ -85,6 +137,44 @@ void main() {
 
     expect(find.text('Model selection list'), findsOneWidget);
     expect(routeArguments, {'world_id': 'world-current'});
+  });
+
+  testWidgets('location chat updates when cached selected model arrives', (
+    tester,
+  ) async {
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUserInfo({'uid': 'u_1'});
+    final services = ServiceRegistry.build(
+      config: const AppConfig(useMock: true),
+      sessionStoreOverride: sessionStore,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            active: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Model'), findsOneWidget);
+
+    await sessionStore.saveUserInfo({
+      'uid': 'u_1',
+      'selected_model_code': 'luxury_selection_v4',
+    });
+    await tester.pump();
+
+    expect(find.text('luxury_selection_v4'), findsOneWidget);
+    expect(find.text('Model'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
   });
 
   test('location chat background falls back to bundled default when empty', () {

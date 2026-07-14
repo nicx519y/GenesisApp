@@ -323,6 +323,72 @@ void main() {
     await session.close();
   });
 
+  test(
+    'balance error without client id fails the only pending send immediately',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final client = await _client(
+        _FakeChatroomTransport(socket),
+        ackTimeout: const Duration(milliseconds: 20),
+      );
+      final session = await _connectedSession(client, socket);
+
+      final future = session.sendMessage(
+        'hello',
+        clientMsgId: 'client-balance',
+      );
+      await _tick();
+
+      socket.serverFrame('ack', {
+        'payload': {
+          'err_no': 3001,
+          'err_msg': 'Insufficient balance',
+          'err_detail': 'Insufficient balance, please recharge',
+        },
+      });
+
+      await expectLater(
+        future,
+        throwsA(
+          isA<ChatroomFailureEvent>()
+              .having((e) => e.code, 'code', '3001')
+              .having(
+                (e) => e.detail,
+                'detail',
+                'Insufficient balance, please recharge',
+              )
+              .having((e) => e.clientMsgId, 'clientMsgId', 'client-balance'),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(
+        socket
+            .sentFrames('send_message')
+            .where((frame) => frame['client_msg_id'] == 'client-balance'),
+        hasLength(1),
+      );
+      await session.close();
+    },
+  );
+
+  test('balance_low is parsed as a supported chatroom event', () async {
+    final socket = _FakeChatroomSocket();
+    final client = await _client(_FakeChatroomTransport(socket));
+    final session = await _connectedSession(client, socket);
+    final eventFuture = session.events.firstWhere(
+      (event) => event is ChatroomBalanceLow,
+    );
+
+    socket.serverFrame('balance_low', {
+      'payload': {'balance': 10, 'message': '余额即将不足，请及时充值'},
+    });
+
+    final event = await eventFuture as ChatroomBalanceLow;
+    expect(event.balance, 10);
+    expect(event.message, '余额即将不足，请及时充值');
+    await session.close();
+  });
+
   test('sendMessage fails when ack times out', () async {
     final socket = _FakeChatroomSocket();
     final client = await _client(

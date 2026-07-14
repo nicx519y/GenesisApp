@@ -16,6 +16,7 @@ import '../../network/json_utils.dart';
 import '../../network/network_runtime_factory.dart';
 import '../../routers/app_router.dart';
 import '../../platform/platform_services.dart';
+import '../../platform/session/user_info_cache.dart';
 import '../config/app_config.dart';
 import '../config/platform_config.dart';
 import '../debug/location_chat_debug_storage.dart';
@@ -227,6 +228,10 @@ class ServiceRegistry {
       pendingPurchaseStore: SqfliteBillingPendingPurchaseStore(),
       loadBillingAccountId: () async {
         final userInfo = await api.v1.user.info();
+        await cacheCurrentUserInfoResponse(
+          sessionStore: sessionStore,
+          response: userInfo,
+        );
         return asString(userInfo['uuid']);
       },
       loadProductCatalog: () async => (await api.v1.gem.products()).products,

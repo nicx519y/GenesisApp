@@ -121,6 +121,20 @@ void main() {
         isTrue,
       );
     });
+
+    test('hides balance errors handled by the recharge dialog', () {
+      expect(
+        shouldShowChatroomFailureToast(
+          const ChatroomFailureEvent(
+            code: '3001',
+            message: 'Insufficient balance',
+            sourceType: 'ack',
+            requestType: 'send_message',
+          ),
+        ),
+        isFalse,
+      );
+    });
   });
 
   group('chatroomFailureToastMessage', () {

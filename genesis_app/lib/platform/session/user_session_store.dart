@@ -1,4 +1,8 @@
+import 'package:flutter/foundation.dart';
+
 abstract interface class UserSessionStore {
+  ValueListenable<int> get userInfoRevision;
+
   Future<String?> readUid();
   Future<void> saveUid(String uid);
   Future<String?> readAuthToken();

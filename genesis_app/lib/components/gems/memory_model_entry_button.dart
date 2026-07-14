@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 const double kMemoryModelEntryMinWidth = 82;
+const double kMemoryModelEntryMaxWidth = 96;
 
 class MemoryModelEntryButton extends StatelessWidget {
   const MemoryModelEntryButton({
@@ -32,6 +33,7 @@ class MemoryModelEntryButton extends StatelessWidget {
           height: 38,
           constraints: const BoxConstraints(
             minWidth: kMemoryModelEntryMinWidth,
+            maxWidth: kMemoryModelEntryMaxWidth,
           ),
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Row(
@@ -45,15 +47,17 @@ class MemoryModelEntryButton extends StatelessWidget {
                 colorFilter: ColorFilter.mode(foreground, BlendMode.srcIn),
               ),
               const SizedBox(width: 5),
-              Text(
-                modelLabel,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 16 / 12,
-                  fontWeight: FontWeight.w400,
-                  color: foreground,
+              Flexible(
+                child: Text(
+                  modelLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 16 / 12,
+                    fontWeight: FontWeight.w400,
+                    color: foreground,
+                  ),
                 ),
               ),
             ],

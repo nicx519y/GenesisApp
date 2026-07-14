@@ -14,6 +14,7 @@ import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/common/genesis_modal_routes.dart';
+import '../../components/gems/gem_balance_prompt.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/world_details_shell.dart';
@@ -70,6 +71,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   WorldChatroomService? _worldChatroom;
   StreamSubscription<WorldChatroomState>? _worldChatroomSub;
   StreamSubscription? _worldChatroomFailureSub;
+  StreamSubscription<GemBalanceAlert>? _worldChatroomBalanceSub;
   Map<String, WorldLocationChatPanelDescriptor> _locationChatDescriptors =
       <String, WorldLocationChatPanelDescriptor>{};
   final _locationChatPageCache = WorldLocationChatPageCache();
@@ -184,6 +186,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     GenesisSystemUiChrome.applyDefault();
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
+    unawaited(_worldChatroomBalanceSub?.cancel());
     final chatroom = _worldChatroom;
     _worldChatroom = null;
     if (chatroom != null) {
@@ -367,6 +370,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       service.failures,
       shouldShow: (failure) => failure.code != 'snapshot_failed',
     );
+    _worldChatroomBalanceSub = bindGemBalancePrompt(
+      context,
+      service.balanceAlerts,
+    );
     final world = _world;
     if (world != null) {
       service.applyWorldSnapshot(world);
@@ -494,8 +501,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (chatroom == null) return;
     unawaited(_worldChatroomSub?.cancel());
     unawaited(_worldChatroomFailureSub?.cancel());
+    unawaited(_worldChatroomBalanceSub?.cancel());
     _worldChatroomSub = null;
     _worldChatroomFailureSub = null;
+    _worldChatroomBalanceSub = null;
     _worldChatroom = null;
     _preloadedLocationMessageIds.clear();
     _preloadingLocationMessageFutures.clear();

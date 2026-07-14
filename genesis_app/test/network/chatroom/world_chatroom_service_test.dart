@@ -128,6 +128,52 @@ void main() {
     await service.dispose();
   });
 
+  test('balance_low publishes a low balance alert', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+    );
+    await service.connect(worldId: 'world-1', identity: _identity());
+    final alertFuture = service.balanceAlerts.first;
+
+    socket.serverFrame('balance_low', {
+      'payload': {'balance': 10, 'message': 'Low balance'},
+    });
+
+    final alert = await alertFuture;
+    expect(alert.kind, GemBalanceAlertKind.low);
+    expect(alert.balance, 10);
+    expect(alert.message, 'Low balance');
+    await service.dispose();
+  });
+
+  test('ack 3001 publishes an insufficient balance alert', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+    );
+    await service.connect(worldId: 'world-1', identity: _identity());
+    final alerts = <GemBalanceAlert>[];
+    final alertSubscription = service.balanceAlerts.listen(alerts.add);
+
+    socket.serverFrame('ack', {
+      'payload': {
+        'err_no': 3001,
+        'err_msg': 'Insufficient balance',
+        'err_detail': 'Insufficient balance, please recharge',
+      },
+    });
+
+    await _waitFor(() => alerts.isNotEmpty);
+    await Future<void>.delayed(Duration.zero);
+    expect(alerts, hasLength(1));
+    final alert = alerts.single;
+    expect(alert.kind, GemBalanceAlertKind.insufficient);
+    expect(alert.message, 'Insufficient balance, please recharge');
+    await alertSubscription.cancel();
+    await service.dispose();
+  });
+
   test('connect hydrates world detail and user locations', () async {
     final socket = _FakeChatroomSocket();
     final http = _WorldChatroomHttpTransport();

@@ -20,6 +20,7 @@ import '../../network/models/origin.dart';
 import '../../platform/auth/auth_cancelled_exception.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../platform/session/user_session_store.dart';
+import '../../platform/session/user_info_cache.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/image_format_guards.dart';
@@ -457,21 +458,11 @@ class _MePageState extends State<MePage> {
   }) async {
     try {
       final userInfo = await api.v1.user.info();
-      final user = userInfo['user'] is Map
-          ? Map<String, dynamic>.from(userInfo['user'] as Map)
-          : null;
-      if (user == null || user.isEmpty) return null;
-      final uid = fallbackUid.trim();
-      if (uid.isNotEmpty) {
-        user.putIfAbsent('uid', () => uid);
-      }
-      final current = await sessionStore.readUserInfo();
-      final merged = <String, dynamic>{
-        if (current != null) ...current,
-        ...user,
-      };
-      await sessionStore.saveUserInfo(merged);
-      return merged;
+      return cacheCurrentUserInfoResponse(
+        sessionStore: sessionStore,
+        response: userInfo,
+        fallbackUid: fallbackUid,
+      );
     } catch (_) {
       return null;
     }

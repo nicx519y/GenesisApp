@@ -137,6 +137,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Gem Records'), findsOneWidget);
+    final recordsTitle = tester.widget<Text>(find.text('Gem Records'));
+    expect(recordsTitle.style?.fontSize, 22);
+    expect(recordsTitle.style?.color, const Color(0xFF333333));
     expect(find.text('Daily check-in'), findsOneWidget);
     expect(requestedScenes, contains('all'));
 

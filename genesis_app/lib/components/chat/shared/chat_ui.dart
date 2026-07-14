@@ -56,6 +56,7 @@ const Color _locationChatChromeStrong = Color(0xF2111111);
 const Color _locationChatChromeSoft = Color(0x80111111);
 const Color _locationChatHeaderGlassTop = Color(0xA6111111);
 const Color _locationChatHeaderGlassBottom = Color(0x33111111);
+const double _chatHeaderTrailingWidth = 96;
 
 ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
   conversationBackgroundColor: _locationChatBackgroundColor,
@@ -123,7 +124,7 @@ class ChatMessageVm {
   }
 
   final String localId;
-  final String clientMsgId;
+  String clientMsgId;
   int globalMessageId;
   int? messageId;
   int locationMessageId;
@@ -154,6 +155,8 @@ typedef ChatMessageLongPressStart =
       ChatMessageVm message,
       LongPressStartDetails details,
     );
+
+typedef ChatMessageTap = void Function(ChatMessageVm message);
 
 class ChatHeader extends StatelessWidget {
   const ChatHeader({
@@ -189,7 +192,7 @@ class ChatHeader extends StatelessWidget {
     final topInset = GenesisSafeAreaInsets.top(context);
     final headerSidePadding = trailing == null
         ? style.headerTrailingPlaceholderWidth
-        : 96.0;
+        : _chatHeaderTrailingWidth;
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(
@@ -292,7 +295,16 @@ class ChatHeader extends StatelessWidget {
                   ),
                 ),
                 if (trailing != null)
-                  Align(alignment: Alignment.centerRight, child: trailing)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: SizedBox(
+                      width: headerSidePadding,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: trailing,
+                      ),
+                    ),
+                  )
                 else if (showMoreButton)
                   Align(
                     alignment: Alignment.centerRight,
@@ -667,6 +679,7 @@ class ChatMessageList extends StatelessWidget {
     required this.messages,
     required this.topTitle,
     this.onMessageLongPressStart,
+    this.onFailedMessageTap,
     this.keyboardDismissBehavior,
     this.oldestEdgeNotice,
     this.oldestEdgeLoading = false,
@@ -679,6 +692,7 @@ class ChatMessageList extends StatelessWidget {
   final List<ChatMessageVm> messages;
   final String topTitle;
   final ChatMessageLongPressStart? onMessageLongPressStart;
+  final ChatMessageTap? onFailedMessageTap;
   final ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior;
   final String? oldestEdgeNotice;
   final bool oldestEdgeLoading;
@@ -715,6 +729,7 @@ class ChatMessageList extends StatelessWidget {
           message: current,
           style: style,
           onMessageLongPressStart: onMessageLongPressStart,
+          onFailedMessageTap: onFailedMessageTap,
           showDateDivider:
               showDateDividers &&
               shouldShowChatDateDivider(previous?.createdAt, current.createdAt),
@@ -732,6 +747,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
     required this.centerLocalId,
     required this.topTitle,
     this.onMessageLongPressStart,
+    this.onFailedMessageTap,
     this.keyboardDismissBehavior,
     this.oldestEdgeNotice,
     this.oldestEdgeLoading = false,
@@ -748,6 +764,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
   final String centerLocalId;
   final String topTitle;
   final ChatMessageLongPressStart? onMessageLongPressStart;
+  final ChatMessageTap? onFailedMessageTap;
   final ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior;
   final String? oldestEdgeNotice;
   final bool oldestEdgeLoading;
@@ -895,6 +912,7 @@ class ChatAnchoredMessageList extends StatelessWidget {
       message: current,
       style: style,
       onMessageLongPressStart: onMessageLongPressStart,
+      onFailedMessageTap: onFailedMessageTap,
       showDateDivider:
           showDateDividers &&
           shouldShowChatDateDivider(previous?.createdAt, current.createdAt),
@@ -998,6 +1016,7 @@ class ChatMessageRow extends StatelessWidget {
     required this.showDateDivider,
     this.onAvatarTap,
     this.onMessageLongPressStart,
+    this.onFailedMessageTap,
     this.style,
   });
 
@@ -1005,6 +1024,7 @@ class ChatMessageRow extends StatelessWidget {
   final bool showDateDivider;
   final VoidCallback? onAvatarTap;
   final ChatMessageLongPressStart? onMessageLongPressStart;
+  final ChatMessageTap? onFailedMessageTap;
   final ChatUiStyleConfig? style;
 
   @override
@@ -1064,7 +1084,14 @@ class ChatMessageRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     if (showFailedBadge) ...[
-                      ChatFailedBadge(style: style),
+                      GestureDetector(
+                        key: ValueKey('chat-message-retry-${message.localId}'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onFailedMessageTap == null
+                            ? null
+                            : () => onFailedMessageTap!(message),
+                        child: ChatFailedBadge(style: style),
+                      ),
                       SizedBox(width: style.badgeBubbleGap),
                     ] else if (showSendingBadge) ...[
                       ChatSendingBadge(style: style),
@@ -1076,6 +1103,9 @@ class ChatMessageRow extends StatelessWidget {
                         child: ChatMessageBubble(
                           message: message,
                           style: style,
+                          onTap: showFailedBadge && onFailedMessageTap != null
+                              ? () => onFailedMessageTap!(message)
+                              : null,
                           onLongPressStart: onMessageLongPressStart == null
                               ? null
                               : (details) => onMessageLongPressStart!(
@@ -1234,11 +1264,13 @@ class ChatMessageBubble extends StatelessWidget {
     super.key,
     required this.message,
     this.onLongPressStart,
+    this.onTap,
     this.style,
   });
 
   final ChatMessageVm message;
   final GestureLongPressStartCallback? onLongPressStart;
+  final VoidCallback? onTap;
   final ChatUiStyleConfig? style;
 
   @override
@@ -1251,6 +1283,7 @@ class ChatMessageBubble extends StatelessWidget {
         ? message.text
         : '${message.text}\n${message.error}';
     return GestureDetector(
+      onTap: onTap,
       onLongPressStart: onLongPressStart,
       child: Container(
         padding: style.bubblePadding,

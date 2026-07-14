@@ -185,6 +185,8 @@ class ChatroomFailureEvent extends ChatroomEvent implements Exception {
   const ChatroomFailureEvent({
     required this.code,
     required this.message,
+    this.detail = '',
+    this.clientMsgId = '',
     this.sourceType = '',
     this.requestType = '',
     this.cause,
@@ -192,6 +194,8 @@ class ChatroomFailureEvent extends ChatroomEvent implements Exception {
 
   final String code;
   final String message;
+  final String detail;
+  final String clientMsgId;
   final String sourceType;
   final String requestType;
   final Object? cause;
@@ -213,11 +217,17 @@ class ChatroomFailureEvent extends ChatroomEvent implements Exception {
     ChatroomPayloadEvent event, {
     String sourceType = '',
     String requestType = '',
+    String clientMsgId = '',
     Object? cause,
   }) {
+    final ack = event is ChatroomAck ? event : null;
     return ChatroomFailureEvent(
       code: event.code.toString(),
       message: event.codeMsg.isEmpty ? 'Something went wrong' : event.codeMsg,
+      detail: ack?.errorDetail ?? '',
+      clientMsgId: clientMsgId.isNotEmpty
+          ? clientMsgId
+          : (ack?.clientMsgId ?? ''),
       sourceType: sourceType.isEmpty ? chatroomEventType(event) : sourceType,
       requestType: requestType,
       cause: cause ?? event,
@@ -228,6 +238,8 @@ class ChatroomFailureEvent extends ChatroomEvent implements Exception {
     return ChatroomFailureEvent(
       code: code,
       message: message,
+      detail: detail,
+      clientMsgId: clientMsgId,
       sourceType: sourceType,
       requestType: value,
       cause: cause,
@@ -277,6 +289,7 @@ class ChatroomAck extends ChatroomPayloadEvent {
     this.locationMessageId = 0,
     required this.conversationRoundId,
     required this.clientMsgId,
+    this.errorDetail = '',
   });
 
   final int globalMessageId;
@@ -284,6 +297,7 @@ class ChatroomAck extends ChatroomPayloadEvent {
   final int locationMessageId;
   final String conversationRoundId;
   final String clientMsgId;
+  final String errorDetail;
 
   factory ChatroomAck.fromPayload(Map<String, dynamic> payload) {
     return ChatroomAck(
@@ -299,6 +313,22 @@ class ChatroomAck extends ChatroomPayloadEvent {
       locationMessageId: asInt(payload['location_msg_id']),
       conversationRoundId: asString(payload['conversation_round_id']),
       clientMsgId: asString(payload['client_msg_id']),
+      errorDetail: asString(payload['err_detail']),
+    );
+  }
+}
+
+class ChatroomBalanceLow extends ChatroomEvent {
+  const ChatroomBalanceLow({required this.balance, required this.message});
+
+  final int balance;
+  final String message;
+
+  factory ChatroomBalanceLow.fromEnvelope(ChatroomEnvelope envelope) {
+    final payload = envelope.mergedPayload;
+    return ChatroomBalanceLow(
+      balance: asInt(payload['balance']),
+      message: asString(payload['message']),
     );
   }
 }
@@ -749,6 +779,7 @@ class ChatroomMessageHandlers {
     this.onAck,
     this.onError,
     this.onFailure,
+    this.onBalanceLow,
     this.onWorldNotification,
     this.onUserMessage,
     this.onNarratorMessage,
@@ -764,6 +795,7 @@ class ChatroomMessageHandlers {
   final void Function(ChatroomAck event)? onAck;
   final void Function(ChatroomErrorEvent event)? onError;
   final void Function(ChatroomFailureEvent event)? onFailure;
+  final void Function(ChatroomBalanceLow event)? onBalanceLow;
   final void Function(ChatroomWorldNotification event)? onWorldNotification;
   final void Function(ChatroomUserMessage event)? onUserMessage;
   final void Function(ChatroomNarratorMessage event)? onNarratorMessage;
@@ -785,6 +817,8 @@ class ChatroomMessageHandlers {
         onError?.call(e);
       case ChatroomFailureEvent e:
         onFailure?.call(e);
+      case ChatroomBalanceLow e:
+        onBalanceLow?.call(e);
       case ChatroomWorldNotification e:
         onWorldNotification?.call(e);
       case ChatroomNewUserJoinEvent():
@@ -809,6 +843,8 @@ ChatroomEvent chatroomEventFromEnvelope(ChatroomEnvelope envelope) {
   switch (envelope.type) {
     case 'ack':
       return ChatroomAck.fromPayload(envelope.mergedPayload);
+    case 'balance_low':
+      return ChatroomBalanceLow.fromEnvelope(envelope);
     case 'tick_start':
     case 'tick_done':
     case 'world_change':
@@ -846,6 +882,8 @@ String chatroomEventType(ChatroomEvent event) {
       return e.sourceType;
     case ChatroomFailureEvent e:
       return e.sourceType;
+    case ChatroomBalanceLow():
+      return 'balance_low';
     case ChatroomWorldNotification e:
       return e.eventType;
     case ChatroomNewUserJoinEvent():

@@ -41,6 +41,20 @@ class WorldChatroomOlderMessagesPage {
   final bool hasMore;
 }
 
+enum GemBalanceAlertKind { insufficient, low }
+
+class GemBalanceAlert {
+  const GemBalanceAlert({
+    required this.kind,
+    this.balance = 0,
+    this.message = '',
+  });
+
+  final GemBalanceAlertKind kind;
+  final int balance;
+  final String message;
+}
+
 class _LocationMessageGap {
   const _LocationMessageGap({required this.lower, required this.upper});
 
@@ -73,6 +87,7 @@ class WorldChatroomService {
   final bool _refreshInitialSnapshotOnConnect;
   final _states = StreamController<WorldChatroomState>.broadcast();
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();
+  final _balanceAlerts = StreamController<GemBalanceAlert>.broadcast();
   final _latestFetchedMessages =
       StreamController<List<WorldChatroomMessage>>.broadcast();
 
@@ -102,6 +117,8 @@ class WorldChatroomService {
   Stream<WorldChatroomState> get states => _states.stream;
 
   Stream<ChatroomFailureEvent> get failures => _failures.stream;
+
+  Stream<GemBalanceAlert> get balanceAlerts => _balanceAlerts.stream;
 
   Stream<List<WorldChatroomMessage>> get latestFetchedMessages =>
       _latestFetchedMessages.stream;
@@ -550,6 +567,7 @@ class WorldChatroomService {
     await disconnect();
     await _states.close();
     await _failures.close();
+    await _balanceAlerts.close();
     await _latestFetchedMessages.close();
   }
 
@@ -1074,10 +1092,26 @@ class WorldChatroomService {
         _recordFailure(ChatroomFailureEvent.fromError(e));
       case ChatroomFailureEvent e:
         _recordFailure(e);
+      case ChatroomBalanceLow e:
+        _emitBalanceAlert(
+          GemBalanceAlert(
+            kind: GemBalanceAlertKind.low,
+            balance: e.balance,
+            message: e.message,
+          ),
+        );
       case ChatroomJoined():
       case ChatroomDisconnected():
-      case ChatroomAck():
         break;
+      case ChatroomAck e:
+        if (e.code == 3001) {
+          _emitBalanceAlert(
+            GemBalanceAlert(
+              kind: GemBalanceAlertKind.insufficient,
+              message: e.errorDetail.isNotEmpty ? e.errorDetail : e.codeMsg,
+            ),
+          );
+        }
     }
   }
 
@@ -2277,6 +2311,10 @@ class WorldChatroomService {
         socketTickNo: socketTickNo,
       ),
     );
+  }
+
+  void _emitBalanceAlert(GemBalanceAlert alert) {
+    if (!_balanceAlerts.isClosed) _balanceAlerts.add(alert);
   }
 
   Future<void> _persistMessage(WorldChatroomMessage message) async {

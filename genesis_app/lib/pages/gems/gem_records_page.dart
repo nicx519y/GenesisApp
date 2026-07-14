@@ -176,12 +176,13 @@ class _GemRecordsPageState extends State<GemRecordsPage>
       backgroundColor: Colors.white,
       appBar: GenesisBackAppBar(
         pageName: 'Gem Records',
+        titleStyle: const TextStyle(color: Color(0xFF333333), fontSize: 22),
         onBack: () => Navigator.of(context).maybePop(),
       ),
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 24),
+            const SizedBox(height: 13),
             _GemRecordTabs(
               controller: _tabController,
               labels: _tabs.map((tab) => tab.label).toList(growable: false),
