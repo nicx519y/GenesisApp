@@ -64,6 +64,11 @@ void main() {
     expect(pageTitleStyle?.height, 22 / 16);
     expect(pageTitleStyle?.fontWeight, FontWeight.w600);
     expect(pageTitleStyle?.color, const Color(0xFF333333));
+    expect(
+      tester.getTopLeft(find.text('Recommended')).dy -
+          tester.getRect(find.text('Model')).bottom,
+      closeTo(26, 0.1),
+    );
 
     final saveButton = tester.widget<TextButton>(
       find.byKey(const ValueKey('gem-model-save')),
@@ -115,6 +120,17 @@ void main() {
     expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFE1E1E1));
     expect(_tileColor(tester, 'top_pick_v3'), const Color(0xFFFFF4F6));
     expect(_tileColor(tester, 'sake_pro'), Colors.white);
+    final selectedTileInkWell = tester.widget<InkWell>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('gem-model-top_pick_v3')),
+        matching: find.byType(InkWell),
+      ),
+    );
+    expect(selectedTileInkWell.splashFactory, NoSplash.splashFactory);
+    expect(
+      selectedTileInkWell.overlayColor?.resolve(<WidgetState>{}),
+      Colors.transparent,
+    );
     expect(_tagContainer(tester, 'hot').color, const Color(0xFFFF7A1A));
     expect(_tagContainer(tester, 'hot').height, 20);
     expect(_tagContainer(tester, 'new').color, const Color(0xFFF42C47));

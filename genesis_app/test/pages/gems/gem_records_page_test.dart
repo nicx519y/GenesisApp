@@ -53,8 +53,18 @@ void main() {
                     createdAt: 1,
                     expiresAt: 1893456000,
                   ),
+                  GemRecordItem(
+                    ledgerId: 'ledger-2',
+                    amount: -4,
+                    scene: 'world_tick',
+                    reasonCode: 'message',
+                    title: 'Message',
+                    subtitle: 'Location chat',
+                    createdAt: 1,
+                    expiresAt: 0,
+                  ),
                 ],
-                total: 1,
+                total: 2,
                 page: 1,
                 pageSize: rn,
               ),
@@ -73,6 +83,38 @@ void main() {
     expect(find.byKey(const ValueKey('gem-record-primary-icon')), findsNothing);
     expect(find.byKey(const ValueKey('gem-record-amount-icon')), findsNothing);
     expect(find.textContaining('Expires'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Daily check-in')).dy -
+          tester.getBottomLeft(find.byType(TabBar)).dy,
+      closeTo(14, 0.1),
+    );
+    expect(
+      tester.getTopLeft(find.text('Daily check-in')).dy -
+          tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('gem-record-item-ledger-1')),
+              )
+              .dy,
+      closeTo(2, 0.1),
+    );
+    expect(
+      tester.getTopLeft(find.text('+50')).dy -
+          tester.getTopLeft(find.text('Daily check-in')).dy,
+      closeTo(8, 0.1),
+    );
+    expect(
+      tester.getTopLeft(find.text('Message')).dy -
+          tester.getTopLeft(find.text('Daily check-in')).dy,
+      closeTo(68, 0.1),
+    );
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('gem-record-item-ledger-1')),
+          )
+          .height,
+      closeTo(59, 0.1),
+    );
     expect(
       tester.getSize(find.byKey(const ValueKey('gem-records-footer-icon'))),
       const Size.square(24),

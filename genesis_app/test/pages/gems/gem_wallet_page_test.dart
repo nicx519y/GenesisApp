@@ -64,6 +64,11 @@ void main() {
     expect(pageTitleStyle?.height, 22 / 16);
     expect(pageTitleStyle?.fontWeight, FontWeight.w600);
     expect(pageTitleStyle?.color, const Color(0xFF333333));
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('gem-balance-panel'))).dy -
+          tester.getRect(find.text('Buy Gems')).bottom,
+      closeTo(26, 0.1),
+    );
 
     final recordsStyle = tester.widget<Text>(find.text('Records')).style;
     expect(recordsStyle?.fontSize, 12);
@@ -202,6 +207,11 @@ void main() {
     expect(recordsTitle.style?.height, 22 / 16);
     expect(recordsTitle.style?.fontWeight, FontWeight.w600);
     expect(recordsTitle.style?.color, const Color(0xFF333333));
+    expect(
+      tester.getTopLeft(find.byType(TabBar)).dy -
+          tester.getRect(find.text('Gem Records')).bottom,
+      closeTo(26, 0.1),
+    );
     expect(find.text('Daily check-in'), findsOneWidget);
     expect(
       find.text('${formatGemRecordTimestamp(1783586400)} · Starter reward'),

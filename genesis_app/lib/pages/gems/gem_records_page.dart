@@ -188,7 +188,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 13),
+            const SizedBox(height: 12),
             _GemRecordTabs(
               controller: _tabController,
               labels: _tabs.map((tab) => tab.label).toList(growable: false),
@@ -238,10 +238,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
         itemCount:
             state.records.length +
             (state.isLoadingMore || !state.hasMore ? 1 : 0),
-        separatorBuilder: (_, index) {
-          if (index >= state.records.length - 1) return const SizedBox.shrink();
-          return const Divider(height: 1, color: Color(0xFFF0F0F0));
-        },
+        separatorBuilder: (_, __) => const SizedBox(height: 9),
         itemBuilder: (context, itemIndex) {
           if (itemIndex >= state.records.length) {
             return state.isLoadingMore
@@ -323,14 +320,17 @@ class _GemRecordTile extends StatelessWidget {
     final amountText =
         '${isIncome ? '+' : '-'}${_formatInteger(record.amount.abs())}';
     return Container(
-      constraints: const BoxConstraints(minHeight: 76),
-      padding: const EdgeInsets.symmetric(vertical: 14),
+      key: ValueKey<String>('gem-record-item-${record.ledgerId}'),
+      height: 59,
+      padding: const EdgeInsets.only(top: 2, bottom: 20),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(width: 1, color: Color(0xFFF0F0F0))),
+      ),
       child: Row(
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   record.title.isEmpty ? _fallbackTitle(record) : record.title,

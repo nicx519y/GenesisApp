@@ -431,7 +431,7 @@ class _GemWalletContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
         ValueListenableBuilder<GemWalletState>(
           valueListenable: walletStateListenable,

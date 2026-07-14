@@ -213,7 +213,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     return RefreshIndicator(
       onRefresh: () => _refresh(preserveContent: true),
       child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: catalog.groups.length,
         itemBuilder: (context, index) {
@@ -354,6 +354,8 @@ class _GemModelTile extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: enabled ? onTap : null,
+          splashFactory: NoSplash.splashFactory,
+          overlayColor: const WidgetStatePropertyAll<Color>(Colors.transparent),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
             child: Row(

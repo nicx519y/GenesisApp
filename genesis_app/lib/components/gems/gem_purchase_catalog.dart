@@ -19,6 +19,7 @@ class GemBalancePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      key: const ValueKey('gem-balance-panel'),
       width: double.infinity,
       height: 112,
       padding: const EdgeInsets.symmetric(horizontal: 16),
