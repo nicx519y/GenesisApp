@@ -6,6 +6,30 @@ import 'package:genesis_flutter_android/network/models/gem_model.dart';
 import 'package:genesis_flutter_android/pages/gems/memory_model_page.dart';
 
 void main() {
+  testWidgets('initial loading indicator uses the Gem red color', (
+    tester,
+  ) async {
+    final catalogCompleter = Completer<GemModelCatalog>();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MemoryModelPage(
+          worldId: 'W_LOADING',
+          catalogLoader: (_) => catalogCompleter.future,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final indicator = tester.widget<CircularProgressIndicator>(
+      find.byKey(const ValueKey('gem-model-page-loading')),
+    );
+    expect(indicator.color, const Color(0xFFF42C47));
+
+    catalogCompleter.complete(_catalog());
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('renders backend model catalog and selected state', (
     tester,
   ) async {

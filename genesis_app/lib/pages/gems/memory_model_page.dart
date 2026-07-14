@@ -175,7 +175,11 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       return const Center(
         child: SizedBox.square(
           dimension: 24,
-          child: CircularProgressIndicator(strokeWidth: 2),
+          child: CircularProgressIndicator(
+            key: ValueKey('gem-model-page-loading'),
+            strokeWidth: 2,
+            color: Color(0xFFF42C47),
+          ),
         ),
       );
     }
