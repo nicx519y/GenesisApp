@@ -29,6 +29,51 @@ void main() {
 
     expect(find.text('New user'), findsOneWidget);
     expect(find.text('HKD1.49'), findsOneWidget);
+
+    final tagStyle = tester.widget<Text>(find.text('New user')).style;
+    expect(tagStyle?.fontSize, 8);
+    expect(tagStyle?.height, 10 / 8);
+    expect(tagStyle?.fontWeight, FontWeight.w700);
+
+    final amountStyle = tester.widget<Text>(find.text('+500')).style;
+    expect(amountStyle?.fontSize, 15);
+    expect(amountStyle?.height, 20 / 15);
+    expect(amountStyle?.fontWeight, FontWeight.w700);
+    expect(amountStyle?.color, const Color(0xFF333333));
+
+    final priceStyle = tester.widget<Text>(find.text('HKD1.49')).style;
+    expect(priceStyle?.fontSize, 11);
+    expect(priceStyle?.height, 14 / 11);
+    expect(priceStyle?.fontWeight, FontWeight.w600);
+    expect(priceStyle?.color, Colors.white);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('gem-product-icon-gem_pack_500')),
+      ),
+      const Size.square(24),
+    );
+  });
+
+  testWidgets('balance panel uses the Gem Wallet typography', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: GemBalancePanel(balance: 430))),
+    );
+
+    final labelStyle = tester.widget<Text>(find.text('My Balance')).style;
+    expect(labelStyle?.fontSize, 12);
+    expect(labelStyle?.height, 18 / 12);
+    expect(labelStyle?.fontWeight, FontWeight.w600);
+    expect(labelStyle?.color, const Color(0xFF666666));
+
+    final balanceStyle = tester.widget<Text>(find.text('430')).style;
+    expect(balanceStyle?.fontSize, 34);
+    expect(balanceStyle?.height, 40 / 34);
+    expect(balanceStyle?.fontWeight, FontWeight.w700);
+    expect(balanceStyle?.color, const Color(0xFF333333));
+    expect(
+      tester.getSize(find.byKey(const ValueKey('gem-balance-icon'))),
+      const Size.square(24),
+    );
   });
 
   testWidgets('activity type is displayed without mapping', (tester) async {

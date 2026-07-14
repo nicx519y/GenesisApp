@@ -12,6 +12,10 @@ class SecendTabs extends StatelessWidget {
     this.horizontalPadding = 8,
     this.labelPadding = const EdgeInsets.symmetric(horizontal: 8),
     this.labelFontSize,
+    this.labelStyle,
+    this.unselectedLabelStyle,
+    this.labelColor,
+    this.unselectedLabelColor,
     this.expanded = false,
     this.tabAlignment,
     this.verticalPadding = secendTabsVerticalPadding,
@@ -23,6 +27,10 @@ class SecendTabs extends StatelessWidget {
   final double horizontalPadding;
   final EdgeInsets labelPadding;
   final double? labelFontSize;
+  final TextStyle? labelStyle;
+  final TextStyle? unselectedLabelStyle;
+  final Color? labelColor;
+  final Color? unselectedLabelColor;
   final bool expanded;
   final TabAlignment? tabAlignment;
   final double verticalPadding;
@@ -38,6 +46,10 @@ class SecendTabs extends StatelessWidget {
         horizontalPadding: horizontalPadding,
         labelPadding: labelPadding,
         labelFontSize: labelFontSize,
+        labelStyle: labelStyle,
+        unselectedLabelStyle: unselectedLabelStyle,
+        labelColor: labelColor,
+        unselectedLabelColor: unselectedLabelColor,
         expanded: expanded,
         tabAlignment: tabAlignment,
         onTap: onTap,

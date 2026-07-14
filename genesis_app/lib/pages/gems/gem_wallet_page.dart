@@ -8,6 +8,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../app/gems/gem_wallet_store.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/gems/gem_assets.dart';
 import '../../components/gems/gem_purchase_catalog.dart';
 import '../../components/page_header.dart';
 import '../../network/models/gem_product.dart';
@@ -333,7 +334,12 @@ class _GemWalletPageState extends State<GemWalletPage>
       backgroundColor: Colors.white,
       appBar: GenesisBackAppBar(
         pageName: 'Buy Gems',
-        titleStyle: const TextStyle(color: Color(0xFF333333), fontSize: 22),
+        titleStyle: const TextStyle(
+          color: Color(0xFF333333),
+          fontSize: 16,
+          height: 22 / 16,
+          fontWeight: FontWeight.w600,
+        ),
         onBack: () => Navigator.of(context).maybePop(),
         actions: [
           GestureDetector(
@@ -346,8 +352,8 @@ class _GemWalletPageState extends State<GemWalletPage>
                 style: TextStyle(
                   color: Color(0xFF333333),
                   fontSize: 12,
-                  height: 20 / 12,
-                  fontWeight: FontWeight.w700,
+                  height: 18 / 12,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -499,7 +505,7 @@ class _TaskGroupSection extends StatelessWidget {
           style: const TextStyle(
             fontSize: 14,
             height: 20 / 14,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             color: Color(0xFF333333),
           ),
         ),
@@ -571,15 +577,16 @@ class _JoinUsTaskRow extends StatelessWidget {
             style: const TextStyle(
               fontSize: 13,
               height: 18 / 13,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               color: Color(0xFF333333),
             ),
           ),
           const SizedBox(width: 4),
           SvgPicture.asset(
-            'assets/custom-icons/svg/ruby.svg',
-            width: 14,
-            height: 14,
+            gemIconAsset,
+            key: ValueKey<String>('gem-task-reward-icon-${task.taskCode}'),
+            width: gemSmallIconSize,
+            height: gemSmallIconSize,
           ),
           const SizedBox(width: 10),
           _TaskActionButton(
@@ -635,7 +642,7 @@ class _TaskRow extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 13,
                     height: 16 / 13,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: Color(0xFF333333),
                   ),
                 ),
@@ -648,7 +655,7 @@ class _TaskRow extends StatelessWidget {
                     fontSize: 10,
                     height: 14 / 10,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF999999),
+                    color: Color(0xFF666666),
                   ),
                 ),
               ],
@@ -668,15 +675,18 @@ class _TaskRow extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 13,
                         height: 18 / 13,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: Color(0xFF333333),
                       ),
                     ),
                     const SizedBox(width: 2),
                     SvgPicture.asset(
-                      'assets/custom-icons/svg/ruby.svg',
-                      width: 14,
-                      height: 14,
+                      gemIconAsset,
+                      key: ValueKey<String>(
+                        'gem-task-reward-icon-${task.taskCode}',
+                      ),
+                      width: gemSmallIconSize,
+                      height: gemSmallIconSize,
                     ),
                   ],
                 ),
@@ -689,7 +699,7 @@ class _TaskRow extends StatelessWidget {
                   width: 64,
                   height: 19,
                   borderRadius: 10,
-                  textHeight: 13 / 11,
+                  textHeight: 14 / 11,
                 ),
               ],
             ),
@@ -750,7 +760,7 @@ class _TaskActionButton extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               height: textHeight,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
               color: Colors.white,
             ),
           ),

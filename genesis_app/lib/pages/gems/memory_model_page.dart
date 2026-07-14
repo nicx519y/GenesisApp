@@ -156,6 +156,12 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       backgroundColor: Colors.white,
       appBar: GenesisBackAppBar(
         pageName: 'Model',
+        titleStyle: const TextStyle(
+          color: Color(0xFF333333),
+          fontSize: 16,
+          height: 22 / 16,
+          fontWeight: FontWeight.w600,
+        ),
         onBack: _closePage,
         actions: [
           _ModelSaveAction(
@@ -253,7 +259,11 @@ class _ModelSaveAction extends StatelessWidget {
           overlayColor: Colors.transparent,
           foregroundColor: const Color(0xFF333333),
           disabledForegroundColor: const Color(0xFF999999),
-          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontSize: 12,
+            height: 18 / 12,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         child: saving
             ? const SizedBox.square(
@@ -291,9 +301,9 @@ class _GemModelGroupSection extends StatelessWidget {
         Text(
           group.groupTitle,
           style: const TextStyle(
-            fontSize: 12,
-            height: 16 / 12,
-            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            height: 20 / 14,
+            fontWeight: FontWeight.w700,
             color: Color(0xFF333333),
           ),
         ),
@@ -336,7 +346,7 @@ class _GemModelTile extends StatelessWidget {
       enabled: enabled,
       child: Material(
         key: ValueKey<String>('gem-model-${model.modelCode}'),
-        color: Colors.white,
+        color: selected ? const Color(0xFFFFF4F6) : Colors.white,
         shape: RoundedRectangleBorder(
           side: BorderSide(color: borderColor, width: selected ? 1.2 : 1),
           borderRadius: BorderRadius.circular(6),
@@ -384,8 +394,8 @@ class _GemModelTileContent extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 12,
-                  height: 15 / 12,
+                  fontSize: 13,
+                  height: 16 / 13,
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF333333),
                 ),
@@ -412,7 +422,7 @@ class _GemModelTileContent extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 9,
                 height: 12 / 9,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 color: Color(0xFF444444),
               ),
             ),
@@ -422,9 +432,9 @@ class _GemModelTileContent extends StatelessWidget {
         Text(
           model.description,
           style: const TextStyle(
-            fontSize: 9,
-            height: 12 / 9,
-            fontWeight: FontWeight.w400,
+            fontSize: 10,
+            height: 14 / 10,
+            fontWeight: FontWeight.w500,
             color: Color(0xFF666666),
           ),
         ),
@@ -432,8 +442,8 @@ class _GemModelTileContent extends StatelessWidget {
         Text(
           model.rangeText,
           style: const TextStyle(
-            fontSize: 8,
-            height: 11 / 8,
+            fontSize: 9,
+            height: 12 / 9,
             fontWeight: FontWeight.w400,
             color: Color(0xFFAAAAAA),
           ),
@@ -470,7 +480,7 @@ class _GemModelTag extends StatelessWidget {
         displayLabel,
         style: const TextStyle(
           fontSize: 10,
-          height: 12 / 10,
+          height: 14 / 10,
           fontWeight: FontWeight.w600,
           color: Colors.white,
         ),

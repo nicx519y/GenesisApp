@@ -59,6 +59,51 @@ void main() {
     expect(find.text('Starter'), findsOneWidget);
     expect(find.text('Create your first worldo'), findsOneWidget);
 
+    final pageTitleStyle = tester.widget<Text>(find.text('Buy Gems')).style;
+    expect(pageTitleStyle?.fontSize, 16);
+    expect(pageTitleStyle?.height, 22 / 16);
+    expect(pageTitleStyle?.fontWeight, FontWeight.w600);
+    expect(pageTitleStyle?.color, const Color(0xFF333333));
+
+    final recordsStyle = tester.widget<Text>(find.text('Records')).style;
+    expect(recordsStyle?.fontSize, 12);
+    expect(recordsStyle?.height, 18 / 12);
+    expect(recordsStyle?.fontWeight, FontWeight.w600);
+    expect(recordsStyle?.color, const Color(0xFF333333));
+
+    final groupTitleStyle = tester.widget<Text>(find.text('Starter')).style;
+    expect(groupTitleStyle?.fontSize, 14);
+    expect(groupTitleStyle?.height, 20 / 14);
+    expect(groupTitleStyle?.fontWeight, FontWeight.w700);
+
+    final taskTitleStyle = tester
+        .widget<Text>(find.text('Create your first worldo'))
+        .style;
+    expect(taskTitleStyle?.fontSize, 13);
+    expect(taskTitleStyle?.height, 16 / 13);
+    expect(taskTitleStyle?.fontWeight, FontWeight.w700);
+
+    final descriptionStyle = tester
+        .widget<Text>(find.text('Create an Origin and launch a world.'))
+        .style;
+    expect(descriptionStyle?.fontSize, 10);
+    expect(descriptionStyle?.height, 14 / 10);
+    expect(descriptionStyle?.fontWeight, FontWeight.w500);
+    expect(descriptionStyle?.color, const Color(0xFF666666));
+
+    final actionStyle = tester.widget<Text>(find.text('Go')).style;
+    expect(actionStyle?.fontSize, 11);
+    expect(actionStyle?.height, 14 / 11);
+    expect(actionStyle?.fontWeight, FontWeight.w600);
+    expect(
+      tester.getSize(
+        find.byKey(
+          const ValueKey<String>('gem-task-reward-icon-create_first_worldo'),
+        ),
+      ),
+      const Size.square(14),
+    );
+
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
 
@@ -73,6 +118,21 @@ void main() {
     expect(find.text('Join us'), findsOneWidget);
     expect(find.text('Discord'), findsOneWidget);
     expect(find.text('Follow'), findsOneWidget);
+
+    final joinUsStyle = tester.widget<Text>(find.text('Join us')).style;
+    expect(joinUsStyle?.fontSize, 14);
+    expect(joinUsStyle?.height, 20 / 14);
+    expect(joinUsStyle?.fontWeight, FontWeight.w700);
+
+    final discordStyle = tester.widget<Text>(find.text('Discord')).style;
+    expect(discordStyle?.fontSize, 13);
+    expect(discordStyle?.height, 18 / 13);
+    expect(discordStyle?.fontWeight, FontWeight.w500);
+
+    final followStyle = tester.widget<Text>(find.text('Follow')).style;
+    expect(followStyle?.fontSize, 11);
+    expect(followStyle?.height, 14 / 11);
+    expect(followStyle?.fontWeight, FontWeight.w600);
   });
 
   testWidgets('Records opens Gem Records and supports swipe tab switching', (
@@ -138,7 +198,9 @@ void main() {
 
     expect(find.text('Gem Records'), findsOneWidget);
     final recordsTitle = tester.widget<Text>(find.text('Gem Records'));
-    expect(recordsTitle.style?.fontSize, 22);
+    expect(recordsTitle.style?.fontSize, 16);
+    expect(recordsTitle.style?.height, 22 / 16);
+    expect(recordsTitle.style?.fontWeight, FontWeight.w600);
     expect(recordsTitle.style?.color, const Color(0xFF333333));
     expect(find.text('Daily check-in'), findsOneWidget);
     expect(
@@ -146,6 +208,39 @@ void main() {
       findsOneWidget,
     );
     expect(requestedScenes, contains('all'));
+
+    final tabs = tester.widget<TabBar>(find.byType(TabBar));
+    expect(tabs.labelStyle?.fontSize, 14);
+    expect(tabs.labelStyle?.height, 20 / 14);
+    expect(tabs.labelStyle?.fontWeight, FontWeight.w700);
+    expect(tabs.labelColor, const Color(0xFF333333));
+    expect(tabs.unselectedLabelStyle?.fontSize, 14);
+    expect(tabs.unselectedLabelStyle?.height, 20 / 14);
+    expect(tabs.unselectedLabelStyle?.fontWeight, FontWeight.w500);
+    expect(tabs.unselectedLabelColor, const Color(0xFF999999));
+
+    final recordTitleStyle = tester
+        .widget<Text>(find.text('Daily check-in'))
+        .style;
+    expect(recordTitleStyle?.fontSize, 12);
+    expect(recordTitleStyle?.height, 17 / 12);
+    expect(recordTitleStyle?.fontWeight, FontWeight.w700);
+
+    final recordSubtitleStyle = tester
+        .widget<Text>(
+          find.text('${formatGemRecordTimestamp(1783586400)} · Starter reward'),
+        )
+        .style;
+    expect(recordSubtitleStyle?.fontSize, 10);
+    expect(recordSubtitleStyle?.height, 14 / 10);
+    expect(recordSubtitleStyle?.fontWeight, FontWeight.w500);
+    expect(recordSubtitleStyle?.color, const Color(0xFF999999));
+
+    final amountStyle = tester.widget<Text>(find.text('+50')).style;
+    expect(amountStyle?.fontSize, 14);
+    expect(amountStyle?.height, 20 / 14);
+    expect(amountStyle?.fontWeight, FontWeight.w700);
+    expect(amountStyle?.color, const Color(0xFFF42C47));
 
     await tester.drag(find.byType(TabBarView), const Offset(-420, 0));
     await tester.pumpAndSettle();

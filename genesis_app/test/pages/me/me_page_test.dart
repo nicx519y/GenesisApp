@@ -88,6 +88,10 @@ void main() {
       '0',
     );
     expect(find.text('--'), findsNothing);
+    expect(
+      tester.getSize(find.byKey(const ValueKey('user-profile-gem-icon'))),
+      const Size.square(24),
+    );
 
     await tester.tap(find.text('World'));
     await tester.pumpAndSettle();

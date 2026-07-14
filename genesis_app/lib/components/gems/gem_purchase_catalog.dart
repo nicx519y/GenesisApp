@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
+import 'gem_assets.dart';
 
 class GemBalancePanel extends StatelessWidget {
   const GemBalancePanel({
@@ -35,9 +36,10 @@ class GemBalancePanel extends StatelessWidget {
               Row(
                 children: [
                   SvgPicture.asset(
-                    'assets/custom-icons/svg/ruby.svg',
-                    width: 22,
-                    height: 22,
+                    gemIconAsset,
+                    key: const ValueKey('gem-balance-icon'),
+                    width: gemLargeIconSize,
+                    height: gemLargeIconSize,
                   ),
                   const SizedBox(width: 8),
                   const Text(
@@ -45,7 +47,7 @@ class GemBalancePanel extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       height: 18 / 12,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: Color(0xFF666666),
                     ),
                   ),
@@ -58,7 +60,7 @@ class GemBalancePanel extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 34,
                   height: 40 / 34,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   color: Color(0xFF333333),
                   letterSpacing: 0,
                 ),
@@ -129,8 +131,8 @@ class GemProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tag = product.tagText;
     const tagTextStyle = TextStyle(
-      fontSize: 10,
-      height: 1,
+      fontSize: 8,
+      height: 10 / 8,
       fontWeight: FontWeight.w700,
       color: Colors.white,
     );
@@ -190,9 +192,12 @@ class GemProductCard extends StatelessWidget {
                     right: 0,
                     child: Center(
                       child: SvgPicture.asset(
-                        'assets/custom-icons/svg/ruby.svg',
-                        width: 24,
-                        height: 24,
+                        gemIconAsset,
+                        key: ValueKey<String>(
+                          'gem-product-icon-${product.productId}',
+                        ),
+                        width: gemLargeIconSize,
+                        height: gemLargeIconSize,
                       ),
                     ),
                   ),
@@ -208,7 +213,7 @@ class GemProductCard extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 15,
                           height: 20 / 15,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           color: Color(0xFF333333),
                         ),
                       ),
@@ -264,7 +269,7 @@ class GemProductCard extends StatelessWidget {
                                 style: const TextStyle(
                                   fontSize: 11,
                                   height: 14 / 11,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w600,
                                   color: Colors.white,
                                 ),
                               ),

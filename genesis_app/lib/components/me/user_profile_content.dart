@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../app/gems/gem_wallet_store.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/gems/gem_wallet_store.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/copyable_id_label.dart';
@@ -19,6 +19,7 @@ import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
+import '../gems/gem_assets.dart';
 import 'profile_collection_list.dart';
 
 class UserProfileContent extends StatefulWidget {
@@ -428,9 +429,10 @@ class _GemsBalanceEntry extends StatelessWidget {
         child: Row(
           children: [
             SvgPicture.asset(
-              'assets/custom-icons/svg/ruby.svg',
-              width: 22,
-              height: 22,
+              gemIconAsset,
+              key: const ValueKey('user-profile-gem-icon'),
+              width: gemLargeIconSize,
+              height: gemLargeIconSize,
             ),
             const SizedBox(width: 8),
             Text(

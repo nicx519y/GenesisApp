@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/gems/gem_assets.dart';
 import '../../components/page_header.dart';
 import '../../network/models/gem_records.dart';
 import '../../ui/components/secend_tabs.dart';
@@ -176,7 +177,12 @@ class _GemRecordsPageState extends State<GemRecordsPage>
       backgroundColor: Colors.white,
       appBar: GenesisBackAppBar(
         pageName: 'Gem Records',
-        titleStyle: const TextStyle(color: Color(0xFF333333), fontSize: 22),
+        titleStyle: const TextStyle(
+          color: Color(0xFF333333),
+          fontSize: 16,
+          height: 22 / 16,
+          fontWeight: FontWeight.w600,
+        ),
         onBack: () => Navigator.of(context).maybePop(),
       ),
       body: SafeArea(
@@ -229,14 +235,18 @@ class _GemRecordsPageState extends State<GemRecordsPage>
         controller: state.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-        itemCount: state.records.length + (state.isLoadingMore ? 1 : 0),
+        itemCount:
+            state.records.length +
+            (state.isLoadingMore || !state.hasMore ? 1 : 0),
         separatorBuilder: (_, index) {
           if (index >= state.records.length - 1) return const SizedBox.shrink();
           return const Divider(height: 1, color: Color(0xFFF0F0F0));
         },
         itemBuilder: (context, itemIndex) {
           if (itemIndex >= state.records.length) {
-            return const _GemRecordsMoreLoading();
+            return state.isLoadingMore
+                ? const _GemRecordsMoreLoading()
+                : const _GemRecordsFooter();
           }
           return _GemRecordTile(record: state.records[itemIndex]);
         },
@@ -283,6 +293,18 @@ class _GemRecordTabs extends StatelessWidget {
       labels: labels,
       horizontalPadding: 8,
       labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+      labelStyle: const TextStyle(
+        fontSize: 14,
+        height: 20 / 14,
+        fontWeight: FontWeight.w700,
+      ),
+      unselectedLabelStyle: const TextStyle(
+        fontSize: 14,
+        height: 20 / 14,
+        fontWeight: FontWeight.w500,
+      ),
+      labelColor: const Color(0xFF333333),
+      unselectedLabelColor: const Color(0xFF999999),
       verticalPadding: 0,
       expanded: true,
       onTap: onSelected,
@@ -305,21 +327,6 @@ class _GemRecordTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 14),
       child: Row(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: Color(0xFFFFF4F6),
-              shape: BoxShape.circle,
-            ),
-            child: SvgPicture.asset(
-              'assets/custom-icons/svg/ruby.svg',
-              width: 21,
-              height: 21,
-            ),
-          ),
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -330,9 +337,9 @@ class _GemRecordTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 14,
-                    height: 18 / 14,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                    height: 17 / 12,
+                    fontWeight: FontWeight.w700,
                     color: Color(0xFF333333),
                   ),
                 ),
@@ -342,8 +349,8 @@ class _GemRecordTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 11,
-                    height: 15 / 11,
+                    fontSize: 10,
+                    height: 14 / 10,
                     fontWeight: FontWeight.w500,
                     color: Color(0xFF999999),
                   ),
@@ -352,27 +359,16 @@ class _GemRecordTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                amountText,
-                style: TextStyle(
-                  fontSize: 16,
-                  height: 20 / 16,
-                  fontWeight: FontWeight.w800,
-                  color: isIncome
-                      ? const Color(0xFFF42C47)
-                      : const Color(0xFF333333),
-                ),
-              ),
-              const SizedBox(width: 3),
-              SvgPicture.asset(
-                'assets/custom-icons/svg/ruby.svg',
-                width: 14,
-                height: 14,
-              ),
-            ],
+          Text(
+            amountText,
+            style: TextStyle(
+              fontSize: 14,
+              height: 20 / 14,
+              fontWeight: FontWeight.w700,
+              color: isIncome
+                  ? const Color(0xFFF42C47)
+                  : const Color(0xFF333333),
+            ),
           ),
         ],
       ),
@@ -419,6 +415,46 @@ class _GemRecordsMoreLoading extends StatelessWidget {
   }
 }
 
+class _GemRecordsFooter extends StatelessWidget {
+  const _GemRecordsFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('gem-records-footer'),
+      height: 162,
+      margin: const EdgeInsets.only(top: 52, bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SvgPicture.asset(
+            gemIconAsset,
+            key: const ValueKey('gem-records-footer-icon'),
+            width: gemLargeIconSize,
+            height: gemLargeIconSize,
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'More Gem activity will appear here after you\nearn or spend Gems.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              height: 18 / 12,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF999999),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _GemRecordsEmpty extends StatelessWidget {
   const _GemRecordsEmpty();
 
@@ -428,9 +464,9 @@ class _GemRecordsEmpty extends StatelessWidget {
       child: Text(
         'No gem records yet.',
         style: TextStyle(
-          fontSize: 13,
-          height: 18 / 13,
-          fontWeight: FontWeight.w600,
+          fontSize: 12,
+          height: 18 / 12,
+          fontWeight: FontWeight.w500,
           color: Color(0xFF999999),
         ),
       ),
@@ -480,7 +516,6 @@ String _recordSubtitle(GemRecordItem record) {
   final parts = [
     formatGemRecordTimestamp(record.createdAt),
     record.subtitle.trim(),
-    if (record.expiresAt > 0) 'Expires ${_formatRecordDate(record.expiresAt)}',
   ].where((part) => part.isNotEmpty);
   return parts.join(' · ');
 }
@@ -525,15 +560,6 @@ const List<String> _recordMonthNames = [
   'Nov',
   'Dec',
 ];
-
-String _formatRecordDate(int epochSeconds) {
-  if (epochSeconds <= 0) return '';
-  final time = DateTime.fromMillisecondsSinceEpoch(
-    epochSeconds * 1000,
-    isUtc: true,
-  ).toLocal();
-  return '${_twoDigits(time.month)}/${_twoDigits(time.day)}';
-}
 
 String _twoDigits(int value) => value.toString().padLeft(2, '0');
 

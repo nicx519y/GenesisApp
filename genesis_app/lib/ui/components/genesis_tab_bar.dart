@@ -20,6 +20,10 @@ class GenesisTabBar extends StatelessWidget {
     this.indicatorWidth,
     this.indicatorHeight,
     this.labelFontSize,
+    this.labelStyle,
+    this.unselectedLabelStyle,
+    this.labelColor,
+    this.unselectedLabelColor,
     this.expanded = false,
     this.tabAlignment,
     this.onTap,
@@ -33,6 +37,10 @@ class GenesisTabBar extends StatelessWidget {
   final double? indicatorWidth;
   final double? indicatorHeight;
   final double? labelFontSize;
+  final TextStyle? labelStyle;
+  final TextStyle? unselectedLabelStyle;
+  final Color? labelColor;
+  final Color? unselectedLabelColor;
   final bool expanded;
   final TabAlignment? tabAlignment;
   final ValueChanged<int>? onTap;
@@ -40,12 +48,16 @@ class GenesisTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final uiTheme = GenesisUiTheme.of(context);
-    final labelStyle = labelFontSize == null
-        ? uiTheme.bodyStrongStyle
-        : uiTheme.bodyStrongStyle.copyWith(fontSize: labelFontSize);
-    final unselectedLabelStyle = labelFontSize == null
-        ? uiTheme.bodyStyle
-        : uiTheme.bodyStyle.copyWith(fontSize: labelFontSize);
+    final resolvedLabelStyle =
+        labelStyle ??
+        (labelFontSize == null
+            ? uiTheme.bodyStrongStyle
+            : uiTheme.bodyStrongStyle.copyWith(fontSize: labelFontSize));
+    final resolvedUnselectedLabelStyle =
+        unselectedLabelStyle ??
+        (labelFontSize == null
+            ? uiTheme.bodyStyle
+            : uiTheme.bodyStyle.copyWith(fontSize: labelFontSize));
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
       child: TabBar(
@@ -66,10 +78,11 @@ class GenesisTabBar extends StatelessWidget {
           height: indicatorHeight ?? uiTheme.tabIndicatorHeight,
           bottomPadding: genesisTabIndicatorBottomPadding,
         ),
-        labelColor: uiTheme.tabSelectedColor,
-        unselectedLabelColor: uiTheme.tabUnselectedColor,
-        labelStyle: labelStyle,
-        unselectedLabelStyle: unselectedLabelStyle,
+        labelColor: labelColor ?? uiTheme.tabSelectedColor,
+        unselectedLabelColor:
+            unselectedLabelColor ?? uiTheme.tabUnselectedColor,
+        labelStyle: resolvedLabelStyle,
+        unselectedLabelStyle: resolvedUnselectedLabelStyle,
         tabs: [
           for (final label in labels)
             Tab(height: genesisTabHeight, text: label),
