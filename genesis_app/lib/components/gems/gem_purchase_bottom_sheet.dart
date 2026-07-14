@@ -140,8 +140,8 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
   }
 
   String get _title => widget.alert.kind == GemBalanceAlertKind.insufficient
-      ? 'Not enough Gems'
-      : 'Low on Gems';
+      ? 'Insufficient Gems'
+      : 'Low Gems';
 
   @override
   Widget build(BuildContext context) {

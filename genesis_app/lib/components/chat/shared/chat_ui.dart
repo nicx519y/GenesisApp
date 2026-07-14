@@ -169,6 +169,7 @@ class ChatHeader extends StatelessWidget {
     this.showTitleIcon = true,
     this.showSubtitle = true,
     this.showMoreButton = true,
+    this.alignContentLeft = false,
     this.subtitleIconAsset,
     this.trailing,
     this.style,
@@ -182,6 +183,7 @@ class ChatHeader extends StatelessWidget {
   final bool showTitleIcon;
   final bool showSubtitle;
   final bool showMoreButton;
+  final bool alignContentLeft;
   final String? subtitleIconAsset;
   final Widget? trailing;
   final ChatUiStyleConfig? style;
@@ -223,17 +225,32 @@ class ChatHeader extends StatelessWidget {
                     ),
                   ),
                 ),
-                Positioned.fill(
+                Positioned(
+                  left: alignContentLeft
+                      ? style.headerTrailingPlaceholderWidth
+                      : 0,
+                  right: alignContentLeft ? headerSidePadding : 0,
+                  top: 0,
+                  bottom: 0,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: alignContentLeft
+                        ? CrossAxisAlignment.start
+                        : CrossAxisAlignment.center,
                     children: [
                       Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: headerSidePadding,
-                        ),
+                        padding: alignContentLeft
+                            ? EdgeInsets.zero
+                            : EdgeInsets.symmetric(
+                                horizontal: headerSidePadding,
+                              ),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: alignContentLeft
+                              ? MainAxisAlignment.start
+                              : MainAxisAlignment.center,
+                          mainAxisSize: alignContentLeft
+                              ? MainAxisSize.max
+                              : MainAxisSize.min,
                           children: [
                             if (showTitleIcon) ...[
                               Icon(
@@ -257,9 +274,13 @@ class ChatHeader extends StatelessWidget {
                       if (showSubtitle) ...[
                         SizedBox(height: style.headerSubtitleTopGap),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          padding: alignContentLeft
+                              ? EdgeInsets.zero
+                              : const EdgeInsets.symmetric(horizontal: 10),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisAlignment: alignContentLeft
+                                ? MainAxisAlignment.start
+                                : MainAxisAlignment.center,
                             children: [
                               if (subtitleIconAsset != null)
                                 _ChatHeaderSubtitleAssetIcon(
@@ -283,7 +304,9 @@ class ChatHeader extends StatelessWidget {
                                   genesisDisplaySafeText(subtitle),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
+                                  textAlign: alignContentLeft
+                                      ? TextAlign.left
+                                      : TextAlign.center,
                                   style: style.headerSubtitleTextStyle,
                                 ),
                               ),

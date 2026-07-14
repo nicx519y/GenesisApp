@@ -511,6 +511,46 @@ void main() {
     );
   });
 
+  testWidgets('location chat header left aligns title and subtitle rows', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(393, 852);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatHeader(
+            title: 'Googleplex园区 (1)',
+            subtitle: 'Mark Zuckerberg',
+            connected: true,
+            connecting: false,
+            onBack: () {},
+            alignContentLeft: true,
+            style: kLocationChatStyle,
+            subtitleIconAsset: locationChatCharacterIconAsset,
+            trailing: const SizedBox(width: 96),
+          ),
+        ),
+      ),
+    );
+
+    final titleIconRect = tester.getRect(find.byIcon(Icons.place_outlined));
+    final subtitleIconRect = tester.getRect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SvgPicture &&
+            widget.bytesLoader.toString().contains(
+              locationChatCharacterIconAsset,
+            ),
+      ),
+    );
+    expect(titleIconRect.left, closeTo(48, 1));
+    expect(subtitleIconRect.left, closeTo(titleIconRect.left, 1));
+  });
+
   testWidgets('chat peer name uses dark text', (WidgetTester tester) async {
     await tester.pumpWidget(
       MaterialApp(

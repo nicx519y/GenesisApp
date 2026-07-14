@@ -35,7 +35,8 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
   GemModelCatalog? _catalog;
   Object? _error;
   bool _loading = false;
-  String _selectingModelCode = '';
+  bool _saving = false;
+  String _pendingModelCode = '';
   int _loadGeneration = 0;
 
   @override
@@ -94,6 +95,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _catalog = catalog;
+        _pendingModelCode = catalog.selectedModelCode;
         _loading = false;
       });
     } catch (error) {
@@ -105,11 +107,17 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     }
   }
 
-  Future<void> _selectModel(GemModel model) async {
+  void _selectModel(GemModel model) {
     final modelCode = model.modelCode.trim();
-    if (modelCode.isEmpty || _selectingModelCode.isNotEmpty) return;
+    if (modelCode.isEmpty || _saving || modelCode == _pendingModelCode) return;
+    setState(() => _pendingModelCode = modelCode);
+  }
+
+  Future<void> _submitSelection() async {
+    final modelCode = _pendingModelCode.trim();
+    if (modelCode.isEmpty || _saving) return;
     final cacheWriter = _resolveSelectedModelCodeCacheWriter();
-    setState(() => _selectingModelCode = modelCode);
+    setState(() => _saving = true);
     try {
       final result = await _saveSelection(modelCode);
       final responseModelCode = result.selectedModelCode.trim();
@@ -124,11 +132,17 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       if (!mounted) return;
       setState(() {
         _catalog = _catalog?.copyWith(selectedModelCode: selectedModelCode);
+        _pendingModelCode = selectedModelCode;
       });
+      showGenesisToast(context, 'Switched successfully');
     } catch (_) {
-      if (mounted) showGenesisToast(context, 'Model selection failed');
+      if (!mounted) return;
+      setState(() {
+        _pendingModelCode = _catalog?.selectedModelCode ?? '';
+      });
+      showGenesisToast(context, 'Switched failed');
     } finally {
-      if (mounted) setState(() => _selectingModelCode = '');
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -140,7 +154,17 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: GenesisBackAppBar(pageName: 'Model', onBack: _closePage),
+      appBar: GenesisBackAppBar(
+        pageName: 'Model',
+        onBack: _closePage,
+        actions: [
+          _ModelSaveAction(
+            saving: _saving,
+            enabled: !_loading && _pendingModelCode.trim().isNotEmpty,
+            onPressed: _submitSelection,
+          ),
+        ],
+      ),
       body: SafeArea(child: _buildBody()),
     );
   }
@@ -190,8 +214,8 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
             ),
             child: _GemModelGroupSection(
               group: group,
-              selectedModelCode: catalog.selectedModelCode,
-              selectingModelCode: _selectingModelCode,
+              selectedModelCode: _pendingModelCode,
+              enabled: !_saving,
               onModelTap: _selectModel,
             ),
           );
@@ -201,17 +225,58 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
   }
 }
 
+class _ModelSaveAction extends StatelessWidget {
+  const _ModelSaveAction({
+    required this.saving,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final bool saving;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 64,
+      child: TextButton(
+        key: const ValueKey('gem-model-save'),
+        onPressed: enabled && !saving ? onPressed : null,
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.only(right: 20),
+          backgroundColor: Colors.transparent,
+          overlayColor: Colors.transparent,
+          foregroundColor: const Color(0xFF333333),
+          disabledForegroundColor: const Color(0xFF999999),
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        child: saving
+            ? const SizedBox.square(
+                key: ValueKey('gem-model-save-loading'),
+                dimension: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFFF42C47),
+                ),
+              )
+            : const Text('Save'),
+      ),
+    );
+  }
+}
+
 class _GemModelGroupSection extends StatelessWidget {
   const _GemModelGroupSection({
     required this.group,
     required this.selectedModelCode,
-    required this.selectingModelCode,
+    required this.enabled,
     required this.onModelTap,
   });
 
   final GemModelGroup group;
   final String selectedModelCode;
-  final String selectingModelCode;
+  final bool enabled;
   final ValueChanged<GemModel> onModelTap;
 
   @override
@@ -233,8 +298,7 @@ class _GemModelGroupSection extends StatelessWidget {
           _GemModelTile(
             model: group.models[index],
             selected: group.models[index].modelCode == selectedModelCode,
-            loading: group.models[index].modelCode == selectingModelCode,
-            enabled: selectingModelCode.isEmpty,
+            enabled: enabled,
             onTap: () => onModelTap(group.models[index]),
           ),
           if (index != group.models.length - 1) const SizedBox(height: 10),
@@ -248,14 +312,12 @@ class _GemModelTile extends StatelessWidget {
   const _GemModelTile({
     required this.model,
     required this.selected,
-    required this.loading,
     required this.enabled,
     required this.onTap,
   });
 
   final GemModel model;
   final bool selected;
-  final bool loading;
   final bool enabled;
   final VoidCallback onTap;
 
@@ -287,10 +349,7 @@ class _GemModelTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 Padding(
                   padding: const EdgeInsets.only(top: 1),
-                  child: _GemModelSelectionIndicator(
-                    selected: selected,
-                    loading: loading,
-                  ),
+                  child: _GemModelSelectionIndicator(selected: selected),
                 ),
               ],
             ),
@@ -417,25 +476,12 @@ class _GemModelTag extends StatelessWidget {
 }
 
 class _GemModelSelectionIndicator extends StatelessWidget {
-  const _GemModelSelectionIndicator({
-    required this.selected,
-    required this.loading,
-  });
+  const _GemModelSelectionIndicator({required this.selected});
 
   final bool selected;
-  final bool loading;
 
   @override
   Widget build(BuildContext context) {
-    if (loading) {
-      return const SizedBox.square(
-        dimension: 15,
-        child: CircularProgressIndicator(
-          strokeWidth: 1.5,
-          color: Color(0xFFF42C47),
-        ),
-      );
-    }
     return Container(
       width: 15,
       height: 15,

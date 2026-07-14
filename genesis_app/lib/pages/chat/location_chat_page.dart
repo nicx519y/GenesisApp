@@ -2517,6 +2517,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       connected: joined,
       connecting: connecting,
       subtitleIconAsset: locationChatCharacterIconAsset,
+      alignContentLeft: true,
       onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
       showSubtitle: widget.showConnectionStatus && aiRoleNames.isNotEmpty,
       showMoreButton: widget.showMoreButton,

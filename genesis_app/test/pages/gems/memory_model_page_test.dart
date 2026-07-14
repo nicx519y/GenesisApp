@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/gem_model.dart';
@@ -26,7 +28,7 @@ void main() {
 
     expect(requestedWorldIds, ['W_000001']);
     expect(find.text('Model'), findsOneWidget);
-    expect(find.text('Save'), findsNothing);
+    expect(find.text('Save'), findsOneWidget);
     expect(find.text('Recommended'), findsOneWidget);
     expect(find.text('Top Pick V3'), findsOneWidget);
     expect(find.text('Hot'), findsOneWidget);
@@ -56,11 +58,12 @@ void main() {
     expect(_tagContainer(tester, 'new').radius, 8);
   });
 
-  testWidgets('tapping a model immediately saves it for the current world', (
+  testWidgets('save submits the pending model for the current world', (
     tester,
   ) async {
     final selections = <(String, String)>[];
     final cachedModelCodes = <String>[];
+    final selectionCompleter = Completer<GemModelSelection>();
 
     await tester.pumpWidget(
       MaterialApp(
@@ -69,7 +72,7 @@ void main() {
           catalogLoader: (_) async => _catalog(),
           selectionHandler: (worldId, modelCode) async {
             selections.add((worldId, modelCode));
-            return GemModelSelection(selectedModelCode: modelCode);
+            return selectionCompleter.future;
           },
           selectedModelCodeCacheWriter: (modelCode) async {
             cachedModelCodes.add(modelCode);
@@ -80,12 +83,59 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey<String>('gem-model-sake_pro')));
-    await tester.pumpAndSettle();
+    await tester.pump();
+
+    expect(selections, isEmpty);
+    expect(cachedModelCodes, isEmpty);
+    expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFE1E1E1));
+    expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFF42C47));
+
+    await tester.tap(find.byKey(const ValueKey('gem-model-save')));
+    await tester.pump();
 
     expect(selections, [('W_000002', 'sake_pro')]);
+    expect(
+      find.byKey(const ValueKey('gem-model-save-loading')),
+      findsOneWidget,
+    );
+    expect(find.text('Save'), findsNothing);
+
+    selectionCompleter.complete(
+      const GemModelSelection(selectedModelCode: 'sake_pro'),
+    );
+    await tester.pump();
+    await tester.pump();
+
     expect(cachedModelCodes, ['sake_pro']);
     expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFE1E1E1));
     expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFF42C47));
+    expect(find.text('Switched successfully'), findsOneWidget);
+    expect(find.byKey(const ValueKey('gem-model-save-loading')), findsNothing);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('failed save restores the server-selected model', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MemoryModelPage(
+          worldId: 'W_000003',
+          catalogLoader: (_) async => _catalog(),
+          selectionHandler: (_, _) async => throw StateError('save failed'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey<String>('gem-model-sake_pro')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('gem-model-save')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFF42C47));
+    expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFE1E1E1));
+    expect(find.text('Switched failed'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
   });
 }
 

@@ -7,8 +7,8 @@ import '../../network/chatroom/world_chatroom_service.dart';
 import '../../platform/billing/billing_service.dart';
 import 'gem_purchase_bottom_sheet.dart';
 
-const String insufficientGemBalancePrompt = 'Not enough Gems';
-const String lowGemBalancePrompt = 'Low on Gems';
+const String insufficientGemBalancePrompt = 'Insufficient Gems';
+const String lowGemBalancePrompt = 'Low Gems';
 
 StreamSubscription<GemBalanceAlert> bindGemBalancePrompt(
   BuildContext context,
