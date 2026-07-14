@@ -386,6 +386,20 @@ void main() {
     for (final item in myWorlds['list'] as List) {
       expect(((item as Map)['info'] as Map)['owner_uid'], 'u_mock_001');
     }
+    final originId =
+        (((myWorlds['list'] as List).first as Map)['info'] as Map)['origin_id']
+            as String;
+    final originWorlds = await api.v1.world.list(
+      scene: 'uid',
+      uid: 'u_mock_001',
+      originId: originId,
+      pn: 1,
+      rn: 10,
+    );
+    expect((originWorlds['list'] as List), isNotEmpty);
+    for (final item in originWorlds['list'] as List) {
+      expect(((item as Map)['info'] as Map)['origin_id'], originId);
+    }
     final firstWorldName =
         ((((worlds['list'] as List)[0] as Map)['info'] as Map)['world_name']);
     final secondWorldName =

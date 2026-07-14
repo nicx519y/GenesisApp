@@ -17,6 +17,25 @@ import '../../ui/tokens/genesis_colors.dart';
 
 typedef OriginRoleProfileLoader = Future<OriginCustomRoleDraft?> Function();
 typedef OriginRoleAvatarResolver = String Function(String avatar);
+typedef OriginLaunchedWorldsLoader =
+    Future<List<OriginLaunchedWorldRole>> Function();
+
+@immutable
+class OriginLaunchedWorldRole {
+  const OriginLaunchedWorldRole({
+    required this.worldId,
+    required this.roleName,
+    required this.avatarUrl,
+    required this.tickCount,
+    required this.currentTime,
+  });
+
+  final String worldId;
+  final String roleName;
+  final String avatarUrl;
+  final int tickCount;
+  final String currentTime;
+}
 
 @immutable
 class OriginCustomRoleDraft {
@@ -47,7 +66,11 @@ class OriginCustomRoleDraft {
 
 @immutable
 class OriginRoleLaunchSelection {
-  const OriginRoleLaunchSelection._({this.presetCharacterId, this.customRole});
+  const OriginRoleLaunchSelection._({
+    this.presetCharacterId,
+    this.customRole,
+    this.existingWorldId,
+  });
 
   factory OriginRoleLaunchSelection.preset(String characterId) {
     return OriginRoleLaunchSelection._(presetCharacterId: characterId);
@@ -57,8 +80,13 @@ class OriginRoleLaunchSelection {
     return OriginRoleLaunchSelection._(customRole: role);
   }
 
+  factory OriginRoleLaunchSelection.enter(String worldId) {
+    return OriginRoleLaunchSelection._(existingWorldId: worldId);
+  }
+
   final String? presetCharacterId;
   final OriginCustomRoleDraft? customRole;
+  final String? existingWorldId;
 }
 
 Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
@@ -66,6 +94,8 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
   required List<OriginCharacter> characters,
   OriginRoleProfileLoader? onFillFromProfile,
   OriginRoleAvatarResolver? resolveAvatarUrl,
+  OriginLaunchedWorldsLoader? launchedWorldsLoader,
+  List<OriginLaunchedWorldRole>? initialLaunchedWorlds,
 }) {
   return WorldDetailsStatusBarOverride.runWithStyle(
     kGenesisDefaultSystemUiOverlayStyle,
@@ -86,6 +116,8 @@ Future<OriginRoleLaunchSelection?> showOriginRoleLaunchSheet({
                 characters: characters,
                 onFillFromProfile: onFillFromProfile,
                 resolveAvatarUrl: resolveAvatarUrl,
+                launchedWorldsLoader: launchedWorldsLoader,
+                initialLaunchedWorlds: initialLaunchedWorlds,
               ),
             );
           },
@@ -101,11 +133,15 @@ class OriginRoleLaunchSheet extends StatefulWidget {
     required this.characters,
     this.onFillFromProfile,
     this.resolveAvatarUrl,
+    this.launchedWorldsLoader,
+    this.initialLaunchedWorlds,
   });
 
   final List<OriginCharacter> characters;
   final OriginRoleProfileLoader? onFillFromProfile;
   final OriginRoleAvatarResolver? resolveAvatarUrl;
+  final OriginLaunchedWorldsLoader? launchedWorldsLoader;
+  final List<OriginLaunchedWorldRole>? initialLaunchedWorlds;
 
   @override
   State<OriginRoleLaunchSheet> createState() => _OriginRoleLaunchSheetState();
@@ -118,6 +154,10 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
   int _tabIndex = 0;
   String _selectedPresetId = '';
   bool _fillingProfile = false;
+  bool _loadingLaunchedWorlds = false;
+  List<OriginLaunchedWorldRole> _launchedWorlds =
+      const <OriginLaunchedWorldRole>[];
+  String _selectedLaunchedWorldId = '';
 
   @override
   void initState() {
@@ -127,6 +167,13 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
       SystemChrome.setSystemUIOverlayStyle(kGenesisDefaultSystemUiOverlayStyle);
     });
     _customForm.addListener(_handleTextChanged);
+    final initialLaunchedWorlds = widget.initialLaunchedWorlds;
+    if (initialLaunchedWorlds != null) {
+      _launchedWorlds = initialLaunchedWorlds;
+      if (initialLaunchedWorlds.isNotEmpty) _tabIndex = 2;
+    } else {
+      _loadLaunchedWorlds();
+    }
   }
 
   @override
@@ -158,7 +205,29 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
 
   bool get _canLaunch {
     if (_tabIndex == 0) return _selectedPresetId.trim().isNotEmpty;
+    if (_tabIndex == 2) return _selectedLaunchedWorldId.trim().isNotEmpty;
     return _customReady;
+  }
+
+  Future<void> _loadLaunchedWorlds() async {
+    final loader = widget.launchedWorldsLoader;
+    if (loader == null) return;
+    setState(() => _loadingLaunchedWorlds = true);
+    try {
+      final worlds = await loader();
+      if (!mounted) return;
+      setState(() {
+        _launchedWorlds = worlds;
+        if (worlds.isNotEmpty) _tabIndex = 2;
+      });
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[OriginRoleLaunchSheet] launched worlds load failed: '
+        '$error\n$stackTrace',
+      );
+    } finally {
+      if (mounted) setState(() => _loadingLaunchedWorlds = false);
+    }
   }
 
   void _selectTab(int index) {
@@ -214,6 +283,12 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
       ).pop(OriginRoleLaunchSelection.preset(_selectedPresetId.trim()));
       return;
     }
+    if (_tabIndex == 2) {
+      Navigator.of(
+        context,
+      ).pop(OriginRoleLaunchSelection.enter(_selectedLaunchedWorldId.trim()));
+      return;
+    }
 
     Navigator.of(context).pop(
       OriginRoleLaunchSelection.custom(
@@ -229,6 +304,7 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
 
   String get _launchValidationMessage {
     if (_tabIndex == 0) return 'Please select a preset role';
+    if (_tabIndex == 2) return 'Please select a launched World';
     if (_customForm.name.text.trim().isEmpty) return 'Please enter a name';
     if (_customForm.identity.text.trim().isEmpty) {
       return 'Please enter an identity';
@@ -316,7 +392,8 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
                                       setState(() => _selectedPresetId = id);
                                     },
                                   )
-                                : _CustomRoleForm(
+                                : _tabIndex == 1
+                                ? _CustomRoleForm(
                                     key: const ValueKey(
                                       'origin-role-custom-tab',
                                     ),
@@ -326,11 +403,20 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
                                         widget.onFillFromProfile != null,
                                     onChanged: _handleTextChanged,
                                     onFillFromProfile: _fillFromProfile,
+                                  )
+                                : _LaunchedWorldGrid(
+                                    worlds: _launchedWorlds,
+                                    loading: _loadingLaunchedWorlds,
+                                    selectedWorldId: _selectedLaunchedWorldId,
+                                    onSelected: (worldId) => setState(
+                                      () => _selectedLaunchedWorldId = worldId,
+                                    ),
                                   ),
                           ),
                           const SizedBox(height: 14),
                           _SheetActions(
                             canLaunch: _canLaunch,
+                            launchLabel: _tabIndex == 2 ? 'Enter' : 'Launch',
                             onCancel: _dismiss,
                             onLaunch: _submit,
                           ),
@@ -368,11 +454,13 @@ class _RoleSegmentedControl extends StatelessWidget {
           AnimatedAlign(
             duration: const Duration(milliseconds: 160),
             curve: Curves.easeOutCubic,
-            alignment: index == 0
-                ? Alignment.centerLeft
-                : Alignment.centerRight,
+            alignment: switch (index) {
+              0 => Alignment.centerLeft,
+              1 => Alignment.center,
+              _ => Alignment.centerRight,
+            },
             child: FractionallySizedBox(
-              widthFactor: 0.5,
+              widthFactor: 1 / 3,
               heightFactor: 1,
               child: Container(
                 margin: const EdgeInsets.all(2),
@@ -395,6 +483,11 @@ class _RoleSegmentedControl extends StatelessWidget {
                 label: 'Custom',
                 selected: index == 1,
                 onTap: () => onChanged(1),
+              ),
+              _SegmentButton(
+                label: 'Launched',
+                selected: index == 2,
+                onTap: () => onChanged(2),
               ),
             ],
           ),
@@ -533,6 +626,7 @@ class _PresetRoleTile extends StatelessWidget {
                     name: character.name,
                     size: 82,
                     borderRadius: GenesisAvatarRadii.character,
+                    showFallbackWhileLoading: false,
                   ),
                   Positioned(
                     top: 6,
@@ -587,6 +681,126 @@ class _SelectionMark extends StatelessWidget {
       child: selected
           ? const Icon(Icons.check, size: 18, color: Colors.white)
           : null,
+    );
+  }
+}
+
+class _LaunchedWorldGrid extends StatelessWidget {
+  const _LaunchedWorldGrid({
+    required this.worlds,
+    required this.loading,
+    required this.selectedWorldId,
+    required this.onSelected,
+  });
+
+  final List<OriginLaunchedWorldRole> worlds;
+  final bool loading;
+  final String selectedWorldId;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) return const Center(child: CircularProgressIndicator());
+    if (worlds.isEmpty) {
+      return const Center(
+        child: Text(
+          'No launched World',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF777777),
+          ),
+        ),
+      );
+    }
+    return GridView.builder(
+      padding: const EdgeInsets.only(top: 8),
+      itemCount: worlds.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisExtent: 144,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 0,
+      ),
+      itemBuilder: (context, index) {
+        final world = worlds[index];
+        return _LaunchedWorldRoleTile(
+          world: world,
+          selected: world.worldId == selectedWorldId,
+          onTap: () => onSelected(world.worldId),
+        );
+      },
+    );
+  }
+}
+
+class _LaunchedWorldRoleTile extends StatelessWidget {
+  const _LaunchedWorldRoleTile({
+    required this.world,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final OriginLaunchedWorldRole world;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey('origin-role-launched-${world.worldId}'),
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 82,
+              height: 82,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  GenesisCharacterAvatar(
+                    url: world.avatarUrl,
+                    name: world.roleName,
+                    size: 82,
+                    borderRadius: GenesisAvatarRadii.character,
+                    showFallbackWhileLoading: false,
+                  ),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: _SelectionMark(selected: selected),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              world.roleName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, height: 1.1),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              world.worldId,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF666666)),
+            ),
+            Text(
+              'Tick ${world.tickCount} · ${world.currentTime}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF666666)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -673,11 +887,13 @@ class _CustomRoleForm extends StatelessWidget {
 class _SheetActions extends StatelessWidget {
   const _SheetActions({
     required this.canLaunch,
+    required this.launchLabel,
     required this.onCancel,
     required this.onLaunch,
   });
 
   final bool canLaunch;
+  final String launchLabel;
   final VoidCallback onCancel;
   final VoidCallback onLaunch;
 
@@ -698,7 +914,7 @@ class _SheetActions extends StatelessWidget {
         Expanded(
           child: GenesisPrimaryButton(
             key: const ValueKey('origin-role-launch'),
-            label: 'Launch',
+            label: launchLabel,
             onPressed: onLaunch,
             height: 35,
             backgroundColor: canLaunch

@@ -2149,7 +2149,7 @@ void main() {
     expect(find.text('#Search Origin'), findsOneWidget);
     final title = tester.widget<Text>(find.text('#Search Origin'));
     expect(title.style?.fontSize, 14);
-    expect(title.style?.fontWeight, FontWeight.w700);
+    expect(title.style?.fontWeight, FontWeight.w600);
     expect(find.text('Worlds'), findsOneWidget);
     expect(find.text('Search World'), findsOneWidget);
     expect(find.text('Users'), findsOneWidget);
@@ -2178,7 +2178,7 @@ void main() {
     );
     expect(subtitle.style?.fontSize, 12);
     expect(subtitle.style?.fontWeight, FontWeight.w400);
-    expect(find.textContaining('Latest Version: V3 ·'), findsOneWidget);
+    expect(find.textContaining('Latest Version: V3'), findsOneWidget);
     expect(find.text('WID: w_search_1  Owner: World Owner'), findsOneWidget);
     expect(find.byType(StatItem), findsNWidgets(7));
   });
@@ -5079,6 +5079,9 @@ void main() {
       35,
     );
 
+    await tester.tap(find.text('Preset'));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
     await tester.pump();
 
@@ -5722,6 +5725,59 @@ void main() {
     expect(tester.widget<TextField>(fields.at(1)).controller?.text, 'I' * 100);
     expect(tester.widget<TextField>(fields.at(2)).controller?.text, 'B' * 500);
   });
+
+  testWidgets(
+    'Origin role sheet defaults to launched worlds and enters selection',
+    (WidgetTester tester) async {
+      OriginRoleLaunchSelection? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => FilledButton(
+                onPressed: () async {
+                  result = await showOriginRoleLaunchSheet(
+                    context: context,
+                    characters: const <OriginCharacter>[],
+                    launchedWorldsLoader: () async => const [
+                      OriginLaunchedWorldRole(
+                        worldId: 'w_launched_1',
+                        roleName: 'Mira',
+                        avatarUrl: '',
+                        tickCount: 7,
+                        currentTime: 'Day 3',
+                      ),
+                    ],
+                  );
+                },
+                child: const Text('Open role sheet'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open role sheet'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Launched'), findsOneWidget);
+      expect(find.text('Mira'), findsOneWidget);
+      expect(find.text('w_launched_1'), findsOneWidget);
+      expect(find.text('Tick 7 · Day 3'), findsOneWidget);
+      expect(
+        find.widgetWithText(GenesisPrimaryButton, 'Enter'),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('origin-role-launched-w_launched_1')),
+      );
+      await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
+      await tester.pumpAndSettle();
+
+      expect(result?.existingWorldId, 'w_launched_1');
+    },
+  );
 
   testWidgets('Origin detail profile fill asks for login when signed out', (
     WidgetTester tester,

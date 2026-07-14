@@ -24,6 +24,7 @@ class GenesisGenerationWaitOverlay extends StatefulWidget {
     this.illustration,
     this.characterAvatars = const <GenesisGenerationWaitAvatar>[],
     this.perspectiveLines,
+    this.centeredPerspectiveLineCount = 0,
     this.animateTitleDots = true,
     this.onBackPressed,
     this.onBarrierTap,
@@ -36,6 +37,7 @@ class GenesisGenerationWaitOverlay extends StatefulWidget {
   final Widget? illustration;
   final List<GenesisGenerationWaitAvatar> characterAvatars;
   final List<String>? perspectiveLines;
+  final int centeredPerspectiveLineCount;
   final bool animateTitleDots;
   final VoidCallback? onBackPressed;
   final VoidCallback? onBarrierTap;
@@ -81,6 +83,7 @@ class _GenesisGenerationWaitOverlayState
         key: const ValueKey('create-worldo-wait-perspective-text'),
         illustration: widget.illustration,
         lines: lines,
+        centeredLineCount: widget.centeredPerspectiveLineCount,
       );
     } else {
       final bodyChildren = <Widget>[];
@@ -363,10 +366,12 @@ class _PerspectiveWaitText extends StatefulWidget {
     super.key,
     this.illustration,
     required this.lines,
+    this.centeredLineCount = 0,
   });
 
   final Widget? illustration;
   final List<String> lines;
+  final int centeredLineCount;
 
   @override
   State<_PerspectiveWaitText> createState() => _PerspectiveWaitTextState();
@@ -391,9 +396,27 @@ class _PerspectiveWaitTextState extends State<_PerspectiveWaitText>
   }
 
   @override
+  void didUpdateWidget(covariant _PerspectiveWaitText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_sameLines(oldWidget.lines, widget.lines) ||
+        oldWidget.centeredLineCount != widget.centeredLineCount) {
+      _controller.forward(from: 0);
+      _controller.repeat();
+    }
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  bool _sameLines(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   @override
@@ -464,7 +487,9 @@ class _PerspectiveWaitTextState extends State<_PerspectiveWaitText>
                                 Text(
                                   lines[index],
                                   softWrap: true,
-                                  textAlign: TextAlign.justify,
+                                  textAlign: index < widget.centeredLineCount
+                                      ? TextAlign.center
+                                      : TextAlign.justify,
                                   style: const TextStyle(
                                     fontSize: 18,
                                     height: 1.32,
