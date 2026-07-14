@@ -478,10 +478,10 @@ class _GemRecordsMessage extends StatelessWidget {
 
 String _recordSubtitle(GemRecordItem record) {
   final parts = [
-    if (record.subtitle.trim().isNotEmpty) record.subtitle.trim(),
-    _formatRecordTime(record.createdAt),
+    formatGemRecordTimestamp(record.createdAt),
+    record.subtitle.trim(),
     if (record.expiresAt > 0) 'Expires ${_formatRecordDate(record.expiresAt)}',
-  ];
+  ].where((part) => part.isNotEmpty);
   return parts.join(' · ');
 }
 
@@ -495,19 +495,36 @@ String _fallbackTitle(GemRecordItem record) {
   };
 }
 
-String _formatRecordTime(int epochSeconds) {
+String formatGemRecordTimestamp(int epochSeconds, {DateTime? now}) {
   if (epochSeconds <= 0) return '';
   final time = DateTime.fromMillisecondsSinceEpoch(
     epochSeconds * 1000,
     isUtc: true,
   ).toLocal();
-  final now = DateTime.now();
-  final sameYear = time.year == now.year;
-  final date = sameYear
-      ? '${_twoDigits(time.month)}/${_twoDigits(time.day)}'
-      : '${time.year}/${_twoDigits(time.month)}/${_twoDigits(time.day)}';
-  return '$date ${_twoDigits(time.hour)}:${_twoDigits(time.minute)}';
+  final localNow = (now ?? DateTime.now()).toLocal();
+  final date = DateTime(time.year, time.month, time.day);
+  final today = DateTime(localNow.year, localNow.month, localNow.day);
+  final dayDifference = today.difference(date).inDays;
+  final clock = '${_twoDigits(time.hour)}:${_twoDigits(time.minute)}';
+  if (dayDifference == 0) return 'Today $clock';
+  if (dayDifference == 1) return 'Yesterday $clock';
+  return '${_recordMonthNames[time.month - 1]} ${time.day}, ${time.year}';
 }
+
+const List<String> _recordMonthNames = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
 String _formatRecordDate(int epochSeconds) {
   if (epochSeconds <= 0) return '';

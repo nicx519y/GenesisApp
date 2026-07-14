@@ -141,6 +141,10 @@ void main() {
     expect(recordsTitle.style?.fontSize, 22);
     expect(recordsTitle.style?.color, const Color(0xFF333333));
     expect(find.text('Daily check-in'), findsOneWidget);
+    expect(
+      find.text('${formatGemRecordTimestamp(1783586400)} · Starter reward'),
+      findsOneWidget,
+    );
     expect(requestedScenes, contains('all'));
 
     await tester.drag(find.byType(TabBarView), const Offset(-420, 0));
