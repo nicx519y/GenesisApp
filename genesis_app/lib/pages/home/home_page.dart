@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_bootstrap.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
+import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../app/startup/app_startup_coordinator.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
@@ -518,6 +519,8 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   var _isLoadingMore = false;
   var _isRefreshing = false;
   var _isSignedOut = false;
+  String _recentChatUid = '';
+  String _recentChatWorldId = '';
   Object? _error;
 
   @override
@@ -525,6 +528,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     super.initState();
     widget.activationListenable?.addListener(_handlePageActivated);
     widget.networkRequestsAllowed.addListener(_handleNetworkRequestsAllowed);
+    recentWorldChatStore.listenable.addListener(_handleRecentChatChanged);
   }
 
   @override
@@ -543,6 +547,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _scrollListenerAttached = true;
     }
     _preloadCachedItemsIfNeeded();
+    unawaited(_loadRecentChatMarker());
     _requestIfCurrentTab();
   }
 
@@ -568,6 +573,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   @override
   void dispose() {
     _startupInitialRetryTimer?.cancel();
+    recentWorldChatStore.listenable.removeListener(_handleRecentChatChanged);
     widget.activationListenable?.removeListener(_handlePageActivated);
     widget.networkRequestsAllowed.removeListener(_handleNetworkRequestsAllowed);
     _tabController?.removeListener(_handleTabChange);
@@ -575,6 +581,30 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       ..removeListener(_handleScroll)
       ..dispose();
     super.dispose();
+  }
+
+  Future<void> _loadRecentChatMarker() async {
+    final uid = await resolveRecentWorldChatUid(AppServicesScope.read(context));
+    final record = await recentWorldChatStore.loadForUid(uid);
+    if (!mounted) return;
+    final nextWorldId = record?.uid == uid ? record?.worldId ?? '' : '';
+    if (_recentChatUid == uid && _recentChatWorldId == nextWorldId) return;
+    setState(() {
+      _recentChatUid = uid;
+      _recentChatWorldId = nextWorldId;
+    });
+  }
+
+  void _handleRecentChatChanged() {
+    final record = recentWorldChatStore.listenable.value;
+    if (record == null) return;
+    if (_recentChatUid.isNotEmpty && record.uid != _recentChatUid) return;
+    final nextWorldId = record.worldId;
+    if (nextWorldId == _recentChatWorldId) return;
+    setState(() {
+      _recentChatUid = record.uid;
+      _recentChatWorldId = nextWorldId;
+    });
   }
 
   void _resetListState() {
@@ -1071,7 +1101,11 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                         },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: WorldItemCard(item: vm, showPreviewImages: false),
+                    child: WorldItemCard(
+                      item: vm,
+                      showPreviewImages: false,
+                      showRecentChatTag: vm.wid == _recentChatWorldId,
+                    ),
                   ),
                 );
               },

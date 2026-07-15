@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../icons/custom_icon_assets.dart';
+import '../ui/components/recent_chat_marker.dart';
 import '../ui/components/genesis_list_image.dart';
 import 'world_details_shell.dart';
 import 'world_point.dart';
@@ -20,6 +21,7 @@ class WorldLocationList extends StatefulWidget {
     this.physics,
     this.enableOuterScrollHandoff = true,
     this.padding = const EdgeInsets.fromLTRB(12, 8, 12, 12),
+    this.recentChatLocationIds = const <String>{},
     this.onPointTap,
   });
 
@@ -28,6 +30,7 @@ class WorldLocationList extends StatefulWidget {
   final ScrollPhysics? physics;
   final bool enableOuterScrollHandoff;
   final EdgeInsetsGeometry padding;
+  final Set<String> recentChatLocationIds;
   final ValueChanged<WorldPoint>? onPointTap;
 
   @override
@@ -160,7 +163,14 @@ class _WorldLocationListState extends State<WorldLocationList> {
   List<Widget> _buildFlatPointRows(List<WorldPoint> points) {
     return [
       for (var i = 0; i < points.length; i++) ...[
-        _PointListItem(point: points[i], onTap: widget.onPointTap),
+        _PointListItem(
+          point: points[i],
+          showRecentChatIcon: _pointMatchesLocationIds(
+            points[i],
+            widget.recentChatLocationIds,
+          ),
+          onTap: widget.onPointTap,
+        ),
         if (i < points.length - 1) const Divider(height: 1),
       ],
     ];
@@ -188,6 +198,10 @@ class _WorldLocationListState extends State<WorldLocationList> {
           _LocationCard(
             point: node.point,
             targetPoint: node.chatTargetPoint ?? node.point,
+            showRecentChatIcon: _nodeMatchesLocationIds(
+              node,
+              widget.recentChatLocationIds,
+            ),
             indent: level * 15.0,
             onTap: widget.onPointTap,
           ),
@@ -195,7 +209,16 @@ class _WorldLocationListState extends State<WorldLocationList> {
         continue;
       }
 
-      rows.add(_NodeHeader(point: node.point, level: level));
+      rows.add(
+        _NodeHeader(
+          point: node.point,
+          level: level,
+          showRecentChatIcon: _nodeMatchesLocationIds(
+            node,
+            widget.recentChatLocationIds,
+          ),
+        ),
+      );
       rows.addAll(_buildNodeRowsAtLevel(node.children, level + 1));
     }
     return rows;
@@ -324,9 +347,14 @@ class _WorldLocationListState extends State<WorldLocationList> {
 }
 
 class _PointListItem extends StatelessWidget {
-  const _PointListItem({required this.point, required this.onTap});
+  const _PointListItem({
+    required this.point,
+    required this.showRecentChatIcon,
+    required this.onTap,
+  });
 
   final WorldPoint point;
+  final bool showRecentChatIcon;
   final ValueChanged<WorldPoint>? onTap;
 
   @override
@@ -354,7 +382,8 @@ class _PointListItem extends StatelessWidget {
                         color: Colors.black,
                       ),
                       const SizedBox(width: 2),
-                      Expanded(
+                      Flexible(
+                        fit: FlexFit.loose,
                         child: Text(
                           point.name,
                           style: const TextStyle(
@@ -366,6 +395,10 @@ class _PointListItem extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (showRecentChatIcon) ...[
+                        const SizedBox(width: 5),
+                        const RecentChatIcon(),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -386,25 +419,41 @@ class _PointListItem extends StatelessWidget {
 }
 
 class _NodeHeader extends StatelessWidget {
-  const _NodeHeader({required this.point, required this.level});
+  const _NodeHeader({
+    required this.point,
+    required this.level,
+    required this.showRecentChatIcon,
+  });
 
   final WorldPoint point;
   final int level;
+  final bool showRecentChatIcon;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.fromLTRB(level * 15.0, 5, 0, 5),
-      child: Text(
-        '- ${point.name}',
-        style: const TextStyle(
-          fontSize: 14,
-          height: 1.2,
-          fontWeight: FontWeight.w600,
-          color: Colors.black,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      child: Row(
+        children: [
+          Flexible(
+            fit: FlexFit.loose,
+            child: Text(
+              '- ${point.name}',
+              style: const TextStyle(
+                fontSize: 14,
+                height: 1.2,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (showRecentChatIcon) ...[
+            const SizedBox(width: 5),
+            const RecentChatIcon(),
+          ],
+        ],
       ),
     );
   }
@@ -414,12 +463,14 @@ class _LocationCard extends StatelessWidget {
   const _LocationCard({
     required this.point,
     required this.targetPoint,
+    required this.showRecentChatIcon,
     required this.indent,
     required this.onTap,
   });
 
   final WorldPoint point;
   final WorldPoint targetPoint;
+  final bool showRecentChatIcon;
   final double indent;
   final ValueChanged<WorldPoint>? onTap;
 
@@ -447,7 +498,8 @@ class _LocationCard extends StatelessWidget {
                         color: Colors.black,
                       ),
                       const SizedBox(width: 2),
-                      Expanded(
+                      Flexible(
+                        fit: FlexFit.loose,
                         child: Text(
                           point.name,
                           style: const TextStyle(
@@ -459,6 +511,10 @@ class _LocationCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (showRecentChatIcon) ...[
+                        const SizedBox(width: 5),
+                        const RecentChatIcon(),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -476,6 +532,22 @@ class _LocationCard extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _pointMatchesLocationIds(WorldPoint point, Set<String> locationIds) {
+  if (locationIds.isEmpty) return false;
+  final locationId = point.sceneId.trim();
+  return locationId.isNotEmpty && locationIds.contains(locationId);
+}
+
+bool _nodeMatchesLocationIds(
+  WorldMapLocationNode node,
+  Set<String> locationIds,
+) {
+  if (locationIds.isEmpty) return false;
+  final locationId = node.id.trim();
+  if (locationId.isNotEmpty && locationIds.contains(locationId)) return true;
+  return _pointMatchesLocationIds(node.point, locationIds);
 }
 
 class _PointCharacterGroups extends StatelessWidget {

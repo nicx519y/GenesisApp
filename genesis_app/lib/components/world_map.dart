@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../ui/components/genesis_character_avatar.dart';
 import '../ui/components/genesis_static_network_image.dart';
+import '../ui/components/recent_chat_marker.dart';
 import '../ui/tokens/genesis_avatar_radii.dart';
 import '../ui/tokens/genesis_colors.dart';
 import '../utils/genesis_image_resource.dart';
@@ -108,6 +109,8 @@ class WorldMap extends StatefulWidget {
     this.messageBubblePlaybackPaused = false,
     this.initialZoomScale = _ZoomableMapContent.minScale,
     this.enableAvatarScaleReboundHint = false,
+    this.recentChatLocationIds = const <String>{},
+    this.recentChatMapLocationIds = const <String>{},
   });
 
   final List<WorldPoint> points;
@@ -133,6 +136,8 @@ class WorldMap extends StatefulWidget {
   final bool messageBubblePlaybackPaused;
   final double initialZoomScale;
   final bool enableAvatarScaleReboundHint;
+  final Set<String> recentChatLocationIds;
+  final Set<String> recentChatMapLocationIds;
 
   @override
   State<WorldMap> createState() => _WorldMapState();
@@ -389,6 +394,12 @@ class _WorldMapState extends State<WorldMap> {
                                                   for (final p in visiblePoints)
                                                     _WorldPointPositioned(
                                                       point: p,
+                                                      showRecentChatIcon:
+                                                          _pointMatchesLocationIds(
+                                                            p,
+                                                            widget
+                                                                .recentChatMapLocationIds,
+                                                          ),
                                                       width: viewport.width,
                                                       height: viewport.height,
                                                       transform: transform,
@@ -460,6 +471,7 @@ class _WorldMapState extends State<WorldMap> {
                         locationNodes: widget.listLocationNodes.isNotEmpty
                             ? widget.listLocationNodes
                             : widget.locationNodes,
+                        recentChatLocationIds: widget.recentChatLocationIds,
                         physics: widget.pointsListPhysics,
                         enableOuterScrollHandoff:
                             widget.pointsListOuterScrollHandoff,
@@ -1365,6 +1377,12 @@ String _pointLocationId(WorldPoint point) {
   return point.id.trim();
 }
 
+bool _pointMatchesLocationIds(WorldPoint point, Set<String> locationIds) {
+  if (locationIds.isEmpty) return false;
+  final locationId = point.sceneId.trim();
+  return locationId.isNotEmpty && locationIds.contains(locationId);
+}
+
 Alignment _mapTransitionOrigin(WorldPoint point) {
   final dx = point.position.dx.clamp(0.0, 1.0).toDouble();
   final dy = point.position.dy.clamp(0.0, 1.0).toDouble();
@@ -2203,7 +2221,8 @@ const double _worldPointLabelHorizontalPadding = 6;
 const double _worldPointLabelVerticalPadding = 8;
 const double _worldPointWideLabelRuneWidth = 14;
 const double _worldPointNarrowLabelRuneWidth = 6;
-const double _worldPointMaxLabelTextWidth = 90;
+const double _worldPointMaxLabelTextWidth = 135;
+const double _worldPointRecentIconExtraWidth = 18;
 const double _worldPointMaxLabelBoxWidth =
     _worldPointMaxLabelTextWidth + _worldPointLabelHorizontalPadding;
 const double _worldPointDotSize = 8;
@@ -2212,16 +2231,28 @@ const double _worldPointAvatarSpacing = 4;
 const double _worldPointLabelToDotSpacing = 6;
 const double _worldPointAvatarTopGap = 10;
 
-_WorldPointMarkerGeometry _geometryForPoint(WorldPoint point, double width) {
+_WorldPointMarkerGeometry _geometryForPoint(
+  WorldPoint point,
+  double width, {
+  required bool showRecentChatIcon,
+}) {
   final users = point.users;
-  final labelMaxWidth = math.min(_worldPointMaxLabelBoxWidth, width);
+  final labelBoxWidth = showRecentChatIcon
+      ? _worldPointMaxLabelBoxWidth + _worldPointRecentIconExtraWidth
+      : _worldPointMaxLabelBoxWidth;
+  final labelMaxWidth = math.min(labelBoxWidth, width);
   final avatarWidth = _worldPointAvatarGroupWidth(users.length);
   final markerWidth = math.max(
     math.max(_worldPointDotSize, avatarWidth),
     labelMaxWidth,
   );
   final pointCenterY =
-      _worldPointLabelHeight(point.name) +
+      _worldPointLabelHeight(
+        point.name,
+        trailingExtraWidth: showRecentChatIcon
+            ? _worldPointRecentIconExtraWidth
+            : 0,
+      ) +
       _worldPointLabelToDotSpacing +
       _worldPointDotSize / 2;
   final markerHeight = _worldPointMarkerHeight(
@@ -2236,11 +2267,12 @@ _WorldPointMarkerGeometry _geometryForPoint(WorldPoint point, double width) {
   );
 }
 
-double _worldPointLabelHeight(String text) {
+double _worldPointLabelHeight(String text, {double trailingExtraWidth = 0}) {
   final estimatedTextWidth = _estimatedWorldPointLabelTextWidth(text);
   final lineCount = math.max(
     1,
-    (estimatedTextWidth / _worldPointMaxLabelTextWidth).ceil(),
+    ((estimatedTextWidth + trailingExtraWidth) / _worldPointMaxLabelTextWidth)
+        .ceil(),
   );
   return lineCount * _worldPointLabelLineHeight +
       _worldPointLabelVerticalPadding;
@@ -2361,6 +2393,7 @@ Offset _transformedWorldPointAnchor(Matrix4? transform, double x, double y) {
 class _WorldPointPositioned extends StatelessWidget {
   const _WorldPointPositioned({
     required this.point,
+    required this.showRecentChatIcon,
     required this.width,
     required this.height,
     this.transform,
@@ -2370,6 +2403,7 @@ class _WorldPointPositioned extends StatelessWidget {
   });
 
   final WorldPoint point;
+  final bool showRecentChatIcon;
   final double width;
   final double height;
   final Matrix4? transform;
@@ -2380,7 +2414,11 @@ class _WorldPointPositioned extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final users = point.users;
-    final geometry = _geometryForPoint(point, width);
+    final geometry = _geometryForPoint(
+      point,
+      width,
+      showRecentChatIcon: showRecentChatIcon,
+    );
     final labelMaxWidth = geometry.labelMaxWidth;
     final markerWidth = geometry.markerWidth;
     final markerHeight = geometry.markerHeight;
@@ -2408,6 +2446,7 @@ class _WorldPointPositioned extends StatelessWidget {
       height: markerHeight,
       child: _WorldPointMarker(
         point: point,
+        showRecentChatIcon: showRecentChatIcon,
         users: users,
         labelMaxWidth: labelMaxWidth,
         markerWidth: markerWidth,
@@ -2451,7 +2490,7 @@ class _WorldPointMessageBubblePositioned extends StatelessWidget {
     );
     if (bubbleIndex < 0) return const SizedBox.shrink();
 
-    final geometry = _geometryForPoint(point, width);
+    final geometry = _geometryForPoint(point, width, showRecentChatIcon: false);
     final markerWidth = geometry.markerWidth;
     final markerHeight = geometry.markerHeight;
     final pointCenterY = geometry.pointCenterY;
@@ -2505,6 +2544,7 @@ class _WorldPointMessageBubblePositioned extends StatelessWidget {
 class _WorldPointMarker extends StatelessWidget {
   const _WorldPointMarker({
     required this.point,
+    required this.showRecentChatIcon,
     required this.users,
     required this.labelMaxWidth,
     required this.markerWidth,
@@ -2516,6 +2556,7 @@ class _WorldPointMarker extends StatelessWidget {
   });
 
   final WorldPoint point;
+  final bool showRecentChatIcon;
   final List<UserAvatar> users;
   final double labelMaxWidth;
   final double markerWidth;
@@ -2580,7 +2621,11 @@ class _WorldPointMarker extends StatelessWidget {
                           horizontal: 3,
                           vertical: 4,
                         ),
-                        child: _PointLabel(point: point, color: Colors.white),
+                        child: _PointLabel(
+                          point: point,
+                          color: Colors.white,
+                          showRecentChatIcon: showRecentChatIcon,
+                        ),
                       ),
                     ),
                   ),
@@ -2799,24 +2844,61 @@ List<String> worldMapMessageBubblePagesForTesting(String content) {
 }
 
 class _PointLabel extends StatelessWidget {
-  const _PointLabel({required this.point, this.color});
+  const _PointLabel({
+    required this.point,
+    required this.showRecentChatIcon,
+    this.color,
+  });
 
   final WorldPoint point;
+  final bool showRecentChatIcon;
   final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      point.name,
-      textAlign: TextAlign.center,
-      softWrap: true,
-      style: TextStyle(
-        fontSize: 10,
-        height: 1.2,
-        leadingDistribution: TextLeadingDistribution.even,
-        fontWeight: FontWeight.w600,
-        color: color ?? Colors.black,
-      ),
+    const recentChatColor = Color(0xFF36D29A);
+    final textColor = color ?? Colors.black;
+    final style = TextStyle(
+      fontSize: 10,
+      height: 1.2,
+      leadingDistribution: TextLeadingDistribution.even,
+      fontWeight: FontWeight.w600,
+      color: textColor,
+    );
+    if (!showRecentChatIcon) {
+      return Text(
+        point.name,
+        textAlign: TextAlign.center,
+        softWrap: true,
+        style: style,
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Flexible(
+          fit: FlexFit.loose,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: point.name),
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 3),
+                    child: RecentChatIcon(color: recentChatColor),
+                  ),
+                ),
+              ],
+            ),
+            textAlign: TextAlign.center,
+            softWrap: true,
+            style: style,
+          ),
+        ),
+      ],
     );
   }
 }
