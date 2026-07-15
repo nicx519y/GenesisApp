@@ -891,7 +891,7 @@ class _GemWalletError extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 height: 20 / 14,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: Color(0xFF333333),
               ),
             ),

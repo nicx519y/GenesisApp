@@ -449,7 +449,7 @@ class _GemsBalanceEntry extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 16,
                 height: 20 / 16,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: Color(0xFF333333),
               ),
             ),
