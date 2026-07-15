@@ -102,22 +102,26 @@ Future<T?> showGenesisDialog<T>({
   required WidgetBuilder builder,
   Color barrierColor = kGenesisModalBarrierColor,
   Color? systemBarColor,
+  bool applySystemUiOverlay = true,
   bool barrierDismissible = true,
   bool useSafeArea = true,
   bool useRootNavigator = true,
 }) {
-  final chromeColor = systemBarColor ?? barrierColor;
-  return GenesisSystemUiChrome.runWithModalChrome(
-    chromeColor,
-    () => showDialog<T>(
+  Future<T?> showDialogRoute() {
+    return showDialog<T>(
       context: context,
       builder: builder,
       barrierColor: barrierColor,
       barrierDismissible: barrierDismissible,
       useSafeArea: useSafeArea,
       useRootNavigator: useRootNavigator,
-    ),
-  );
+    );
+  }
+
+  if (!applySystemUiOverlay) return showDialogRoute();
+
+  final chromeColor = systemBarColor ?? barrierColor;
+  return GenesisSystemUiChrome.runWithModalChrome(chromeColor, showDialogRoute);
 }
 
 Future<T?> showGenesisGeneralDialog<T>({

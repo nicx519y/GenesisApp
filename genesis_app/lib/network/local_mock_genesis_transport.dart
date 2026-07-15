@@ -548,6 +548,7 @@ class LocalMockGenesisTransport implements HttpTransport {
     if (method == 'POST' &&
         (path == 'world/synclastorigin' ||
             path == 'world/close' ||
+            path == 'world/delete' ||
             path == 'world/del')) {
       return _v1Ok(<String, dynamic>{});
     }

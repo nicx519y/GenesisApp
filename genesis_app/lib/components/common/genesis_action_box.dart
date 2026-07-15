@@ -29,6 +29,7 @@ Future<T?> showGenesisActionBox<T>({
   double titleContentSpacing = 8,
   String cancelLabel = 'Cancel',
   bool detachCancel = false,
+  bool applySystemUiOverlay = true,
   double titleHeight = GenesisActionBox.defaultTitleHeight,
   double actionRowHeight = GenesisActionBox.defaultRowHeight,
   double cancelRowHeight = GenesisActionBox.defaultRowHeight,
@@ -36,6 +37,7 @@ Future<T?> showGenesisActionBox<T>({
   return showGenesisDialog<T>(
     context: context,
     barrierColor: const Color(0x52000000),
+    applySystemUiOverlay: applySystemUiOverlay,
     builder: (dialogContext) {
       return GenesisActionBox<T>(
         title: title,

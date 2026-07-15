@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/gems/gem_assets.dart';
 import '../../components/page_header.dart';
 import '../../network/models/gem_records.dart';
@@ -319,10 +321,12 @@ class _GemRecordTile extends StatelessWidget {
     final isIncome = record.amount >= 0;
     final amountText =
         '${isIncome ? '+' : '-'}${_formatInteger(record.amount.abs())}';
+    final detailLines = _recordDetailLines(record);
+    final referenceId = _recordReferenceId(record);
     return Container(
       key: ValueKey<String>('gem-record-item-${record.ledgerId}'),
-      height: 59,
-      padding: const EdgeInsets.only(top: 2, bottom: 20),
+      height: _recordTileHeight(detailLines.length),
+      padding: EdgeInsets.only(top: 2, bottom: detailLines.length > 1 ? 9 : 20),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(width: 1, color: Color(0xFFF0F0F0))),
       ),
@@ -333,7 +337,7 @@ class _GemRecordTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  record.title.isEmpty ? _fallbackTitle(record) : record.title,
+                  _recordTitle(record),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -344,17 +348,15 @@ class _GemRecordTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 5),
-                Text(
-                  _recordSubtitle(record),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    height: 14 / 10,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF999999),
+                for (final detail in detailLines) ...[
+                  _GemRecordDetailLine(
+                    detail,
+                    copyValue: detail == 'ID: $referenceId'
+                        ? referenceId
+                        : null,
                   ),
-                ),
+                  if (detail != detailLines.last) const SizedBox(height: 2),
+                ],
               ],
             ),
           ),
@@ -374,6 +376,55 @@ class _GemRecordTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _GemRecordDetailLine extends StatelessWidget {
+  const _GemRecordDetailLine(this.text, {this.copyValue});
+
+  static const _style = TextStyle(
+    fontSize: 10,
+    height: 14 / 10,
+    fontWeight: FontWeight.w500,
+    color: Color(0xFF999999),
+  );
+
+  final String text;
+  final String? copyValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = copyValue?.trim();
+    final child = Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: _style,
+    );
+    if (value == null || value.isEmpty) return child;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => unawaited(_copyGemRecordText(context, value)),
+      child: child,
+    );
+  }
+}
+
+double _recordTileHeight(int detailLineCount) {
+  if (detailLineCount <= 1) return 59;
+  return 59 + (detailLineCount - 1) * 17;
+}
+
+String _recordTitle(GemRecordItem record) {
+  return record.title.isEmpty ? _fallbackTitle(record) : record.title;
+}
+
+List<String> _recordDetailLines(GemRecordItem record) {
+  final referenceId = _recordReferenceId(record);
+  return <String>[
+    if (record.subtitle.trim().isNotEmpty) record.subtitle.trim(),
+    formatGemRecordTimestamp(record.createdAt),
+    if (referenceId.isNotEmpty) 'ID: $referenceId',
+  ].where((part) => part.isNotEmpty).toList(growable: false);
 }
 
 class _GemRecordsLoading extends StatelessWidget {
@@ -512,12 +563,18 @@ class _GemRecordsMessage extends StatelessWidget {
   }
 }
 
-String _recordSubtitle(GemRecordItem record) {
-  final parts = [
-    formatGemRecordTimestamp(record.createdAt),
-    record.subtitle.trim(),
-  ].where((part) => part.isNotEmpty);
-  return parts.join(' · ');
+String _recordReferenceId(GemRecordItem record) {
+  final orderId = record.orderId.trim();
+  if (orderId.isNotEmpty) return orderId;
+  return record.ledgerId.trim();
+}
+
+Future<void> _copyGemRecordText(BuildContext context, String text) async {
+  final value = text.trim();
+  if (value.isEmpty) return;
+  await Clipboard.setData(ClipboardData(text: value));
+  if (!context.mounted) return;
+  showGenesisToast(context, 'Copied');
 }
 
 String _fallbackTitle(GemRecordItem record) {

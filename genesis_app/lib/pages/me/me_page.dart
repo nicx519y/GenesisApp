@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
@@ -77,12 +78,15 @@ class _MePageState extends State<MePage> {
   int _selectedCollectionTabIndex = 0;
   ValueListenable<int>? _sessionRevisionListenable;
   bool _isDisposed = false;
+  String _recentChatUid = '';
+  String _recentChatWorldId = '';
 
   @override
   void initState() {
     super.initState();
     _future = _loadData();
     widget.activationListenable?.addListener(_handleTabActivated);
+    recentWorldChatStore.listenable.addListener(_handleRecentChatChanged);
   }
 
   @override
@@ -102,6 +106,7 @@ class _MePageState extends State<MePage> {
     _sessionRevisionListenable?.removeListener(_handleSessionChanged);
     _sessionRevisionListenable = sessionRevision;
     sessionRevision.addListener(_handleSessionChanged);
+    unawaited(_loadRecentChatMarker());
   }
 
   @override
@@ -109,6 +114,7 @@ class _MePageState extends State<MePage> {
     _isDisposed = true;
     _loadGeneration += 1;
     _sessionRevisionListenable?.removeListener(_handleSessionChanged);
+    recentWorldChatStore.listenable.removeListener(_handleRecentChatChanged);
     widget.activationListenable?.removeListener(_handleTabActivated);
     _isUpdatingProfile.dispose();
     _avatarUrl.dispose();
@@ -126,9 +132,33 @@ class _MePageState extends State<MePage> {
       _loadGeneration += 1;
       _setOriginsState(const <UserProfileOriginItem>[], isLoading: false);
       _setWorldsState(const <UserProfileWorldItem>[], isLoading: false);
+      _setRecentChatMarker('', '');
       return const _MePageContent.signedOut();
     }
     return _MePageContent.signedIn(await _loadProfileData());
+  }
+
+  Future<void> _loadRecentChatMarker() async {
+    final uid = await resolveRecentWorldChatUid(AppServicesScope.read(context));
+    final record = await recentWorldChatStore.loadForUid(uid);
+    if (!_canUpdateAsyncState) return;
+    final nextWorldId = record?.uid == uid ? record?.worldId ?? '' : '';
+    _setRecentChatMarker(uid, nextWorldId);
+  }
+
+  void _handleRecentChatChanged() {
+    final record = recentWorldChatStore.listenable.value;
+    if (record == null) return;
+    if (_recentChatUid.isNotEmpty && record.uid != _recentChatUid) return;
+    _setRecentChatMarker(record.uid, record.worldId);
+  }
+
+  void _setRecentChatMarker(String uid, String worldId) {
+    if (_recentChatUid == uid && _recentChatWorldId == worldId) return;
+    setState(() {
+      _recentChatUid = uid;
+      _recentChatWorldId = worldId;
+    });
   }
 
   Future<UserProfileData> _loadProfileData({
@@ -835,8 +865,10 @@ class _MePageState extends State<MePage> {
                   onEditDisplayName: _editNickName,
                   onRefreshOrigins: _refreshOrigins,
                   onRefreshWorlds: _refreshWorlds,
+                  onWorldDeleted: _handleWorldDeleted,
                   onCollectionTabChanged: _handleCollectionTabChanged,
                   onCollapsedChanged: _handleProfileCollapsedChanged,
+                  recentChatWorldId: _recentChatWorldId,
                 ),
               ),
             ],
@@ -844,6 +876,16 @@ class _MePageState extends State<MePage> {
         );
       },
     );
+  }
+
+  void _handleWorldDeleted(UserProfileWorldItem item) {
+    final worldId = item.wid.trim();
+    if (worldId.isEmpty) return;
+    final current = _worldsState.value;
+    final nextItems = current.items
+        .where((world) => world.wid.trim() != worldId)
+        .toList(growable: false);
+    _setWorldsState(nextItems, isLoading: current.isLoading);
   }
 }
 

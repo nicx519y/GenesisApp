@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug/location_chat_debug_slice.dart';
+import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
@@ -23,6 +24,7 @@ import '../../components/world_tick1_wait_dialog.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
+import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../ui/components/genesis_safe_area.dart';
@@ -114,6 +116,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   int? _pendingProgressTickCount;
   var _currentUid = '';
   var _currentUidRequested = false;
+  var _recentChatUid = '';
+  Set<String> _recentChatLocationIds = const <String>{};
+  Set<String> _recentChatLocationPathIds = const <String>{};
   var _locationChatDescriptorSignature = '';
   late final ValueNotifier<WorldDetail?> _sectionsWorldNotifier =
       ValueNotifier<WorldDetail?>(_world);
@@ -139,6 +144,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _worldBottomSheetSelection.addListener(
       _handleWorldBottomSheetSelectionChanged,
     );
+    recentWorldChatStore.listenable.addListener(_handleRecentChatChanged);
     _syncWorldStatusBarForMainTab();
     final initialWorld = widget.initialWorldDetail;
     if (initialWorld != null) {
@@ -173,6 +179,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _currentUidRequested = true;
       unawaited(_loadCurrentUid());
     }
+    unawaited(_loadRecentChatMarker());
   }
 
   @override
@@ -182,6 +189,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _worldBottomSheetSelection.removeListener(
       _handleWorldBottomSheetSelectionChanged,
     );
+    recentWorldChatStore.listenable.removeListener(_handleRecentChatChanged);
     WorldDetailsStatusBarOverride.clearStyle();
     GenesisSystemUiChrome.applyDefault();
     unawaited(_worldChatroomSub?.cancel());
@@ -351,6 +359,81 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         '';
     if (!mounted || uid == _currentUid) return;
     setState(() => _currentUid = uid);
+  }
+
+  Future<void> _loadRecentChatMarker() async {
+    final uid = await resolveRecentWorldChatUid(AppServicesScope.read(context));
+    final record = await recentWorldChatStore.loadForUid(uid);
+    if (!mounted) return;
+    final nextLocationIds = record?.uid == uid && record?.worldId == widget.wid
+        ? _recentLocationIdSet([record?.locationId ?? ''])
+        : const <String>{};
+    final nextLocationPathIds =
+        record?.uid == uid && record?.worldId == widget.wid
+        ? _recentLocationIdSet(record?.locationPathIds ?? const <String>[])
+        : const <String>{};
+    if (_recentChatUid == uid &&
+        setEquals(_recentChatLocationIds, nextLocationIds) &&
+        setEquals(_recentChatLocationPathIds, nextLocationPathIds)) {
+      return;
+    }
+    setState(() {
+      _recentChatUid = uid;
+      _recentChatLocationIds = nextLocationIds;
+      _recentChatLocationPathIds = nextLocationPathIds;
+    });
+  }
+
+  void _handleRecentChatChanged() {
+    final record = recentWorldChatStore.listenable.value;
+    if (record == null) return;
+    if (_recentChatUid.isNotEmpty && record.uid != _recentChatUid) return;
+    final nextLocationIds = record.worldId == widget.wid
+        ? _recentLocationIdSet([record.locationId])
+        : const <String>{};
+    final nextLocationPathIds = record.worldId == widget.wid
+        ? _recentLocationIdSet(record.locationPathIds)
+        : const <String>{};
+    if (setEquals(_recentChatLocationIds, nextLocationIds) &&
+        setEquals(_recentChatLocationPathIds, nextLocationPathIds)) {
+      return;
+    }
+    setState(() {
+      _recentChatUid = record.uid;
+      _recentChatLocationIds = nextLocationIds;
+      _recentChatLocationPathIds = nextLocationPathIds;
+    });
+  }
+
+  Set<String> _recentLocationIdSet(Iterable<String> values) {
+    final result = <String>{};
+    for (final value in values) {
+      final trimmed = value.trim();
+      if (trimmed.isNotEmpty) result.add(trimmed);
+    }
+    return Set<String>.unmodifiable(result);
+  }
+
+  List<String> _locationPathIdsForLocationId(
+    String locationId,
+    ProcessedLocationTree<Map<String, dynamic>> tree,
+  ) {
+    final resolvedLocationId = locationId.trim();
+    if (resolvedLocationId.isEmpty) return const <String>[];
+    final nodesById = <String, LocationTreeNode<Map<String, dynamic>>>{
+      for (final node in tree.flattened) node.id.trim(): node,
+    };
+    final path = <String>[];
+    var current = nodesById[resolvedLocationId];
+    while (current != null) {
+      final id = current.id.trim();
+      if (id.isNotEmpty && id != worldSyntheticRootLocationId) {
+        path.add(id);
+      }
+      current = nodesById[current.parentId.trim()];
+    }
+    if (path.isEmpty) path.add(resolvedLocationId);
+    return worldOrderedNonEmptyStrings(path.reversed);
   }
 
   void _startWorldChatroom() {
@@ -1154,6 +1237,12 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       object2: locationId,
     );
 
+    final locationPathIds = _world == null
+        ? <String>[locationId]
+        : _locationPathIdsForLocationId(
+            locationId,
+            _world!.processedLocationTree,
+          );
     final descriptor = WorldLocationChatPanelDescriptor(
       locationId: locationId,
       locationName: point.name,
@@ -1167,6 +1256,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         locationId,
         point.id,
       ]),
+      recentChatLocationPathIds: locationPathIds,
     );
     final syncedDescriptor =
         _locationChatDescriptors[locationId] ??
@@ -1187,6 +1277,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 : descriptor.backgroundPreviewImageUrl,
             isLeafLocation: point.isLeafLocation,
             localMessageLocationIds: descriptor.localMessageLocationIds,
+            recentChatLocationPathIds: descriptor.recentChatLocationPathIds,
           ) ??
           descriptor,
     );
@@ -1422,6 +1513,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 descriptor.backgroundPreviewImageUrl,
                 descriptor.isLeafLocation ? '1' : '0',
                 descriptor.localMessageLocationIds.join(','),
+                descriptor.recentChatLocationPathIds.join(','),
               ].join('\u001f');
             })
             .toList(growable: false)
@@ -1436,10 +1528,21 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       return {
         for (final node in nodes)
           if (node.id.trim().isNotEmpty)
-            node.id.trim(): WorldLocationChatPanelDescriptor.fromNode(node),
+            node.id.trim(): WorldLocationChatPanelDescriptor.fromNode(node)
+                .copyWith(
+                  recentChatLocationPathIds: _locationPathIdsForLocationId(
+                    node.id,
+                    world.processedLocationTree,
+                  ),
+                ),
       };
     }
 
+    final locationIdsById = <String, Map<String, dynamic>>{
+      for (final location in world.locations)
+        if (worldMapString(location, const ['location_id', 'id']).isNotEmpty)
+          worldMapString(location, const ['location_id', 'id']): location,
+    };
     final parentIds = world.locations
         .map((location) => worldMapString(location, const ['location_pid']))
         .where((locationId) => locationId.isNotEmpty)
@@ -1447,16 +1550,37 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     return {
       for (final location in world.locations)
         if (worldMapString(location, const ['location_id', 'id']).isNotEmpty)
-          worldMapString(location, const [
-            'location_id',
-            'id',
-          ]): WorldLocationChatPanelDescriptor.fromLocation(
-            location,
-            isLeafLocation: !parentIds.contains(
-              worldMapString(location, const ['location_id', 'id']),
-            ),
-          ),
+          worldMapString(location, const ['location_id', 'id']):
+              WorldLocationChatPanelDescriptor.fromLocation(
+                location,
+                isLeafLocation: !parentIds.contains(
+                  worldMapString(location, const ['location_id', 'id']),
+                ),
+              ).copyWith(
+                recentChatLocationPathIds: _locationPathIdsFromLocations(
+                  worldMapString(location, const ['location_id', 'id']),
+                  locationIdsById,
+                ),
+              ),
     };
+  }
+
+  List<String> _locationPathIdsFromLocations(
+    String locationId,
+    Map<String, Map<String, dynamic>> locationsById,
+  ) {
+    final resolvedLocationId = locationId.trim();
+    if (resolvedLocationId.isEmpty) return const <String>[];
+    final path = <String>[];
+    var currentId = resolvedLocationId;
+    final seen = <String>{};
+    while (currentId.isNotEmpty && seen.add(currentId)) {
+      path.add(currentId);
+      final current = locationsById[currentId];
+      if (current == null) break;
+      currentId = worldMapString(current, const ['location_pid']);
+    }
+    return worldOrderedNonEmptyStrings(path.reversed);
   }
 
   void _scheduleLocationChatPrecache() {
@@ -1748,6 +1872,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             currentUid: _currentUid,
             locationPoints: locationPoints,
             locationNodes: locationNodes,
+            recentChatLocationIds: _recentChatLocationIds,
             onLocationTap: _handleBottomSheetLocationTap,
           );
         },
@@ -1841,6 +1966,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         : world.locations.isNotEmpty
         ? worldPointsFromLocations(world.locations, avatarsByLocation)
         : points;
+    final recentMapLocationIds = _recentChatLocationPathIds;
     final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);
     Widget buildWorldMapPage(int tabIndex, {required bool pointMode}) {
       final map = WorldMap(
@@ -1856,6 +1982,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         mapImageUrl: rootMapImageUrl,
         dimmed: pointMode,
         showPointsList: pointMode,
+        recentChatLocationIds: _recentChatLocationIds,
+        recentChatMapLocationIds: recentMapLocationIds,
         initialZoomScale: pointMode ? 1 : 1.2,
         pointsListOuterScrollHandoff: false,
         overlayTop:
@@ -2010,6 +2138,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         fallbackOnEmptyMapUrl: false,
         dimmed: false,
         showPointsList: false,
+        recentChatLocationIds: _recentChatLocationIds,
         pointsListOuterScrollHandoff: false,
         overlayTop: topPadding + 8 + worldMapContentTopOffset,
         drillExitTop: topPadding + 8 + worldMapContentTopOffset + 12,

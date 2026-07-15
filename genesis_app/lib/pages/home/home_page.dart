@@ -2,13 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../../app/bootstrap/app_bootstrap.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
+import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../app/startup/app_startup_coordinator.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
+import '../../components/common/genesis_action_box.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/discuss/origin_discuss_preview_list.dart';
 import '../../components/genesis_logo.dart';
 import '../../components/home/popular_origin_list.dart';
@@ -23,6 +27,7 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../ui/tokens/genesis_colors.dart';
+import '../../utils/api_error_message.dart';
 import 'home_feed_cache_store.dart';
 
 void _ignoreHomeFeedCacheWrite(Future<void> write) {
@@ -504,6 +509,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   TabController? _tabController;
   final ScrollController _scrollController = ScrollController();
   final List<WorldListItem> _items = <WorldListItem>[];
+  final Set<String> _deletingWorldIds = <String>{};
+  final Set<String> _collapsingWorldIds = <String>{};
+  final Set<String> _locallyDeletedWorldIds = <String>{};
+  final Map<String, double> _collapseBottomCompensation = <String, double>{};
   Timer? _startupInitialRetryTimer;
   Future<bool>? _cacheLoadFuture;
   var _nextPage = 1;
@@ -518,6 +527,8 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   var _isLoadingMore = false;
   var _isRefreshing = false;
   var _isSignedOut = false;
+  String _recentChatUid = '';
+  String _recentChatWorldId = '';
   Object? _error;
 
   @override
@@ -525,6 +536,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     super.initState();
     widget.activationListenable?.addListener(_handlePageActivated);
     widget.networkRequestsAllowed.addListener(_handleNetworkRequestsAllowed);
+    recentWorldChatStore.listenable.addListener(_handleRecentChatChanged);
   }
 
   @override
@@ -543,6 +555,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _scrollListenerAttached = true;
     }
     _preloadCachedItemsIfNeeded();
+    unawaited(_loadRecentChatMarker());
     _requestIfCurrentTab();
   }
 
@@ -568,6 +581,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   @override
   void dispose() {
     _startupInitialRetryTimer?.cancel();
+    recentWorldChatStore.listenable.removeListener(_handleRecentChatChanged);
     widget.activationListenable?.removeListener(_handlePageActivated);
     widget.networkRequestsAllowed.removeListener(_handleNetworkRequestsAllowed);
     _tabController?.removeListener(_handleTabChange);
@@ -577,10 +591,38 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     super.dispose();
   }
 
+  Future<void> _loadRecentChatMarker() async {
+    final uid = await resolveRecentWorldChatUid(AppServicesScope.read(context));
+    final record = await recentWorldChatStore.loadForUid(uid);
+    if (!mounted) return;
+    final nextWorldId = record?.uid == uid ? record?.worldId ?? '' : '';
+    if (_recentChatUid == uid && _recentChatWorldId == nextWorldId) return;
+    setState(() {
+      _recentChatUid = uid;
+      _recentChatWorldId = nextWorldId;
+    });
+  }
+
+  void _handleRecentChatChanged() {
+    final record = recentWorldChatStore.listenable.value;
+    if (record == null) return;
+    if (_recentChatUid.isNotEmpty && record.uid != _recentChatUid) return;
+    final nextWorldId = record.worldId;
+    if (nextWorldId == _recentChatWorldId) return;
+    setState(() {
+      _recentChatUid = record.uid;
+      _recentChatWorldId = nextWorldId;
+    });
+  }
+
   void _resetListState() {
     _startupInitialRetryTimer?.cancel();
     _startupInitialRetryTimer = null;
     _items.clear();
+    _deletingWorldIds.clear();
+    _collapsingWorldIds.clear();
+    _locallyDeletedWorldIds.clear();
+    _collapseBottomCompensation.clear();
     _nextPage = 1;
     _total = 0;
     _cacheLoadFuture = null;
@@ -594,6 +636,20 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _isRefreshing = false;
     _isSignedOut = false;
     _error = null;
+  }
+
+  void _clearDeleteState() {
+    _deletingWorldIds.clear();
+    _collapsingWorldIds.clear();
+    _locallyDeletedWorldIds.clear();
+    _collapseBottomCompensation.clear();
+  }
+
+  void _pruneDeleteStateForCurrentItems() {
+    final liveIds = _items.map((item) => item.wid.trim()).toSet();
+    _deletingWorldIds.removeWhere((wid) => !liveIds.contains(wid));
+    _collapsingWorldIds.removeWhere((wid) => !liveIds.contains(wid));
+    _collapseBottomCompensation.removeWhere((wid, _) => !liveIds.contains(wid));
   }
 
   void _handleTabChange() {
@@ -658,6 +714,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     if (!hasSession) {
       setState(() {
         _items.clear();
+        _clearDeleteState();
         _nextPage = 1;
         _total = 0;
         _hasMore = false;
@@ -685,6 +742,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     if (!hasSession) {
       setState(() {
         _items.clear();
+        _clearDeleteState();
         _nextPage = 1;
         _total = 0;
         _hasMore = false;
@@ -753,6 +811,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _items
         ..clear()
         ..addAll(page.items);
+      _pruneDeleteStateForCurrentItems();
       _total = page.total;
       _nextPage = 2;
       _hasMore = _items.length < _total && page.items.isNotEmpty;
@@ -793,6 +852,9 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         ? list
               .whereType<Map>()
               .map((raw) => WorldListItem.fromJson(asJsonMap(raw)))
+              .where(
+                (item) => !_locallyDeletedWorldIds.contains(item.wid.trim()),
+              )
               .toList(growable: false)
         : const <WorldListItem>[];
     return _WorldListPage(items: items, total: asInt(data['total']));
@@ -806,6 +868,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       if (!mounted) return;
       setState(() {
         _items.clear();
+        _clearDeleteState();
         _nextPage = 1;
         _total = 0;
         _hasMore = false;
@@ -838,6 +901,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
           _items
             ..clear()
             ..addAll(page.items);
+          _pruneDeleteStateForCurrentItems();
         }
         _total = page.total;
         _nextPage = 2;
@@ -954,6 +1018,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       if (!mounted) return;
       setState(() {
         _items.addAll(page.items);
+        _pruneDeleteStateForCurrentItems();
         _total = page.total;
         _nextPage += 1;
         _hasMore = _items.length < _total && page.items.isNotEmpty;
@@ -966,6 +1031,88 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isLoadingMore = false;
       });
     }
+  }
+
+  double get _collapseCompensation {
+    return _collapseBottomCompensation.values.fold<double>(
+      0,
+      (sum, value) => sum + value,
+    );
+  }
+
+  void _setCollapseCompensation(String worldId, double value) {
+    if (worldId.isEmpty) return;
+    final normalized = value <= 0.5 ? 0.0 : value;
+    final current = _collapseBottomCompensation[worldId] ?? 0;
+    if ((current - normalized).abs() <= 0.5) return;
+    if (!mounted) return;
+    setState(() {
+      if (normalized == 0) {
+        _collapseBottomCompensation.remove(worldId);
+      } else {
+        _collapseBottomCompensation[worldId] = normalized;
+      }
+    });
+  }
+
+  Future<void> _confirmAndDeleteWorld(WorldListItem item) async {
+    final worldId = item.wid.trim();
+    if (worldId.isEmpty ||
+        item.deleted ||
+        _deletingWorldIds.contains(worldId) ||
+        _collapsingWorldIds.contains(worldId)) {
+      return;
+    }
+
+    final confirmed = await showGenesisActionBox<bool>(
+      context: context,
+      title: '',
+      titleWidget: _DeleteWorldConfirmationTitle(
+        name: item.title,
+        worldId: worldId,
+      ),
+      titleHeight: 104,
+      actions: const [
+        GenesisActionBoxAction<bool>(
+          label: 'Confirm',
+          value: true,
+          color: Color(0xFFFF2442),
+        ),
+      ],
+      cancelLabel: 'Cancel',
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deletingWorldIds.add(worldId));
+    try {
+      await AppServicesScope.read(
+        context,
+      ).api.v1.world.deleteLaunched(worldId: worldId);
+      if (!mounted) return;
+      setState(() {
+        _deletingWorldIds.remove(worldId);
+        _locallyDeletedWorldIds.add(worldId);
+        _collapsingWorldIds.add(worldId);
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _deletingWorldIds.remove(worldId));
+      showGenesisToast(context, apiErrorMessage(error));
+    }
+  }
+
+  void _handleWorldCollapseCompleted(String worldId) {
+    if (worldId.isEmpty || !mounted) return;
+    setState(() {
+      _items.removeWhere((item) => item.wid.trim() == worldId);
+      _deletingWorldIds.remove(worldId);
+      _collapsingWorldIds.remove(worldId);
+      _collapseBottomCompensation.remove(worldId);
+      if (_total > _items.length) {
+        _total -= 1;
+      }
+      _hasMore = _items.length < _total && _items.isNotEmpty;
+    });
   }
 
   @override
@@ -1022,24 +1169,19 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       onRefresh: _refreshItems,
       child: _items.isEmpty
           ? emptyListView
-          : ListView.separated(
+          : ListView.builder(
               key: const PageStorageKey<String>('home-feed-my-world'),
               controller: _scrollController,
               primary: false,
-              cacheExtent: 900,
-              padding: const EdgeInsets.only(top: 10, bottom: 36),
+              scrollCacheExtent: const ScrollCacheExtent.pixels(900),
+              padding: EdgeInsets.only(
+                top: 10,
+                bottom: 36 + _collapseCompensation,
+              ),
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
               itemCount: _items.length + (_isLoadingMore ? 1 : 0),
-              separatorBuilder: (context, index) => const Padding(
-                padding: EdgeInsets.only(top: 24, bottom: 16),
-                child: Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: Color(0xFFEFEFEF),
-                ),
-              ),
               itemBuilder: (context, index) {
                 if (index >= _items.length) {
                   return const Padding(
@@ -1053,29 +1195,212 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                   );
                 }
                 final vm = _items[index];
-                return GestureDetector(
-                  key: ValueKey<String>('home-my-world-${vm.wid}'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: vm.deleted
-                      ? null
-                      : () {
-                          GenesisTelemetry.collectLog(
-                            actionType: 'event',
-                            action: 'home_my_worlds_click',
-                            object1: vm.wid,
-                          );
-                          Navigator.of(context).pushNamed(
-                            RouteNames.world,
-                            arguments: {'wid': vm.wid},
-                          );
-                        },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: WorldItemCard(item: vm, showPreviewImages: false),
+                final worldId = vm.wid.trim();
+                final isDeleting = _deletingWorldIds.contains(worldId);
+                final isCollapsing = _collapsingWorldIds.contains(worldId);
+                final canInteract = !vm.deleted && !isDeleting && !isCollapsing;
+                return _AnimatedHomeWorldListItem(
+                  key: ValueKey<String>('home-my-world-$worldId'),
+                  isCollapsing: isCollapsing,
+                  bottomSpacing: index == _items.length - 1 && !_isLoadingMore
+                      ? 0
+                      : 41,
+                  onCollapseCompensationChanged: (value) =>
+                      _setCollapseCompensation(worldId, value),
+                  onCollapsed: () => _handleWorldCollapseCompleted(worldId),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: canInteract
+                        ? () {
+                            GenesisTelemetry.collectLog(
+                              actionType: 'event',
+                              action: 'home_my_worlds_click',
+                              object1: vm.wid,
+                            );
+                            Navigator.of(context).pushNamed(
+                              RouteNames.world,
+                              arguments: {'wid': vm.wid},
+                            );
+                          }
+                        : null,
+                    onLongPress: canInteract
+                        ? () => unawaited(_confirmAndDeleteWorld(vm))
+                        : null,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: WorldItemCard(
+                        item: vm,
+                        showPreviewImages: false,
+                        showRecentChatTag: vm.wid == _recentChatWorldId,
+                      ),
+                    ),
                   ),
                 );
               },
             ),
+    );
+  }
+}
+
+class _AnimatedHomeWorldListItem extends StatefulWidget {
+  const _AnimatedHomeWorldListItem({
+    super.key,
+    required this.child,
+    required this.isCollapsing,
+    required this.bottomSpacing,
+    required this.onCollapseCompensationChanged,
+    required this.onCollapsed,
+  });
+
+  final Widget child;
+  final bool isCollapsing;
+  final double bottomSpacing;
+  final ValueChanged<double> onCollapseCompensationChanged;
+  final VoidCallback onCollapsed;
+
+  @override
+  State<_AnimatedHomeWorldListItem> createState() =>
+      _AnimatedHomeWorldListItemState();
+}
+
+class _DeleteWorldConfirmationTitle extends StatelessWidget {
+  const _DeleteWorldConfirmationTitle({
+    required this.name,
+    required this.worldId,
+  });
+
+  static const _baseStyle = TextStyle(
+    color: Color(0xFF111111),
+    fontSize: 15,
+    height: 1.25,
+    fontWeight: FontWeight.w400,
+  );
+  static const _nameStyle = TextStyle(color: Color(0xFF4B6192));
+
+  final String name;
+  final String worldId;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedName = name.trim().isEmpty ? worldId : name.trim();
+    return SizedBox(
+      width: double.infinity,
+      child: Text.rich(
+        TextSpan(
+          text: 'Are you sure you want to delete\u00A0',
+          children: [
+            TextSpan(
+              text: resolvedName,
+              style: _DeleteWorldConfirmationTitle._nameStyle,
+            ),
+            TextSpan(text: '[$worldId]'),
+            const TextSpan(text: '?'),
+          ],
+        ),
+        textAlign: TextAlign.center,
+        style: _DeleteWorldConfirmationTitle._baseStyle,
+      ),
+    );
+  }
+}
+
+class _AnimatedHomeWorldListItemState extends State<_AnimatedHomeWorldListItem>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  final GlobalKey _contentKey = GlobalKey();
+  double _contentExtent = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        AnimationController(
+            vsync: this,
+            duration: const Duration(milliseconds: 500),
+            value: widget.isCollapsing ? 0 : 1,
+          )
+          ..addListener(_notifyCompensationChanged)
+          ..addStatusListener(_handleAnimationStatus);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _measureContentExtent();
+      _notifyCompensationChanged();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _AnimatedHomeWorldListItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _measureContentExtent();
+      _notifyCompensationChanged();
+    });
+    if (oldWidget.isCollapsing == widget.isCollapsing) return;
+    if (widget.isCollapsing) {
+      _controller.animateTo(0, curve: Curves.easeOutCubic);
+    } else {
+      _controller.animateTo(1, curve: Curves.easeOutCubic);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_notifyCompensationChanged);
+    _controller.removeStatusListener(_handleAnimationStatus);
+    widget.onCollapseCompensationChanged(0);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _measureContentExtent() {
+    final renderObject = _contentKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return;
+    _contentExtent = renderObject.size.height;
+  }
+
+  void _notifyCompensationChanged() {
+    if (_contentExtent <= 0) return;
+    widget.onCollapseCompensationChanged(
+      _contentExtent * (1 - _controller.value),
+    );
+  }
+
+  void _handleAnimationStatus(AnimationStatus status) {
+    if (status == AnimationStatus.dismissed && widget.isCollapsing) {
+      widget.onCollapsed();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return ClipRect(
+          child: Align(
+            heightFactor: _controller.value,
+            alignment: Alignment.topCenter,
+            child: child,
+          ),
+        );
+      },
+      child: RepaintBoundary(
+        child: Column(
+          key: _contentKey,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            widget.child,
+            if (widget.bottomSpacing > 0)
+              const Padding(
+                padding: EdgeInsets.only(top: 24, bottom: 16),
+                child: Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFEFEFEF),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

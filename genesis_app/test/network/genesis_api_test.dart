@@ -422,7 +422,7 @@ void main() {
         statusCode: 200,
         headers: {'content-type': 'application/json'},
         body:
-            '{"err_no":0,"err_msg":"succ","data":{"list":[{"ledger_id":"gl_1","amount":-20,"scene":"world_tick","reason_code":"world_tick","title":"World progress","subtitle":"#Thorn Haven","created_at":1783586400,"expires_at":0}],"total":1,"pn":1,"rn":20}}',
+            '{"err_no":0,"err_msg":"succ","data":{"list":[{"ledger_id":"gl_1","amount":-20,"scene":"world_tick","reason_code":"message","title":"Message","subtitle":"Location chat","world_name":"Thorn Haven","world_id":"w_1","order_id":"ord_1","created_at":1783586400,"expires_at":0}],"total":1,"pn":1,"rn":20}}',
       ),
     );
     final api = _apiWith(
@@ -445,7 +445,10 @@ void main() {
     expect(records.total, 1);
     expect(records.items.single.ledgerId, 'gl_1');
     expect(records.items.single.amount, -20);
-    expect(records.items.single.title, 'World progress');
+    expect(records.items.single.title, 'Message');
+    expect(records.items.single.worldName, 'Thorn Haven');
+    expect(records.items.single.worldId, 'w_1');
+    expect(records.items.single.orderId, 'ord_1');
   });
 
   test('v1 gem purchase report posts the Google purchase payload', () async {
@@ -2933,6 +2936,33 @@ void main() {
       expect((paragraphs.single as Map)['location_id'], 'loc_1');
     },
   );
+
+  test('v1 world delete posts Apifox world_id field', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":0,"err_msg":"succ","data":{}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    await api.v1.world.deleteLaunched(worldId: ' w_delete_1 ');
+
+    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/world/delete');
+    final body =
+        jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)) as Map;
+    expect(body['world_id'], 'w_delete_1');
+    expect(body.containsKey('wid'), isFalse);
+  });
 
   test('v1 discuss write APIs use Apifox paths and body fields', () async {
     final apiTransport = _FakeTransport(
