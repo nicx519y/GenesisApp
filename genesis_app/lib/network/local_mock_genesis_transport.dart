@@ -1834,7 +1834,7 @@ class _MockState {
       _v1GrantedGemByPurchaseToken[purchaseToken] = grantedGems;
       _v1GemBalance += grantedGems;
     }
-    return {'status': 'completed'};
+    return {'status': 'completed', 'granted_gems': grantedGems};
   }
 
   int _gemTotalForProduct(String productId) {

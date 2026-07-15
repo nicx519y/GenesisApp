@@ -106,7 +106,7 @@ void main() {
             kind: ApiExceptionKind.transport,
           );
         }
-        return GemPurchaseReport(status: reportStatus);
+        return GemPurchaseReport(status: reportStatus, grantedGems: 550);
       },
       refreshWallet: () async => refreshCount += 1,
       readUid: () async => 'u_1',
@@ -132,7 +132,10 @@ void main() {
     final reported = await pendingStore.loadAll();
     expect(reported, hasLength(1));
     expect(reported.single.status, BillingPendingPurchaseStatus.reported);
-    expect(uiEvents.single.kind, BillingUiEventKind.success);
+    expect(uiEvents, hasLength(2));
+    expect(uiEvents.first.kind, BillingUiEventKind.processing);
+    expect(uiEvents.last.kind, BillingUiEventKind.success);
+    expect(uiEvents.last.grantedGems, 550);
 
     platform.emit(_purchase(BillingPurchaseStatus.purchased));
     await _settle();
@@ -158,7 +161,9 @@ void main() {
     expect(pending, hasLength(1));
     expect(pending.single.status, BillingPendingPurchaseStatus.received);
     expect(pending.single.retryCount, 1);
-    expect(uiEvents.single.kind, BillingUiEventKind.deferred);
+    expect(uiEvents, hasLength(2));
+    expect(uiEvents.first.kind, BillingUiEventKind.processing);
+    expect(uiEvents.last.kind, BillingUiEventKind.deferred);
   });
 
   test('accepted is terminal for report and waits for the server', () async {
@@ -170,7 +175,13 @@ void main() {
     final reported = await pendingStore.loadAll();
     expect(reported.single.status, BillingPendingPurchaseStatus.reported);
     expect(refreshCount, 0);
-    expect(uiEvents.single.kind, BillingUiEventKind.deferred);
+    expect(uiEvents, hasLength(2));
+    expect(uiEvents.first.kind, BillingUiEventKind.processing);
+    expect(uiEvents.last.kind, BillingUiEventKind.accepted);
+    expect(
+      uiEvents.last.message,
+      'Payment successful. Your Gems are being issued as quickly as possible. Please check your balance again later.',
+    );
 
     service.resetForSession();
     platform.pastPurchases = [_purchase(BillingPurchaseStatus.purchased)];
@@ -194,8 +205,10 @@ void main() {
     final reported = await pendingStore.loadAll();
     expect(reported.single.status, BillingPendingPurchaseStatus.reported);
     expect(refreshCount, 0);
-    expect(uiEvents.single.kind, BillingUiEventKind.failure);
-    expect(uiEvents.single.message, 'Purchase was refunded.');
+    expect(uiEvents, hasLength(2));
+    expect(uiEvents.first.kind, BillingUiEventKind.processing);
+    expect(uiEvents.last.kind, BillingUiEventKind.failure);
+    expect(uiEvents.last.message, 'Purchase was refunded.');
   });
 
   test('recovery clears a checkout that Google no longer reports', () async {

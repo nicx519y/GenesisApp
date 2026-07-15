@@ -9,6 +9,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../app/gems/gem_wallet_store.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/common/genesis_modal_routes.dart';
 import '../../components/gems/gem_assets.dart';
 import '../../components/gems/gem_purchase_catalog.dart';
 import '../../components/page_header.dart';
@@ -70,6 +71,8 @@ class _GemWalletPageState extends State<GemWalletPage>
   final Map<String, String> _taskStatusOverrides = <String, String>{};
   final ValueNotifier<BillingState> _idleBillingState =
       ValueNotifier<BillingState>(BillingState());
+  ValueNotifier<_BillingPurchaseDialogState>? _billingPurchaseDialogState;
+  bool _billingPurchaseDialogShowing = false;
 
   @override
   void initState() {
@@ -83,6 +86,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     WidgetsBinding.instance.removeObserver(this);
     genesisPageRouteObserver.unsubscribe(this);
     _billingEvents?.cancel();
+    _billingPurchaseDialogState?.dispose();
     _idleBillingState.dispose();
     super.dispose();
   }
@@ -392,9 +396,101 @@ class _GemWalletPageState extends State<GemWalletPage>
 
   void _handleBillingEvent(BillingUiEvent event) {
     if (!mounted) return;
-    showGenesisToast(context, event.message);
-    if (event.kind == BillingUiEventKind.success) {
-      unawaited(_refreshAll(silent: true));
+    switch (event.kind) {
+      case BillingUiEventKind.processing:
+        _showBillingPurchaseDialog(event);
+        return;
+      case BillingUiEventKind.success:
+        _showBillingPurchaseSuccess(event);
+        unawaited(_refreshAll(silent: true));
+        return;
+      case BillingUiEventKind.accepted:
+        _showBillingPurchaseAccepted(event);
+        return;
+      case BillingUiEventKind.failure:
+      case BillingUiEventKind.pending:
+      case BillingUiEventKind.deferred:
+        _dismissBillingPurchaseDialog();
+        showGenesisToast(context, event.message);
+    }
+  }
+
+  void _showBillingPurchaseDialog(BillingUiEvent event) {
+    final nextState = _BillingPurchaseDialogState.processing(
+      attemptId: event.attemptId,
+      message: event.message,
+    );
+    final notifier = _billingPurchaseDialogState;
+    if (notifier != null) {
+      notifier.value = nextState;
+    } else {
+      _billingPurchaseDialogState = ValueNotifier<_BillingPurchaseDialogState>(
+        nextState,
+      );
+    }
+    _presentBillingPurchaseDialog();
+  }
+
+  void _showBillingPurchaseSuccess(BillingUiEvent event) {
+    final grantedGems = event.grantedGems;
+    final grantedText = grantedGems > 0 ? formatGemInteger(grantedGems) : '';
+    final nextState = _BillingPurchaseDialogState.success(
+      attemptId: event.attemptId,
+      message: 'Purchase successful.',
+      isGrantedSuccess: true,
+      grantedText: grantedText,
+    );
+    final notifier = _billingPurchaseDialogState;
+    if (notifier != null) {
+      notifier.value = nextState;
+      return;
+    }
+    _billingPurchaseDialogState = ValueNotifier<_BillingPurchaseDialogState>(
+      nextState,
+    );
+    _presentBillingPurchaseDialog();
+  }
+
+  void _showBillingPurchaseAccepted(BillingUiEvent event) {
+    final nextState = _BillingPurchaseDialogState.success(
+      attemptId: event.attemptId,
+      message: event.message,
+    );
+    final notifier = _billingPurchaseDialogState;
+    if (notifier != null) {
+      notifier.value = nextState;
+      return;
+    }
+    _billingPurchaseDialogState = ValueNotifier<_BillingPurchaseDialogState>(
+      nextState,
+    );
+    _presentBillingPurchaseDialog();
+  }
+
+  void _presentBillingPurchaseDialog() {
+    if (_billingPurchaseDialogShowing) return;
+    final dialogState = _billingPurchaseDialogState;
+    if (dialogState == null) return;
+    _billingPurchaseDialogShowing = true;
+    unawaited(
+      showGenesisDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => _BillingPurchaseDialog(state: dialogState),
+      ).whenComplete(() {
+        _billingPurchaseDialogShowing = false;
+        if (_billingPurchaseDialogState == dialogState) {
+          _billingPurchaseDialogState = null;
+          dialogState.dispose();
+        }
+      }),
+    );
+  }
+
+  void _dismissBillingPurchaseDialog() {
+    final navigator = Navigator.maybeOf(context, rootNavigator: true);
+    if (_billingPurchaseDialogShowing && navigator != null) {
+      navigator.pop();
     }
   }
 
@@ -462,6 +558,277 @@ class _GemWalletPageState extends State<GemWalletPage>
         onTaskTap: _handleTaskTap,
         onJoinUsTap: _handleJoinUsRowTap,
       ),
+    );
+  }
+}
+
+enum _BillingPurchaseDialogPhase { processing, success }
+
+class _BillingPurchaseDialogState {
+  const _BillingPurchaseDialogState({
+    required this.phase,
+    required this.attemptId,
+    required this.message,
+    this.grantedText = '',
+    this.isGrantedSuccess = false,
+  });
+
+  factory _BillingPurchaseDialogState.processing({
+    required String attemptId,
+    required String message,
+  }) {
+    return _BillingPurchaseDialogState(
+      phase: _BillingPurchaseDialogPhase.processing,
+      attemptId: attemptId,
+      message: message,
+    );
+  }
+
+  factory _BillingPurchaseDialogState.success({
+    required String attemptId,
+    required String message,
+    String grantedText = '',
+    bool isGrantedSuccess = false,
+  }) {
+    return _BillingPurchaseDialogState(
+      phase: _BillingPurchaseDialogPhase.success,
+      attemptId: attemptId,
+      message: message,
+      grantedText: grantedText,
+      isGrantedSuccess: isGrantedSuccess,
+    );
+  }
+
+  final _BillingPurchaseDialogPhase phase;
+  final String attemptId;
+  final String message;
+  final String grantedText;
+  final bool isGrantedSuccess;
+}
+
+class _BillingPurchaseDialog extends StatelessWidget {
+  const _BillingPurchaseDialog({required this.state});
+
+  final ValueListenable<_BillingPurchaseDialogState> state;
+  static const double _contentHeight = 190;
+  static const double _footerHeight = 57;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      child: Dialog(
+        backgroundColor: Colors.white,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 54),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
+        child: ValueListenableBuilder<_BillingPurchaseDialogState>(
+          valueListenable: state,
+          builder: (context, value, _) {
+            final isSuccess =
+                value.phase == _BillingPurchaseDialogPhase.success;
+            return SizedBox(
+              height: _contentHeight + _footerHeight,
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: isSuccess
+                        ? _contentHeight
+                        : _contentHeight + _footerHeight,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isSuccess)
+                              SvgPicture.asset(
+                                gemStackIconAsset,
+                                width: gemStackIconWidth,
+                                height: gemStackIconHeight,
+                              )
+                            else
+                              const SizedBox(
+                                width: 28,
+                                height: 28,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.6,
+                                  color: Color(0xFFFF2D4F),
+                                ),
+                              ),
+                            const SizedBox(height: 18),
+                            if (isSuccess)
+                              !value.isGrantedSuccess
+                                  ? Text(
+                                      value.message,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        height: 20 / 15,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF111111),
+                                      ),
+                                    )
+                                  : _BillingPurchaseGrantedMessage(
+                                      grantedText: value.grantedText,
+                                    )
+                            else
+                              _ProcessingPaymentText(message: value.message),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (isSuccess) ...[
+                    const Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Color(0xFFECECEC),
+                    ),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFFFF2D4F),
+                          padding: EdgeInsets.zero,
+                          shape: const RoundedRectangleBorder(),
+                          textStyle: const TextStyle(
+                            fontSize: 17,
+                            height: 22 / 17,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        onPressed: () =>
+                            Navigator.of(context, rootNavigator: true).pop(),
+                        child: const Text('OK'),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _BillingPurchaseGrantedMessage extends StatelessWidget {
+  const _BillingPurchaseGrantedMessage({required this.grantedText});
+
+  final String grantedText;
+
+  static const _textStyle = TextStyle(
+    fontSize: 15,
+    height: 20 / 15,
+    fontWeight: FontWeight.w500,
+    color: Color(0xFF111111),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          'Purchase successful.',
+          textAlign: TextAlign.center,
+          style: _textStyle,
+        ),
+        const SizedBox(height: 4),
+        SizedBox(
+          width: double.infinity,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SvgPicture.asset(gemIconAsset, width: 12, height: 12),
+                const SizedBox(width: 2),
+                Text.rich(
+                  key: const ValueKey<String>('billing-purchase-granted-line'),
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: grantedText,
+                        style: const TextStyle(color: Color(0xFFFF2D4F)),
+                      ),
+                      const TextSpan(text: ' Gems have been granted.'),
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                  style: _textStyle,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Go chat now.',
+          textAlign: TextAlign.center,
+          style: _textStyle,
+        ),
+      ],
+    );
+  }
+}
+
+class _ProcessingPaymentText extends StatefulWidget {
+  const _ProcessingPaymentText({required this.message});
+
+  final String message;
+
+  @override
+  State<_ProcessingPaymentText> createState() => _ProcessingPaymentTextState();
+}
+
+class _ProcessingPaymentTextState extends State<_ProcessingPaymentText> {
+  late final Timer _timer;
+  int _dotCount = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 420), (_) {
+      if (!mounted) return;
+      setState(() => _dotCount = _dotCount == 3 ? 1 : _dotCount + 1);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const style = TextStyle(
+      fontSize: 15,
+      height: 20 / 15,
+      fontWeight: FontWeight.w500,
+      color: Color(0xFF111111),
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(widget.message, textAlign: TextAlign.center, style: style),
+        SizedBox(
+          width: 18,
+          child: Text(
+            '.' * _dotCount,
+            textAlign: TextAlign.left,
+            maxLines: 1,
+            softWrap: false,
+            style: style,
+          ),
+        ),
+      ],
     );
   }
 }

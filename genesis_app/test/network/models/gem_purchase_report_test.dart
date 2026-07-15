@@ -6,9 +6,11 @@ void main() {
     test('parses ${status.name} as a terminal report status', () {
       final report = GemPurchaseReport.fromJson(<String, dynamic>{
         'status': status.name,
+        'granted_gems': 550,
       });
 
       expect(report.status, status);
+      expect(report.grantedGems, 550);
     });
   }
 

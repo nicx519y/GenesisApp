@@ -199,7 +199,14 @@ class BillingState {
   bool isBusy(String productId) => busyProductIds.contains(productId);
 }
 
-enum BillingUiEventKind { success, failure, pending, deferred }
+enum BillingUiEventKind {
+  processing,
+  success,
+  accepted,
+  failure,
+  pending,
+  deferred,
+}
 
 @immutable
 class BillingUiEvent {
@@ -208,12 +215,14 @@ class BillingUiEvent {
     required this.productId,
     required this.attemptId,
     required this.message,
+    this.grantedGems = 0,
   });
 
   final BillingUiEventKind kind;
   final String productId;
   final String attemptId;
   final String message;
+  final int grantedGems;
 }
 
 class BillingPlatformException implements Exception {

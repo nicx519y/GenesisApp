@@ -250,6 +250,7 @@ void main() {
       ),
     );
     expect(gemReport.status, GemPurchaseReportStatus.completed);
+    expect(gemReport.grantedGems, 550);
 
     final gemDuplicate = await api.v1.gem.reportPurchase(
       const GemPurchaseReportRequest(
@@ -261,6 +262,7 @@ void main() {
       ),
     );
     expect(gemDuplicate.status, GemPurchaseReportStatus.completed);
+    expect(gemDuplicate.grantedGems, 550);
 
     final dailyCheckin = await api.v1.gem.reportTask('daily_checkin');
     expect(dailyCheckin.status, 'claimed');

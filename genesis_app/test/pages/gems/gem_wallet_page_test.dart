@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
@@ -548,7 +549,103 @@ void main() {
     expect(productsLoadCount, 2);
     expect(tasksLoadCount, 2);
     expect(walletLoadCount, 2);
+    _expectGrantedSuccessDialog(tester);
     await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('billing processing dialog blocks interaction until success OK', (
+    tester,
+  ) async {
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    final billing = _FakeBillingService();
+    addTearDown(walletStore.dispose);
+    addTearDown(billing.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          billingService: billing,
+          productsLoader: (_) async => _products(),
+          tasksLoader: (_) async => _taskGroups(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    billing.emitProcessing();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.textContaining('Granting Gems'), findsOneWidget);
+    expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, false);
+    final processingDialogSize = tester.getSize(find.byType(Dialog));
+
+    await tester.tapAt(Offset.zero);
+    await tester.pump();
+    expect(find.textContaining('Granting Gems'), findsOneWidget);
+
+    billing.emitSuccess();
+    await tester.pumpAndSettle();
+
+    _expectGrantedSuccessDialog(tester);
+    expect(tester.getSize(find.byType(Dialog)), processingDialogSize);
+
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Purchase successful.'), findsNothing);
+    expect(find.text('Go chat now.'), findsNothing);
+  });
+
+  testWidgets('billing accepted keeps dialog until OK', (tester) async {
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    final billing = _FakeBillingService();
+    addTearDown(walletStore.dispose);
+    addTearDown(billing.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          billingService: billing,
+          productsLoader: (_) async => _products(),
+          tasksLoader: (_) async => _taskGroups(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    billing.emitProcessing();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.textContaining('Granting Gems'), findsOneWidget);
+
+    billing.emitAccepted();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Payment successful. Your Gems are being issued as quickly as possible. Please check your balance again later.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Payment successful. Your Gems are being issued as quickly as possible. Please check your balance again later.',
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('task button always displays backend action text', (
@@ -1038,6 +1135,19 @@ void main() {
   });
 }
 
+void _expectGrantedSuccessDialog(WidgetTester tester) {
+  expect(find.text('Purchase successful.'), findsOneWidget);
+  expect(find.text('Go chat now.'), findsOneWidget);
+  final grantedLine = tester.widget<Text>(
+    find.byKey(const ValueKey<String>('billing-purchase-granted-line')),
+  );
+  final spans = (grantedLine.textSpan! as TextSpan).children!;
+  expect((spans[0] as TextSpan).text, '550');
+  expect((spans[0] as TextSpan).style?.color, const Color(0xFFFF2D4F));
+  expect((spans[1] as TextSpan).text, ' Gems have been granted.');
+  expect(find.byType(SvgPicture), findsWidgets);
+}
+
 class _FakeBillingService implements BillingService {
   final ValueNotifier<BillingState> _state = ValueNotifier<BillingState>(
     BillingState(storeAvailable: true),
@@ -1070,13 +1180,37 @@ class _FakeBillingService implements BillingService {
   @override
   Future<void> start() async {}
 
-  void emitSuccess() {
+  void emitProcessing() {
     _events.add(
       const BillingUiEvent(
+        kind: BillingUiEventKind.processing,
+        productId: 'gem_pack_500',
+        attemptId: 'pay_test',
+        message: 'Granting Gems',
+      ),
+    );
+  }
+
+  void emitSuccess({int grantedGems = 550}) {
+    _events.add(
+      BillingUiEvent(
         kind: BillingUiEventKind.success,
         productId: 'gem_pack_500',
         attemptId: 'pay_test',
         message: 'Purchase successful.',
+        grantedGems: grantedGems,
+      ),
+    );
+  }
+
+  void emitAccepted() {
+    _events.add(
+      const BillingUiEvent(
+        kind: BillingUiEventKind.accepted,
+        productId: 'gem_pack_500',
+        attemptId: 'pay_test',
+        message:
+            'Payment successful. Your Gems are being issued as quickly as possible. Please check your balance again later.',
       ),
     );
   }

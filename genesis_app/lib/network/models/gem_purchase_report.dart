@@ -44,7 +44,7 @@ class GemPurchaseReportRequest {
 enum GemPurchaseReportStatus { completed, accepted, rejected }
 
 class GemPurchaseReport {
-  const GemPurchaseReport({required this.status});
+  const GemPurchaseReport({required this.status, this.grantedGems = 0});
 
   factory GemPurchaseReport.fromJson(Map<String, dynamic> json) {
     final value = asString(json['status']).trim().toLowerCase();
@@ -54,8 +54,12 @@ class GemPurchaseReport {
       'rejected' => GemPurchaseReportStatus.rejected,
       _ => throw FormatException('Unsupported purchase report status: $value'),
     };
-    return GemPurchaseReport(status: status);
+    return GemPurchaseReport(
+      status: status,
+      grantedGems: asInt(json['granted_gems']),
+    );
   }
 
   final GemPurchaseReportStatus status;
+  final int grantedGems;
 }

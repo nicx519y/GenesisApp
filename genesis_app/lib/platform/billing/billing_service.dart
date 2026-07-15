@@ -350,6 +350,14 @@ class GooglePlayBillingService implements BillingService {
     final processingKey = '${purchase.provider.name}:$token';
     if (_completedPurchaseKeys.contains(processingKey)) return;
     if (!_processingPurchaseKeys.add(processingKey)) return;
+    _events.add(
+      BillingUiEvent(
+        kind: BillingUiEventKind.processing,
+        productId: productId,
+        attemptId: attemptId,
+        message: 'Granting Gems',
+      ),
+    );
     try {
       BillingPendingPurchase? record;
       try {
@@ -507,10 +515,19 @@ class GooglePlayBillingService implements BillingService {
           productId: record.productId,
           attemptId: record.attemptId,
           message: 'Purchase successful.',
+          grantedGems: report.grantedGems,
         ),
       );
     } else if (report.status == GemPurchaseReportStatus.accepted) {
-      _emitDeferred(record.productId, record.attemptId);
+      _events.add(
+        BillingUiEvent(
+          kind: BillingUiEventKind.accepted,
+          productId: record.productId,
+          attemptId: record.attemptId,
+          message:
+              'Payment successful. Your Gems are being issued as quickly as possible. Please check your balance again later.',
+        ),
+      );
     } else {
       _emitFailure(
         record.productId,

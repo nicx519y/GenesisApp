@@ -458,7 +458,8 @@ void main() {
       handler: (_) => const TransportResponse(
         statusCode: 200,
         headers: {'content-type': 'application/json'},
-        body: '{"err_no":0,"err_msg":"succ","data":{"status":"completed"}}',
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"status":"completed","granted_gems":550}}',
       ),
     );
     final api = _apiWith(
@@ -495,6 +496,7 @@ void main() {
       'request_id': 'pay_1',
     });
     expect(report.status, GemPurchaseReportStatus.completed);
+    expect(report.grantedGems, 550);
   });
 
   test(
