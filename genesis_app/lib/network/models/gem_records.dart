@@ -41,9 +41,15 @@ class GemRecordItem {
     required this.subtitle,
     required this.createdAt,
     required this.expiresAt,
+    this.worldName = '',
+    this.worldId = '',
+    this.orderId = '',
   });
 
   factory GemRecordItem.fromJson(Map<String, dynamic> json) {
+    final world = json['world'] is Map
+        ? asJsonMap(json['world'])
+        : const <String, dynamic>{};
     return GemRecordItem(
       ledgerId: asString(json['ledger_id']),
       amount: asInt(json['amount']),
@@ -53,6 +59,39 @@ class GemRecordItem {
       subtitle: asString(json['subtitle']),
       createdAt: asInt(json['created_at']),
       expiresAt: asInt(json['expires_at']),
+      worldName: asString(
+        json['world_name'],
+        fallback: asString(
+          json['worldName'],
+          fallback: asString(
+            world['world_name'],
+            fallback: asString(world['name']),
+          ),
+        ),
+      ),
+      worldId: asString(
+        json['world_id'],
+        fallback: asString(
+          json['wid'],
+          fallback: asString(
+            world['world_id'],
+            fallback: asString(world['wid']),
+          ),
+        ),
+      ),
+      orderId: asString(
+        json['order_id'],
+        fallback: asString(
+          json['order_no'],
+          fallback: asString(
+            json['orderNo'],
+            fallback: asString(
+              json['transaction_id'],
+              fallback: asString(json['trade_no']),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -64,4 +103,7 @@ class GemRecordItem {
   final String subtitle;
   final int createdAt;
   final int expiresAt;
+  final String worldName;
+  final String worldId;
+  final String orderId;
 }

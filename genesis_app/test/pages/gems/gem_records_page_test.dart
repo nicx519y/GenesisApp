@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/gem_records.dart';
 import 'package:genesis_flutter_android/pages/gems/gem_records_page.dart';
@@ -37,6 +38,24 @@ void main() {
   testWidgets('shows only the footer gem icon after the last page', (
     tester,
   ) async {
+    var clipboardText = '';
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          switch (call.method) {
+            case 'Clipboard.setData':
+              final data = Map<String, dynamic>.from(call.arguments as Map);
+              clipboardText = '${data['text'] ?? ''}';
+              return null;
+            case 'Clipboard.getData':
+              return <String, dynamic>{'text': clipboardText};
+          }
+          return null;
+        });
+    addTearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
     await tester.pumpWidget(
       MaterialApp(
         home: GemRecordsPage(
@@ -57,11 +76,14 @@ void main() {
                     ledgerId: 'ledger-2',
                     amount: -4,
                     scene: 'world_tick',
-                    reasonCode: 'message',
+                    reasonCode: 'location_message',
                     title: 'Message',
-                    subtitle: 'Location chat',
+                    subtitle: 'Moonlit Market',
                     createdAt: 1,
                     expiresAt: 0,
+                    worldName: 'Should not be used in title',
+                    worldId: 'w_moonlit',
+                    orderId: 'order-2',
                   ),
                 ],
                 total: 2,
@@ -100,20 +122,36 @@ void main() {
     expect(
       tester.getTopLeft(find.text('+50')).dy -
           tester.getTopLeft(find.text('Daily check-in')).dy,
-      closeTo(8, 0.1),
+      closeTo(30.5, 0.1),
     );
     expect(
       tester.getTopLeft(find.text('Message')).dy -
           tester.getTopLeft(find.text('Daily check-in')).dy,
-      closeTo(68, 0.1),
+      closeTo(102, 0.1),
     );
+    final messageWorldName = tester.widget<Text>(find.text('Moonlit Market'));
+    expect(messageWorldName.style?.color, const Color(0xFF999999));
+    expect(find.text('ID: ledger-1'), findsOneWidget);
+    expect(find.text('ID: order-2'), findsOneWidget);
+    await tester.tap(find.text('ID: order-2'));
+    final copied = await Clipboard.getData('text/plain');
+    expect(copied?.text, 'order-2');
+    await tester.pump(const Duration(seconds: 2));
     expect(
       tester
           .getSize(
             find.byKey(const ValueKey<String>('gem-record-item-ledger-1')),
           )
           .height,
-      closeTo(59, 0.1),
+      closeTo(93, 0.1),
+    );
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('gem-record-item-ledger-2')),
+          )
+          .height,
+      closeTo(93, 0.1),
     );
     expect(
       tester.getSize(find.byKey(const ValueKey('gem-records-footer-icon'))),
