@@ -157,7 +157,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       appBar: GenesisBackAppBar(
         pageName: 'Model',
         titleStyle: const TextStyle(
-          color: Color(0xFF333333),
+          color: Color(0xFF111111),
           fontSize: 16,
           height: 22 / 16,
           fontWeight: FontWeight.w600,
@@ -257,11 +257,11 @@ class _ModelSaveAction extends StatelessWidget {
           padding: const EdgeInsets.only(right: 20),
           backgroundColor: Colors.transparent,
           overlayColor: Colors.transparent,
-          foregroundColor: const Color(0xFF333333),
+          foregroundColor: const Color(0xFF111111),
           disabledForegroundColor: const Color(0xFF999999),
           textStyle: const TextStyle(
-            fontSize: 12,
-            height: 18 / 12,
+            fontSize: 14,
+            height: 18 / 14,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -301,13 +301,13 @@ class _GemModelGroupSection extends StatelessWidget {
         Text(
           group.groupTitle,
           style: const TextStyle(
-            fontSize: 14,
-            height: 20 / 14,
-            fontWeight: FontWeight.w700,
+            fontSize: 16,
+            height: 20 / 16,
+            fontWeight: FontWeight.w600,
             color: Color(0xFF333333),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         for (var index = 0; index < group.models.length; index += 1) ...[
           _GemModelTile(
             model: group.models[index],
@@ -349,7 +349,7 @@ class _GemModelTile extends StatelessWidget {
         color: selected ? const Color(0xFFFFF4F6) : Colors.white,
         shape: RoundedRectangleBorder(
           side: BorderSide(color: borderColor, width: selected ? 1.2 : 1),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(8),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -357,7 +357,7 @@ class _GemModelTile extends StatelessWidget {
           splashFactory: NoSplash.splashFactory,
           overlayColor: const WidgetStatePropertyAll<Color>(Colors.transparent),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
+            padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -396,10 +396,10 @@ class _GemModelTileContent extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 13,
-                  height: 16 / 13,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF333333),
+                  fontSize: 14,
+                  height: 16 / 14,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF111111),
                 ),
               ),
             ),
@@ -409,45 +409,36 @@ class _GemModelTileContent extends StatelessWidget {
             ],
           ],
         ),
-        const SizedBox(height: 3),
+        const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerLeft,
-          child: Container(
-            key: ValueKey<String>('gem-model-estimate-${model.modelCode}'),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: const Color(0xFF444444).withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(9),
+          child: Text.rich(
+            TextSpan(
+              text: 'Estimated next message: ',
+              children: [
+                TextSpan(
+                  text: '${model.estimatedNextMessageGems} gems',
+                  style: const TextStyle(color: Color(0xFFFF2442)),
+                ),
+              ],
             ),
-            child: Text(
-              'Estimated next message: ${model.estimatedNextMessageGems} gems',
-              style: const TextStyle(
-                fontSize: 9,
-                height: 12 / 9,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF444444),
-              ),
+            key: ValueKey<String>('gem-model-estimate-${model.modelCode}'),
+            style: const TextStyle(
+              fontSize: 12,
+              height: 12 / 12,
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF666666),
             ),
           ),
         ),
-        const SizedBox(height: 3),
+        const SizedBox(height: 8),
         Text(
           model.description,
           style: const TextStyle(
-            fontSize: 10,
-            height: 14 / 10,
-            fontWeight: FontWeight.w500,
-            color: Color(0xFF666666),
-          ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          model.rangeText,
-          style: const TextStyle(
-            fontSize: 9,
-            height: 12 / 9,
+            fontSize: 12,
+            height: 14 / 12,
             fontWeight: FontWeight.w400,
-            color: Color(0xFFAAAAAA),
+            color: Color(0xFF666666),
           ),
         ),
       ],

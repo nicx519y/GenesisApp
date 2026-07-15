@@ -63,7 +63,7 @@ void main() {
     expect(pageTitleStyle?.fontSize, 16);
     expect(pageTitleStyle?.height, 22 / 16);
     expect(pageTitleStyle?.fontWeight, FontWeight.w600);
-    expect(pageTitleStyle?.color, const Color(0xFF333333));
+    expect(pageTitleStyle?.color, const Color(0xFF111111));
     expect(
       tester.getTopLeft(find.text('Recommended')).dy -
           tester.getRect(find.text('Model')).bottom,
@@ -74,43 +74,49 @@ void main() {
       find.byKey(const ValueKey('gem-model-save')),
     );
     final saveStyle = saveButton.style?.textStyle?.resolve(<WidgetState>{});
-    expect(saveStyle?.fontSize, 12);
-    expect(saveStyle?.height, 18 / 12);
+    expect(saveStyle?.fontSize, 14);
+    expect(saveStyle?.height, 18 / 14);
     expect(saveStyle?.fontWeight, FontWeight.w600);
+    expect(
+      saveButton.style?.foregroundColor?.resolve(<WidgetState>{}),
+      const Color(0xFF111111),
+    );
 
     final groupTitleStyle = tester.widget<Text>(find.text('Recommended')).style;
-    expect(groupTitleStyle?.fontSize, 14);
-    expect(groupTitleStyle?.height, 20 / 14);
-    expect(groupTitleStyle?.fontWeight, FontWeight.w700);
+    expect(groupTitleStyle?.fontSize, 16);
+    expect(groupTitleStyle?.height, 20 / 16);
+    expect(groupTitleStyle?.fontWeight, FontWeight.w600);
 
     final modelTitleStyle = tester.widget<Text>(find.text('Top Pick V3')).style;
-    expect(modelTitleStyle?.fontSize, 13);
-    expect(modelTitleStyle?.height, 16 / 13);
-    expect(modelTitleStyle?.fontWeight, FontWeight.w700);
+    expect(modelTitleStyle?.fontSize, 14);
+    expect(modelTitleStyle?.height, 16 / 14);
+    expect(modelTitleStyle?.fontWeight, FontWeight.w600);
+    expect(modelTitleStyle?.color, const Color(0xFF111111));
 
     final estimateStyle = tester
         .widget<Text>(find.text('Estimated next message: 4 gems'))
         .style;
-    expect(estimateStyle?.fontSize, 9);
-    expect(estimateStyle?.height, 12 / 9);
-    expect(estimateStyle?.fontWeight, FontWeight.w600);
-    expect(estimateStyle?.color, const Color(0xFF444444));
+    expect(estimateStyle?.fontSize, 12);
+    expect(estimateStyle?.height, 12 / 12);
+    expect(estimateStyle?.fontWeight, FontWeight.w400);
+    expect(estimateStyle?.color, const Color(0xFF666666));
+    final estimateText = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('gem-model-estimate-top_pick_v3')),
+    );
+    final estimateSpan = estimateText.textSpan! as TextSpan;
+    final gemsSpan = estimateSpan.children!.single as TextSpan;
+    expect(gemsSpan.text, '4 gems');
+    expect(gemsSpan.style?.color, const Color(0xFFFF2442));
 
     final descriptionStyle = tester
         .widget<Text>(find.text('Balanced storytelling.'))
         .style;
-    expect(descriptionStyle?.fontSize, 10);
-    expect(descriptionStyle?.height, 14 / 10);
-    expect(descriptionStyle?.fontWeight, FontWeight.w500);
+    expect(descriptionStyle?.fontSize, 12);
+    expect(descriptionStyle?.height, 14 / 12);
+    expect(descriptionStyle?.fontWeight, FontWeight.w400);
     expect(descriptionStyle?.color, const Color(0xFF666666));
 
-    final rangeStyle = tester
-        .widget<Text>(find.text('4-320 gems (memory from 2K to 156K)'))
-        .style;
-    expect(rangeStyle?.fontSize, 9);
-    expect(rangeStyle?.height, 12 / 9);
-    expect(rangeStyle?.fontWeight, FontWeight.w400);
-    expect(rangeStyle?.color, const Color(0xFFAAAAAA));
+    expect(find.text('4-320 gems (memory from 2K to 156K)'), findsNothing);
 
     final hotStyle = tester.widget<Text>(find.text('Hot')).style;
     expect(hotStyle?.fontSize, 10);
@@ -139,8 +145,6 @@ void main() {
       tester.getCenter(find.text('Top Pick V3')).dy,
       closeTo(tester.getCenter(find.text('Hot')).dy, 0.5),
     );
-    final estimate = _estimateContainer(tester, 'top_pick_v3');
-    expect(estimate.color, const Color(0xFF444444).withValues(alpha: 0.14));
     final estimateSize = tester.getSize(
       find.byKey(const ValueKey<String>('gem-model-estimate-top_pick_v3')),
     );
@@ -148,7 +152,7 @@ void main() {
       find.byKey(const ValueKey<String>('gem-model-top_pick_v3')),
     );
     expect(estimateSize.width, lessThan(tileSize.width));
-    expect(estimateSize.height, 18);
+    expect(estimateSize.height, 12);
     expect(_tagContainer(tester, 'hot').radius, 8);
     expect(_tagContainer(tester, 'new').radius, 8);
   });
@@ -262,14 +266,6 @@ Color _tileColor(WidgetTester tester, String modelCode) {
     height: container.constraints?.maxHeight,
     radius: decoration.borderRadius?.resolve(TextDirection.ltr).topLeft.x,
   );
-}
-
-({Color? color}) _estimateContainer(WidgetTester tester, String modelCode) {
-  final container = tester.widget<Container>(
-    find.byKey(ValueKey<String>('gem-model-estimate-$modelCode')),
-  );
-  final decoration = container.decoration! as BoxDecoration;
-  return (color: decoration.color);
 }
 
 GemModelCatalog _catalog() {
