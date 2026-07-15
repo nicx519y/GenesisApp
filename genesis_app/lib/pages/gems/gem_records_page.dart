@@ -2,11 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
-import '../../components/gems/gem_assets.dart';
 import '../../components/page_header.dart';
 import '../../network/models/gem_records.dart';
 import '../../ui/components/secend_tabs.dart';
@@ -180,7 +178,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
       appBar: GenesisBackAppBar(
         pageName: 'Gem Records',
         titleStyle: const TextStyle(
-          color: Color(0xFF333333),
+          color: Color(0xFF111111),
           fontSize: 16,
           height: 22 / 16,
           fontWeight: FontWeight.w600,
@@ -190,7 +188,6 @@ class _GemRecordsPageState extends State<GemRecordsPage>
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 12),
             _GemRecordTabs(
               controller: _tabController,
               labels: _tabs.map((tab) => tab.label).toList(growable: false),
@@ -237,15 +234,11 @@ class _GemRecordsPageState extends State<GemRecordsPage>
         controller: state.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-        itemCount:
-            state.records.length +
-            (state.isLoadingMore || !state.hasMore ? 1 : 0),
+        itemCount: state.records.length + (state.isLoadingMore ? 1 : 0),
         separatorBuilder: (_, __) => const SizedBox(height: 9),
         itemBuilder: (context, itemIndex) {
           if (itemIndex >= state.records.length) {
-            return state.isLoadingMore
-                ? const _GemRecordsMoreLoading()
-                : const _GemRecordsFooter();
+            return const _GemRecordsMoreLoading();
           }
           return _GemRecordTile(record: state.records[itemIndex]);
         },
@@ -327,13 +320,11 @@ class _GemRecordTile extends StatelessWidget {
       key: ValueKey<String>('gem-record-item-${record.ledgerId}'),
       height: _recordTileHeight(detailLines.length),
       padding: EdgeInsets.only(top: 2, bottom: detailLines.length > 1 ? 9 : 20),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(width: 1, color: Color(0xFFF0F0F0))),
-      ),
       child: Row(
         children: [
           Expanded(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -341,10 +332,10 @@ class _GemRecordTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 12,
-                    height: 17 / 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF333333),
+                    fontSize: 14,
+                    height: 17 / 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111111),
                   ),
                 ),
                 const SizedBox(height: 5),
@@ -366,10 +357,10 @@ class _GemRecordTile extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               height: 20 / 14,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: isIncome
                   ? const Color(0xFFF42C47)
-                  : const Color(0xFF333333),
+                  : const Color(0xFF111111),
             ),
           ),
         ],
@@ -382,9 +373,9 @@ class _GemRecordDetailLine extends StatelessWidget {
   const _GemRecordDetailLine(this.text, {this.copyValue});
 
   static const _style = TextStyle(
-    fontSize: 10,
-    height: 14 / 10,
-    fontWeight: FontWeight.w500,
+    fontSize: 12,
+    height: 14 / 12,
+    fontWeight: FontWeight.w400,
     color: Color(0xFF999999),
   );
 
@@ -461,46 +452,6 @@ class _GemRecordsMoreLoading extends StatelessWidget {
             color: Color(0xFFFF2D4F),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _GemRecordsFooter extends StatelessWidget {
-  const _GemRecordsFooter();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: const ValueKey('gem-records-footer'),
-      height: 162,
-      margin: const EdgeInsets.only(top: 52, bottom: 20),
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SvgPicture.asset(
-            gemIconAsset,
-            key: const ValueKey('gem-records-footer-icon'),
-            width: gemLargeIconSize,
-            height: gemLargeIconSize,
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'More Gem activity will appear here after you\nearn or spend Gems.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              height: 18 / 12,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF999999),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -587,36 +538,15 @@ String _fallbackTitle(GemRecordItem record) {
   };
 }
 
-String formatGemRecordTimestamp(int epochSeconds, {DateTime? now}) {
+String formatGemRecordTimestamp(int epochSeconds) {
   if (epochSeconds <= 0) return '';
   final time = DateTime.fromMillisecondsSinceEpoch(
     epochSeconds * 1000,
     isUtc: true,
   ).toLocal();
-  final localNow = (now ?? DateTime.now()).toLocal();
-  final date = DateTime(time.year, time.month, time.day);
-  final today = DateTime(localNow.year, localNow.month, localNow.day);
-  final dayDifference = today.difference(date).inDays;
-  final clock = '${_twoDigits(time.hour)}:${_twoDigits(time.minute)}';
-  if (dayDifference == 0) return 'Today $clock';
-  if (dayDifference == 1) return 'Yesterday $clock';
-  return '${_recordMonthNames[time.month - 1]} ${time.day}, ${time.year}';
+  return '${time.year}-${_twoDigits(time.month)}-${_twoDigits(time.day)} '
+      '${_twoDigits(time.hour)}:${_twoDigits(time.minute)}';
 }
-
-const List<String> _recordMonthNames = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 
 String _twoDigits(int value) => value.toString().padLeft(2, '0');
 

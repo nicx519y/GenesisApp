@@ -5,39 +5,14 @@ import 'package:genesis_flutter_android/network/models/gem_records.dart';
 import 'package:genesis_flutter_android/pages/gems/gem_records_page.dart';
 
 void main() {
-  test('formats today record time', () {
+  test('formats record time with the full date and time', () {
     expect(
-      formatGemRecordTimestamp(
-        _epochSeconds(DateTime(2026, 6, 30, 9, 2)),
-        now: DateTime(2026, 6, 30, 18),
-      ),
-      'Today 09:02',
+      formatGemRecordTimestamp(_epochSeconds(DateTime(2026, 6, 3, 9, 2))),
+      '2026-06-03 09:02',
     );
   });
 
-  test('formats yesterday record time', () {
-    expect(
-      formatGemRecordTimestamp(
-        _epochSeconds(DateTime(2026, 6, 29, 19, 20)),
-        now: DateTime(2026, 6, 30, 8),
-      ),
-      'Yesterday 19:20',
-    );
-  });
-
-  test('formats older record date', () {
-    expect(
-      formatGemRecordTimestamp(
-        _epochSeconds(DateTime(2026, 6, 30, 9, 2)),
-        now: DateTime(2026, 7, 2),
-      ),
-      'Jun 30, 2026',
-    );
-  });
-
-  testWidgets('shows only the footer gem icon after the last page', (
-    tester,
-  ) async {
+  testWidgets('ends the list directly after the last record', (tester) async {
     var clipboardText = '';
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(SystemChannels.platform, (call) async {
@@ -95,20 +70,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('gem-records-footer')), findsOneWidget);
-    expect(
-      find.text(
-        'More Gem activity will appear here after you\nearn or spend Gems.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('gem-records-footer')), findsNothing);
     expect(find.byKey(const ValueKey('gem-record-primary-icon')), findsNothing);
     expect(find.byKey(const ValueKey('gem-record-amount-icon')), findsNothing);
     expect(find.textContaining('Expires'), findsNothing);
     expect(
       tester.getTopLeft(find.text('Daily check-in')).dy -
           tester.getBottomLeft(find.byType(TabBar)).dy,
-      closeTo(14, 0.1),
+      closeTo(21, 0.1),
     );
     expect(
       tester.getTopLeft(find.text('Daily check-in')).dy -
@@ -117,12 +86,15 @@ void main() {
                 find.byKey(const ValueKey<String>('gem-record-item-ledger-1')),
               )
               .dy,
-      closeTo(2, 0.1),
+      closeTo(9, 0.1),
     );
+    final textBlockCenter =
+        (tester.getTopLeft(find.text('Daily check-in')).dy +
+            tester.getBottomLeft(find.text('ID: ledger-1')).dy) /
+        2;
     expect(
-      tester.getTopLeft(find.text('+50')).dy -
-          tester.getTopLeft(find.text('Daily check-in')).dy,
-      closeTo(30.5, 0.1),
+      tester.getCenter(find.text('+50')).dy,
+      closeTo(textBlockCenter, 0.1),
     );
     expect(
       tester.getTopLeft(find.text('Message')).dy -
@@ -152,10 +124,6 @@ void main() {
           )
           .height,
       closeTo(93, 0.1),
-    );
-    expect(
-      tester.getSize(find.byKey(const ValueKey('gem-records-footer-icon'))),
-      const Size.square(24),
     );
   });
 

@@ -259,17 +259,15 @@ void main() {
     expect(recordsTitle.style?.fontSize, 16);
     expect(recordsTitle.style?.height, 22 / 16);
     expect(recordsTitle.style?.fontWeight, FontWeight.w600);
-    expect(recordsTitle.style?.color, const Color(0xFF333333));
+    expect(recordsTitle.style?.color, const Color(0xFF111111));
     expect(
       tester.getTopLeft(find.byType(TabBar)).dy -
           tester.getRect(find.text('Gem Records')).bottom,
-      closeTo(26, 0.1),
+      closeTo(14, 0.1),
     );
     expect(find.text('Daily check-in'), findsOneWidget);
-    expect(
-      find.text('${formatGemRecordTimestamp(1783586400)} · Starter reward'),
-      findsOneWidget,
-    );
+    expect(find.text('Starter reward'), findsOneWidget);
+    expect(find.text(formatGemRecordTimestamp(1783586400)), findsOneWidget);
     expect(requestedScenes, contains('all'));
 
     final tabs = tester.widget<TabBar>(find.byType(TabBar));
@@ -285,24 +283,23 @@ void main() {
     final recordTitleStyle = tester
         .widget<Text>(find.text('Daily check-in'))
         .style;
-    expect(recordTitleStyle?.fontSize, 12);
-    expect(recordTitleStyle?.height, 17 / 12);
-    expect(recordTitleStyle?.fontWeight, FontWeight.w700);
+    expect(recordTitleStyle?.fontSize, 14);
+    expect(recordTitleStyle?.height, 17 / 14);
+    expect(recordTitleStyle?.fontWeight, FontWeight.w600);
+    expect(recordTitleStyle?.color, const Color(0xFF111111));
 
     final recordSubtitleStyle = tester
-        .widget<Text>(
-          find.text('${formatGemRecordTimestamp(1783586400)} · Starter reward'),
-        )
+        .widget<Text>(find.text('Starter reward'))
         .style;
-    expect(recordSubtitleStyle?.fontSize, 10);
-    expect(recordSubtitleStyle?.height, 14 / 10);
-    expect(recordSubtitleStyle?.fontWeight, FontWeight.w500);
+    expect(recordSubtitleStyle?.fontSize, 12);
+    expect(recordSubtitleStyle?.height, 14 / 12);
+    expect(recordSubtitleStyle?.fontWeight, FontWeight.w400);
     expect(recordSubtitleStyle?.color, const Color(0xFF999999));
 
     final amountStyle = tester.widget<Text>(find.text('+50')).style;
     expect(amountStyle?.fontSize, 14);
     expect(amountStyle?.height, 20 / 14);
-    expect(amountStyle?.fontWeight, FontWeight.w700);
+    expect(amountStyle?.fontWeight, FontWeight.w600);
     expect(amountStyle?.color, const Color(0xFFF42C47));
 
     await tester.drag(find.byType(TabBarView), const Offset(-420, 0));
