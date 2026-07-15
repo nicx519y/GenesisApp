@@ -1,6 +1,6 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
@@ -34,14 +34,13 @@ class GenesisStaticNetworkImage extends StatefulWidget {
 }
 
 class _GenesisStaticNetworkImageState extends State<GenesisStaticNetworkImage> {
-  ui.Image? _image;
-  Object? _error;
-  int _loadToken = 0;
+  late GenesisStaticNetworkImageProvider _provider;
+  bool _didNotifyLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _provider = _createProvider();
   }
 
   @override
@@ -49,88 +48,113 @@ class _GenesisStaticNetworkImageState extends State<GenesisStaticNetworkImage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.imageUrl != widget.imageUrl ||
         oldWidget.cacheManager != widget.cacheManager) {
-      _disposeImage();
-      _error = null;
-      _load();
+      _provider = _createProvider();
+      _didNotifyLoaded = false;
     }
+  }
+
+  GenesisStaticNetworkImageProvider _createProvider() {
+    return GenesisStaticNetworkImageProvider(
+      imageUrl: widget.imageUrl.trim(),
+      cacheManager: widget.cacheManager,
+    );
+  }
+
+  void _notifyLoaded() {
+    if (_didNotifyLoaded) return;
+    _didNotifyLoaded = true;
+    widget.onImageLoaded?.call();
   }
 
   @override
-  void dispose() {
-    _loadToken += 1;
-    _disposeImage();
-    super.dispose();
+  Widget build(BuildContext context) {
+    return Image(
+      image: _provider,
+      width: widget.width,
+      height: widget.height,
+      fit: widget.fit,
+      alignment: widget.alignment,
+      gaplessPlayback: true,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) {
+          _notifyLoaded();
+          return child;
+        }
+        return widget.placeholder?.call(context) ??
+            SizedBox(width: widget.width, height: widget.height);
+      },
+      errorBuilder: (context, error, stackTrace) {
+        return widget.errorWidget?.call(context, error) ??
+            SizedBox(width: widget.width, height: widget.height);
+      },
+    );
+  }
+}
+
+@immutable
+class GenesisStaticNetworkImageProvider
+    extends ImageProvider<GenesisStaticNetworkImageProvider> {
+  GenesisStaticNetworkImageProvider({
+    required String imageUrl,
+    BaseCacheManager? cacheManager,
+  }) : imageUrl = imageUrl.trim(),
+       cacheManager = cacheManager ?? DefaultCacheManager();
+
+  final String imageUrl;
+  final BaseCacheManager cacheManager;
+
+  @override
+  Future<GenesisStaticNetworkImageProvider> obtainKey(
+    ImageConfiguration configuration,
+  ) {
+    return SynchronousFuture<GenesisStaticNetworkImageProvider>(this);
   }
 
-  Future<void> _load() async {
-    final url = widget.imageUrl.trim();
-    final token = ++_loadToken;
-    if (url.isEmpty) {
-      setState(() {
-        _error = StateError('Image URL is empty');
-      });
-      return;
-    }
-
-    try {
-      final manager = widget.cacheManager ?? DefaultCacheManager();
-      final file = await manager.getSingleFile(url);
-      final bytes = await file.readAsBytes();
-      final image = await _firstFrame(bytes);
-      if (!mounted || token != _loadToken) {
-        image.dispose();
-        return;
-      }
-      _disposeImage();
-      setState(() {
-        _image = image;
-        _error = null;
-      });
-      widget.onImageLoaded?.call();
-    } catch (error) {
-      if (!mounted || token != _loadToken) return;
-      _disposeImage();
-      setState(() {
-        _error = error;
-      });
-    }
+  @override
+  ImageStreamCompleter loadImage(
+    GenesisStaticNetworkImageProvider key,
+    ImageDecoderCallback decode,
+  ) {
+    return OneFrameImageStreamCompleter(
+      _loadFirstFrame(key, decode),
+      informationCollector: () => <DiagnosticsNode>[
+        DiagnosticsProperty<String>('Image URL', key.imageUrl),
+      ],
+    );
   }
 
-  Future<ui.Image> _firstFrame(Uint8List bytes) async {
-    final codec = await ui.instantiateImageCodec(bytes);
+  Future<ImageInfo> _loadFirstFrame(
+    GenesisStaticNetworkImageProvider key,
+    ImageDecoderCallback decode,
+  ) async {
+    if (key.imageUrl.isEmpty) {
+      throw StateError('Image URL is empty');
+    }
+    final file = await key.cacheManager.getSingleFile(key.imageUrl);
+    final buffer = await ui.ImmutableBuffer.fromUint8List(
+      await file.readAsBytes(),
+    );
+    final codec = await decode(buffer);
     try {
       final frame = await codec.getNextFrame();
-      return frame.image;
+      return ImageInfo(image: frame.image, scale: 1);
     } finally {
       codec.dispose();
     }
   }
 
-  void _disposeImage() {
-    _image?.dispose();
-    _image = null;
+  @override
+  bool operator ==(Object other) {
+    return other is GenesisStaticNetworkImageProvider &&
+        other.imageUrl == imageUrl &&
+        identical(other.cacheManager, cacheManager);
   }
 
   @override
-  Widget build(BuildContext context) {
-    final image = _image;
-    if (image != null) {
-      return RawImage(
-        image: image,
-        width: widget.width,
-        height: widget.height,
-        fit: widget.fit,
-        alignment: widget.alignment,
-      );
-    }
+  int get hashCode => Object.hash(imageUrl, identityHashCode(cacheManager));
 
-    final error = _error;
-    if (error != null) {
-      return widget.errorWidget?.call(context, error) ??
-          SizedBox(width: widget.width, height: widget.height);
-    }
-
-    return widget.placeholder?.call(context) ??
-        SizedBox(width: widget.width, height: widget.height);
-  }
+  @override
+  String toString() =>
+      '${objectRuntimeType(this, 'GenesisStaticNetworkImageProvider')}'
+      '("$imageUrl")';
 }

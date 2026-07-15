@@ -15,6 +15,7 @@ import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_unread_badge.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/genesis_image_resource.dart';
 import 'message_category_list_page.dart';
 
 class MessagesPage extends StatefulWidget {
@@ -142,12 +143,18 @@ class _MessagesPageState extends State<MessagesPage> {
       return;
     }
     if (!mounted) return;
+    final peerAvatar = selectGenesisImageUrl(
+      item.avatarUrl,
+      logicalWidth: _ConversationTile._avatarSize,
+      logicalHeight: _ConversationTile._avatarSize,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+    );
     await Navigator.of(context).pushNamed(
       RouteNames.chat,
       arguments: {
         'peer_uid': peerUid,
         'peer_name': item.peerName,
-        'peer_avatar': item.avatarUrl,
+        'peer_avatar': peerAvatar,
         'conv_id': item.conversationId,
       },
     );
@@ -465,8 +472,8 @@ class _ConversationTile extends StatelessWidget {
                             textAlign: TextAlign.right,
                             style: const TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF9CA0A8),
-                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF888888),
+                              fontWeight: FontWeight.w400,
                             ),
                           ),
                         ),
@@ -482,7 +489,7 @@ class _ConversationTile extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w400,
-                          color: Color(0xFF888888),
+                          color: Color(0xFF666666),
                         ),
                       ),
                     ),

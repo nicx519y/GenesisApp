@@ -2457,11 +2457,12 @@ void main() {
       find.text('First direct message preview'),
     );
     expect(lastMessage.style?.fontWeight, FontWeight.w400);
-    expect(lastMessage.style?.color, const Color(0xFF888888));
-    expect(
+    expect(lastMessage.style?.color, const Color(0xFF666666));
+    final timestamp = tester.widget<Text>(
       find.text(formatGenesisTimestamp(transport.lastMessageAt)),
-      findsOneWidget,
     );
+    expect(timestamp.style?.fontWeight, FontWeight.w400);
+    expect(timestamp.style?.color, const Color(0xFF888888));
     final dmAvatar = find.byKey(const ValueKey('dm-avatar-dm_test_001'));
     final dmName = find.text('Penny Direct');
     expect(dmAvatar, findsOneWidget);
@@ -11041,7 +11042,7 @@ void main() {
           'created_at': _unixTimestamp(baseTime.add(Duration(minutes: index))),
         };
       });
-      final transport = _RecordingDmChatTransport(messages: messages);
+      final transport = _RecordingDmChatTransport(messages: const []);
       final sessionStore = MemoryUserSessionStore();
       await sessionStore.saveUid('u_mock');
       final api = GenesisApi(
@@ -11052,10 +11053,16 @@ void main() {
         sessionStore: sessionStore,
         identityAuthService: const _FakeIdentityAuthService(),
       );
+      final storage = MemoryDirectMessageMessageStorage();
+      await storage.mergeMessages(
+        ownerUid: 'u_mock',
+        peerUid: 'u_peer_dm',
+        messages: messages,
+      );
       final store = DirectMessageMessageStore(
         api: api,
         sessionStore: sessionStore,
-        storage: MemoryDirectMessageMessageStorage(),
+        storage: storage,
       );
 
       await tester.pumpWidget(
@@ -11073,8 +11080,24 @@ void main() {
           ),
         ),
       );
-      await tester.pumpAndSettle();
-      await _jumpChatListToBottom(tester);
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(ListView), findsOneWidget);
+
+      final scrollableFinder = find
+          .descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final initialPosition = tester
+          .state<ScrollableState>(scrollableFinder)
+          .position;
+      expect(initialPosition.maxScrollExtent, greaterThan(0));
+      expect(
+        initialPosition.pixels,
+        closeTo(initialPosition.maxScrollExtent, 1),
+      );
 
       await tester.tap(find.byType(TextField));
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);

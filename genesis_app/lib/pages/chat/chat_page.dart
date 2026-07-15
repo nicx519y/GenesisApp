@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
@@ -50,6 +51,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   Timer? _draftSaveTimer;
   late DirectMessageMessageStore _messageStore;
   bool _loadedLocalMessages = false;
+  bool _didRevealInitialMessages = false;
+  bool _initialMessageRevealScheduled = false;
   bool _syncing = false;
   bool _sending = false;
   bool _loadingOlder = false;
@@ -96,6 +99,8 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       _readMarkedIncomingMessageIds.clear();
       _unseenIncomingCount = 0;
       _loadedLocalMessages = false;
+      _didRevealInitialMessages = false;
+      _initialMessageRevealScheduled = false;
       _syncing = false;
       _sending = false;
       _loadingOlder = false;
@@ -158,15 +163,22 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
       if (!mounted) return;
       final hasCachedMessages =
           _messageStore.orderedMessageIds.value.isNotEmpty;
-      if (hasCachedMessages) setState(() => _loadedLocalMessages = true);
+      if (hasCachedMessages) {
+        setState(() => _loadedLocalMessages = true);
+        _scheduleInitialMessageReveal();
+      }
       await _syncLatest();
       if (!hasCachedMessages && mounted) {
         setState(() => _loadedLocalMessages = true);
       }
+      _scheduleInitialMessageReveal();
     } catch (error, stackTrace) {
       debugPrint('[ChatPage][DM] bootstrap failed: $error');
       debugPrint('[ChatPage][DM] stacktrace:\n$stackTrace');
-      if (mounted) setState(() => _loadedLocalMessages = true);
+      if (mounted) {
+        setState(() => _loadedLocalMessages = true);
+        _scheduleInitialMessageReveal();
+      }
     }
   }
 
@@ -266,11 +278,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (!_scrollController.hasClients || _loadingOlder || _peerUid.isEmpty) {
       return;
     }
+    if (!_didRevealInitialMessages) return;
     if (_unseenIncomingCount > 0 && _isNearBottom()) {
       _clearUnseenIncomingCount();
     }
     final position = _scrollController.position;
     if (position.pixels > 120) return;
+    if (position.userScrollDirection != ScrollDirection.forward) return;
     if (!_messageStore.hasMoreOlder) return;
     unawaited(_loadOlder());
   }
@@ -439,6 +453,27 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
       );
+    });
+  }
+
+  void _scheduleInitialMessageReveal({int remainingAttempts = 4}) {
+    if (_didRevealInitialMessages || _initialMessageRevealScheduled) return;
+    _initialMessageRevealScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initialMessageRevealScheduled = false;
+      if (!mounted || _didRevealInitialMessages) return;
+      if (!_scrollController.hasClients) {
+        if (remainingAttempts > 0) {
+          _scheduleInitialMessageReveal(
+            remainingAttempts: remainingAttempts - 1,
+          );
+        } else {
+          _didRevealInitialMessages = true;
+        }
+        return;
+      }
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      _didRevealInitialMessages = true;
     });
   }
 
