@@ -654,7 +654,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
   }
 
   Widget _buildMessages() {
-    const style = ChatUiStyleConfig.standard;
+    final style = kPrivateChatStyle;
     final listPadding = _messageListPadding(style);
     return ValueListenableBuilder<List<String>>(
       valueListenable: _messageStore.orderedMessageIds,
@@ -704,6 +704,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         child: ChatMessageRow(
           key: ValueKey(messageId),
           message: _messageVm(failedRecord),
+          style: kPrivateChatStyle,
           onAvatarTap: _avatarTapFor(failedRecord),
           showDateDivider: shouldShowChatDateDivider(
             previous?.createdAt,
@@ -725,6 +726,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           messageId: messageId,
           child: ChatMessageRow(
             message: _messageVm(record),
+            style: kPrivateChatStyle,
             onAvatarTap: _avatarTapFor(record),
             showDateDivider: shouldShowChatDateDivider(
               previous?.createdAt,

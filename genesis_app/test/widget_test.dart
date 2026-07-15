@@ -2453,6 +2453,11 @@ void main() {
 
     expect(find.text('Penny Direct'), findsOneWidget);
     expect(find.text('First direct message preview'), findsOneWidget);
+    final lastMessage = tester.widget<Text>(
+      find.text('First direct message preview'),
+    );
+    expect(lastMessage.style?.fontWeight, FontWeight.w400);
+    expect(lastMessage.style?.color, const Color(0xFF888888));
     expect(
       find.text(formatGenesisTimestamp(transport.lastMessageAt)),
       findsOneWidget,
@@ -2461,7 +2466,7 @@ void main() {
     final dmName = find.text('Penny Direct');
     expect(dmAvatar, findsOneWidget);
     expect(tester.getSize(dmAvatar), const Size(48, 48));
-    expect(tester.widget<GenesisAvatar>(dmAvatar).borderRadius, 5);
+    expect(tester.widget<GenesisAvatar>(dmAvatar).borderRadius, 8);
     expect(tester.getTopLeft(dmAvatar).dy, tester.getTopLeft(dmName).dy);
     expect(
       find.descendant(
@@ -10532,6 +10537,14 @@ void main() {
     await tester.pump();
 
     expect(find.text('Cached direct chat'), findsOneWidget);
+    expect(find.text('Penny Direct'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(ChatMessageRow),
+        matching: find.text('Penny Direct'),
+      ),
+      findsNothing,
+    );
     expect(find.text('Direct message'), findsNothing);
     expect(find.byIcon(Icons.location_on), findsNothing);
     expect(find.byIcon(Icons.more_horiz), findsNothing);

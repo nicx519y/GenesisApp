@@ -526,6 +526,7 @@ class ChatUiStyleConfig {
     EdgeInsets? messageListPadding,
     double? avatarSideSpacerWidth,
     TextStyle? senderNameTextStyle,
+    bool? showSenderNameAboveOtherBubble,
     EdgeInsets? systemMessageMargin,
     bool? showComposerSendButton,
   }) {
@@ -606,7 +607,8 @@ class ChatUiStyleConfig {
       statusTextTopGap: statusTextTopGap,
       statusTextStyle: statusTextStyle,
       senderNameTextStyle: senderNameTextStyle ?? this.senderNameTextStyle,
-      showSenderNameAboveOtherBubble: showSenderNameAboveOtherBubble,
+      showSenderNameAboveOtherBubble:
+          showSenderNameAboveOtherBubble ?? this.showSenderNameAboveOtherBubble,
       bubblePadding: bubblePadding,
       bubbleBorderRadius: bubbleBorderRadius,
       selfBubbleColor: selfBubbleColor,

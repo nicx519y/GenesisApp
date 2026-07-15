@@ -551,7 +551,9 @@ void main() {
     expect(subtitleIconRect.left, closeTo(titleIconRect.left, 1));
   });
 
-  testWidgets('chat peer name uses dark text', (WidgetTester tester) async {
+  testWidgets('private chat style hides peer name', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -571,8 +573,8 @@ void main() {
       ),
     );
 
-    final name = tester.widget<Text>(find.text('Peer Name'));
-    expect(name.style?.color, const Color(0xFF111111));
+    expect(find.text('Peer Name'), findsNothing);
+    expect(find.text('hello'), findsOneWidget);
   });
 
   testWidgets('chat row sanitizes malformed UTF-16 text before layout', (

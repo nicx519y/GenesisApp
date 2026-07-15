@@ -45,6 +45,7 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
   senderNameTextStyle: ChatUiStyleConfig.standard.senderNameTextStyle.copyWith(
     color: const Color(0xFF111111),
   ),
+  showSenderNameAboveOtherBubble: false,
 );
 
 const double _locationChatOuterPadding = 10;

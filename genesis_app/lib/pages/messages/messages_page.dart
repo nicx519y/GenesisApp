@@ -481,8 +481,8 @@ class _ConversationTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF80848D),
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xFF888888),
                         ),
                       ),
                     ),
