@@ -55,7 +55,7 @@ void main() {
     expect(find.text('430'), findsOneWidget);
     expect(find.text('+550'), findsOneWidget);
     expect(find.text('500'), findsOneWidget);
-    expect(find.text(r'$1.49'), findsOneWidget);
+    expect(find.text('USD1.49'), findsOneWidget);
     expect(find.text('Starter'), findsOneWidget);
     expect(find.text('Create your first worldo'), findsOneWidget);
 

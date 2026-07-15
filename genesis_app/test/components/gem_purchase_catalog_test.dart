@@ -4,7 +4,7 @@ import 'package:genesis_flutter_android/components/gems/gem_purchase_catalog.dar
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 
 void main() {
-  testWidgets('new user product card uses its activity label and color', (
+  testWidgets('new user product card uses backend activity label and color', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -14,7 +14,12 @@ void main() {
             width: 105,
             height: 142,
             child: GemProductCard(
-              product: _product(priceCurrencyCode: 'HKD'),
+              product: _product(
+                activityType: 'Backend New User',
+                activityText: 'Backend New User',
+                activityColor: '#123456',
+                priceCurrencyCode: 'HKD',
+              ),
               isBuying: false,
               isPurchaseInProgress: false,
               onPurchase: () {},
@@ -24,23 +29,26 @@ void main() {
       ),
     );
 
-    expect(find.text('New User'), findsOneWidget);
+    expect(find.text('Backend New User'), findsOneWidget);
     expect(find.text('HKD1.49'), findsOneWidget);
     expect(find.text('+550'), findsOneWidget);
     expect(find.text('500'), findsOneWidget);
 
-    final tagStyle = tester.widget<Text>(find.text('New User')).style;
+    final tagStyle = tester.widget<Text>(find.text('Backend New User')).style;
     expect(tagStyle?.fontSize, 10);
     expect(tagStyle?.height, 14 / 10);
     expect(tagStyle?.fontWeight, FontWeight.w400);
     final tagContainer = tester.widget<Container>(
       find
-          .ancestor(of: find.text('New User'), matching: find.byType(Container))
+          .ancestor(
+            of: find.text('Backend New User'),
+            matching: find.byType(Container),
+          )
           .first,
     );
     expect(
       (tagContainer.decoration as BoxDecoration).color,
-      const Color(0xFFE85C39),
+      const Color(0xFF123456),
     );
 
     final amountStyle = tester.widget<Text>(find.text('+550')).style;
@@ -105,9 +113,7 @@ void main() {
     );
   });
 
-  testWidgets('other products use the first top-up activity label', (
-    tester,
-  ) async {
+  testWidgets('other products use backend activity label', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -115,7 +121,12 @@ void main() {
             width: 105,
             height: 142,
             child: GemProductCard(
-              product: _product(productId: 'gem_pack_1100'),
+              product: _product(
+                productId: 'gem_pack_1100',
+                activityType: 'Backend Top-up',
+                activityText: 'Backend Top-up',
+                activityColor: '#654321',
+              ),
               isBuying: false,
               isPurchaseInProgress: false,
               onPurchase: () {},
@@ -125,18 +136,18 @@ void main() {
       ),
     );
 
-    expect(find.text('First Top-up'), findsOneWidget);
+    expect(find.text('Backend Top-up'), findsOneWidget);
     final tagContainer = tester.widget<Container>(
       find
           .ancestor(
-            of: find.text('First Top-up'),
+            of: find.text('Backend Top-up'),
             matching: find.byType(Container),
           )
           .first,
     );
     expect(
       (tagContainer.decoration as BoxDecoration).color,
-      const Color(0xFFB53B52),
+      const Color(0xFF654321),
     );
   });
 
@@ -175,6 +186,8 @@ void main() {
 GemProduct _product({
   String productId = 'gem_pack_500',
   String activityType = 'none',
+  String activityText = 'none',
+  String activityColor = '',
   String priceCurrencyCode = 'USD',
   bool canPurchase = true,
 }) {
@@ -188,5 +201,7 @@ GemProduct _product({
     priceAmount: 149,
     canPurchase: canPurchase,
     activityType: activityType,
+    activityText: activityText,
+    activityColor: activityColor,
   );
 }

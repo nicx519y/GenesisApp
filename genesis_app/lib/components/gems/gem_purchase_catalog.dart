@@ -131,10 +131,14 @@ class GemProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isNewUserProduct = product.productId.trim() == 'gem_pack_500';
-    final tag = isNewUserProduct ? 'New User' : 'First Top-up';
-    final tagColor = isNewUserProduct
+    final tag = product.tagText;
+    final defaultTagColor = isNewUserProduct
         ? const Color(0xFFE85C39)
         : const Color(0xFFB53B52);
+    final tagColor = _parseActivityColor(
+      product.activityColor,
+      fallback: defaultTagColor,
+    );
     const tagTextStyle = TextStyle(
       fontSize: 10,
       height: 14 / 10,
@@ -333,6 +337,14 @@ String formatGemPrice(int cents, String currencyCode) {
   if (text.endsWith('0')) text = text.substring(0, text.length - 1);
   if (text.endsWith('.0')) text = text.substring(0, text.length - 2);
   final cleanCurrencyCode = currencyCode.trim().toUpperCase();
-  final currencyLabel = cleanCurrencyCode == 'USD' ? r'$' : cleanCurrencyCode;
-  return '$currencyLabel$text';
+  return '$cleanCurrencyCode$text';
+}
+
+Color _parseActivityColor(String value, {required Color fallback}) {
+  final normalized = value.trim().replaceFirst('#', '');
+  if (normalized.length != 6 && normalized.length != 8) return fallback;
+  final parsed = int.tryParse(normalized, radix: 16);
+  if (parsed == null) return fallback;
+  if (normalized.length == 6) return Color(0xFF000000 | parsed);
+  return Color(parsed);
 }

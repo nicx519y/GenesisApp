@@ -274,7 +274,7 @@ void main() {
         statusCode: 200,
         headers: const {'content-type': 'application/json'},
         body: request.uri.path.endsWith('/products')
-            ? '{"err_no":0,"err_msg":"succ","data":{"list":[{"product_id":"gem_pack_500","apple_product_id":"com.worldo.gems.500","google_product_id":"worldo_gems_500","base_gems":500,"bonus_gems":50,"price_currency_code":"USD","price_amount":149,"can_purchase":true,"activity_type":"first_purchase_bonus","activity_ext":{"google_purchase_option_id":"500-gems-new","google_offer_id":"500-gems-new-discount"}}]}}'
+            ? '{"err_no":0,"err_msg":"succ","data":{"list":[{"product_id":"gem_pack_500","apple_product_id":"com.worldo.gems.500","google_product_id":"worldo_gems_500","base_gems":500,"bonus_gems":50,"price_currency_code":"USD","price_amount":149,"can_purchase":true,"activity_type":"first_purchase_bonus","activity_text":"First Top-up","activity_color":"#E85C39","activity_ext":{"google_purchase_option_id":"500-gems-new","google_offer_id":"500-gems-new-discount"}}]}}'
             : '{"err_no":0,"err_msg":"succ","data":{"list":[{"group_code":"daily","group_title":"Daily","tasks":[{"task_code":"send_message","title":"Send a message (0/3)","description":"Send messages in a location chat today.","reward_gems":50,"reward_valid_days":30,"cycle_type":"daily","cycle_key":"today","progress":0,"target_count":3,"progress_text":"0/3","status":"in_progress","action_text":"Go"}]}]}}',
       ),
     );
@@ -300,7 +300,9 @@ void main() {
     expect(products.products.single.googlePurchaseOptionId, '500-gems-new');
     expect(products.products.single.googleOfferId, '500-gems-new-discount');
     expect(products.products.single.totalGems, 550);
-    expect(products.products.single.tagText, 'first_purchase_bonus');
+    expect(products.products.single.activityType, 'first_purchase_bonus');
+    expect(products.products.single.tagText, 'First Top-up');
+    expect(products.products.single.activityColor, '#E85C39');
     expect(tasks.groups.single.groupTitle, 'Daily');
     expect(tasks.groups.single.tasks.single.taskCode, 'send_message');
     expect(tasks.groups.single.tasks.single.cycleKey, 'today');

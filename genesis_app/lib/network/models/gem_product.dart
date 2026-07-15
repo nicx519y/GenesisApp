@@ -27,6 +27,8 @@ class GemProduct {
     required this.priceAmount,
     required this.canPurchase,
     required this.activityType,
+    this.activityText = '',
+    this.activityColor = '',
     this.billingType = 'consumable',
     this.googlePurchaseOptionId = '',
     this.googleOfferId = '',
@@ -49,6 +51,8 @@ class GemProduct {
       priceAmount: asInt(json['price_amount']),
       canPurchase: asBool(json['can_purchase'], fallback: true),
       activityType: asString(json['activity_type'], fallback: 'none'),
+      activityText: asString(json['activity_text']),
+      activityColor: asString(json['activity_color']),
       billingType: asString(
         json['billing_type'],
         fallback: 'consumable',
@@ -75,11 +79,13 @@ class GemProduct {
   final int priceAmount;
   final bool canPurchase;
   final String activityType;
+  final String activityText;
+  final String activityColor;
   final String billingType;
   final String googlePurchaseOptionId;
   final String googleOfferId;
 
   int get totalGems => baseGems + bonusGems;
 
-  String get tagText => activityType.trim();
+  String get tagText => activityText.trim();
 }
