@@ -2,6 +2,13 @@
 
 本文件是 `genesis_app/` Flutter 工程内的项目索引和编码约束。修改本目录下文件时，先按这里的接口文档、业务入口和共享组件边界定位，再做最小可验证改动。
 
+## 产品信息回答边界
+
+- 讨论实际产品逻辑、正式接口字段、线上数据、商品配置、命名规则或用户可见行为时，只依据正式业务代码、接口契约和实际运行链路。
+- 不得把 mock、fixture、测试数据、自测配置或测试辅助实现混入产品结论，也不得用它们推断正式商品档位、字段值或命名规则。
+- 只有用户明确询问测试实现、mock 或 fixture 时，才讨论这些内容，并清楚标明其测试属性。
+- 如果正式代码或接口契约不足以确认答案，直接说明尚不能确认并继续查正式来源，不用测试数据补全答案。
+
 ## 项目定位
 
 GenesisApp 是 Flutter App，入口在 `lib/main.dart`。`AppBootstrap.initialize()` 负责初始化 Flutter binding、Firebase、服务注册和 guest bind；`GenesisApp` 使用 `MaterialApp`，默认路由是 `RouteNames.home`，路由表在 `lib/routers/app_router.dart`。

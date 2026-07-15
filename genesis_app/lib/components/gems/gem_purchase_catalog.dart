@@ -21,7 +21,7 @@ class GemBalancePanel extends StatelessWidget {
     return Container(
       key: const ValueKey('gem-balance-panel'),
       width: double.infinity,
-      height: 112,
+      height: 100,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF4F6),
@@ -46,8 +46,8 @@ class GemBalancePanel extends StatelessWidget {
                   const Text(
                     'My Balance',
                     style: TextStyle(
-                      fontSize: 12,
-                      height: 18 / 12,
+                      fontSize: 14,
+                      height: 18 / 14,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF666666),
                     ),
@@ -59,9 +59,9 @@ class GemBalancePanel extends StatelessWidget {
                 formatGemInteger(balance),
                 key: balanceKey,
                 style: const TextStyle(
-                  fontSize: 34,
-                  height: 40 / 34,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 30,
+                  height: 40 / 30,
+                  fontWeight: FontWeight.w600,
                   color: Color(0xFF333333),
                   letterSpacing: 0,
                 ),
@@ -130,11 +130,15 @@ class GemProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tag = product.tagText;
+    final isNewUserProduct = product.productId.trim() == 'gem_pack_500';
+    final tag = isNewUserProduct ? 'New User' : 'First Top-up';
+    final tagColor = isNewUserProduct
+        ? const Color(0xFFE85C39)
+        : const Color(0xFFB53B52);
     const tagTextStyle = TextStyle(
-      fontSize: 8,
-      height: 10 / 8,
-      fontWeight: FontWeight.w700,
+      fontSize: 10,
+      height: 14 / 10,
+      fontWeight: FontWeight.w400,
       color: Colors.white,
     );
     final tagPainter = TextPainter(
@@ -177,7 +181,7 @@ class GemProductCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 4),
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF4B6192),
+                            color: tagColor,
                             borderRadius: BorderRadius.circular(5),
                           ),
                           child: FittedBox(
@@ -209,32 +213,35 @@ class GemProductCard extends StatelessWidget {
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        '+${formatGemInteger(product.baseGems)}',
+                        '+${formatGemInteger(product.totalGems)}',
                         maxLines: 1,
                         style: const TextStyle(
-                          fontSize: 15,
-                          height: 20 / 15,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF333333),
+                          fontSize: 14,
+                          height: 20 / 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF111111),
                         ),
                       ),
                     ),
                   ),
                   if (product.bonusGems > 0)
                     Positioned(
-                      top: 84,
+                      top: 80,
+                      bottom: 38,
                       left: 8,
                       right: 8,
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          '+${formatGemInteger(product.bonusGems)} Bonus',
+                          formatGemInteger(product.baseGems),
                           maxLines: 1,
                           style: const TextStyle(
-                            fontSize: 10,
-                            height: 14 / 10,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFFF42C47),
+                            fontSize: 12,
+                            height: 14 / 12,
+                            fontWeight: FontWeight.w400,
+                            color: Color(0xFF888888),
+                            decoration: TextDecoration.lineThrough,
+                            decorationColor: Color(0xFF888888),
                           ),
                         ),
                       ),
@@ -245,6 +252,9 @@ class GemProductCard extends StatelessWidget {
                     bottom: 10,
                     height: 24,
                     child: Container(
+                      key: ValueKey<String>(
+                        'gem-product-price-${product.productId}',
+                      ),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: const Color(0xFFF42C47),
@@ -268,8 +278,8 @@ class GemProductCard extends StatelessWidget {
                                 ),
                                 maxLines: 1,
                                 style: const TextStyle(
-                                  fontSize: 11,
-                                  height: 14 / 11,
+                                  fontSize: 12,
+                                  height: 14 / 12,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.white,
                                 ),
@@ -322,5 +332,7 @@ String formatGemPrice(int cents, String currencyCode) {
   var text = amount.toStringAsFixed(2);
   if (text.endsWith('0')) text = text.substring(0, text.length - 1);
   if (text.endsWith('.0')) text = text.substring(0, text.length - 2);
-  return '${currencyCode.trim()}$text';
+  final cleanCurrencyCode = currencyCode.trim().toUpperCase();
+  final currencyLabel = cleanCurrencyCode == 'USD' ? r'$' : cleanCurrencyCode;
+  return '$currencyLabel$text';
 }

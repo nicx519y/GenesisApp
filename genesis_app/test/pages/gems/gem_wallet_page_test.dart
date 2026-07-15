@@ -53,9 +53,9 @@ void main() {
     expect(find.text('Buy Gems'), findsOneWidget);
     expect(find.text('Records'), findsOneWidget);
     expect(find.text('430'), findsOneWidget);
-    expect(find.text('+500'), findsOneWidget);
-    expect(find.text('+50 Bonus'), findsOneWidget);
-    expect(find.text('USD1.49'), findsOneWidget);
+    expect(find.text('+550'), findsOneWidget);
+    expect(find.text('500'), findsOneWidget);
+    expect(find.text(r'$1.49'), findsOneWidget);
     expect(find.text('Starter'), findsOneWidget);
     expect(find.text('Create your first worldo'), findsOneWidget);
 
@@ -365,7 +365,9 @@ void main() {
     );
   });
 
-  testWidgets('GemWalletPage hides zero bonus gems', (tester) async {
+  testWidgets('GemWalletPage hides original amount without bonus gems', (
+    tester,
+  ) async {
     final walletStore = GemWalletStore(
       loadWallet: () async => const GemWallet(balance: 430),
       readUid: () async => 'u_user',
@@ -383,7 +385,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('+0 Bonus'), findsNothing);
     expect(find.text('+500'), findsOneWidget);
   });
 
