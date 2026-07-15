@@ -16,6 +16,10 @@ import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 
+const _wrappingTaskDescription =
+    'Create an Origin and launch a world, then continue exploring locations '
+    'and interacting with characters to move its story forward.';
+
 void main() {
   testWidgets('GemWalletPage renders split data and refreshes on resume', (
     tester,
@@ -77,29 +81,58 @@ void main() {
     expect(recordsStyle?.color, const Color(0xFF333333));
 
     final groupTitleStyle = tester.widget<Text>(find.text('Starter')).style;
-    expect(groupTitleStyle?.fontSize, 14);
-    expect(groupTitleStyle?.height, 20 / 14);
-    expect(groupTitleStyle?.fontWeight, FontWeight.w700);
+    expect(groupTitleStyle?.fontSize, 16);
+    expect(groupTitleStyle?.height, 20 / 16);
+    expect(groupTitleStyle?.fontWeight, FontWeight.w600);
+    expect(groupTitleStyle?.color, const Color(0xFF111111));
 
     final taskTitleStyle = tester
         .widget<Text>(find.text('Create your first worldo'))
         .style;
-    expect(taskTitleStyle?.fontSize, 13);
-    expect(taskTitleStyle?.height, 16 / 13);
-    expect(taskTitleStyle?.fontWeight, FontWeight.w700);
+    expect(taskTitleStyle?.fontSize, 14);
+    expect(taskTitleStyle?.height, 16 / 14);
+    expect(taskTitleStyle?.fontWeight, FontWeight.w600);
+    expect(taskTitleStyle?.color, const Color(0xFF111111));
 
     final descriptionStyle = tester
-        .widget<Text>(find.text('Create an Origin and launch a world.'))
+        .widget<Text>(find.text(_wrappingTaskDescription))
         .style;
-    expect(descriptionStyle?.fontSize, 10);
-    expect(descriptionStyle?.height, 14 / 10);
-    expect(descriptionStyle?.fontWeight, FontWeight.w500);
-    expect(descriptionStyle?.color, const Color(0xFF666666));
+    expect(descriptionStyle?.fontSize, 12);
+    expect(descriptionStyle?.height, 14 / 12);
+    expect(descriptionStyle?.fontWeight, FontWeight.w400);
+    expect(descriptionStyle?.color, const Color(0xFF888888));
+    final description = tester.widget<Text>(
+      find.text(_wrappingTaskDescription),
+    );
+    expect(description.maxLines, isNull);
+    expect(description.overflow, isNull);
+    expect(
+      tester
+          .getSize(
+            find.byKey(
+              const ValueKey<String>('gem-task-row-create_first_worldo'),
+            ),
+          )
+          .height,
+      greaterThan(62),
+    );
 
     final actionStyle = tester.widget<Text>(find.text('Go')).style;
-    expect(actionStyle?.fontSize, 11);
-    expect(actionStyle?.height, 14 / 11);
+    expect(actionStyle?.fontSize, 12);
+    expect(actionStyle?.height, 14 / 12);
     expect(actionStyle?.fontWeight, FontWeight.w600);
+    expect(
+      tester.getSize(
+        find.byKey(
+          const ValueKey<String>('gem-task-action-create_first_worldo'),
+        ),
+      ),
+      const Size(64, 24),
+    );
+    final taskRewardStyle = tester.widget<Text>(find.text('+50')).style;
+    expect(taskRewardStyle?.fontSize, 14);
+    expect(taskRewardStyle?.fontWeight, FontWeight.w600);
+    expect(taskRewardStyle?.color, const Color(0xFF111111));
     expect(
       tester.getSize(
         find.byKey(
@@ -125,19 +158,39 @@ void main() {
     expect(find.text('Follow'), findsOneWidget);
 
     final joinUsStyle = tester.widget<Text>(find.text('Join us')).style;
-    expect(joinUsStyle?.fontSize, 14);
-    expect(joinUsStyle?.height, 20 / 14);
-    expect(joinUsStyle?.fontWeight, FontWeight.w700);
+    expect(joinUsStyle?.fontSize, 16);
+    expect(joinUsStyle?.height, 20 / 16);
+    expect(joinUsStyle?.fontWeight, FontWeight.w600);
+    expect(joinUsStyle?.color, const Color(0xFF111111));
 
     final discordStyle = tester.widget<Text>(find.text('Discord')).style;
-    expect(discordStyle?.fontSize, 13);
-    expect(discordStyle?.height, 18 / 13);
-    expect(discordStyle?.fontWeight, FontWeight.w500);
+    expect(discordStyle?.fontSize, 14);
+    expect(discordStyle?.height, 16 / 14);
+    expect(discordStyle?.fontWeight, FontWeight.w600);
+    expect(discordStyle?.color, const Color(0xFF111111));
+    final joinUsRewardStyle = tester.widget<Text>(find.text('+20')).style;
+    expect(joinUsRewardStyle?.fontSize, 14);
+    expect(joinUsRewardStyle?.fontWeight, FontWeight.w600);
+    expect(joinUsRewardStyle?.color, const Color(0xFF111111));
+    expect(
+      tester.getSize(
+        find.byKey(
+          const ValueKey<String>('gem-task-reward-icon-discord_follow'),
+        ),
+      ),
+      const Size.square(14),
+    );
 
     final followStyle = tester.widget<Text>(find.text('Follow')).style;
-    expect(followStyle?.fontSize, 11);
-    expect(followStyle?.height, 14 / 11);
+    expect(followStyle?.fontSize, 12);
+    expect(followStyle?.height, 14 / 12);
     expect(followStyle?.fontWeight, FontWeight.w600);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('gem-task-action-discord_follow')),
+      ),
+      const Size(64, 24),
+    );
   });
 
   testWidgets('Records opens Gem Records and supports swipe tab switching', (
@@ -1051,7 +1104,7 @@ List<GemTaskGroup> _taskGroups() {
         GemTask(
           taskCode: 'create_first_worldo',
           title: 'Create your first worldo',
-          description: 'Create an Origin and launch a world.',
+          description: _wrappingTaskDescription,
           rewardGems: 50,
           rewardValidDays: 30,
           cycleType: 'once',

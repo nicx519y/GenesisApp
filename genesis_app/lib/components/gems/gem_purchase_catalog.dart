@@ -131,6 +131,7 @@ class GemProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isNewUserProduct = product.productId.trim() == 'gem_pack_500';
+    final isSoldOut = isNewUserProduct && !product.canPurchase;
     final tag = product.tagText;
     final defaultTagColor = isNewUserProduct
         ? const Color(0xFFE85C39)
@@ -155,15 +156,17 @@ class GemProductCard extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: enabled,
-      label: 'Buy ${product.productId}',
+      label: isSoldOut
+          ? 'Sold out ${product.productId}'
+          : 'Buy ${product.productId}',
       child: GestureDetector(
         key: ValueKey<String>('gem-product-${product.productId}'),
         behavior: HitTestBehavior.opaque,
         onTap: enabled ? onPurchase : null,
         child: Opacity(
-          opacity: product.canPurchase ? 1 : 0.45,
+          opacity: product.canPurchase || isSoldOut ? 1 : 0.45,
           child: _UnavailableProductFilter(
-            unavailable: !product.canPurchase,
+            unavailable: !product.canPurchase && !isSoldOut,
             child: Container(
               clipBehavior: Clip.none,
               decoration: BoxDecoration(
@@ -261,10 +264,12 @@ class GemProductCard extends StatelessWidget {
                       ),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF42C47),
+                        color: isSoldOut
+                            ? const Color(0xFFFF9AAA)
+                            : const Color(0xFFF42C47),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: isBuying
+                      child: isBuying && !isSoldOut
                           ? const SizedBox(
                               width: 13,
                               height: 13,
@@ -276,10 +281,12 @@ class GemProductCard extends StatelessWidget {
                           : FittedBox(
                               fit: BoxFit.scaleDown,
                               child: Text(
-                                formatGemPrice(
-                                  product.priceAmount,
-                                  product.priceCurrencyCode,
-                                ),
+                                isSoldOut
+                                    ? 'Sold Out'
+                                    : formatGemPrice(
+                                        product.priceAmount,
+                                        product.priceCurrencyCode,
+                                      ),
                                 maxLines: 1,
                                 style: const TextStyle(
                                   fontSize: 12,

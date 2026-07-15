@@ -151,7 +151,7 @@ void main() {
     );
   });
 
-  testWidgets('unavailable product is greyed out and ignores taps', (
+  testWidgets('sold out new user product keeps its card styling', (
     tester,
   ) async {
     var purchaseCalls = 0;
@@ -178,8 +178,40 @@ void main() {
     await tester.pump();
 
     expect(purchaseCalls, 0);
+    expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 1);
+    expect(find.byType(ColorFiltered), findsNothing);
+    expect(find.text('Sold Out'), findsOneWidget);
+    expect(find.text('USD1.49'), findsNothing);
+    final soldOutButton = tester.widget<Container>(
+      find.byKey(const ValueKey('gem-product-price-gem_pack_500')),
+    );
+    expect(
+      (soldOutButton.decoration as BoxDecoration).color,
+      const Color(0xFFFF9AAA),
+    );
+  });
+
+  testWidgets('other unavailable products remain greyed out', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 105,
+            height: 142,
+            child: GemProductCard(
+              product: _product(productId: 'gem_pack_1100', canPurchase: false),
+              isBuying: false,
+              isPurchaseInProgress: false,
+              onPurchase: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
     expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 0.45);
     expect(find.byType(ColorFiltered), findsOneWidget);
+    expect(find.text('Sold Out'), findsNothing);
   });
 }
 
