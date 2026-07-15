@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/components/gems/gem_balance_prompt.dart';
+import 'package:genesis_flutter_android/components/gems/gem_purchase_catalog.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
@@ -24,10 +25,19 @@ void main() {
     );
 
     expect(find.text(insufficientGemBalancePrompt), findsOneWidget);
+    final titleStyle = tester
+        .widget<Text>(find.text(insufficientGemBalancePrompt))
+        .style;
+    expect(titleStyle?.fontWeight, FontWeight.w600);
+    expect(titleStyle?.color, const Color(0xFF111111));
+    final closeButton = tester.widget<IconButton>(
+      find.byKey(const ValueKey<String>('gem-purchase-sheet-close')),
+    );
+    expect((closeButton.icon! as Icon).color, const Color(0xFF111111));
     expect(find.text('430'), findsOneWidget);
     expect(find.text('+550'), findsOneWidget);
     expect(find.text('500'), findsOneWidget);
-    expect(find.text(r'$1.49'), findsOneWidget);
+    expect(find.text(formatGemPrice(149, 'USD')), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('gem-purchase-sheet-close')),
       findsOneWidget,
@@ -35,7 +45,7 @@ void main() {
     final sheet = tester.widget<FractionallySizedBox>(
       find.byKey(const ValueKey<String>('gem-purchase-sheet-size')),
     );
-    expect(sheet.heightFactor, closeTo(2 / 3, 0.001));
+    expect(sheet.heightFactor, 0.8);
   });
 
   testWidgets('low balance uses the same purchase sheet with low copy', (

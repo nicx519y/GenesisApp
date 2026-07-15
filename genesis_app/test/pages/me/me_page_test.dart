@@ -81,12 +81,11 @@ void main() {
 
     expect(find.text('No Worldo you created yet.'), findsOneWidget);
     expect(find.text('No Worldos you created yet.'), findsNothing);
-    expect(
-      tester
-          .widget<Text>(find.byKey(const ValueKey('user-profile-gems-balance')))
-          .data,
-      '0',
+    final gemBalance = tester.widget<Text>(
+      find.byKey(const ValueKey('user-profile-gems-balance')),
     );
+    expect(gemBalance.data, '0');
+    expect(gemBalance.style?.fontWeight, FontWeight.w600);
     expect(find.text('--'), findsNothing);
     expect(
       tester.getSize(find.byKey(const ValueKey('user-profile-gem-icon'))),

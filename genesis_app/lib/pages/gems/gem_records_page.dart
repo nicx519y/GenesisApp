@@ -288,7 +288,7 @@ class _GemRecordTabs extends StatelessWidget {
       labelStyle: const TextStyle(
         fontSize: 14,
         height: 20 / 14,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
       ),
       unselectedLabelStyle: const TextStyle(
         fontSize: 14,
@@ -501,7 +501,7 @@ class _GemRecordsMessage extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 14,
                 height: 20 / 14,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 color: Color(0xFF333333),
               ),
             ),

@@ -45,7 +45,7 @@ Future<void> showGemPurchaseBottomSheet(
     barrierColor: Colors.black54,
     builder: (_) => FractionallySizedBox(
       key: const ValueKey<String>('gem-purchase-sheet-size'),
-      heightFactor: 2 / 3,
+      heightFactor: 0.8,
       alignment: Alignment.bottomCenter,
       child: GemPurchaseBottomSheet(
         alert: alert,
@@ -199,10 +199,10 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Color(0xFF333333),
+                color: Color(0xFF111111),
                 fontSize: 18,
                 height: 24 / 18,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -210,7 +210,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
             key: const ValueKey<String>('gem-purchase-sheet-close'),
             tooltip: 'Close',
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close, color: Color(0xFF333333), size: 24),
+            icon: const Icon(Icons.close, color: Color(0xFF111111), size: 24),
           ),
         ],
       ),

@@ -274,7 +274,7 @@ void main() {
     final tabs = tester.widget<TabBar>(find.byType(TabBar));
     expect(tabs.labelStyle?.fontSize, 14);
     expect(tabs.labelStyle?.height, 20 / 14);
-    expect(tabs.labelStyle?.fontWeight, FontWeight.w700);
+    expect(tabs.labelStyle?.fontWeight, FontWeight.w600);
     expect(tabs.labelColor, const Color(0xFF333333));
     expect(tabs.unselectedLabelStyle?.fontSize, 14);
     expect(tabs.unselectedLabelStyle?.height, 20 / 14);
