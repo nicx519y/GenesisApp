@@ -163,6 +163,7 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
     required this.currentUid,
     required this.locationPoints,
     required this.locationNodes,
+    required this.recentChatLocationIds,
     required this.onLocationTap,
   });
 
@@ -176,6 +177,7 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
   final String currentUid;
   final List<WorldPoint> locationPoints;
   final List<WorldMapLocationNode> locationNodes;
+  final Set<String> recentChatLocationIds;
   final ValueChanged<WorldPoint> onLocationTap;
 
   @override
@@ -467,6 +469,7 @@ class WorldSingleSectionBottomSheetState
       child: WorldLocationList(
         points: widget.locationPoints,
         locationNodes: widget.locationNodes,
+        recentChatLocationIds: widget.recentChatLocationIds,
         enableOuterScrollHandoff: false,
         padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
         onPointTap: (point) {

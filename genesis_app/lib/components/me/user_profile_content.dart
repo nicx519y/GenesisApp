@@ -41,6 +41,7 @@ class UserProfileContent extends StatefulWidget {
     this.tabLabelFontSize = 16,
     this.isBlocking = false,
     this.isBlocked = false,
+    this.recentChatWorldId = '',
   });
 
   final UserProfileData data;
@@ -64,6 +65,7 @@ class UserProfileContent extends StatefulWidget {
   final double? tabLabelFontSize;
   final bool isBlocking;
   final bool isBlocked;
+  final String recentChatWorldId;
 
   @override
   State<UserProfileContent> createState() => _UserProfileContentState();
@@ -190,6 +192,7 @@ class _UserProfileContentState extends State<UserProfileContent>
             isLoading: widget.worldsLoading,
             listenable: widget.worldsListenable,
             onRefresh: widget.onRefreshWorlds,
+            recentChatWorldId: widget.recentChatWorldId,
           ),
         ],
       ),
@@ -578,6 +581,7 @@ class _WorldProfileCollectionList extends StatelessWidget {
     required this.isLoading,
     required this.listenable,
     required this.onRefresh,
+    required this.recentChatWorldId,
   });
 
   final List<UserProfileWorldItem> items;
@@ -585,6 +589,7 @@ class _WorldProfileCollectionList extends StatelessWidget {
   final ValueListenable<UserProfileCollectionState<UserProfileWorldItem>>?
   listenable;
   final Future<void> Function()? onRefresh;
+  final String recentChatWorldId;
 
   @override
   Widget build(BuildContext context) {
@@ -614,6 +619,7 @@ class _WorldProfileCollectionList extends StatelessWidget {
               imageUrl: item.imageUrl,
               title: item.title,
               subtitle: item.subtitle,
+              showRecentChatTag: item.wid == recentChatWorldId,
               stats: [
                 GenesisProfileCollectionStat(
                   iconAsset: tickStatIconAsset,
