@@ -1,0 +1,244 @@
+{
+  "protocolVersion": 1,
+  "map": {
+    "id": "tilemap_demo_l2",
+    "width": 5,
+    "height": 5
+  },
+  "tileTypes": {
+    "L2_apartment_block__modern_v1": "assets/tilemap/map4/compose/L2_apartment_block__modern_v1.png",
+    "L2_arena_stadium__modern_v2": "assets/tilemap/map4/compose/L2_arena_stadium__modern_v2.png",
+    "L2_default__modern__urban_dense__warm_cozy_v1": "assets/tilemap/map4/compose/L2_default__modern__urban_dense__warm_cozy_v1.png",
+    "L2_default__modern__urban_dense__warm_cozy_v2": "assets/tilemap/map4/compose/L2_default__modern__urban_dense__warm_cozy_v2.png",
+    "L2_default__modern__urban_dense__warm_cozy_v3": "assets/tilemap/map4/compose/L2_default__modern__urban_dense__warm_cozy_v3.png",
+    "L2_default__modern__urban_dense__warm_cozy_v4": "assets/tilemap/map4/compose/L2_default__modern__urban_dense__warm_cozy_v4.png",
+    "L2_default__modern__urban_dense__warm_cozy_v5": "assets/tilemap/map4/compose/L2_default__modern__urban_dense__warm_cozy_v5.png",
+    "L2_default__modern__urban_dense__warm_cozy_v6": "assets/tilemap/map4/compose/L2_default__modern__urban_dense__warm_cozy_v6.png",
+    "L2_default__modern__urban_dense__warm_cozy_v7": "assets/tilemap/map4/compose/L2_default__modern__urban_dense__warm_cozy_v7.png",
+    "L2_default__modern__urban_dense__warm_cozy_v8": "assets/tilemap/map4/compose/L2_default__modern__urban_dense__warm_cozy_v8.png",
+    "L2_garden_park__modern_v3": "assets/tilemap/map4/compose/L2_garden_park__modern_v3.png",
+    "L2_garden_park__modern_v5": "assets/tilemap/map4/compose/L2_garden_park__modern_v5.png",
+    "L2_house_cottage__modern_v4": "assets/tilemap/map4/compose/L2_house_cottage__modern_v4.png",
+    "L2_restaurant_cafe__modern_v1": "assets/tilemap/map4/compose/L2_restaurant_cafe__modern_v1.png",
+    "L2_school_building__modern_v3": "assets/tilemap/map4/compose/L2_school_building__modern_v3.png",
+    "L2_shop_store__modern_v1": "assets/tilemap/map4/compose/L2_shop_store__modern_v1.png"
+  },
+  "tiles": [
+    {
+      "x": 0,
+      "y": 0,
+      "type": "L2_garden_park__modern_v3",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C",
+        "transitionToMapAsset": "lib/pages/tilemap_demo/tilemap_demo_l3.json"
+      }
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v4",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "type": "L2_garden_park__modern_v5",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C",
+        "transitionToMapAsset": "lib/pages/tilemap_demo/tilemap_demo_l3.json"
+      }
+    },
+    {
+      "x": 3,
+      "y": 0,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v5",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 4,
+      "y": 0,
+      "type": "L2_restaurant_cafe__modern_v1",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C",
+        "transitionToMapAsset": "lib/pages/tilemap_demo/tilemap_demo_l3.json"
+      }
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v7",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v6",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v7",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 3,
+      "y": 1,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v2",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 4,
+      "y": 1,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v1",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v6",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "type": "L2_school_building__modern_v3",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C",
+        "transitionToMapAsset": "lib/pages/tilemap_demo/tilemap_demo_l3.json"
+      }
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v8",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 3,
+      "y": 2,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v3",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "type": "L2_arena_stadium__modern_v2",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C",
+        "transitionToMapAsset": "lib/pages/tilemap_demo/tilemap_demo_l3.json"
+      }
+    },
+    {
+      "x": 0,
+      "y": 3,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v8",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 1,
+      "y": 3,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v3",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 2,
+      "y": 3,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v1",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 3,
+      "y": 3,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v4",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 4,
+      "y": 3,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v7",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 0,
+      "y": 4,
+      "type": "L2_apartment_block__modern_v1",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C",
+        "transitionToMapAsset": "lib/pages/tilemap_demo/tilemap_demo_l3.json"
+      }
+    },
+    {
+      "x": 1,
+      "y": 4,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v2",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 2,
+      "y": 4,
+      "type": "L2_house_cottage__modern_v4",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C",
+        "transitionToMapAsset": "lib/pages/tilemap_demo/tilemap_demo_l3.json"
+      }
+    },
+    {
+      "x": 3,
+      "y": 4,
+      "type": "L2_default__modern__urban_dense__warm_cozy_v5",
+      "interaction": {
+        "clickable": false
+      }
+    },
+    {
+      "x": 4,
+      "y": 4,
+      "type": "L2_shop_store__modern_v1",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C",
+        "transitionToMapAsset": "lib/pages/tilemap_demo/tilemap_demo_l3.json"
+      }
+    }
+  ]
+}

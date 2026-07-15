@@ -1,0 +1,115 @@
+{
+  "protocolVersion": 1,
+  "map": {
+    "id": "map_tileset_warm_cozy_L3",
+    "width": 3,
+    "height": 3,
+    "projection": "isometric",
+    "tileCanvas": [
+      1024,
+      1024
+    ],
+    "diamond": [
+      1024,
+      512
+    ],
+    "anchor": [
+      512,
+      768
+    ]
+  },
+  "tileTypes": {
+    "L3_bathroom__modern_v3": "tiles/L3_bathroom__modern_v3.png",
+    "L3_bedroom__modern_v3": "tiles/L3_bedroom__modern_v3.png",
+    "L3_classroom__modern_v4": "tiles/L3_classroom__modern_v4.png",
+    "L3_courtyard_garden__modern_v1": "tiles/L3_courtyard_garden__modern_v1.png",
+    "L3_entry_porch__modern_v2": "tiles/L3_entry_porch__modern_v2.png",
+    "L3_kitchen__modern_v1": "tiles/L3_kitchen__modern_v1.png",
+    "L3_living_room__modern_v2": "tiles/L3_living_room__modern_v2.png",
+    "L3_outdoor_spot__modern_v4": "tiles/L3_outdoor_spot__modern_v4.png",
+    "L3_shop_floor__modern_v5": "tiles/L3_shop_floor__modern_v5.png"
+  },
+  "tiles": [
+    {
+      "x": 0,
+      "y": 0,
+      "type": "L3_classroom__modern_v4",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 1,
+      "y": 0,
+      "type": "L3_kitchen__modern_v1",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 2,
+      "y": 0,
+      "type": "L3_bedroom__modern_v3",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 0,
+      "y": 1,
+      "type": "L3_bathroom__modern_v3",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 1,
+      "y": 1,
+      "type": "L3_shop_floor__modern_v5",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 2,
+      "y": 1,
+      "type": "L3_entry_porch__modern_v2",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "type": "L3_outdoor_spot__modern_v4",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 1,
+      "y": 2,
+      "type": "L3_courtyard_garden__modern_v1",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    },
+    {
+      "x": 2,
+      "y": 2,
+      "type": "L3_living_room__modern_v2",
+      "interaction": {
+        "clickable": true,
+        "highlightColor": "#FFE45C"
+      }
+    }
+  ]
+}

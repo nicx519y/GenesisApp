@@ -85,6 +85,67 @@ void main() {
     }
   });
 
+  test('bundled L1, L2, and L3 configs parse and form a level chain', () async {
+    final expectedConfigs =
+        <
+          (
+            String assetPath,
+            String id,
+            int width,
+            int height,
+            int tileCount,
+            String mapDirectory,
+            String? transitionTarget,
+          )
+        >[
+          (
+            tilemapDemoL1ConfigAsset,
+            'tilemap_demo_l1',
+            5,
+            5,
+            25,
+            'map3',
+            tilemapDemoL2ConfigAsset,
+          ),
+          (
+            tilemapDemoL2ConfigAsset,
+            'tilemap_demo_l2',
+            5,
+            5,
+            25,
+            'map4',
+            tilemapDemoL3ConfigAsset,
+          ),
+          (tilemapDemoL3ConfigAsset, 'tilemap_demo_l3', 3, 3, 9, 'map5', null),
+        ];
+
+    for (final expected in expectedConfigs) {
+      final config = await TilemapDemoConfig.loadAsset(expected.$1);
+
+      expect(config.id, expected.$2);
+      expect(config.width, expected.$3);
+      expect(config.height, expected.$4);
+      expect(config.tileCount, expected.$5);
+      expect(
+        config.tileTypes.values,
+        everyElement(startsWith('assets/tilemap/${expected.$6}/compose/')),
+      );
+      expect(
+        config.tileTypes.values,
+        everyElement(isNot(contains(RegExp(r'_\d+_\d+\.png$')))),
+      );
+      final transitions = config.tiles
+          .map((tile) => tile.interaction.transitionToMapAsset)
+          .whereType<String>();
+      if (expected.$7 == null) {
+        expect(transitions, isEmpty);
+      } else {
+        expect(transitions, isNotEmpty);
+        expect(transitions, everyElement(expected.$7));
+      }
+    }
+  });
+
   test('allows non-square sparse maps', () {
     final config = _validConfig(width: 2, height: 3);
     (config['tiles'] as List<dynamic>).removeLast();

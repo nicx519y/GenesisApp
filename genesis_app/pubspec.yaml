@@ -90,8 +90,14 @@ flutter:
     - assets/tilemap/
     - assets/tilemap/map1/compose/
     - assets/tilemap/map2/compose/
+    - assets/tilemap/map3/compose/
+    - assets/tilemap/map4/compose/
+    - assets/tilemap/map5/compose/
     - lib/pages/tilemap_demo/tilemap_demo_map.json
     - lib/pages/tilemap_demo/tilemap_demo_map2_rooms.json
+    - lib/pages/tilemap_demo/tilemap_demo_l1.json
+    - lib/pages/tilemap_demo/tilemap_demo_l2.json
+    - lib/pages/tilemap_demo/tilemap_demo_l3.json
     - assets/custom-icons/png/
     - assets/custom-icons/svg/
 

@@ -11,6 +11,12 @@ const String tilemapDemoConfigAsset =
     'lib/pages/tilemap_demo/tilemap_demo_map.json';
 const String tilemapDemoMap2RoomsConfigAsset =
     'lib/pages/tilemap_demo/tilemap_demo_map2_rooms.json';
+const String tilemapDemoL1ConfigAsset =
+    'lib/pages/tilemap_demo/tilemap_demo_l1.json';
+const String tilemapDemoL2ConfigAsset =
+    'lib/pages/tilemap_demo/tilemap_demo_l2.json';
+const String tilemapDemoL3ConfigAsset =
+    'lib/pages/tilemap_demo/tilemap_demo_l3.json';
 const double tilemapBaseTileExtent = 16;
 const double tilemapInitialScale = 8;
 const double tilemapMinScale = 4;
@@ -25,6 +31,9 @@ const List<TilemapDemoMapOption> tilemapDemoMapOptions = <TilemapDemoMapOption>[
     label: 'Map2 rooms',
     assetPath: tilemapDemoMap2RoomsConfigAsset,
   ),
+  TilemapDemoMapOption(label: 'Map L1', assetPath: tilemapDemoL1ConfigAsset),
+  TilemapDemoMapOption(label: 'Map L2', assetPath: tilemapDemoL2ConfigAsset),
+  TilemapDemoMapOption(label: 'Map L3', assetPath: tilemapDemoL3ConfigAsset),
 ];
 
 typedef TilemapDemoConfigLoader = Future<TilemapDemoConfig> Function();
