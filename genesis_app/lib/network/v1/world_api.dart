@@ -289,6 +289,25 @@ class WorldV1Api extends V1ApiResource {
     return postVoid('world/close', {'wid': wid});
   }
 
+  /// POST /api/v1/world/delete
+  ///
+  /// 提交参数:
+  /// ```json
+  /// {"world_id":"string"}
+  /// ```
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":{}}
+  /// ```
+  Future<void> deleteLaunched({required String worldId}) {
+    final resolvedWorldId = worldId.trim();
+    if (resolvedWorldId.isEmpty) {
+      throw ArgumentError.value(worldId, 'worldId', 'must not be empty');
+    }
+    return postVoid('world/delete', v1Body({'world_id': resolvedWorldId}));
+  }
+
   /// POST /api/v1/world/del
   ///
   /// 提交参数:

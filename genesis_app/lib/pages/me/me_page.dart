@@ -865,6 +865,7 @@ class _MePageState extends State<MePage> {
                   onEditDisplayName: _editNickName,
                   onRefreshOrigins: _refreshOrigins,
                   onRefreshWorlds: _refreshWorlds,
+                  onWorldDeleted: _handleWorldDeleted,
                   onCollectionTabChanged: _handleCollectionTabChanged,
                   onCollapsedChanged: _handleProfileCollapsedChanged,
                   recentChatWorldId: _recentChatWorldId,
@@ -875,6 +876,16 @@ class _MePageState extends State<MePage> {
         );
       },
     );
+  }
+
+  void _handleWorldDeleted(UserProfileWorldItem item) {
+    final worldId = item.wid.trim();
+    if (worldId.isEmpty) return;
+    final current = _worldsState.value;
+    final nextItems = current.items
+        .where((world) => world.wid.trim() != worldId)
+        .toList(growable: false);
+    _setWorldsState(nextItems, isLoading: current.isLoading);
   }
 }
 

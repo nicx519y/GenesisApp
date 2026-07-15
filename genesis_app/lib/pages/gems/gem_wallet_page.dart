@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/debug_page_tracker.dart';
@@ -24,6 +25,7 @@ typedef GemProductsLoader =
     Future<List<GemProduct>> Function(BuildContext context);
 typedef GemTasksLoader =
     Future<List<GemTaskGroup>> Function(BuildContext context);
+typedef DiscordLauncher = Future<bool> Function(Uri uri);
 
 class GemWalletPage extends StatefulWidget {
   const GemWalletPage({
@@ -34,6 +36,7 @@ class GemWalletPage extends StatefulWidget {
     this.billingService,
     this.taskReporter,
     this.taskClaimer,
+    this.discordLauncher,
   });
 
   final GemProductsLoader? productsLoader;
@@ -42,6 +45,7 @@ class GemWalletPage extends StatefulWidget {
   final BillingService? billingService;
   final GemTaskActionHandler? taskReporter;
   final GemTaskActionHandler? taskClaimer;
+  final DiscordLauncher? discordLauncher;
 
   @override
   State<GemWalletPage> createState() => _GemWalletPageState();
@@ -49,6 +53,8 @@ class GemWalletPage extends StatefulWidget {
 
 class _GemWalletPageState extends State<GemWalletPage>
     with WidgetsBindingObserver, RouteAware {
+  static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
+
   List<GemProduct>? _products;
   List<GemTaskGroup>? _taskGroups;
   Object? _productsError;
@@ -232,9 +238,40 @@ class _GemWalletPageState extends State<GemWalletPage>
         showGenesisToast(context, taskCode);
         return;
       case 'daily_checkin':
-      case 'discord_follow':
         await _reportTaskAction(taskCode);
         return;
+      case 'discord_follow':
+        await Future.wait<void>([_openDiscord(), _reportTaskAction(taskCode)]);
+        return;
+    }
+  }
+
+  Future<void> _handleJoinUsRowTap(GemTask task) async {
+    final taskCode = task.taskCode.trim();
+    final shouldReport =
+        taskCode.isNotEmpty &&
+        _taskStatus(task) == 'in_progress' &&
+        !_loadingTaskCodes.contains(taskCode);
+    if (!shouldReport) {
+      await _openDiscord();
+      return;
+    }
+    await Future.wait<void>([_openDiscord(), _reportTaskAction(taskCode)]);
+  }
+
+  Future<void> _openDiscord() async {
+    try {
+      final launcher = widget.discordLauncher;
+      final launched = launcher != null
+          ? await launcher(_discordUri)
+          : await launchUrl(_discordUri, mode: LaunchMode.externalApplication);
+      if (!launched && mounted) {
+        showGenesisToast(context, 'Could not open Discord');
+      }
+    } catch (_) {
+      if (mounted) {
+        showGenesisToast(context, 'Could not open Discord');
+      }
     }
   }
 
@@ -389,6 +426,7 @@ class _GemWalletPageState extends State<GemWalletPage>
         taskStatusFor: _taskStatus,
         isTaskLoading: _loadingTaskCodes.contains,
         onTaskTap: _handleTaskTap,
+        onJoinUsTap: _handleJoinUsRowTap,
       ),
     );
   }
@@ -410,6 +448,7 @@ class _GemWalletContent extends StatelessWidget {
     required this.taskStatusFor,
     required this.isTaskLoading,
     required this.onTaskTap,
+    required this.onJoinUsTap,
   });
 
   final List<GemProduct>? products;
@@ -426,6 +465,7 @@ class _GemWalletContent extends StatelessWidget {
   final String Function(GemTask task) taskStatusFor;
   final bool Function(String taskCode) isTaskLoading;
   final ValueChanged<GemTask> onTaskTap;
+  final ValueChanged<GemTask> onJoinUsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -471,6 +511,7 @@ class _GemWalletContent extends StatelessWidget {
                 taskStatusFor: taskStatusFor,
                 isTaskLoading: isTaskLoading,
                 onTaskTap: onTaskTap,
+                onJoinUsTap: onJoinUsTap,
               ),
               const SizedBox(height: 20),
             ],
@@ -485,12 +526,14 @@ class _TaskGroupSection extends StatelessWidget {
     required this.taskStatusFor,
     required this.isTaskLoading,
     required this.onTaskTap,
+    required this.onJoinUsTap,
   });
 
   final GemTaskGroup group;
   final String Function(GemTask task) taskStatusFor;
   final bool Function(String taskCode) isTaskLoading;
   final ValueChanged<GemTask> onTaskTap;
+  final ValueChanged<GemTask> onJoinUsTap;
 
   @override
   Widget build(BuildContext context) {
@@ -516,7 +559,8 @@ class _TaskGroupSection extends StatelessWidget {
               task: task,
               status: taskStatusFor(task),
               isLoading: isTaskLoading(task.taskCode),
-              onTap: () => onTaskTap(task),
+              onRowTap: () => onJoinUsTap(task),
+              onButtonTap: () => onTaskTap(task),
             )
           else
             _TaskRow(
@@ -537,69 +581,76 @@ class _JoinUsTaskRow extends StatelessWidget {
     required this.task,
     required this.status,
     required this.isLoading,
-    required this.onTap,
+    required this.onRowTap,
+    required this.onButtonTap,
   });
 
   final GemTask task;
   final String status;
   final bool isLoading;
-  final VoidCallback onTap;
+  final VoidCallback onRowTap;
+  final VoidCallback onButtonTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          SvgPicture.asset(
-            'assets/custom-icons/svg/discord-svgrepo-com.svg',
-            width: 22,
-            height: 22,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              task.title,
+    return GestureDetector(
+      key: ValueKey<String>('gem-join-us-row-${task.taskCode}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onRowTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            SvgPicture.asset(
+              'assets/custom-icons/svg/discord-svgrepo-com.svg',
+              width: 22,
+              height: 22,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                task.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 18 / 13,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF333333),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '+${formatGemInteger(task.rewardGems)}',
               maxLines: 1,
-              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 13,
                 height: 18 / 13,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w700,
                 color: Color(0xFF333333),
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '+${formatGemInteger(task.rewardGems)}',
-            maxLines: 1,
-            style: const TextStyle(
-              fontSize: 13,
-              height: 18 / 13,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF333333),
+            const SizedBox(width: 4),
+            SvgPicture.asset(
+              gemIconAsset,
+              key: ValueKey<String>('gem-task-reward-icon-${task.taskCode}'),
+              width: gemSmallIconSize,
+              height: gemSmallIconSize,
             ),
-          ),
-          const SizedBox(width: 4),
-          SvgPicture.asset(
-            gemIconAsset,
-            key: ValueKey<String>('gem-task-reward-icon-${task.taskCode}'),
-            width: gemSmallIconSize,
-            height: gemSmallIconSize,
-          ),
-          const SizedBox(width: 10),
-          _TaskActionButton(
-            task: task,
-            status: status,
-            isLoading: isLoading,
-            onTap: onTap,
-            width: 54,
-            height: 24,
-            borderRadius: 12,
-            textHeight: 14 / 11,
-          ),
-        ],
+            const SizedBox(width: 10),
+            _TaskActionButton(
+              task: task,
+              status: status,
+              isLoading: isLoading,
+              onTap: onButtonTap,
+              width: 54,
+              height: 24,
+              borderRadius: 12,
+              textHeight: 14 / 11,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -744,7 +795,7 @@ class _TaskActionButton extends StatelessWidget {
       child: GestureDetector(
         key: ValueKey<String>('gem-task-action-${task.taskCode}'),
         behavior: HitTestBehavior.opaque,
-        onTap: enabled ? onTap : null,
+        onTap: enabled ? onTap : () {},
         child: Container(
           width: width,
           height: height,

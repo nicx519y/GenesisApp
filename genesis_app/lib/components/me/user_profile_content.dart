@@ -8,6 +8,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/gem_wallet_store.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
+import '../../components/common/genesis_action_box.dart';
 import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../icons/custom_icon_assets.dart';
@@ -39,6 +40,7 @@ class UserProfileContent extends StatefulWidget {
     this.onEditDisplayName,
     this.onRefreshOrigins,
     this.onRefreshWorlds,
+    this.onWorldDeleted,
     this.onCollectionTabChanged,
     this.onCollapsedChanged,
     this.nameUidGap = 4,
@@ -64,6 +66,7 @@ class UserProfileContent extends StatefulWidget {
   final VoidCallback? onEditDisplayName;
   final Future<void> Function()? onRefreshOrigins;
   final Future<void> Function()? onRefreshWorlds;
+  final ValueChanged<UserProfileWorldItem>? onWorldDeleted;
   final ValueChanged<int>? onCollectionTabChanged;
   final ValueChanged<bool>? onCollapsedChanged;
   final double nameUidGap;
@@ -198,6 +201,8 @@ class _UserProfileContentState extends State<UserProfileContent>
             listenable: widget.worldsListenable,
             onRefresh: widget.onRefreshWorlds,
             recentChatWorldId: widget.recentChatWorldId,
+            canDeleteWorlds: data.isSelf,
+            onWorldDeleted: widget.onWorldDeleted,
           ),
         ],
       ),
@@ -618,6 +623,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
               imageUrl: item.imageUrl,
               title: originDisplayName(item.title),
               subtitle: item.subtitle,
+              showPressedBackground: false,
               stats: [
                 GenesisProfileCollectionStat(
                   iconAsset: copyStatIconAsset,
@@ -666,13 +672,15 @@ class _OriginProfileCollectionList extends StatelessWidget {
   }
 }
 
-class _WorldProfileCollectionList extends StatelessWidget {
+class _WorldProfileCollectionList extends StatefulWidget {
   const _WorldProfileCollectionList({
     required this.items,
     required this.isLoading,
     required this.listenable,
     required this.onRefresh,
     required this.recentChatWorldId,
+    required this.canDeleteWorlds,
+    required this.onWorldDeleted,
   });
 
   final List<UserProfileWorldItem> items;
@@ -681,12 +689,36 @@ class _WorldProfileCollectionList extends StatelessWidget {
   listenable;
   final Future<void> Function()? onRefresh;
   final String recentChatWorldId;
+  final bool canDeleteWorlds;
+  final ValueChanged<UserProfileWorldItem>? onWorldDeleted;
+
+  @override
+  State<_WorldProfileCollectionList> createState() =>
+      _WorldProfileCollectionListState();
+}
+
+class _WorldProfileCollectionListState
+    extends State<_WorldProfileCollectionList> {
+  final Set<String> _deletingWorldIds = <String>{};
+  final Set<String> _collapsingWorldIds = <String>{};
+
+  @override
+  void didUpdateWidget(covariant _WorldProfileCollectionList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final liveIds = <String>{
+      for (final item in widget.items) item.wid,
+      if (widget.listenable != null)
+        for (final item in widget.listenable!.value.items) item.wid,
+    };
+    _deletingWorldIds.removeWhere((wid) => !liveIds.contains(wid));
+    _collapsingWorldIds.removeWhere((wid) => !liveIds.contains(wid));
+  }
 
   @override
   Widget build(BuildContext context) {
-    final listenable = this.listenable;
+    final listenable = widget.listenable;
     if (listenable == null) {
-      return _buildWorldList(context, items, isLoading);
+      return _buildWorldList(context, widget.items, widget.isLoading);
     }
     return ValueListenableBuilder<
       UserProfileCollectionState<UserProfileWorldItem>
@@ -707,10 +739,14 @@ class _WorldProfileCollectionList extends StatelessWidget {
       items: items
           .map(
             (item) => GenesisProfileCollectionItemData(
+              animationKey: item.wid,
               imageUrl: item.imageUrl,
               title: item.title,
               subtitle: item.subtitle,
-              showRecentChatTag: item.wid == recentChatWorldId,
+              showRecentChatTag: item.wid == widget.recentChatWorldId,
+              isCollapsing: _collapsingWorldIds.contains(item.wid),
+              showPressedBackground: false,
+              enableFeedback: false,
               stats: [
                 GenesisProfileCollectionStat(
                   iconAsset: tickStatIconAsset,
@@ -730,7 +766,10 @@ class _WorldProfileCollectionList extends StatelessWidget {
                   value: item.playerCount,
                 ),
               ],
-              onTap: item.deleted
+              onTap:
+                  item.deleted ||
+                      _deletingWorldIds.contains(item.wid) ||
+                      _collapsingWorldIds.contains(item.wid)
                   ? null
                   : () {
                       GenesisTelemetry.collectLog(
@@ -743,15 +782,62 @@ class _WorldProfileCollectionList extends StatelessWidget {
                         arguments: {'wid': item.wid},
                       );
                     },
+              onLongPress: widget.canDeleteWorlds && !item.deleted
+                  ? () => unawaited(_confirmAndDeleteWorld(item))
+                  : null,
             ),
           )
           .toList(growable: false),
       emptyText: 'No Worlds you created yet.',
       isLoading: isLoading,
       loadingKey: const ValueKey('profile-world-list-loading'),
-      onRefresh: onRefresh,
+      onRefresh: widget.onRefresh,
       refreshKey: const ValueKey('profile-world-list-refresh'),
     );
+  }
+
+  Future<void> _confirmAndDeleteWorld(UserProfileWorldItem item) async {
+    final worldId = item.wid.trim();
+    if (worldId.isEmpty ||
+        _deletingWorldIds.contains(worldId) ||
+        _collapsingWorldIds.contains(worldId)) {
+      return;
+    }
+
+    final confirmed = await showGenesisActionBox<bool>(
+      context: context,
+      title: '',
+      titleWidget: _DeleteWorldConfirmationTitle(
+        name: item.title,
+        worldId: worldId,
+      ),
+      titleHeight: 104,
+      actions: const [
+        GenesisActionBoxAction<bool>(
+          label: 'Confirm',
+          value: true,
+          color: Color(0xFFFF2442),
+        ),
+      ],
+      cancelLabel: 'Cancel',
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deletingWorldIds.add(worldId));
+    try {
+      await AppServicesScope.read(
+        context,
+      ).api.v1.world.deleteLaunched(worldId: worldId);
+      if (!mounted) return;
+      setState(() {
+        _deletingWorldIds.remove(worldId);
+        _collapsingWorldIds.add(worldId);
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _deletingWorldIds.remove(worldId));
+      showGenesisToast(context, apiErrorMessage(error));
+    }
   }
 }
 
@@ -803,6 +889,47 @@ class UserProfileWorldItem {
   final int characterCount;
   final int playerCount;
   final String ownerName;
+}
+
+class _DeleteWorldConfirmationTitle extends StatelessWidget {
+  const _DeleteWorldConfirmationTitle({
+    required this.name,
+    required this.worldId,
+  });
+
+  static const _baseStyle = TextStyle(
+    color: Color(0xFF111111),
+    fontSize: 15,
+    height: 1.25,
+    fontWeight: FontWeight.w400,
+  );
+  static const _nameStyle = TextStyle(color: Color(0xFF4B6192));
+
+  final String name;
+  final String worldId;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedName = name.trim().isEmpty ? worldId : name.trim();
+    return SizedBox(
+      width: double.infinity,
+      child: Text.rich(
+        TextSpan(
+          text: 'Are you sure you want to delete\u00A0',
+          children: [
+            TextSpan(
+              text: resolvedName,
+              style: _DeleteWorldConfirmationTitle._nameStyle,
+            ),
+            TextSpan(text: '[$worldId]'),
+            const TextSpan(text: '?'),
+          ],
+        ),
+        textAlign: TextAlign.center,
+        style: _DeleteWorldConfirmationTitle._baseStyle,
+      ),
+    );
+  }
 }
 
 class _FollowStats extends StatelessWidget {

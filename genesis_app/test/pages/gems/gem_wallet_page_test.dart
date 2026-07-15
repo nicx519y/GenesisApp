@@ -608,6 +608,200 @@ void main() {
     expect(find.text('Received'), findsOneWidget);
   });
 
+  testWidgets('Discord follow opens the Me page invite and reports the task', (
+    tester,
+  ) async {
+    final launchedUris = <Uri>[];
+    final reportedCodes = <String>[];
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    addTearDown(walletStore.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          productsLoader: (_) async => const [],
+          tasksLoader: (_) async => _taskGroups(),
+          discordLauncher: (uri) async {
+            launchedUris.add(uri);
+            return true;
+          },
+          taskReporter: (taskCode) async {
+            reportedCodes.add(taskCode);
+            return const GemTaskActionResult(status: 'claimable');
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final followButton = find.byKey(
+      const ValueKey<String>('gem-task-action-discord_follow'),
+    );
+    await tester.scrollUntilVisible(
+      followButton,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(followButton);
+    await tester.pumpAndSettle();
+
+    expect(launchedUris, [Uri.parse('https://discord.gg/wuKHk7cyX7')]);
+    expect(reportedCodes, ['discord_follow']);
+  });
+
+  testWidgets('repeated Discord row taps open every time but report once', (
+    tester,
+  ) async {
+    final reportResult = Completer<GemTaskActionResult>();
+    final launchedUris = <Uri>[];
+    var reportCalls = 0;
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    addTearDown(walletStore.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          productsLoader: (_) async => const [],
+          tasksLoader: (_) async => [
+            _joinUsGroup(status: 'in_progress', actionText: 'Follow'),
+          ],
+          discordLauncher: (uri) async {
+            launchedUris.add(uri);
+            return true;
+          },
+          taskReporter: (_) {
+            reportCalls += 1;
+            return reportResult.future;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final row = find.byKey(
+      const ValueKey<String>('gem-join-us-row-discord_follow'),
+    );
+    await tester.tap(row);
+    await tester.pump();
+    await tester.tap(row);
+    await tester.pump();
+
+    expect(launchedUris, [
+      Uri.parse('https://discord.gg/wuKHk7cyX7'),
+      Uri.parse('https://discord.gg/wuKHk7cyX7'),
+    ]);
+    expect(reportCalls, 1);
+
+    reportResult.complete(const GemTaskActionResult(status: 'claimable'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('Discord row always opens while claimable button only claims', (
+    tester,
+  ) async {
+    final launchedUris = <Uri>[];
+    final reportedCodes = <String>[];
+    final claimedCodes = <String>[];
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    addTearDown(walletStore.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          productsLoader: (_) async => const [],
+          tasksLoader: (_) async => [
+            _joinUsGroup(status: 'claimable', actionText: 'Claim'),
+          ],
+          discordLauncher: (uri) async {
+            launchedUris.add(uri);
+            return true;
+          },
+          taskReporter: (taskCode) async {
+            reportedCodes.add(taskCode);
+            return const GemTaskActionResult(status: 'claimable');
+          },
+          taskClaimer: (taskCode) async {
+            claimedCodes.add(taskCode);
+            return const GemTaskActionResult(status: 'claimed');
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final row = find.byKey(
+      const ValueKey<String>('gem-join-us-row-discord_follow'),
+    );
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+
+    expect(launchedUris, [Uri.parse('https://discord.gg/wuKHk7cyX7')]);
+    expect(reportedCodes, isEmpty);
+    expect(claimedCodes, isEmpty);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('gem-task-action-discord_follow')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(launchedUris, hasLength(1));
+    expect(reportedCodes, isEmpty);
+    expect(claimedCodes, ['discord_follow']);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('claimed Discord button is disabled but its row still opens', (
+    tester,
+  ) async {
+    final launchedUris = <Uri>[];
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    addTearDown(walletStore.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          productsLoader: (_) async => const [],
+          tasksLoader: (_) async => [
+            _joinUsGroup(status: 'claimed', actionText: 'Claimed'),
+          ],
+          discordLauncher: (uri) async {
+            launchedUris.add(uri);
+            return true;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('gem-task-action-discord_follow')),
+    );
+    await tester.pump();
+    expect(launchedUris, isEmpty);
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('gem-join-us-row-discord_follow')),
+    );
+    await tester.pumpAndSettle();
+    expect(launchedUris, [Uri.parse('https://discord.gg/wuKHk7cyX7')]);
+  });
+
   testWidgets('claimable task claims with its task code', (tester) async {
     var productsLoadCount = 0;
     var tasksLoadCount = 0;
@@ -767,6 +961,19 @@ GemTaskGroup _taskGroup(GemTask task) {
     groupCode: 'starter',
     groupTitle: 'Starter',
     tasks: [task],
+  );
+}
+
+GemTaskGroup _joinUsGroup({
+  required String status,
+  required String actionText,
+}) {
+  return GemTaskGroup(
+    groupCode: 'join_us',
+    groupTitle: 'Join us',
+    tasks: [
+      _task(taskCode: 'discord_follow', status: status, actionText: actionText),
+    ],
   );
 }
 

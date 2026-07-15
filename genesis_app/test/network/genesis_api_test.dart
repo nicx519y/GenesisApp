@@ -2934,6 +2934,33 @@ void main() {
     },
   );
 
+  test('v1 world delete posts Apifox world_id field', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":0,"err_msg":"succ","data":{}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    await api.v1.world.deleteLaunched(worldId: ' w_delete_1 ');
+
+    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/world/delete');
+    final body =
+        jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)) as Map;
+    expect(body['world_id'], 'w_delete_1');
+    expect(body.containsKey('wid'), isFalse);
+  });
+
   test('v1 discuss write APIs use Apifox paths and body fields', () async {
     final apiTransport = _FakeTransport(
       handler: (request) {
