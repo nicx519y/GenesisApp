@@ -83,7 +83,7 @@ void main() {
       tester.getSize(
         find.byKey(const ValueKey<String>('gem-product-icon-gem_pack_500')),
       ),
-      const Size.square(24),
+      const Size(28, 24),
     );
   });
 

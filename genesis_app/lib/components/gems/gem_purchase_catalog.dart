@@ -201,12 +201,12 @@ class GemProductCard extends StatelessWidget {
                     right: 0,
                     child: Center(
                       child: SvgPicture.asset(
-                        gemIconAsset,
+                        gemStackIconAsset,
                         key: ValueKey<String>(
                           'gem-product-icon-${product.productId}',
                         ),
-                        width: gemLargeIconSize,
-                        height: gemLargeIconSize,
+                        width: gemStackIconWidth,
+                        height: gemStackIconHeight,
                       ),
                     ),
                   ),
