@@ -43,6 +43,11 @@ void main() {
     );
     final menuRect = tester.getRect(find.text('Report'));
     expect(menuRect.right, lessThanOrEqualTo(buttonRect.left));
+    expect(menuRect.center.dy, closeTo(buttonRect.center.dy, 1));
+    expect(
+      tester.getCenter(find.text('Block')).dy,
+      greaterThan(tester.getCenter(find.text('Report')).dy),
+    );
   });
 
   testWidgets('report button menu disappears when host page is removed', (
@@ -299,6 +304,7 @@ class _ReportMenuHostState extends State<_ReportMenuHost> {
                 targetType: 'origin',
                 targetId: 'o_test',
               ),
+              const GenesisActionMenuItem(label: 'Block', onSelected: _noop),
             ],
           ),
           GenesisMoreActionMenuButton(

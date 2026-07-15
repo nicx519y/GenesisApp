@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../components/origin/stat_item.dart';
-import '../tokens/genesis_image_radii.dart';
 import '../../utils/stat_count_formatter.dart';
+import '../tokens/genesis_image_radii.dart';
 import 'genesis_list_image.dart';
+import 'recent_chat_marker.dart';
 
 class GenesisProfileCollectionItemData {
   const GenesisProfileCollectionItemData({
@@ -11,6 +12,7 @@ class GenesisProfileCollectionItemData {
     required this.title,
     required this.subtitle,
     this.stats = const <GenesisProfileCollectionStat>[],
+    this.showRecentChatTag = false,
     this.onTap,
   });
 
@@ -18,6 +20,7 @@ class GenesisProfileCollectionItemData {
   final String title;
   final String subtitle;
   final List<GenesisProfileCollectionStat> stats;
+  final bool showRecentChatTag;
   final VoidCallback? onTap;
 }
 
@@ -70,16 +73,27 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      height: 1.1,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF4B6192),
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: Text(
+                          item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1.1,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF4B6192),
+                          ),
+                        ),
+                      ),
+                      if (item.showRecentChatTag) ...[
+                        const SizedBox(width: 6),
+                        const RecentChatTag(),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 5),
                   Text(

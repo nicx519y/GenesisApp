@@ -8,6 +8,7 @@ import '../../network/json_utils.dart';
 import '../../components/common/genesis_timestamp_text.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/components/recent_chat_marker.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -156,6 +157,7 @@ class WorldListItem {
   final double coverHeight;
 
   String get title => name.trim().isEmpty ? wid : name.trim();
+
   String get ownerLabel {
     final owner = ownerName.trim();
     if (owner.isNotEmpty) return formatUidForDisplay(owner);
@@ -192,11 +194,13 @@ class WorldItemCard extends StatelessWidget {
     required this.item,
     this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
     this.showPreviewImages = true,
+    this.showRecentChatTag = false,
   });
 
   final WorldListItem item;
   final double thumbnailBorderRadius;
   final bool showPreviewImages;
+  final bool showRecentChatTag;
 
   @override
   Widget build(BuildContext context) {
@@ -213,7 +217,12 @@ class WorldItemCard extends StatelessWidget {
               borderRadius: thumbnailBorderRadius,
             ),
             const SizedBox(width: 14),
-            Expanded(child: _WorldSummary(item: item)),
+            Expanded(
+              child: _WorldSummary(
+                item: item,
+                showRecentChatTag: showRecentChatTag,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -410,25 +419,37 @@ class _ProgressTickTime extends StatelessWidget {
 }
 
 class _WorldSummary extends StatelessWidget {
-  const _WorldSummary({required this.item});
+  const _WorldSummary({required this.item, required this.showRecentChatTag});
 
   final WorldListItem item;
+  final bool showRecentChatTag;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          item.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF4B6192),
-            fontSize: 14,
-            height: 1.1,
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          children: [
+            Flexible(
+              fit: FlexFit.loose,
+              child: Text(
+                item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF4B6192),
+                  fontSize: 14,
+                  height: 1.1,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (showRecentChatTag) ...[
+              const SizedBox(width: 6),
+              const RecentChatTag(),
+            ],
+          ],
         ),
         const SizedBox(height: 8),
         Row(

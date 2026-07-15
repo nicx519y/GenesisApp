@@ -465,6 +465,47 @@ void main() {
     await session.close();
   });
 
+  test('socket close does not surface unobserved ai stream error', () async {
+    final unhandledErrors = <Object>[];
+
+    await runZonedGuarded<Future<void>>(
+      () async {
+        final socket = _FakeChatroomSocket();
+        final client = await _client(_FakeChatroomTransport(socket));
+        final session = await _connectedSession(client, socket);
+
+        final streamFuture = session.streams.first;
+        socket.serverFrame('llm_stream_start', {
+          'world_id': 'world-1',
+          'location_id': 'loc-1',
+          'global_msg_id': 9789,
+          'msg_id': 789,
+          'location_msg_id': 89,
+          'conversation_round_id': 201,
+          'payload': {
+            'sender_type': 'character',
+            'sender_id': 'char_001',
+            'sender_name': '村长',
+          },
+        });
+
+        await streamFuture;
+        final failureFuture = session.failures.first;
+
+        await socket.serverClose();
+        final failure = await failureFuture;
+        await Future<void>.delayed(Duration.zero);
+
+        expect(failure.code, 'socket_closed');
+      },
+      (error, _) {
+        unhandledErrors.add(error);
+      },
+    );
+
+    expect(unhandledErrors, isEmpty);
+  });
+
   test('routes error ack to common failure stream', () async {
     final socket = _FakeChatroomSocket();
     final client = await _client(_FakeChatroomTransport(socket));
@@ -508,6 +549,16 @@ void main() {
         'detail_url': '/api/v1/world/world-1/events/weather',
       },
     });
+    socket.serverFrame('new_user_join', {
+      'world_id': 'world-1',
+      'payload': {
+        'char_id': 'char-2',
+        'type': 'ai',
+        'name': '老沈',
+        'player_uid': 'user-2',
+        'player_username': 'Nikos',
+      },
+    });
     socket.serverFrame('user_message', {
       'world_id': 'world-1',
       'session_id': 'sess-1',
@@ -543,6 +594,13 @@ void main() {
       events.whereType<ChatroomWorldNotification>().map((e) => e.eventType),
       containsAll(['tick_start', 'world_change']),
     );
+    final join = events.whereType<ChatroomNewUserJoinEvent>().single;
+    expect(join.worldId, 'world-1');
+    expect(join.characterId, 'char-2');
+    expect(join.characterType, 'ai');
+    expect(join.characterName, '老沈');
+    expect(join.playerUid, 'user-2');
+    expect(join.playerUsername, 'Nikos');
     expect(events.whereType<ChatroomUserMessage>().single.content, '你好');
     final tick = events.whereType<ChatroomTickAdvanceMessage>().single;
     expect(tick.currentTime, 'Day 45, 19:30');

@@ -12,6 +12,23 @@ class GenesisDisplaySafeTextInputFormatter extends TextInputFormatter {
   }
 }
 
+class GenesisConsecutiveNewlineLimiter extends TextInputFormatter {
+  const GenesisConsecutiveNewlineLimiter({this.maxConsecutiveNewlines = 2});
+
+  final int maxConsecutiveNewlines;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    return genesisConsecutiveNewlineLimitedTextEditingValue(
+      newValue,
+      maxConsecutiveNewlines: maxConsecutiveNewlines,
+    );
+  }
+}
+
 TextEditingValue genesisDisplaySafeTextEditingValue(TextEditingValue value) {
   final text = genesisDisplaySafeText(value.text);
   if (text == value.text) return value;
@@ -19,6 +36,26 @@ TextEditingValue genesisDisplaySafeTextEditingValue(TextEditingValue value) {
   return TextEditingValue(
     text: text,
     selection: _shiftSelectionForTransformedText(value),
+    composing: TextRange.empty,
+  );
+}
+
+TextEditingValue genesisConsecutiveNewlineLimitedTextEditingValue(
+  TextEditingValue value, {
+  int maxConsecutiveNewlines = 2,
+}) {
+  final text = genesisLimitConsecutiveNewlines(
+    value.text,
+    maxConsecutiveNewlines: maxConsecutiveNewlines,
+  );
+  if (text == value.text) return value;
+
+  return TextEditingValue(
+    text: text,
+    selection: _shiftSelectionForConsecutiveNewlineLimit(
+      value,
+      maxConsecutiveNewlines,
+    ),
     composing: TextRange.empty,
   );
 }
@@ -36,22 +73,44 @@ String genesisDisplaySafeText(String text) {
       continue;
     }
 
-    final rune = _runeAt(text, index);
-    buffer.writeCharCode(rune);
-    index += rune > 0xFFFF ? 2 : 1;
+    final rune = _displaySafeRuneAt(text, index);
+    buffer.writeCharCode(rune.codePoint);
+    index += rune.sourceLength;
   }
   return buffer.toString();
 }
 
-int _runeAt(String text, int index) {
+String genesisLimitConsecutiveNewlines(
+  String text, {
+  int maxConsecutiveNewlines = 2,
+}) {
+  if (text.isEmpty || maxConsecutiveNewlines < 1) return text;
+  return text.replaceAll(
+    RegExp('\\n{${maxConsecutiveNewlines + 1},}'),
+    ''.padLeft(maxConsecutiveNewlines, '\n'),
+  );
+}
+
+_DisplaySafeRune _displaySafeRuneAt(String text, int index) {
   final codeUnit = text.codeUnitAt(index);
-  if (codeUnit < 0xD800 || codeUnit > 0xDBFF || index + 1 >= text.length) {
-    return codeUnit;
+  if (codeUnit < 0xD800 || codeUnit > 0xDFFF) {
+    return _DisplaySafeRune(codeUnit, 1);
+  }
+  if (codeUnit > 0xDBFF) {
+    return const _DisplaySafeRune(0xFFFD, 1);
+  }
+  if (index + 1 >= text.length) {
+    return const _DisplaySafeRune(0xFFFD, 1);
   }
 
   final next = text.codeUnitAt(index + 1);
-  if (next < 0xDC00 || next > 0xDFFF) return codeUnit;
-  return 0x10000 + ((codeUnit - 0xD800) << 10) + (next - 0xDC00);
+  if (next < 0xDC00 || next > 0xDFFF) {
+    return const _DisplaySafeRune(0xFFFD, 1);
+  }
+  return _DisplaySafeRune(
+    0x10000 + ((codeUnit - 0xD800) << 10) + (next - 0xDC00),
+    2,
+  );
 }
 
 TextSelection _shiftSelectionForTransformedText(TextEditingValue value) {
@@ -70,9 +129,51 @@ TextSelection _shiftSelectionForTransformedText(TextEditingValue value) {
   );
 }
 
+TextSelection _shiftSelectionForConsecutiveNewlineLimit(
+  TextEditingValue value,
+  int maxConsecutiveNewlines,
+) {
+  final selection = value.selection;
+  if (!selection.isValid) {
+    return TextSelection.collapsed(
+      offset: genesisLimitConsecutiveNewlines(
+        value.text,
+        maxConsecutiveNewlines: maxConsecutiveNewlines,
+      ).length,
+    );
+  }
+
+  return TextSelection(
+    baseOffset: _newlineLimitedOffsetBefore(
+      value.text,
+      selection.baseOffset,
+      maxConsecutiveNewlines,
+    ),
+    extentOffset: _newlineLimitedOffsetBefore(
+      value.text,
+      selection.extentOffset,
+      maxConsecutiveNewlines,
+    ),
+    affinity: selection.affinity,
+    isDirectional: selection.isDirectional,
+  );
+}
+
 int _transformedOffsetBefore(String text, int offset) {
   final clampedOffset = offset.clamp(0, text.length);
   return genesisDisplaySafeText(text.substring(0, clampedOffset)).length;
+}
+
+int _newlineLimitedOffsetBefore(
+  String text,
+  int offset,
+  int maxConsecutiveNewlines,
+) {
+  final clampedOffset = offset.clamp(0, text.length);
+  return genesisLimitConsecutiveNewlines(
+    text.substring(0, clampedOffset),
+    maxConsecutiveNewlines: maxConsecutiveNewlines,
+  ).length;
 }
 
 _DecorativeReplacement? _decorativeReplacementAt(String text, int index) {
@@ -98,4 +199,11 @@ class _DecorativeReplacement {
   final String text;
 
   int get sourceLength => source.length;
+}
+
+class _DisplaySafeRune {
+  const _DisplaySafeRune(this.codePoint, this.sourceLength);
+
+  final int codePoint;
+  final int sourceLength;
 }

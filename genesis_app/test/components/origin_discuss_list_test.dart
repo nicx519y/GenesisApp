@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
+import 'package:genesis_flutter_android/app/startup/startup_network_gate.dart';
 import 'package:genesis_flutter_android/components/discuss/origin_discuss_list.dart';
 import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
@@ -18,6 +19,24 @@ import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 
 void main() {
+  test('ignores first page completion after controller dispose', () async {
+    final pageCompleter = Completer<OriginDiscussPage>();
+    final controller = OriginDiscussListController()
+      ..configure(
+        oid: 'o_alpha',
+        loader: ({required oid, required pn, required rn}) =>
+            pageCompleter.future,
+      );
+
+    final load = controller.loadInitialIfNeeded();
+    controller.dispose();
+    pageCompleter.complete(
+      _page(pn: 1, rn: originDiscussPageSize, totalAll: 1, contents: ['Late']),
+    );
+
+    await expectLater(load, completes);
+  });
+
   testWidgets(
     'loads first page once with rn 20 and shows two collapsed items',
     (tester) async {
@@ -1223,6 +1242,7 @@ AppServices _servicesWithTransport(_FakeTransport transport) {
     directMessageMessages: base.directMessageMessages,
     appVersionCheck: base.appVersionCheck,
     externalUrlOpener: base.externalUrlOpener,
+    startupNetworkGate: StartupNetworkGate.open(),
   );
 }
 

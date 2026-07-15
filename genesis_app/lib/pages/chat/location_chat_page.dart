@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug/location_chat_debug_slice.dart';
+import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
@@ -42,6 +43,7 @@ class LocationChatPage extends StatelessWidget {
     required this.locationId,
     this.isLeafLocation = true,
     this.localMessageLocationIds = const <String>[],
+    this.recentChatLocationPathIds = const <String>[],
     this.worldName,
     this.locationName,
     this.backgroundImageUrl,
@@ -54,6 +56,7 @@ class LocationChatPage extends StatelessWidget {
   final String locationId;
   final bool isLeafLocation;
   final List<String> localMessageLocationIds;
+  final List<String> recentChatLocationPathIds;
   final String? worldName;
   final String? locationName;
   final String? backgroundImageUrl;
@@ -68,6 +71,7 @@ class LocationChatPage extends StatelessWidget {
       locationId: locationId,
       isLeafLocation: isLeafLocation,
       localMessageLocationIds: localMessageLocationIds,
+      recentChatLocationPathIds: recentChatLocationPathIds,
       worldName: worldName,
       locationName: locationName,
       backgroundImageUrl: backgroundImageUrl,
@@ -88,6 +92,7 @@ class LocationChatPanel extends StatefulWidget {
     required this.locationId,
     this.isLeafLocation = true,
     this.localMessageLocationIds = const <String>[],
+    this.recentChatLocationPathIds = const <String>[],
     this.worldName,
     this.locationName,
     this.backgroundImageUrl,
@@ -114,6 +119,7 @@ class LocationChatPanel extends StatefulWidget {
   final String locationId;
   final bool isLeafLocation;
   final List<String> localMessageLocationIds;
+  final List<String> recentChatLocationPathIds;
   final String? worldName;
   final String? locationName;
   final String? backgroundImageUrl;
@@ -189,6 +195,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   String _scrollCenterLocalId = '';
   double _edgeSwipeBackDragDistance = 0;
   bool _edgeSwipeBackTriggered = false;
+  int _serviceGeneration = 0;
 
   @override
   void initState() {
@@ -336,7 +343,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _ownsService = false;
       _syncSenderIdentity(provided);
       final services = AppServicesScope.read(context);
-      unawaited(_hydrateLocalMessages(provided, services));
+      _startHydrateLocalMessages(provided, services);
       unawaited(_syncLocalIdentity(services));
       _syncFromServiceState(provided);
       if (widget.active) _activateConnection();
@@ -398,7 +405,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _ownsService = false;
       _syncSenderIdentity(provided);
       final services = AppServicesScope.read(context);
-      unawaited(_hydrateLocalMessages(provided, services));
+      _startHydrateLocalMessages(provided, services);
       unawaited(_syncLocalIdentity(services));
       _attachService(provided);
       if (widget.isLeafLocation && !_joinedLocation) {
@@ -547,37 +554,115 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _syncFromServiceState(service);
   }
 
+  void _startHydrateLocalMessages(
+    WorldChatroomService service,
+    AppServices services,
+  ) {
+    final generation = _serviceGeneration;
+    unawaited(_hydrateLocalMessages(service, services, generation));
+  }
+
+  bool _isCurrentService(WorldChatroomService service, int generation) {
+    return mounted &&
+        generation == _serviceGeneration &&
+        identical(_service, service) &&
+        !service.isDisposed;
+  }
+
+  bool _isDisposedServiceError(
+    WorldChatroomService service,
+    ChatroomProtocolException error,
+    int generation,
+  ) {
+    return service.isDisposed ||
+        !_isCurrentService(service, generation) ||
+        error.message == 'WorldChatroomService is disposed';
+  }
+
   Future<void> _hydrateLocalMessages(
     WorldChatroomService service,
     AppServices services,
+    int generation,
   ) async {
     final stopwatch = _panelMetricsEnabled ? (Stopwatch()..start()) : null;
-    final identity = service.identity;
-    final serviceOwnerUid = firstNonEmpty([
-      identity?.userId,
-      identity?.senderId,
-    ]);
-    _logPanelMetric(
-      'hydrateLocal start serviceOwner=${serviceOwnerUid.isNotEmpty} '
-      'aliases=${widget.localMessageLocationIds.join(',')}',
-    );
-    _recordPanelDebug(
-      action: 'hydrateLocalStart',
-      details: {
-        'serviceOwner': serviceOwnerUid.isNotEmpty,
-        'aliases': widget.localMessageLocationIds,
-      },
-    );
-    if (serviceOwnerUid.isNotEmpty) {
+    if (!_isCurrentService(service, generation)) return;
+    try {
+      final identity = service.identity;
+      final serviceOwnerUid = firstNonEmpty([
+        identity?.userId,
+        identity?.senderId,
+      ]);
+      _logPanelMetric(
+        'hydrateLocal start serviceOwner=${serviceOwnerUid.isNotEmpty} '
+        'aliases=${widget.localMessageLocationIds.join(',')}',
+      );
+      _recordPanelDebug(
+        action: 'hydrateLocalStart',
+        details: {
+          'serviceOwner': serviceOwnerUid.isNotEmpty,
+          'aliases': widget.localMessageLocationIds,
+        },
+      );
+      if (serviceOwnerUid.isNotEmpty) {
+        if (!_isCurrentService(service, generation)) return;
+        await service.hydrateLocalMessages(
+          worldId: widget.worldId,
+          locationId: widget.locationId,
+          ownerUid: serviceOwnerUid,
+          locationAliases: widget.localMessageLocationIds,
+        );
+        if (!_isCurrentService(service, generation)) return;
+        _syncFromServiceState(service);
+        _logPanelMetric(
+          'hydrateLocal done owner=service '
+          'sourceCount=${_chatroomState.messagesByLocation[widget.locationId]?.length ?? 0} '
+          'vmCount=${_messages.length} '
+          'elapsed=${stopwatch?.elapsedMilliseconds}ms',
+        );
+        _recordPanelDebug(
+          action: 'hydrateLocalDone',
+          details: {
+            'ownerSource': 'service',
+            'elapsedMs': stopwatch?.elapsedMilliseconds,
+          },
+        );
+        _notifyReadyOrRefreshLatestMessages(service, generation);
+        return;
+      }
+      final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+      if (!_isCurrentService(service, generation)) return;
+      final userInfo = await services.sessionStore.readUserInfo();
+      if (!_isCurrentService(service, generation)) return;
+      final cachedUid = _mapString(userInfo, 'uid');
+      final profile = services.identityAuth.currentProfile();
+      final ownerUid = firstNonEmpty([uid, cachedUid, profile?.uid]);
+      if (ownerUid.isEmpty) {
+        _logPanelMetric(
+          'hydrateLocal skipped noOwner elapsed=${stopwatch?.elapsedMilliseconds}ms',
+        );
+        _recordPanelDebug(
+          action: 'hydrateLocalSkipped',
+          details: {
+            'reason': 'noOwner',
+            'elapsedMs': stopwatch?.elapsedMilliseconds,
+          },
+        );
+        if (_isCurrentService(service, generation)) {
+          _notifyInitialContentReady();
+        }
+        return;
+      }
+      if (!_isCurrentService(service, generation)) return;
       await service.hydrateLocalMessages(
         worldId: widget.worldId,
         locationId: widget.locationId,
-        ownerUid: serviceOwnerUid,
+        ownerUid: ownerUid,
         locationAliases: widget.localMessageLocationIds,
       );
+      if (!_isCurrentService(service, generation)) return;
       _syncFromServiceState(service);
       _logPanelMetric(
-        'hydrateLocal done owner=service '
+        'hydrateLocal done owner=session '
         'sourceCount=${_chatroomState.messagesByLocation[widget.locationId]?.length ?? 0} '
         'vmCount=${_messages.length} '
         'elapsed=${stopwatch?.elapsedMilliseconds}ms',
@@ -585,56 +670,31 @@ class _LocationChatPanelState extends State<LocationChatPanel>
       _recordPanelDebug(
         action: 'hydrateLocalDone',
         details: {
-          'ownerSource': 'service',
+          'ownerSource': 'session',
           'elapsedMs': stopwatch?.elapsedMilliseconds,
         },
       );
-      _notifyReadyOrRefreshLatestMessages(service);
-      return;
+      _notifyReadyOrRefreshLatestMessages(service, generation);
+    } on ChatroomProtocolException catch (error) {
+      if (_isDisposedServiceError(service, error, generation)) {
+        _logPanelMetric(
+          'hydrateLocal ignored stale service elapsed=${stopwatch?.elapsedMilliseconds}ms',
+        );
+        _recordPanelDebug(
+          action: 'hydrateLocalStaleService',
+          details: {'elapsedMs': stopwatch?.elapsedMilliseconds},
+        );
+        return;
+      }
+      rethrow;
     }
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    final userInfo = await services.sessionStore.readUserInfo();
-    final cachedUid = _mapString(userInfo, 'uid');
-    final profile = services.identityAuth.currentProfile();
-    final ownerUid = firstNonEmpty([uid, cachedUid, profile?.uid]);
-    if (ownerUid.isEmpty) {
-      _logPanelMetric(
-        'hydrateLocal skipped noOwner elapsed=${stopwatch?.elapsedMilliseconds}ms',
-      );
-      _recordPanelDebug(
-        action: 'hydrateLocalSkipped',
-        details: {
-          'reason': 'noOwner',
-          'elapsedMs': stopwatch?.elapsedMilliseconds,
-        },
-      );
-      _notifyInitialContentReady();
-      return;
-    }
-    await service.hydrateLocalMessages(
-      worldId: widget.worldId,
-      locationId: widget.locationId,
-      ownerUid: ownerUid,
-      locationAliases: widget.localMessageLocationIds,
-    );
-    _syncFromServiceState(service);
-    _logPanelMetric(
-      'hydrateLocal done owner=session '
-      'sourceCount=${_chatroomState.messagesByLocation[widget.locationId]?.length ?? 0} '
-      'vmCount=${_messages.length} '
-      'elapsed=${stopwatch?.elapsedMilliseconds}ms',
-    );
-    _recordPanelDebug(
-      action: 'hydrateLocalDone',
-      details: {
-        'ownerSource': 'session',
-        'elapsedMs': stopwatch?.elapsedMilliseconds,
-      },
-    );
-    _notifyReadyOrRefreshLatestMessages(service);
   }
 
-  void _notifyReadyOrRefreshLatestMessages(WorldChatroomService service) {
+  void _notifyReadyOrRefreshLatestMessages(
+    WorldChatroomService service,
+    int generation,
+  ) {
+    if (!_isCurrentService(service, generation)) return;
     final refreshReason = _initialLatestMessagesRefreshReason();
     if (refreshReason.isEmpty) {
       _notifyInitialContentReady();
@@ -653,17 +713,26 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     );
     _initialLatestMessagesRefresh = refresh;
     unawaited(
-      refresh.whenComplete(() {
-        if (!mounted) return;
-        _syncFromServiceState(service);
-        _logPanelMetric(
-          'initial history refresh done beforeReady '
-          'reason=$refreshReason '
-          'sourceCount=${_chatroomState.messagesByLocation[widget.locationId]?.length ?? 0} '
-          'vmCount=${_messages.length}',
-        );
-        _notifyInitialContentReady();
-      }),
+      refresh
+          .then((_) {
+            if (!_isCurrentService(service, generation)) return;
+            _syncFromServiceState(service);
+            _logPanelMetric(
+              'initial history refresh done beforeReady '
+              'reason=$refreshReason '
+              'sourceCount=${_chatroomState.messagesByLocation[widget.locationId]?.length ?? 0} '
+              'vmCount=${_messages.length}',
+            );
+            _notifyInitialContentReady();
+          })
+          .catchError((Object error, StackTrace stackTrace) {
+            if (error is ChatroomProtocolException &&
+                _isDisposedServiceError(service, error, generation)) {
+              return;
+            }
+            if (!_isCurrentService(service, generation)) return;
+            Error.throwWithStackTrace(error, stackTrace);
+          }),
     );
   }
 
@@ -1409,6 +1478,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         object2: widget.locationId,
         object3: ack.messageId,
       );
+      unawaited(_markRecentWorldChatLocation());
       setState(() {
         localMessage.globalMessageId = ack.globalMessageId;
         localMessage.messageId = ack.messageId;
@@ -1442,6 +1512,16 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         details: {'clientMsgId': clientMsgId, 'error': '$e'},
       );
     }
+  }
+
+  Future<void> _markRecentWorldChatLocation() async {
+    final uid = await resolveRecentWorldChatUid(AppServicesScope.read(context));
+    await recentWorldChatStore.markRecentChat(
+      uid: uid,
+      worldId: widget.worldId,
+      locationId: widget.locationId,
+      locationPathIds: widget.recentChatLocationPathIds,
+    );
   }
 
   String _nextClientMsgId() {
@@ -1915,6 +1995,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   Future<void> _closeChatroom() async {
     final service = _service;
     final ownsService = _ownsService;
+    _serviceGeneration++;
     _service = null;
     _sending = false;
     _awaitingAiResponse = false;

@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../ui/components/genesis_character_avatar.dart';
 import '../ui/components/genesis_static_network_image.dart';
+import '../ui/components/recent_chat_marker.dart';
 import '../ui/tokens/genesis_avatar_radii.dart';
 import '../ui/tokens/genesis_colors.dart';
 import '../utils/genesis_image_resource.dart';
@@ -107,6 +108,9 @@ class WorldMap extends StatefulWidget {
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
     this.initialZoomScale = _ZoomableMapContent.minScale,
+    this.enableAvatarScaleReboundHint = false,
+    this.recentChatLocationIds = const <String>{},
+    this.recentChatMapLocationIds = const <String>{},
   });
 
   final List<WorldPoint> points;
@@ -131,6 +135,9 @@ class WorldMap extends StatefulWidget {
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
   final double initialZoomScale;
+  final bool enableAvatarScaleReboundHint;
+  final Set<String> recentChatLocationIds;
+  final Set<String> recentChatMapLocationIds;
 
   @override
   State<WorldMap> createState() => _WorldMapState();
@@ -149,6 +156,7 @@ class _WorldMapState extends State<WorldMap> {
   int _messageBubblePageIndex = 0;
   bool _messageBubbleVisible = true;
   double _mapZoomScale = _ZoomableMapContent.minScale;
+  bool _mapZoomScaleRebuildScheduled = false;
   String _messageBubblePlaybackSignature = '';
   List<WorldMapMessageBubble> _visibleMessageBubblesForPlayback =
       const <WorldMapMessageBubble>[];
@@ -386,20 +394,38 @@ class _WorldMapState extends State<WorldMap> {
                                                   for (final p in visiblePoints)
                                                     _WorldPointPositioned(
                                                       point: p,
+                                                      showRecentChatIcon:
+                                                          _pointMatchesLocationIds(
+                                                            p,
+                                                            widget
+                                                                .recentChatMapLocationIds,
+                                                          ),
                                                       width: viewport.width,
                                                       height: viewport.height,
                                                       transform: transform,
-                                                      messageBubble:
-                                                          _bubbleForPoint(
-                                                            p,
-                                                            activeBubble,
-                                                          ),
+                                                      enableAvatarScaleReboundHint:
+                                                          widget
+                                                              .enableAvatarScaleReboundHint,
                                                       onPointerDown:
                                                           onOverlayPointerDown,
                                                       onTap: _pointTapHandler(
                                                         p,
                                                       ),
                                                     ),
+                                                  if (activeBubble != null)
+                                                    for (final p
+                                                        in visiblePoints)
+                                                      _WorldPointMessageBubblePositioned(
+                                                        point: p,
+                                                        width: viewport.width,
+                                                        height: viewport.height,
+                                                        transform: transform,
+                                                        messageBubble:
+                                                            _bubbleForPoint(
+                                                              p,
+                                                              activeBubble,
+                                                            ),
+                                                      ),
                                                 ],
                                               ),
                                             ),
@@ -445,6 +471,7 @@ class _WorldMapState extends State<WorldMap> {
                         locationNodes: widget.listLocationNodes.isNotEmpty
                             ? widget.listLocationNodes
                             : widget.locationNodes,
+                        recentChatLocationIds: widget.recentChatLocationIds,
                         physics: widget.pointsListPhysics,
                         enableOuterScrollHandoff:
                             widget.pointsListOuterScrollHandoff,
@@ -494,10 +521,21 @@ class _WorldMapState extends State<WorldMap> {
   }
 
   void _handleMapZoomScaleChanged(double scale) {
+    if (!mounted) return;
     if ((_mapZoomScale - scale).abs() < 0.001) return;
-    setState(() {
-      _mapZoomScale = scale;
-    });
+    _mapZoomScale = scale;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      if (!_mapZoomScaleRebuildScheduled) {
+        _mapZoomScaleRebuildScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _mapZoomScaleRebuildScheduled = false;
+          if (mounted) setState(() {});
+        });
+      }
+    } else if (mounted) {
+      setState(() {});
+    }
     _scheduleHorizontalPanStateNotification();
   }
 
@@ -1339,6 +1377,12 @@ String _pointLocationId(WorldPoint point) {
   return point.id.trim();
 }
 
+bool _pointMatchesLocationIds(WorldPoint point, Set<String> locationIds) {
+  if (locationIds.isEmpty) return false;
+  final locationId = point.sceneId.trim();
+  return locationId.isNotEmpty && locationIds.contains(locationId);
+}
+
 Alignment _mapTransitionOrigin(WorldPoint point) {
   final dx = point.position.dx.clamp(0.0, 1.0).toDouble();
   final dy = point.position.dy.clamp(0.0, 1.0).toDouble();
@@ -1437,7 +1481,15 @@ class _MapBackgroundDeckState extends State<_MapBackgroundDeck> {
     for (final url in avatarUrls) {
       if (!mounted || generation != _preloadGeneration) return;
       try {
-        await precacheImage(_avatarImageProvider(url), context);
+        await precacheImage(
+          _avatarImageProvider(url),
+          context,
+          onError: (exception, stackTrace) {
+            debugPrint(
+              '[WorldMap] preload avatar failed url="$url": $exception',
+            );
+          },
+        );
       } catch (error) {
         debugPrint('[WorldMap] preload avatar failed url="$url": $error');
       }
@@ -1452,7 +1504,15 @@ class _MapBackgroundDeckState extends State<_MapBackgroundDeck> {
     for (final url in urls) {
       if (!mounted || generation != _preloadGeneration) return;
       try {
-        await precacheImage(_mapImageProvider(url), context);
+        await precacheImage(
+          _mapImageProvider(url),
+          context,
+          onError: (exception, stackTrace) {
+            debugPrint(
+              '[WorldMap] preload map image failed url="$url": $exception',
+            );
+          },
+        );
       } catch (error) {
         debugPrint('[WorldMap] preload map image failed url="$url": $error');
       }
@@ -1604,6 +1664,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _dispatchMapInteraction(bool active) {
+    if (!mounted) return;
     if (_interactionActive == active) return;
     _interactionActive = active;
     WorldMapInteractionNotification(active: active).dispatch(context);
@@ -1727,8 +1788,11 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _setTransform(double scale, Offset translation) {
-    final box = context.findRenderObject() as RenderBox?;
-    final size = box?.size ?? Size.zero;
+    if (!mounted) return;
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.attached) return;
+    final size = renderObject.size;
+    if (size.isEmpty) return;
     _transformationController.value = _transformMatrixForSize(
       size: size,
       scale: scale,
@@ -2138,119 +2202,227 @@ class _MapBackgroundPlaceholder extends StatelessWidget {
   }
 }
 
+class _WorldPointMarkerGeometry {
+  const _WorldPointMarkerGeometry({
+    required this.labelMaxWidth,
+    required this.markerWidth,
+    required this.markerHeight,
+    required this.pointCenterY,
+  });
+
+  final double labelMaxWidth;
+  final double markerWidth;
+  final double markerHeight;
+  final double pointCenterY;
+}
+
+const double _worldPointLabelLineHeight = 12;
+const double _worldPointLabelHorizontalPadding = 6;
+const double _worldPointLabelVerticalPadding = 8;
+const double _worldPointWideLabelRuneWidth = 14;
+const double _worldPointNarrowLabelRuneWidth = 6;
+const double _worldPointMaxLabelTextWidth = 135;
+const double _worldPointRecentIconExtraWidth = 18;
+const double _worldPointMaxLabelBoxWidth =
+    _worldPointMaxLabelTextWidth + _worldPointLabelHorizontalPadding;
+const double _worldPointDotSize = 8;
+const double _worldPointAvatarSize = 42;
+const double _worldPointAvatarSpacing = 4;
+const double _worldPointLabelToDotSpacing = 6;
+const double _worldPointAvatarTopGap = 10;
+
+_WorldPointMarkerGeometry _geometryForPoint(
+  WorldPoint point,
+  double width, {
+  required bool showRecentChatIcon,
+}) {
+  final users = point.users;
+  final labelBoxWidth = showRecentChatIcon
+      ? _worldPointMaxLabelBoxWidth + _worldPointRecentIconExtraWidth
+      : _worldPointMaxLabelBoxWidth;
+  final labelMaxWidth = math.min(labelBoxWidth, width);
+  final avatarWidth = _worldPointAvatarGroupWidth(users.length);
+  final markerWidth = math.max(
+    math.max(_worldPointDotSize, avatarWidth),
+    labelMaxWidth,
+  );
+  final pointCenterY =
+      _worldPointLabelHeight(
+        point.name,
+        trailingExtraWidth: showRecentChatIcon
+            ? _worldPointRecentIconExtraWidth
+            : 0,
+      ) +
+      _worldPointLabelToDotSpacing +
+      _worldPointDotSize / 2;
+  final markerHeight = _worldPointMarkerHeight(
+    userCount: users.length,
+    pointCenterY: pointCenterY,
+  );
+  return _WorldPointMarkerGeometry(
+    labelMaxWidth: labelMaxWidth,
+    markerWidth: markerWidth,
+    markerHeight: markerHeight,
+    pointCenterY: pointCenterY,
+  );
+}
+
+double _worldPointLabelHeight(String text, {double trailingExtraWidth = 0}) {
+  final estimatedTextWidth = _estimatedWorldPointLabelTextWidth(text);
+  final lineCount = math.max(
+    1,
+    ((estimatedTextWidth + trailingExtraWidth) / _worldPointMaxLabelTextWidth)
+        .ceil(),
+  );
+  return lineCount * _worldPointLabelLineHeight +
+      _worldPointLabelVerticalPadding;
+}
+
+double _estimatedWorldPointLabelTextWidth(String text) {
+  var width = 0.0;
+  for (final rune in text.runes) {
+    width += _isWideWorldPointLabelRune(rune)
+        ? _worldPointWideLabelRuneWidth
+        : _worldPointNarrowLabelRuneWidth;
+  }
+  return width;
+}
+
+bool _isWideWorldPointLabelRune(int rune) {
+  return (rune >= 0x1100 && rune <= 0x11FF) ||
+      (rune >= 0x2E80 && rune <= 0xA4CF) ||
+      (rune >= 0xAC00 && rune <= 0xD7AF) ||
+      (rune >= 0xF900 && rune <= 0xFAFF) ||
+      (rune >= 0xFE10 && rune <= 0xFE6F) ||
+      (rune >= 0xFF00 && rune <= 0xFFEF) ||
+      (rune >= 0x20000 && rune <= 0x3FFFD);
+}
+
+double _worldPointMarkerHeight({
+  required int userCount,
+  required double pointCenterY,
+}) {
+  final count = userCount;
+  if (count <= 0) return pointCenterY + _worldPointDotSize / 2;
+  if (count < 4) {
+    return pointCenterY + _worldPointAvatarTopGap + _worldPointAvatarSize;
+  }
+  if (count == 4) {
+    return pointCenterY +
+        _worldPointAvatarTopGap +
+        _worldPointAvatarSize * 2 +
+        _worldPointAvatarSpacing;
+  }
+
+  final radius = _worldPointAvatarRingRadius(count);
+  return pointCenterY +
+      radius * 2 +
+      _worldPointAvatarTopGap +
+      _worldPointAvatarSize;
+}
+
+double _worldPointAvatarGroupWidth(int count) {
+  if (count <= 0) return 0;
+  if (count < 4) {
+    return count * _worldPointAvatarSize +
+        (count - 1) * _worldPointAvatarSpacing;
+  }
+  if (count == 4) return _worldPointAvatarSize * 2 + _worldPointAvatarSpacing;
+  return _worldPointAvatarRingRadius(count) * 2 + _worldPointAvatarSize;
+}
+
+double _worldPointAvatarRingRadius(int count) {
+  if (count < 4) return 0;
+  final minimumChord = count > 5
+      ? _worldPointAvatarSize * 0.88
+      : _worldPointAvatarSize + _worldPointAvatarSpacing;
+  final radius = minimumChord / (2 * math.sin(math.pi / count));
+  return math.max(_worldPointAvatarSize * 0.88, radius);
+}
+
+double _worldPointAvatarLeft(int index, int count, double markerWidth) {
+  if (count < 4) {
+    final rowWidth =
+        count * _worldPointAvatarSize + (count - 1) * _worldPointAvatarSpacing;
+    return markerWidth / 2 -
+        rowWidth / 2 +
+        index * (_worldPointAvatarSize + _worldPointAvatarSpacing);
+  }
+  if (count == 4) {
+    final gridWidth = _worldPointAvatarSize * 2 + _worldPointAvatarSpacing;
+    final column = index % 2;
+    return markerWidth / 2 -
+        gridWidth / 2 +
+        column * (_worldPointAvatarSize + _worldPointAvatarSpacing);
+  }
+
+  final radius = _worldPointAvatarRingRadius(count);
+  final ringCenterX = markerWidth / 2;
+  final angle = -math.pi / 2 + math.pi * 2 * index / count;
+  return ringCenterX + math.cos(angle) * radius - _worldPointAvatarSize / 2;
+}
+
+double _worldPointAvatarTop(int index, int count, double pointCenterY) {
+  if (count < 4) return pointCenterY + _worldPointAvatarTopGap;
+  if (count == 4) {
+    final row = index ~/ 2;
+    return pointCenterY +
+        _worldPointAvatarTopGap +
+        row * (_worldPointAvatarSize + _worldPointAvatarSpacing);
+  }
+
+  final radius = _worldPointAvatarRingRadius(count);
+  final ringCenterY =
+      pointCenterY +
+      radius +
+      _worldPointAvatarTopGap +
+      _worldPointAvatarSize / 2;
+  final angle = -math.pi / 2 + math.pi * 2 * index / count;
+  return ringCenterY + math.sin(angle) * radius - _worldPointAvatarSize / 2;
+}
+
+Offset _transformedWorldPointAnchor(Matrix4? transform, double x, double y) {
+  if (transform == null) return Offset(x, y);
+  final values = transform.storage;
+  return Offset(
+    values[0] * x + values[4] * y + values[12],
+    values[1] * x + values[5] * y + values[13],
+  );
+}
+
 class _WorldPointPositioned extends StatelessWidget {
   const _WorldPointPositioned({
     required this.point,
+    required this.showRecentChatIcon,
     required this.width,
     required this.height,
     this.transform,
-    this.messageBubble,
+    required this.enableAvatarScaleReboundHint,
     required this.onPointerDown,
     required this.onTap,
   });
 
   final WorldPoint point;
+  final bool showRecentChatIcon;
   final double width;
   final double height;
   final Matrix4? transform;
-  final WorldMapMessageBubble? messageBubble;
+  final bool enableAvatarScaleReboundHint;
   final ValueChanged<PointerDownEvent> onPointerDown;
   final VoidCallback? onTap;
-
-  static const double _labelLineHeight = 12;
-  static const double _labelHorizontalPadding = 6;
-  static const double _labelVerticalPadding = 8;
-  static const double _wideLabelRuneWidth = 14;
-  static const double _narrowLabelRuneWidth = 6;
-  static const double _maxLabelTextWidth = 90;
-  static const double _maxLabelBoxWidth =
-      _maxLabelTextWidth + _labelHorizontalPadding;
-  static const double _pointSize = 8;
-  static const double _avatarSize = 42;
-  static const double _avatarSpacing = 4;
-  static const double _labelToPointSpacing = 6;
-  static const double _avatarTopGap = 10;
-
-  double _markerWidth(int userCount) {
-    final count = userCount;
-    final avatarWidth = _avatarGroupWidth(count);
-    final labelMaxWidth = _labelMaxWidth();
-    return math.max(math.max(_pointSize, avatarWidth), labelMaxWidth);
-  }
-
-  double _labelHeight(String text) {
-    final estimatedTextWidth = _estimatedLabelTextWidth(text);
-    final lineCount = math.max(
-      1,
-      (estimatedTextWidth / _maxLabelTextWidth).ceil(),
-    );
-    return lineCount * _labelLineHeight + _labelVerticalPadding;
-  }
-
-  double _labelMaxWidth() {
-    return math.min(_maxLabelBoxWidth, width);
-  }
-
-  double _estimatedLabelTextWidth(String text) {
-    var width = 0.0;
-    for (final rune in text.runes) {
-      width += _isWideLabelRune(rune)
-          ? _wideLabelRuneWidth
-          : _narrowLabelRuneWidth;
-    }
-    return width;
-  }
-
-  bool _isWideLabelRune(int rune) {
-    return (rune >= 0x1100 && rune <= 0x11FF) ||
-        (rune >= 0x2E80 && rune <= 0xA4CF) ||
-        (rune >= 0xAC00 && rune <= 0xD7AF) ||
-        (rune >= 0xF900 && rune <= 0xFAFF) ||
-        (rune >= 0xFE10 && rune <= 0xFE6F) ||
-        (rune >= 0xFF00 && rune <= 0xFFEF) ||
-        (rune >= 0x20000 && rune <= 0x3FFFD);
-  }
-
-  double _markerHeight(int userCount) {
-    final count = userCount;
-    final pointCenterY =
-        _labelHeight(point.name) + _labelToPointSpacing + _pointSize / 2;
-    if (count <= 0) return pointCenterY + _pointSize / 2;
-    if (count < 4) return pointCenterY + _avatarTopGap + _avatarSize;
-    if (count == 4) {
-      return pointCenterY + _avatarTopGap + _avatarSize * 2 + _avatarSpacing;
-    }
-
-    final radius = _avatarRingRadius(count);
-    return pointCenterY + radius * 2 + _avatarTopGap + _avatarSize;
-  }
-
-  double _avatarGroupWidth(int count) {
-    if (count <= 0) return 0;
-    if (count < 4) {
-      return count * _avatarSize + (count - 1) * _avatarSpacing;
-    }
-    if (count == 4) return _avatarSize * 2 + _avatarSpacing;
-    return _avatarRingRadius(count) * 2 + _avatarSize;
-  }
-
-  double _avatarRingRadius(int count) {
-    if (count < 4) return 0;
-    final minimumChord = count > 5
-        ? _avatarSize * 0.88
-        : _avatarSize + _avatarSpacing;
-    final radius = minimumChord / (2 * math.sin(math.pi / count));
-    return math.max(_avatarSize * 0.88, radius);
-  }
 
   @override
   Widget build(BuildContext context) {
     final users = point.users;
-    final labelMaxWidth = _labelMaxWidth();
-    final markerWidth = _markerWidth(users.length);
-    final markerHeight = _markerHeight(users.length);
-    final pointCenterY =
-        _labelHeight(point.name) + _labelToPointSpacing + _pointSize / 2;
+    final geometry = _geometryForPoint(
+      point,
+      width,
+      showRecentChatIcon: showRecentChatIcon,
+    );
+    final labelMaxWidth = geometry.labelMaxWidth;
+    final markerWidth = geometry.markerWidth;
+    final markerHeight = geometry.markerHeight;
+    final pointCenterY = geometry.pointCenterY;
 
     final baseX = (point.position.dx * width).clamp(0, width).toDouble();
     final baseY = (point.position.dy * height).clamp(0, height).toDouble();
@@ -2274,12 +2446,13 @@ class _WorldPointPositioned extends StatelessWidget {
       height: markerHeight,
       child: _WorldPointMarker(
         point: point,
+        showRecentChatIcon: showRecentChatIcon,
         users: users,
         labelMaxWidth: labelMaxWidth,
         markerWidth: markerWidth,
         markerHeight: markerHeight,
         pointCenterY: pointCenterY,
-        messageBubble: messageBubble,
+        enableAvatarScaleReboundHint: enableAvatarScaleReboundHint,
         onPointerDown: onPointerDown,
         onTap: onTap,
       ),
@@ -2287,12 +2460,83 @@ class _WorldPointPositioned extends StatelessWidget {
   }
 
   Offset _transformedAnchor(double x, double y) {
-    final matrix = transform;
-    if (matrix == null) return Offset(x, y);
-    final values = matrix.storage;
-    return Offset(
-      values[0] * x + values[4] * y + values[12],
-      values[1] * x + values[5] * y + values[13],
+    return _transformedWorldPointAnchor(transform, x, y);
+  }
+}
+
+class _WorldPointMessageBubblePositioned extends StatelessWidget {
+  const _WorldPointMessageBubblePositioned({
+    required this.point,
+    required this.width,
+    required this.height,
+    this.transform,
+    required this.messageBubble,
+  });
+
+  final WorldPoint point;
+  final double width;
+  final double height;
+  final Matrix4? transform;
+  final WorldMapMessageBubble? messageBubble;
+
+  @override
+  Widget build(BuildContext context) {
+    final bubble = messageBubble;
+    if (bubble == null) return const SizedBox.shrink();
+
+    final users = point.users;
+    final bubbleIndex = users.indexWhere(
+      (avatar) => avatar.id.trim() == bubble.characterId.trim(),
+    );
+    if (bubbleIndex < 0) return const SizedBox.shrink();
+
+    final geometry = _geometryForPoint(point, width, showRecentChatIcon: false);
+    final markerWidth = geometry.markerWidth;
+    final markerHeight = geometry.markerHeight;
+    final pointCenterY = geometry.pointCenterY;
+
+    final baseX = (point.position.dx * width).clamp(0, width).toDouble();
+    final baseY = (point.position.dy * height).clamp(0, height).toDouble();
+    final transformedAnchor = _transformedWorldPointAnchor(
+      transform,
+      baseX,
+      baseY,
+    );
+    final x = transformedAnchor.dx;
+    final y = transformedAnchor.dy;
+
+    final shouldClamp = transform == null;
+    final maxLeft = (width - markerWidth) > 0 ? (width - markerWidth) : 0.0;
+    final maxTop = (height - markerHeight) > 0 ? (height - markerHeight) : 0.0;
+    final rawLeft = x - markerWidth / 2;
+    final rawTop = y - pointCenterY;
+    final left = shouldClamp ? rawLeft.clamp(0.0, maxLeft).toDouble() : rawLeft;
+    final top = shouldClamp ? rawTop.clamp(0.0, maxTop).toDouble() : rawTop;
+
+    return Positioned(
+      left: left,
+      top: top,
+      width: markerWidth,
+      height: markerHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          _PositionedMapMessageBubble(
+            text: bubble.content,
+            avatarLeft: _worldPointAvatarLeft(
+              bubbleIndex,
+              users.length,
+              markerWidth,
+            ),
+            avatarTop: _worldPointAvatarTop(
+              bubbleIndex,
+              users.length,
+              pointCenterY,
+            ),
+            markerWidth: markerWidth,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -2300,23 +2544,25 @@ class _WorldPointPositioned extends StatelessWidget {
 class _WorldPointMarker extends StatelessWidget {
   const _WorldPointMarker({
     required this.point,
+    required this.showRecentChatIcon,
     required this.users,
     required this.labelMaxWidth,
     required this.markerWidth,
     required this.markerHeight,
     required this.pointCenterY,
-    this.messageBubble,
+    required this.enableAvatarScaleReboundHint,
     required this.onPointerDown,
     this.onTap,
   });
 
   final WorldPoint point;
+  final bool showRecentChatIcon;
   final List<UserAvatar> users;
   final double labelMaxWidth;
   final double markerWidth;
   final double markerHeight;
   final double pointCenterY;
-  final WorldMapMessageBubble? messageBubble;
+  final bool enableAvatarScaleReboundHint;
   final ValueChanged<PointerDownEvent> onPointerDown;
   final VoidCallback? onTap;
 
@@ -2338,11 +2584,6 @@ class _WorldPointMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasUsers = users.isNotEmpty;
     final avatars = users;
-    final bubbleIndex = messageBubble == null
-        ? -1
-        : avatars.indexWhere(
-            (avatar) => avatar.id.trim() == messageBubble!.characterId.trim(),
-          );
 
     return Listener(
       behavior: HitTestBehavior.opaque,
@@ -2380,7 +2621,11 @@ class _WorldPointMarker extends StatelessWidget {
                           horizontal: 3,
                           vertical: 4,
                         ),
-                        child: _PointLabel(point: point, color: Colors.white),
+                        child: _PointLabel(
+                          point: point,
+                          color: Colors.white,
+                          showRecentChatIcon: showRecentChatIcon,
+                        ),
                       ),
                     ),
                   ),
@@ -2407,14 +2652,8 @@ class _WorldPointMarker extends StatelessWidget {
                     user: avatars[i],
                     left: _avatarLeft(i, avatars.length),
                     top: _avatarTop(i, avatars.length),
+                    enableScaleReboundHint: enableAvatarScaleReboundHint,
                   ),
-              if (messageBubble != null && bubbleIndex >= 0)
-                _PositionedMapMessageBubble(
-                  text: messageBubble!.content,
-                  avatarLeft: _avatarLeft(bubbleIndex, avatars.length),
-                  avatarTop: _avatarTop(bubbleIndex, avatars.length),
-                  markerWidth: markerWidth,
-                ),
             ],
           ),
         ),
@@ -2605,24 +2844,61 @@ List<String> worldMapMessageBubblePagesForTesting(String content) {
 }
 
 class _PointLabel extends StatelessWidget {
-  const _PointLabel({required this.point, this.color});
+  const _PointLabel({
+    required this.point,
+    required this.showRecentChatIcon,
+    this.color,
+  });
 
   final WorldPoint point;
+  final bool showRecentChatIcon;
   final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      point.name,
-      textAlign: TextAlign.center,
-      softWrap: true,
-      style: TextStyle(
-        fontSize: 10,
-        height: 1.2,
-        leadingDistribution: TextLeadingDistribution.even,
-        fontWeight: FontWeight.w600,
-        color: color ?? Colors.black,
-      ),
+    const recentChatColor = Color(0xFF36D29A);
+    final textColor = color ?? Colors.black;
+    final style = TextStyle(
+      fontSize: 10,
+      height: 1.2,
+      leadingDistribution: TextLeadingDistribution.even,
+      fontWeight: FontWeight.w600,
+      color: textColor,
+    );
+    if (!showRecentChatIcon) {
+      return Text(
+        point.name,
+        textAlign: TextAlign.center,
+        softWrap: true,
+        style: style,
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Flexible(
+          fit: FlexFit.loose,
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: point.name),
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 3),
+                    child: RecentChatIcon(color: recentChatColor),
+                  ),
+                ),
+              ],
+            ),
+            textAlign: TextAlign.center,
+            softWrap: true,
+            style: style,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2633,24 +2909,88 @@ class _PositionedMapAvatar extends StatelessWidget {
     required this.user,
     required this.left,
     required this.top,
+    required this.enableScaleReboundHint,
   });
 
   final UserAvatar user;
   final double left;
   final double top;
+  final bool enableScaleReboundHint;
 
   @override
   Widget build(BuildContext context) {
+    final avatar = _MapAvatarImage(
+      key: ValueKey<String>('map-avatar-${_mapAvatarStableKey(user)}'),
+      url: user.avatarUrl,
+      name: (user.name ?? user.initials).trim(),
+      showStar: user.showStar,
+      isPlayerControlledRole: user.isPlayerControlledRole,
+    );
     return Positioned(
       left: left,
       top: top,
-      child: _MapAvatarImage(
-        key: ValueKey<String>('map-avatar-${_mapAvatarStableKey(user)}'),
-        url: user.avatarUrl,
-        name: (user.name ?? user.initials).trim(),
-        showStar: user.showStar,
-        isPlayerControlledRole: user.isPlayerControlledRole,
-      ),
+      child: enableScaleReboundHint
+          ? _MapAvatarScaleReboundHint(child: avatar)
+          : avatar,
+    );
+  }
+}
+
+class _MapAvatarScaleReboundHint extends StatefulWidget {
+  const _MapAvatarScaleReboundHint({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_MapAvatarScaleReboundHint> createState() =>
+      _MapAvatarScaleReboundHintState();
+}
+
+class _MapAvatarScaleReboundHintState extends State<_MapAvatarScaleReboundHint>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scheduleNext();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _scheduleNext() {
+    _timer?.cancel();
+    _timer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      _controller.forward(from: 0).whenComplete(() {
+        if (mounted) _scheduleNext();
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      child: widget.child,
+      builder: (context, child) {
+        final progress = _controller.value;
+        final rebound =
+            math.sin(math.pi * 2.2 * progress) * math.pow(1 - progress, 1.4);
+        return Transform.scale(scale: 1 + 0.08 * rebound, child: child);
+      },
     );
   }
 }

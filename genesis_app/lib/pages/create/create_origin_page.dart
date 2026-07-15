@@ -5,8 +5,13 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
+import '../../components/common/genesis_generation_wait_overlay.dart';
+import '../../components/genesis_logo.dart';
+import '../../network/json_utils.dart';
+import '../../utils/display_name_formatter.dart';
 import '../origin_editor/origin_draft_repository.dart';
 import '../origin_editor/origin_editor_pages.dart';
+import '../origin_editor/origin_generation_wait_content.dart';
 import '../origin_editor/origin_pending_submission_coordinator.dart';
 import 'create_basics_page.dart';
 import 'create_characters_page.dart';
@@ -27,11 +32,11 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
 
   final OriginPendingSubmissionCoordinator _pendingCoordinator =
       OriginPendingSubmissionCoordinator.instance;
-  OriginDraftSubmitStatus _submitStatus =
-      OriginDraftSubmitStatus.checkingPending;
+  OriginDraftSubmitStatus _submitStatus = OriginDraftSubmitStatus.idle;
   int _reloadSignal = 0;
   late final VoidCallback _removeCreateOutcomeListener;
   bool _didResumePendingCreate = false;
+  List<String> _generationWaitLines = const <String>[];
 
   @override
   void initState() {
@@ -63,7 +68,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return OriginDraftFlowPage(
+    final flow = OriginDraftFlowPage(
       title: 'Create Worldo',
       repository: _repository,
       basicsPageBuilder: (_) => const CreateBasicsPage(),
@@ -79,6 +84,23 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       confirmLeaveWithDraftOptions: true,
       onDiscardDraft: (_) => CreateOriginDraftStore.clear(),
     );
+    if (_submitStatus == OriginDraftSubmitStatus.idle) return flow;
+    return Stack(
+      children: [
+        flow,
+        Positioned.fill(
+          child: GenesisGenerationWaitOverlay(
+            title: 'Creating your Worldo',
+            illustration: const Center(
+              child: GenesisLogo(height: 88, width: 152),
+            ),
+            perspectiveLines: _generationWaitLines,
+            centeredPerspectiveLineCount: 2,
+            onBackPressed: () => Navigator.of(context).maybePop(),
+          ),
+        ),
+      ],
+    );
   }
 
   Future<OriginSubmitResult> _onCreate(
@@ -93,6 +115,18 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       return const OriginSubmitResult(message: '', showMessage: false);
     }
     final api = AppServicesScope.read(context).api;
+    if (mounted) {
+      final originatorName = await _readOriginatorName(context);
+      if (!context.mounted) {
+        return const OriginSubmitResult(message: '', showMessage: false);
+      }
+      setState(
+        () => _generationWaitLines = originDraftGenerationWaitLines(
+          draft,
+          originatorName: originatorName,
+        ),
+      );
+    }
     GenesisTelemetry.collectLog(
       actionType: 'event',
       action: 'create_worldo_submit_start',
@@ -109,6 +143,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       action: 'create_worldo_submit_success',
       object1: originId,
     );
+    await CreateOriginDraftStore.clear();
     await _pendingCoordinator.startCreating(
       originId: originId,
       loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
@@ -118,6 +153,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
 
   void _resumePendingCreate() {
     final api = AppServicesScope.read(context).api;
+    unawaited(_loadPendingCreateWaitLines());
     unawaited(
       _pendingCoordinator.ensureCreatingPolling(
         loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
@@ -125,6 +161,18 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       ),
     );
     _syncSubmitStatus();
+  }
+
+  Future<void> _loadPendingCreateWaitLines() async {
+    final originatorName = await _readOriginatorName(context);
+    final draft = await CreateOriginDraftStore.loadFinal();
+    if (!mounted) return;
+    setState(() {
+      _generationWaitLines = originDraftGenerationWaitLines(
+        draft,
+        originatorName: originatorName,
+      );
+    });
   }
 
   void _syncSubmitStatus() {
@@ -147,5 +195,21 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       _submitStatus = OriginDraftSubmitStatus.idle;
       _reloadSignal++;
     });
+  }
+
+  Future<String> _readOriginatorName(BuildContext context) async {
+    final services = AppServicesScope.read(context);
+    final userInfo = await services.sessionStore.readUserInfo();
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final rawName = userInfo == null
+        ? ''
+        : asString(
+            userInfo['name'] ??
+                userInfo['user_name'] ??
+                userInfo['username'] ??
+                userInfo['display_name'] ??
+                userInfo['nickname'],
+          );
+    return formatUidForDisplay(rawName, fallback: uid.isEmpty ? 'You' : uid);
   }
 }

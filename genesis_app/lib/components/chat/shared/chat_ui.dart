@@ -49,6 +49,8 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
 
 const double _locationChatOuterPadding = 10;
 const double _locationChatAvatarOneThird = 40 / 3;
+const double _npcChatAvatarSize = 36;
+const Color _npcChatAvatarBackgroundColor = Color(0xFF4A5F7A);
 const Color _locationChatBackgroundColor = Color(0xFF111111);
 const Color _locationChatChromeStrong = Color(0xF2111111);
 const Color _locationChatChromeSoft = Color(0x80111111);
@@ -235,7 +237,7 @@ class ChatHeader extends StatelessWidget {
                             ],
                             Flexible(
                               child: Text(
-                                title,
+                                genesisDisplaySafeText(title),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: style.headerTitleTextStyle,
@@ -270,7 +272,7 @@ class ChatHeader extends StatelessWidget {
                               SizedBox(width: style.headerStatusIconGap),
                               Flexible(
                                 child: Text(
-                                  subtitle,
+                                  genesisDisplaySafeText(subtitle),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.center,
@@ -349,6 +351,7 @@ class ChatComposer extends StatelessWidget {
     required this.onSend,
     this.onHeightChanged,
     this.sendLabel,
+    this.hintText,
     this.style,
     this.bottomSafeAreaInset,
     this.focusNode,
@@ -362,6 +365,7 @@ class ChatComposer extends StatelessWidget {
   final Future<void> Function() onSend;
   final ValueChanged<double>? onHeightChanged;
   final String? sendLabel;
+  final String? hintText;
   final ChatUiStyleConfig? style;
   final double? bottomSafeAreaInset;
   final FocusNode? focusNode;
@@ -443,6 +447,7 @@ class ChatComposer extends StatelessWidget {
                         ),
                         decoration: InputDecoration(
                           border: InputBorder.none,
+                          hintText: hintText,
                           contentPadding: EdgeInsets.symmetric(
                             horizontal: style.inputHorizontalPadding,
                             vertical: style.inputVerticalPadding,
@@ -634,7 +639,7 @@ class _ComposerSendButton extends StatelessWidget {
                   size: style.composerSendButtonIconSize,
                 )
               : Text(
-                  label!,
+                  genesisDisplaySafeText(label!),
                   maxLines: 1,
                   overflow: TextOverflow.clip,
                   style: TextStyle(
@@ -961,12 +966,15 @@ class _ChatTopTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (name.trim().isEmpty) return SizedBox(height: style.topTitleEmptyHeight);
+    final safeName = genesisDisplaySafeText(name);
+    if (safeName.trim().isEmpty) {
+      return SizedBox(height: style.topTitleEmptyHeight);
+    }
     return Padding(
       padding: EdgeInsets.only(bottom: style.topTitleBottomPadding),
       child: Center(
         child: Text(
-          name,
+          safeName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: style.topTitleTextStyle,
@@ -1003,6 +1011,7 @@ class ChatMessageRow extends StatelessWidget {
         textAlign: message.isTick || message.isNarrator
             ? TextAlign.left
             : TextAlign.center,
+        leadingIconAsset: message.isNarrator ? paragraphIconAsset : null,
         bubbleKey: message.isTick
             ? const ValueKey('chat-tick-message-bubble')
             : const ValueKey('chat-system-message-bubble'),
@@ -1074,7 +1083,10 @@ class ChatMessageRow extends StatelessWidget {
                 ),
                 if (showStatusText) ...[
                   SizedBox(height: style.statusTextTopGap),
-                  Text(message.status, style: style.statusTextStyle),
+                  Text(
+                    genesisDisplaySafeText(message.status),
+                    style: style.statusTextStyle,
+                  ),
                 ],
               ],
             ),
@@ -1097,7 +1109,8 @@ class ChatMessageRow extends StatelessWidget {
 
   Widget _buildOther(BuildContext context, ChatUiStyleConfig style) {
     final maxBubbleWidth = _normalBubbleMaxWidth(context, style);
-    final currentTime = message.currentTime.trim();
+    final senderName = genesisDisplaySafeText(message.senderName);
+    final currentTime = genesisDisplaySafeText(message.currentTime).trim();
     return Padding(
       padding: EdgeInsets.only(bottom: style.rowBottomPadding),
       child: Row(
@@ -1109,16 +1122,18 @@ class ChatMessageRow extends StatelessWidget {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: onAvatarTap,
-                child: ChatAvatar(
-                  label: chatInitials(message.senderName),
-                  imageUrl: message.avatarUrl,
-                  colors: style.otherAvatarColors,
-                  seed: message.senderName,
-                  borderColor: message.isPlayerControlledRole
-                      ? GenesisColors.brand
-                      : null,
-                  style: style,
-                ),
+                child: _isNpcSender(message.senderId)
+                    ? const ChatNpcAvatar()
+                    : ChatAvatar(
+                        label: chatInitials(message.senderName),
+                        imageUrl: message.avatarUrl,
+                        colors: style.otherAvatarColors,
+                        seed: message.senderName,
+                        borderColor: message.isPlayerControlledRole
+                            ? GenesisColors.brand
+                            : null,
+                        style: style,
+                      ),
               ),
             ],
           ),
@@ -1134,7 +1149,7 @@ class ChatMessageRow extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            message.senderName,
+                            senderName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: message.isPlayerControlledRole
@@ -1311,6 +1326,35 @@ class ChatAvatar extends StatelessWidget {
   }
 }
 
+class ChatNpcAvatar extends StatelessWidget {
+  const ChatNpcAvatar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox.square(
+      key: ValueKey('chat-npc-avatar'),
+      dimension: _npcChatAvatarSize,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _npcChatAvatarBackgroundColor,
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Text(
+            'NPC',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ChatAiBadge extends StatelessWidget {
   const ChatAiBadge({super.key, this.style});
 
@@ -1408,6 +1452,7 @@ class ChatSystemMessage extends StatelessWidget {
     this.fullWidth = false,
     this.singleLine = false,
     this.textAlign = TextAlign.center,
+    this.leadingIconAsset,
     this.bubbleKey = const ValueKey('chat-system-message-bubble'),
     this.onLongPressStart,
     this.style,
@@ -1417,6 +1462,7 @@ class ChatSystemMessage extends StatelessWidget {
   final bool fullWidth;
   final bool singleLine;
   final TextAlign textAlign;
+  final String? leadingIconAsset;
   final Key bubbleKey;
   final GestureLongPressStartCallback? onLongPressStart;
   final ChatUiStyleConfig? style;
@@ -1447,18 +1493,68 @@ class ChatSystemMessage extends StatelessWidget {
                     style.systemMessageBorderRadius,
                   ),
                 ),
-                child: _InlineMarkdownText(
-                  text: text,
-                  maxLines: singleLine ? 1 : null,
-                  overflow: singleLine ? TextOverflow.ellipsis : null,
-                  textAlign: textAlign,
-                  style: style.systemMessageTextStyle,
-                ),
+                child: leadingIconAsset == null
+                    ? _InlineMarkdownText(
+                        text: text,
+                        maxLines: singleLine ? 1 : null,
+                        overflow: singleLine ? TextOverflow.ellipsis : null,
+                        textAlign: textAlign,
+                        style: style.systemMessageTextStyle,
+                      )
+                    : _SystemMessageWithLeadingIcon(
+                        iconAsset: leadingIconAsset!,
+                        text: text,
+                        textAlign: textAlign,
+                        style: style,
+                      ),
               ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _SystemMessageWithLeadingIcon extends StatelessWidget {
+  const _SystemMessageWithLeadingIcon({
+    required this.iconAsset,
+    required this.text,
+    required this.textAlign,
+    required this.style,
+  });
+
+  final String iconAsset;
+  final String text;
+  final TextAlign textAlign;
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = style.systemMessageTextStyle.color ?? Colors.white;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 3),
+          child: SvgPicture.asset(
+            iconAsset,
+            width: 14,
+            height: 14,
+            fit: BoxFit.contain,
+            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+            excludeFromSemantics: true,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _InlineMarkdownText(
+            text: text,
+            textAlign: textAlign,
+            style: style.systemMessageTextStyle,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1638,7 +1734,11 @@ String _tickAdvanceText(ChatMessageVm message) {
 }
 
 String chatInitials(String value) {
-  return initialsForAvatarName(value);
+  return initialsForAvatarName(genesisDisplaySafeText(value));
+}
+
+bool _isNpcSender(String senderId) {
+  return senderId.trim().toLowerCase() == 'char_npc';
 }
 
 String firstNonEmpty(List<String?> values) {

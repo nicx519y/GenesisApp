@@ -1,0 +1,18 @@
+flowchart TD
+  A["用户提交 Create Origin"] --> B["创建 Origin 记录"]
+  B --> C["拿到 originId"]
+  C --> D["立即清空本地 draft 草稿"]
+  D --> E["保存 pending create"]
+  E --> F["轮询 Origin 状态"]
+
+  F --> G{"Origin 生成完成?"}
+  G -- "是" --> H["清理 pending"]
+  G -- "否" --> I{"超时?"}
+  I -- "否" --> F
+  I -- "是" --> H
+
+  H --> J["提示 created"]
+  J --> K["进入 Origin World"]
+
+  E --> X["用户退出等待页"]
+  X --> F

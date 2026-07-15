@@ -27,6 +27,8 @@ class GenesisPrimaryButton extends StatelessWidget {
     this.isLoading = false,
     this.loadingSize = 18,
     this.loadingStrokeWidth = 2,
+    this.leadingIcon,
+    this.iconGap = 8,
   });
 
   static const double defaultHeight = 42;
@@ -59,6 +61,8 @@ class GenesisPrimaryButton extends StatelessWidget {
   final bool isLoading;
   final double loadingSize;
   final double loadingStrokeWidth;
+  final Widget? leadingIcon;
+  final double iconGap;
 
   @override
   Widget build(BuildContext context) {
@@ -103,8 +107,43 @@ class GenesisPrimaryButton extends StatelessWidget {
                   color: foregroundColor ?? defaultForegroundColor,
                 ),
               )
-            : Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+            : _PrimaryButtonLabel(
+                label: label,
+                leadingIcon: leadingIcon,
+                iconGap: iconGap,
+              ),
       ),
+    );
+  }
+}
+
+class _PrimaryButtonLabel extends StatelessWidget {
+  const _PrimaryButtonLabel({
+    required this.label,
+    required this.leadingIcon,
+    required this.iconGap,
+  });
+
+  final String label;
+  final Widget? leadingIcon;
+  final double iconGap;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = leadingIcon;
+    if (icon == null) {
+      return Text(label, maxLines: 1, overflow: TextOverflow.ellipsis);
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        icon,
+        SizedBox(width: iconGap),
+        Flexible(
+          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+      ],
     );
   }
 }

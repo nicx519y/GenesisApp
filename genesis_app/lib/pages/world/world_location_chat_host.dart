@@ -19,6 +19,7 @@ class WorldLocationChatPanelDescriptor {
     required this.backgroundPreviewImageUrl,
     required this.isLeafLocation,
     this.localMessageLocationIds = const <String>[],
+    this.recentChatLocationPathIds = const <String>[],
   });
 
   factory WorldLocationChatPanelDescriptor.fromNode(
@@ -45,6 +46,7 @@ class WorldLocationChatPanelDescriptor {
         locationId,
         valueLocationId,
       ]),
+      recentChatLocationPathIds: worldOrderedNonEmptyStrings([locationId]),
     );
   }
 
@@ -70,6 +72,7 @@ class WorldLocationChatPanelDescriptor {
         pointId,
         locationId,
       ]),
+      recentChatLocationPathIds: worldOrderedNonEmptyStrings([locationId]),
     );
   }
 
@@ -79,6 +82,7 @@ class WorldLocationChatPanelDescriptor {
   final String backgroundPreviewImageUrl;
   final bool isLeafLocation;
   final List<String> localMessageLocationIds;
+  final List<String> recentChatLocationPathIds;
 
   WorldLocationChatPanelDescriptor copyWith({
     String? locationId,
@@ -87,6 +91,7 @@ class WorldLocationChatPanelDescriptor {
     String? backgroundPreviewImageUrl,
     bool? isLeafLocation,
     List<String>? localMessageLocationIds,
+    List<String>? recentChatLocationPathIds,
   }) {
     return WorldLocationChatPanelDescriptor(
       locationId: locationId ?? this.locationId,
@@ -97,6 +102,8 @@ class WorldLocationChatPanelDescriptor {
       isLeafLocation: isLeafLocation ?? this.isLeafLocation,
       localMessageLocationIds:
           localMessageLocationIds ?? this.localMessageLocationIds,
+      recentChatLocationPathIds:
+          recentChatLocationPathIds ?? this.recentChatLocationPathIds,
     );
   }
 }
@@ -161,8 +168,8 @@ class WorldLocationChatPageCache {
     return _descriptors[locationId];
   }
 
-  void markReady(String locationId) {
-    _readyLocationIds.add(locationId);
+  bool markReady(String locationId) {
+    return _readyLocationIds.add(locationId);
   }
 
   String draftTextFor(String locationId) {
@@ -379,6 +386,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             backgroundPreviewImageUrl: descriptor.backgroundPreviewImageUrl,
             isLeafLocation: descriptor.isLeafLocation,
             localMessageLocationIds: descriptor.localMessageLocationIds,
+            recentChatLocationPathIds: descriptor.recentChatLocationPathIds,
             service: chatroom,
             active: active,
             leaveOnInactive: false,

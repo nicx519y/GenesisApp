@@ -305,6 +305,20 @@ void main() {
     for (final item in myWorlds['list'] as List) {
       expect(((item as Map)['info'] as Map)['owner_uid'], 'u_mock_001');
     }
+    final originId =
+        (((myWorlds['list'] as List).first as Map)['info'] as Map)['origin_id']
+            as String;
+    final originWorlds = await api.v1.world.list(
+      scene: 'uid',
+      uid: 'u_mock_001',
+      originId: originId,
+      pn: 1,
+      rn: 10,
+    );
+    expect((originWorlds['list'] as List), isNotEmpty);
+    for (final item in originWorlds['list'] as List) {
+      expect(((item as Map)['info'] as Map)['origin_id'], originId);
+    }
     final firstWorldName =
         ((((worlds['list'] as List)[0] as Map)['info'] as Map)['world_name']);
     final secondWorldName =
@@ -428,10 +442,16 @@ void main() {
     expect(historyMessage.messageId, greaterThan(0));
     expect(historyMessage.locationMessageId, greaterThan(0));
     expect(historyMessage.createdAt, isNotNull);
+    var lockStatus = await api.chatroomHttp.tickLockStatus(worldId: world);
+    expect(lockStatus.isLocked, false);
     expect(await api.chatroomHttp.lockWorld(worldId: world), true);
+    lockStatus = await api.chatroomHttp.tickLockStatus(worldId: world);
+    expect(lockStatus.isLocked, true);
     var tickProgress = await api.chatroomHttp.tickProgress(worldId: world);
     expect(tickProgress.progress, 0);
     expect(await api.chatroomHttp.unlockWorld(worldId: world), true);
+    lockStatus = await api.chatroomHttp.tickLockStatus(worldId: world);
+    expect(lockStatus.isLocked, false);
     tickProgress = await api.chatroomHttp.tickProgress(worldId: world);
     expect(tickProgress.progress, 1);
     final narratorMessageId = await api.chatroomHttp.writeNarrator(

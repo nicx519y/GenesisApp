@@ -83,7 +83,7 @@ void main() {
 
     await tester.tap(find.text('World'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Worldo'));
+    await tester.tap(find.text('#Worldo'));
     await tester.pumpAndSettle();
 
     expect(selectedIndexes, <int>[1, 0]);

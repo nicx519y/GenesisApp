@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
@@ -75,12 +76,16 @@ class _MePageState extends State<MePage> {
   bool _hasPendingActivationRefresh = false;
   int _selectedCollectionTabIndex = 0;
   ValueListenable<int>? _sessionRevisionListenable;
+  bool _isDisposed = false;
+  String _recentChatUid = '';
+  String _recentChatWorldId = '';
 
   @override
   void initState() {
     super.initState();
     _future = _loadData();
     widget.activationListenable?.addListener(_handleTabActivated);
+    recentWorldChatStore.listenable.addListener(_handleRecentChatChanged);
   }
 
   @override
@@ -100,11 +105,15 @@ class _MePageState extends State<MePage> {
     _sessionRevisionListenable?.removeListener(_handleSessionChanged);
     _sessionRevisionListenable = sessionRevision;
     sessionRevision.addListener(_handleSessionChanged);
+    unawaited(_loadRecentChatMarker());
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
+    _loadGeneration += 1;
     _sessionRevisionListenable?.removeListener(_handleSessionChanged);
+    recentWorldChatStore.listenable.removeListener(_handleRecentChatChanged);
     widget.activationListenable?.removeListener(_handleTabActivated);
     _isUpdatingProfile.dispose();
     _avatarUrl.dispose();
@@ -116,12 +125,39 @@ class _MePageState extends State<MePage> {
 
   Future<_MePageContent> _loadData() async {
     if (!await _hasLocalLoginSession()) {
+      if (!_canUpdateAsyncState) {
+        return const _MePageContent.signedOut();
+      }
       _loadGeneration += 1;
       _setOriginsState(const <UserProfileOriginItem>[], isLoading: false);
       _setWorldsState(const <UserProfileWorldItem>[], isLoading: false);
+      _setRecentChatMarker('', '');
       return const _MePageContent.signedOut();
     }
     return _MePageContent.signedIn(await _loadProfileData());
+  }
+
+  Future<void> _loadRecentChatMarker() async {
+    final uid = await resolveRecentWorldChatUid(AppServicesScope.read(context));
+    final record = await recentWorldChatStore.loadForUid(uid);
+    if (!_canUpdateAsyncState) return;
+    final nextWorldId = record?.uid == uid ? record?.worldId ?? '' : '';
+    _setRecentChatMarker(uid, nextWorldId);
+  }
+
+  void _handleRecentChatChanged() {
+    final record = recentWorldChatStore.listenable.value;
+    if (record == null) return;
+    if (_recentChatUid.isNotEmpty && record.uid != _recentChatUid) return;
+    _setRecentChatMarker(record.uid, record.worldId);
+  }
+
+  void _setRecentChatMarker(String uid, String worldId) {
+    if (_recentChatUid == uid && _recentChatWorldId == worldId) return;
+    setState(() {
+      _recentChatUid = uid;
+      _recentChatWorldId = worldId;
+    });
   }
 
   Future<UserProfileData> _loadProfileData({
@@ -205,6 +241,7 @@ class _MePageState extends State<MePage> {
       origins: const [],
       worlds: const [],
     );
+    if (!_canUpdateAsyncState || generation != _loadGeneration) return data;
     _avatarUrl.value = data.avatarUrl;
     _displayName.value = data.displayName;
     unawaited(
@@ -298,6 +335,7 @@ class _MePageState extends State<MePage> {
   }
 
   bool get _isTabActive => widget.isActiveListenable?.value ?? true;
+  bool get _canUpdateAsyncState => mounted && !_isDisposed;
 
   void _handleCollectionTabChanged(int index) {
     if (_selectedCollectionTabIndex == index) return;
@@ -379,6 +417,7 @@ class _MePageState extends State<MePage> {
   }
 
   void _setCollectionLoading(int tabIndex, {required bool isLoading}) {
+    if (!_canUpdateAsyncState) return;
     if (tabIndex == 1) {
       _setWorldsState(_worldsState.value.items, isLoading: isLoading);
       return;
@@ -390,6 +429,7 @@ class _MePageState extends State<MePage> {
     List<UserProfileOriginItem> items, {
     required bool isLoading,
   }) {
+    if (!_canUpdateAsyncState) return;
     final current = _originsState.value;
     if (current.isLoading == isLoading &&
         _sameOriginItems(current.items, items)) {
@@ -405,6 +445,7 @@ class _MePageState extends State<MePage> {
     List<UserProfileWorldItem> items, {
     required bool isLoading,
   }) {
+    if (!_canUpdateAsyncState) return;
     final current = _worldsState.value;
     if (current.isLoading == isLoading &&
         _sameWorldItems(current.items, items)) {
@@ -501,6 +542,7 @@ class _MePageState extends State<MePage> {
   Future<void> _refreshOrigins() async {
     final services = AppServicesScope.read(context);
     final uid = await _readCurrentBackendUid();
+    if (!_canUpdateAsyncState) return;
     debugPrint('[MePage] refresh origins uid: $uid');
     final current = _originsState.value;
     _setOriginsState(current.items, isLoading: true);
@@ -527,6 +569,7 @@ class _MePageState extends State<MePage> {
   Future<void> _refreshWorlds() async {
     final services = AppServicesScope.read(context);
     final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (!_canUpdateAsyncState) return;
     final current = _worldsState.value;
     _setWorldsState(current.items, isLoading: true);
     try {
@@ -831,6 +874,7 @@ class _MePageState extends State<MePage> {
                   onRefreshWorlds: _refreshWorlds,
                   onCollectionTabChanged: _handleCollectionTabChanged,
                   onCollapsedChanged: _handleProfileCollapsedChanged,
+                  recentChatWorldId: _recentChatWorldId,
                 ),
               ),
             ],

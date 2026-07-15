@@ -60,6 +60,8 @@ class GenesisApi {
     IdentityAuthService? identityAuthService,
     RequestHeaderProvider? appHeaderProvider,
     GatewayRequestInterceptor? gatewayRequestInterceptor,
+    ApiRequestInterceptor Function(ApiRequestInterceptor? next)?
+    startupRequestInterceptor,
     Future<void> Function(String message)? onSessionExpired,
     Future<void> Function(String message)? onPageNotFound,
   }) {
@@ -77,6 +79,10 @@ class GenesisApi {
       transport: transport,
       useMock: useMock,
     );
+    final gatewayInterceptor = gatewayRequestInterceptor?.call;
+    final gatedGatewayInterceptor = startupRequestInterceptor == null
+        ? gatewayInterceptor
+        : startupRequestInterceptor(gatewayInterceptor);
 
     _apiClient =
         apiClient ??
@@ -87,11 +93,11 @@ class GenesisApi {
             'accept': 'application/json',
           },
           requestHeaderProvider: _runtimeRequestHeaders,
-          requestInterceptor: gatewayRequestInterceptor?.call,
+          requestInterceptor: gatedGatewayInterceptor,
           transport: resolvedTransport,
           responseProcessor: _processGenesisResponse,
         );
-    final gatewayClient =
+    final ungatedGatewayClient =
         gatewayApiClient ??
         ApiClient(
           baseUrl: _normalizeBaseUrl(
@@ -102,11 +108,11 @@ class GenesisApi {
             'accept': 'application/json',
           },
           requestHeaderProvider: _runtimeRequestHeaders,
-          requestInterceptor: gatewayRequestInterceptor?.call,
+          requestInterceptor: gatewayInterceptor,
           transport: resolvedTransport,
           responseProcessor: _processGenesisResponse,
         );
-    _healthClient = healthClient ?? gatewayClient;
+    _healthClient = healthClient ?? ungatedGatewayClient;
     _chatroomHttpClient =
         chatroomHttpClient ??
         ApiClient(
@@ -119,7 +125,7 @@ class GenesisApi {
           },
           requestHeaderProvider: _runtimeRequestHeaders,
           requestInterceptor: LocationChatDebugHttp.wrapChatroomHttpInterceptor(
-            gatewayRequestInterceptor?.call,
+            gatedGatewayInterceptor,
           ),
           transport: resolvedTransport,
           responseProcessor: _processGenesisResponse,
@@ -200,6 +206,8 @@ class GenesisApi {
   }
 
   void _throwIfPageNotFound(ApiResponse response) {
+    if (_isRecoverableListNotFound(response.uri)) return;
+
     final data = response.data;
     final int? errNo;
     if (data is Map) {
@@ -223,6 +231,10 @@ class GenesisApi {
       uri: response.uri,
       kind: ApiExceptionKind.business,
     );
+  }
+
+  bool _isRecoverableListNotFound(Uri uri) {
+    return uri.path == '/api/v1/user/followers';
   }
 
   Future<String> ensureUid() => _ensureUid();
@@ -1505,8 +1517,7 @@ List<OriginCharacter> _originCharactersFromV5(Object? raw, int originId) {
           name: asString(c['name']),
           avatar: _resolveImageAssetUrl(c['image']),
           tags: asString(c['identity']),
-          tagline: asString(c['tagline']),
-          description: asString(c['intro']),
+          tagline: asString(c['brief']),
           goal: asString(c['goal']),
           currentLocationId: _extractTrailingInt(asString(c['Ochar_point'])),
           initialLocationId: _extractTrailingInt(asString(c['Ochar_point'])),
@@ -1975,11 +1986,7 @@ OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
     ),
     avatar: _resolveImageAssetUrl(raw['avatar']),
     tags: asString(raw['identity']),
-    tagline: asString(raw['tagline'], fallback: asString(raw['brief'])),
-    description: asString(
-      raw['description'],
-      fallback: asString(raw['brief'], fallback: asString(raw['tagline'])),
-    ),
+    tagline: asString(raw['brief']),
     goal: asString(raw['goal']),
     currentLocationId: stableLocationId,
     initialLocationId: stableLocationId,
@@ -2016,6 +2023,11 @@ OriginLocation _originLocationFromV1(Map<String, dynamic> raw, int originId) {
     updatedAt: _apiDateTime(raw['updated_at']),
     locationId: locationId,
     parentLocationId: parentLocationId,
+    dialogue: raw['dialogue'] is List
+        ? asJsonList(raw['dialogue'])
+              .map((item) => OriginDialogueLine.fromJson(asJsonMap(item)))
+              .toList(growable: false)
+        : const <OriginDialogueLine>[],
   );
 }
 
@@ -2064,6 +2076,7 @@ Map<String, dynamic> _worldCharacterFromV1(Map<String, dynamic> raw) {
     'avatar': _resolveImageAssetUrl(raw['avatar']),
     'initial_location_id': asString(raw['initial_location_id']),
     'location_id': asString(raw['location_id']),
+    'player_joined_at': asInt(raw['player_joined_at']),
     'metric_value': raw['metric_value'],
   };
 }

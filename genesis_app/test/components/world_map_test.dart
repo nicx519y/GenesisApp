@@ -254,6 +254,48 @@ void main() {
     expect(find.text('Ben is elsewhere.'), findsNothing);
   });
 
+  testWidgets('world map paints message bubbles above all point markers', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [
+        WorldPoint(
+          id: 'point-a',
+          name: 'Gate',
+          type: WorldPointType.portal,
+          position: Offset(0.5, 0.35),
+          users: [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+        ),
+        WorldPoint(
+          id: 'point-b',
+          name: 'Market',
+          type: WorldPointType.shop,
+          position: Offset(0.5, 0.35),
+          users: [],
+        ),
+      ],
+      activeBubble: const WorldMapMessageBubble(
+        characterId: 'char_a',
+        content: 'Ava checks the storefront.',
+      ),
+    );
+
+    final widgets = tester.allWidgets.toList(growable: false);
+    final lastPointMarkerLayer = widgets.lastIndexWhere(
+      (widget) => widget.runtimeType.toString() == '_WorldPointPositioned',
+    );
+    final bubbleOverlayLayer = widgets.indexWhere(
+      (widget) =>
+          widget.runtimeType.toString() == '_WorldPointMessageBubblePositioned',
+    );
+
+    expect(find.text('Ava checks the storefront.'), findsOneWidget);
+    expect(lastPointMarkerLayer, greaterThanOrEqualTo(0));
+    expect(bubbleOverlayLayer, greaterThan(lastPointMarkerLayer));
+  });
+
   testWidgets('world map loops a single queued bubble with a gap', (
     tester,
   ) async {
@@ -642,6 +684,28 @@ void main() {
       source,
       isNot(contains('setState(() => _mapImageDimensionsByUrl[url] = size)')),
     );
+  });
+
+  testWidgets('world map defers zoom scale rebuilds during widget update', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      mapImageUrl: kMockV1SteamMapImage,
+      users: const [],
+      initialZoomScale: 1,
+    );
+
+    await _pumpWorldMap(
+      tester,
+      mapImageUrl: kMockV1SteamMapImage,
+      users: const [],
+      initialZoomScale: 1.5,
+    );
+
+    expect(tester.takeException(), isNull);
+    await tester.pump();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('world map uses fallback background when map URL is empty', (
@@ -1943,6 +2007,7 @@ Future<void> _pumpWorldMap(
   WorldMapMessageBubble? activeBubble,
   List<WorldMapMessageBubble> messageBubbles = const <WorldMapMessageBubble>[],
   bool messageBubblePlaybackPaused = false,
+  double initialZoomScale = 1,
 }) async {
   tester.view.physicalSize = const Size(430, 820);
   tester.view.devicePixelRatio = 1;
@@ -1972,6 +2037,7 @@ Future<void> _pumpWorldMap(
                 activeBubble: activeBubble,
                 messageBubbles: messageBubbles,
                 messageBubblePlaybackPaused: messageBubblePlaybackPaused,
+                initialZoomScale: initialZoomScale,
                 onDrillIntoLocation: onDrillIntoLocation,
                 onMapTap: onMapTap,
                 onPointTap: onPointTap,

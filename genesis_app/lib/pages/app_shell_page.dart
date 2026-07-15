@@ -52,6 +52,9 @@ class _AppShellPageState extends State<AppShellPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AppStartupCoordinator.postLaunchWorkAllowedListenable.addListener(
+      _handlePostLaunchWorkAllowed,
+    );
     _selectedIndex = _normalTabIndex(widget.initialIndex);
     _messagesTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 3);
     _meTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 4);
@@ -65,14 +68,16 @@ class _AppShellPageState extends State<AppShellPage>
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startAppRuntime();
-      _recordSelectedTabPageView();
-      _startMessagesPolling();
+      _startPostLaunchWorkIfAllowed();
     });
   }
 
   @override
   void dispose() {
     _sessionRevisionListenable?.removeListener(_handleSessionChanged);
+    AppStartupCoordinator.postLaunchWorkAllowedListenable.removeListener(
+      _handlePostLaunchWorkAllowed,
+    );
     WidgetsBinding.instance.removeObserver(this);
     _stopMessagesPolling();
     _messagesTabActiveNotifier.dispose();
@@ -86,8 +91,10 @@ class _AppShellPageState extends State<AppShellPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _startMessagesPolling();
-      _notifyActiveTabActivated();
+      if (AppStartupCoordinator.isPostLaunchWorkAllowed) {
+        _startMessagesPolling();
+        _notifyActiveTabActivated();
+      }
     } else {
       _stopMessagesPolling();
     }
@@ -112,20 +119,29 @@ class _AppShellPageState extends State<AppShellPage>
     _messagesPoller.stop();
   }
 
+  void _handlePostLaunchWorkAllowed() {
+    _startPostLaunchWorkIfAllowed();
+  }
+
+  void _startPostLaunchWorkIfAllowed() {
+    if (!AppStartupCoordinator.isPostLaunchWorkAllowed) return;
+    _recordSelectedTabPageView();
+    _startMessagesPolling();
+  }
+
   void _startAppRuntime() {
     if (!mounted) return;
+    if (defaultTargetPlatform == TargetPlatform.iOS) return;
     final services = AppServicesScope.read(context);
     AppStartupCoordinator.startFirebasePerformance();
     AppStartupCoordinator.startWarmUp(services);
-    if (defaultTargetPlatform != TargetPlatform.iOS) {
-      unawaited(
-        AppStartupCoordinator.initializeTelemetry(
-          services: services,
-          trackingAuthorizationStatus:
-              AppTrackingAuthorizationStatus.notSupported,
-        ),
-      );
-    }
+    unawaited(
+      AppStartupCoordinator.initializeTelemetry(
+        services: services,
+        trackingAuthorizationStatus:
+            AppTrackingAuthorizationStatus.notSupported,
+      ),
+    );
   }
 
   Future<void> _refreshMessagesData() async {

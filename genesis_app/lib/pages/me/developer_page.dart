@@ -14,6 +14,8 @@ import '../../app/config/app_config.dart';
 import '../../app/debug_floating_button_visibility.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/common/genesis_generation_wait_overlay.dart';
+import '../../components/genesis_logo.dart';
 import '../../components/page_header.dart';
 import '../../network/genesis_api.dart';
 import '../../platform/app/app_metadata_service.dart';
@@ -26,6 +28,25 @@ const String _buildModeLabel = kReleaseMode
     : kProfileMode
     ? 'profile'
     : 'debug';
+
+const String _launchPreviewOriginId = 'o_G7DBQM';
+const String _launchPreviewWaitTitle = 'Launching the Worldo';
+const String _launchPreviewWaitMessage =
+    'In world, click the map, enter the location, and start interacting with the characters to move the world forward.';
+const String _progressPreviewWaitTitle = 'Progressing the World';
+const String _progressPreviewWaitMessage =
+    'Compressing recent memories\n'
+    'Advancing the world timeline\n'
+    'Generating the next story beat\n'
+    'Updating character locations';
+const List<String> _creatingPreviewWaitLines = [
+  'Originator',
+  'Eve',
+  'A floating city where every district changes its laws at sunrise, and every resident keeps a private map of the rules they trust.',
+  'Magic behaves like public infrastructure. Promises, debts, weather, and streetlights all run through the same civic engine.',
+  'Mira: Exiled route-maker. Patient, skeptical, and protective of anyone who admits they are lost.',
+  'Jon: Archive courier. Restless, charming, and far too willing to trade secrets for a shortcut.',
+];
 
 class DeveloperPage extends StatelessWidget {
   const DeveloperPage({super.key});
@@ -87,11 +108,16 @@ class DeveloperPageSheet extends StatelessWidget {
                   ),
                 ),
               ),
-              const Flexible(
+              Flexible(
                 child: SingleChildScrollView(
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
-                  child: DeveloperPageContent(),
+                  child: DeveloperPageContent(
+                    dismissBeforePreview: true,
+                    onDismissBeforePreview: () async {
+                      await Navigator.of(context).maybePop();
+                    },
+                  ),
                 ),
               ),
               GestureDetector(
@@ -108,7 +134,14 @@ class DeveloperPageSheet extends StatelessWidget {
 }
 
 class DeveloperPageContent extends StatefulWidget {
-  const DeveloperPageContent({super.key});
+  const DeveloperPageContent({
+    super.key,
+    this.dismissBeforePreview = false,
+    this.onDismissBeforePreview,
+  });
+
+  final bool dismissBeforePreview;
+  final Future<void> Function()? onDismissBeforePreview;
 
   @override
   State<DeveloperPageContent> createState() => _DeveloperPageContentState();
@@ -354,6 +387,116 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     await _saveEndpointOverrides(successMessage: successMessage);
   }
 
+  Future<void> _showCreatingWaitOverlayPreview() async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (widget.dismissBeforePreview) {
+      await widget.onDismissBeforePreview?.call();
+    }
+    if (!navigator.mounted) return;
+    await showGeneralDialog<void>(
+      context: navigator.context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: false,
+      transitionDuration: Duration.zero,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return GenesisGenerationWaitOverlay(
+          title: 'Creating your Worldo',
+          illustration: const Center(
+            child: GenesisLogo(height: 88, width: 152),
+          ),
+          perspectiveLines: _creatingPreviewWaitLines,
+          centeredPerspectiveLineCount: 2,
+          onBarrierTap: () => Navigator.of(dialogContext).maybePop(),
+          onBackPressed: () => Navigator.of(dialogContext).maybePop(),
+        );
+      },
+    );
+  }
+
+  Future<void> _showLaunchingWaitOverlayPreview() async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (widget.dismissBeforePreview) {
+      await widget.onDismissBeforePreview?.call();
+    }
+    final avatars = await _loadPreviewOriginAvatars();
+    if (avatars == null) {
+      if (navigator.mounted) {
+        showGenesisToast(
+          navigator.context,
+          'Failed to load launch preview origin.',
+        );
+      }
+      return;
+    }
+    if (!navigator.mounted) return;
+    await showGeneralDialog<void>(
+      context: navigator.context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: false,
+      transitionDuration: Duration.zero,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return GenesisGenerationWaitOverlay(
+          title: _launchPreviewWaitTitle,
+          message: _launchPreviewWaitMessage,
+          characterAvatars: avatars,
+          onBarrierTap: () => Navigator.of(dialogContext).maybePop(),
+          onBackPressed: () => Navigator.of(dialogContext).maybePop(),
+        );
+      },
+    );
+  }
+
+  Future<void> _showProgressingWaitOverlayPreview() async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (widget.dismissBeforePreview) {
+      await widget.onDismissBeforePreview?.call();
+    }
+    final avatars = await _loadPreviewOriginAvatars();
+    if (avatars == null) {
+      if (navigator.mounted) {
+        showGenesisToast(
+          navigator.context,
+          'Failed to load progress preview origin.',
+        );
+      }
+      return;
+    }
+    if (!navigator.mounted) return;
+    await showGeneralDialog<void>(
+      context: navigator.context,
+      barrierColor: Colors.transparent,
+      barrierDismissible: false,
+      transitionDuration: Duration.zero,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return GenesisGenerationWaitOverlay(
+          title: _progressPreviewWaitTitle,
+          message: _progressPreviewWaitMessage,
+          characterAvatars: avatars,
+          onBarrierTap: () => Navigator.of(dialogContext).maybePop(),
+          onBackPressed: () => Navigator.of(dialogContext).maybePop(),
+        );
+      },
+    );
+  }
+
+  Future<List<GenesisGenerationWaitAvatar>?> _loadPreviewOriginAvatars() async {
+    final api = AppServicesScope.read(context).api;
+    try {
+      final origin = await api.getOrigin(_launchPreviewOriginId);
+      return origin.characters
+          .map((character) {
+            return GenesisGenerationWaitAvatar(
+              name: character.name.trim(),
+              url: character.avatar.trim(),
+            );
+          })
+          .where((avatar) => avatar.name.isNotEmpty || avatar.url.isNotEmpty)
+          .toList(growable: false);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Widget _buildDeviceIdDiagnostics(DeviceIdDiagnostics? diagnostics) {
     final deviceId = _infoValue(diagnostics?.deviceId);
     if (diagnostics?.hasAndroidBreakdown != true) {
@@ -495,6 +638,27 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
             controller: _chatroomWsBaseUrlController,
           ),
           const SizedBox(height: 18),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            label: 'Creating',
+            onPressed: _showCreatingWaitOverlayPreview,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            label: 'Launching',
+            onPressed: _showLaunchingWaitOverlayPreview,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            label: 'Progressing',
+            onPressed: _showProgressingWaitOverlayPreview,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
             label: _clearingDirectMessageCache

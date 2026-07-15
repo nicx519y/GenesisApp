@@ -15,7 +15,7 @@ class GenesisCharacterAvatar extends StatelessWidget {
     this.starSize = 12,
     this.starColor = const Color(0xFFFF2442),
     this.boxShadow = const <BoxShadow>[],
-    this.showFallbackWhileLoading = true,
+    this.showFallbackWhileLoading = false,
     this.showFallbackWhenUnavailable = true,
     this.border,
   });

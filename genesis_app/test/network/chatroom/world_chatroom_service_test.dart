@@ -16,6 +16,34 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test('WorldChatroomMessage defaults missing location message id to zero', () {
+    final constructed = WorldChatroomMessage(
+      messageId: 1,
+      locationMessageId: null,
+      conversationRoundId: '1',
+      roundOrder: 0,
+      locationId: 'loc-1',
+      senderType: 'character',
+      senderId: 'char-1',
+      senderName: 'Guide',
+      content: 'hello',
+      createdAt: null,
+    );
+    final stored = WorldChatroomMessage.fromStorageJson({
+      'msg_id': 2,
+      'location_msg_id': null,
+      'conversation_round_id': '1',
+      'location_id': 'loc-1',
+      'sender_type': 'character',
+      'sender_id': 'char-1',
+      'sender_name': 'Guide',
+      'content': 'hello',
+    });
+
+    expect(constructed.locationMessageId, 0);
+    expect(stored.locationMessageId, 0);
+  });
+
   test('setInputBlocked publishes shared composer block state', () async {
     final service = await _service(
       socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
@@ -54,6 +82,48 @@ void main() {
       'payload': {'event_type': 'tick_done'},
     });
     await _waitFor(() => !service.state.inputBlocked);
+
+    await service.dispose();
+  });
+
+  test('new user join notification publishes latest join state', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+    );
+
+    await service.connect(worldId: 'world-1', identity: _identity());
+
+    socket.serverFrame('new_user_join', {
+      'world_id': 'world-1',
+      'payload': {
+        'char_id': 'char-1',
+        'type': 'ai',
+        'name': 'Old Name',
+        'player_uid': 'user-1',
+        'player_username': 'Player One',
+      },
+    });
+    await _waitFor(() => service.state.latestNewUserJoinRevision == 1);
+
+    socket.serverFrame('new_user_join', {
+      'world_id': 'world-1',
+      'payload': {
+        'char_id': 'char-2',
+        'type': 'custom',
+        'name': 'New Name',
+        'player_uid': 'user-2',
+        'player_username': 'Player Two',
+      },
+    });
+    await _waitFor(() => service.state.latestNewUserJoinRevision == 2);
+
+    final latest = service.state.latestNewUserJoin;
+    expect(latest?.characterId, 'char-2');
+    expect(latest?.characterType, 'custom');
+    expect(latest?.characterName, 'New Name');
+    expect(latest?.playerUid, 'user-2');
+    expect(latest?.playerUsername, 'Player Two');
 
     await service.dispose();
   });
@@ -1150,8 +1220,39 @@ void main() {
     expect(message.clientMsgId, 'client-1');
     expect(message.currentTime, 'Day 3, 19:46');
     expect(service.state.latestSocketCurrentTime, 'Day 3, 19:46');
+    expect(service.state.world?.currentTime, 'Day 3, 19:46');
     expect(service.state.latestSocketTickNo, 0);
     expect(service.state.latestSocketCurrentTimeRevision, 1);
+
+    socket.serverFrame('user_message', {
+      'world_id': 'world-1',
+      'session_id': 'sess-1',
+      'location_id': 'loc-1',
+      'user_id': 'user-1',
+      'sender_id': 'user-1',
+      'sender_name': 'Player One',
+      'global_msg_id': 90062,
+      'msg_id': 62,
+      'location_msg_id': 62,
+      'conversation_round_id': 1281,
+      'payload': {
+        'content': '嵌套时间',
+        'message': {'current_time': 'Day 3, 19:47'},
+      },
+    });
+    await _waitFor(
+      () =>
+          service.state.messagesByLocation['loc-1']?.any(
+            (message) => message.messageId == 62,
+          ) ==
+          true,
+    );
+    final nestedTimeMessage = service.state.messagesByLocation['loc-1']!
+        .singleWhere((message) => message.messageId == 62);
+    expect(nestedTimeMessage.currentTime, 'Day 3, 19:47');
+    expect(service.state.latestSocketCurrentTime, 'Day 3, 19:47');
+    expect(service.state.world?.currentTime, 'Day 3, 19:47');
+    expect(service.state.latestSocketCurrentTimeRevision, 2);
     await service.dispose();
   });
 
@@ -1206,6 +1307,8 @@ void main() {
       }
       expect(service.state.latestSocketCurrentTime, 'Day 45, 19:30');
       expect(service.state.latestSocketTickNo, 7);
+      expect(service.state.world?.currentTime, 'Day 45, 19:30');
+      expect(service.state.world?.tickCount, 7);
       expect(service.state.messagesByLocation.containsKey('loc-root'), isFalse);
       for (final locationId in const ['loc-1', 'loc-2']) {
         final records = await storage.loadLatestMessages(
@@ -1454,18 +1557,23 @@ void main() {
     http.worldName = 'World Changed';
     socket.serverFrame('world_change', {
       'world_id': 'world-1',
-      'payload': {'event_type': 'world_change'},
+      'payload': {'event_type': 'world_change', 'current_time': 'Day 9, 10:00'},
     });
     await _waitFor(() => service.state.world?.name == 'World Changed');
+    expect(service.state.latestSocketCurrentTime, 'Day 9, 10:00');
 
     http.userLocationId = 'loc-1';
     socket.serverFrame('user_location_change', {
       'world_id': 'world-1',
-      'payload': {'event_type': 'user_location_change'},
+      'payload': {
+        'event_type': 'user_location_change',
+        'currentTime': 'Day 9, 10:01',
+      },
     });
     await _waitFor(
       () => service.state.entitiesById['user-1']?.locationId == 'loc-1',
     );
+    expect(service.state.latestSocketCurrentTime, 'Day 9, 10:01');
     expect(service.state.entitiesById['user-1']?.name, 'Role One');
     expect(service.state.entitiesById['user-1']?.name, isNot('Player One'));
 
@@ -1716,9 +1824,15 @@ void main() {
       'msg_id': 10,
       'location_msg_id': 10,
       'conversation_round_id': 8,
-      'payload': {'sender_id': 'char-1', 'seq': 1, 'content': 'wrong'},
+      'payload': {
+        'sender_id': 'char-1',
+        'seq': 1,
+        'content': 'wrong',
+        'currentTime': 'Day 8, 09:10',
+      },
     });
     await _waitFor(() => service.state.lastFailure?.code == 'stream_missing');
+    expect(service.state.latestSocketCurrentTime, 'Day 8, 09:10');
 
     socket.serverFrame('llm_chunk', {
       'world_id': 'world-1',
@@ -1728,12 +1842,22 @@ void main() {
       'msg_id': 10,
       'location_msg_id': 10,
       'conversation_round_id': 8,
-      'payload': {'sender_id': 'char-1', 'seq': 1, 'content': 'hel'},
+      'payload': {
+        'sender_id': 'char-1',
+        'seq': 1,
+        'content': 'hel',
+        'current_time': 'Day 8, 09:11',
+      },
     });
     await _waitFor(
       () => service.state.streamMessagesByKey['loc-1|8']?.content == 'hel',
     );
+    expect(service.state.latestSocketCurrentTime, 'Day 8, 09:11');
 
+    var streamEndStateCount = 0;
+    final streamEndSub = service.states.listen((_) {
+      streamEndStateCount += 1;
+    });
     socket.serverFrame('llm_stream_end', {
       'world_id': 'world-1',
       'session_id': 'sess-1',
@@ -1742,11 +1866,16 @@ void main() {
       'msg_id': 10,
       'location_msg_id': 10,
       'conversation_round_id': 8,
-      'payload': {'sender_id': 'char-1', 'content': 'hello'},
+      'payload': {
+        'sender_id': 'char-1',
+        'content': 'hello',
+        'current_time': 'Day 8, 09:12',
+      },
     });
     await _waitFor(
       () => !service.state.streamMessagesByKey.containsKey('loc-1|8'),
     );
+    await streamEndSub.cancel();
 
     final message = service.state.messagesByLocation['loc-1']!.singleWhere(
       (message) => message.conversationRoundId == '8',
@@ -1754,7 +1883,10 @@ void main() {
     expect(message.globalMessageId, 90010);
     expect(message.locationMessageId, 10);
     expect(message.content, 'hello');
+    expect(message.currentTime, 'Day 8, 09:12');
     expect(message.streaming, false);
+    expect(service.state.latestSocketCurrentTime, 'Day 8, 09:12');
+    expect(streamEndStateCount, 1);
     await service.dispose();
   });
 }

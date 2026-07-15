@@ -4,12 +4,14 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/shared/location_chat_overlay_transition.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
+import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -23,7 +25,6 @@ import '../../components/origin/stat_item.dart';
 import '../../components/world_map.dart';
 import '../../components/world_top_overlay_bar.dart';
 import '../../components/world_tick_event_item.dart';
-import '../../components/world_tick1_wait_dialog.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
@@ -48,6 +49,7 @@ import '../../utils/genesis_image_resource.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_page.dart';
 import '../world/world_header.dart';
+import '../world/world_map_bubble_candidates.dart';
 import 'origin_launch_coordinator.dart';
 import 'origin_launch_flow.dart';
 
@@ -105,15 +107,20 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   static const double _mapLoadingCollapsedHeightOffset = 100;
   static const double _mapLoadedCollapsedHeightOffset = 60;
   static const double _mapDefaultExposedChildSize = 0.31;
+  static const double _launchWaitAvatarSize = 88;
 
   late final TabController _tabController;
   final OriginLaunchCoordinator _launchCoordinator =
       OriginLaunchCoordinator.instance;
   Future<OriginDetail>? _future;
+  Future<List<OriginLaunchedWorldRole>>? _launchedWorldsFuture;
+  List<OriginLaunchedWorldRole>? _preloadedLaunchedWorlds;
   bool _launching = false;
   bool _didResumePendingLaunch = false;
   bool _showLocationPage = false;
   int _detailSheetCollapseRequest = 0;
+  List<GenesisGenerationWaitAvatar> _launchWaitAvatars =
+      const <GenesisGenerationWaitAvatar>[];
   _OriginLocationChatDescriptor? _activeChatLocation;
   late final VoidCallback _removeLaunchOutcomeListener;
 
@@ -146,6 +153,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void didUpdateWidget(covariant OriginWorldPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.oid != widget.oid) {
+      _launchedWorldsFuture = null;
+      _preloadedLaunchedWorlds = null;
       _future = _loadOriginDetail();
       _activeChatLocation = null;
       _showLocationPage = false;
@@ -161,6 +170,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   void reassemble() {
     super.reassemble();
     setState(() {
+      _launchedWorldsFuture = null;
+      _preloadedLaunchedWorlds = null;
       _future = _loadOriginDetail();
     });
   }
@@ -177,7 +188,91 @@ class _OriginWorldPageState extends State<OriginWorldPage>
   Future<OriginDetail> _loadOriginDetail() async {
     final api = AppServicesScope.read(context).api;
     final origin = await api.getOrigin(widget.oid);
+    _cacheLaunchWaitAvatars(origin);
+    _preloadLaunchedWorlds(origin);
     return origin;
+  }
+
+  void _preloadLaunchedWorlds(OriginDetail origin) {
+    final future = _launchedWorldsFuture ??= _loadLaunchedWorldRoles(origin);
+    unawaited(
+      future.then(
+        (worlds) {
+          if (!mounted) return;
+          _preloadedLaunchedWorlds = worlds;
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          debugPrint(
+            '[OriginWorldPage] launched worlds preload failed: '
+            '$error\n$stackTrace',
+          );
+        },
+      ),
+    );
+  }
+
+  void _cacheLaunchWaitAvatars(OriginDetail origin) {
+    final avatars = _launchWaitAvatarsFromOrigin(origin);
+    _precacheLaunchWaitAvatarImages(avatars);
+    if (_sameWaitAvatars(_launchWaitAvatars, avatars)) return;
+    if (!mounted) {
+      _launchWaitAvatars = avatars;
+      return;
+    }
+    setState(() => _launchWaitAvatars = avatars);
+  }
+
+  List<GenesisGenerationWaitAvatar> _launchWaitAvatarsFromOrigin(
+    OriginDetail origin,
+  ) {
+    return origin.characters
+        .map((character) {
+          return GenesisGenerationWaitAvatar(
+            name: character.name.trim(),
+            url: _resolveAssetUrl(character.avatar).trim(),
+          );
+        })
+        .where((avatar) => avatar.name.isNotEmpty || avatar.url.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  void _precacheLaunchWaitAvatarImages(
+    List<GenesisGenerationWaitAvatar> avatars,
+  ) {
+    final mediaQuery = MediaQuery.maybeOf(context);
+    final devicePixelRatio = mediaQuery?.devicePixelRatio ?? 1;
+    for (final avatar in avatars) {
+      final resolvedUrl = selectGenesisImageUrl(
+        avatar.url,
+        logicalWidth: _launchWaitAvatarSize,
+        logicalHeight: _launchWaitAvatarSize,
+        devicePixelRatio: devicePixelRatio,
+      ).trim();
+      if (resolvedUrl.isEmpty) continue;
+      if (resolvedUrl.startsWith('assets/')) continue;
+      unawaited(_precacheLaunchAvatarFile(resolvedUrl));
+    }
+  }
+
+  Future<void> _precacheLaunchAvatarFile(String url) async {
+    try {
+      await DefaultCacheManager().getSingleFile(url);
+    } catch (error) {
+      debugPrint(
+        '[OriginWorldPage] launch avatar precache failed url="$url": $error',
+      );
+    }
+  }
+
+  bool _sameWaitAvatars(
+    List<GenesisGenerationWaitAvatar> a,
+    List<GenesisGenerationWaitAvatar> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].name != b[i].name || a[i].url != b[i].url) return false;
+    }
+    return true;
   }
 
   void _refreshOriginDetail() {
@@ -313,6 +408,10 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     if (_launching) return;
     if (!await ensureGenesisLogin(context)) return;
     if (!mounted) return;
+    await _openLaunchRoleSheet(origin);
+  }
+
+  Future<void> _openLaunchRoleSheet(OriginDetail origin) async {
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
       action: 'launch_sheet',
@@ -323,9 +422,70 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       characters: origin.characters,
       resolveAvatarUrl: _resolveAssetUrl,
       onFillFromProfile: _customRoleFromProfile,
+      launchedWorldsLoader: () =>
+          _launchedWorldsFuture ??= _loadLaunchedWorldRoles(origin),
+      initialLaunchedWorlds: _preloadedLaunchedWorlds,
     );
     if (!mounted || selection == null) return;
+    final existingWorldId = selection.existingWorldId?.trim() ?? '';
+    if (existingWorldId.isNotEmpty) {
+      _enterLaunchedWorld(existingWorldId);
+      return;
+    }
     await _launchOrigin(origin, selection);
+  }
+
+  void _enterLaunchedWorld(String worldId) {
+    final navigator = Navigator.of(context);
+    navigator.pushNamedAndRemoveUntil(
+      RouteNames.home,
+      (_) => false,
+      arguments: const {'home_tab': 'my_world'},
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!navigator.mounted) return;
+      navigator.pushNamed(RouteNames.world, arguments: {'wid': worldId});
+    });
+  }
+
+  Future<List<OriginLaunchedWorldRole>> _loadLaunchedWorldRoles(
+    OriginDetail origin,
+  ) async {
+    final services = AppServicesScope.read(context);
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    if (uid.isEmpty) return const <OriginLaunchedWorldRole>[];
+    final response = await services.api.v1.world.list(
+      scene: 'mine',
+      originId: origin.oid,
+      pn: 1,
+      rn: 20,
+    );
+    final rawList = response['list'];
+    if (rawList is! List) return const <OriginLaunchedWorldRole>[];
+    final worldIds = rawList
+        .whereType<Map>()
+        .map((raw) {
+          final map = asJsonMap(raw);
+          final info = map['info'] is Map ? asJsonMap(map['info']) : map;
+          return asString(info['world_id'], fallback: asString(map['wid']));
+        })
+        .where((worldId) => worldId.isNotEmpty)
+        .toList(growable: false);
+    final worlds = await Future.wait(worldIds.map(services.api.getWorld));
+    return worlds
+        .map((world) {
+          final role = world.characters
+              .where((item) => asString(item['player_uid']) == uid)
+              .firstOrNull;
+          return OriginLaunchedWorldRole(
+            worldId: world.worldId,
+            roleName: role == null ? 'My role' : asString(role['name']),
+            avatarUrl: role == null ? '' : asString(role['avatar']),
+            tickCount: world.tickCount,
+            currentTime: world.currentTime,
+          );
+        })
+        .toList(growable: false);
   }
 
   Future<void> _launchOrigin(
@@ -333,7 +493,11 @@ class _OriginWorldPageState extends State<OriginWorldPage>
     OriginRoleLaunchSelection roleSelection,
   ) async {
     if (_launching) return;
-    setState(() => _launching = true);
+    final avatars = _launchWaitAvatarsFromOrigin(origin);
+    setState(() {
+      _launchWaitAvatars = avatars;
+      _launching = true;
+    });
     final started = await startOriginLaunch(
       context: context,
       origin: origin,
@@ -434,6 +598,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         if (_launching)
           Positioned.fill(
             child: _OriginPendingLaunchWaitOverlay(
+              avatars: _launchWaitAvatars,
               onBackPressed: _handleLaunchWaitBack,
             ),
           ),
@@ -607,9 +772,14 @@ class _OriginWorldPageState extends State<OriginWorldPage>
                 locationNodes: locationNodes,
                 listLocationNodes: listLocationNodes,
                 mapImageUrl: mapImageUrl,
+                messageBubbles: _activeChatLocation == null
+                    ? _originMapMessageBubbles(origin)
+                    : const <WorldMapMessageBubble>[],
+                messageBubblePlaybackPaused: _activeChatLocation != null,
                 dimmed: _showLocationPage,
                 showPointsList: _showLocationPage,
                 initialZoomScale: _showLocationPage ? 1 : 1.2,
+                enableAvatarScaleReboundHint: true,
                 pointsListOuterScrollHandoff: false,
                 overlayTop: topPadding + 8 + 48,
                 drillExitTop: topPadding + 68,

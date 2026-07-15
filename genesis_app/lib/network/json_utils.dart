@@ -1,4 +1,5 @@
 import '../utils/genesis_image_resource.dart';
+import '../ui/text/genesis_text_input_formatters.dart';
 
 Object? jsonValue(Object? v) => v;
 
@@ -16,8 +17,8 @@ List asJsonList(Object? v) {
 }
 
 String asString(Object? v, {String fallback = ''}) {
-  if (v == null) return fallback;
-  return v.toString();
+  if (v == null) return genesisDisplaySafeText(fallback);
+  return genesisDisplaySafeText(v.toString());
 }
 
 String asImageUrl(Object? v, {Object? fallback}) {

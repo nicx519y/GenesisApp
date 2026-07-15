@@ -39,12 +39,12 @@ class _DeveloperDebugFloatingButtonState
           builder: (context, constraints) {
             final size = constraints.biggest;
             final bottomPadding = GenesisSafeAreaInsets.bottom(context);
-            final defaultPosition = Offset(
-              (size.width - _buttonSize - _edgePadding).clamp(0.0, size.width),
-              (size.height - _buttonSize - bottomPadding - 86).clamp(
-                0.0,
-                size.height,
+            final defaultPosition = _clampPosition(
+              Offset(
+                size.width - _buttonSize - _edgePadding,
+                size.height - _buttonSize - bottomPadding - 86,
               ),
+              size,
             );
             final position = _clampPosition(_position ?? defaultPosition, size);
 
@@ -95,9 +95,16 @@ class _DeveloperDebugFloatingButtonState
 
   Offset _clampPosition(Offset position, Size size) {
     return Offset(
-      position.dx.clamp(0.0, size.width - _buttonSize).toDouble(),
-      position.dy.clamp(0.0, size.height - _buttonSize).toDouble(),
+      _clampAxis(position.dx, size.width),
+      _clampAxis(position.dy, size.height),
     );
+  }
+
+  double _clampAxis(double value, double extent) {
+    if (!value.isFinite || !extent.isFinite) return 0;
+    final max = extent - _buttonSize;
+    if (max <= 0) return 0;
+    return value.clamp(0.0, max).toDouble();
   }
 
   void _snapToHorizontalEdge(Size size) {

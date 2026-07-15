@@ -12,7 +12,7 @@ class UserV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"token":"string","user":{"uid":"string","name":"string","avatar":"string","bio":"string","last_login_at":"string","create_at":"string","follower_cnt":0,"following_cnt":0,"friend_cnt":0,"create_origin_cnt":0,"launch_world_cnt":0,"join_world_cnt":0},"relation":{"is_self":true,"is_followed":false,"followed_me":false,"is_friend":false}}}
+  /// {"err_no":0,"err_msg":"succ","data":{"token":"string","user":{"uid":"string","name":"string","avatar":"string","bio":"string","last_login_at":"string","create_at":"string","follower_cnt":0,"following_cnt":0,"friend_cnt":0,"create_origin_cnt":0,"launch_world_cnt":0,"join_world_cnt":0},"relation":{"is_self":true,"is_followed":false,"followed_me":false,"is_friend":false,"is_blocked":false}}}
   /// ```
   Future<Map<String, dynamic>> googleAuth({
     required String idToken,
@@ -40,7 +40,7 @@ class UserV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"token":"string","user":{"uid":"string","name":"string","avatar":"string","bio":"string","last_login_at":"string","create_at":"string","follower_cnt":0,"following_cnt":0,"friend_cnt":0,"create_origin_cnt":0,"launch_world_cnt":0,"join_world_cnt":0},"relation":{"is_self":true,"is_followed":false,"followed_me":false,"is_friend":false}}}
+  /// {"err_no":0,"err_msg":"succ","data":{"token":"string","user":{"uid":"string","name":"string","avatar":"string","bio":"string","last_login_at":"string","create_at":"string","follower_cnt":0,"following_cnt":0,"friend_cnt":0,"create_origin_cnt":0,"launch_world_cnt":0,"join_world_cnt":0},"relation":{"is_self":true,"is_followed":false,"followed_me":false,"is_friend":false,"is_blocked":false}}}
   /// ```
   Future<Map<String, dynamic>> appleAuth({
     required String idToken,
@@ -99,7 +99,7 @@ class UserV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"token":"string","user":{"uid":"string","name":"string","avatar":"string","bio":"string","last_login_at":"string","create_at":"string","follower_cnt":0,"following_cnt":0,"friend_cnt":0,"create_origin_cnt":0,"launch_world_cnt":0,"join_world_cnt":0},"relation":{"is_self":true,"is_followed":false,"followed_me":false,"is_friend":false}}}
+  /// {"err_no":0,"err_msg":"succ","data":{"token":"string","user":{"uid":"string","name":"string","avatar":"string","bio":"string","last_login_at":"string","create_at":"string","follower_cnt":0,"following_cnt":0,"friend_cnt":0,"create_origin_cnt":0,"launch_world_cnt":0,"join_world_cnt":0},"relation":{"is_self":true,"is_followed":false,"followed_me":false,"is_friend":false,"is_blocked":false}}}
   /// ```
   Future<Map<String, dynamic>> info({String? uid}) {
     return getMap('user/info', v1Query({'uid': uid}));
@@ -127,6 +127,51 @@ class UserV1Api extends V1ApiResource {
     );
   }
 
+  /// POST /api/v1/user/block
+  ///
+  /// 提交参数:
+  /// ```json
+  /// {"target_uid":"string"}
+  /// ```
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":{}}
+  /// ```
+  Future<void> block({required String targetUid}) async {
+    await postData('user/block', {'target_uid': targetUid});
+  }
+
+  /// POST /api/v1/user/unblock
+  ///
+  /// 提交参数:
+  /// ```json
+  /// {"target_uid":"string"}
+  /// ```
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":{}}
+  /// ```
+  Future<void> unblock({required String targetUid}) async {
+    await postData('user/unblock', {'target_uid': targetUid});
+  }
+
+  /// GET /api/v1/user/blocks
+  ///
+  /// 提交参数:
+  /// ```json
+  /// {"pn":1,"rn":10}
+  /// ```
+  ///
+  /// Response:
+  /// ```json
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"user":{},"relation":{}}],"total":0,"pn":1,"rn":10}}
+  /// ```
+  Future<Map<String, dynamic>> blocks({int? pn, int? rn}) {
+    return getMap('user/blocks', v1Query({'pn': pn, 'rn': rn}));
+  }
+
   /// GET /api/v1/user/profile
   ///
   /// 提交参数:
@@ -136,7 +181,7 @@ class UserV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"user":{"uid":"string","name":"string","avatar":"string","bio":"string","last_login_at":"string","create_at":"string","follower_cnt":0,"following_cnt":0,"friend_cnt":0,"create_origin_cnt":0,"launch_world_cnt":0,"join_world_cnt":0},"relation":{"is_self":false,"i_followed":false,"followed_me":true,"is_friend":false,"follow_button_state":"follow_back","dm_permission":"pingpong"}}}
+  /// {"err_no":0,"err_str":"success","data":{"user":{"uid":"string","name":"string","avatar":"string","bio":"string","last_login_at":"string","create_at":"string","follower_cnt":0,"following_cnt":0,"friend_cnt":0,"create_origin_cnt":0,"launch_world_cnt":0,"join_world_cnt":0},"relation":{"is_self":false,"i_followed":false,"followed_me":true,"is_friend":false,"is_blocked":false,"follow_button_state":"follow_back","dm_permission":"pingpong"}}}
   /// ```
   Future<Map<String, dynamic>> profile({required String uid}) {
     return getMap('user/profile', {'uid': uid});
