@@ -224,12 +224,37 @@ class _GemWalletPageState extends State<GemWalletPage>
         await _openCreateWorld(taskCode);
         return;
       case 'launch_first_world':
+        showGenesisToast(
+          context,
+          'Open a Worldo you like, then Launch your own world.',
+        );
+        return;
       case 'invite_friend':
+        showGenesisToast(
+          context,
+          'Open a World, then tap Invite in the detail panel.',
+        );
+        return;
       case 'write_comment':
+        showGenesisToast(
+          context,
+          'Open a Worldo you liked, then write a post in Discuss.',
+        );
+        return;
       case 'request_join_world':
+        showGenesisToast(
+          context,
+          'Open a World you haven’t joined, then request to join it.',
+        );
+        return;
       case 'send_message':
+        showGenesisToast(context, 'Send messages in your world.');
+        return;
       case 'progress_world':
-        showGenesisToast(context, taskCode);
+        showGenesisToast(
+          context,
+          'Open your launched World, then tap Progress.',
+        );
         return;
       case 'daily_checkin':
       case 'discord_follow':
@@ -253,9 +278,18 @@ class _GemWalletPageState extends State<GemWalletPage>
       final result = await _reportTask(taskCode);
       if (!mounted) return;
       setState(() => _taskStatusOverrides[taskCode] = result.status);
+      if (taskCode == 'daily_checkin') {
+        showGenesisToast(context, 'Check in successful.');
+      }
       await _refreshTasksAndWallet();
     } catch (_) {
-      if (mounted) showGenesisToast(context, 'Task update failed.');
+      if (!mounted) return;
+      final message = switch (taskCode) {
+        'daily_checkin' => 'Check in failed.',
+        'discord_follow' => 'Follow failed.',
+        _ => 'Task update failed.',
+      };
+      showGenesisToast(context, message);
     } finally {
       _endTaskAction(taskCode);
     }
@@ -267,14 +301,14 @@ class _GemWalletPageState extends State<GemWalletPage>
       final result = await _claimTask(taskCode);
       if (!mounted) return;
       if (result.status != 'claimed') {
-        showGenesisToast(context, '领取失败');
+        showGenesisToast(context, 'Claim failed.');
         return;
       }
       setState(() => _taskStatusOverrides[taskCode] = result.status);
       showGenesisToast(context, 'Reward claimed');
       await _refreshTasksAndWallet();
     } catch (_) {
-      if (mounted) showGenesisToast(context, '领取失败');
+      if (mounted) showGenesisToast(context, 'Claim failed.');
     } finally {
       _endTaskAction(taskCode);
     }

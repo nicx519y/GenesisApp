@@ -542,6 +542,53 @@ void main() {
     expect(claimCalls, 0);
   });
 
+  testWidgets('in-progress tasks show user-facing guidance', (tester) async {
+    const messages = <String, String>{
+      'launch_first_world':
+          'Open a Worldo you like, then Launch your own world.',
+      'invite_friend': 'Open a World, then tap Invite in the detail panel.',
+      'write_comment': 'Open a Worldo you liked, then write a post in Discuss.',
+      'request_join_world':
+          'Open a World you haven’t joined, then request to join it.',
+      'send_message': 'Send messages in your world.',
+      'progress_world': 'Open your launched World, then tap Progress.',
+    };
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    addTearDown(walletStore.dispose);
+
+    for (final entry in messages.entries) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GemWalletPage(
+            key: ValueKey<String>('guidance-${entry.key}'),
+            walletStore: walletStore,
+            productsLoader: (_) async => const [],
+            tasksLoader: (_) async => [
+              _taskGroup(
+                _task(
+                  taskCode: entry.key,
+                  status: 'in_progress',
+                  actionText: 'Go',
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(ValueKey<String>('gem-task-action-${entry.key}')),
+      );
+      await tester.pump();
+      expect(find.text(entry.value), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+    }
+  });
+
   testWidgets('daily check-in reports once and refreshes task and wallet', (
     tester,
   ) async {
@@ -606,6 +653,89 @@ void main() {
     expect(tasksLoadCount, 2);
     expect(walletLoadCount, 2);
     expect(find.text('Received'), findsOneWidget);
+    expect(find.text('Check in successful.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('task reporting shows task-specific failure messages', (
+    tester,
+  ) async {
+    const messages = <String, String>{
+      'daily_checkin': 'Check in failed.',
+      'discord_follow': 'Follow failed.',
+    };
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    addTearDown(walletStore.dispose);
+
+    for (final entry in messages.entries) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GemWalletPage(
+            key: ValueKey<String>('report-failure-${entry.key}'),
+            walletStore: walletStore,
+            productsLoader: (_) async => const [],
+            tasksLoader: (_) async => [
+              _taskGroup(
+                _task(
+                  taskCode: entry.key,
+                  status: 'in_progress',
+                  actionText: 'Go',
+                ),
+              ),
+            ],
+            taskReporter: (_) async => throw Exception('report failed'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(ValueKey<String>('gem-task-action-${entry.key}')),
+      );
+      await tester.pump();
+      expect(find.text(entry.value), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
+    }
+  });
+
+  testWidgets('claim failure uses English toast', (tester) async {
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    addTearDown(walletStore.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          productsLoader: (_) async => const [],
+          tasksLoader: (_) async => [
+            _taskGroup(
+              _task(
+                taskCode: 'daily_checkin',
+                status: 'claimable',
+                actionText: 'Collect',
+              ),
+            ),
+          ],
+          taskClaimer: (_) async =>
+              const GemTaskActionResult(status: 'claimable'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('gem-task-action-daily_checkin')),
+    );
+    await tester.pump();
+
+    expect(find.text('Claim failed.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
   });
 
   testWidgets('claimable task claims with its task code', (tester) async {

@@ -1586,8 +1586,8 @@ class _MockState {
             },
             {
               'task_code': 'launch_first_world',
-              'title': 'Join your first world',
-              'description': 'Join a world and start your story.',
+              'title': 'Launch your first world',
+              'description': 'Launch a Worldo and start your story.',
               'reward_gems': 50,
               'reward_valid_days': 30,
               'cycle_type': 'once',
