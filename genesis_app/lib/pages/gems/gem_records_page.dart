@@ -317,8 +317,7 @@ class _GemRecordTile extends StatelessWidget {
     final detailLines = _recordDetailLines(record);
     return Container(
       key: ValueKey<String>('gem-record-item-${record.ledgerId}'),
-      height: _recordTileHeight(detailLines.length),
-      padding: EdgeInsets.only(top: 2, bottom: detailLines.length > 1 ? 9 : 20),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
           Expanded(
@@ -337,14 +336,14 @@ class _GemRecordTile extends StatelessWidget {
                     color: Color(0xFF111111),
                   ),
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 8),
                 for (var index = 0; index < detailLines.length; index += 1) ...[
                   _GemRecordDetailLine(
                     detailLines[index].text,
                     copyValue: detailLines[index].copyValue,
                   ),
                   if (index != detailLines.length - 1)
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 8),
                 ],
               ],
             ),
@@ -396,11 +395,6 @@ class _GemRecordDetailLine extends StatelessWidget {
       child: child,
     );
   }
-}
-
-double _recordTileHeight(int detailLineCount) {
-  if (detailLineCount <= 1) return 59;
-  return 59 + (detailLineCount - 1) * 17;
 }
 
 String _recordTitle(GemRecordItem record) {
