@@ -13,6 +13,7 @@ import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/world_map.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
+import '../../ui/tokens/genesis_radii.dart';
 import 'world_constants.dart';
 import 'world_models.dart';
 import 'world_sections.dart';
@@ -617,7 +618,7 @@ class WorldSingleSectionBottomSheetState
         child: DecoratedBox(
           decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            borderRadius: GenesisRadii.sheet,
           ),
           child: Column(
             children: [

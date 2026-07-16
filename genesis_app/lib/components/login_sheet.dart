@@ -64,13 +64,7 @@ class _LoginSheetState extends State<LoginSheet> {
     return GenesisBottomSheetPanel(
       title: 'Sign in to continue',
       height: targetHeight,
-      titleBottomSpacing: 10,
-      titleTextStyle: const TextStyle(
-        fontSize: 22,
-        fontWeight: FontWeight.w400,
-        color: Color(0xFF111111),
-      ),
-      trailing: IconButton(
+      trailing: GenesisBottomSheetCloseButton(
         onPressed: _submittingProvider != null
             ? null
             : () {
@@ -81,10 +75,6 @@ class _LoginSheetState extends State<LoginSheet> {
                 );
                 Navigator.of(context).pop(false);
               },
-        icon: const Icon(Icons.close),
-        iconSize: 22,
-        color: Colors.black,
-        tooltip: 'Close',
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
+import 'package:genesis_flutter_android/components/gems/gem_purchase_catalog.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/gem_records.dart';
 import 'package:genesis_flutter_android/network/models/gem_task.dart';
@@ -61,9 +62,42 @@ void main() {
     expect(find.text('430'), findsOneWidget);
     expect(find.text('+550'), findsOneWidget);
     expect(find.text('500'), findsOneWidget);
-    expect(find.text('USD1.49'), findsOneWidget);
+    expect(find.text(r'$1.49'), findsOneWidget);
     expect(find.text('Starter'), findsOneWidget);
     expect(find.text('Create your first worldo'), findsOneWidget);
+    expect(find.byType(GemPurchaseCatalogSection), findsOneWidget);
+    final taskButton = find.descendant(
+      of: find.byKey(
+        const ValueKey<String>('gem-task-action-create_first_worldo'),
+      ),
+      matching: find.byType(Container),
+    );
+    final taskButtonDecoration =
+        tester.widget<Container>(taskButton).decoration! as BoxDecoration;
+    expect(taskButtonDecoration.color, const Color(0xFFAD403B));
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('gem-balance-icon'))).dx,
+      tester
+          .getTopLeft(
+            find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+          )
+          .dx,
+    );
+    expect(
+      tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+              )
+              .dy -
+          tester
+              .getBottomLeft(find.byKey(const ValueKey('gem-balance-panel')))
+              .dy,
+      10,
+    );
+    expect(
+      tester.widget<SizedBox>(find.byKey(const ValueKey('gem-balance-panel'))),
+      isA<SizedBox>(),
+    );
 
     final pageTitleStyle = tester.widget<Text>(find.text('Buy Gems')).style;
     expect(pageTitleStyle?.fontSize, 16);
@@ -73,7 +107,7 @@ void main() {
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-panel'))).dy -
           tester.getRect(find.text('Buy Gems')).bottom,
-      closeTo(26, 0.1),
+      closeTo(24, 0.1),
     );
 
     final recordsStyle = tester.widget<Text>(find.text('Records')).style;
@@ -1125,6 +1159,14 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    final claimedButton = find.descendant(
+      of: find.byKey(const ValueKey<String>('gem-task-action-discord_follow')),
+      matching: find.byType(Container),
+    );
+    final claimedButtonDecoration =
+        tester.widget<Container>(claimedButton).decoration! as BoxDecoration;
+    expect(claimedButtonDecoration.color, const Color(0xFFD6A09D));
 
     await tester.tap(
       find.byKey(const ValueKey<String>('gem-task-action-discord_follow')),

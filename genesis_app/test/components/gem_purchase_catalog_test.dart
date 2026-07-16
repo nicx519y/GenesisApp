@@ -94,7 +94,7 @@ void main() {
 
     expect(
       tester.getSize(find.byKey(const ValueKey('gem-balance-panel'))).height,
-      100,
+      88,
     );
     final labelStyle = tester.widget<Text>(find.text('My Balance')).style;
     expect(labelStyle?.fontSize, 14);
@@ -111,6 +111,16 @@ void main() {
       tester.getSize(find.byKey(const ValueKey('gem-balance-icon'))),
       const Size.square(24),
     );
+    final panelRect = tester.getRect(
+      find.byKey(const ValueKey('gem-balance-panel')),
+    );
+    final topGap =
+        tester.getRect(find.byKey(const ValueKey('gem-balance-icon'))).top -
+        panelRect.top;
+    final bottomGap =
+        panelRect.bottom - tester.getRect(find.text('430')).bottom;
+    expect(topGap, closeTo(8, 0.1));
+    expect(bottomGap, closeTo(8, 0.1));
   });
 
   testWidgets('other products use backend activity label', (tester) async {
@@ -181,7 +191,7 @@ void main() {
     expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 1);
     expect(find.byType(ColorFiltered), findsNothing);
     expect(find.text('Sold Out'), findsOneWidget);
-    expect(find.text('USD1.49'), findsNothing);
+    expect(find.text(r'$1.49'), findsNothing);
     final soldOutButton = tester.widget<Container>(
       find.byKey(const ValueKey('gem-product-price-gem_pack_500')),
     );

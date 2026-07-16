@@ -660,30 +660,30 @@ class _GemWalletContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
       children: [
         ValueListenableBuilder<GemWalletState>(
           valueListenable: walletStateListenable,
           builder: (context, walletState, _) {
-            return GemBalancePanel(balance: walletState.balance ?? 0);
+            return GemPurchaseCatalogSection(
+              balance: walletState.balance ?? 0,
+              catalog: products == null
+                  ? _GemSectionStatePanel(
+                      isLoading: productsLoading,
+                      hasError: productsError != null,
+                      errorMessage: 'Unable to load gem packs.',
+                      onRetry: onRetryProducts,
+                    )
+                  : products!.isEmpty
+                  ? const _GemEmptyPanel(message: 'No gem packs available.')
+                  : GemProductGrid(
+                      products: products!,
+                      billingStateListenable: billingStateListenable,
+                      onPurchase: onPurchase,
+                    ),
+            );
           },
         ),
-        const SizedBox(height: 20),
-        if (products == null)
-          _GemSectionStatePanel(
-            isLoading: productsLoading,
-            hasError: productsError != null,
-            errorMessage: 'Unable to load gem packs.',
-            onRetry: onRetryProducts,
-          )
-        else if (products!.isEmpty)
-          const _GemEmptyPanel(message: 'No gem packs available.')
-        else
-          GemProductGrid(
-            products: products!,
-            billingStateListenable: billingStateListenable,
-            onPurchase: onPurchase,
-          ),
         const SizedBox(height: 26),
         if (taskGroups == null)
           _GemSectionStatePanel(
@@ -975,8 +975,8 @@ class _TaskActionButton extends StatelessWidget {
     final enabled =
         !isLoading && (status == 'in_progress' || status == 'claimable');
     final color = status == 'claimed'
-        ? const Color(0xFFFF9AAA)
-        : kGemAccentColor;
+        ? kGemTaskActionDisabledColor
+        : kGemTaskActionColor;
     return Semantics(
       button: true,
       enabled: enabled,

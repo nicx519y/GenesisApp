@@ -1,5 +1,38 @@
 import 'package:flutter/material.dart';
 
+import '../../ui/tokens/genesis_radii.dart';
+
+class GenesisBottomSheetCloseButton extends StatelessWidget {
+  const GenesisBottomSheetCloseButton({
+    super.key,
+    required this.onPressed,
+    this.buttonKey,
+  });
+
+  final VoidCallback? onPressed;
+  final Key? buttonKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      key: buttonKey,
+      dimension: 24,
+      child: IconButton(
+        tooltip: 'Close',
+        onPressed: onPressed,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+        style: IconButton.styleFrom(
+          minimumSize: const Size.square(24),
+          maximumSize: const Size.square(24),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        icon: const Icon(Icons.close, size: 24, color: Color(0xFF111111)),
+      ),
+    );
+  }
+}
+
 class GenesisBottomSheetPanel extends StatelessWidget {
   const GenesisBottomSheetPanel({
     super.key,
@@ -7,18 +40,16 @@ class GenesisBottomSheetPanel extends StatelessWidget {
     required this.height,
     required this.child,
     this.trailing,
-    this.padding = const EdgeInsets.fromLTRB(16, 22, 16, 14),
-    this.titleBottomSpacing = 18,
+    this.padding = const EdgeInsets.fromLTRB(16, 20, 16, 14),
+    this.titleBottomSpacing = 20,
     this.titleTextStyle,
   });
 
-  static const BorderRadius borderRadius = BorderRadius.vertical(
-    top: Radius.circular(28),
-  );
+  static const BorderRadius borderRadius = GenesisRadii.sheet;
 
   static const TextStyle titleStyle = TextStyle(
-    fontSize: 16,
-    height: 1.1,
+    fontSize: 18,
+    height: 24 / 18,
     fontWeight: FontWeight.w600,
     color: Color(0xFF111111),
   );

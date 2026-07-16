@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
+import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/components/gems/gem_balance_prompt.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_catalog.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
@@ -29,12 +30,41 @@ void main() {
         .widget<Text>(find.text(insufficientGemBalancePrompt))
         .style;
     expect(titleStyle?.fontWeight, FontWeight.w600);
+    expect(titleStyle?.fontSize, 18);
     expect(titleStyle?.color, const Color(0xFF111111));
-    final closeButton = tester.widget<IconButton>(
-      find.byKey(const ValueKey<String>('gem-purchase-sheet-close')),
+    expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
+    expect(find.byType(GemPurchaseCatalogSection), findsOneWidget);
+    final closeIcon = tester.widget<Icon>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('gem-purchase-sheet-close')),
+        matching: find.byIcon(Icons.close),
+      ),
     );
-    expect((closeButton.icon! as Icon).color, const Color(0xFF111111));
+    expect(closeIcon.color, const Color(0xFF111111));
     expect(find.text('430'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('gem-balance-icon'))).dx,
+      tester
+          .getTopLeft(
+            find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+          )
+          .dx,
+    );
+    expect(
+      tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+              )
+              .dy -
+          tester
+              .getBottomLeft(find.byKey(const ValueKey('gem-balance-panel')))
+              .dy,
+      10,
+    );
+    expect(
+      tester.widget<SizedBox>(find.byKey(const ValueKey('gem-balance-panel'))),
+      isA<SizedBox>(),
+    );
     expect(find.text('+550'), findsOneWidget);
     expect(find.text('500'), findsOneWidget);
     expect(find.text(formatGemPrice(149, 'USD')), findsOneWidget);
@@ -63,7 +93,7 @@ void main() {
     expect(find.text('+550'), findsOneWidget);
   });
 
-  testWidgets('purchase sheet keeps half of the bottom safe area', (
+  testWidgets('purchase sheet uses the standard bottom safe area', (
     tester,
   ) async {
     final fixture = _PromptFixture();
@@ -75,10 +105,14 @@ void main() {
       bottomViewPadding: 40,
     );
 
-    final safeArea = tester.widget<Padding>(
-      find.byKey(const ValueKey<String>('gem-purchase-sheet-safe-area')),
+    final safeArea = tester.widget<SafeArea>(
+      find.descendant(
+        of: find.byType(GenesisBottomSheetPanel),
+        matching: find.byType(SafeArea),
+      ),
     );
-    expect(safeArea.padding, const EdgeInsets.only(bottom: 20));
+    expect(safeArea.top, isFalse);
+    expect(safeArea.bottom, isTrue);
   });
 
   testWidgets('purchase sheet starts one purchase and closes on success', (

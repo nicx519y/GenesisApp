@@ -6,11 +6,13 @@ abstract final class GenesisRadii {
   static const Radius lg = Radius.circular(12);
   static const Radius xl = Radius.circular(14);
   static const Radius xxl = Radius.circular(16);
+  static const double sheetTopRadiusValue = 18;
+  static const Radius sheetTopRadius = Radius.circular(sheetTopRadiusValue);
   static const Radius pill = Radius.circular(999);
 
   static const BorderRadius input = BorderRadius.all(md);
   static const BorderRadius button = BorderRadius.all(sm);
   static const BorderRadius card = BorderRadius.all(lg);
   static const BorderRadius panel = BorderRadius.all(xl);
-  static const BorderRadius sheet = BorderRadius.vertical(top: xxl);
+  static const BorderRadius sheet = BorderRadius.vertical(top: sheetTopRadius);
 }
