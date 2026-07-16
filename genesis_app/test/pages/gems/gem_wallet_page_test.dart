@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
+import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/gem_records.dart';
 import 'package:genesis_flutter_android/network/models/gem_task.dart';
@@ -278,7 +279,7 @@ void main() {
     expect(tabs.labelColor, const Color(0xFF333333));
     expect(tabs.unselectedLabelStyle?.fontSize, 14);
     expect(tabs.unselectedLabelStyle?.height, 20 / 14);
-    expect(tabs.unselectedLabelStyle?.fontWeight, FontWeight.w500);
+    expect(tabs.unselectedLabelStyle?.fontWeight, FontWeight.w400);
     expect(tabs.unselectedLabelColor, const Color(0xFF999999));
 
     final recordTitleStyle = tester
@@ -301,7 +302,7 @@ void main() {
     expect(amountStyle?.fontSize, 14);
     expect(amountStyle?.height, 20 / 14);
     expect(amountStyle?.fontWeight, FontWeight.w600);
-    expect(amountStyle?.color, const Color(0xFFF42C47));
+    expect(amountStyle?.color, const Color(0xFFFF2442));
 
     await tester.drag(find.byType(TabBarView), const Offset(-420, 0));
     await tester.pumpAndSettle();
@@ -479,7 +480,7 @@ void main() {
 
     billing.emitProcessing();
     await tester.pump();
-    expect(find.textContaining('Granting Gems'), findsOneWidget);
+    expect(find.textContaining('Purchasing Gems'), findsOneWidget);
 
     billing.emitSuccess();
     await tester.pump();
@@ -575,6 +576,11 @@ void main() {
   testWidgets('billing processing dialog blocks interaction until success OK', (
     tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 800);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final walletStore = GemWalletStore(
       loadWallet: () async => const GemWallet(balance: 430),
       readUid: () async => 'u_user',
@@ -599,7 +605,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.textContaining('Granting Gems'), findsOneWidget);
+    expect(find.textContaining('Purchasing Gems'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byType(Dialog),
@@ -608,22 +614,49 @@ void main() {
       findsOneWidget,
     );
     expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, false);
-    final processingDialogSize = tester.getSize(find.byType(Dialog));
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('genesis-action-box-title-row')))
+          .height,
+      202,
+    );
+    final processingActionBoxSize = tester.getSize(
+      find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
+    );
 
     await tester.tapAt(Offset.zero);
     await tester.pump();
-    expect(find.textContaining('Granting Gems'), findsOneWidget);
+    expect(find.textContaining('Purchasing Gems'), findsOneWidget);
 
     billing.emitSuccess();
     await tester.pumpAndSettle();
 
     _expectGrantedSuccessDialog(tester);
-    expect(tester.getSize(find.byType(Dialog)), processingDialogSize);
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('billing-purchase-granted-line')),
+          )
+          .height,
+      lessThanOrEqualTo(21),
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('genesis-action-box-title-row')))
+          .height,
+      150,
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
+      ),
+      processingActionBoxSize,
+    );
 
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Purchase successful.'), findsNothing);
+    expect(find.text('Purchase successful!'), findsNothing);
     expect(find.text('Go Chat Now.'), findsNothing);
   });
 
@@ -651,7 +684,7 @@ void main() {
     billing.emitProcessing();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.textContaining('Granting Gems'), findsOneWidget);
+    expect(find.textContaining('Purchasing Gems'), findsOneWidget);
 
     billing.emitAccepted();
     await tester.pumpAndSettle();
@@ -1162,15 +1195,47 @@ void main() {
 }
 
 void _expectGrantedSuccessDialog(WidgetTester tester) {
-  expect(find.text('Purchase successful.'), findsOneWidget);
-  expect(find.text('Go Chat Now.'), findsOneWidget);
+  expect(find.text('Purchase successful!'), findsOneWidget);
+  expect(find.text('Go Chat Now.'), findsNothing);
+  expect(find.byType(GenesisActionBox<bool>), findsOneWidget);
+  final successTitle = tester.widget<Text>(
+    find.byKey(const ValueKey<String>('billing-purchase-success-title')),
+  );
+  expect(successTitle.style?.fontSize, 16);
+  expect(successTitle.style?.fontWeight, FontWeight.w600);
+  expect(
+    tester
+        .getSize(
+          find.byKey(
+            const ValueKey<String>('billing-purchase-success-line-gap'),
+          ),
+        )
+        .height,
+    12,
+  );
   final grantedLine = tester.widget<Text>(
     find.byKey(const ValueKey<String>('billing-purchase-granted-line')),
   );
+  expect(grantedLine.style?.fontSize, 14);
+  expect(grantedLine.style?.fontWeight, FontWeight.w400);
   final spans = (grantedLine.textSpan! as TextSpan).children!;
-  expect((spans[0] as TextSpan).text, '550');
-  expect((spans[0] as TextSpan).style?.color, const Color(0xFFFF2D4F));
-  expect((spans[1] as TextSpan).text, ' Gems have been granted.');
+  expect(spans[0], isA<WidgetSpan>());
+  expect(
+    find.byKey(const ValueKey<String>('billing-purchase-granted-icon')),
+    findsOneWidget,
+  );
+  expect((spans[1] as TextSpan).text, '550');
+  expect((spans[1] as TextSpan).style?.color, const Color(0xFFFF2442));
+  expect((spans[2] as TextSpan).text, ' Gems have been granted.');
+  final okText = tester.widget<Text>(find.text('OK'));
+  expect(okText.style?.fontSize, 15);
+  expect(okText.style?.fontWeight, FontWeight.w600);
+  expect(
+    tester
+        .getSize(find.byKey(const ValueKey('genesis-action-box-action-row')))
+        .height,
+    GenesisActionBox.defaultRowHeight,
+  );
   expect(find.byType(SvgPicture), findsWidgets);
 }
 
@@ -1212,7 +1277,7 @@ class _FakeBillingService implements BillingService {
         kind: BillingUiEventKind.processing,
         productId: 'gem_pack_500',
         attemptId: 'pay_test',
-        message: 'Granting Gems',
+        message: 'Purchasing Gems',
       ),
     );
   }
@@ -1223,7 +1288,7 @@ class _FakeBillingService implements BillingService {
         kind: BillingUiEventKind.success,
         productId: 'gem_pack_500',
         attemptId: 'pay_test',
-        message: 'Purchase successful.',
+        message: 'Purchase successful!',
         grantedGems: grantedGems,
       ),
     );

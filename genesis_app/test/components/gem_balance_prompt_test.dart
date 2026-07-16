@@ -98,20 +98,29 @@ void main() {
       find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
     );
     await tester.pump();
-    await tester.tap(
-      find.byKey(const ValueKey<String>('gem-product-gem_pack_1100')),
-    );
-    await tester.pump();
 
     expect(fixture.billing.purchasedProducts, hasLength(1));
     expect(fixture.billing.purchasedProducts.single.productId, 'gem_pack_500');
+    expect(find.textContaining('Purchasing Gems'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(Dialog),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
 
     fixture.billing.emitSuccess('gem_pack_500');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
+    expect(find.text('Purchase successful!'), findsOneWidget);
+    expect(find.text(insufficientGemBalancePrompt), findsOneWidget);
+
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
     expect(find.text(insufficientGemBalancePrompt), findsNothing);
-    await tester.pump(const Duration(seconds: 3));
   });
 
   testWidgets('purchase sheet closes from its close button', (tester) async {
@@ -213,7 +222,8 @@ class _FakeBillingService implements BillingService {
         kind: BillingUiEventKind.success,
         productId: productId,
         attemptId: 'pay_test',
-        message: 'Purchase successful.',
+        message: 'Purchase successful!',
+        grantedGems: 550,
       ),
     );
   }

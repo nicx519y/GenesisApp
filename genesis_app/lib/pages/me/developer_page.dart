@@ -15,10 +15,18 @@ import '../../app/debug_floating_button_visibility.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
+import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../components/genesis_logo.dart';
 import '../../components/page_header.dart';
+import '../../app/gems/gem_wallet_store.dart';
 import '../../network/genesis_api.dart';
+import '../../network/chatroom/world_chatroom_service.dart';
+import '../../network/models/gem_product.dart';
+import '../../network/models/gem_wallet.dart';
 import '../../platform/app/app_metadata_service.dart';
+import '../../platform/billing/billing_models.dart';
+import '../../platform/billing/billing_service.dart';
+import '../gems/gem_wallet_page.dart';
 import '../../ui/genesis_ui.dart';
 import 'about_us_page.dart';
 
@@ -472,6 +480,39 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     );
   }
 
+  Future<void> _showGemPurchaseSheetPreview() async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (widget.dismissBeforePreview) {
+      await widget.onDismissBeforePreview?.call();
+    }
+    if (!navigator.mounted) return;
+    final preview = _DeveloperGemPurchasePreview();
+    try {
+      await showGemPurchaseBottomSheet(
+        navigator.context,
+        alert: const GemBalanceAlert(
+          kind: GemBalanceAlertKind.insufficient,
+          balance: 12,
+          message: 'Insufficient Gems',
+        ),
+        productsLoader: () async => preview.products,
+        walletStore: preview.walletStore,
+        billingService: preview.billing,
+      );
+    } finally {
+      preview.dispose();
+    }
+  }
+
+  Future<void> _showGemPurchaseOverlayPreview() async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (widget.dismissBeforePreview) {
+      await widget.onDismissBeforePreview?.call();
+    }
+    if (!navigator.mounted) return;
+    await showGemBillingPurchaseOverlayPreview(navigator.context);
+  }
+
   Future<List<GenesisGenerationWaitAvatar>?> _loadPreviewOriginAvatars() async {
     final api = AppServicesScope.read(context).api;
     try {
@@ -654,6 +695,20 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           ),
           const SizedBox(height: _itemGap),
           GenesisPrimaryButton(
+            label: 'Preview Gem purchase sheet',
+            onPressed: _showGemPurchaseSheetPreview,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            label: 'Preview purchase overlay',
+            onPressed: _showGemPurchaseOverlayPreview,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
             label: _clearingDirectMessageCache
                 ? 'Clearing...'
                 : 'Clear direct message cache',
@@ -705,6 +760,165 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
         ],
       ),
     );
+  }
+}
+
+class _DeveloperGemPurchasePreview {
+  _DeveloperGemPurchasePreview()
+    : walletStore = GemWalletStore(
+        loadWallet: () async => const GemWallet(balance: 12),
+        readUid: () async => 'developer_preview_user',
+      );
+
+  final GemWalletStore walletStore;
+  final _DeveloperPreviewBillingService billing =
+      _DeveloperPreviewBillingService();
+
+  List<GemProduct> get products => const <GemProduct>[
+    GemProduct(
+      productId: 'gem_pack_500',
+      appleProductId: 'worldo.gems.500',
+      googleProductId: 'worldo.gems.500',
+      baseGems: 500,
+      bonusGems: 0,
+      priceCurrencyCode: 'USD',
+      priceAmount: 149,
+      canPurchase: true,
+      activityType: 'new_user',
+      activityText: 'New User',
+      activityColor: '#E85C39',
+    ),
+    GemProduct(
+      productId: 'gem_pack_1100',
+      appleProductId: 'worldo.gems.1100',
+      googleProductId: 'worldo.gems.1100',
+      baseGems: 1000,
+      bonusGems: 100,
+      priceCurrencyCode: 'USD',
+      priceAmount: 590,
+      canPurchase: true,
+      activityType: 'first_top_up',
+      activityText: 'First Top-up',
+      activityColor: '#B53B52',
+    ),
+    GemProduct(
+      productId: 'gem_pack_4400',
+      appleProductId: 'worldo.gems.4400',
+      googleProductId: 'worldo.gems.4400',
+      baseGems: 4000,
+      bonusGems: 400,
+      priceCurrencyCode: 'USD',
+      priceAmount: 1990,
+      canPurchase: true,
+      activityType: 'first_top_up',
+      activityText: 'First Top-up',
+      activityColor: '#B53B52',
+    ),
+    GemProduct(
+      productId: 'gem_pack_8800',
+      appleProductId: 'worldo.gems.8800',
+      googleProductId: 'worldo.gems.8800',
+      baseGems: 8000,
+      bonusGems: 800,
+      priceCurrencyCode: 'USD',
+      priceAmount: 3890,
+      canPurchase: true,
+      activityType: 'first_top_up',
+      activityText: 'First Top-up',
+      activityColor: '#B53B52',
+    ),
+    GemProduct(
+      productId: 'gem_pack_16500',
+      appleProductId: 'worldo.gems.16500',
+      googleProductId: 'worldo.gems.16500',
+      baseGems: 15000,
+      bonusGems: 1500,
+      priceCurrencyCode: 'USD',
+      priceAmount: 6990,
+      canPurchase: true,
+      activityType: 'first_top_up',
+      activityText: 'First Top-up',
+      activityColor: '#B53B52',
+    ),
+    GemProduct(
+      productId: 'gem_pack_55000',
+      appleProductId: 'worldo.gems.55000',
+      googleProductId: 'worldo.gems.55000',
+      baseGems: 50000,
+      bonusGems: 5000,
+      priceCurrencyCode: 'USD',
+      priceAmount: 19990,
+      canPurchase: true,
+      activityType: 'first_top_up',
+      activityText: 'First Top-up',
+      activityColor: '#B53B52',
+    ),
+  ];
+
+  void dispose() {
+    walletStore.dispose();
+    billing.dispose();
+  }
+}
+
+class _DeveloperPreviewBillingService implements BillingService {
+  final ValueNotifier<BillingState> _state = ValueNotifier<BillingState>(
+    BillingState(storeAvailable: true),
+  );
+  final StreamController<BillingUiEvent> _events =
+      StreamController<BillingUiEvent>.broadcast();
+  bool _disposed = false;
+
+  @override
+  Stream<BillingUiEvent> get events => _events.stream;
+
+  @override
+  ValueListenable<BillingState> get state => _state;
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<void> purchaseGem(GemProduct product) async {
+    if (_disposed) return;
+    if (_state.value.hasBusyPurchase) return;
+    _state.value = BillingState(
+      storeAvailable: true,
+      busyProductIds: <String>{product.productId},
+    );
+    _events.add(
+      BillingUiEvent(
+        kind: BillingUiEventKind.processing,
+        productId: product.productId,
+        attemptId: 'developer_preview',
+        message: 'Purchasing Gems',
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+    if (_disposed) return;
+    _state.value = BillingState(storeAvailable: true);
+    _events.add(
+      BillingUiEvent(
+        kind: BillingUiEventKind.success,
+        productId: product.productId,
+        attemptId: 'developer_preview',
+        message: 'Purchase successful!',
+        grantedGems: product.totalGems,
+      ),
+    );
+  }
+
+  @override
+  Future<void> recover(BillingRecoverySource source) async {}
+
+  @override
+  void resetForSession() {}
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _state.dispose();
+    _events.close();
   }
 }
 

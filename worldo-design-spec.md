@@ -36,9 +36,9 @@ Core palette:
 
 | Token | Hex | Use |
 | --- | --- | --- |
-| `brand.primary` | `#F42C47` | Selected tab underline, create action, sign-in CTA, notification emphasis |
-| `text.primary` | `#333333` | Section titles, active tabs, important labels |
-| `text.body` | `#444444` | Body copy and progress text |
+| `brand.primary` | `#FF2442` | Selected tab underline, create action, sign-in CTA, notification emphasis |
+| `text.primary` | `#111111` | Section titles, active tabs, important labels |
+| `text.body` | `#111111` | Body copy and progress text |
 | `text.secondary` | `#666666` | Subtitles, summaries, inactive description text |
 | `text.tertiary` | `#999999` | Metadata, timestamps, inactive nav labels |
 | `text.placeholder` | `#B0B0B0` | Search placeholder |
@@ -48,13 +48,13 @@ Core palette:
 | `link.world` | `#4B6192` | World titles and blue tags |
 | `tag.blue.bg` | `#ECEDF5` | Blue tag background |
 | `tag.green.bg` | `#ECF5ED` | Green tag background |
-| `tag.green.text` | `#3D9856` | Green tag text |
+| `tag.green.text` | `#338960` | Green tag text |
 
 Usage guidance:
 
 - Red is the primary action and selection color. Do not overuse it in large surfaces.
 - Blue `#4B6192` is used for world/entity titles and semantic links.
-- Gray hierarchy is important: `#333` for labels, `#444` for paragraphs, `#666` for supporting descriptions, `#999` for metadata.
+- Gray hierarchy is important: `#111` for labels, `#111` for paragraphs, `#666` for supporting descriptions, `#999` for metadata.
 - Image-heavy areas may use white text over a dark gradient/overlay for metrics.
 
 ## 4. Typography

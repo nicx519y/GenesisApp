@@ -355,7 +355,7 @@ class GooglePlayBillingService implements BillingService {
         kind: BillingUiEventKind.processing,
         productId: productId,
         attemptId: attemptId,
-        message: 'Granting Gems',
+        message: 'Purchasing Gems',
       ),
     );
     try {
@@ -514,7 +514,7 @@ class GooglePlayBillingService implements BillingService {
           kind: BillingUiEventKind.success,
           productId: record.productId,
           attemptId: record.attemptId,
-          message: 'Purchase successful.',
+          message: 'Purchase successful!',
           grantedGems: report.grantedGems,
         ),
       );

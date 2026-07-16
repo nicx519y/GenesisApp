@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/gems/gem_colors.dart';
 import '../../components/page_header.dart';
 import '../../network/models/gem_records.dart';
 import '../../ui/components/secend_tabs.dart';
@@ -219,7 +220,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
     }
     if (state.records.isEmpty) {
       return RefreshIndicator(
-        color: const Color(0xFFFF2D4F),
+        color: kGemAccentColor,
         onRefresh: () => _loadFirstPage(index: index, refreshing: true),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -228,7 +229,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
       );
     }
     return RefreshIndicator(
-      color: const Color(0xFFFF2D4F),
+      color: kGemAccentColor,
       onRefresh: () => _loadFirstPage(index: index, refreshing: true),
       child: ListView.separated(
         controller: state.scrollController,
@@ -293,7 +294,7 @@ class _GemRecordTabs extends StatelessWidget {
       unselectedLabelStyle: const TextStyle(
         fontSize: 14,
         height: 20 / 14,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w400,
       ),
       labelColor: const Color(0xFF333333),
       unselectedLabelColor: const Color(0xFF999999),
@@ -356,9 +357,7 @@ class _GemRecordTile extends StatelessWidget {
               fontSize: 14,
               height: 20 / 14,
               fontWeight: FontWeight.w600,
-              color: isIncome
-                  ? const Color(0xFFF42C47)
-                  : const Color(0xFF111111),
+              color: isIncome ? kGemAccentColor : const Color(0xFF111111),
             ),
           ),
         ],
@@ -438,7 +437,7 @@ class _GemRecordsLoading extends StatelessWidget {
         height: 24,
         child: CircularProgressIndicator(
           strokeWidth: 2.5,
-          color: Color(0xFFFF2D4F),
+          color: kGemAccentColor,
         ),
       ),
     );
@@ -458,7 +457,7 @@ class _GemRecordsMoreLoading extends StatelessWidget {
           height: 18,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: Color(0xFFFF2D4F),
+            color: kGemAccentColor,
           ),
         ),
       ),
@@ -477,7 +476,7 @@ class _GemRecordsEmpty extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           height: 18 / 12,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w400,
           color: Color(0xFF999999),
         ),
       ),

@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
 import 'gem_assets.dart';
+import 'gem_colors.dart';
 
 class GemBalancePanel extends StatelessWidget {
   const GemBalancePanel({
@@ -266,7 +267,7 @@ class GemProductCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: isSoldOut
                             ? const Color(0xFFFF9AAA)
-                            : const Color(0xFFF42C47),
+                            : kGemAccentColor,
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: isBuying && !isSoldOut

@@ -432,6 +432,55 @@ void main() {
     );
   });
 
+  testWidgets('GenesisActionBox can render one action without cancel', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1000, 600);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    bool? result;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return FilledButton(
+                onPressed: () async {
+                  result = await showGenesisActionBox<bool>(
+                    context: context,
+                    title: 'Purchase successful!',
+                    actions: const [
+                      GenesisActionBoxAction<bool>(label: 'OK', value: true),
+                    ],
+                    showCancel: false,
+                  );
+                },
+                child: const Text('Open'),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cancel'), findsNothing);
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('genesis-action-box-attached-cancel')),
+      ),
+      const Size(700, 134),
+    );
+
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(result, isTrue);
+  });
+
   testWidgets('GenesisActionBox detaches cancel for multiple actions', (
     tester,
   ) async {

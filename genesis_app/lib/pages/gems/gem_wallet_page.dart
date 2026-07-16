@@ -11,6 +11,8 @@ import '../../app/gems/gem_wallet_store.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/gems/gem_assets.dart';
+import '../../components/gems/gem_billing_purchase_dialog.dart';
+import '../../components/gems/gem_colors.dart';
 import '../../components/gems/gem_purchase_catalog.dart';
 import '../../components/page_header.dart';
 import '../../network/models/gem_product.dart';
@@ -52,6 +54,35 @@ class GemWalletPage extends StatefulWidget {
   State<GemWalletPage> createState() => _GemWalletPageState();
 }
 
+Future<void> showGemBillingPurchaseOverlayPreview(BuildContext context) async {
+  final state = ValueNotifier<GemBillingPurchaseDialogState>(
+    GemBillingPurchaseDialogState.processing(attemptId: 'developer_preview'),
+  );
+  Timer? successTimer;
+  successTimer = Timer(const Duration(milliseconds: 1200), () {
+    state.value = GemBillingPurchaseDialogState.success(
+      attemptId: 'developer_preview',
+      message: 'Purchase successful!',
+      isGrantedSuccess: true,
+      grantedText: '550',
+    );
+  });
+  await showGenesisGeneralDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    pageBuilder: (dialogContext, animation, secondaryAnimation) {
+      return Center(
+        child: GemBillingPurchaseDialog(
+          state: state,
+          onConfirm: () => Navigator.of(dialogContext).maybePop(),
+        ),
+      );
+    },
+  );
+  successTimer.cancel();
+  state.dispose();
+}
+
 class _GemWalletPageState extends State<GemWalletPage>
     with WidgetsBindingObserver, RouteAware {
   static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
@@ -71,9 +102,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   final Map<String, String> _taskStatusOverrides = <String, String>{};
   final ValueNotifier<BillingState> _idleBillingState =
       ValueNotifier<BillingState>(BillingState());
-  ValueNotifier<_BillingPurchaseDialogState>? _billingPurchaseDialogState;
-  ValueNotifier<bool>? _billingPurchaseOverlayVisible;
-  OverlayEntry? _billingPurchaseOverlayEntry;
+  ValueNotifier<GemBillingPurchaseDialogState>? _billingPurchaseDialogState;
   bool _billingPurchaseDialogShowing = false;
 
   @override
@@ -88,7 +117,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     WidgetsBinding.instance.removeObserver(this);
     genesisPageRouteObserver.unsubscribe(this);
     _billingEvents?.cancel();
-    _removeBillingPurchaseOverlay();
+    _disposeBillingPurchaseDialogState();
     _idleBillingState.dispose();
     super.dispose();
   }
@@ -393,7 +422,6 @@ class _GemWalletPageState extends State<GemWalletPage>
       return;
     }
     _bindBillingService(service);
-    _prepareBillingPurchaseOverlay();
     await service.purchaseGem(product);
     if (!mounted) return;
     if (service.state.value.hasBusyPurchase) {
@@ -423,17 +451,15 @@ class _GemWalletPageState extends State<GemWalletPage>
   }
 
   void _showBillingPurchaseDialog(BillingUiEvent event) {
-    final nextState = _BillingPurchaseDialogState.processing(
+    final nextState = GemBillingPurchaseDialogState.processing(
       attemptId: event.attemptId,
-      message: event.message,
     );
     final notifier = _billingPurchaseDialogState;
     if (notifier != null) {
       notifier.value = nextState;
     } else {
-      _billingPurchaseDialogState = ValueNotifier<_BillingPurchaseDialogState>(
-        nextState,
-      );
+      _billingPurchaseDialogState =
+          ValueNotifier<GemBillingPurchaseDialogState>(nextState);
     }
     _presentBillingPurchaseDialog();
   }
@@ -441,9 +467,9 @@ class _GemWalletPageState extends State<GemWalletPage>
   void _showBillingPurchaseSuccess(BillingUiEvent event) {
     final grantedGems = event.grantedGems;
     final grantedText = grantedGems > 0 ? formatGemInteger(grantedGems) : '';
-    final nextState = _BillingPurchaseDialogState.success(
+    final nextState = GemBillingPurchaseDialogState.success(
       attemptId: event.attemptId,
-      message: 'Purchase successful.',
+      message: 'Purchase successful!',
       isGrantedSuccess: true,
       grantedText: grantedText,
     );
@@ -452,14 +478,14 @@ class _GemWalletPageState extends State<GemWalletPage>
       notifier.value = nextState;
       return;
     }
-    _billingPurchaseDialogState = ValueNotifier<_BillingPurchaseDialogState>(
+    _billingPurchaseDialogState = ValueNotifier<GemBillingPurchaseDialogState>(
       nextState,
     );
     _presentBillingPurchaseDialog();
   }
 
   void _showBillingPurchaseAccepted(BillingUiEvent event) {
-    final nextState = _BillingPurchaseDialogState.success(
+    final nextState = GemBillingPurchaseDialogState.success(
       attemptId: event.attemptId,
       message: event.message,
     );
@@ -468,64 +494,58 @@ class _GemWalletPageState extends State<GemWalletPage>
       notifier.value = nextState;
       return;
     }
-    _billingPurchaseDialogState = ValueNotifier<_BillingPurchaseDialogState>(
+    _billingPurchaseDialogState = ValueNotifier<GemBillingPurchaseDialogState>(
       nextState,
     );
     _presentBillingPurchaseDialog();
   }
 
   void _presentBillingPurchaseDialog() {
-    _prepareBillingPurchaseOverlay();
-    _setBillingPurchaseOverlayVisible(true);
+    _billingPurchaseDialogState ??=
+        ValueNotifier<GemBillingPurchaseDialogState>(
+          GemBillingPurchaseDialogState.processing(attemptId: ''),
+        );
+    if (_billingPurchaseDialogShowing) return;
+    _billingPurchaseDialogShowing = true;
+    if (mounted) setState(() {});
+    final dialogState = _billingPurchaseDialogState!;
+    unawaited(
+      showGenesisGeneralDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        pageBuilder: (dialogContext, animation, secondaryAnimation) {
+          return Center(
+            child: GemBillingPurchaseDialog(
+              state: dialogState,
+              onConfirm: _dismissBillingPurchaseDialog,
+            ),
+          );
+        },
+      ).whenComplete(() {
+        if (!mounted) {
+          _disposeBillingPurchaseDialogState();
+          return;
+        }
+        _billingPurchaseDialogShowing = false;
+        _disposeBillingPurchaseDialogState();
+        setState(() {});
+      }),
+    );
   }
 
   void _dismissBillingPurchaseDialog() {
-    _setBillingPurchaseOverlayVisible(false);
-    _removeBillingPurchaseOverlay();
+    if (!_billingPurchaseDialogShowing) {
+      _disposeBillingPurchaseDialogState();
+      return;
+    }
+    Navigator.of(context, rootNavigator: true).maybePop();
   }
 
-  void _prepareBillingPurchaseOverlay() {
-    _billingPurchaseDialogState ??= ValueNotifier<_BillingPurchaseDialogState>(
-      _BillingPurchaseDialogState.processing(
-        attemptId: '',
-        message: 'Purchasing Gems',
-      ),
-    );
-    _billingPurchaseOverlayVisible ??= ValueNotifier<bool>(false);
-    if (_billingPurchaseOverlayEntry != null) return;
-    final overlay = Overlay.maybeOf(context, rootOverlay: true);
-    if (overlay == null) return;
-    final dialogState = _billingPurchaseDialogState!;
-    final visible = _billingPurchaseOverlayVisible!;
-    _billingPurchaseOverlayEntry = OverlayEntry(
-      builder: (_) => _BillingPurchaseOverlay(
-        visible: visible,
-        state: dialogState,
-        onConfirm: _dismissBillingPurchaseDialog,
-      ),
-    );
-    overlay.insert(_billingPurchaseOverlayEntry!);
-  }
-
-  void _setBillingPurchaseOverlayVisible(bool visible) {
-    _billingPurchaseOverlayVisible?.value = visible;
-    if (_billingPurchaseDialogShowing == visible) return;
-    _billingPurchaseDialogShowing = visible;
-    if (mounted) setState(() {});
-  }
-
-  void _removeBillingPurchaseOverlay() {
-    _billingPurchaseOverlayEntry?.remove();
-    _billingPurchaseOverlayEntry = null;
+  void _disposeBillingPurchaseDialogState() {
     final dialogState = _billingPurchaseDialogState;
     if (dialogState != null) {
       _billingPurchaseDialogState = null;
       dialogState.dispose();
-    }
-    final visible = _billingPurchaseOverlayVisible;
-    if (visible != null) {
-      _billingPurchaseOverlayVisible = null;
-      visible.dispose();
     }
   }
 
@@ -578,7 +598,7 @@ class _GemWalletPageState extends State<GemWalletPage>
       return _GemWalletError(onRetry: () => unawaited(_refreshAll()));
     }
     return RefreshIndicator(
-      color: const Color(0xFFFF2D4F),
+      color: kGemAccentColor,
       onRefresh: () => _refreshAll(silent: true),
       child: _GemWalletContent(
         products: _products,
@@ -597,316 +617,6 @@ class _GemWalletPageState extends State<GemWalletPage>
         onTaskTap: _handleTaskTap,
         onJoinUsTap: _handleJoinUsRowTap,
       ),
-    );
-  }
-}
-
-enum _BillingPurchaseDialogPhase { processing, success }
-
-class _BillingPurchaseDialogState {
-  const _BillingPurchaseDialogState({
-    required this.phase,
-    required this.attemptId,
-    required this.message,
-    this.grantedText = '',
-    this.isGrantedSuccess = false,
-  });
-
-  factory _BillingPurchaseDialogState.processing({
-    required String attemptId,
-    required String message,
-  }) {
-    return _BillingPurchaseDialogState(
-      phase: _BillingPurchaseDialogPhase.processing,
-      attemptId: attemptId,
-      message: message,
-    );
-  }
-
-  factory _BillingPurchaseDialogState.success({
-    required String attemptId,
-    required String message,
-    String grantedText = '',
-    bool isGrantedSuccess = false,
-  }) {
-    return _BillingPurchaseDialogState(
-      phase: _BillingPurchaseDialogPhase.success,
-      attemptId: attemptId,
-      message: message,
-      grantedText: grantedText,
-      isGrantedSuccess: isGrantedSuccess,
-    );
-  }
-
-  final _BillingPurchaseDialogPhase phase;
-  final String attemptId;
-  final String message;
-  final String grantedText;
-  final bool isGrantedSuccess;
-}
-
-class _BillingPurchaseDialog extends StatelessWidget {
-  const _BillingPurchaseDialog({required this.state, required this.onConfirm});
-
-  final ValueListenable<_BillingPurchaseDialogState> state;
-  final VoidCallback onConfirm;
-  static const double _contentHeight = 190;
-  static const double _footerHeight = 57;
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.white,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 54),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      clipBehavior: Clip.antiAlias,
-      child: ValueListenableBuilder<_BillingPurchaseDialogState>(
-        valueListenable: state,
-        builder: (context, value, _) {
-          final isSuccess = value.phase == _BillingPurchaseDialogPhase.success;
-          return SizedBox(
-            height: _contentHeight + _footerHeight,
-            child: Column(
-              children: [
-                SizedBox(
-                  height: isSuccess
-                      ? _contentHeight
-                      : _contentHeight + _footerHeight,
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (isSuccess) ...[
-                            SvgPicture.asset(
-                              gemStackIconAsset,
-                              width: gemStackIconWidth,
-                              height: gemStackIconHeight,
-                            ),
-                            const SizedBox(height: 18),
-                          ] else ...[
-                            const SizedBox(
-                              width: 28,
-                              height: 28,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.6,
-                                color: Color(0xFFFF2D4F),
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                          ],
-                          if (isSuccess)
-                            !value.isGrantedSuccess
-                                ? Text(
-                                    value.message,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      height: 20 / 15,
-                                      fontWeight: FontWeight.w500,
-                                      color: Color(0xFF111111),
-                                    ),
-                                  )
-                                : _BillingPurchaseGrantedMessage(
-                                    grantedText: value.grantedText,
-                                  )
-                          else
-                            _ProcessingPaymentText(message: value.message),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                if (isSuccess) ...[
-                  const Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: Color(0xFFECECEC),
-                  ),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFFFF2D4F),
-                        padding: EdgeInsets.zero,
-                        shape: const RoundedRectangleBorder(),
-                        textStyle: const TextStyle(
-                          fontSize: 17,
-                          height: 22 / 17,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      onPressed: onConfirm,
-                      child: const Text('OK'),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _BillingPurchaseOverlay extends StatelessWidget {
-  const _BillingPurchaseOverlay({
-    required this.visible,
-    required this.state,
-    required this.onConfirm,
-  });
-
-  final ValueListenable<bool> visible;
-  final ValueListenable<_BillingPurchaseDialogState> state;
-  final VoidCallback onConfirm;
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: visible,
-      builder: (context, isVisible, _) {
-        if (!isVisible) return const SizedBox.shrink();
-        return Positioned.fill(
-          child: Material(
-            type: MaterialType.transparency,
-            child: Stack(
-              children: [
-                const ModalBarrier(
-                  dismissible: false,
-                  color: kGenesisModalBarrierColor,
-                ),
-                Center(
-                  child: _BillingPurchaseDialog(
-                    state: state,
-                    onConfirm: onConfirm,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _BillingPurchaseGrantedMessage extends StatelessWidget {
-  const _BillingPurchaseGrantedMessage({required this.grantedText});
-
-  final String grantedText;
-
-  static const _textStyle = TextStyle(
-    fontSize: 15,
-    height: 20 / 15,
-    fontWeight: FontWeight.w500,
-    color: Color(0xFF111111),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Text(
-          'Purchase successful.',
-          textAlign: TextAlign.center,
-          style: _textStyle,
-        ),
-        const SizedBox(height: 4),
-        SizedBox(
-          width: double.infinity,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SvgPicture.asset(gemIconAsset, width: 12, height: 12),
-                const SizedBox(width: 2),
-                Text.rich(
-                  key: const ValueKey<String>('billing-purchase-granted-line'),
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: grantedText,
-                        style: const TextStyle(color: Color(0xFFFF2D4F)),
-                      ),
-                      const TextSpan(text: ' Gems have been granted.'),
-                    ],
-                  ),
-                  textAlign: TextAlign.center,
-                  style: _textStyle,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        const Text(
-          'Go Chat Now.',
-          textAlign: TextAlign.center,
-          style: _textStyle,
-        ),
-      ],
-    );
-  }
-}
-
-class _ProcessingPaymentText extends StatefulWidget {
-  const _ProcessingPaymentText({required this.message});
-
-  final String message;
-
-  @override
-  State<_ProcessingPaymentText> createState() => _ProcessingPaymentTextState();
-}
-
-class _ProcessingPaymentTextState extends State<_ProcessingPaymentText> {
-  late final Timer _timer;
-  int _dotCount = 1;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 420), (_) {
-      if (!mounted) return;
-      setState(() => _dotCount = _dotCount == 3 ? 1 : _dotCount + 1);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    const style = TextStyle(
-      fontSize: 15,
-      height: 20 / 15,
-      fontWeight: FontWeight.w500,
-      color: Color(0xFF111111),
-    );
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(widget.message, textAlign: TextAlign.center, style: style),
-        SizedBox(
-          width: 18,
-          child: Text(
-            '.' * _dotCount,
-            textAlign: TextAlign.left,
-            maxLines: 1,
-            softWrap: false,
-            style: style,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1266,7 +976,7 @@ class _TaskActionButton extends StatelessWidget {
         !isLoading && (status == 'in_progress' || status == 'claimable');
     final color = status == 'claimed'
         ? const Color(0xFFFF9AAA)
-        : const Color(0xFFF42C47);
+        : kGemAccentColor;
     return Semantics(
       button: true,
       enabled: enabled,
@@ -1310,7 +1020,7 @@ class _GemWalletLoading extends StatelessWidget {
         height: 24,
         child: CircularProgressIndicator(
           strokeWidth: 2.5,
-          color: Color(0xFFFF2D4F),
+          color: kGemAccentColor,
         ),
       ),
     );
@@ -1373,7 +1083,7 @@ class _GemSectionStatePanel extends StatelessWidget {
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Color(0xFFFF2D4F),
+                  color: kGemAccentColor,
                 ),
               )
             : Column(

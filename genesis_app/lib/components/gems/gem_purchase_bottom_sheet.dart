@@ -9,6 +9,9 @@ import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../common/genesis_center_toast.dart';
+import '../common/genesis_modal_routes.dart';
+import 'gem_billing_purchase_dialog.dart';
+import 'gem_colors.dart';
 import 'gem_purchase_catalog.dart';
 
 typedef GemPurchaseProductsLoader = Future<List<GemProduct>> Function();
@@ -37,12 +40,11 @@ Future<void> showGemPurchaseBottomSheet(
     return;
   }
 
-  await showModalBottomSheet<void>(
+  await showGenesisModalBottomSheet<void>(
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    barrierColor: Colors.black54,
     builder: (_) => FractionallySizedBox(
       key: const ValueKey<String>('gem-purchase-sheet-size'),
       heightFactor: 0.8,
@@ -82,6 +84,9 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
   int _productsRequestGeneration = 0;
   StreamSubscription<BillingUiEvent>? _billingEvents;
   final Set<String> _startedProductIds = <String>{};
+  ValueNotifier<GemBillingPurchaseDialogState>? _purchaseDialogState;
+  bool _purchaseDialogShowing = false;
+  bool _closeSheetAfterDialog = false;
 
   @override
   void initState() {
@@ -96,6 +101,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
   void dispose() {
     _productsRequestGeneration += 1;
     _billingEvents?.cancel();
+    _disposePurchaseDialogState();
     super.dispose();
   }
 
@@ -124,19 +130,136 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
   Future<void> _purchase(GemProduct product) async {
     if (widget.billingService.state.value.hasBusyPurchase) return;
     _startedProductIds.add(product.productId);
+    _showPurchaseProcessing(attemptId: '');
     await widget.billingService.purchaseGem(product);
+    if (!mounted) return;
+    if (!widget.billingService.state.value.hasBusyPurchase &&
+        _purchaseDialogState?.value.phase ==
+            GemBillingPurchaseDialogPhase.processing) {
+      _dismissPurchaseDialog();
+    }
   }
 
   void _handleBillingEvent(BillingUiEvent event) {
     if (!mounted || !_startedProductIds.contains(event.productId)) return;
-    showGenesisToast(context, event.message);
-    if (event.kind == BillingUiEventKind.failure) {
-      _startedProductIds.remove(event.productId);
+    switch (event.kind) {
+      case BillingUiEventKind.processing:
+        _showPurchaseProcessing(attemptId: event.attemptId);
+        return;
+      case BillingUiEventKind.success:
+        _showPurchaseSuccess(event);
+        unawaited(widget.walletStore.refresh());
+        return;
+      case BillingUiEventKind.accepted:
+        _showPurchaseAccepted(event);
+        return;
+      case BillingUiEventKind.failure:
+      case BillingUiEventKind.pending:
+      case BillingUiEventKind.deferred:
+        _startedProductIds.remove(event.productId);
+        _dismissPurchaseDialog();
+        showGenesisToast(context, event.message);
+    }
+  }
+
+  void _showPurchaseProcessing({required String attemptId}) {
+    final nextState = GemBillingPurchaseDialogState.processing(
+      attemptId: attemptId,
+    );
+    final notifier = _purchaseDialogState;
+    if (notifier != null) {
+      notifier.value = nextState;
+    } else {
+      _purchaseDialogState = ValueNotifier<GemBillingPurchaseDialogState>(
+        nextState,
+      );
+    }
+    _presentPurchaseDialog();
+  }
+
+  void _showPurchaseSuccess(BillingUiEvent event) {
+    final grantedGems = event.grantedGems;
+    final nextState = GemBillingPurchaseDialogState.success(
+      attemptId: event.attemptId,
+      message: 'Purchase successful!',
+      isGrantedSuccess: true,
+      grantedText: grantedGems > 0 ? formatGemInteger(grantedGems) : '',
+    );
+    _updatePurchaseDialog(nextState);
+  }
+
+  void _showPurchaseAccepted(BillingUiEvent event) {
+    _updatePurchaseDialog(
+      GemBillingPurchaseDialogState.success(
+        attemptId: event.attemptId,
+        message: event.message,
+      ),
+    );
+  }
+
+  void _updatePurchaseDialog(GemBillingPurchaseDialogState nextState) {
+    final notifier = _purchaseDialogState;
+    if (notifier != null) {
+      notifier.value = nextState;
       return;
     }
-    if (event.kind == BillingUiEventKind.success) {
-      Navigator.of(context).pop();
+    _purchaseDialogState = ValueNotifier<GemBillingPurchaseDialogState>(
+      nextState,
+    );
+    _presentPurchaseDialog();
+  }
+
+  void _presentPurchaseDialog() {
+    _purchaseDialogState ??= ValueNotifier<GemBillingPurchaseDialogState>(
+      GemBillingPurchaseDialogState.processing(attemptId: ''),
+    );
+    if (_purchaseDialogShowing) return;
+    _purchaseDialogShowing = true;
+    final dialogState = _purchaseDialogState!;
+    unawaited(
+      showGenesisGeneralDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        pageBuilder: (dialogContext, animation, secondaryAnimation) {
+          return Center(
+            child: GemBillingPurchaseDialog(
+              state: dialogState,
+              onConfirm: _confirmPurchaseDialog,
+            ),
+          );
+        },
+      ).whenComplete(() {
+        if (!mounted) {
+          _disposePurchaseDialogState();
+          return;
+        }
+        final shouldCloseSheet = _closeSheetAfterDialog;
+        _purchaseDialogShowing = false;
+        _closeSheetAfterDialog = false;
+        _disposePurchaseDialogState();
+        if (shouldCloseSheet) Navigator.of(context).maybePop();
+      }),
+    );
+  }
+
+  void _confirmPurchaseDialog() {
+    _closeSheetAfterDialog = true;
+    _dismissPurchaseDialog();
+  }
+
+  void _dismissPurchaseDialog() {
+    if (!_purchaseDialogShowing) {
+      _disposePurchaseDialogState();
+      return;
     }
+    Navigator.of(context, rootNavigator: true).maybePop();
+  }
+
+  void _disposePurchaseDialogState() {
+    final dialogState = _purchaseDialogState;
+    if (dialogState == null) return;
+    _purchaseDialogState = null;
+    dialogState.dispose();
   }
 
   String get _title => widget.alert.kind == GemBalanceAlertKind.insufficient
@@ -298,9 +421,7 @@ class _GemPurchaseSheetState extends StatelessWidget {
             const SizedBox(height: 12),
             TextButton(
               onPressed: onAction,
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFF42C47),
-              ),
+              style: TextButton.styleFrom(foregroundColor: kGemAccentColor),
               child: Text(actionLabel!),
             ),
           ],

@@ -24,7 +24,7 @@ void main() {
     final indicator = tester.widget<CircularProgressIndicator>(
       find.byKey(const ValueKey('gem-model-page-loading')),
     );
-    expect(indicator.color, const Color(0xFFF42C47));
+    expect(indicator.color, const Color(0xFFFF2442));
 
     catalogCompleter.complete(_catalog());
     await tester.pumpAndSettle();
@@ -122,7 +122,7 @@ void main() {
     expect(hotStyle?.fontSize, 10);
     expect(hotStyle?.height, 14 / 10);
     expect(hotStyle?.fontWeight, FontWeight.w600);
-    expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFF42C47));
+    expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFFF2442));
     expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFE1E1E1));
     expect(_tileColor(tester, 'top_pick_v3'), const Color(0xFFFFF4F6));
     expect(_tileColor(tester, 'sake_pro'), Colors.white);
@@ -139,7 +139,7 @@ void main() {
     );
     expect(_tagContainer(tester, 'hot').color, const Color(0xFFFF7A1A));
     expect(_tagContainer(tester, 'hot').height, 20);
-    expect(_tagContainer(tester, 'new').color, const Color(0xFFF42C47));
+    expect(_tagContainer(tester, 'new').color, const Color(0xFFFF2442));
     expect(_tagContainer(tester, 'new').height, 20);
     expect(
       tester.getCenter(find.text('Top Pick V3')).dy,
@@ -187,7 +187,7 @@ void main() {
     expect(selections, isEmpty);
     expect(cachedModelCodes, isEmpty);
     expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFE1E1E1));
-    expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFF42C47));
+    expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFFF2442));
     expect(_tileColor(tester, 'top_pick_v3'), Colors.white);
     expect(_tileColor(tester, 'sake_pro'), const Color(0xFFFFF4F6));
 
@@ -209,7 +209,7 @@ void main() {
 
     expect(cachedModelCodes, ['sake_pro']);
     expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFE1E1E1));
-    expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFF42C47));
+    expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFFF2442));
     expect(find.text('Switched successfully'), findsOneWidget);
     expect(find.byKey(const ValueKey('gem-model-save-loading')), findsNothing);
     await tester.pump(const Duration(seconds: 2));
@@ -233,7 +233,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFF42C47));
+    expect(_tileBorder(tester, 'top_pick_v3').color, const Color(0xFFFF2442));
     expect(_tileBorder(tester, 'sake_pro').color, const Color(0xFFE1E1E1));
     expect(find.text('Switched failed'), findsOneWidget);
     await tester.pump(const Duration(seconds: 2));

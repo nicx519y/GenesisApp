@@ -27,7 +27,9 @@ Future<T?> showGenesisActionBox<T>({
   Widget? titleWidget,
   Widget? titleContent,
   double titleContentSpacing = 8,
+  double titleHorizontalPadding = 18,
   String cancelLabel = 'Cancel',
+  bool showCancel = true,
   bool detachCancel = false,
   bool applySystemUiOverlay = true,
   double titleHeight = GenesisActionBox.defaultTitleHeight,
@@ -45,8 +47,10 @@ Future<T?> showGenesisActionBox<T>({
         titleWidget: titleWidget,
         titleContent: titleContent,
         titleContentSpacing: titleContentSpacing,
+        titleHorizontalPadding: titleHorizontalPadding,
         actions: actions,
         cancelLabel: cancelLabel,
+        showCancel: showCancel,
         detachCancel: detachCancel,
         titleHeight: titleHeight,
         actionRowHeight: actionRowHeight,
@@ -69,7 +73,9 @@ class GenesisActionBox<T> extends StatelessWidget {
     this.titleWidget,
     this.titleContent,
     this.titleContentSpacing = 8,
+    this.titleHorizontalPadding = 18,
     this.cancelLabel = 'Cancel',
+    this.showCancel = true,
     this.detachCancel = false,
     this.titleHeight = defaultTitleHeight,
     this.actionRowHeight = defaultRowHeight,
@@ -88,10 +94,12 @@ class GenesisActionBox<T> extends StatelessWidget {
   final Widget? titleWidget;
   final Widget? titleContent;
   final double titleContentSpacing;
+  final double titleHorizontalPadding;
   final List<GenesisActionBoxAction<T>> actions;
   final ValueChanged<T> onActionSelected;
   final VoidCallback onCancel;
   final String cancelLabel;
+  final bool showCancel;
   final bool detachCancel;
   final double titleHeight;
   final double actionRowHeight;
@@ -99,7 +107,8 @@ class GenesisActionBox<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final useDetachedCancelStyle = detachCancel || actions.length > 1;
+    final useDetachedCancelStyle =
+        showCancel && (detachCancel || actions.length > 1);
     final dialogWidth = (MediaQuery.sizeOf(context).width * 0.7)
         .clamp(0.0, _maxWidth)
         .toDouble();
@@ -132,25 +141,27 @@ class GenesisActionBox<T> extends StatelessWidget {
               titleWidget: titleWidget,
               content: titleContent,
               contentSpacing: titleContentSpacing,
+              horizontalPadding: titleHorizontalPadding,
             ),
             if (content case final content?) content,
             if (actions.isNotEmpty) ...[
               const _Divider(),
-              for (final action in actions) ...[
+              for (var index = 0; index < actions.length; index++) ...[
                 _ActionRow<T>(
-                  action: action,
+                  action: actions[index],
                   height: actionRowHeight,
                   isPreferred: true,
                   onSelected: onActionSelected,
                 ),
-                const _Divider(),
+                if (showCancel || index != actions.length - 1) const _Divider(),
               ],
             ],
-            _CancelRow(
-              label: cancelLabel,
-              height: cancelRowHeight,
-              onCancel: onCancel,
-            ),
+            if (showCancel)
+              _CancelRow(
+                label: cancelLabel,
+                height: cancelRowHeight,
+                onCancel: onCancel,
+              ),
           ],
         ),
       ),
@@ -175,6 +186,7 @@ class GenesisActionBox<T> extends StatelessWidget {
                   titleWidget: titleWidget,
                   content: titleContent,
                   contentSpacing: titleContentSpacing,
+                  horizontalPadding: titleHorizontalPadding,
                 ),
                 if (content case final content?) content,
                 if (actions.isNotEmpty) ...[
@@ -217,6 +229,7 @@ class _TitleRow extends StatelessWidget {
     required this.titleWidget,
     required this.content,
     required this.contentSpacing,
+    required this.horizontalPadding,
   });
 
   final String title;
@@ -224,6 +237,7 @@ class _TitleRow extends StatelessWidget {
   final Widget? titleWidget;
   final Widget? content;
   final double contentSpacing;
+  final double horizontalPadding;
 
   @override
   Widget build(BuildContext context) {
@@ -234,7 +248,7 @@ class _TitleRow extends StatelessWidget {
       child: Align(
         alignment: Alignment.center,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

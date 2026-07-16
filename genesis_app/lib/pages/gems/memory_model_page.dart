@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/gems/gem_colors.dart';
 import '../../components/page_header.dart';
 import '../../network/models/gem_model.dart';
 
@@ -184,7 +185,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
           child: CircularProgressIndicator(
             key: ValueKey('gem-model-page-loading'),
             strokeWidth: 2,
-            color: Color(0xFFF42C47),
+            color: kGemAccentColor,
           ),
         ),
       );
@@ -271,7 +272,7 @@ class _ModelSaveAction extends StatelessWidget {
                 dimension: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Color(0xFFF42C47),
+                  color: kGemAccentColor,
                 ),
               )
             : const Text('Save'),
@@ -337,9 +338,7 @@ class _GemModelTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = selected
-        ? const Color(0xFFF42C47)
-        : const Color(0xFFE1E1E1);
+    final borderColor = selected ? kGemAccentColor : const Color(0xFFE1E1E1);
     return Semantics(
       button: true,
       selected: selected,
@@ -418,7 +417,7 @@ class _GemModelTileContent extends StatelessWidget {
               children: [
                 TextSpan(
                   text: '${model.estimatedNextMessageGems} gems',
-                  style: const TextStyle(color: Color(0xFFFF2442)),
+                  style: const TextStyle(color: kGemAccentColor),
                 ),
               ],
             ),
@@ -459,7 +458,7 @@ class _GemModelTag extends StatelessWidget {
         : '${normalizedLabel[0].toUpperCase()}${normalizedLabel.substring(1)}';
     final backgroundColor = normalizedLabel == 'hot'
         ? const Color(0xFFFF7A1A)
-        : const Color(0xFFF42C47);
+        : kGemAccentColor;
     return Container(
       key: ValueKey<String>('gem-model-tag-$normalizedLabel'),
       height: 20,
@@ -495,7 +494,7 @@ class _GemModelSelectionIndicator extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: selected ? const Color(0xFFF42C47) : const Color(0xFFCCCCCC),
+          color: selected ? kGemAccentColor : const Color(0xFFCCCCCC),
           width: 1,
         ),
       ),
@@ -503,7 +502,7 @@ class _GemModelSelectionIndicator extends StatelessWidget {
       child: selected
           ? const DecoratedBox(
               decoration: BoxDecoration(
-                color: Color(0xFFF42C47),
+                color: kGemAccentColor,
                 shape: BoxShape.circle,
               ),
               child: SizedBox.square(dimension: 9),

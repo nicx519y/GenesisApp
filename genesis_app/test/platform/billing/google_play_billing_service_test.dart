@@ -134,6 +134,7 @@ void main() {
     expect(reported.single.status, BillingPendingPurchaseStatus.reported);
     expect(uiEvents, hasLength(2));
     expect(uiEvents.first.kind, BillingUiEventKind.processing);
+    expect(uiEvents.first.message, 'Purchasing Gems');
     expect(uiEvents.last.kind, BillingUiEventKind.success);
     expect(uiEvents.last.grantedGems, 550);
 
