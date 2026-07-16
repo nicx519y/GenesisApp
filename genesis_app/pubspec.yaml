@@ -60,8 +60,14 @@ dependencies:
 dependency_overrides:
   firebase_auth:
     path: third_party/firebase_auth
+  firebase_performance:
+    path: third_party/firebase_performance
   in_app_purchase_android:
     path: third_party/in_app_purchase_android
+  posthog_flutter:
+    path: third_party/posthog_flutter
+  sign_in_with_apple:
+    path: third_party/sign_in_with_apple
   path_provider_foundation: 2.4.2
 
 dev_dependencies:
