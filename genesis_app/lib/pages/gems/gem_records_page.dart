@@ -235,7 +235,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
         itemCount: state.records.length + (state.isLoadingMore ? 1 : 0),
-        separatorBuilder: (_, __) => const SizedBox(height: 9),
+        separatorBuilder: (_, __) => const SizedBox.shrink(),
         itemBuilder: (context, itemIndex) {
           if (itemIndex >= state.records.length) {
             return const _GemRecordsMoreLoading();
@@ -408,15 +408,11 @@ String _recordTitle(GemRecordItem record) {
 }
 
 List<_GemRecordDetail> _recordDetailLines(GemRecordItem record) {
-  final subtitle = record.subtitle.trim();
-  final referenceId = _recordReferenceId(record);
   final time = formatGemRecordTimestamp(record.createdAt);
+  final worldId = record.worldId.trim();
   return <_GemRecordDetail>[
-    if (subtitle.isNotEmpty)
-      _GemRecordDetail(text: subtitle, copyValue: subtitle),
     if (time.isNotEmpty) _GemRecordDetail(text: time),
-    if (referenceId.isNotEmpty)
-      _GemRecordDetail(text: 'ID: $referenceId', copyValue: referenceId),
+    if (worldId.isNotEmpty) _GemRecordDetail(text: worldId, copyValue: worldId),
   ];
 }
 
@@ -521,10 +517,6 @@ class _GemRecordsMessage extends StatelessWidget {
       ),
     );
   }
-}
-
-String _recordReferenceId(GemRecordItem record) {
-  return record.orderId.trim();
 }
 
 Future<void> _copyGemRecordText(BuildContext context, String text) async {
