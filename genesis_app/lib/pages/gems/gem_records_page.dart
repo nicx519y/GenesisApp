@@ -236,7 +236,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
         itemCount: state.records.length + (state.isLoadingMore ? 1 : 0),
-        separatorBuilder: (_, __) => const SizedBox(height: 9),
+        separatorBuilder: (_, __) => const SizedBox.shrink(),
         itemBuilder: (context, itemIndex) {
           if (itemIndex >= state.records.length) {
             return const _GemRecordsMoreLoading();
@@ -318,8 +318,7 @@ class _GemRecordTile extends StatelessWidget {
     final detailLines = _recordDetailLines(record);
     return Container(
       key: ValueKey<String>('gem-record-item-${record.ledgerId}'),
-      height: _recordTileHeight(detailLines.length),
-      padding: EdgeInsets.only(top: 2, bottom: detailLines.length > 1 ? 9 : 20),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
           Expanded(
@@ -338,14 +337,14 @@ class _GemRecordTile extends StatelessWidget {
                     color: Color(0xFF111111),
                   ),
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 8),
                 for (var index = 0; index < detailLines.length; index += 1) ...[
                   _GemRecordDetailLine(
                     detailLines[index].text,
                     copyValue: detailLines[index].copyValue,
                   ),
                   if (index != detailLines.length - 1)
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 8),
                 ],
               ],
             ),
@@ -397,25 +396,16 @@ class _GemRecordDetailLine extends StatelessWidget {
   }
 }
 
-double _recordTileHeight(int detailLineCount) {
-  if (detailLineCount <= 1) return 59;
-  return 59 + (detailLineCount - 1) * 17;
-}
-
 String _recordTitle(GemRecordItem record) {
   return record.title.isEmpty ? _fallbackTitle(record) : record.title;
 }
 
 List<_GemRecordDetail> _recordDetailLines(GemRecordItem record) {
-  final subtitle = record.subtitle.trim();
-  final referenceId = _recordReferenceId(record);
   final time = formatGemRecordTimestamp(record.createdAt);
+  final worldId = record.worldId.trim();
   return <_GemRecordDetail>[
-    if (subtitle.isNotEmpty)
-      _GemRecordDetail(text: subtitle, copyValue: subtitle),
     if (time.isNotEmpty) _GemRecordDetail(text: time),
-    if (referenceId.isNotEmpty)
-      _GemRecordDetail(text: 'ID: $referenceId', copyValue: referenceId),
+    if (worldId.isNotEmpty) _GemRecordDetail(text: worldId, copyValue: worldId),
   ];
 }
 
@@ -520,10 +510,6 @@ class _GemRecordsMessage extends StatelessWidget {
       ),
     );
   }
-}
-
-String _recordReferenceId(GemRecordItem record) {
-  return record.orderId.trim();
 }
 
 Future<void> _copyGemRecordText(BuildContext context, String text) async {

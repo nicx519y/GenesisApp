@@ -268,7 +268,7 @@ void main() {
       closeTo(14, 0.1),
     );
     expect(find.text('Daily check-in'), findsOneWidget);
-    expect(find.text('Starter reward'), findsOneWidget);
+    expect(find.text('Starter reward'), findsNothing);
     expect(find.text(formatGemRecordTimestamp(1783586400)), findsOneWidget);
     expect(requestedScenes, contains('all'));
 
@@ -290,13 +290,13 @@ void main() {
     expect(recordTitleStyle?.fontWeight, FontWeight.w600);
     expect(recordTitleStyle?.color, const Color(0xFF111111));
 
-    final recordSubtitleStyle = tester
-        .widget<Text>(find.text('Starter reward'))
+    final recordTimeStyle = tester
+        .widget<Text>(find.text(formatGemRecordTimestamp(1783586400)))
         .style;
-    expect(recordSubtitleStyle?.fontSize, 12);
-    expect(recordSubtitleStyle?.height, 14 / 12);
-    expect(recordSubtitleStyle?.fontWeight, FontWeight.w400);
-    expect(recordSubtitleStyle?.color, const Color(0xFF999999));
+    expect(recordTimeStyle?.fontSize, 12);
+    expect(recordTimeStyle?.height, 14 / 12);
+    expect(recordTimeStyle?.fontWeight, FontWeight.w400);
+    expect(recordTimeStyle?.color, const Color(0xFF999999));
 
     final amountStyle = tester.widget<Text>(find.text('+50')).style;
     expect(amountStyle?.fontSize, 14);

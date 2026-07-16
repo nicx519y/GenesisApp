@@ -47,6 +47,7 @@ void main() {
                     subtitle: 'Daily task',
                     createdAt: 1,
                     expiresAt: 1893456000,
+                    worldId: 'w_daily',
                   ),
                   GemRecordItem(
                     ledgerId: 'ledger-2',
@@ -78,7 +79,7 @@ void main() {
     expect(
       tester.getTopLeft(find.text('Daily check-in')).dy -
           tester.getBottomLeft(find.byType(TabBar)).dy,
-      closeTo(21, 0.1),
+      closeTo(24, 0.1),
     );
     expect(
       tester.getTopLeft(find.text('Daily check-in')).dy -
@@ -87,12 +88,23 @@ void main() {
                 find.byKey(const ValueKey<String>('gem-record-item-ledger-1')),
               )
               .dy,
-      closeTo(9, 0.1),
+      closeTo(12, 0.1),
     );
     final textBlockCenter =
         (tester.getTopLeft(find.text('Daily check-in')).dy +
-            tester.getBottomLeft(find.text('ID: order-1')).dy) /
+            tester.getBottomLeft(find.text('w_daily')).dy) /
         2;
+    final recordTime = find.text(formatGemRecordTimestamp(1)).first;
+    expect(
+      tester.getTopLeft(recordTime).dy -
+          tester.getBottomLeft(find.text('Daily check-in')).dy,
+      closeTo(8, 0.1),
+    );
+    expect(
+      tester.getTopLeft(find.text('w_daily')).dy -
+          tester.getBottomLeft(recordTime).dy,
+      closeTo(8, 0.1),
+    );
     expect(
       tester.getCenter(find.text('+50')).dy,
       closeTo(textBlockCenter, 0.1),
@@ -100,20 +112,22 @@ void main() {
     expect(
       tester.getTopLeft(find.text('Message')).dy -
           tester.getTopLeft(find.text('Daily check-in')).dy,
-      closeTo(102, 0.1),
+      closeTo(85, 0.1),
     );
-    final messageWorldName = tester.widget<Text>(find.text('Moonlit Market'));
-    expect(messageWorldName.style?.color, const Color(0xFF999999));
-    expect(find.text('ID: order-1'), findsOneWidget);
+    final messageWorldId = tester.widget<Text>(find.text('w_moonlit'));
+    expect(messageWorldId.style?.color, const Color(0xFF999999));
+    expect(find.text('Daily task'), findsNothing);
+    expect(find.text('Moonlit Market'), findsNothing);
+    expect(find.text('ID: order-1'), findsNothing);
     expect(find.text('ID: ledger-1'), findsNothing);
-    expect(find.text('ID: order-2'), findsOneWidget);
-    await tester.tap(find.text('Moonlit Market'));
+    expect(find.text('ID: order-2'), findsNothing);
+    await tester.tap(find.text('w_moonlit'));
     var copied = await Clipboard.getData('text/plain');
-    expect(copied?.text, 'Moonlit Market');
+    expect(copied?.text, 'w_moonlit');
     await tester.pump(const Duration(seconds: 2));
-    await tester.tap(find.text('ID: order-2'));
+    await tester.tap(find.text('w_daily'));
     copied = await Clipboard.getData('text/plain');
-    expect(copied?.text, 'order-2');
+    expect(copied?.text, 'w_daily');
     await tester.pump(const Duration(seconds: 2));
     expect(
       tester
@@ -121,7 +135,7 @@ void main() {
             find.byKey(const ValueKey<String>('gem-record-item-ledger-1')),
           )
           .height,
-      closeTo(93, 0.1),
+      closeTo(85, 0.1),
     );
     expect(
       tester
@@ -129,7 +143,7 @@ void main() {
             find.byKey(const ValueKey<String>('gem-record-item-ledger-2')),
           )
           .height,
-      closeTo(93, 0.1),
+      closeTo(85, 0.1),
     );
   });
 
