@@ -17,6 +17,7 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
+import '../../components/gems/gem_purchase_catalog.dart';
 import '../../components/genesis_logo.dart';
 import '../../components/page_header.dart';
 import '../../app/gems/gem_wallet_store.dart';
@@ -155,6 +156,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     _gatewayApiBaseUrlController.addListener(_handleEndpointTextChanged);
     _chatroomWsBaseUrlController.addListener(_handleEndpointTextChanged);
     _loadEndpointOverrides();
+    unawaited(AppServicesScope.read(context).gemWallet.refresh());
   }
 
   @override
@@ -553,6 +555,23 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     return parts.join(' / ');
   }
 
+  Widget _buildGemBalanceInfoRow() {
+    final walletState = AppServicesScope.of(context).gemWallet.state;
+    return ValueListenableBuilder<GemWalletState>(
+      valueListenable: walletState,
+      builder: (context, state, _) {
+        final balance = state.balance;
+        final content = balance == null
+            ? (state.isRefreshing ? 'Loading...' : '0')
+            : formatGemInteger(balance);
+        return _DeveloperInfoSingleLineRow(
+          title: 'My Balance',
+          content: content,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -561,6 +580,8 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 18),
+          _buildGemBalanceInfoRow(),
+          const SizedBox(height: _itemGap),
           FutureBuilder<DeviceIdDiagnostics>(
             future: _deviceIdDiagnosticsFuture,
             builder: (context, snapshot) {

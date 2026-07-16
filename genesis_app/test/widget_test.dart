@@ -19,6 +19,7 @@ import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
+import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/startup/startup_network_gate.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/app/version/force_upgrade_gate.dart';
@@ -59,6 +60,7 @@ import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 import 'package:genesis_flutter_android/network/models/app_version_check.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
+import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/network/models/user.dart';
 import 'package:genesis_flutter_android/components/origin/stat_item.dart';
 import 'package:genesis_flutter_android/components/search_bar.dart';
@@ -163,6 +165,7 @@ Future<AppServices> _testServices({
   DirectMessageMessageStore? directMessageMessages,
   ChatroomMessageStorage? chatroomMessages,
   BillingService? billingService,
+  GemWalletStore? gemWallet,
   AppVersionCheckService? appVersionCheck,
   ExternalUrlOpener? externalUrlOpener,
   DeviceIdService? deviceIdService,
@@ -228,6 +231,7 @@ Future<AppServices> _testServices({
     appVersionCheck: appVersionCheck ?? const _NoUpgradeVersionCheckService(),
     externalUrlOpener: externalUrlOpener ?? _FakeExternalUrlOpener(),
     startupNetworkGate: StartupNetworkGate.open(),
+    gemWallet: gemWallet,
     billing: billingService,
   );
 }
@@ -9592,8 +9596,14 @@ void main() {
         null,
       );
     });
+    final gemWallet = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 20925),
+      readUid: () async => 'u_mock',
+    );
+    addTearDown(gemWallet.dispose);
     final services = await _testServices(
       deviceIdService: const _FakeDeviceIdDiagnosticsService(),
+      gemWallet: gemWallet,
     );
     expect(services.deviceId, isA<DeviceIdDiagnosticsService>());
 
@@ -9609,6 +9619,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('My Balance:'), findsOneWidget);
+    expect(find.text('20,925'), findsOneWidget);
     expect(find.text('ANDROID_ID:'), findsOneWidget);
     expect(find.text('android-id'), findsOneWidget);
     expect(find.text('AAID:'), findsOneWidget);
@@ -9626,6 +9638,10 @@ void main() {
     expect(
       tester.getTopLeft(find.text('android-id')).dy,
       tester.getTopLeft(find.text('ANDROID_ID:')).dy,
+    );
+    expect(
+      tester.getTopLeft(find.text('My Balance:')).dy,
+      lessThan(tester.getTopLeft(find.text('ANDROID_ID:')).dy),
     );
     expect(
       tester.getTopLeft(find.text('resolved-device-id')).dy,
