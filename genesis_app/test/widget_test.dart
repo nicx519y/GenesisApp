@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
@@ -57,6 +58,7 @@ import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 import 'package:genesis_flutter_android/network/models/app_version_check.dart';
+import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/user.dart';
 import 'package:genesis_flutter_android/components/origin/stat_item.dart';
 import 'package:genesis_flutter_android/components/search_bar.dart';
@@ -86,6 +88,8 @@ import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
 import 'package:genesis_flutter_android/platform/auth/identity_auth_service.dart';
 import 'package:genesis_flutter_android/platform/app/external_url_opener.dart';
+import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
+import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/platform/channels/genesis_method_channels.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/privacy/app_tracking_transparency_service.dart';
@@ -158,6 +162,7 @@ Future<AppServices> _testServices({
   DirectMessageConversationStore? directMessageConversations,
   DirectMessageMessageStore? directMessageMessages,
   ChatroomMessageStorage? chatroomMessages,
+  BillingService? billingService,
   AppVersionCheckService? appVersionCheck,
   ExternalUrlOpener? externalUrlOpener,
   DeviceIdService? deviceIdService,
@@ -223,6 +228,7 @@ Future<AppServices> _testServices({
     appVersionCheck: appVersionCheck ?? const _NoUpgradeVersionCheckService(),
     externalUrlOpener: externalUrlOpener ?? _FakeExternalUrlOpener(),
     startupNetworkGate: StartupNetworkGate.open(),
+    billing: billingService,
   );
 }
 
@@ -291,6 +297,38 @@ class _FakeExternalUrlOpener implements ExternalUrlOpener {
   Future<bool> open(String url) async {
     openedUrls.add(url);
     return true;
+  }
+}
+
+class _FakeBillingService implements BillingService {
+  final ValueNotifier<BillingState> _state = ValueNotifier<BillingState>(
+    BillingState(storeAvailable: true),
+  );
+  final StreamController<BillingUiEvent> _events =
+      StreamController<BillingUiEvent>.broadcast();
+
+  @override
+  Stream<BillingUiEvent> get events => _events.stream;
+
+  @override
+  ValueListenable<BillingState> get state => _state;
+
+  @override
+  Future<void> purchaseGem(GemProduct product) async {}
+
+  @override
+  Future<void> recover(BillingRecoverySource source) async {}
+
+  @override
+  void resetForSession() {}
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  void dispose() {
+    _state.dispose();
+    _events.close();
   }
 }
 
@@ -432,6 +470,8 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldDetailTickCountsByRequest,
     this.chatroomMessagesByLocation,
     this.tickLockStatuses,
+    this.worldTickErrNo,
+    this.worldTickErrMsg = 'Insufficient Gems',
     this.worldTickListCompleter,
     this.hotTagsCompleter,
   });
@@ -461,6 +501,8 @@ class _RecordingV1ListTransport implements HttpTransport {
   final List<int>? worldDetailTickCountsByRequest;
   final Map<String, List<Map<String, Object?>>>? chatroomMessagesByLocation;
   final List<bool>? tickLockStatuses;
+  final int? worldTickErrNo;
+  final String worldTickErrMsg;
   final Completer<TransportResponse>? worldTickListCompleter;
   final Completer<TransportResponse>? hotTagsCompleter;
   int _worldDetailRequestIndex = 0;
@@ -580,6 +622,14 @@ class _RecordingV1ListTransport implements HttpTransport {
     }
     if (request.method == 'POST' && request.uri.path.endsWith('/world/tick')) {
       final body = decodedBody(request);
+      final tickErrNo = worldTickErrNo;
+      if (tickErrNo != null) {
+        return _jsonResponse({
+          'err_no': tickErrNo,
+          'err_msg': worldTickErrMsg,
+          'data': <String, Object?>{},
+        });
+      }
       return _jsonResponse({
         'err_no': 0,
         'err_str': 'success',
@@ -12093,6 +12143,88 @@ void main() {
       findsOneWidget,
     );
     await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('world progress 21001 opens insufficient gems purchase prompt', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'owner',
+      worldTickErrNo: 21001,
+      worldTickErrMsg: 'Insufficient Gems',
+    );
+    final chatroom = _FakeChatroomClient();
+    final billing = _FakeBillingService();
+    addTearDown(billing.dispose);
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+      billingService: billing,
+    );
+    final initialWorld = WorldDetail(
+      id: 0,
+      worldId: 'w_test_1',
+      originId: 0,
+      ownerUid: 'u_test',
+      name: 'World detail w_test_1',
+      tickCount: 25,
+      connectCount: 4,
+      characterCount: 1,
+      playerCount: 1,
+      currentTime: '',
+      latestTickAt: null,
+      latestNarrator: '',
+      isProgressing: false,
+      relationStatus: 'owner',
+      metric: const <String, dynamic>{},
+      inviteToken: '',
+      createdAt: null,
+      updatedAt: null,
+      origin: const OriginSummary(
+        id: 0,
+        oid: 'o_for_w_test_1',
+        name: 'Origin',
+        description: '',
+        mapImage: '',
+        worldMap: '',
+        worldView: '',
+        copyCount: 0,
+        interactCount: 0,
+        tags: <String>[],
+        createdAt: null,
+        updatedAt: null,
+        characters: <OriginCharacter>[],
+        locations: <OriginLocation>[],
+      ),
+      characters: const <Map<String, dynamic>>[],
+      ticks: const <Map<String, dynamic>>[],
+      locations: const <Map<String, dynamic>>[
+        {'location_id': 'l_w_test_1', 'location_name': 'World Location'},
+      ],
+      characterPositions: const <Map<String, dynamic>>[],
+      userPositions: const <Map<String, dynamic>>[],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: WorldPage(wid: 'w_test_1', initialWorldDetail: initialWorld),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final progressButton = find.widgetWithText(FilledButton, 'Progress');
+    await tester.ensureVisible(progressButton);
+    await tester.tap(progressButton);
+    await tester.pumpAndSettle();
+
+    expect(transport.requestsFor('/api/v1/world/tick'), hasLength(1));
+    expect(find.text('Insufficient Gems'), findsOneWidget);
+    expect(find.text('Progress failed'), findsNothing);
+    expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
   });
 
   testWidgets('world page does not poll world detail after entry', (
