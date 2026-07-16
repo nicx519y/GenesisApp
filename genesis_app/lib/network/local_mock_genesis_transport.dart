@@ -431,6 +431,15 @@ class LocalMockGenesisTransport implements HttpTransport {
       );
     }
 
+    if (method == 'GET' && path == 'origin/map') {
+      final originId = (query['origin_id'] ?? '').trim();
+      final locationId = (query['location_id'] ?? '').trim();
+      if (originId.isEmpty || locationId.isEmpty) {
+        return _v1Error(4004, 'origin_id and location_id required');
+      }
+      return _v1Ok(_state.v1OriginMap(originId, locationId));
+    }
+
     if (method == 'GET' && path == 'origin/info') {
       return _v1Ok(
         _state.v1OriginContractInfo(query['origin_id'] ?? query['oid']),
@@ -484,6 +493,15 @@ class LocalMockGenesisTransport implements HttpTransport {
 
     if (method == 'GET' && path == 'world/detail') {
       return _v1Ok(_state.v1WorldContractDetail(query['world_id']));
+    }
+
+    if (method == 'GET' && path == 'world/map') {
+      final worldId = (query['world_id'] ?? '').trim();
+      final locationId = (query['location_id'] ?? '').trim();
+      if (worldId.isEmpty || locationId.isEmpty) {
+        return _v1Error(4004, 'world_id and location_id required');
+      }
+      return _v1Ok(_state.v1WorldMap(worldId, locationId));
     }
 
     if (method == 'GET' && path == 'world/info') {
@@ -1554,6 +1572,14 @@ class _MockState {
     return _v1OriginContractItem(_findV1Origin(originId));
   }
 
+  Map<String, dynamic> v1OriginMap(String originId, String locationId) {
+    final origin = _findV1Origin(originId);
+    if ((origin['definition_version'] ?? 2) != 2) {
+      return <String, dynamic>{};
+    }
+    return _v1TilemapDefinition(locationId);
+  }
+
   Map<String, dynamic> v1OriginForEdit(String? originId) {
     final origin = _findV1Origin(originId);
     final item = _v1OriginContractItem(origin);
@@ -1882,6 +1908,14 @@ class _MockState {
 
   Map<String, dynamic> v1WorldContractInfo(String? worldId) {
     return _v1WorldContractItem(_findV1World(worldId));
+  }
+
+  Map<String, dynamic> v1WorldMap(String worldId, String locationId) {
+    final world = _findV1World(worldId);
+    if ((world['definition_version'] ?? 2) != 2) {
+      return <String, dynamic>{};
+    }
+    return _v1TilemapDefinition(locationId);
   }
 
   Map<String, dynamic> v1WorldTickList({
@@ -3162,6 +3196,7 @@ class _MockState {
         'origin_name': origin['name'],
         'origin_version': '${origin['version_num'] ?? 1}',
         'origin_version_time': _mockEpoch(origin['updated_at']),
+        'definition_version': origin['definition_version'] ?? 2,
         'owner_uid': origin['owner_uid'] ?? origin['created_uid'],
         'owner_name': origin['owner_name'] ?? origin['created_user_name'],
         'brief': origin['display_subtitle'],
@@ -3197,6 +3232,7 @@ class _MockState {
         'origin_id': world['oid'],
         'origin_version': '${world['origin_version_num'] ?? 1}',
         'origin_version_time': world['origin_version_create_at'],
+        'definition_version': world['definition_version'] ?? 2,
         'owner_uid': world['owner_uid'],
         'owner_name': world['owner_name'],
         'brief': world['display_subtitle'],
@@ -3274,6 +3310,26 @@ class _MockState {
       'y_percent': location['y_percent'],
       'map_url': location['map_url'] ?? location['image'],
       'dialogue': location['dialogue'] ?? const <Map<String, dynamic>>[],
+    };
+  }
+
+  Map<String, dynamic> _v1TilemapDefinition(String locationId) {
+    return {
+      'tile_types': {
+        'mock_tile': 'https://cdn.example.com/tilemap/mock_tile.png',
+      },
+      'map_json': {
+        'width': 1,
+        'height': 1,
+        'tiles': <Object?>[
+          <String, Object?>{
+            'x': 0,
+            'y': 0,
+            'type': 'mock_tile',
+            if (locationId == 'root') 'location_id': 'loc_hub',
+          },
+        ],
+      },
     };
   }
 

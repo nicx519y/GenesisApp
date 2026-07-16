@@ -12,6 +12,7 @@ import 'local_mock_genesis_transport.dart';
 import 'models/location_tree.dart';
 import 'models/origin.dart';
 import 'models/paged_response.dart';
+import 'models/tilemap_definition.dart';
 import 'models/user.dart';
 import 'models/world.dart';
 import 'models/world_message.dart';
@@ -544,6 +545,14 @@ class GenesisApi {
     return detail;
   }
 
+  Future<TilemapDefinition> getOriginMap({
+    required String originId,
+    required String locationId,
+  }) async {
+    final map = await v1.origin.map(originId: originId, locationId: locationId);
+    return TilemapDefinition.fromJson(map);
+  }
+
   Future<OriginDetail> getOriginInfo(String oid) async {
     final detail = _originDetailFromV1(await v1.origin.info(oid: oid));
     _originIdToWorldview[detail.id] = detail.oid;
@@ -725,6 +734,14 @@ class GenesisApi {
 
   Future<WorldDetail> getWorld(String wid) async {
     return _worldDetailFromV1(await v1.world.detail(worldId: wid));
+  }
+
+  Future<TilemapDefinition> getWorldMap({
+    required String worldId,
+    required String locationId,
+  }) async {
+    final map = await v1.world.map(worldId: worldId, locationId: locationId);
+    return TilemapDefinition.fromJson(map);
   }
 
   Future<WorldDetail> getWorldInfo(String wid) async {
@@ -1706,6 +1723,7 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
         fallback: asInt(origin['origin_version_num']),
       ),
     ),
+    definitionVersion: asInt(origin['definition_version'], fallback: 1),
     startTime: asString(
       origin['started_at'],
       fallback: asString(origin['start_time']),
@@ -1889,6 +1907,7 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
     originId: originId,
     ownerUid: asString(world['owner_uid']),
     ownerName: asString(world['owner_name']),
+    definitionVersion: asInt(world['definition_version'], fallback: 1),
     name: asString(world['world_name']),
     brief: asString(world['brief'], fallback: asString(world['setting'])),
     cover: cover,

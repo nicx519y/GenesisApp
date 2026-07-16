@@ -48,7 +48,7 @@ class WorldV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"info":{"world_id":"string","world_name":"string","origin_id":"string","origin_version":"1","origin_version_time":"string","owner_uid":"string","owner_name":"string","brief":"string","setting":"string","events":[],"metric":{},"created_at":0,"started_at":"string","tick_duration_days":30,"cover":"string","map_url":"string","status":10},"stats":{"character_cnt":0,"connect_cnt":0,"location_cnt":0,"tick_cnt":0,"player_cnt":0},"relation_status":"owner","characters":[],"locations":[],"ticks":[{"tick_id":"string","tick_no":1,"status":10,"tick_result":{"narrator":"string","paragraphs":[],"location_groups":[]},"created_at":0}]}}
+  /// {"err_no":0,"err_msg":"succ","data":{"info":{"world_id":"string","world_name":"string","origin_id":"string","origin_version":"1","origin_version_time":"string","definition_version":2,"owner_uid":"string","owner_name":"string","brief":"string","metric":{},"created_at":0,"cover":"string","map_url":"string","status":10},"stats":{"character_cnt":0,"connect_cnt":0,"location_cnt":0,"tick_cnt":0,"player_cnt":0},"relation_status":"owner","characters":[],"locations":[]}}
   /// ```
   Future<Map<String, dynamic>> detail({required String worldId}) {
     final resolvedWorldId = worldId.trim();
@@ -56,6 +56,28 @@ class WorldV1Api extends V1ApiResource {
       throw ArgumentError.value(worldId, 'worldId', 'must not be empty');
     }
     return getMap('world/detail', {'world_id': resolvedWorldId});
+  }
+
+  /// GET /api/v1/world/map
+  ///
+  /// `location_id=root` 返回 world 主地图，其他值返回对应 location 地图。
+  /// definition_version 不为 2 时，服务端返回空对象。
+  Future<Map<String, dynamic>> map({
+    required String worldId,
+    required String locationId,
+  }) {
+    final resolvedWorldId = worldId.trim();
+    final resolvedLocationId = locationId.trim();
+    if (resolvedWorldId.isEmpty) {
+      throw ArgumentError.value(worldId, 'worldId', 'must not be empty');
+    }
+    if (resolvedLocationId.isEmpty) {
+      throw ArgumentError.value(locationId, 'locationId', 'must not be empty');
+    }
+    return getMapPreservingKeys('world/map', {
+      'world_id': resolvedWorldId,
+      'location_id': resolvedLocationId,
+    });
   }
 
   /// GET /api/v1/world/info

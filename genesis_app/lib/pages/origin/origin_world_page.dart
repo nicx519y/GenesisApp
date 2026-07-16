@@ -22,6 +22,7 @@ import '../../components/discuss/story_badge.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/stat_item.dart';
+import '../../components/tilemap/tilemap.dart';
 import '../../components/world_map.dart';
 import '../../components/world_top_overlay_bar.dart';
 import '../../components/world_tick_event_item.dart';
@@ -736,6 +737,44 @@ class _OriginWorldPageState extends State<OriginWorldPage>
         final locationCount = listLocationNodes.isNotEmpty
             ? _originLeafLocationNodeCount(listLocationNodes)
             : listPoints.length;
+        final legacyMap = WorldMap(
+          key: PageStorageKey<String>('origin-map-${origin.oid}'),
+          points: points,
+          listPoints: listPoints,
+          locationNodes: locationNodes,
+          listLocationNodes: listLocationNodes,
+          mapImageUrl: mapImageUrl,
+          messageBubbles: _activeChatLocation == null
+              ? _originMapMessageBubbles(origin)
+              : const <WorldMapMessageBubble>[],
+          messageBubblePlaybackPaused: _activeChatLocation != null,
+          dimmed: _showLocationPage,
+          showPointsList: _showLocationPage,
+          initialZoomScale: _showLocationPage ? 1 : 1.2,
+          enableAvatarScaleReboundHint: true,
+          pointsListOuterScrollHandoff: false,
+          overlayTop: topPadding + 8 + 48,
+          drillExitTop: topPadding + 68,
+          onMapTap: () => _recordWorldoMapClick(origin),
+          onPointTap: (point) => _openChatForPoint(origin, point),
+        );
+        final Widget map = origin.definitionVersion == 2
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  Tilemap.origin(
+                    key: PageStorageKey<String>('origin-tilemap-${origin.oid}'),
+                    originId: origin.oid,
+                    locationId: 'root',
+                    locationNodes: locationNodes,
+                    drillExitTop: topPadding + 68,
+                    onMapTap: () => _recordWorldoMapClick(origin),
+                    onPointTap: (point) => _openChatForPoint(origin, point),
+                  ),
+                  if (_showLocationPage) Positioned.fill(child: legacyMap),
+                ],
+              )
+            : legacyMap;
 
         return PopScope(
           canPop: _activeChatLocation == null,
@@ -764,29 +803,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
               onLaunch: () => _showLaunchRoleSheet(origin),
             ),
             topOverlay: _buildLocationChatOverlay(origin),
-            map: WorldKeepAlivePage(
-              child: WorldMap(
-                key: PageStorageKey<String>('origin-map-${origin.oid}'),
-                points: points,
-                listPoints: listPoints,
-                locationNodes: locationNodes,
-                listLocationNodes: listLocationNodes,
-                mapImageUrl: mapImageUrl,
-                messageBubbles: _activeChatLocation == null
-                    ? _originMapMessageBubbles(origin)
-                    : const <WorldMapMessageBubble>[],
-                messageBubblePlaybackPaused: _activeChatLocation != null,
-                dimmed: _showLocationPage,
-                showPointsList: _showLocationPage,
-                initialZoomScale: _showLocationPage ? 1 : 1.2,
-                enableAvatarScaleReboundHint: true,
-                pointsListOuterScrollHandoff: false,
-                overlayTop: topPadding + 8 + 48,
-                drillExitTop: topPadding + 68,
-                onMapTap: () => _recordWorldoMapClick(origin),
-                onPointTap: (point) => _openChatForPoint(origin, point),
-              ),
-            ),
+            map: WorldKeepAlivePage(child: map),
           ),
         );
       },

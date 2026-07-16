@@ -134,6 +134,7 @@ class OriginDetail {
     this.ownerUid = '',
     this.originator = '',
     this.versionNum = 0,
+    this.definitionVersion = 1,
     this.startTime = '',
     required this.copyCount,
     required this.interactCount,
@@ -167,6 +168,7 @@ class OriginDetail {
   final String ownerUid;
   final String originator;
   final int versionNum;
+  final int definitionVersion;
   final String startTime;
   final int copyCount;
   final int interactCount;
@@ -219,6 +221,7 @@ class OriginDetail {
       ownerUid: asString(json['owner_uid']),
       originator: asString(json['owner_name']),
       versionNum: asInt(json['version_num']),
+      definitionVersion: asInt(json['definition_version'], fallback: 1),
       startTime: asString(json['start_time']),
       copyCount: asInt(json['copy_count']),
       interactCount: asInt(json['interact_count']),

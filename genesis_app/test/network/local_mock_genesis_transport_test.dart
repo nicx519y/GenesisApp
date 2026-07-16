@@ -19,6 +19,42 @@ void main() {
     expect(response.shouldForceUpgrade, false);
   });
 
+  test('local mock exposes detail definition versions and map APIs', () async {
+    final api = GenesisApi(useMock: true);
+
+    final origins = await api.getOrigins(limit: 1);
+    final originId = origins.data.single.oid;
+    final origin = await api.getOrigin(originId);
+    final originMap = await api.getOriginMap(
+      originId: originId,
+      locationId: 'root',
+    );
+
+    expect(origin.definitionVersion, 2);
+    expect(originMap.isAvailable, true);
+    expect(originMap.tileTypes, isNotEmpty);
+    expect(originMap.tiles.single.type, 'mock_tile');
+    expect(originMap.mapJson!.width, 1);
+    expect(originMap.mapJson!.height, 1);
+    expect(originMap.tiles.single.locationId, 'loc_hub');
+
+    final worlds = await api.getMyWorlds(limit: 1);
+    final worldId = worlds.single.wid;
+    final world = await api.getWorld(worldId);
+    final worldMap = await api.getWorldMap(
+      worldId: worldId,
+      locationId: 'loc_hub',
+    );
+
+    expect(world.definitionVersion, 2);
+    expect(worldMap.isAvailable, true);
+    expect(worldMap.tileTypes, isNotEmpty);
+    expect(worldMap.tiles.single.type, 'mock_tile');
+    expect(worldMap.mapJson!.width, 1);
+    expect(worldMap.mapJson!.height, 1);
+    expect(worldMap.tiles.single.locationId, isNull);
+  });
+
   test('local mock supports origin world and chat flow', () async {
     final api = GenesisApi(useMock: true);
 
@@ -33,7 +69,15 @@ void main() {
     final firstOrigin = origins.data.first;
     final detail = await api.getOrigin(firstOrigin.oid);
     expect(detail.name.isNotEmpty, true);
+    expect(detail.definitionVersion, 2);
     expect(detail.worldMap, kMockV1SteamMapImage);
+    final originMap = await api.getOriginMap(
+      originId: firstOrigin.oid,
+      locationId: 'root',
+    );
+    expect(originMap.isAvailable, true);
+    expect(originMap.tileTypes, isNotEmpty);
+    expect(originMap.tiles.single.type, 'mock_tile');
     expect(detail.locationTree.map((node) => node.id), [
       'loc_hub',
       'loc_gate',
@@ -94,7 +138,14 @@ void main() {
     expect(world.wid.isNotEmpty, true);
 
     final worldDetail = await api.getWorld(world.wid);
+    expect(worldDetail.definitionVersion, 2);
     expect(worldDetail.locations.isNotEmpty, true);
+    final worldMap = await api.getWorldMap(
+      worldId: world.wid,
+      locationId: 'loc_hub',
+    );
+    expect(worldMap.isAvailable, true);
+    expect(worldMap.tiles.single.type, 'mock_tile');
     expect(worldDetail.origin.worldMap, kMockV1SteamMapImage);
     expect(worldDetail.locationTree.map((node) => node.id), [
       'loc_hub',

@@ -13,6 +13,7 @@ import '../ui/tokens/genesis_avatar_radii.dart';
 import '../ui/tokens/genesis_colors.dart';
 import '../utils/genesis_image_resource.dart';
 import 'world_map_interaction_notification.dart';
+import 'world_map_location_action.dart';
 import 'world_location_list.dart';
 import 'world_point.dart';
 
@@ -559,7 +560,7 @@ class _WorldMapState extends State<WorldMap> {
     if (_hasDrillTree) {
       final node = _findPointNode(point);
       if (node == null) return null;
-      final chatTarget = _chatTargetForNode(node);
+      final chatTarget = resolveWorldMapLocationAction(node).chatTarget;
       if (chatTarget != null && widget.onPointTap == null) return null;
       return () {
         unawaited(_handlePointTap(point));
@@ -575,7 +576,8 @@ class _WorldMapState extends State<WorldMap> {
     if (_hasDrillTree) {
       final node = _findPointNode(point);
       if (node != null) {
-        final chatTarget = _chatTargetForNode(node);
+        final action = resolveWorldMapLocationAction(node);
+        final chatTarget = action.chatTarget;
         if (chatTarget != null) {
           await _runLocationTapLocked(
             _locationTapKey(chatTarget),
@@ -583,7 +585,8 @@ class _WorldMapState extends State<WorldMap> {
           );
           return;
         }
-        final displayNode = _displayNodeForDrill(node);
+        final displayNode = action.drillTarget;
+        if (displayNode == null) return;
         await _runLocationTapLocked(_locationTapKey(point), () async {
           widget.onDrillIntoLocation?.call();
           final origin = _mapTransitionOrigin(point);
@@ -714,14 +717,6 @@ class _WorldMapState extends State<WorldMap> {
     final targetId = _pointLocationId(point);
     if (targetId.isEmpty) return null;
     return _findNode(targetId);
-  }
-
-  WorldPoint? _chatTargetForNode(WorldMapLocationNode node) {
-    final explicitTarget = node.chatTargetPoint;
-    if (explicitTarget != null) return explicitTarget;
-    if (node.children.isEmpty) return node.point;
-    final singleLeaf = _singleLeafDescendant(node);
-    return singleLeaf?.point;
   }
 
   List<WorldMapMessageBubble> _visibleMessageBubblesForPoints(
@@ -857,41 +852,8 @@ class _WorldMapState extends State<WorldMap> {
     return null;
   }
 
-  WorldMapLocationNode? _singleLeafDescendant(WorldMapLocationNode node) {
-    var current = node;
-    while (current.children.length == 1) {
-      current = current.children.single;
-    }
-    return current.children.isEmpty ? current : null;
-  }
-
-  WorldMapLocationNode _displayNodeForDrill(WorldMapLocationNode node) {
-    var current = node;
-    while (current.children.length == 1 &&
-        current.children.single.children.isNotEmpty) {
-      current = current.children.single;
-    }
-    return current;
-  }
-
   WorldMapLocationNode? _findNode(String nodeId) {
-    final targetId = nodeId.trim();
-    if (targetId.isEmpty) return null;
-
-    WorldMapLocationNode? visit(WorldMapLocationNode node) {
-      if (node.id == targetId) return node;
-      for (final child in node.children) {
-        final match = visit(child);
-        if (match != null) return match;
-      }
-      return null;
-    }
-
-    for (final root in widget.locationNodes) {
-      final match = visit(root);
-      if (match != null) return match;
-    }
-    return null;
+    return findWorldMapLocationNode(widget.locationNodes, nodeId);
   }
 
   List<String> _nodePath(String nodeId) {

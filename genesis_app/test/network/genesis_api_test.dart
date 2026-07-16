@@ -697,6 +697,7 @@ void main() {
               'origin_id': 'o_1',
               'origin_name': 'Origin One',
               'origin_version': '1',
+              'definition_version': 2,
               'owner_uid': 'u_1',
               'owner_name': 'Tester',
               'brief': 'Brief shown in World View.',
@@ -762,7 +763,65 @@ void main() {
       'Day 1, 08:30',
     );
     expect(origin.metric['unit'], '%');
+    expect(origin.definitionVersion, 2);
     expect(origin.locations.single.locationParagraph, 'Gate launch paragraph.');
+  });
+
+  test('getOriginMap uses map contract and preserves tilemap JSON', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'tile_types': {'grass': 'https://cdn.example.com/tiles/grass.png'},
+            'map_json': {
+              'width': 2,
+              'height': 3,
+              'tiles': [
+                {'x': 0, 'y': 1, 'type': 'grass', 'location_id': 'loc_grass'},
+              ],
+            },
+          },
+        }),
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final definition = await api.getOriginMap(
+      originId: 'o_1',
+      locationId: 'root',
+    );
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/map');
+    expect(apiTransport.lastRequest!.uri.queryParameters, {
+      'origin_id': 'o_1',
+      'location_id': 'root',
+    });
+    expect(definition.isAvailable, true);
+    expect(
+      definition.tileTypes!['grass'],
+      'https://cdn.example.com/tiles/grass.png',
+    );
+    expect(definition.tiles, hasLength(1));
+    expect(definition.tiles.single.x, 0);
+    expect(definition.tiles.single.y, 1);
+    expect(definition.tiles.single.type, 'grass');
+    expect(definition.tiles.single.locationId, 'loc_grass');
+    expect(definition.mapJson!.width, 2);
+    expect(definition.mapJson!.height, 3);
   });
 
   test('getOriginInfo uses lightweight origin info contract', () async {
@@ -1142,6 +1201,7 @@ void main() {
               'world_id': 'w_1',
               'world_name': 'World One',
               'origin_id': 'o_1',
+              'definition_version': 2,
               'owner_uid': 'u_1',
               'owner_name': 'Tester',
               'metric': const <String, Object?>{
@@ -1215,6 +1275,7 @@ void main() {
     expect(location['location_description'], 'Gate fallback description.');
     expect(world.relationStatus, 'owner');
     expect(world.metric['label'], 'Goal Progress');
+    expect(world.definitionVersion, 2);
     expect(world.latestNarrator, 'Narrator from tick result.');
     expect(tickResult['narrator'], 'Narrator from tick result.');
     expect(paragraph['location_id'], 'loc_1');
@@ -1223,6 +1284,41 @@ void main() {
       'name': 'Iris Vale',
       'delta': '+3 focus',
     });
+  });
+
+  test('getWorldMap accepts empty data for legacy definitions', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":0,"err_msg":"succ","data":{}}',
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final definition = await api.getWorldMap(
+      worldId: 'w_1',
+      locationId: 'loc_1',
+    );
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/world/map');
+    expect(apiTransport.lastRequest!.uri.queryParameters, {
+      'world_id': 'w_1',
+      'location_id': 'loc_1',
+    });
+    expect(definition.isAvailable, false);
+    expect(definition.tileTypes, isNull);
+    expect(definition.mapJson, isNull);
   });
 
   test('getWorldInfo uses lightweight world info contract', () async {
