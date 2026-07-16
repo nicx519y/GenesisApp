@@ -282,20 +282,15 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.only(bottom: 14),
-            child: Column(
-              children: [
-                ValueListenableBuilder<GemWalletState>(
-                  valueListenable: widget.walletStore.state,
-                  builder: (context, walletState, _) => GemBalancePanel(
-                    balance: walletState.balance ?? 0,
-                    balanceKey: const ValueKey<String>(
-                      'gem-purchase-sheet-balance',
-                    ),
-                  ),
+            child: ValueListenableBuilder<GemWalletState>(
+              valueListenable: widget.walletStore.state,
+              builder: (context, walletState, _) => GemPurchaseCatalogSection(
+                balance: walletState.balance ?? 0,
+                balanceKey: const ValueKey<String>(
+                  'gem-purchase-sheet-balance',
                 ),
-                const SizedBox(height: 10),
-                _buildProducts(),
-              ],
+                catalog: _buildProducts(),
+              ),
             ),
           ),
         );

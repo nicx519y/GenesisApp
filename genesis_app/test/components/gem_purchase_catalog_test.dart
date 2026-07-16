@@ -191,7 +191,7 @@ void main() {
     expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 1);
     expect(find.byType(ColorFiltered), findsNothing);
     expect(find.text('Sold Out'), findsOneWidget);
-    expect(find.text('USD1.49'), findsNothing);
+    expect(find.text(r'$1.49'), findsNothing);
     final soldOutButton = tester.widget<Container>(
       find.byKey(const ValueKey('gem-product-price-gem_pack_500')),
     );

@@ -33,6 +33,7 @@ void main() {
     expect(titleStyle?.fontSize, 18);
     expect(titleStyle?.color, const Color(0xFF111111));
     expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
+    expect(find.byType(GemPurchaseCatalogSection), findsOneWidget);
     final closeIcon = tester.widget<Icon>(
       find.descendant(
         of: find.byKey(const ValueKey<String>('gem-purchase-sheet-close')),

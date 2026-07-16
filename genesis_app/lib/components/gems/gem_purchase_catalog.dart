@@ -7,6 +7,31 @@ import '../../platform/billing/billing_models.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
 
+class GemPurchaseCatalogSection extends StatelessWidget {
+  const GemPurchaseCatalogSection({
+    super.key,
+    required this.balance,
+    required this.catalog,
+    this.balanceKey = const ValueKey<String>('gem-wallet-balance'),
+  });
+
+  final int balance;
+  final Key balanceKey;
+  final Widget catalog;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GemBalancePanel(balance: balance, balanceKey: balanceKey),
+        const SizedBox(height: 10),
+        catalog,
+      ],
+    );
+  }
+}
+
 class GemBalancePanel extends StatelessWidget {
   const GemBalancePanel({
     super.key,
@@ -337,7 +362,8 @@ String formatGemPrice(int cents, String currencyCode) {
   if (text.endsWith('0')) text = text.substring(0, text.length - 1);
   if (text.endsWith('.0')) text = text.substring(0, text.length - 2);
   final cleanCurrencyCode = currencyCode.trim().toUpperCase();
-  return '$cleanCurrencyCode$text';
+  final currencyLabel = cleanCurrencyCode == 'USD' ? r'$' : cleanCurrencyCode;
+  return '$currencyLabel$text';
 }
 
 Color _parseActivityColor(String value, {required Color fallback}) {
