@@ -24,6 +24,7 @@ import '../../components/world_tick1_wait_dialog.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
+import '../../network/api_exception.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../platform/auth/auth_session.dart';
@@ -891,13 +892,25 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         await _fetchWorld();
       }
       if (!mounted) return;
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       if (action == WorldHeaderActionKind.progress) {
         _openEventsAfterTickDone = false;
         _pendingProgressTickCount = null;
         _setWorldTickWaitOverlayRequested(false);
         _markWorldTickIdle();
+        if (_isWorldProgressInsufficientGems(error)) {
+          unawaited(
+            showGemBalancePrompt(
+              context,
+              GemBalanceAlert(
+                kind: GemBalanceAlertKind.insufficient,
+                message: error is ApiException ? error.message : '',
+              ),
+            ),
+          );
+          return;
+        }
       }
       showGenesisToast(context, '${worldHeaderActionLabel(action)} failed');
     } finally {
@@ -905,6 +918,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         setState(() => _worldActionRunning = false);
       }
     }
+  }
+
+  bool _isWorldProgressInsufficientGems(Object error) {
+    return error is ApiException && error.code == 21001;
   }
 
   void _startWorldTickTracking({bool openEventsAfterDone = false}) {
