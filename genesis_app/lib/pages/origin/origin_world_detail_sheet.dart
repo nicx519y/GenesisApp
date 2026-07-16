@@ -216,7 +216,7 @@ class _OriginDetailDraggableSheetState
     final topPadding =
         GenesisSafeAreaInsets.top(context) *
         _statusBarAlphaForExtent(context, _sheetExtent);
-    final topRadius = 28.0 * (1.0 - topProgress);
+    final topRadius = GenesisRadii.sheetTopRadiusValue * (1.0 - topProgress);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _statusBarStyleForExtent(context, _sheetExtent),
       child: NotificationListener<DraggableScrollableNotification>(

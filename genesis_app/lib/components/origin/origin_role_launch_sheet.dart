@@ -349,27 +349,10 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
                       key: const ValueKey('origin-role-sheet'),
                       title: 'Setup Your Role',
                       height: targetHeight,
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
-                      titleBottomSpacing: 8,
-                      titleTextStyle: const TextStyle(
-                        fontSize: 16,
-                        height: 1.1,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF111111),
-                      ),
-                      trailing: IconButton(
-                        key: const ValueKey('origin-role-sheet-close'),
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
+                      trailing: GenesisBottomSheetCloseButton(
+                        buttonKey: const ValueKey('origin-role-sheet-close'),
                         onPressed: _dismiss,
-                        icon: const Icon(
-                          Icons.close,
-                          size: 22,
-                          color: Color(0xFF666666),
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 42,
-                          height: 42,
-                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

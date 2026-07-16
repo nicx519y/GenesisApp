@@ -6625,8 +6625,8 @@ void main() {
       find.text('Create worldo, launch worlds and invite friends'),
     );
     final googleLabel = tester.widget<Text>(find.text('Continue with Google'));
-    expect(title.style?.fontSize, 22);
-    expect(title.style?.fontWeight, FontWeight.w400);
+    expect(title.style?.fontSize, 18);
+    expect(title.style?.fontWeight, FontWeight.w600);
     expect(subtitle.style?.fontSize, 14);
     expect(subtitle.style?.color, const Color(0xFF666666));
     expect(googleLabel.style?.fontSize, 14);
@@ -9776,6 +9776,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('developer-page-sheet-close')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(
         const ValueKey<String>('developer-page-sheet-keyboard-padding'),

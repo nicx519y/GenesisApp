@@ -9,6 +9,7 @@ import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../common/genesis_center_toast.dart';
+import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_modal_routes.dart';
 import 'gem_billing_purchase_dialog.dart';
 import 'gem_colors.dart';
@@ -268,75 +269,37 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomSafeInset = MediaQuery.viewPaddingOf(context).bottom / 2;
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        clipBehavior: Clip.hardEdge,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: Padding(
-          key: const ValueKey<String>('gem-purchase-sheet-safe-area'),
-          padding: EdgeInsets.only(bottom: bottomSafeInset),
-          child: Column(
-            children: [
-              _buildHeader(),
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                  child: Column(
-                    children: [
-                      ValueListenableBuilder<GemWalletState>(
-                        valueListenable: widget.walletStore.state,
-                        builder: (context, walletState, _) => GemBalancePanel(
-                          balance: walletState.balance ?? 0,
-                          balanceKey: const ValueKey<String>(
-                            'gem-purchase-sheet-balance',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      _buildProducts(),
-                    ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GenesisBottomSheetPanel(
+          title: _title,
+          height: constraints.maxHeight,
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+          trailing: GenesisBottomSheetCloseButton(
+            buttonKey: const ValueKey<String>('gem-purchase-sheet-close'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Column(
+              children: [
+                ValueListenableBuilder<GemWalletState>(
+                  valueListenable: widget.walletStore.state,
+                  builder: (context, walletState, _) => GemBalancePanel(
+                    balance: walletState.balance ?? 0,
+                    balanceKey: const ValueKey<String>(
+                      'gem-purchase-sheet-balance',
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 14, 8, 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              _title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF111111),
-                fontSize: 18,
-                height: 24 / 18,
-                fontWeight: FontWeight.w600,
-              ),
+                const SizedBox(height: 10),
+                _buildProducts(),
+              ],
             ),
           ),
-          IconButton(
-            key: const ValueKey<String>('gem-purchase-sheet-close'),
-            tooltip: 'Close',
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close, color: Color(0xFF111111), size: 24),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

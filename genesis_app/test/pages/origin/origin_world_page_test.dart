@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_radii.dart';
 
 void main() {
   final originSectionsSource = File(
@@ -17,6 +18,7 @@ void main() {
     expect(originDetailSheetHeaderHeightForTesting, 30);
     expect(originDetailSheetHeaderBodyGapForTesting, 0);
     expect(originDetailSheetHandleTopOffsetForTesting, 2);
+    expect(GenesisRadii.sheetTopRadiusValue, 18);
   });
 
   test('origin detail sections use main ui spacing', () {

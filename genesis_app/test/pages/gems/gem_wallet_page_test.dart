@@ -64,6 +64,29 @@ void main() {
     expect(find.text('USD1.49'), findsOneWidget);
     expect(find.text('Starter'), findsOneWidget);
     expect(find.text('Create your first worldo'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('gem-balance-icon'))).dx,
+      tester
+          .getTopLeft(
+            find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+          )
+          .dx,
+    );
+    expect(
+      tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+              )
+              .dy -
+          tester
+              .getBottomLeft(find.byKey(const ValueKey('gem-balance-panel')))
+              .dy,
+      10,
+    );
+    expect(
+      tester.widget<SizedBox>(find.byKey(const ValueKey('gem-balance-panel'))),
+      isA<SizedBox>(),
+    );
 
     final pageTitleStyle = tester.widget<Text>(find.text('Buy Gems')).style;
     expect(pageTitleStyle?.fontSize, 16);
@@ -73,7 +96,7 @@ void main() {
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-panel'))).dy -
           tester.getRect(find.text('Buy Gems')).bottom,
-      closeTo(26, 0.1),
+      closeTo(24, 0.1),
     );
 
     final recordsStyle = tester.widget<Text>(find.text('Records')).style;

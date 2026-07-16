@@ -19,56 +19,48 @@ class GemBalancePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       key: const ValueKey('gem-balance-panel'),
       width: double.infinity,
-      height: 100,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF4F6),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      height: 88,
       child: Center(
-        child: Transform.translate(
-          offset: const Offset(0, 4),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  SvgPicture.asset(
-                    gemIconAsset,
-                    key: const ValueKey('gem-balance-icon'),
-                    width: gemLargeIconSize,
-                    height: gemLargeIconSize,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'My Balance',
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 18 / 14,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF666666),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 9),
-              Text(
-                formatGemInteger(balance),
-                key: balanceKey,
-                style: const TextStyle(
-                  fontSize: 30,
-                  height: 40 / 30,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF333333),
-                  letterSpacing: 0,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                SvgPicture.asset(
+                  gemIconAsset,
+                  key: const ValueKey('gem-balance-icon'),
+                  width: gemLargeIconSize,
+                  height: gemLargeIconSize,
                 ),
+                const SizedBox(width: 8),
+                const Text(
+                  'My Balance',
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 18 / 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF666666),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              formatGemInteger(balance),
+              key: balanceKey,
+              style: const TextStyle(
+                fontSize: 30,
+                height: 40 / 30,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF333333),
+                letterSpacing: 0,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

@@ -691,15 +691,8 @@ class _CharacterPickerSheetState extends State<_CharacterPickerSheet> {
     return GenesisBottomSheetPanel(
       title: 'Select Characters',
       height: MediaQuery.sizeOf(context).height * 0.58,
-      titleBottomSpacing: 8,
-      trailing: Transform.translate(
-        offset: const Offset(0, -3),
-        child: IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.close, size: 22, color: Color(0xFF666666)),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints.tightFor(width: 42, height: 42),
-        ),
+      trailing: GenesisBottomSheetCloseButton(
+        onPressed: () => Navigator.of(context).pop(),
       ),
       child: Column(
         children: [

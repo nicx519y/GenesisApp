@@ -136,6 +136,7 @@ void main() {
     );
     expect(singleSectionSheet, contains('ScrollConfiguration('));
     expect(singleSectionSheet, contains('overscroll: false'));
+    expect(singleSectionSheet, contains('borderRadius: GenesisRadii.sheet'));
     expect(sectionListView, contains('physics: const ClampingScrollPhysics()'));
     expect(sectionListView, contains('EdgeInsets.fromLTRB(12, 14, 12, 32)'));
     expect(source, isNot(contains('EdgeInsets.fromLTRB(24, 14, 24, 32)')));

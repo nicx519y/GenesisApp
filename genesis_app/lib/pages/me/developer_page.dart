@@ -14,6 +14,7 @@ import '../../app/config/app_config.dart';
 import '../../app/debug_floating_button_visibility.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../components/genesis_logo.dart';
@@ -78,64 +79,27 @@ class DeveloperPageSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = GenesisSafeAreaInsets.bottom(context);
-    return SafeArea(
-      top: false,
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        child: Padding(
-          padding: EdgeInsets.zero,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 10),
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD8D8D8),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'Developer page',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.black,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Flexible(
-                child: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  child: DeveloperPageContent(
-                    dismissBeforePreview: true,
-                    onDismissBeforePreview: () async {
-                      await Navigator.of(context).maybePop();
-                    },
-                  ),
-                ),
-              ),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.of(context).maybePop(),
-                child: SizedBox(height: 24 + bottomPadding),
-              ),
-            ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return GenesisBottomSheetPanel(
+          key: const ValueKey<String>('developer-page-sheet'),
+          title: 'Developer page',
+          height: constraints.maxHeight,
+          trailing: GenesisBottomSheetCloseButton(
+            buttonKey: const ValueKey<String>('developer-page-sheet-close'),
+            onPressed: () => Navigator.of(context).maybePop(),
           ),
-        ),
-      ),
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: DeveloperPageContent(
+              dismissBeforePreview: true,
+              onDismissBeforePreview: () async {
+                await Navigator.of(context).maybePop();
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -660,7 +660,7 @@ class _GemWalletContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
       children: [
         ValueListenableBuilder<GemWalletState>(
           valueListenable: walletStateListenable,
@@ -668,7 +668,7 @@ class _GemWalletContent extends StatelessWidget {
             return GemBalancePanel(balance: walletState.balance ?? 0);
           },
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 10),
         if (products == null)
           _GemSectionStatePanel(
             isLoading: productsLoading,

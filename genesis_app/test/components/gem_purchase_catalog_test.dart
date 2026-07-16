@@ -94,7 +94,7 @@ void main() {
 
     expect(
       tester.getSize(find.byKey(const ValueKey('gem-balance-panel'))).height,
-      100,
+      88,
     );
     final labelStyle = tester.widget<Text>(find.text('My Balance')).style;
     expect(labelStyle?.fontSize, 14);
@@ -111,6 +111,16 @@ void main() {
       tester.getSize(find.byKey(const ValueKey('gem-balance-icon'))),
       const Size.square(24),
     );
+    final panelRect = tester.getRect(
+      find.byKey(const ValueKey('gem-balance-panel')),
+    );
+    final topGap =
+        tester.getRect(find.byKey(const ValueKey('gem-balance-icon'))).top -
+        panelRect.top;
+    final bottomGap =
+        panelRect.bottom - tester.getRect(find.text('430')).bottom;
+    expect(topGap, closeTo(8, 0.1));
+    expect(bottomGap, closeTo(8, 0.1));
   });
 
   testWidgets('other products use backend activity label', (tester) async {
