@@ -467,8 +467,19 @@ void main() {
 
     expect(billing.purchasedProducts, hasLength(1));
     expect(billing.purchasedProducts.single.productId, 'gem_pack_500');
-    expect(find.textContaining('Granting Gems'), findsOneWidget);
+    expect(find.textContaining('Purchasing Gems'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(Dialog),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
     expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, false);
+
+    billing.emitProcessing();
+    await tester.pump();
+    expect(find.textContaining('Granting Gems'), findsOneWidget);
 
     billing.emitSuccess();
     await tester.pump();
@@ -589,6 +600,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.textContaining('Granting Gems'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(Dialog),
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
     expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, false);
     final processingDialogSize = tester.getSize(find.byType(Dialog));
 
@@ -606,7 +624,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Purchase successful.'), findsNothing);
-    expect(find.text('Go chat now.'), findsNothing);
+    expect(find.text('Go Chat Now.'), findsNothing);
   });
 
   testWidgets('billing accepted keeps dialog until OK', (tester) async {
@@ -1145,7 +1163,7 @@ void main() {
 
 void _expectGrantedSuccessDialog(WidgetTester tester) {
   expect(find.text('Purchase successful.'), findsOneWidget);
-  expect(find.text('Go chat now.'), findsOneWidget);
+  expect(find.text('Go Chat Now.'), findsOneWidget);
   final grantedLine = tester.widget<Text>(
     find.byKey(const ValueKey<String>('billing-purchase-granted-line')),
   );

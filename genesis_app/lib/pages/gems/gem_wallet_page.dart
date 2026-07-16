@@ -488,7 +488,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     _billingPurchaseDialogState ??= ValueNotifier<_BillingPurchaseDialogState>(
       _BillingPurchaseDialogState.processing(
         attemptId: '',
-        message: 'Granting Gems',
+        message: 'Purchasing Gems',
       ),
     );
     _billingPurchaseOverlayVisible ??= ValueNotifier<bool>(false);
@@ -678,13 +678,14 @@ class _BillingPurchaseDialog extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (isSuccess)
+                          if (isSuccess) ...[
                             SvgPicture.asset(
                               gemStackIconAsset,
                               width: gemStackIconWidth,
                               height: gemStackIconHeight,
-                            )
-                          else
+                            ),
+                            const SizedBox(height: 18),
+                          ] else ...[
                             const SizedBox(
                               width: 28,
                               height: 28,
@@ -693,7 +694,8 @@ class _BillingPurchaseDialog extends StatelessWidget {
                                 color: Color(0xFFFF2D4F),
                               ),
                             ),
-                          const SizedBox(height: 18),
+                            const SizedBox(height: 18),
+                          ],
                           if (isSuccess)
                             !value.isGrantedSuccess
                                 ? Text(
@@ -842,9 +844,9 @@ class _BillingPurchaseGrantedMessage extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 12),
         const Text(
-          'Go chat now.',
+          'Go Chat Now.',
           textAlign: TextAlign.center,
           style: _textStyle,
         ),
