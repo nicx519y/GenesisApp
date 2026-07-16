@@ -470,7 +470,10 @@ void main() {
     expect(find.textContaining('Granting Gems'), findsOneWidget);
     expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, false);
 
-    billing.emitFailure();
+    billing.emitSuccess();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('OK'));
     await tester.pump();
   });
 
@@ -1216,17 +1219,6 @@ class _FakeBillingService implements BillingService {
         attemptId: 'pay_test',
         message:
             'Payment successful. Your Gems are being issued as quickly as possible. Please check your balance again later.',
-      ),
-    );
-  }
-
-  void emitFailure() {
-    _events.add(
-      const BillingUiEvent(
-        kind: BillingUiEventKind.failure,
-        productId: 'gem_pack_500',
-        attemptId: 'pay_test',
-        message: 'Purchase failed.',
       ),
     );
   }

@@ -515,9 +515,7 @@ class _GemRecordsMessage extends StatelessWidget {
 }
 
 String _recordReferenceId(GemRecordItem record) {
-  final orderId = record.orderId.trim();
-  if (orderId.isNotEmpty) return orderId;
-  return record.ledgerId.trim();
+  return record.orderId.trim();
 }
 
 Future<void> _copyGemRecordText(BuildContext context, String text) async {

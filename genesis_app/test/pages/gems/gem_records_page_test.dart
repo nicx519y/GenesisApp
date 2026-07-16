@@ -39,6 +39,7 @@ void main() {
                 items: const [
                   GemRecordItem(
                     ledgerId: 'ledger-1',
+                    orderId: 'order-1',
                     amount: 50,
                     scene: 'task',
                     reasonCode: 'daily_checkin',
@@ -90,7 +91,7 @@ void main() {
     );
     final textBlockCenter =
         (tester.getTopLeft(find.text('Daily check-in')).dy +
-            tester.getBottomLeft(find.text('ID: ledger-1')).dy) /
+            tester.getBottomLeft(find.text('ID: order-1')).dy) /
         2;
     expect(
       tester.getCenter(find.text('+50')).dy,
@@ -103,7 +104,8 @@ void main() {
     );
     final messageWorldName = tester.widget<Text>(find.text('Moonlit Market'));
     expect(messageWorldName.style?.color, const Color(0xFF999999));
-    expect(find.text('ID: ledger-1'), findsOneWidget);
+    expect(find.text('ID: order-1'), findsOneWidget);
+    expect(find.text('ID: ledger-1'), findsNothing);
     expect(find.text('ID: order-2'), findsOneWidget);
     await tester.tap(find.text('ID: order-2'));
     final copied = await Clipboard.getData('text/plain');

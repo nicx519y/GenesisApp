@@ -1773,6 +1773,7 @@ class _MockState {
     final records = [
       {
         'ledger_id': 'gl_mock_purchase_1',
+        'order_id': 'ord_mock_purchase_1',
         'amount': 550,
         'scene': 'purchase',
         'reason_code': 'google_purchase',
@@ -1783,6 +1784,7 @@ class _MockState {
       },
       {
         'ledger_id': 'gl_mock_task_1',
+        'order_id': 'ord_mock_task_1',
         'amount': 20,
         'scene': 'task',
         'reason_code': 'daily_checkin',
@@ -1793,6 +1795,7 @@ class _MockState {
       },
       {
         'ledger_id': 'gl_mock_spent_1',
+        'order_id': 'ord_mock_spent_1',
         'amount': -20,
         'scene': 'world_tick',
         'reason_code': 'world_tick',
@@ -1803,6 +1806,7 @@ class _MockState {
       },
       {
         'ledger_id': 'gl_mock_task_2',
+        'order_id': 'ord_mock_task_2',
         'amount': 50,
         'scene': 'task',
         'reason_code': 'send_message',
