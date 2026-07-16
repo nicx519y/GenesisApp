@@ -107,8 +107,12 @@ void main() {
     expect(find.text('ID: order-1'), findsOneWidget);
     expect(find.text('ID: ledger-1'), findsNothing);
     expect(find.text('ID: order-2'), findsOneWidget);
+    await tester.tap(find.text('Moonlit Market'));
+    var copied = await Clipboard.getData('text/plain');
+    expect(copied?.text, 'Moonlit Market');
+    await tester.pump(const Duration(seconds: 2));
     await tester.tap(find.text('ID: order-2'));
-    final copied = await Clipboard.getData('text/plain');
+    copied = await Clipboard.getData('text/plain');
     expect(copied?.text, 'order-2');
     await tester.pump(const Duration(seconds: 2));
     expect(

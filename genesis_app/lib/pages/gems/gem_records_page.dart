@@ -315,7 +315,6 @@ class _GemRecordTile extends StatelessWidget {
     final amountText =
         '${isIncome ? '+' : '-'}${_formatInteger(record.amount.abs())}';
     final detailLines = _recordDetailLines(record);
-    final referenceId = _recordReferenceId(record);
     return Container(
       key: ValueKey<String>('gem-record-item-${record.ledgerId}'),
       height: _recordTileHeight(detailLines.length),
@@ -339,14 +338,13 @@ class _GemRecordTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 5),
-                for (final detail in detailLines) ...[
+                for (var index = 0; index < detailLines.length; index += 1) ...[
                   _GemRecordDetailLine(
-                    detail,
-                    copyValue: detail == 'ID: $referenceId'
-                        ? referenceId
-                        : null,
+                    detailLines[index].text,
+                    copyValue: detailLines[index].copyValue,
                   ),
-                  if (detail != detailLines.last) const SizedBox(height: 2),
+                  if (index != detailLines.length - 1)
+                    const SizedBox(height: 2),
                 ],
               ],
             ),
@@ -409,13 +407,24 @@ String _recordTitle(GemRecordItem record) {
   return record.title.isEmpty ? _fallbackTitle(record) : record.title;
 }
 
-List<String> _recordDetailLines(GemRecordItem record) {
+List<_GemRecordDetail> _recordDetailLines(GemRecordItem record) {
+  final subtitle = record.subtitle.trim();
   final referenceId = _recordReferenceId(record);
-  return <String>[
-    if (record.subtitle.trim().isNotEmpty) record.subtitle.trim(),
-    formatGemRecordTimestamp(record.createdAt),
-    if (referenceId.isNotEmpty) 'ID: $referenceId',
-  ].where((part) => part.isNotEmpty).toList(growable: false);
+  final time = formatGemRecordTimestamp(record.createdAt);
+  return <_GemRecordDetail>[
+    if (subtitle.isNotEmpty)
+      _GemRecordDetail(text: subtitle, copyValue: subtitle),
+    if (time.isNotEmpty) _GemRecordDetail(text: time),
+    if (referenceId.isNotEmpty)
+      _GemRecordDetail(text: 'ID: $referenceId', copyValue: referenceId),
+  ];
+}
+
+class _GemRecordDetail {
+  const _GemRecordDetail({required this.text, this.copyValue});
+
+  final String text;
+  final String? copyValue;
 }
 
 class _GemRecordsLoading extends StatelessWidget {
