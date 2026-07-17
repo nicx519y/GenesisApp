@@ -2140,7 +2140,10 @@ const double _worldPointLabelVerticalPadding = 8;
 const double _worldPointWideLabelRuneWidth = 14;
 const double _worldPointNarrowLabelRuneWidth = 6;
 const double _worldPointMaxLabelTextWidth = 135;
-const double _worldPointRecentIconExtraWidth = 18;
+const double _worldPointRecentIconGap = 3;
+const double _worldPointRecentIconSize = 13;
+const double _worldPointRecentIconExtraWidth =
+    _worldPointRecentIconGap + _worldPointRecentIconSize;
 const double _worldPointMaxLabelBoxWidth =
     _worldPointMaxLabelTextWidth + _worldPointLabelHorizontalPadding;
 const double _worldPointDotSize = 8;
@@ -2155,22 +2158,21 @@ _WorldPointMarkerGeometry _geometryForPoint(
   required bool showRecentChatIcon,
 }) {
   final users = point.users;
-  final labelBoxWidth = showRecentChatIcon
-      ? _worldPointMaxLabelBoxWidth + _worldPointRecentIconExtraWidth
-      : _worldPointMaxLabelBoxWidth;
-  final labelMaxWidth = math.min(labelBoxWidth, width);
+  final recentIconWidth = showRecentChatIcon
+      ? _worldPointRecentIconExtraWidth * 2
+      : 0.0;
+  final labelMaxWidth = math.min(
+    _worldPointMaxLabelBoxWidth,
+    math.max(0.0, width - recentIconWidth),
+  );
+  final labelGroupWidth = math.min(labelMaxWidth + recentIconWidth, width);
   final avatarWidth = _worldPointAvatarGroupWidth(users.length);
   final markerWidth = math.max(
     math.max(_worldPointDotSize, avatarWidth),
-    labelMaxWidth,
+    labelGroupWidth,
   );
   final pointCenterY =
-      _worldPointLabelHeight(
-        point.name,
-        trailingExtraWidth: showRecentChatIcon
-            ? _worldPointRecentIconExtraWidth
-            : 0,
-      ) +
+      _worldPointLabelHeight(point.name) +
       _worldPointLabelToDotSpacing +
       _worldPointDotSize / 2;
   final markerHeight = _worldPointMarkerHeight(
@@ -2520,32 +2522,58 @@ class _WorldPointMarker extends StatelessWidget {
                 left: 0,
                 right: 0,
                 child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: labelMaxWidth),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(4),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.18),
-                            blurRadius: 6,
-                            offset: const Offset(0, 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (showRecentChatIcon)
+                        const SizedBox(width: _worldPointRecentIconExtraWidth),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: labelMaxWidth),
+                        child: DecoratedBox(
+                          key: ValueKey<String>(
+                            'world-map-location-label-${point.id}',
                           ),
-                        ],
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 3,
-                          vertical: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(4),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.18),
+                                blurRadius: 6,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 3,
+                              vertical: 4,
+                            ),
+                            child: _PointLabel(
+                              point: point,
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
-                        child: _PointLabel(
-                          point: point,
-                          color: Colors.white,
-                          showRecentChatIcon: showRecentChatIcon,
-                        ),
                       ),
-                    ),
+                      if (showRecentChatIcon)
+                        const SizedBox(
+                          width: _worldPointRecentIconExtraWidth,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: SizedBox.square(
+                              key: ValueKey<String>(
+                                'world-map-recent-chat-icon',
+                              ),
+                              dimension: _worldPointRecentIconSize,
+                              child: RecentChatIcon(
+                                size: _worldPointRecentIconSize,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
@@ -2555,6 +2583,7 @@ class _WorldPointMarker extends StatelessWidget {
                 width: _pointSize,
                 height: _pointSize,
                 child: const DecoratedBox(
+                  key: ValueKey<String>('world-map-location-dot'),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Color(0xFF008D68),
@@ -2762,19 +2791,13 @@ List<String> worldMapMessageBubblePagesForTesting(String content) {
 }
 
 class _PointLabel extends StatelessWidget {
-  const _PointLabel({
-    required this.point,
-    required this.showRecentChatIcon,
-    this.color,
-  });
+  const _PointLabel({required this.point, this.color});
 
   final WorldPoint point;
-  final bool showRecentChatIcon;
   final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    const recentChatColor = Color(0xFF36D29A);
     final textColor = color ?? Colors.black;
     final style = TextStyle(
       fontSize: 10,
@@ -2783,40 +2806,11 @@ class _PointLabel extends StatelessWidget {
       fontWeight: FontWeight.w600,
       color: textColor,
     );
-    if (!showRecentChatIcon) {
-      return Text(
-        point.name,
-        textAlign: TextAlign.center,
-        softWrap: true,
-        style: style,
-      );
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Flexible(
-          fit: FlexFit.loose,
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(text: point.name),
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 3),
-                    child: RecentChatIcon(color: recentChatColor),
-                  ),
-                ),
-              ],
-            ),
-            textAlign: TextAlign.center,
-            softWrap: true,
-            style: style,
-          ),
-        ),
-      ],
+    return Text(
+      point.name,
+      textAlign: TextAlign.center,
+      softWrap: true,
+      style: style,
     );
   }
 }

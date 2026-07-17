@@ -156,10 +156,14 @@ void main() {
     );
 
     expect(find.text('Alpha World'), findsOneWidget);
-    expect(find.text('Last Tick'), findsOneWidget);
-    expect(find.text('Recent'), findsNothing);
+    expect(find.text('Last Tick'), findsNothing);
+    expect(find.text('Recent'), findsOneWidget);
     expect(
-      tester.getTopLeft(find.text('Last Tick')).dx,
+      find.byKey(const ValueKey<String>('recent-activity-tag-last-tick')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getTopLeft(find.text('Recent')).dx,
       greaterThan(tester.getTopLeft(find.text('Alpha World')).dx),
     );
   });

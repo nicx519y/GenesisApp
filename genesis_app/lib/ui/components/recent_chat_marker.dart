@@ -3,6 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../icons/custom_icon_assets.dart';
 
+const Color kRecentChatMarkerColor = Color(0xFF338960);
+
 class RecentChatTag extends StatelessWidget {
   const RecentChatTag({super.key, this.label = 'Last Message'});
 
@@ -27,7 +29,7 @@ class RecentChatTag extends StatelessWidget {
             style.icon,
             const SizedBox(width: 3),
             Text(
-              label,
+              'Recent',
               maxLines: 1,
               overflow: TextOverflow.clip,
               style: TextStyle(
@@ -60,14 +62,18 @@ class _RecentActivityTagStyle {
   static _RecentActivityTagStyle forLabel(String label) {
     switch (label.trim()) {
       case 'Last Tick':
-        return const _RecentActivityTagStyle(
+        return _RecentActivityTagStyle(
           key: 'last-tick',
-          foregroundColor: Color(0xFF2563EB),
-          backgroundColor: Color(0xFFEAF2FF),
-          icon: Icon(
-            Icons.schedule_rounded,
-            size: 10,
-            color: Color(0xFF2563EB),
+          foregroundColor: const Color(0xFF2563EB),
+          backgroundColor: const Color(0xFFEAF2FF),
+          icon: SvgPicture.asset(
+            tickStatIconAsset,
+            width: 8,
+            height: 8,
+            colorFilter: const ColorFilter.mode(
+              Color(0xFF2563EB),
+              BlendMode.srcIn,
+            ),
           ),
         );
       case 'Last Launch':
@@ -84,9 +90,9 @@ class _RecentActivityTagStyle {
       default:
         return const _RecentActivityTagStyle(
           key: 'last-message',
-          foregroundColor: Color(0xFF008D68),
+          foregroundColor: kRecentChatMarkerColor,
           backgroundColor: Color(0xFFE8F5EF),
-          icon: RecentChatIcon(size: 10, color: Color(0xFF008D68)),
+          icon: RecentChatIcon(size: 10),
         );
     }
   }
@@ -95,7 +101,7 @@ class _RecentActivityTagStyle {
 class RecentChatIcon extends StatelessWidget {
   const RecentChatIcon({
     super.key,
-    this.color = const Color(0xFF008D68),
+    this.color = kRecentChatMarkerColor,
     this.size = 13,
   });
 
@@ -107,7 +113,7 @@ class RecentChatIcon extends StatelessWidget {
     return Semantics(
       label: 'Recent chat',
       child: SvgPicture.asset(
-        bottomNavMessagesIconAsset,
+        connectStatIconAsset,
         width: size,
         height: size,
         colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
