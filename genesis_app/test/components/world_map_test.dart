@@ -764,6 +764,44 @@ void main() {
     },
   );
 
+  testWidgets(
+    'zoomed world map can pan across cover-cropped horizontal edges',
+    (tester) async {
+      const viewportSize = Size(375, 812);
+      const initialScale = 1.2;
+      await _pumpWorldMap(
+        tester,
+        size: viewportSize,
+        mapImageUrl: kMockV1SteamMapImage,
+        users: const [],
+        points: const [],
+        initialZoomScale: initialScale,
+      );
+      await tester.pump();
+
+      final interactiveViewer = tester.widget<InteractiveViewer>(
+        find.byType(InteractiveViewer),
+      );
+      final controller = interactiveViewer.transformationController!;
+      final contentSize = tester.getSize(
+        find.byKey(const ValueKey<String>('world-map-scaled-content')),
+      );
+      final horizontalCrop = (contentSize.width - viewportSize.width) / 2;
+      final expectedMinTranslation =
+          horizontalCrop +
+          viewportSize.width -
+          contentSize.width * initialScale;
+
+      await tester.drag(find.byType(InteractiveViewer), const Offset(-400, 0));
+      await tester.pumpAndSettle();
+
+      expect(
+        controller.value.storage[12],
+        closeTo(expectedMinTranslation, 0.5),
+      );
+    },
+  );
+
   testWidgets('world map lays out four avatars in a two by two grid', (
     tester,
   ) async {

@@ -303,6 +303,18 @@ class _WorldMapState extends State<WorldMap> {
           currentMapImageUrl,
           widget.initialZoomScale.toStringAsFixed(3),
         ].join('|');
+        final horizontalViewportCrop = math.max(
+          0,
+          (viewport.width - constraints.maxWidth) / 2,
+        );
+        final verticalViewportCrop = math.max(
+          0,
+          (viewport.height - constraints.maxHeight) / 2,
+        );
+        final zoomBoundaryMargin = EdgeInsets.symmetric(
+          horizontal: horizontalViewportCrop / _mapZoomScale,
+          vertical: verticalViewportCrop / _mapZoomScale,
+        );
         _syncMapScrollControllers(
           signature:
               '$currentMapImageUrl|$mapKeyId|${constraints.maxWidth}|${constraints.maxHeight}|${viewport.width}|${viewport.height}',
@@ -375,6 +387,7 @@ class _WorldMapState extends State<WorldMap> {
                                     viewport.width,
                                     viewport.height,
                                   ),
+                                  boundaryMargin: zoomBoundaryMargin,
                                   overlayBuilder:
                                       (
                                         context,
@@ -1554,6 +1567,7 @@ class _ZoomableMapContent extends StatefulWidget {
     required this.initialFocus,
     required this.initialTransformKey,
     required this.initialViewportSize,
+    required this.boundaryMargin,
     required this.overlayBuilder,
     required this.onMapTap,
     required this.onScaleChanged,
@@ -1569,6 +1583,7 @@ class _ZoomableMapContent extends StatefulWidget {
   final Offset? initialFocus;
   final String initialTransformKey;
   final Size initialViewportSize;
+  final EdgeInsets boundaryMargin;
   final _MapOverlayBuilder overlayBuilder;
   final VoidCallback? onMapTap;
   final ValueChanged<double> onScaleChanged;
@@ -1811,9 +1826,17 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
 
     final minX = size.width - size.width * scale;
     final minY = size.height - size.height * scale;
+    final scaledLeftMargin = widget.boundaryMargin.left * scale;
+    final scaledRightMargin = widget.boundaryMargin.right * scale;
+    final scaledTopMargin = widget.boundaryMargin.top * scale;
+    final scaledBottomMargin = widget.boundaryMargin.bottom * scale;
     final clampedTranslation = Offset(
-      translation.dx.clamp(minX, 0.0).toDouble(),
-      translation.dy.clamp(minY, 0.0).toDouble(),
+      translation.dx
+          .clamp(minX - scaledRightMargin, scaledLeftMargin)
+          .toDouble(),
+      translation.dy
+          .clamp(minY - scaledBottomMargin, scaledTopMargin)
+          .toDouble(),
     );
     return Matrix4.identity()
       ..translateByDouble(clampedTranslation.dx, clampedTranslation.dy, 0, 1)
@@ -1909,7 +1932,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
                   transformationController: _transformationController,
                   minScale: _ZoomableMapContent.minScale,
                   maxScale: _ZoomableMapContent.maxScale,
-                  boundaryMargin: EdgeInsets.zero,
+                  boundaryMargin: widget.boundaryMargin,
                   onInteractionStart: (details) {
                     if (details.pointerCount > 1 || _isZoomed) {
                       _dispatchMapInteraction(true);
