@@ -9,6 +9,7 @@ const String copyStatIconAsset = 'assets/custom-icons/svg/copy_icon.svg';
 const String paragraphIconAsset = 'assets/custom-icons/svg/paragraph_icon.svg';
 const String tickStatIconAsset = 'assets/custom-icons/svg/tick_icon.svg';
 const String connectStatIconAsset = 'assets/custom-icons/svg/connect_icon.svg';
+const String launchIconAsset = 'assets/custom-icons/svg/launch_icon.svg';
 const String characterStatIconAsset =
     'assets/custom-icons/svg/ai_char_icon.svg';
 const String locationChatCharacterIconAsset =

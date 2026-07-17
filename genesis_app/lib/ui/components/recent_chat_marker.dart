@@ -78,14 +78,18 @@ class _RecentActivityTagStyle {
           ),
         );
       case 'Last Launch':
-        return const _RecentActivityTagStyle(
+        return _RecentActivityTagStyle(
           key: 'last-launch',
-          foregroundColor: Color(0xFFE56A00),
-          backgroundColor: Color(0xFFFFF0E3),
-          icon: Icon(
-            Icons.rocket_launch_rounded,
-            size: 10,
-            color: Color(0xFFE56A00),
+          foregroundColor: const Color(0xFFE56A00),
+          backgroundColor: const Color(0xFFFFF0E3),
+          icon: SvgPicture.asset(
+            launchIconAsset,
+            width: 10,
+            height: 10,
+            colorFilter: const ColorFilter.mode(
+              Color(0xFFE56A00),
+              BlendMode.srcIn,
+            ),
           ),
         );
       default:

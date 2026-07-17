@@ -149,6 +149,17 @@ class _OriginBottomLaunchBar extends StatelessWidget {
               const SizedBox(width: 18),
               GenesisPrimaryButton(
                 label: 'Launch',
+                leadingIcon: SvgPicture.asset(
+                  launchIconAsset,
+                  key: const ValueKey<String>('origin-bottom-launch-icon'),
+                  width: 14,
+                  height: 14,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                iconGap: 6,
                 onPressed: launching ? null : onLaunch,
                 width: 140,
                 height: 35,

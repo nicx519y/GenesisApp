@@ -2,12 +2,14 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_modal_routes.dart';
 import '../world_details_shell.dart';
 import 'origin_character_form.dart';
+import '../../icons/custom_icon_assets.dart';
 import '../../network/models/origin.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
@@ -898,6 +900,19 @@ class _SheetActions extends StatelessWidget {
           child: GenesisPrimaryButton(
             key: const ValueKey('origin-role-launch'),
             label: launchLabel,
+            leadingIcon: launchLabel == 'Launch'
+                ? SvgPicture.asset(
+                    launchIconAsset,
+                    key: const ValueKey<String>('origin-role-launch-icon'),
+                    width: 14,
+                    height: 14,
+                    colorFilter: const ColorFilter.mode(
+                      Colors.white,
+                      BlendMode.srcIn,
+                    ),
+                  )
+                : null,
+            iconGap: 6,
             onPressed: onLaunch,
             height: 35,
             backgroundColor: canLaunch

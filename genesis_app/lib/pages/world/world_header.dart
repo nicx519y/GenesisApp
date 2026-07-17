@@ -1,6 +1,7 @@
 // ignore_for_file: use_key_in_widget_constructors
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/origin/stat_item.dart';
 import '../../components/world_details_shell.dart';
@@ -372,6 +373,22 @@ class WorldInfoHeader extends StatelessWidget {
                       absorbing: canTapRunningProgress,
                       child: GenesisPrimaryButton(
                         label: action.label,
+                        leadingIcon:
+                            action.kind == WorldHeaderActionKind.progress
+                            ? SvgPicture.asset(
+                                tickStatIconAsset,
+                                key: const ValueKey<String>(
+                                  'world-progress-button-icon',
+                                ),
+                                width: 12,
+                                height: 12,
+                                colorFilter: const ColorFilter.mode(
+                                  Colors.white,
+                                  BlendMode.srcIn,
+                                ),
+                              )
+                            : null,
+                        iconGap: 6,
                         onPressed: actionEnabled
                             ? () => onWorldAction(action.kind)
                             : null,

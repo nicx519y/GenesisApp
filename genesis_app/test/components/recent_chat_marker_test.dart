@@ -25,7 +25,6 @@ void main() {
     expect(find.text('Last Tick'), findsNothing);
     expect(find.text('Last Launch'), findsNothing);
     expect(find.byType(RecentChatIcon), findsOneWidget);
-    expect(find.byIcon(Icons.rocket_launch_rounded), findsOneWidget);
     expect(_tagColor(tester, 'last-message'), const Color(0xFFE8F5EF));
     expect(_tagColor(tester, 'last-tick'), const Color(0xFFEAF2FF));
     expect(_tagColor(tester, 'last-launch'), const Color(0xFFFFF0E3));
@@ -47,6 +46,7 @@ void main() {
         .map((picture) => (picture.bytesLoader as SvgAssetLoader).assetName)
         .toList(growable: false);
     expect(svgAssets, contains(tickStatIconAsset));
+    expect(svgAssets, contains(launchIconAsset));
     final tickSvg = tester.widget<SvgPicture>(
       find.byWidgetPredicate(
         (widget) =>

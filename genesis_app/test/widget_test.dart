@@ -5237,6 +5237,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Launch'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('origin-bottom-launch-icon')),
+      findsOneWidget,
+    );
     final launchButtonFinder = find.widgetWithText(FilledButton, 'Launch');
     expect(tester.getSize(launchButtonFinder), const Size(140, 35));
     final launchButton = tester.widget<FilledButton>(launchButtonFinder);
@@ -5247,6 +5251,10 @@ void main() {
     await tester.tap(find.text('Launch'));
     await tester.pumpAndSettle();
     expect(find.text('Setup Your Role'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('origin-role-launch-icon')),
+      findsNothing,
+    );
     expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
     expect(
       find.descendant(
@@ -5266,6 +5274,10 @@ void main() {
 
     await tester.tap(find.text('Preset'));
     await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('origin-role-launch-icon')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
     await tester.pump();
@@ -12230,6 +12242,12 @@ void main() {
     await tester.pumpAndSettle();
 
     final progressButton = find.widgetWithText(FilledButton, 'Progress');
+    final progressIcon = find.byKey(
+      const ValueKey<String>('world-progress-button-icon'),
+    );
+    expect(progressIcon, findsOneWidget);
+    expect(tester.widget<SvgPicture>(progressIcon).width, 12);
+    expect(tester.widget<SvgPicture>(progressIcon).height, 12);
     await tester.ensureVisible(progressButton);
     await tester.tap(progressButton);
     await tester.pump();
