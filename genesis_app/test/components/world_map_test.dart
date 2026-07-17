@@ -13,6 +13,7 @@ import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 import 'package:genesis_flutter_android/pages/world/world_map_data.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
+import 'package:genesis_flutter_android/ui/components/recent_chat_marker.dart';
 
 void main() {
   setUp(() {
@@ -212,6 +213,14 @@ void main() {
     expect(iconRect.left, closeTo(labelRect.right + 3, 0.01));
     expect(iconRect.center.dy, closeTo(labelRect.center.dy, 0.01));
     expect(labelRect.center.dx, closeTo(dotRect.center.dx, 0.01));
+    expect(iconRect.size, const Size.square(16));
+    final iconBadge = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('world-map-recent-chat-icon')),
+    );
+    expect(
+      (iconBadge.decoration as BoxDecoration).color,
+      kRecentChatMarkerBackgroundColor,
+    );
   });
 
   testWidgets('world map renders generated avatar when avatar URL is empty', (
