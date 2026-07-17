@@ -217,7 +217,7 @@ class WorldDetailSection extends StatelessWidget {
                   ),
                   GenesisActionMenuItem(
                     label: 'Delete',
-                    iconData: Icons.delete_outline,
+                    iconAsset: genesisDeleteIconAsset,
                     textStyle: TextStyle(
                       fontSize: 12,
                       height: 1.2,
@@ -231,6 +231,7 @@ class WorldDetailSection extends StatelessWidget {
                         showGenesisToast(
                           context,
                           'Only worlds launched by you alone can be deleted.',
+                          duration: const Duration(seconds: 3),
                         );
                         return;
                       }

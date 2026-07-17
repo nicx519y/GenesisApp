@@ -2256,6 +2256,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       showGenesisToast(
         actionContext,
         'Only worlds launched by you alone can be deleted.',
+        duration: const Duration(seconds: 3),
       );
       return;
     }

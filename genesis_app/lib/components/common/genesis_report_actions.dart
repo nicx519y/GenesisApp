@@ -15,6 +15,7 @@ const TextStyle _genesisActionMenuTextStyle = TextStyle(
 );
 const String genesisReportIconAsset =
     'assets/custom-icons/svg/report-svgrepo-com.svg';
+const String genesisDeleteIconAsset = 'assets/custom-icons/svg/delete-icon.svg';
 const double _genesisActionMenuMinWidth = 96;
 const double _genesisActionMenuHorizontalPadding = 14;
 const double _genesisActionMenuIconSize = 15;
