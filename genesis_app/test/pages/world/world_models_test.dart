@@ -2,6 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/pages/world/world_models.dart';
 
 void main() {
+  test('world detail shell has its own pageview action', () {
+    expect(
+      worldBottomSheetPageName(WorldBottomSheetKind.detail),
+      'world_detail_shell',
+    );
+  });
+
   test('worldLatestPlayerJoinNotice picks newest joined player role', () {
     final notice = worldLatestPlayerJoinNotice(const [
       {
