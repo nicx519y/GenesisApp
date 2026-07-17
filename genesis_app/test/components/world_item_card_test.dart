@@ -123,6 +123,46 @@ void main() {
     expect(find.text('Player'), findsOneWidget);
     expect(find.text('Goal Progress: 42%'), findsOneWidget);
   });
+
+  testWidgets('renders recent activity tag label after world name', (
+    WidgetTester tester,
+  ) async {
+    final item = WorldListItem.fromJson(const <String, dynamic>{
+      'wid': 'w_alpha',
+      'name': 'Alpha World',
+      'cover': '',
+      'created_uid': 'u_1',
+      'created_user_name': 'Shawn',
+      'created_at': '2020-01-01T00:00:00Z',
+      'updated_at': '2020-01-02T00:00:00Z',
+      'tick_cnt': 3,
+      'connect_cnt': 4,
+      'ai_character_cnt': 5,
+      'player_cnt': 6,
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 390,
+            child: WorldItemCard(
+              item: item,
+              recentActivityTagLabel: 'Last Tick',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Alpha World'), findsOneWidget);
+    expect(find.text('Last Tick'), findsOneWidget);
+    expect(find.text('Recent'), findsNothing);
+    expect(
+      tester.getTopLeft(find.text('Last Tick')).dx,
+      greaterThan(tester.getTopLeft(find.text('Alpha World')).dx),
+    );
+  });
 }
 
 double _horizontalGap(WidgetTester tester, Finder left, Finder right) {

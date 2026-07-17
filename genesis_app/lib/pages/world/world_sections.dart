@@ -156,11 +156,14 @@ class WorldDetailSection extends StatelessWidget {
     required this.world,
     required this.currentUid,
     this.newUserJoinNotice,
+    this.onDeleteWorld,
   });
 
   final WorldDetail world;
   final String currentUid;
   final WorldNewUserJoinNotice? newUserJoinNotice;
+  final Future<void> Function(BuildContext context, WorldDetail world)?
+  onDeleteWorld;
 
   @override
   Widget build(BuildContext context) {
@@ -180,6 +183,7 @@ class WorldDetailSection extends StatelessWidget {
     final canOpenSourceWorldo = sourceWorldoRouteId.isNotEmpty;
     final brief = world.brief.trim().isEmpty ? '-' : world.brief.trim();
     final cover = worldResolveAssetUrl(world.cover).trim();
+    final canDeleteWorld = worldCanDeleteLaunchedOnlyBySelf(world, currentUid);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -210,6 +214,28 @@ class WorldDetailSection extends StatelessWidget {
                     context: context,
                     targetType: 'world',
                     targetId: world.worldId,
+                  ),
+                  GenesisActionMenuItem(
+                    label: 'Delete',
+                    iconData: Icons.delete_outline,
+                    textStyle: TextStyle(
+                      fontSize: 12,
+                      height: 1.2,
+                      fontWeight: FontWeight.w400,
+                      color: canDeleteWorld
+                          ? Colors.white
+                          : Colors.white.withValues(alpha: 0.45),
+                    ),
+                    onSelected: () {
+                      if (!canDeleteWorld) {
+                        showGenesisToast(
+                          context,
+                          'Only worlds launched by you alone can be deleted.',
+                        );
+                        return;
+                      }
+                      unawaited(onDeleteWorld?.call(context, world));
+                    },
                   ),
                 ],
               ),

@@ -11,8 +11,6 @@ import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../app/startup/app_startup_coordinator.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
-import '../../components/common/genesis_action_box.dart';
-import '../../components/common/genesis_center_toast.dart';
 import '../../components/discuss/origin_discuss_preview_list.dart';
 import '../../components/genesis_logo.dart';
 import '../../components/home/popular_origin_list.dart';
@@ -27,7 +25,7 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../ui/tokens/genesis_colors.dart';
-import '../../utils/api_error_message.dart';
+import '../../utils/genesis_timestamp_formatter.dart';
 import 'home_feed_cache_store.dart';
 
 void _ignoreHomeFeedCacheWrite(Future<void> write) {
@@ -527,8 +525,8 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   var _isLoadingMore = false;
   var _isRefreshing = false;
   var _isSignedOut = false;
-  String _recentChatUid = '';
-  String _recentChatWorldId = '';
+  String _activityTagUid = '';
+  WorldActivityTagState? _activityTagState;
   Object? _error;
 
   @override
@@ -536,7 +534,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     super.initState();
     widget.activationListenable?.addListener(_handlePageActivated);
     widget.networkRequestsAllowed.addListener(_handleNetworkRequestsAllowed);
-    recentWorldChatStore.listenable.addListener(_handleRecentChatChanged);
+    worldActivityTagStore.listenable.addListener(_handleActivityTagsChanged);
   }
 
   @override
@@ -555,7 +553,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _scrollListenerAttached = true;
     }
     _preloadCachedItemsIfNeeded();
-    unawaited(_loadRecentChatMarker());
+    unawaited(_loadWorldActivityTags());
     _requestIfCurrentTab();
   }
 
@@ -581,7 +579,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   @override
   void dispose() {
     _startupInitialRetryTimer?.cancel();
-    recentWorldChatStore.listenable.removeListener(_handleRecentChatChanged);
+    worldActivityTagStore.listenable.removeListener(_handleActivityTagsChanged);
     widget.activationListenable?.removeListener(_handlePageActivated);
     widget.networkRequestsAllowed.removeListener(_handleNetworkRequestsAllowed);
     _tabController?.removeListener(_handleTabChange);
@@ -591,28 +589,49 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     super.dispose();
   }
 
-  Future<void> _loadRecentChatMarker() async {
+  Future<void> _loadWorldActivityTags() async {
     final uid = await resolveRecentWorldChatUid(AppServicesScope.read(context));
-    final record = await recentWorldChatStore.loadForUid(uid);
+    var state = await worldActivityTagStore.loadForUid(uid);
+    if ((state?.lastMessageWorldId ?? '').trim().isEmpty) {
+      final record = await recentWorldChatStore.loadForUid(uid);
+      final worldId = record?.uid == uid ? record?.worldId.trim() ?? '' : '';
+      if (worldId.isNotEmpty) {
+        await worldActivityTagStore.markLastMessage(uid: uid, worldId: worldId);
+        state = worldActivityTagStore.listenable.value;
+      }
+    }
     if (!mounted) return;
-    final nextWorldId = record?.uid == uid ? record?.worldId ?? '' : '';
-    if (_recentChatUid == uid && _recentChatWorldId == nextWorldId) return;
+    if (_activityTagUid == uid &&
+        _sameWorldActivityTagState(_activityTagState, state)) {
+      return;
+    }
     setState(() {
-      _recentChatUid = uid;
-      _recentChatWorldId = nextWorldId;
+      _activityTagUid = uid;
+      _activityTagState = state;
     });
   }
 
-  void _handleRecentChatChanged() {
-    final record = recentWorldChatStore.listenable.value;
-    if (record == null) return;
-    if (_recentChatUid.isNotEmpty && record.uid != _recentChatUid) return;
-    final nextWorldId = record.worldId;
-    if (nextWorldId == _recentChatWorldId) return;
+  void _handleActivityTagsChanged() {
+    final state = worldActivityTagStore.listenable.value;
+    if (state == null) return;
+    if (_activityTagUid.isNotEmpty && state.uid != _activityTagUid) return;
+    if (_sameWorldActivityTagState(_activityTagState, state)) return;
     setState(() {
-      _recentChatUid = record.uid;
-      _recentChatWorldId = nextWorldId;
+      _activityTagUid = state.uid;
+      _activityTagState = state;
     });
+  }
+
+  bool _sameWorldActivityTagState(
+    WorldActivityTagState? current,
+    WorldActivityTagState? next,
+  ) {
+    if (identical(current, next)) return true;
+    if (current == null || next == null) return current == next;
+    return current.uid == next.uid &&
+        current.lastMessageWorldId == next.lastMessageWorldId &&
+        current.lastTickWorldId == next.lastTickWorldId &&
+        current.lastLaunchWorldId == next.lastLaunchWorldId;
   }
 
   void _resetListState() {
@@ -805,6 +824,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     }
 
     final page = _parseWorldListPage(data);
+    unawaited(_syncLastTickActivityTagFromItems(page.items));
     _startupInitialRetryTimer?.cancel();
     _startupInitialRetryTimer = null;
     setState(() {
@@ -893,6 +913,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     try {
       final page = await _fetchPage(1);
       if (!mounted) return;
+      unawaited(_syncLastTickActivityTagFromItems(page.items));
       _startupInitialRetryTimer?.cancel();
       _startupInitialRetryTimer = null;
       final shouldReplaceItems = !_worldPageMatchesCurrent(page);
@@ -1016,6 +1037,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     try {
       final page = await _fetchPage(_nextPage);
       if (!mounted) return;
+      unawaited(_syncLastTickActivityTagFromItems([..._items, ...page.items]));
       setState(() {
         _items.addAll(page.items);
         _pruneDeleteStateForCurrentItems();
@@ -1053,52 +1075,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _collapseBottomCompensation[worldId] = normalized;
       }
     });
-  }
-
-  Future<void> _confirmAndDeleteWorld(WorldListItem item) async {
-    final worldId = item.wid.trim();
-    if (worldId.isEmpty ||
-        item.deleted ||
-        _deletingWorldIds.contains(worldId) ||
-        _collapsingWorldIds.contains(worldId)) {
-      return;
-    }
-
-    final confirmed = await showGenesisActionBox<bool>(
-      context: context,
-      title: '',
-      titleWidget: _DeleteWorldConfirmationTitle(
-        name: item.title,
-        worldId: worldId,
-      ),
-      titleHeight: 104,
-      actions: const [
-        GenesisActionBoxAction<bool>(
-          label: 'Confirm',
-          value: true,
-          color: Color(0xFFFF2442),
-        ),
-      ],
-      cancelLabel: 'Cancel',
-    );
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _deletingWorldIds.add(worldId));
-    try {
-      await AppServicesScope.read(
-        context,
-      ).api.v1.world.deleteLaunched(worldId: worldId);
-      if (!mounted) return;
-      setState(() {
-        _deletingWorldIds.remove(worldId);
-        _locallyDeletedWorldIds.add(worldId);
-        _collapsingWorldIds.add(worldId);
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _deletingWorldIds.remove(worldId));
-      showGenesisToast(context, apiErrorMessage(error));
-    }
   }
 
   void _handleWorldCollapseCompleted(String worldId) {
@@ -1199,6 +1175,9 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                 final isDeleting = _deletingWorldIds.contains(worldId);
                 final isCollapsing = _collapsingWorldIds.contains(worldId);
                 final canInteract = !vm.deleted && !isDeleting && !isCollapsing;
+                final activityTagLabel = vm.deleted
+                    ? ''
+                    : _activityTagState?.labelForWorldId(worldId) ?? '';
                 return _AnimatedHomeWorldListItem(
                   key: ValueKey<String>('home-my-world-$worldId'),
                   isCollapsing: isCollapsing,
@@ -1223,15 +1202,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                             );
                           }
                         : null,
-                    onLongPress: canInteract
-                        ? () => unawaited(_confirmAndDeleteWorld(vm))
-                        : null,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: WorldItemCard(
                         item: vm,
                         showPreviewImages: false,
-                        showRecentChatTag: vm.wid == _recentChatWorldId,
+                        recentActivityTagLabel: activityTagLabel,
                       ),
                     ),
                   ),
@@ -1239,6 +1215,37 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
               },
             ),
     );
+  }
+
+  Future<void> _syncLastTickActivityTagFromItems(
+    List<WorldListItem> items,
+  ) async {
+    final worldId = _lastTickWorldIdFromItems(items);
+    if (worldId.isEmpty) return;
+    final uid = _activityTagUid.isNotEmpty
+        ? _activityTagUid
+        : await resolveRecentWorldChatUid(AppServicesScope.read(context));
+    await worldActivityTagStore.markLastTick(uid: uid, worldId: worldId);
+  }
+
+  String _lastTickWorldIdFromItems(List<WorldListItem> items) {
+    WorldListItem? fallback;
+    WorldListItem? latest;
+    DateTime? latestTime;
+
+    for (final item in items) {
+      if (item.deleted) continue;
+      if (item.lastProgressTickNo <= 1 && item.tickCnt <= 1) continue;
+      fallback ??= item;
+      final time = parseFlexibleTimestamp(item.lastProgressAt);
+      if (time == null) continue;
+      if (latestTime == null || time.isAfter(latestTime)) {
+        latestTime = time;
+        latest = item;
+      }
+    }
+
+    return (latest ?? fallback)?.wid.trim() ?? '';
   }
 }
 
@@ -1261,47 +1268,6 @@ class _AnimatedHomeWorldListItem extends StatefulWidget {
   @override
   State<_AnimatedHomeWorldListItem> createState() =>
       _AnimatedHomeWorldListItemState();
-}
-
-class _DeleteWorldConfirmationTitle extends StatelessWidget {
-  const _DeleteWorldConfirmationTitle({
-    required this.name,
-    required this.worldId,
-  });
-
-  static const _baseStyle = TextStyle(
-    color: Color(0xFF111111),
-    fontSize: 15,
-    height: 1.25,
-    fontWeight: FontWeight.w400,
-  );
-  static const _nameStyle = TextStyle(color: Color(0xFF4B6192));
-
-  final String name;
-  final String worldId;
-
-  @override
-  Widget build(BuildContext context) {
-    final resolvedName = name.trim().isEmpty ? worldId : name.trim();
-    return SizedBox(
-      width: double.infinity,
-      child: Text.rich(
-        TextSpan(
-          text: 'Are you sure you want to delete\u00A0',
-          children: [
-            TextSpan(
-              text: resolvedName,
-              style: _DeleteWorldConfirmationTitle._nameStyle,
-            ),
-            TextSpan(text: '[$worldId]'),
-            const TextSpan(text: '?'),
-          ],
-        ),
-        textAlign: TextAlign.center,
-        style: _DeleteWorldConfirmationTitle._baseStyle,
-      ),
-    );
-  }
 }
 
 class _AnimatedHomeWorldListItemState extends State<_AnimatedHomeWorldListItem>

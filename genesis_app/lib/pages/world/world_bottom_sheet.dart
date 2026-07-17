@@ -166,6 +166,7 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
     required this.locationNodes,
     required this.recentChatLocationIds,
     required this.onLocationTap,
+    this.onDeleteWorld,
   });
 
   final ValueNotifier<WorldBottomSheetSelection> selectionListenable;
@@ -180,6 +181,8 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
   final List<WorldMapLocationNode> locationNodes;
   final Set<String> recentChatLocationIds;
   final ValueChanged<WorldPoint> onLocationTap;
+  final Future<void> Function(BuildContext context, WorldDetail world)?
+  onDeleteWorld;
 
   @override
   State<WorldSingleSectionBottomSheet> createState() =>
@@ -506,6 +509,7 @@ class WorldSingleSectionBottomSheetState
         world: _currentWorld,
         currentUid: widget.currentUid,
         newUserJoinNotice: newUserJoinNotice,
+        onDeleteWorld: widget.onDeleteWorld,
       ),
     );
   }

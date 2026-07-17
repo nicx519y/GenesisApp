@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
@@ -14,7 +17,8 @@ Future<bool> startOriginLaunch({
   OriginLaunchCoordinator? coordinator,
 }) async {
   try {
-    final api = AppServicesScope.of(context).api;
+    final services = AppServicesScope.of(context);
+    final api = services.api;
     final launchCoordinator = coordinator ?? OriginLaunchCoordinator.instance;
     GenesisTelemetry.collectLog(
       actionType: 'event',
@@ -33,6 +37,9 @@ Future<bool> startOriginLaunch({
       showGenesisToast(context, 'Launch failed');
       return false;
     }
+    final uid = await resolveRecentWorldChatUid(services);
+    if (!context.mounted) return false;
+    unawaited(worldActivityTagStore.markLastLaunch(uid: uid, worldId: wid));
     GenesisTelemetry.collectLog(
       actionType: 'event',
       action: 'worldo_launch_submit_success',

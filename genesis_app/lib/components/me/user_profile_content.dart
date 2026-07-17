@@ -8,7 +8,6 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/gem_wallet_store.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
-import '../../components/common/genesis_action_box.dart';
 import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../icons/custom_icon_assets.dart';
@@ -782,9 +781,6 @@ class _WorldProfileCollectionListState
                         arguments: {'wid': item.wid},
                       );
                     },
-              onLongPress: widget.canDeleteWorlds && !item.deleted
-                  ? () => unawaited(_confirmAndDeleteWorld(item))
-                  : null,
             ),
           )
           .toList(growable: false),
@@ -794,50 +790,6 @@ class _WorldProfileCollectionListState
       onRefresh: widget.onRefresh,
       refreshKey: const ValueKey('profile-world-list-refresh'),
     );
-  }
-
-  Future<void> _confirmAndDeleteWorld(UserProfileWorldItem item) async {
-    final worldId = item.wid.trim();
-    if (worldId.isEmpty ||
-        _deletingWorldIds.contains(worldId) ||
-        _collapsingWorldIds.contains(worldId)) {
-      return;
-    }
-
-    final confirmed = await showGenesisActionBox<bool>(
-      context: context,
-      title: '',
-      titleWidget: _DeleteWorldConfirmationTitle(
-        name: item.title,
-        worldId: worldId,
-      ),
-      titleHeight: 104,
-      actions: const [
-        GenesisActionBoxAction<bool>(
-          label: 'Confirm',
-          value: true,
-          color: Color(0xFFFF2442),
-        ),
-      ],
-      cancelLabel: 'Cancel',
-    );
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _deletingWorldIds.add(worldId));
-    try {
-      await AppServicesScope.read(
-        context,
-      ).api.v1.world.deleteLaunched(worldId: worldId);
-      if (!mounted) return;
-      setState(() {
-        _deletingWorldIds.remove(worldId);
-        _collapsingWorldIds.add(worldId);
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _deletingWorldIds.remove(worldId));
-      showGenesisToast(context, apiErrorMessage(error));
-    }
   }
 }
 
@@ -889,47 +841,6 @@ class UserProfileWorldItem {
   final int characterCount;
   final int playerCount;
   final String ownerName;
-}
-
-class _DeleteWorldConfirmationTitle extends StatelessWidget {
-  const _DeleteWorldConfirmationTitle({
-    required this.name,
-    required this.worldId,
-  });
-
-  static const _baseStyle = TextStyle(
-    color: Color(0xFF111111),
-    fontSize: 15,
-    height: 1.25,
-    fontWeight: FontWeight.w400,
-  );
-  static const _nameStyle = TextStyle(color: Color(0xFF4B6192));
-
-  final String name;
-  final String worldId;
-
-  @override
-  Widget build(BuildContext context) {
-    final resolvedName = name.trim().isEmpty ? worldId : name.trim();
-    return SizedBox(
-      width: double.infinity,
-      child: Text.rich(
-        TextSpan(
-          text: 'Are you sure you want to delete\u00A0',
-          children: [
-            TextSpan(
-              text: resolvedName,
-              style: _DeleteWorldConfirmationTitle._nameStyle,
-            ),
-            TextSpan(text: '[$worldId]'),
-            const TextSpan(text: '?'),
-          ],
-        ),
-        textAlign: TextAlign.center,
-        style: _DeleteWorldConfirmationTitle._baseStyle,
-      ),
-    );
-  }
 }
 
 class _FollowStats extends StatelessWidget {

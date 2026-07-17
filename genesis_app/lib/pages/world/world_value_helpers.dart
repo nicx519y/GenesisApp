@@ -126,3 +126,17 @@ bool worldIsCurrentUserCharacter(
 bool worldIsCharacterRole(Map<String, dynamic> character) {
   return worldMapString(character, const ['player_uid']).isEmpty;
 }
+
+bool worldCanDeleteLaunchedOnlyBySelf(WorldDetail world, String currentUid) {
+  final selfUid = currentUid.trim();
+  if (selfUid.isEmpty || world.deleted) return false;
+
+  final realUserUids = <String>{};
+  for (final character in world.characters) {
+    final playerUid = worldMapString(character, const ['player_uid']).trim();
+    if (playerUid.isEmpty) continue;
+    realUserUids.add(playerUid);
+  }
+
+  return realUserUids.length == 1 && realUserUids.contains(selfUid);
+}
