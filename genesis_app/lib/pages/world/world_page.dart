@@ -2269,7 +2269,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       titleHeight: 104,
       actions: const [
         GenesisActionBoxAction<bool>(
-          label: 'Confirm',
+          label: 'Delete',
           value: true,
           color: Color(0xFFFF2442),
         ),
@@ -2303,8 +2303,8 @@ class _DeleteWorldConfirmationTitle extends StatelessWidget {
   static const _baseStyle = TextStyle(
     color: Color(0xFF111111),
     fontSize: 15,
-    height: 1.25,
-    fontWeight: FontWeight.w400,
+    height: 1.16,
+    fontWeight: FontWeight.w600,
   );
   static const _nameStyle = TextStyle(color: Color(0xFF4B6192));
 
@@ -2314,19 +2314,15 @@ class _DeleteWorldConfirmationTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     final resolvedName = name.trim().isEmpty ? 'this World' : name.trim();
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Text.rich(
-          TextSpan(
-            style: _baseStyle,
-            children: [
-              const TextSpan(text: 'Are you sure you want to delete '),
-              TextSpan(text: resolvedName, style: _nameStyle),
-              const TextSpan(text: '?'),
-            ],
-          ),
-          textAlign: TextAlign.center,
+      child: Text.rich(
+        TextSpan(
+          style: _baseStyle,
+          children: [
+            const TextSpan(text: 'Delete world '),
+            TextSpan(text: resolvedName, style: _nameStyle),
+          ],
         ),
+        textAlign: TextAlign.center,
       ),
     );
   }

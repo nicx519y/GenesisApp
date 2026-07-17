@@ -2,6 +2,7 @@ group 'io.flutter.plugins.firebaseperformance'
 version '1.0-SNAPSHOT'
 
 apply plugin: 'com.android.library'
+apply plugin: 'org.jetbrains.kotlin.android'
 apply from: file("local-config.gradle")
 
 buildscript {
