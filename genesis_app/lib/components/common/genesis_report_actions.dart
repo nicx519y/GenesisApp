@@ -708,6 +708,7 @@ class _GenesisActionBubbleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final itemColor = item.textStyle?.color ?? layout.foregroundColor;
     return InkWell(
       onTap: onTap,
       child: SizedBox(
@@ -725,14 +726,14 @@ class _GenesisActionBubbleRow extends StatelessWidget {
                   iconAsset,
                   width: _genesisActionMenuIconSize,
                   height: _genesisActionMenuIconSize,
-                  colorFilter: layout.iconColorFilter,
+                  colorFilter: ColorFilter.mode(itemColor, BlendMode.srcIn),
                 ),
                 const SizedBox(width: _genesisActionMenuIconGap),
               ] else if (item.iconData case final iconData?) ...[
                 Icon(
                   iconData,
                   size: _genesisActionMenuIconSize,
-                  color: layout.foregroundColor,
+                  color: itemColor,
                 ),
                 const SizedBox(width: _genesisActionMenuIconGap),
               ],

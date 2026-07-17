@@ -6,6 +6,67 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../bootstrap/service_registry.dart';
 
 const String _recentWorldChatKeyPrefix = 'recent_world_chat:';
+const String _worldActivityTagKeyPrefix = 'world_activity_tags:';
+
+class WorldActivityTagState {
+  const WorldActivityTagState({
+    required this.uid,
+    this.lastMessageWorldId = '',
+    this.lastTickWorldId = '',
+    this.lastLaunchWorldId = '',
+  });
+
+  factory WorldActivityTagState.empty(String uid) {
+    return WorldActivityTagState(uid: uid.trim());
+  }
+
+  final String uid;
+  final String lastMessageWorldId;
+  final String lastTickWorldId;
+  final String lastLaunchWorldId;
+
+  WorldActivityTagState copyWith({
+    String? lastMessageWorldId,
+    String? lastTickWorldId,
+    String? lastLaunchWorldId,
+  }) {
+    return WorldActivityTagState(
+      uid: uid,
+      lastMessageWorldId: lastMessageWorldId ?? this.lastMessageWorldId,
+      lastTickWorldId: lastTickWorldId ?? this.lastTickWorldId,
+      lastLaunchWorldId: lastLaunchWorldId ?? this.lastLaunchWorldId,
+    );
+  }
+
+  String labelForWorldId(String worldId) {
+    final resolvedWorldId = worldId.trim();
+    if (resolvedWorldId.isEmpty) return '';
+    if (resolvedWorldId == lastMessageWorldId) return 'Last Message';
+    if (resolvedWorldId == lastTickWorldId) return 'Last Tick';
+    if (resolvedWorldId == lastLaunchWorldId) return 'Last Launch';
+    return '';
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'uid': uid,
+      'last_message_world_id': lastMessageWorldId,
+      'last_tick_world_id': lastTickWorldId,
+      'last_launch_world_id': lastLaunchWorldId,
+    };
+  }
+
+  static WorldActivityTagState? fromJson(Map<String, dynamic> json) {
+    final uid = _mapString(json, 'uid');
+    if (uid.isEmpty) return null;
+    return WorldActivityTagState(
+      uid: uid,
+      lastMessageWorldId: _mapString(json, 'last_message_world_id'),
+      lastTickWorldId: _mapString(json, 'last_tick_world_id'),
+      lastLaunchWorldId: _mapString(json, 'last_launch_world_id'),
+    );
+  }
+}
 
 class RecentWorldChatRecord {
   const RecentWorldChatRecord({
@@ -93,6 +154,10 @@ class RecentWorldChatStore {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyForUid(resolvedUid), jsonEncode(record.toJson()));
     listenable.value = record;
+    await worldActivityTagStore.markLastMessage(
+      uid: resolvedUid,
+      worldId: resolvedWorldId,
+    );
   }
 
   static String _keyForUid(String uid) => '$_recentWorldChatKeyPrefix$uid';
@@ -110,6 +175,93 @@ class RecentWorldChatStore {
 }
 
 final RecentWorldChatStore recentWorldChatStore = RecentWorldChatStore();
+
+class WorldActivityTagStore {
+  WorldActivityTagStore();
+
+  final ValueNotifier<WorldActivityTagState?> listenable =
+      ValueNotifier<WorldActivityTagState?>(null);
+
+  Future<WorldActivityTagState?> loadForUid(String uid) async {
+    final resolvedUid = uid.trim();
+    if (resolvedUid.isEmpty) {
+      listenable.value = null;
+      return null;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final state = _decode(prefs.getString(_keyForUid(resolvedUid)));
+    final resolvedState = state?.uid == resolvedUid
+        ? state
+        : WorldActivityTagState.empty(resolvedUid);
+    listenable.value = resolvedState;
+    return resolvedState;
+  }
+
+  Future<void> markLastMessage({required String uid, required String worldId}) {
+    return _update(
+      uid: uid,
+      worldId: worldId,
+      apply: (state, resolvedWorldId) =>
+          state.copyWith(lastMessageWorldId: resolvedWorldId),
+    );
+  }
+
+  Future<void> markLastTick({required String uid, required String worldId}) {
+    return _update(
+      uid: uid,
+      worldId: worldId,
+      apply: (state, resolvedWorldId) =>
+          state.copyWith(lastTickWorldId: resolvedWorldId),
+    );
+  }
+
+  Future<void> markLastLaunch({required String uid, required String worldId}) {
+    return _update(
+      uid: uid,
+      worldId: worldId,
+      apply: (state, resolvedWorldId) =>
+          state.copyWith(lastLaunchWorldId: resolvedWorldId),
+    );
+  }
+
+  Future<void> _update({
+    required String uid,
+    required String worldId,
+    required WorldActivityTagState Function(
+      WorldActivityTagState state,
+      String resolvedWorldId,
+    )
+    apply,
+  }) async {
+    final resolvedUid = uid.trim();
+    final resolvedWorldId = worldId.trim();
+    if (resolvedUid.isEmpty || resolvedWorldId.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final stored = _decode(prefs.getString(_keyForUid(resolvedUid)));
+    final current = stored?.uid == resolvedUid
+        ? stored!
+        : WorldActivityTagState.empty(resolvedUid);
+    final next = apply(current, resolvedWorldId);
+    await prefs.setString(_keyForUid(resolvedUid), jsonEncode(next.toJson()));
+    listenable.value = next;
+  }
+
+  static String _keyForUid(String uid) => '$_worldActivityTagKeyPrefix$uid';
+
+  static WorldActivityTagState? _decode(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) return null;
+      return WorldActivityTagState.fromJson(decoded);
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+final WorldActivityTagStore worldActivityTagStore = WorldActivityTagStore();
 
 Future<String> resolveRecentWorldChatUid(AppServices services) async {
   final sessionUid = (await services.sessionStore.readUid())?.trim() ?? '';

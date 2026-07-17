@@ -195,12 +195,20 @@ class WorldItemCard extends StatelessWidget {
     this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
     this.showPreviewImages = true,
     this.showRecentChatTag = false,
+    this.recentActivityTagLabel = '',
   });
 
   final WorldListItem item;
   final double thumbnailBorderRadius;
   final bool showPreviewImages;
   final bool showRecentChatTag;
+  final String recentActivityTagLabel;
+
+  String get _resolvedRecentActivityTagLabel {
+    final label = recentActivityTagLabel.trim();
+    if (label.isNotEmpty) return label;
+    return showRecentChatTag ? 'Last Message' : '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +228,7 @@ class WorldItemCard extends StatelessWidget {
             Expanded(
               child: _WorldSummary(
                 item: item,
-                showRecentChatTag: showRecentChatTag,
+                recentActivityTagLabel: _resolvedRecentActivityTagLabel,
               ),
             ),
           ],
@@ -419,13 +427,17 @@ class _ProgressTickTime extends StatelessWidget {
 }
 
 class _WorldSummary extends StatelessWidget {
-  const _WorldSummary({required this.item, required this.showRecentChatTag});
+  const _WorldSummary({
+    required this.item,
+    required this.recentActivityTagLabel,
+  });
 
   final WorldListItem item;
-  final bool showRecentChatTag;
+  final String recentActivityTagLabel;
 
   @override
   Widget build(BuildContext context) {
+    final tagLabel = recentActivityTagLabel.trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -445,9 +457,9 @@ class _WorldSummary extends StatelessWidget {
                 ),
               ),
             ),
-            if (showRecentChatTag) ...[
+            if (tagLabel.isNotEmpty) ...[
               const SizedBox(width: 6),
-              const RecentChatTag(),
+              RecentChatTag(label: tagLabel),
             ],
           ],
         ),

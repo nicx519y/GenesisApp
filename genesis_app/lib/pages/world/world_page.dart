@@ -29,6 +29,7 @@ import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import 'world_bottom_sheet.dart';
@@ -38,6 +39,7 @@ import 'world_location_chat_host.dart';
 import 'world_map_bubble_candidates.dart';
 import 'world_map_data.dart';
 import 'world_models.dart';
+import 'world_recent_chat_location.dart';
 import 'world_sections.dart';
 import 'world_value_helpers.dart';
 
@@ -117,7 +119,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   int? _pendingProgressTickCount;
   var _currentUid = '';
   var _currentUidRequested = false;
-  var _recentChatUid = '';
   Set<String> _recentChatLocationIds = const <String>{};
   Set<String> _recentChatLocationPathIds = const <String>{};
   var _locationChatDescriptorSignature = '';
@@ -145,7 +146,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _worldBottomSheetSelection.addListener(
       _handleWorldBottomSheetSelectionChanged,
     );
-    recentWorldChatStore.listenable.addListener(_handleRecentChatChanged);
     _syncWorldStatusBarForMainTab();
     final initialWorld = widget.initialWorldDetail;
     if (initialWorld != null) {
@@ -180,7 +180,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _currentUidRequested = true;
       unawaited(_loadCurrentUid());
     }
-    unawaited(_loadRecentChatMarker());
   }
 
   @override
@@ -190,7 +189,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _worldBottomSheetSelection.removeListener(
       _handleWorldBottomSheetSelectionChanged,
     );
-    recentWorldChatStore.listenable.removeListener(_handleRecentChatChanged);
     WorldDetailsStatusBarOverride.clearStyle();
     GenesisSystemUiChrome.applyDefault();
     unawaited(_worldChatroomSub?.cancel());
@@ -362,59 +360,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     setState(() => _currentUid = uid);
   }
 
-  Future<void> _loadRecentChatMarker() async {
-    final uid = await resolveRecentWorldChatUid(AppServicesScope.read(context));
-    final record = await recentWorldChatStore.loadForUid(uid);
-    if (!mounted) return;
-    final nextLocationIds = record?.uid == uid && record?.worldId == widget.wid
-        ? _recentLocationIdSet([record?.locationId ?? ''])
-        : const <String>{};
-    final nextLocationPathIds =
-        record?.uid == uid && record?.worldId == widget.wid
-        ? _recentLocationIdSet(record?.locationPathIds ?? const <String>[])
-        : const <String>{};
-    if (_recentChatUid == uid &&
-        setEquals(_recentChatLocationIds, nextLocationIds) &&
-        setEquals(_recentChatLocationPathIds, nextLocationPathIds)) {
-      return;
-    }
-    setState(() {
-      _recentChatUid = uid;
-      _recentChatLocationIds = nextLocationIds;
-      _recentChatLocationPathIds = nextLocationPathIds;
-    });
-  }
-
-  void _handleRecentChatChanged() {
-    final record = recentWorldChatStore.listenable.value;
-    if (record == null) return;
-    if (_recentChatUid.isNotEmpty && record.uid != _recentChatUid) return;
-    final nextLocationIds = record.worldId == widget.wid
-        ? _recentLocationIdSet([record.locationId])
-        : const <String>{};
-    final nextLocationPathIds = record.worldId == widget.wid
-        ? _recentLocationIdSet(record.locationPathIds)
-        : const <String>{};
-    if (setEquals(_recentChatLocationIds, nextLocationIds) &&
-        setEquals(_recentChatLocationPathIds, nextLocationPathIds)) {
-      return;
-    }
-    setState(() {
-      _recentChatUid = record.uid;
-      _recentChatLocationIds = nextLocationIds;
-      _recentChatLocationPathIds = nextLocationPathIds;
-    });
-  }
-
-  Set<String> _recentLocationIdSet(Iterable<String> values) {
-    final result = <String>{};
-    for (final value in values) {
-      final trimmed = value.trim();
-      if (trimmed.isNotEmpty) result.add(trimmed);
-    }
-    return Set<String>.unmodifiable(result);
-  }
-
   List<String> _locationPathIdsForLocationId(
     String locationId,
     ProcessedLocationTree<Map<String, dynamic>> tree,
@@ -519,6 +464,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _replaceMapBubbleCandidates(
         _buildMapBubbleCandidates(state, currentWorld),
       );
+      _applyRecentChatLocationSelection(state, _world ?? currentWorld);
       if (newUserJoinNotice != null) {
         _applyNewUserJoinNotice(
           newUserJoinNotice,
@@ -536,6 +482,62 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (tickDoneFromPush) {
       unawaited(_handleWorldTickDone());
     }
+  }
+
+  void _applyRecentChatLocationSelection(
+    WorldChatroomState state,
+    WorldDetail? world,
+  ) {
+    final selection = _recentChatLocationSelectionForState(state, world);
+    _recentChatLocationIds = selection == null
+        ? const <String>{}
+        : Set<String>.unmodifiable([selection.locationId]);
+    _recentChatLocationPathIds = selection?.pathIds ?? const <String>{};
+  }
+
+  ({String locationId, Set<String> pathIds})?
+  _recentChatLocationSelectionForState(
+    WorldChatroomState state,
+    WorldDetail? world,
+  ) {
+    if (world == null) return null;
+    final leafDescriptors = <String, WorldLocationChatPanelDescriptor>{
+      for (final descriptor in _locationChatDescriptors.values)
+        if (descriptor.isLeafLocation &&
+            descriptor.locationId.trim().isNotEmpty)
+          descriptor.locationId.trim(): descriptor,
+    };
+    final fallbackLeafLocationIds = world.processedLocationTree.flattened
+        .where((node) => node.children.isEmpty)
+        .map((node) => node.id);
+    final latestLocationId = latestChatLocationIdFromMessages(
+      allLocationsLoaded: _mapBubbleMessagesReady,
+      messagesByLocation: state.messagesByLocation,
+      allowedLocationIds: leafDescriptors.isNotEmpty
+          ? leafDescriptors.keys
+          : fallbackLeafLocationIds,
+    );
+    if (latestLocationId.isEmpty) return null;
+    final descriptorPath =
+        leafDescriptors[latestLocationId]?.recentChatLocationPathIds ??
+        const <String>[];
+    if (descriptorPath.isNotEmpty) {
+      return (
+        locationId: latestLocationId,
+        pathIds: Set<String>.unmodifiable(
+          worldOrderedNonEmptyStrings([...descriptorPath, latestLocationId]),
+        ),
+      );
+    }
+    return (
+      locationId: latestLocationId,
+      pathIds: Set<String>.unmodifiable(
+        _locationPathIdsForLocationId(
+          latestLocationId,
+          world.processedLocationTree,
+        ),
+      ),
+    );
   }
 
   WorldNewUserJoinNotice _newUserJoinNoticeFromEvent(
@@ -596,6 +598,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     if (mounted) {
       setState(() {
         _activeChatLocationId = '';
+        _recentChatLocationIds = const <String>{};
+        _recentChatLocationPathIds = const <String>{};
         _locationChatPageCache.clear();
         _replaceMapBubbleCandidates(const <WorldMapBubbleCandidate>[]);
       });
@@ -874,6 +878,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         _pendingProgressTickCount = result.tickCount > 0
             ? result.tickCount
             : null;
+        if (result.tickCount > 1) {
+          unawaited(_markLastTickActivityTag());
+        }
         GenesisTelemetry.collectLog(
           actionType: 'event',
           action: 'world_progress_submit_success',
@@ -918,6 +925,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         setState(() => _worldActionRunning = false);
       }
     }
+  }
+
+  Future<void> _markLastTickActivityTag() async {
+    final uid = await resolveRecentWorldChatUid(AppServicesScope.read(context));
+    await worldActivityTagStore.markLastTick(uid: uid, worldId: widget.wid);
   }
 
   bool _isWorldProgressInsufficientGems(Object error) {
@@ -1500,6 +1512,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       (locationId, _) => !descriptors.containsKey(locationId),
     );
     _mapBubbleMessagesReady = false;
+    _recentChatLocationIds = const <String>{};
+    _recentChatLocationPathIds = const <String>{};
     _scheduleLocationChatPrecache();
   }
 
@@ -1640,6 +1654,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         _replaceMapBubbleCandidates(
           _buildMapBubbleCandidates(chatroom.state, _world),
         );
+        _applyRecentChatLocationSelection(chatroom.state, _world);
       }
       return;
     }
@@ -1681,6 +1696,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           _replaceMapBubbleCandidates(
             _buildMapBubbleCandidates(chatroom.state, _world),
           );
+          _applyRecentChatLocationSelection(chatroom.state, _world);
         });
         _logLocationChatMetric(
           'map bubble messages ready locations=${expectedIds.length}',
@@ -1891,6 +1907,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             locationNodes: locationNodes,
             recentChatLocationIds: _recentChatLocationIds,
             onLocationTap: _handleBottomSheetLocationTap,
+            onDeleteWorld: _confirmAndDeleteWorldFromDetail,
           );
         },
       ).whenComplete(() {
@@ -2225,6 +2242,93 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
             ],
           );
         },
+      ),
+    );
+  }
+
+  Future<void> _confirmAndDeleteWorldFromDetail(
+    BuildContext actionContext,
+    WorldDetail world,
+  ) async {
+    final worldId = world.worldId.trim();
+    if (worldId.isEmpty ||
+        !worldCanDeleteLaunchedOnlyBySelf(world, _currentUid)) {
+      showGenesisToast(
+        actionContext,
+        'Only worlds launched by you alone can be deleted.',
+      );
+      return;
+    }
+
+    final confirmed = await showGenesisActionBox<bool>(
+      context: actionContext,
+      title: '',
+      titleWidget: _DeleteWorldConfirmationTitle(
+        name: world.name.trim().isEmpty ? worldId : world.name.trim(),
+        worldId: worldId,
+      ),
+      titleHeight: 104,
+      actions: const [
+        GenesisActionBoxAction<bool>(
+          label: 'Confirm',
+          value: true,
+          color: Color(0xFFFF2442),
+        ),
+      ],
+      cancelLabel: 'Cancel',
+    );
+    if (confirmed != true || !mounted || !actionContext.mounted) return;
+    final api = AppServicesScope.read(actionContext).api;
+
+    try {
+      await api.v1.world.deleteLaunched(worldId: worldId);
+      if (!mounted) return;
+      final bottomSheetContext = _worldBottomSheetContext;
+      if (bottomSheetContext != null && bottomSheetContext.mounted) {
+        Navigator.of(bottomSheetContext).maybePop();
+      }
+      Navigator.of(context).maybePop();
+    } catch (error) {
+      if (!actionContext.mounted) return;
+      showGenesisToast(actionContext, apiErrorMessage(error));
+    }
+  }
+}
+
+class _DeleteWorldConfirmationTitle extends StatelessWidget {
+  const _DeleteWorldConfirmationTitle({
+    required this.name,
+    required this.worldId,
+  });
+
+  static const _baseStyle = TextStyle(
+    color: Color(0xFF111111),
+    fontSize: 15,
+    height: 1.25,
+    fontWeight: FontWeight.w400,
+  );
+  static const _nameStyle = TextStyle(color: Color(0xFF4B6192));
+
+  final String name;
+  final String worldId;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedName = name.trim().isEmpty ? worldId : name.trim();
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Text.rich(
+          TextSpan(
+            style: _baseStyle,
+            children: [
+              const TextSpan(text: 'Are you sure you want to delete '),
+              TextSpan(text: resolvedName, style: _nameStyle),
+              TextSpan(text: '[$worldId]?'),
+            ],
+          ),
+          textAlign: TextAlign.center,
+        ),
       ),
     );
   }
