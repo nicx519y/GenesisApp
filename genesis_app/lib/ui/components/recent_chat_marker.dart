@@ -3,6 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../icons/custom_icon_assets.dart';
 
+const Color kRecentChatMarkerColor = Color(0xFF338960);
+
 class RecentChatTag extends StatelessWidget {
   const RecentChatTag({super.key, this.label = 'Last Message'});
 
@@ -84,9 +86,9 @@ class _RecentActivityTagStyle {
       default:
         return const _RecentActivityTagStyle(
           key: 'last-message',
-          foregroundColor: Color(0xFF008D68),
+          foregroundColor: kRecentChatMarkerColor,
           backgroundColor: Color(0xFFE8F5EF),
-          icon: RecentChatIcon(size: 10, color: Color(0xFF008D68)),
+          icon: RecentChatIcon(size: 10),
         );
     }
   }
@@ -95,7 +97,7 @@ class _RecentActivityTagStyle {
 class RecentChatIcon extends StatelessWidget {
   const RecentChatIcon({
     super.key,
-    this.color = const Color(0xFF008D68),
+    this.color = kRecentChatMarkerColor,
     this.size = 13,
   });
 
@@ -107,7 +109,7 @@ class RecentChatIcon extends StatelessWidget {
     return Semantics(
       label: 'Recent chat',
       child: SvgPicture.asset(
-        bottomNavMessagesIconAsset,
+        connectStatIconAsset,
         width: size,
         height: size,
         colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
