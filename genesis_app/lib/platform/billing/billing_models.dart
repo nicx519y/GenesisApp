@@ -61,6 +61,9 @@ class BillingStoreProduct {
     this.purchaseOptionId,
     this.offerId,
     this.offerToken,
+    this.formattedPrice = '',
+    this.priceAmountMicros = 0,
+    this.priceCurrencyCode = '',
   });
 
   final String id;
@@ -69,6 +72,9 @@ class BillingStoreProduct {
   final String? purchaseOptionId;
   final String? offerId;
   final String? offerToken;
+  final String formattedPrice;
+  final int priceAmountMicros;
+  final String priceCurrencyCode;
 }
 
 @immutable

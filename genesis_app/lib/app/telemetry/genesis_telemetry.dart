@@ -70,6 +70,8 @@ class GenesisTelemetryEvent {
     required this.context,
     this.level = GenesisTelemetryLevel.info,
     this.capture = true,
+    this.collectPayload,
+    this.includeCollectIdentityHeaders = true,
   });
 
   final String name;
@@ -78,6 +80,8 @@ class GenesisTelemetryEvent {
   final GenesisTelemetryContext context;
   final GenesisTelemetryLevel level;
   final bool capture;
+  final Map<String, Object?>? collectPayload;
+  final bool includeCollectIdentityHeaders;
 
   Map<String, Object?> get fullData => <String, Object?>{
     ...context.toMap(),
@@ -304,11 +308,17 @@ class CollectGenesisTelemetrySink implements GenesisTelemetrySink {
 
   @override
   Future<void> record(GenesisTelemetryEvent event) async {
-    if (!event.capture || event.category != 'collect.log') return;
+    if (!event.capture) return;
+    final payload = event.category == 'collect.log'
+        ? _collectLogPayload(event.data)
+        : _collectLogPayload(event.collectPayload ?? const {});
+    if (payload.isEmpty) return;
     await _safeCollectCall(
       () => _client.collect(
-        _collectLogPayload(event.data),
-        headers: _collectHeaders(),
+        payload,
+        headers: _collectHeaders(
+          includeIdentity: event.includeCollectIdentityHeaders,
+        ),
       ),
     );
   }
@@ -329,13 +339,13 @@ class CollectGenesisTelemetrySink implements GenesisTelemetrySink {
     // Collect is reserved for product behavior logs.
   }
 
-  Map<String, String> _collectHeaders() {
+  Map<String, String> _collectHeaders({required bool includeIdentity}) {
     return <String, String>{
       for (final entry in <String, String?>{
         'X-Platform': _collectPlatformHeaderValue(_context.platform),
-        'X-Device-ID': _context.deviceId,
         'X-App-Version': _context.appVersion,
-        'X-UID': _userId,
+        if (includeIdentity) 'X-Device-ID': _context.deviceId,
+        if (includeIdentity) 'X-UID': _userId,
       }.entries)
         if ((entry.value ?? '').trim().isNotEmpty)
           entry.key: entry.value!.trim(),
@@ -424,6 +434,8 @@ class GenesisTelemetry {
     Map<String, Object?> data = const <String, Object?>{},
     GenesisTelemetryLevel level = GenesisTelemetryLevel.info,
     bool capture = true,
+    Map<String, Object?>? collectPayload,
+    bool includeCollectIdentityHeaders = true,
   }) {
     if (!_enabled) return;
     unawaited(
@@ -435,6 +447,8 @@ class GenesisTelemetry {
           context: _context,
           level: level,
           capture: capture,
+          collectPayload: collectPayload,
+          includeCollectIdentityHeaders: includeCollectIdentityHeaders,
         ),
       ),
     );

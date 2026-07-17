@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
+import 'package:genesis_flutter_android/platform/billing/billing_analytics.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/platform/billing/google_play_billing_platform.dart';
@@ -75,11 +76,45 @@ class _FakeBillingPlatform implements BillingPlatform {
   Future<void> close() => _controller.close();
 }
 
+class _BillingAnalyticsRecord {
+  const _BillingAnalyticsRecord(this.action, this.properties);
+
+  final String action;
+  final Map<String, Object?> properties;
+}
+
+class _FakeBillingAnalytics implements BillingAnalytics {
+  final records = <_BillingAnalyticsRecord>[];
+
+  @override
+  void track(
+    String action, {
+    Map<String, Object?> properties = const <String, Object?>{},
+  }) {
+    records.add(_BillingAnalyticsRecord(action, Map.of(properties)));
+  }
+}
+
+class _ControllablePendingPurchaseStore
+    extends MemoryBillingPendingPurchaseStore {
+  bool failNextUpsert = false;
+
+  @override
+  Future<void> upsert(BillingPendingPurchase purchase) async {
+    if (failNextUpsert) {
+      failNextUpsert = false;
+      throw StateError('local write failed');
+    }
+    await super.upsert(purchase);
+  }
+}
+
 void main() {
   late _FakeBillingPlatform platform;
-  late MemoryBillingPendingPurchaseStore pendingStore;
+  late _ControllablePendingPurchaseStore pendingStore;
   late List<GemPurchaseReportRequest> reports;
   late List<BillingUiEvent> uiEvents;
+  late _FakeBillingAnalytics analytics;
   late GooglePlayBillingService service;
   var refreshCount = 0;
   var reportError = false;
@@ -87,9 +122,10 @@ void main() {
 
   setUp(() {
     platform = _FakeBillingPlatform();
-    pendingStore = MemoryBillingPendingPurchaseStore();
+    pendingStore = _ControllablePendingPurchaseStore();
     reports = <GemPurchaseReportRequest>[];
     uiEvents = <BillingUiEvent>[];
+    analytics = _FakeBillingAnalytics();
     refreshCount = 0;
     reportError = false;
     reportStatus = GemPurchaseReportStatus.completed;
@@ -110,6 +146,7 @@ void main() {
       },
       refreshWallet: () async => refreshCount += 1,
       readUid: () async => 'u_1',
+      analytics: analytics,
     );
     service.events.listen(uiEvents.add);
   });
@@ -141,6 +178,13 @@ void main() {
     platform.emit(_purchase(BillingPurchaseStatus.purchased));
     await _settle();
     expect(reports, hasLength(1));
+    expect(
+      analytics.records
+          .where((record) => record.action == 'duplicate_callback_ignored')
+          .single
+          .properties['reason'],
+      'already_completed',
+    );
   });
 
   test('pending callback does not persist a paid purchase', () async {
@@ -150,6 +194,76 @@ void main() {
 
     expect(await pendingStore.loadAll(), isEmpty);
     expect(uiEvents.single.kind, BillingUiEventKind.pending);
+    expect(
+      analytics.records
+          .where((record) => record.action == 'store_callback')
+          .single
+          .properties['purchase_status'],
+      'pending',
+    );
+  });
+
+  test(
+    'product query failure is tracked and does not launch billing',
+    () async {
+      platform.queryResult = const BillingProductQueryResult.failure(
+        'offer_not_available',
+      );
+
+      await service.purchaseGem(_product);
+
+      expect(platform.buyCount, 0);
+      final result = analytics.records.singleWhere(
+        (record) => record.action == 'product_query_result',
+      );
+      expect(result.properties['result'], 'failure');
+      expect(result.properties['error_code'], 'offer_not_available');
+      expect(
+        analytics.records
+            .where((record) => record.action == 'flow_result')
+            .single
+            .properties['status'],
+        'query_failed',
+      );
+    },
+  );
+
+  test('billing launch rejection is tracked', () async {
+    platform.buyAccepted = false;
+
+    await service.purchaseGem(_product);
+
+    final result = analytics.records.singleWhere(
+      (record) => record.action == 'purchase_launch_result',
+    );
+    expect(result.properties['result'], 'failure');
+    expect(result.properties['status'], 'rejected');
+    expect(
+      analytics.records
+          .where((record) => record.action == 'flow_result')
+          .single
+          .properties['status'],
+      'launch_rejected',
+    );
+  });
+
+  test('local order write failure is tracked and blocks report', () async {
+    pendingStore.failNextUpsert = true;
+
+    await service.purchaseGem(_product);
+    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    await _settle();
+
+    expect(reports, isEmpty);
+    expect(await pendingStore.loadAll(), isEmpty);
+    final persistence = analytics.records.singleWhere(
+      (record) =>
+          record.action == 'local_order_persist_result' &&
+          record.properties['operation'] == 'insert_received',
+    );
+    expect(persistence.properties['result'], 'failure');
+    expect(persistence.properties['error_code'], 'local_save_failed');
+    expect(uiEvents.last.kind, BillingUiEventKind.deferred);
   });
 
   test('server report failure keeps the received purchase for retry', () async {
@@ -165,7 +279,95 @@ void main() {
     expect(uiEvents, hasLength(2));
     expect(uiEvents.first.kind, BillingUiEventKind.processing);
     expect(uiEvents.last.kind, BillingUiEventKind.deferred);
+
+    reportError = false;
+    await service.recover(BillingRecoverySource.foreground);
+    await _settle();
+
+    expect(reports, hasLength(2));
+    final starts = analytics.records
+        .where((record) => record.action == 'report_start')
+        .toList(growable: false);
+    expect(starts, hasLength(2));
+    expect(starts.first.properties['report_type'], 'initial');
+    expect(starts.first.properties['trigger'], 'direct');
+    expect(starts.first.properties['retry_count'], 0);
+    expect(starts.last.properties['report_type'], 'retry');
+    expect(starts.last.properties['trigger'], 'foreground');
+    expect(starts.last.properties['retry_count'], 1);
+    expect(
+      analytics.records.any((record) => record.action == 'recovery_start'),
+      isTrue,
+    );
+    expect(
+      analytics.records.any((record) => record.action == 'recovery_result'),
+      isTrue,
+    );
   });
+
+  test(
+    'records the purchase, persistence, and report telemetry stages',
+    () async {
+      platform.queryResult = BillingProductQueryResult.success(
+        const BillingStoreProduct(
+          id: 'worldo_gems_500',
+          type: BillingStoreProductType.inApp,
+          nativeProduct: Object(),
+          purchaseOptionId: '500-gems-new',
+          offerId: '500-gems-new-discount',
+          offerToken: 'sensitive-offer-token',
+          formattedPrice: r'$1.49',
+          priceAmountMicros: 1490000,
+          priceCurrencyCode: 'USD',
+        ),
+      );
+
+      await service.purchaseGem(_product);
+      platform.emit(_purchase(BillingPurchaseStatus.purchased));
+      await _settle();
+
+      final actions = analytics.records.map((record) => record.action).toList();
+      expect(
+        actions,
+        containsAllInOrder(<String>[
+          'product_click',
+          'purchase_precheck_result',
+          'product_query_start',
+          'product_query_result',
+          'purchase_launch_start',
+          'purchase_launch_result',
+          'store_callback',
+          'local_order_persist_result',
+          'report_start',
+          'report_result',
+          'local_order_persist_result',
+          'flow_result',
+        ]),
+      );
+      final launch = analytics.records.singleWhere(
+        (record) => record.action == 'purchase_launch_start',
+      );
+      expect(launch.properties['product_id'], 'gem_pack_500');
+      expect(launch.properties['purchase_option_id'], '500-gems-new');
+      expect(launch.properties['offer_id'], '500-gems-new-discount');
+      expect(launch.properties['offer_token_present'], isTrue);
+      expect(launch.properties['billing_account_id_present'], isTrue);
+      expect(launch.properties['formatted_price'], r'$1.49');
+
+      final serialized = analytics.records
+          .expand((record) => record.properties.entries)
+          .map((entry) => '${entry.key}=${entry.value}')
+          .join('|');
+      expect(serialized, isNot(contains('purchase-token-1')));
+      expect(serialized, isNot(contains('sensitive-offer-token')));
+      expect(
+        serialized,
+        isNot(contains('4b74ec68-7abc-4cce-a223-e997e31dc811')),
+      );
+      expect(serialized, isNot(contains('GPA.1')));
+      expect(serialized, isNot(contains('original_json')));
+    },
+  );
 
   test('accepted is terminal for report and waits for the server', () async {
     reportStatus = GemPurchaseReportStatus.accepted;

@@ -118,6 +118,12 @@ class GooglePlayBillingPlatform implements BillingPlatform {
             purchaseOptionId: selectedOffer?.purchaseOptionId,
             offerId: selectedOffer?.offerId,
             offerToken: selectedOffer?.offerToken,
+            formattedPrice: selectedOffer?.formattedPrice ?? product.price,
+            priceAmountMicros:
+                selectedOffer?.priceAmountMicros ??
+                (product.rawPrice * 1000000).round(),
+            priceCurrencyCode:
+                selectedOffer?.priceCurrencyCode ?? product.currencyCode,
           ),
         );
       }
