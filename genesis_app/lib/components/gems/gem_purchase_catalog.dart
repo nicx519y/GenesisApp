@@ -282,10 +282,13 @@ class GemProductCard extends StatelessWidget {
                       ),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: isSoldOut
-                            ? const Color(0xFFFF9AAA)
-                            : kGemAccentColor,
+                        color: isSoldOut ? Colors.transparent : Colors.white,
                         borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isSoldOut
+                              ? kGemSoldOutBorderColor
+                              : kGemAccentColor,
+                        ),
                       ),
                       child: isBuying && !isSoldOut
                           ? const SizedBox(
@@ -293,7 +296,7 @@ class GemProductCard extends StatelessWidget {
                               height: 13,
                               child: CircularProgressIndicator(
                                 strokeWidth: 1.8,
-                                color: Colors.white,
+                                color: kGemAccentColor,
                               ),
                             )
                           : FittedBox(
@@ -306,11 +309,13 @@ class GemProductCard extends StatelessWidget {
                                         product.priceCurrencyCode,
                                       ),
                                 maxLines: 1,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   height: 14 / 12,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.white,
+                                  color: isSoldOut
+                                      ? kGemSoldOutForegroundColor
+                                      : kGemAccentColor,
                                 ),
                               ),
                             ),

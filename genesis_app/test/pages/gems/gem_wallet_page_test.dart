@@ -74,7 +74,12 @@ void main() {
     );
     final taskButtonDecoration =
         tester.widget<Container>(taskButton).decoration! as BoxDecoration;
-    expect(taskButtonDecoration.color, const Color(0xFFAD403B));
+    expect(taskButtonDecoration.color, Colors.transparent);
+    expect(taskButtonDecoration.border, isNull);
+    expect(
+      tester.widget<Text>(find.text('Go')).style?.color,
+      const Color(0xFF338960),
+    );
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-icon'))).dx,
       tester
@@ -898,6 +903,69 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('daily check-in skips stale red Check in transition', (
+    tester,
+  ) async {
+    final refreshedTasks = Completer<List<GemTaskGroup>>();
+    var tasksLoadCount = 0;
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    addTearDown(walletStore.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          productsLoader: (_) async => const [],
+          tasksLoader: (_) {
+            tasksLoadCount += 1;
+            if (tasksLoadCount == 1) {
+              return Future.value([
+                _taskGroup(
+                  _task(
+                    taskCode: 'daily_checkin',
+                    status: 'in_progress',
+                    actionText: 'Check in',
+                  ),
+                ),
+              ]);
+            }
+            return refreshedTasks.future;
+          },
+          taskReporter: (_) async =>
+              const GemTaskActionResult(status: 'claimable'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('gem-task-action-daily_checkin')),
+    );
+    await tester.pump();
+
+    expect(find.text('Check in'), findsNothing);
+    expect(find.text('Claim'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.text('Claim')).style?.color,
+      const Color(0xFFFF2442),
+    );
+
+    refreshedTasks.complete([
+      _taskGroup(
+        _task(
+          taskCode: 'daily_checkin',
+          status: 'claimable',
+          actionText: 'Claim',
+        ),
+      ),
+    ]);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('task reporting shows task-specific failure messages', (
     tester,
   ) async {
@@ -1112,6 +1180,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final claimButton = find.descendant(
+      of: find.byKey(const ValueKey<String>('gem-task-action-discord_follow')),
+      matching: find.byType(Container),
+    );
+    final claimButtonDecoration =
+        tester.widget<Container>(claimButton).decoration! as BoxDecoration;
+    expect(claimButtonDecoration.color, Colors.transparent);
+    expect(claimButtonDecoration.border, isNull);
+    expect(
+      tester.widget<Text>(find.text('Claim')).style?.color,
+      const Color(0xFFFF2442),
+    );
+
     final row = find.byKey(
       const ValueKey<String>('gem-join-us-row-discord_follow'),
     );
@@ -1166,7 +1247,12 @@ void main() {
     );
     final claimedButtonDecoration =
         tester.widget<Container>(claimedButton).decoration! as BoxDecoration;
-    expect(claimedButtonDecoration.color, const Color(0xFFD6A09D));
+    expect(claimedButtonDecoration.color, Colors.transparent);
+    expect(claimedButtonDecoration.border, isNull);
+    expect(
+      tester.widget<Text>(find.text('Claimed')).style?.color,
+      const Color(0xFFD47B89),
+    );
 
     await tester.tap(
       find.byKey(const ValueKey<String>('gem-task-action-discord_follow')),

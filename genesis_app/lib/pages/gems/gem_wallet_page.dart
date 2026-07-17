@@ -974,9 +974,19 @@ class _TaskActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled =
         !isLoading && (status == 'in_progress' || status == 'claimable');
-    final color = status == 'claimed'
-        ? kGemTaskActionDisabledColor
-        : kGemTaskActionColor;
+    final foregroundColor = switch (status) {
+      'claimable' => kGemAccentColor,
+      'in_progress' => kGemTaskProgressForegroundColor,
+      'claimed' => kGemTaskClaimedForegroundColor,
+      _ => kGemTaskActionColor,
+    };
+    final actionText = status == task.status
+        ? task.actionText
+        : switch (status) {
+            'claimable' => 'Claim',
+            'claimed' => 'Claimed',
+            _ => task.actionText,
+          };
     return Semantics(
       button: true,
       enabled: enabled,
@@ -989,18 +999,18 @@ class _TaskActionButton extends StatelessWidget {
           height: height,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: color,
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(borderRadius),
           ),
           child: Text(
-            task.actionText,
+            actionText,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
               height: textHeight,
               fontWeight: FontWeight.w600,
-              color: Colors.white,
+              color: foregroundColor,
             ),
           ),
         ),

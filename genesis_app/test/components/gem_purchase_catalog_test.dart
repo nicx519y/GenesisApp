@@ -78,7 +78,16 @@ void main() {
     expect(priceStyle?.fontSize, 12);
     expect(priceStyle?.height, 14 / 12);
     expect(priceStyle?.fontWeight, FontWeight.w600);
-    expect(priceStyle?.color, Colors.white);
+    expect(priceStyle?.color, const Color(0xFFFF2442));
+    final priceDecoration =
+        tester
+                .widget<Container>(
+                  find.byKey(const ValueKey('gem-product-price-gem_pack_500')),
+                )
+                .decoration!
+            as BoxDecoration;
+    expect(priceDecoration.color, Colors.white);
+    expect(priceDecoration.border, isNotNull);
     expect(
       tester.getSize(
         find.byKey(const ValueKey<String>('gem-product-icon-gem_pack_500')),
@@ -197,7 +206,13 @@ void main() {
     );
     expect(
       (soldOutButton.decoration as BoxDecoration).color,
-      const Color(0xFFFF9AAA),
+      Colors.transparent,
+    );
+    final soldOutDecoration = soldOutButton.decoration! as BoxDecoration;
+    expect(soldOutDecoration.border, isNotNull);
+    expect(
+      tester.widget<Text>(find.text('Sold Out')).style?.color,
+      const Color(0xFFD47B89),
     );
   });
 
