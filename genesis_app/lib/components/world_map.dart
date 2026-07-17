@@ -144,8 +144,6 @@ class WorldMap extends StatefulWidget {
 }
 
 class _WorldMapState extends State<WorldMap> {
-  ScrollController? _horizontalScrollController;
-  ScrollController? _verticalScrollController;
   final List<_WorldMapLocationTrailEntry> _locationTrail =
       <_WorldMapLocationTrailEntry>[];
   final Set<String> _pendingLocationTapKeys = <String>{};
@@ -161,7 +159,6 @@ class _WorldMapState extends State<WorldMap> {
   List<WorldMapMessageBubble> _visibleMessageBubblesForPlayback =
       const <WorldMapMessageBubble>[];
   String _lastLoggedLocationTreeSignature = '';
-  String _scrollControllerSignature = '';
   WorldMapHorizontalPanState? _lastHorizontalPanState;
   Object? _activeZoomControlToken;
   void Function(double delta)? _zoomByControl;
@@ -209,9 +206,6 @@ class _WorldMapState extends State<WorldMap> {
   @override
   void dispose() {
     _stopMessageBubblePlayback();
-    _horizontalScrollController?.removeListener(_notifyHorizontalPanState);
-    _horizontalScrollController?.dispose();
-    _verticalScrollController?.dispose();
     super.dispose();
   }
 
@@ -291,184 +285,101 @@ class _WorldMapState extends State<WorldMap> {
           visiblePoints,
           devicePixelRatio: devicePixelRatio,
         );
-        final mapIsZoomed =
-            _mapZoomScale > _ZoomableMapContent.minScale + 0.001;
         final mapKeyId = _locationTrail.isEmpty
             ? '__world_root__'
             : _locationTrail.last.id;
         final mapKey = ValueKey<String>(mapKeyId);
         final initialFocus = _worldMapInitialZoomFocusForPoints(visiblePoints);
+        final visibleViewportSize = Size(
+          constraints.maxWidth,
+          constraints.hasBoundedHeight
+              ? constraints.maxHeight
+              : viewport.height,
+        );
         final initialTransformKey = [
           mapKeyId,
           currentMapImageUrl,
           widget.initialZoomScale.toStringAsFixed(3),
+          visibleViewportSize.width.toStringAsFixed(2),
+          visibleViewportSize.height.toStringAsFixed(2),
+          viewport.width.toStringAsFixed(2),
+          viewport.height.toStringAsFixed(2),
         ].join('|');
-        final horizontalViewportCrop = math.max(
-          0,
-          (viewport.width - constraints.maxWidth) / 2,
-        );
-        final verticalViewportCrop = math.max(
-          0,
-          (viewport.height - constraints.maxHeight) / 2,
-        );
-        final zoomBoundaryMargin = EdgeInsets.symmetric(
-          horizontal: horizontalViewportCrop / _mapZoomScale,
-          vertical: verticalViewportCrop / _mapZoomScale,
-        );
-        _syncMapScrollControllers(
-          signature:
-              '$currentMapImageUrl|$mapKeyId|${constraints.maxWidth}|${constraints.maxHeight}|${viewport.width}|${viewport.height}',
-          horizontalInitialOffset: _centerScrollOffset(
-            contentExtent: viewport.width,
-            viewportExtent: constraints.maxWidth,
-          ),
-          verticalInitialOffset: _centerScrollOffset(
-            contentExtent: viewport.height,
-            viewportExtent: constraints.maxHeight,
-          ),
-        );
-        _scheduleHorizontalPanStateNotification();
-        final verticalScrollController = _verticalScrollController!;
-        final horizontalScrollController = _horizontalScrollController!;
         return Stack(
           children: [
             Positioned.fill(
-              child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(
-                  context,
-                ).copyWith(overscroll: false),
-                child: SingleChildScrollView(
-                  controller: verticalScrollController,
-                  primary: false,
-                  scrollDirection: Axis.vertical,
-                  physics:
-                      !mapIsZoomed &&
-                          viewport.height > constraints.maxHeight + 0.5
-                      ? const ClampingScrollPhysics()
-                      : const NeverScrollableScrollPhysics(),
-                  child: SizedBox(
-                    height: viewport.height,
-                    child: SingleChildScrollView(
-                      controller: horizontalScrollController,
-                      primary: false,
-                      scrollDirection: Axis.horizontal,
-                      physics:
-                          !mapIsZoomed &&
-                              viewport.width > constraints.maxWidth + 0.5
-                          ? const ClampingScrollPhysics()
-                          : const NeverScrollableScrollPhysics(),
-                      child: SizedBox(
-                        key: const ValueKey<String>('world-map-scaled-content'),
-                        width: viewport.width,
-                        height: viewport.height,
-                        child: _WorldMapTransitionSurface(
-                          mapKey: mapKey,
-                          transition: _mapTransition,
-                          child: Stack(
-                            children: [
-                              Positioned(
-                                left: viewport.left,
-                                top: viewport.top,
-                                width: viewport.width,
-                                height: viewport.height,
-                                child: _ZoomableMapContent(
-                                  background: _MapBackgroundDeck(
-                                    currentUrl: backgroundUrl,
-                                    previewUrl: backgroundPreviewUrl,
-                                    preloadUrls: preloadMapImageUrls,
-                                    preloadAvatarUrls: preloadAvatarUrls,
-                                    fallbackOnEmptyUrl:
-                                        widget.fallbackOnEmptyMapUrl,
-                                  ),
-                                  initialScale: widget.initialZoomScale,
-                                  initialFocus: initialFocus,
-                                  initialTransformKey: initialTransformKey,
-                                  initialViewportSize: Size(
-                                    viewport.width,
-                                    viewport.height,
-                                  ),
-                                  boundaryMargin: zoomBoundaryMargin,
-                                  overlayBuilder:
-                                      (
-                                        context,
-                                        transform,
-                                        onOverlayPointerDown,
-                                      ) => Stack(
-                                        fit: StackFit.expand,
-                                        children: [
-                                          IgnorePointer(
-                                            ignoring: widget.showPointsList,
-                                            child: Opacity(
-                                              opacity: widget.showPointsList
-                                                  ? 0.6
-                                                  : 1,
-                                              child: Stack(
-                                                children: [
-                                                  for (final p in visiblePoints)
-                                                    _WorldPointPositioned(
-                                                      point: p,
-                                                      showRecentChatIcon:
-                                                          _pointMatchesLocationIds(
-                                                            p,
-                                                            widget
-                                                                .recentChatMapLocationIds,
-                                                          ),
-                                                      width: viewport.width,
-                                                      height: viewport.height,
-                                                      transform: transform,
-                                                      enableAvatarScaleReboundHint:
-                                                          widget
-                                                              .enableAvatarScaleReboundHint,
-                                                      onPointerDown:
-                                                          onOverlayPointerDown,
-                                                      onTap: _pointTapHandler(
-                                                        p,
-                                                      ),
-                                                    ),
-                                                  if (activeBubble != null)
-                                                    for (final p
-                                                        in visiblePoints)
-                                                      _WorldPointMessageBubblePositioned(
-                                                        point: p,
-                                                        width: viewport.width,
-                                                        height: viewport.height,
-                                                        transform: transform,
-                                                        messageBubble:
-                                                            _bubbleForPoint(
-                                                              p,
-                                                              activeBubble,
-                                                            ),
-                                                      ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                          IgnorePointer(
-                                            child: AnimatedContainer(
-                                              duration: const Duration(
-                                                milliseconds: 220,
-                                              ),
-                                              color: widget.dimmed
-                                                  ? Colors.black.withValues(
-                                                      alpha: 0.08,
-                                                    )
-                                                  : Colors.transparent,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                  onMapTap: widget.onMapTap,
-                                  onScaleChanged: _handleMapZoomScaleChanged,
-                                  onZoomControlChanged:
-                                      _handleZoomControlChanged,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+              child: _WorldMapTransitionSurface(
+                mapKey: mapKey,
+                transition: _mapTransition,
+                child: _ZoomableMapContent(
+                  background: _MapBackgroundDeck(
+                    currentUrl: backgroundUrl,
+                    previewUrl: backgroundPreviewUrl,
+                    preloadUrls: preloadMapImageUrls,
+                    preloadAvatarUrls: preloadAvatarUrls,
+                    fallbackOnEmptyUrl: widget.fallbackOnEmptyMapUrl,
                   ),
+                  contentSize: Size(viewport.width, viewport.height),
+                  initialScale: widget.initialZoomScale,
+                  initialFocus: initialFocus,
+                  initialTransformKey: initialTransformKey,
+                  initialViewportSize: visibleViewportSize,
+                  overlayBuilder: (context, transform, onOverlayPointerDown) =>
+                      Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          IgnorePointer(
+                            ignoring: widget.showPointsList,
+                            child: Opacity(
+                              opacity: widget.showPointsList ? 0.6 : 1,
+                              child: Stack(
+                                children: [
+                                  for (final p in visiblePoints)
+                                    _WorldPointPositioned(
+                                      point: p,
+                                      showRecentChatIcon:
+                                          _pointMatchesLocationIds(
+                                            p,
+                                            widget.recentChatMapLocationIds,
+                                          ),
+                                      width: viewport.width,
+                                      height: viewport.height,
+                                      transform: transform,
+                                      enableAvatarScaleReboundHint:
+                                          widget.enableAvatarScaleReboundHint,
+                                      onPointerDown: onOverlayPointerDown,
+                                      onTap: _pointTapHandler(p),
+                                    ),
+                                  if (activeBubble != null)
+                                    for (final p in visiblePoints)
+                                      _WorldPointMessageBubblePositioned(
+                                        point: p,
+                                        width: viewport.width,
+                                        height: viewport.height,
+                                        transform: transform,
+                                        messageBubble: _bubbleForPoint(
+                                          p,
+                                          activeBubble,
+                                        ),
+                                      ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          IgnorePointer(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              color: widget.dimmed
+                                  ? Colors.black.withValues(alpha: 0.08)
+                                  : Colors.transparent,
+                            ),
+                          ),
+                        ],
+                      ),
+                  onMapTap: widget.onMapTap,
+                  onScaleChanged: _handleMapZoomScaleChanged,
+                  onHorizontalPanStateChanged: _handleHorizontalPanStateChanged,
+                  onZoomControlChanged: _handleZoomControlChanged,
                 ),
               ),
             ),
@@ -549,7 +460,19 @@ class _WorldMapState extends State<WorldMap> {
     } else if (mounted) {
       setState(() {});
     }
-    _scheduleHorizontalPanStateNotification();
+  }
+
+  void _handleHorizontalPanStateChanged(WorldMapHorizontalPanState state) {
+    final callback = widget.onHorizontalPanStateChanged;
+    if (callback == null) return;
+    final previousState = _lastHorizontalPanState;
+    if (previousState != null &&
+        previousState.canScrollLeft == state.canScrollLeft &&
+        previousState.canScrollRight == state.canScrollRight) {
+      return;
+    }
+    _lastHorizontalPanState = state;
+    callback(state);
   }
 
   void _handleZoomControlChanged(
@@ -959,86 +882,6 @@ class _WorldMapState extends State<WorldMap> {
         .toList(growable: false);
   }
 
-  void _syncMapScrollControllers({
-    required String signature,
-    required double horizontalInitialOffset,
-    required double verticalInitialOffset,
-  }) {
-    if (_scrollControllerSignature == signature &&
-        _horizontalScrollController != null &&
-        _verticalScrollController != null) {
-      return;
-    }
-
-    final previousHorizontalController = _horizontalScrollController;
-    final previousVerticalController = _verticalScrollController;
-    previousHorizontalController?.removeListener(_notifyHorizontalPanState);
-
-    final horizontalController = ScrollController(
-      initialScrollOffset: horizontalInitialOffset,
-    );
-    horizontalController.addListener(_notifyHorizontalPanState);
-    _horizontalScrollController = horizontalController;
-    _verticalScrollController = ScrollController(
-      initialScrollOffset: verticalInitialOffset,
-    );
-    _scrollControllerSignature = signature;
-    _lastHorizontalPanState = null;
-
-    if (previousHorizontalController != null ||
-        previousVerticalController != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        previousHorizontalController?.dispose();
-        previousVerticalController?.dispose();
-      });
-    }
-  }
-
-  double _centerScrollOffset({
-    required double contentExtent,
-    required double viewportExtent,
-  }) {
-    return math.max(0, (contentExtent - viewportExtent) / 2);
-  }
-
-  void _scheduleHorizontalPanStateNotification() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _notifyHorizontalPanState();
-    });
-  }
-
-  void _notifyHorizontalPanState() {
-    final callback = widget.onHorizontalPanStateChanged;
-    if (callback == null) return;
-
-    var canScrollLeft = false;
-    var canScrollRight = false;
-    final mapIsZoomed = _mapZoomScale > _ZoomableMapContent.minScale + 0.001;
-    final horizontalScrollController = _horizontalScrollController;
-    if (mapIsZoomed) {
-      canScrollLeft = true;
-      canScrollRight = true;
-    } else if (horizontalScrollController != null &&
-        horizontalScrollController.hasClients) {
-      final position = horizontalScrollController.position;
-      canScrollLeft = position.pixels > position.minScrollExtent + 0.5;
-      canScrollRight = position.pixels < position.maxScrollExtent - 0.5;
-    }
-
-    final nextState = WorldMapHorizontalPanState(
-      canScrollLeft: canScrollLeft,
-      canScrollRight: canScrollRight,
-    );
-    final previousState = _lastHorizontalPanState;
-    if (previousState != null &&
-        previousState.canScrollLeft == nextState.canScrollLeft &&
-        previousState.canScrollRight == nextState.canScrollRight) {
-      return;
-    }
-    _lastHorizontalPanState = nextState;
-    callback(nextState);
-  }
-
   Size _mapDesignSize(String mapImageUrl) {
     const fallbackSize = Size(1024, 1536);
     final url = mapImageUrl.trim();
@@ -1151,15 +994,8 @@ class _WorldMapState extends State<WorldMap> {
 }
 
 class _MapViewport {
-  const _MapViewport({
-    required this.left,
-    required this.top,
-    required this.width,
-    required this.height,
-  });
+  const _MapViewport({required this.width, required this.height});
 
-  final double left;
-  final double top;
   final double width;
   final double height;
 
@@ -1175,7 +1011,7 @@ class _MapViewport {
     final width = designWidth * scale;
     final height = designHeight * scale;
 
-    return _MapViewport(left: 0, top: 0, width: width, height: height);
+    return _MapViewport(width: width, height: height);
   }
 }
 
@@ -1563,14 +1399,15 @@ typedef _ZoomControlChanged =
 class _ZoomableMapContent extends StatefulWidget {
   const _ZoomableMapContent({
     required this.background,
+    required this.contentSize,
     required this.initialScale,
     required this.initialFocus,
     required this.initialTransformKey,
     required this.initialViewportSize,
-    required this.boundaryMargin,
     required this.overlayBuilder,
     required this.onMapTap,
     required this.onScaleChanged,
+    required this.onHorizontalPanStateChanged,
     required this.onZoomControlChanged,
   });
 
@@ -1579,14 +1416,15 @@ class _ZoomableMapContent extends StatefulWidget {
   static const double doubleTapScale = 1.5;
 
   final Widget background;
+  final Size contentSize;
   final double initialScale;
   final Offset? initialFocus;
   final String initialTransformKey;
   final Size initialViewportSize;
-  final EdgeInsets boundaryMargin;
   final _MapOverlayBuilder overlayBuilder;
   final VoidCallback? onMapTap;
   final ValueChanged<double> onScaleChanged;
+  final ValueChanged<WorldMapHorizontalPanState> onHorizontalPanStateChanged;
   final _ZoomControlChanged onZoomControlChanged;
 
   @override
@@ -1616,8 +1454,11 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
     _transformationController = TransformationController(
       _initialTransformForSize(widget.initialViewportSize),
     );
-    _transformationController.addListener(_notifyScaleChanged);
+    _transformationController.addListener(_notifyTransformChanged);
     widget.onZoomControlChanged(_zoomControlToken, zoomByControl);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _notifyHorizontalPanState();
+    });
   }
 
   @override
@@ -1635,13 +1476,36 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   @override
   void dispose() {
     widget.onZoomControlChanged(_zoomControlToken, null);
-    _transformationController.removeListener(_notifyScaleChanged);
+    _transformationController.removeListener(_notifyTransformChanged);
     _transformationController.dispose();
     super.dispose();
   }
 
-  void _notifyScaleChanged() {
+  void _notifyTransformChanged() {
     widget.onScaleChanged(_transformationController.value.getMaxScaleOnAxis());
+    _notifyHorizontalPanState();
+  }
+
+  void _notifyHorizontalPanState() {
+    if (!mounted) return;
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.attached) return;
+    final viewportSize = renderObject.size;
+    if (viewportSize.isEmpty || widget.contentSize.isEmpty) return;
+
+    final matrix = _transformationController.value;
+    final scale = matrix.getMaxScaleOnAxis();
+    final translationX = matrix.storage[12];
+    final minX = math.min(
+      0.0,
+      viewportSize.width - widget.contentSize.width * scale,
+    );
+    widget.onHorizontalPanStateChanged(
+      WorldMapHorizontalPanState(
+        canScrollLeft: translationX < -0.5,
+        canScrollRight: translationX > minX + 0.5,
+      ),
+    );
   }
 
   void _applyInitialTransform(Size size) {
@@ -1652,7 +1516,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
     final scale = widget.initialScale
         .clamp(_ZoomableMapContent.minScale, _ZoomableMapContent.maxScale)
         .toDouble();
-    if (size.isEmpty || scale <= _ZoomableMapContent.minScale + 0.001) {
+    if (size.isEmpty || widget.contentSize.isEmpty) {
       return Matrix4.identity();
     }
 
@@ -1662,8 +1526,8 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
       focus.dy.clamp(0.0, 1.0).toDouble(),
     );
     final contentFocus = Offset(
-      size.width * clampedFocus.dx,
-      size.height * clampedFocus.dy,
+      widget.contentSize.width * clampedFocus.dx,
+      widget.contentSize.height * clampedFocus.dy,
     );
     final center = Offset(size.width / 2, size.height / 2);
     return _transformMatrixForSize(
@@ -1676,6 +1540,15 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   bool get _isZoomed {
     return _transformationController.value.getMaxScaleOnAxis() >
         _ZoomableMapContent.minScale + 0.01;
+  }
+
+  bool get _canPan {
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.attached) return _isZoomed;
+    final viewportSize = renderObject.size;
+    final scale = _transformationController.value.getMaxScaleOnAxis();
+    return widget.contentSize.width * scale > viewportSize.width + 0.5 ||
+        widget.contentSize.height * scale > viewportSize.height + 0.5;
   }
 
   void _dispatchMapInteraction(bool active) {
@@ -1695,7 +1568,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
     }
     _activePointers.add(event.pointer);
     _activePointerPositions[event.pointer] = event.localPosition;
-    if (_activePointers.length >= 2 || _isZoomed) {
+    if (_activePointers.length >= 2 || _canPan) {
       _dispatchMapInteraction(true);
     }
     _startManualGestureIfNeeded();
@@ -1725,7 +1598,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
       return;
     }
 
-    if (_isZoomed && _overlayPointers.contains(event.pointer)) {
+    if (_canPan && _overlayPointers.contains(event.pointer)) {
       _updateManualPanGesture(event);
     }
   }
@@ -1820,27 +1693,32 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
     required double scale,
     required Offset translation,
   }) {
-    if (size.isEmpty || scale <= _ZoomableMapContent.minScale + 0.001) {
+    if (size.isEmpty || widget.contentSize.isEmpty) {
       return Matrix4.identity();
     }
 
-    final minX = size.width - size.width * scale;
-    final minY = size.height - size.height * scale;
-    final scaledLeftMargin = widget.boundaryMargin.left * scale;
-    final scaledRightMargin = widget.boundaryMargin.right * scale;
-    final scaledTopMargin = widget.boundaryMargin.top * scale;
-    final scaledBottomMargin = widget.boundaryMargin.bottom * scale;
+    final scaledContentWidth = widget.contentSize.width * scale;
+    final scaledContentHeight = widget.contentSize.height * scale;
     final clampedTranslation = Offset(
-      translation.dx
-          .clamp(minX - scaledRightMargin, scaledLeftMargin)
-          .toDouble(),
-      translation.dy
-          .clamp(minY - scaledBottomMargin, scaledTopMargin)
-          .toDouble(),
+      _clampAxisTranslation(size.width, scaledContentWidth, translation.dx),
+      _clampAxisTranslation(size.height, scaledContentHeight, translation.dy),
     );
     return Matrix4.identity()
       ..translateByDouble(clampedTranslation.dx, clampedTranslation.dy, 0, 1)
       ..scaleByDouble(scale, scale, 1, 1);
+  }
+
+  double _clampAxisTranslation(
+    double viewportExtent,
+    double scaledContentExtent,
+    double translation,
+  ) {
+    if (scaledContentExtent <= viewportExtent) {
+      return (viewportExtent - scaledContentExtent) / 2;
+    }
+    return translation
+        .clamp(viewportExtent - scaledContentExtent, 0.0)
+        .toDouble();
   }
 
   Offset _focalPoint(List<Offset> points) {
@@ -1879,7 +1757,18 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
 
   void _toggleDoubleTapZoom(Offset focalPoint) {
     if (_isZoomed) {
-      _transformationController.value = Matrix4.identity();
+      final renderObject = context.findRenderObject();
+      if (renderObject is RenderBox && renderObject.attached) {
+        final size = renderObject.size;
+        final contentCenter = Offset(
+          widget.contentSize.width / 2,
+          widget.contentSize.height / 2,
+        );
+        _setTransform(
+          _ZoomableMapContent.minScale,
+          Offset(size.width / 2, size.height / 2) - contentCenter,
+        );
+      }
       _dispatchMapInteraction(false);
       return;
     }
@@ -1932,14 +1821,15 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
                   transformationController: _transformationController,
                   minScale: _ZoomableMapContent.minScale,
                   maxScale: _ZoomableMapContent.maxScale,
-                  boundaryMargin: widget.boundaryMargin,
+                  constrained: false,
+                  alignment: Alignment.topLeft,
                   onInteractionStart: (details) {
-                    if (details.pointerCount > 1 || _isZoomed) {
+                    if (details.pointerCount > 1 || _canPan) {
                       _dispatchMapInteraction(true);
                     }
                   },
                   onInteractionUpdate: (details) {
-                    if (details.pointerCount > 1 || _isZoomed) {
+                    if (details.pointerCount > 1 || _canPan) {
                       _dispatchMapInteraction(true);
                     }
                   },
@@ -1948,7 +1838,12 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
                       _dispatchMapInteraction(false);
                     }
                   },
-                  child: SizedBox.expand(child: widget.background),
+                  child: SizedBox(
+                    key: const ValueKey<String>('world-map-scaled-content'),
+                    width: widget.contentSize.width,
+                    height: widget.contentSize.height,
+                    child: widget.background,
+                  ),
                 ),
                 AnimatedBuilder(
                   animation: _transformationController,

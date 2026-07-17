@@ -757,10 +757,74 @@ void main() {
       final contentTopLeft = tester.getTopLeft(scaledContent);
 
       expect(contentSize.height, viewportSize.height);
-      expect(contentSize.width, closeTo(viewportSize.height * 375 / 670, 0.01));
       expect(contentSize.width, greaterThan(viewportSize.width));
-      expect(contentTopLeft.dx, 0);
+      expect(
+        contentTopLeft.dx,
+        closeTo((viewportSize.width - contentSize.width) / 2, 0.01),
+      );
       expect(contentTopLeft.dy, 0);
+      expect(find.byType(SingleChildScrollView), findsNothing);
+    },
+  );
+
+  testWidgets('unzoomed world map pans within the cover-sized canvas', (
+    tester,
+  ) async {
+    const viewportSize = Size(375, 812);
+    await _pumpWorldMap(
+      tester,
+      size: viewportSize,
+      mapImageUrl: kMockV1SteamMapImage,
+      users: const [],
+      points: const [],
+    );
+    await tester.pump();
+
+    final interactiveViewer = tester.widget<InteractiveViewer>(
+      find.byType(InteractiveViewer),
+    );
+    final controller = interactiveViewer.transformationController!;
+    final contentSize = tester.getSize(
+      find.byKey(const ValueKey<String>('world-map-scaled-content')),
+    );
+
+    expect(
+      controller.value.storage[12],
+      closeTo((viewportSize.width - contentSize.width) / 2, 0.01),
+    );
+
+    await tester.drag(find.byType(InteractiveViewer), const Offset(-400, 0));
+    await tester.pumpAndSettle();
+
+    expect(
+      controller.value.storage[12],
+      closeTo(viewportSize.width - contentSize.width, 0.5),
+    );
+  });
+
+  testWidgets(
+    'world map reports horizontal pan boundaries from one transform',
+    (tester) async {
+      const viewportSize = Size(375, 812);
+      final panStates = <WorldMapHorizontalPanState>[];
+      await _pumpWorldMap(
+        tester,
+        size: viewportSize,
+        mapImageUrl: kMockV1SteamMapImage,
+        users: const [],
+        points: const [],
+        onHorizontalPanStateChanged: panStates.add,
+      );
+      await tester.pump();
+
+      expect(panStates.last.canScrollLeft, isTrue);
+      expect(panStates.last.canScrollRight, isTrue);
+
+      await tester.drag(find.byType(InteractiveViewer), const Offset(-400, 0));
+      await tester.pumpAndSettle();
+
+      expect(panStates.last.canScrollLeft, isTrue);
+      expect(panStates.last.canScrollRight, isFalse);
     },
   );
 
@@ -786,11 +850,8 @@ void main() {
       final contentSize = tester.getSize(
         find.byKey(const ValueKey<String>('world-map-scaled-content')),
       );
-      final horizontalCrop = (contentSize.width - viewportSize.width) / 2;
       final expectedMinTranslation =
-          horizontalCrop +
-          viewportSize.width -
-          contentSize.width * initialScale;
+          viewportSize.width - contentSize.width * initialScale;
 
       await tester.drag(find.byType(InteractiveViewer), const Offset(-400, 0));
       await tester.pumpAndSettle();
@@ -2042,6 +2103,7 @@ Future<void> _pumpWorldMap(
   WorldPointTapCallback? onPointTap,
   VoidCallback? onDrillIntoLocation,
   ValueChanged<bool>? onMapInteractionChanged,
+  ValueChanged<WorldMapHorizontalPanState>? onHorizontalPanStateChanged,
   WorldMapMessageBubble? activeBubble,
   List<WorldMapMessageBubble> messageBubbles = const <WorldMapMessageBubble>[],
   bool messageBubblePlaybackPaused = false,
@@ -2079,6 +2141,7 @@ Future<void> _pumpWorldMap(
                 onDrillIntoLocation: onDrillIntoLocation,
                 onMapTap: onMapTap,
                 onPointTap: onPointTap,
+                onHorizontalPanStateChanged: onHorizontalPanStateChanged,
                 points:
                     points ??
                     [
