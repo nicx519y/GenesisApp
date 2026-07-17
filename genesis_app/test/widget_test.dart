@@ -85,7 +85,9 @@ import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_store.dart';
+import 'package:genesis_flutter_android/pages/world/world_deletion_events.dart';
 import 'package:genesis_flutter_android/pages/world/world_page.dart';
+import 'package:genesis_flutter_android/pages/world/world_page_result.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
 import 'package:genesis_flutter_android/platform/auth/backend_auth_coordinator.dart';
 import 'package:genesis_flutter_android/platform/auth/identity_auth_service.dart';
@@ -3446,7 +3448,7 @@ void main() {
         onGenerateRoute: (settings) {
           if (settings.name == RouteNames.world) {
             final args = settings.arguments as Map;
-            return MaterialPageRoute<void>(
+            return MaterialPageRoute<WorldPageResult>(
               settings: settings,
               builder: (_) => Text('World route ${args['wid']}'),
             );
@@ -3468,13 +3470,13 @@ void main() {
 
     expect(find.text('Join request'), findsOneWidget);
     expect(
-      _richTextWithPlainText('Request to Review World (W_REVIEW)'),
+      _richTextWithPlainText('You request to join Review World (W_REVIEW)'),
       findsOneWidget,
     );
     expect(find.text('Rejected'), findsOneWidget);
 
     await tester.tap(
-      _richTextWithPlainText('Request to Review World (W_REVIEW)'),
+      _richTextWithPlainText('You request to join Review World (W_REVIEW)'),
     );
     await tester.pumpAndSettle();
 
@@ -3520,7 +3522,7 @@ void main() {
 
     expect(find.text('Join request'), findsOneWidget);
     expect(
-      _richTextWithPlainText('Request to deleted (deleted)'),
+      _richTextWithPlainText('You request to join deleted (deleted)'),
       findsOneWidget,
     );
     expect(find.text('Approved'), findsOneWidget);
@@ -3529,11 +3531,88 @@ void main() {
       findsNothing,
     );
 
-    await tester.tap(_richTextWithPlainText('Request to deleted (deleted)'));
+    await tester.tap(
+      _richTextWithPlainText('You request to join deleted (deleted)'),
+    );
     await tester.pumpAndSettle();
 
-    expect(_richTextWithPlainText('deleted deleted'), findsOneWidget);
+    expect(find.text('OK'), findsNothing);
     expect(_richTextWithPlainText('重回 20005 deleted'), findsNothing);
+  });
+
+  testWidgets('world deletion updates matching world notification', (
+    WidgetTester tester,
+  ) async {
+    var worldOpenCount = 0;
+    final transport = _RecordingMessageCategoryTransport(
+      notification: const {
+        'notification_id': 'ntf_apply_review_delete_result',
+        'notice_block': 'world_apply',
+        'notice_type': 'world_apply_review',
+        'sender': {'uid': 'U_REVIEWER', 'name': 'Reviewer'},
+        'biz_type': 2,
+        'biz_id': 'W_DELETE_RESULT',
+        'obj_id': 'apl_review_delete_result',
+        'world_name': 'Deleted Result World',
+        'status': 20,
+        'content': 'request to Deleted Result World',
+        'is_read': true,
+        'created_at': '2026-05-20T10:00:00Z',
+      },
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        onGenerateRoute: (settings) {
+          if (settings.name != RouteNames.world) return null;
+          worldOpenCount += 1;
+          return MaterialPageRoute<WorldPageResult>(
+            settings: settings,
+            builder: (context) => Scaffold(
+              body: TextButton(
+                onPressed: () => Navigator.of(context).pop(
+                  const WorldPageResult.deleted(
+                    deletedWorldId: 'W_DELETE_RESULT',
+                  ),
+                ),
+                child: const Text('Delete notification world'),
+              ),
+            ),
+          );
+        },
+        home: AppServicesScope(
+          services: services,
+          child: const MessageCategoryListPage(
+            title: 'Notifications',
+            block: 'world_apply',
+            emptyText: 'No notifications yet.',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      _richTextWithPlainText(
+        'You request to join Deleted Result World (W_DELETE_RESULT)',
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete notification world'));
+    await tester.pumpAndSettle();
+
+    expect(
+      _richTextWithPlainText('You request to join deleted (deleted)'),
+      findsOneWidget,
+    );
+    expect(worldOpenCount, 1);
+
+    await tester.tap(
+      _richTextWithPlainText('You request to join deleted (deleted)'),
+    );
+    await tester.pumpAndSettle();
+    expect(worldOpenCount, 1);
   });
 
   testWidgets('comment notifications render interaction categories', (
@@ -3915,6 +3994,52 @@ void main() {
       expect(find.text('Discuss preview for o_test_1'), findsOneWidget);
     },
   );
+
+  testWidgets('Home My Worlds animates an externally deleted world', (
+    WidgetTester tester,
+  ) async {
+    worldDeletionEvents.value = null;
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: const HomePage(
+            startupPlatform: TargetPlatform.android,
+            initialTabIndex: HomePage.myWorldsTabIndex,
+            initialRequestMetricWindow: Duration.zero,
+          ),
+        ),
+      ),
+    );
+    final worldItem = find.byKey(
+      const ValueKey<String>('home-my-world-w_test_1'),
+    );
+    for (
+      var index = 0;
+      index < 20 && worldItem.evaluate().isEmpty;
+      index += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(worldItem, findsOneWidget);
+
+    publishWorldDeletion('w_test_1');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(worldItem, findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+    expect(worldItem, findsNothing);
+    worldDeletionEvents.value = null;
+  });
 
   testWidgets('Home defaults to Popular tab while signed out', (
     WidgetTester tester,
@@ -5392,7 +5517,7 @@ void main() {
             onGenerateRoute: (settings) {
               if (settings.name == RouteNames.world) {
                 final args = settings.arguments as Map;
-                return MaterialPageRoute<void>(
+                return MaterialPageRoute<WorldPageResult>(
                   settings: settings,
                   builder: (_) => Text('World route ${args['wid']}'),
                 );
@@ -5436,7 +5561,7 @@ void main() {
         tester
             .getSize(find.byKey(const ValueKey('copy-world-progress-body')))
             .height,
-        closeTo(12 * 1.45 * 5 + 6, 0.1),
+        closeTo(13 * 1.45 * 5 + 6, 0.1),
       );
       await tester.tap(
         find.text('First copied world progress summary for o_test_1.'),
@@ -5461,6 +5586,59 @@ void main() {
       expect(find.text('World route w_summary_2'), findsOneWidget);
     },
   );
+
+  testWidgets('Origin detail removes a deleted copied world summary', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: MaterialApp(
+          onGenerateRoute: (settings) {
+            if (settings.name != RouteNames.world) return null;
+            final args = settings.arguments as Map;
+            return MaterialPageRoute<WorldPageResult>(
+              settings: settings,
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.of(context).pop(
+                    WorldPageResult.deleted(
+                      deletedWorldId: args['wid'] as String,
+                    ),
+                  ),
+                  child: Text('Delete ${args['wid']}'),
+                ),
+              ),
+            );
+          },
+          home: const Scaffold(
+            body: Padding(
+              padding: EdgeInsets.all(12),
+              child: CopyWorldProgressSection(originId: 'o_test_1'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.text('First copied world progress summary for o_test_1.'),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete w_summary_1'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('First copied world progress summary for o_test_1.'),
+      findsNothing,
+    );
+    expect(
+      find.text('Second copied world progress summary for o_test_1.'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets(
     'Origin detail copy world progress gives Chinese five-line text room',

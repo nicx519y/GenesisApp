@@ -114,10 +114,7 @@ class ServiceRegistry {
       handlingPageNotFound = true;
       try {
         final navigator = genesisNavigatorKey.currentState;
-        navigator?.pushNamedAndRemoveUntil(
-          RouteNames.pageNotFound,
-          (_) => false,
-        );
+        await navigator?.pushReplacementNamed(RouteNames.pageNotFound);
       } finally {
         await Future<void>.delayed(const Duration(seconds: 1));
         handlingPageNotFound = false;

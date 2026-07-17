@@ -19,6 +19,7 @@ import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
+import '../world/world_page_result.dart';
 import 'search_history_store.dart';
 
 enum _SearchTab {
@@ -523,7 +524,7 @@ class _SearchPageState extends State<SearchPage>
     _focusNode.requestFocus();
   }
 
-  void _openResult(_SearchResultItem item) {
+  Future<void> _openResult(_SearchResultItem item) async {
     if (item.deleted) return;
     _dismissKeyboard();
     unawaited(_recordActiveSearchQuery());
@@ -540,9 +541,12 @@ class _SearchPageState extends State<SearchPage>
           arguments: {'originId': 0, 'oid': item.entityId},
         );
       case _SearchTab.world:
-        Navigator.of(
-          context,
-        ).pushNamed(RouteNames.world, arguments: {'wid': item.entityId});
+        final result = await Navigator.of(context).pushNamed<WorldPageResult>(
+          RouteNames.world,
+          arguments: {'wid': item.entityId},
+        );
+        if (!mounted || result == null) return;
+        _removeDeletedWorld(result.deletedWorldId);
       case _SearchTab.user:
         Navigator.of(
           context,
@@ -550,6 +554,34 @@ class _SearchPageState extends State<SearchPage>
       case _SearchTab.all:
         break;
     }
+  }
+
+  void _removeDeletedWorld(String rawWorldId) {
+    final worldId = rawWorldId.trim();
+    if (worldId.isEmpty) return;
+    setState(() {
+      for (final state in _results.values) {
+        final previousLength = state.items.length;
+        state.items.removeWhere(
+          (item) =>
+              item.tab == _SearchTab.world && item.entityId.trim() == worldId,
+        );
+        final removedCount = previousLength - state.items.length;
+        if (removedCount == 0) continue;
+
+        state.total = state.total > removedCount
+            ? state.total - removedCount
+            : 0;
+        final worldTotal = state.sectionTotals[_SearchTab.world];
+        if (worldTotal != null) {
+          state.sectionTotals[_SearchTab.world] = worldTotal > removedCount
+              ? worldTotal - removedCount
+              : 0;
+        }
+        state.hasMore =
+            state.tab != _SearchTab.all && state.items.length < state.total;
+      }
+    });
   }
 
   void _dismissKeyboard() {

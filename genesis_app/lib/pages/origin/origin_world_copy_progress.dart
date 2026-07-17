@@ -84,6 +84,21 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
     });
   }
 
+  Future<void> _openWorld(WorldSummaryLatestItem item) async {
+    final result = await Navigator.of(context).pushNamed<WorldPageResult>(
+      RouteNames.world,
+      arguments: {'wid': item.worldId},
+    );
+    if (!mounted || result == null) return;
+    final deletedWorldId = result.deletedWorldId.trim();
+    if (deletedWorldId.isEmpty) return;
+    _applySummaries(
+      _summaries
+          .where((summary) => summary.worldId.trim() != deletedWorldId)
+          .toList(growable: false),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final summaryIndex = _visibleIndex >= _summaries.length ? 0 : _visibleIndex;
@@ -98,14 +113,14 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
           title: 'Copy World Progress',
         ),
         const SizedBox(height: 8),
-        _CopyWorldProgressCard(summary: summary),
+        _CopyWorldProgressCard(summary: summary, onOpen: _openWorld),
       ],
     );
   }
 }
 
 class _CopyWorldProgressCard extends StatelessWidget {
-  const _CopyWorldProgressCard({required this.summary});
+  const _CopyWorldProgressCard({required this.summary, required this.onOpen});
 
   static const double _bodyFontSize = 13;
   static const double _bodyLineHeight = 1.45;
@@ -117,6 +132,7 @@ class _CopyWorldProgressCard extends StatelessWidget {
   );
 
   final WorldSummaryLatestItem? summary;
+  final ValueChanged<WorldSummaryLatestItem> onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -137,11 +153,7 @@ class _CopyWorldProgressCard extends StatelessWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: item.deleted
-          ? null
-          : () => Navigator.of(
-              context,
-            ).pushNamed(RouteNames.world, arguments: {'wid': item.worldId}),
+      onTap: item.deleted ? null : () => onOpen(item),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

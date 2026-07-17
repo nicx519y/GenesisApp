@@ -5,6 +5,7 @@ import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_launch_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_launch_pending_store.dart';
+import 'package:genesis_flutter_android/pages/world/world_page_result.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -133,7 +134,7 @@ void main() {
           }
           if (settings.name == RouteNames.world) {
             final args = settings.arguments as Map?;
-            return MaterialPageRoute<void>(
+            return MaterialPageRoute<WorldPageResult>(
               settings: settings,
               builder: (_) => Scaffold(body: Text('world_wid=${args?['wid']}')),
             );

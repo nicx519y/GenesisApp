@@ -9,6 +9,7 @@ import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/world.dart';
+import '../../pages/world/world_navigation.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../routers/app_router.dart';
 import '../bootstrap/app_services_scope.dart';
@@ -192,7 +193,9 @@ Future<Map<String, Object?>> _navigate(
   }
   final clearStack = _boolParam(request.params['clearStack']);
   final replace = _boolParam(request.params['replace']);
-  if (clearStack) {
+  if (clearStack && route == RouteNames.world) {
+    openWorldFromMyWorldsRoot(navigator, arguments: arguments);
+  } else if (clearStack) {
     unawaited(
       navigator.pushNamedAndRemoveUntil(
         route,
@@ -1242,7 +1245,9 @@ Future<void> _navigateToRoute(
       message: 'Navigator is not available yet.',
     );
   }
-  if (clearStack) {
+  if (clearStack && route == RouteNames.world) {
+    openWorldFromMyWorldsRoot(navigator, arguments: arguments);
+  } else if (clearStack) {
     unawaited(
       navigator.pushNamedAndRemoveUntil(
         route,

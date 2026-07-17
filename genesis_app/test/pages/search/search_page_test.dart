@@ -13,7 +13,9 @@ import 'package:genesis_flutter_android/network/direct_message_message_store.dar
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/pages/search/search_page.dart';
+import 'package:genesis_flutter_android/pages/world/world_page_result.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
+import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -247,16 +249,59 @@ void main() {
     expect(userSizedBoxes.any((box) => box.width == 10), isTrue);
     expect(userSizedBoxes.any((box) => box.height == 5), isTrue);
   });
+
+  testWidgets('removes deleted world from search results after detail closes', (
+    tester,
+  ) async {
+    final transport = _SearchPageTransport(singleWorldResult: true);
+    await _pumpSearchPage(
+      tester,
+      transport,
+      onGenerateRoute: (settings) {
+        if (settings.name != RouteNames.world) return null;
+        return MaterialPageRoute<WorldPageResult>(
+          settings: settings,
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(
+                  context,
+                ).pop(const WorldPageResult.deleted(deletedWorldId: 'world_1')),
+                child: const Text('Delete world'),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    expect(find.text('World 1'), findsOneWidget);
+    await tester.tap(find.text('World 1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete world'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('World 1'), findsNothing);
+    expect(find.text('No results.'), findsOneWidget);
+  });
 }
 
 Future<void> _pumpSearchPage(
   WidgetTester tester,
-  _SearchPageTransport transport,
-) async {
+  _SearchPageTransport transport, {
+  RouteFactory? onGenerateRoute,
+}) async {
   await tester.pumpWidget(
     AppServicesScope(
       services: await _servicesWithTransport(transport),
-      child: const MaterialApp(home: SearchPage()),
+      child: MaterialApp(
+        home: const SearchPage(),
+        onGenerateRoute: onGenerateRoute,
+      ),
     ),
   );
   await tester.pump();
@@ -314,6 +359,9 @@ Future<AppServices> _servicesWithTransport(
 }
 
 class _SearchPageTransport implements HttpTransport {
+  _SearchPageTransport({this.singleWorldResult = false});
+
+  final bool singleWorldResult;
   final List<TransportRequest> requests = <TransportRequest>[];
 
   List<TransportRequest> get searchRequests => requests
@@ -324,6 +372,20 @@ class _SearchPageTransport implements HttpTransport {
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
     if (request.uri.path.endsWith('/v1/search')) {
+      if (singleWorldResult) {
+        return _jsonResponse({
+          'keyword': request.uri.queryParameters['keyword'] ?? '',
+          'type': request.uri.queryParameters['type'] ?? '',
+          'origins': _emptySection(),
+          'worlds': {
+            'list': [_item('world', 1)],
+            'total': 1,
+            'pn': 1,
+            'rn': 20,
+          },
+          'users': _emptySection(),
+        });
+      }
       return _jsonResponse({
         'keyword': request.uri.queryParameters['keyword'] ?? '',
         'type': request.uri.queryParameters['type'] ?? '',
@@ -334,6 +396,10 @@ class _SearchPageTransport implements HttpTransport {
     }
     return _jsonResponse(const <String, dynamic>{});
   }
+}
+
+Map<String, dynamic> _emptySection() {
+  return const {'list': <Object?>[], 'total': 0, 'pn': 1, 'rn': 20};
 }
 
 Map<String, dynamic> _section(String type, String? requestedType) {

@@ -16,6 +16,7 @@ import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
+import '../world/world_page_result.dart';
 
 class MessageCategoryListPage extends StatefulWidget {
   const MessageCategoryListPage({
@@ -173,7 +174,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
             : () => _openUserFromDialog(item.senderUid),
         onOpenWorld: item.worldDeleted
             ? null
-            : () => _openWorldFromDialog(item.bizId),
+            : () => unawaited(_openWorldFromDialog(item.bizId)),
       ),
       actions: const [
         GenesisActionBoxAction<_JoinRequestAction>(
@@ -222,15 +223,16 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
     );
   }
 
-  void _openWorldFromDialog(String wid) {
+  Future<void> _openWorldFromDialog(String wid) async {
     final cleanWid = wid.trim();
     Navigator.of(context, rootNavigator: true).pop();
     if (cleanWid.isEmpty || !mounted) return;
-    unawaited(
-      Navigator.of(
-        context,
-      ).pushNamed(RouteNames.world, arguments: {'wid': cleanWid}),
+    final result = await Navigator.of(context).pushNamed<WorldPageResult>(
+      RouteNames.world,
+      arguments: {'wid': cleanWid},
     );
+    if (!mounted || result == null) return;
+    _markWorldDeleted(result.deletedWorldId);
   }
 
   Future<void> _reviewJoinRequest(
@@ -298,7 +300,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
       return;
     }
     if (item.isJoinRequestReview) {
-      if (!item.worldDeleted) _openWorld(item.bizId);
+      if (!item.worldDeleted) unawaited(_openWorld(item.bizId));
       return;
     }
     if (item.isDiscussNotification) {
@@ -310,12 +312,27 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
     }
   }
 
-  void _openWorld(String wid) {
+  Future<void> _openWorld(String wid) async {
     final cleanWid = wid.trim();
     if (cleanWid.isEmpty) return;
-    Navigator.of(
-      context,
-    ).pushNamed(RouteNames.world, arguments: {'wid': cleanWid});
+    final result = await Navigator.of(context).pushNamed<WorldPageResult>(
+      RouteNames.world,
+      arguments: {'wid': cleanWid},
+    );
+    if (!mounted || result == null) return;
+    _markWorldDeleted(result.deletedWorldId);
+  }
+
+  void _markWorldDeleted(String rawWorldId) {
+    final worldId = rawWorldId.trim();
+    if (!mounted || worldId.isEmpty) return;
+    setState(() {
+      for (var index = 0; index < _items.length; index += 1) {
+        final item = _items[index];
+        if (item.bizId.trim() != worldId || item.worldDeleted) continue;
+        _items[index] = item.copyWith(worldDeleted: true);
+      }
+    });
   }
 
   @override
@@ -935,6 +952,7 @@ class _NotificationItem {
 
   _NotificationItem copyWith({
     bool? isRead,
+    bool? worldDeleted,
     _JoinRequestApprovalStatus? approvalStatus,
   }) {
     return _NotificationItem(
@@ -946,7 +964,7 @@ class _NotificationItem {
       senderAvatar: senderAvatar,
       senderDeleted: senderDeleted,
       bizId: bizId,
-      worldDeleted: worldDeleted,
+      worldDeleted: worldDeleted ?? this.worldDeleted,
       originDeleted: originDeleted,
       objId: objId,
       rootDiscussId: rootDiscussId,

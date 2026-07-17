@@ -28,6 +28,7 @@ import '../../ui/components/secend_tabs.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import 'home_feed_cache_store.dart';
+import '../world/world_deletion_events.dart';
 import '../world/world_page_result.dart';
 
 void _ignoreHomeFeedCacheWrite(Future<void> write) {
@@ -537,6 +538,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     widget.activationListenable?.addListener(_handlePageActivated);
     widget.networkRequestsAllowed.addListener(_handleNetworkRequestsAllowed);
     worldActivityTagStore.listenable.addListener(_handleActivityTagsChanged);
+    worldDeletionEvents.addListener(_handleExternalWorldDeleted);
   }
 
   @override
@@ -582,6 +584,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   void dispose() {
     _startupInitialRetryTimer?.cancel();
     worldActivityTagStore.listenable.removeListener(_handleActivityTagsChanged);
+    worldDeletionEvents.removeListener(_handleExternalWorldDeleted);
     widget.activationListenable?.removeListener(_handlePageActivated);
     widget.networkRequestsAllowed.removeListener(_handleNetworkRequestsAllowed);
     _tabController?.removeListener(_handleTabChange);
@@ -622,6 +625,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _activityTagUid = state.uid;
       _activityTagState = state;
     });
+  }
+
+  void _handleExternalWorldDeleted() {
+    final event = worldDeletionEvents.value;
+    if (event == null) return;
+    _beginWorldDeletion(event.worldId);
   }
 
   bool _sameWorldActivityTagState(
@@ -1104,16 +1113,25 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       arguments: {'wid': item.wid},
     );
     if (!mounted || result == null) return;
-    final deletedWorldId = result.deletedWorldId.trim();
-    if (deletedWorldId.isEmpty ||
-        !_items.any((item) => item.wid.trim() == deletedWorldId) ||
+    _beginWorldDeletion(result.deletedWorldId);
+  }
+
+  void _beginWorldDeletion(String rawWorldId) {
+    final deletedWorldId = rawWorldId.trim();
+    if (!mounted ||
+        deletedWorldId.isEmpty ||
         _collapsingWorldIds.contains(deletedWorldId)) {
       return;
     }
+    final hasVisibleItem = _items.any(
+      (item) => item.wid.trim() == deletedWorldId,
+    );
     setState(() {
       _locallyDeletedWorldIds.add(deletedWorldId);
       _deletingWorldIds.remove(deletedWorldId);
-      _collapsingWorldIds.add(deletedWorldId);
+      if (hasVisibleItem) {
+        _collapsingWorldIds.add(deletedWorldId);
+      }
     });
   }
 

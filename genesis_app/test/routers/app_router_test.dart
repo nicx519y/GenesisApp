@@ -23,11 +23,44 @@ void main() {
       MaterialApp(
         initialRoute: RouteNames.pageNotFound,
         onGenerateRoute: AppRouter.onGenerateRoute,
+        onGenerateInitialRoutes: (_) => [
+          AppRouter.onGenerateRoute(
+            const RouteSettings(name: RouteNames.pageNotFound),
+          ),
+        ],
       ),
     );
 
     expect(find.text('Page not found.'), findsOneWidget);
     expect(find.text('Retry'), findsNothing);
+    expect(find.byTooltip('Back'), findsOneWidget);
+  });
+
+  testWidgets('page not found back button returns to previous page', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        onGenerateRoute: AppRouter.onGenerateRoute,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () =>
+                  Navigator.of(context).pushNamed(RouteNames.pageNotFound),
+              child: const Text('Open missing page'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open missing page'));
+    await tester.pumpAndSettle();
+    expect(find.text('Page not found.'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Open missing page'), findsOneWidget);
   });
 
   testWidgets('unknown route falls back to page not found', (
@@ -37,6 +70,9 @@ void main() {
       MaterialApp(
         initialRoute: '/missing',
         onGenerateRoute: AppRouter.onGenerateRoute,
+        onGenerateInitialRoutes: (_) => [
+          AppRouter.onGenerateRoute(const RouteSettings(name: '/missing')),
+        ],
       ),
     );
 

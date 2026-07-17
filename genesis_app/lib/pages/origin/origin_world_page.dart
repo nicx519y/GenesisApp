@@ -51,6 +51,8 @@ import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_page.dart';
 import '../world/world_header.dart';
 import '../world/world_map_bubble_candidates.dart';
+import '../world/world_navigation.dart';
+import '../world/world_page_result.dart';
 import 'origin_launch_coordinator.dart';
 import 'origin_launch_flow.dart';
 
@@ -438,15 +440,7 @@ class _OriginWorldPageState extends State<OriginWorldPage>
 
   void _enterLaunchedWorld(String worldId) {
     final navigator = Navigator.of(context);
-    navigator.pushNamedAndRemoveUntil(
-      RouteNames.home,
-      (_) => false,
-      arguments: const {'home_tab': 'my_world'},
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!navigator.mounted) return;
-      navigator.pushNamed(RouteNames.world, arguments: {'wid': worldId});
-    });
+    openWorldFromMyWorldsRoot(navigator, arguments: {'wid': worldId});
   }
 
   Future<List<OriginLaunchedWorldRole>> _loadLaunchedWorldRoles(

@@ -7,7 +7,7 @@ import '../../app/genesis_navigator.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/world_tick1_wait_dialog.dart';
 import '../../network/models/world.dart';
-import '../../routers/app_router.dart';
+import '../world/world_navigation.dart';
 import 'origin_launch_pending_store.dart';
 
 typedef OriginLaunchWorldLoader = Future<WorldDetail> Function(String worldId);
@@ -245,21 +245,10 @@ class OriginLaunchCoordinator {
     final wid = (world?.worldId.trim().isEmpty ?? true)
         ? fallbackWorldId
         : world!.worldId.trim();
-    navigator.pushNamedAndRemoveUntil(
-      RouteNames.home,
-      (_) => false,
-      arguments: {'home_tab': 'my_world'},
+    openWorldFromMyWorldsRoot(
+      navigator,
+      arguments: {'wid': wid, if (world != null) 'initial_world_detail': world},
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!navigator.mounted) return;
-      navigator.pushNamed(
-        RouteNames.world,
-        arguments: {
-          'wid': wid,
-          if (world != null) 'initial_world_detail': world,
-        },
-      );
-    });
   }
 
   BuildContext? get _globalDialogContext {
