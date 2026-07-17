@@ -32,7 +32,10 @@ const state = {
   agentAfterSeq: 0,
   agentLogs: [],
   agentStatusTimer: null,
-  pollTimer: null
+  pollTimer: null,
+  manualSendSending: false,
+  manualSendText: "",
+  manualSendNotice: ""
 };
 
 const EVENT_PAGE_LIMIT = 1000;
@@ -67,12 +70,24 @@ const agentWidInput = document.getElementById("agentWidInput");
 const agentUseCurrentTarget = document.getElementById("agentUseCurrentTarget");
 const agentStartButton = document.getElementById("agentStartButton");
 const agentStopButton = document.getElementById("agentStopButton");
+const manualSendPanel = document.getElementById("manualSendPanel");
+const manualSendTarget = document.getElementById("manualSendTarget");
+const manualSendStatus = document.getElementById("manualSendStatus");
+const manualSendForm = document.getElementById("manualSendForm");
+const manualSendInput = document.getElementById("manualSendInput");
+const manualSendButton = document.getElementById("manualSendButton");
 
 document.getElementById("refreshButton").addEventListener("click", refreshAll);
 document.getElementById("clearButton").addEventListener("click", clearEvents);
 document.getElementById("exportButton").addEventListener("click", exportJson);
 agentStartButton.addEventListener("click", startAgentJob);
 agentStopButton.addEventListener("click", stopAgentJob);
+manualSendForm.addEventListener("submit", sendManualMessage);
+manualSendInput.addEventListener("input", () => {
+  state.manualSendText = manualSendInput.value;
+  state.manualSendNotice = "";
+  renderManualSendPanel();
+});
 agentWidInput.addEventListener("change", persistAgentWidInput);
 agentWidInput.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") return;
@@ -155,6 +170,7 @@ async function refreshAll() {
     render();
   } catch (error) {
     statusEl.textContent = `Disconnected: ${error.message}`;
+    renderManualSendPanel();
   }
 }
 
@@ -188,6 +204,7 @@ async function pollEvents() {
     }
   } catch (error) {
     statusEl.textContent = `Disconnected: ${error.message}`;
+    renderManualSendPanel();
   }
 }
 
@@ -210,6 +227,7 @@ async function clearEvents() {
     render();
   } catch (error) {
     statusEl.textContent = `Clear failed: ${error.message}`;
+    renderManualSendPanel();
   }
 }
 
@@ -722,6 +740,166 @@ function persistAgentWidInput() {
   }
 }
 
+async function sendManualMessage(event) {
+  event.preventDefault();
+  const text = manualSendInput.value.trim();
+  const sendState = resolveManualSendState(text);
+  if (!sendState.canSend) {
+    state.manualSendNotice = sendState.reason || "Not ready to send.";
+    renderManualSendPanel();
+    return;
+  }
+
+  state.manualSendSending = true;
+  state.manualSendNotice = "Sending...";
+  renderManualSendPanel();
+  try {
+    const result = await rpc("agent.world_chat.send", {
+      wid: sendState.worldId,
+      locationId: sendState.locationId,
+      message: text,
+      replyTimeoutSeconds: 120
+    }, {timeoutMs: 180000});
+    manualSendInput.value = "";
+    state.manualSendText = "";
+    state.manualSendNotice = result?.ackMessageId
+      ? `Sent. ack ${result.ackMessageId}`
+      : "Sent.";
+    await refreshAll();
+  } catch (error) {
+    state.manualSendNotice = `Send failed: ${error.message}`;
+  } finally {
+    state.manualSendSending = false;
+    renderManualSendPanel();
+  }
+}
+
+function renderManualSendPanel() {
+  const sendState = resolveManualSendState(manualSendInput.value);
+  const notice = `${state.manualSendNotice || ""}`.trim();
+  const showNotice =
+    state.manualSendSending ||
+    notice.startsWith("Send failed") ||
+    (notice && sendState.readyToSend);
+  const statusText = showNotice ? notice : sendState.reason;
+  manualSendPanel.dataset.state = state.manualSendSending
+    ? "sending"
+    : (sendState.readyToSend ? "ready" : "disabled");
+  manualSendTarget.textContent = `Target: ${sendState.targetLabel}`;
+  manualSendStatus.textContent = statusText;
+  manualSendInput.disabled = !sendState.canType || state.manualSendSending;
+  manualSendButton.disabled = !sendState.canSend;
+  manualSendButton.loading = state.manualSendSending;
+  manualSendButton.title = sendState.canSend
+    ? "Send message"
+    : statusText;
+}
+
+function resolveManualSendState(textValue = "") {
+  const world = currentWorldSnapshot();
+  const worldId = firstNonEmpty(world.worldId, state.activeWorldId);
+  const locationId = firstNonEmpty(
+    state.appActiveLocationId,
+    state.activeLocationId,
+    activePanelLocationId()
+  );
+  const snapshots = state.snapshot?.snapshots || {};
+  const service = findSnapshotForLocation(snapshots.service || {}, locationId, worldId);
+  const panel = findSnapshotForLocation(snapshots.panel || {}, locationId, worldId);
+  const locations = leafLocations();
+  const location = locations.find((item) => item.id === locationId);
+  const targetLabel = [
+    worldId || "-",
+    location ? `${location.name} (${location.id})` : (locationId || "-")
+  ].join(" / ");
+  const hasText = `${textValue || ""}`.trim().length > 0;
+  const active = panel?.active === true || locationId === state.appActiveLocationId;
+  const knownLeaf = Boolean(location) || panel?.isLeafLocation === true;
+  const connected = panel?.connected === true || service?.connected === true;
+  const joining = panel?.joining === true || service?.joining === true;
+  const joined =
+    panel?.joinedLocationId === locationId ||
+    service?.joinedLocationId === locationId;
+  const inputBlocked = panel?.inputBlocked === true || service?.inputBlocked === true;
+  const awaitingAiResponse = panel?.awaitingAiResponse === true;
+  const pendingOutgoing = panelHasPendingOutgoing(panel);
+  const snapshotAvailable = Boolean(state.snapshot);
+  const rpcAvailable = state.snapshot?.available !== false;
+  const debugEnabled = state.snapshot?.enabled !== false;
+
+  let reason = "Ready";
+  if (!snapshotAvailable) {
+    reason = "Waiting for snapshot";
+  } else if (!rpcAvailable) {
+    reason = "agent_control RPC is not available";
+  } else if (!debugEnabled) {
+    reason = "Location chat debug is disabled";
+  } else if (!worldId) {
+    reason = "No current wid";
+  } else if (!locationId) {
+    reason = "No current location";
+  } else if (!panel) {
+    reason = "Waiting for LocationChatPage panel snapshot";
+  } else if (!active) {
+    reason = "LocationChatPage is not active";
+  } else if (!knownLeaf) {
+    reason = "Current location is not a leaf chat location";
+  } else if (joining) {
+    reason = "Joining chatroom";
+  } else if (!connected) {
+    reason = "Chatroom is disconnected";
+  } else if (!joined) {
+    reason = "Current location is not joined";
+  } else if (inputBlocked) {
+    reason = "Input is blocked by chatroom state";
+  } else if (awaitingAiResponse || pendingOutgoing) {
+    reason = "Waiting for AI response";
+  } else if (!hasText) {
+    reason = "Ready, enter a message";
+  }
+
+  const canType = Boolean(
+    snapshotAvailable &&
+    rpcAvailable &&
+    debugEnabled &&
+    worldId &&
+    locationId &&
+    panel &&
+    active &&
+    knownLeaf
+  );
+  const readyToSend = Boolean(
+    canType &&
+    connected &&
+    joined &&
+    !joining &&
+    !inputBlocked &&
+    !awaitingAiResponse &&
+    !pendingOutgoing
+  );
+  return {
+    worldId,
+    locationId,
+    targetLabel,
+    reason,
+    hasText,
+    canType,
+    readyToSend,
+    canSend: readyToSend && hasText && !state.manualSendSending
+  };
+}
+
+function panelHasPendingOutgoing(panel) {
+  const messages = Array.isArray(panel?.renderMessages)
+    ? panel.renderMessages
+    : [];
+  return messages.some((message) => {
+    const status = `${message?.status || ""}`.trim().toLowerCase();
+    const isMine = message?.isMe === true;
+    return isMine && (status === "sending" || status === "pending");
+  });
+}
+
 function render() {
   saveVirtualScrollPositions();
   syncActiveWorld();
@@ -730,6 +908,7 @@ function render() {
   renderSummary();
   renderQueueTabs();
   renderQueueErrors();
+  renderManualSendPanel();
   renderNetworkTimeline();
   enforceLocalMemoryLimits();
   queueMicrotask(mountVirtualLists);
@@ -1543,7 +1722,7 @@ function renderColumnInto(parent, columnKey, title, messages, key) {
 
 function renderMessage(message) {
   const id = isTickMessage(message) ? "" : messageLocationMsgId(message);
-  const kind = messageType(message);
+  const title = messageDisplayTitleHtml(message);
   const text = messageContent(message);
   const error = message.__queueError || null;
   const sourceKeys = Array.isArray(message.__messageSourceKeys)
@@ -1561,7 +1740,7 @@ function renderMessage(message) {
       <div class="message-text">
         <strong>
           ${error ? `<span class="queue-gap-icon" title="${escapeAttribute(issueTitle)}">!</span>` : ""}
-          ${escapeHtml(kind)}
+          ${title}
         </strong>
         <div>${escapeHtml(text)}</div>
       </div>
@@ -1632,7 +1811,11 @@ function hasDuplicates(values) {
 }
 
 function isTickMessage(message) {
-  return `${message?.senderType || ""}`.trim().toLowerCase() === "tick";
+  return messageType(message).toLowerCase() === "tick";
+}
+
+function isNarratorMessage(message) {
+  return messageType(message).toLowerCase() === "narrator";
 }
 
 function messageLocationMsgId(message) {
@@ -1671,6 +1854,51 @@ function messageGlobalId(message) {
 
 function messageType(message) {
   return `${message?.senderType ?? message?.sender_type ?? message?.status ?? ""}`.trim();
+}
+
+function messageDisplayTitle(message) {
+  const type = messageType(message);
+  if (isTickMessage(message) || isNarratorMessage(message)) {
+    return type || "-";
+  }
+  const name = firstNonEmpty(
+    message?.senderName,
+    message?.sender_name,
+    message?.roleName,
+    message?.role_name,
+    message?.characterName,
+    message?.character_name,
+    message?.senderId,
+    message?.sender_id
+  );
+  if (!name) return type || "-";
+  if (!type) return name;
+  return `${name}(${type})`;
+}
+
+function messageDisplayTitleHtml(message) {
+  const type = messageType(message);
+  if (isTickMessage(message) || isNarratorMessage(message)) {
+    return escapeHtml(type || "-");
+  }
+  const name = firstNonEmpty(
+    message?.senderName,
+    message?.sender_name,
+    message?.roleName,
+    message?.role_name,
+    message?.characterName,
+    message?.character_name,
+    message?.senderId,
+    message?.sender_id
+  );
+  if (!name) return escapeHtml(type || "-");
+  if (!type) {
+    return `<span class="message-sender-name">${escapeHtml(name)}</span>`;
+  }
+  return [
+    `<span class="message-sender-name">${escapeHtml(name)}</span>`,
+    `<span class="message-sender-type">(${escapeHtml(type)})</span>`
+  ].join("");
 }
 
 function messageContent(message) {
@@ -2304,6 +2532,7 @@ function escapeHtml(value) {
 restoreAgentWidInput();
 restoreAgentJob();
 updateAgentPanel();
+renderManualSendPanel();
 refreshAll();
 state.pollTimer = setInterval(pollEvents, 1000);
 state.agentStatusTimer = setInterval(pollAgentJobStatus, 2000);

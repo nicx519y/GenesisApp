@@ -315,8 +315,15 @@ p {
 }
 
 sl-card.work-card {
+  display: block;
+  height: 100%;
   min-width: 0;
   min-height: 0;
+}
+
+sl-card.queue-card {
+  display: flex;
+  flex-direction: column;
 }
 
 sl-card.work-card::part(base) {
@@ -339,6 +346,11 @@ sl-card.work-card::part(body) {
   min-height: 0;
   padding: 0;
   overflow: hidden;
+}
+
+.queue-card::part(body) {
+  display: flex;
+  flex-direction: column;
 }
 
 .panel-heading {
@@ -389,6 +401,11 @@ sl-tab::part(base) {
   background: #030604;
   border-bottom: 0 !important;
   box-shadow: none !important;
+}
+
+.queue-main-tab-group {
+  flex: 1 1 auto;
+  height: auto;
 }
 
 .queue-main-tab-group::part(tabs) {
@@ -513,6 +530,80 @@ sl-tab-panel {
   padding-top: 0;
 }
 
+.manual-send-panel {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--line);
+  background: #030604;
+}
+
+.manual-send-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.manual-send-meta span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#manualSendTarget {
+  flex: 1 1 auto;
+  color: #b9ffd0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+#manualSendStatus {
+  flex: 0 1 auto;
+  text-align: right;
+}
+
+.manual-send-panel[data-state="ready"] #manualSendStatus {
+  color: var(--accent);
+}
+
+.manual-send-panel[data-state="sending"] #manualSendStatus {
+  color: var(--warn);
+}
+
+.manual-send-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 8px;
+  min-width: 0;
+}
+
+.manual-send-form input {
+  min-width: 0;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 10px;
+  background: var(--code);
+  color: var(--text);
+  font: inherit;
+}
+
+.manual-send-form input:focus {
+  border-color: rgba(57, 255, 136, 0.7);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(57, 255, 136, 0.12);
+}
+
+.manual-send-form input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .columns {
   display: grid;
   grid-template-columns: repeat(3, minmax(220px, 1fr));
@@ -633,6 +724,14 @@ sl-tab-panel {
   margin-bottom: 2px;
   color: #b9ffd0;
   font-size: 12px;
+}
+
+.message-sender-name {
+  color: #38bdf8;
+}
+
+.message-sender-type {
+  color: var(--muted);
 }
 
 .message-text div {

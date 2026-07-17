@@ -12,9 +12,11 @@ Usage:
   scripts/start_agent_cli_dashboard.sh
   scripts/start_agent_cli_dashboard.sh -d <device-id>
   scripts/start_agent_cli_dashboard.sh --profile
+  scripts/start_agent_cli_dashboard.sh --release
 
 Starts tools/agent_cli and tools/location_chat_debug_dashboard together.
-All Flutter arguments are forwarded to tools/agent_cli/run-with-dashboard.
+All Flutter arguments are forwarded to tools/agent_cli/run-with-dashboard, so
+Flutter build-mode flags such as --profile and --release are supported.
 
 When no -d/--device-id is passed and the script is running in an interactive
 terminal, it lists connected Flutter devices and lets you choose one.

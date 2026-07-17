@@ -18,7 +18,7 @@ class LocationChatDebugHub {
         'panel': <String, Object?>{},
       };
 
-  static bool get available => !kReleaseMode;
+  static bool get available => !kReleaseMode || _locationChatDebugFlag;
 
   static bool get enabled => available && _locationChatDebugFlag;
 

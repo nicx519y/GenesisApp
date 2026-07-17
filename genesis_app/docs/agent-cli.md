@@ -39,6 +39,7 @@ cd /Users/ionix/Works/GenesisApp
 ```bash
 ./scripts/start_agent_cli_dashboard.sh
 ./scripts/start_agent_cli_dashboard.sh -d <device-id>
+./scripts/start_agent_cli_dashboard.sh --release
 ```
 
 这个脚本会：

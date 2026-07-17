@@ -71,6 +71,21 @@
               <div id="queueErrors" class="panel-scroll errors-scroll"></div>
             </sl-tab-panel>
           </sl-tab-group>
+          <section id="manualSendPanel" class="manual-send-panel" data-state="disabled">
+            <div class="manual-send-meta">
+              <span id="manualSendTarget">Target: -</span>
+              <span id="manualSendStatus">Waiting for snapshot</span>
+            </div>
+            <form id="manualSendForm" class="manual-send-form" autocomplete="off">
+              <input
+                id="manualSendInput"
+                type="text"
+                spellcheck="false"
+                placeholder="Send message to current location"
+              >
+              <sl-button id="manualSendButton" type="submit" size="small" variant="primary" disabled>Send</sl-button>
+            </form>
+          </section>
         </sl-card>
 
         <sl-card class="work-card network-card">

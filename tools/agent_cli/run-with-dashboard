@@ -20,9 +20,11 @@ Usage:
   tools/agent_cli/run-with-dashboard
   tools/agent_cli/run-with-dashboard -d <device-id>
   tools/agent_cli/run-with-dashboard --profile
+  tools/agent_cli/run-with-dashboard --release
 
 Starts the Flutter app with agent CLI + location-chat debug enabled, and starts
-the local location chat dashboard in the background.
+the local location chat dashboard in the background. Flutter build-mode flags
+such as --profile and --release are forwarded to flutter run.
 
 Environment:
   GENESIS_DASHBOARD_PORT      Dashboard port. Default: 17318.
@@ -31,6 +33,54 @@ Environment:
   SKIP_ADB_FORWARD            Skip adb forward. Default: false.
   ADB                         adb binary path. Default: adb.
 EOF
+}
+
+dashboard_url() {
+  printf 'http://127.0.0.1:%s/' "$dashboard_port"
+}
+
+dashboard_listener_pids() {
+  lsof -nP -t -iTCP:"$dashboard_port" -sTCP:LISTEN 2>/dev/null || true
+}
+
+existing_dashboard_ready() {
+  command -v curl >/dev/null 2>&1 || return 1
+  curl -fsS --max-time 1 "$(dashboard_url)" 2>/dev/null |
+    grep -q "Location Chat Debug"
+}
+
+ensure_dashboard_port_available() {
+  if existing_dashboard_ready; then
+    return 0
+  fi
+
+  local pids
+  pids="$(dashboard_listener_pids)"
+  if [[ -z "$pids" ]]; then
+    return 0
+  fi
+
+  echo "Dashboard port $dashboard_port is already in use, but it does not look like the location chat dashboard." >&2
+  echo "Listening processes:" >&2
+  while IFS= read -r pid; do
+    [[ -n "$pid" ]] || continue
+    ps -p "$pid" -o pid=,command= >&2 || true
+  done <<<"$pids"
+  echo "Use GENESIS_DASHBOARD_PORT=<port> to choose another port, or run scripts/stop_agent_cli_dashboard.sh." >&2
+  exit 1
+}
+
+ensure_adb_forward() {
+  if [[ "$skip_adb_forward" == "true" ]]; then
+    return 0
+  fi
+  if ! command -v "$adb_bin" >/dev/null 2>&1; then
+    echo "adb is required but was not found in PATH." >&2
+    echo "Set SKIP_ADB_FORWARD=true to start without USB forwarding." >&2
+    exit 1
+  fi
+  echo "Forwarding Android agent_control port tcp:$agent_port -> tcp:$agent_port..."
+  "$adb_bin" forward "tcp:$agent_port" "tcp:$agent_port"
 }
 
 cleanup() {
@@ -76,44 +126,41 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-(
-  cd "$dashboard_dir"
+ensure_adb_forward
+ensure_dashboard_port_available
 
-  if ! command -v npm >/dev/null 2>&1; then
-    echo "npm is required but was not found in PATH." >&2
-    exit 1
-  fi
+if existing_dashboard_ready; then
+  echo "Reusing existing dashboard at $(dashboard_url)"
+else
+  (
+    cd "$dashboard_dir"
 
-  if [[ "$skip_npm_install" != "true" ]]; then
-    echo "Installing dashboard dependencies..."
-    npm install
-  fi
-
-  if [[ "$skip_adb_forward" != "true" ]]; then
-    if ! command -v "$adb_bin" >/dev/null 2>&1; then
-      echo "adb is required but was not found in PATH." >&2
-      echo "Set SKIP_ADB_FORWARD=true to start without USB forwarding." >&2
+    if ! command -v npm >/dev/null 2>&1; then
+      echo "npm is required but was not found in PATH." >&2
       exit 1
     fi
-    echo "Forwarding Android agent_control port tcp:$agent_port -> tcp:$agent_port..."
-    "$adb_bin" forward "tcp:$agent_port" "tcp:$agent_port"
+
+    if [[ "$skip_npm_install" != "true" ]]; then
+      echo "Installing dashboard dependencies..."
+      npm install
+    fi
+
+    echo "Starting dashboard at $(dashboard_url)"
+    exec env \
+      PORT="$dashboard_port" \
+      AGENT_CONTROL_URL="http://$agent_host:$agent_port" \
+      GENESIS_AGENT_CONTROL_TOKEN="$agent_token" \
+      npm start
+  ) &
+  dashboard_pid=$!
+
+  sleep 1
+  if ! kill -0 "$dashboard_pid" >/dev/null 2>&1; then
+    wait "$dashboard_pid"
   fi
-
-  echo "Starting dashboard at http://127.0.0.1:$dashboard_port/"
-  exec env \
-    PORT="$dashboard_port" \
-    AGENT_CONTROL_URL="http://$agent_host:$agent_port" \
-    GENESIS_AGENT_CONTROL_TOKEN="$agent_token" \
-    npm start
-) &
-dashboard_pid=$!
-
-sleep 1
-if ! kill -0 "$dashboard_pid" >/dev/null 2>&1; then
-  wait "$dashboard_pid"
 fi
 
-dashboard_url="http://127.0.0.1:$dashboard_port/"
+dashboard_url="$(dashboard_url)"
 echo "Dashboard: $dashboard_url"
 echo "CLI: $script_dir/ctl app ping"
 
