@@ -12,6 +12,7 @@ import '../../components/common/copyable_id_label.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../icons/my_flutter_app_icons.dart';
+import '../../pages/world/world_page_result.dart';
 import '../../routers/app_router.dart';
 import '../../ui/genesis_ui.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
@@ -700,6 +701,7 @@ class _WorldProfileCollectionListState
     extends State<_WorldProfileCollectionList> {
   final Set<String> _deletingWorldIds = <String>{};
   final Set<String> _collapsingWorldIds = <String>{};
+  final Set<String> _locallyDeletedWorldIds = <String>{};
 
   @override
   void didUpdateWidget(covariant _WorldProfileCollectionList oldWidget) {
@@ -734,8 +736,11 @@ class _WorldProfileCollectionListState
     List<UserProfileWorldItem> items,
     bool isLoading,
   ) {
+    final visibleItems = items
+        .where((item) => !_locallyDeletedWorldIds.contains(item.wid.trim()))
+        .toList(growable: false);
     return ProfileCollectionList(
-      items: items
+      items: visibleItems
           .map(
             (item) => GenesisProfileCollectionItemData(
               animationKey: item.wid,
@@ -770,17 +775,8 @@ class _WorldProfileCollectionListState
                       _deletingWorldIds.contains(item.wid) ||
                       _collapsingWorldIds.contains(item.wid)
                   ? null
-                  : () {
-                      GenesisTelemetry.collectLog(
-                        actionType: 'event',
-                        action: 'me_click',
-                        object1: item.wid,
-                      );
-                      Navigator.of(context).pushNamed(
-                        RouteNames.world,
-                        arguments: {'wid': item.wid},
-                      );
-                    },
+                  : () => unawaited(_openWorld(item)),
+              onCollapsed: () => _handleWorldCollapseCompleted(item),
             ),
           )
           .toList(growable: false),
@@ -790,6 +786,42 @@ class _WorldProfileCollectionListState
       onRefresh: widget.onRefresh,
       refreshKey: const ValueKey('profile-world-list-refresh'),
     );
+  }
+
+  Future<void> _openWorld(UserProfileWorldItem item) async {
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'me_click',
+      object1: item.wid,
+    );
+    final result = await Navigator.of(context).pushNamed<WorldPageResult>(
+      RouteNames.world,
+      arguments: {'wid': item.wid},
+    );
+    if (!mounted || result == null) return;
+    final deletedWorldId = result.deletedWorldId.trim();
+    if (deletedWorldId.isEmpty ||
+        deletedWorldId != item.wid.trim() ||
+        _collapsingWorldIds.contains(deletedWorldId)) {
+      return;
+    }
+    setState(() {
+      _deletingWorldIds.remove(deletedWorldId);
+      _collapsingWorldIds.add(deletedWorldId);
+    });
+  }
+
+  void _handleWorldCollapseCompleted(UserProfileWorldItem item) {
+    final worldId = item.wid.trim();
+    if (!mounted || worldId.isEmpty || !_collapsingWorldIds.contains(worldId)) {
+      return;
+    }
+    setState(() {
+      _locallyDeletedWorldIds.add(worldId);
+      _deletingWorldIds.remove(worldId);
+      _collapsingWorldIds.remove(worldId);
+    });
+    widget.onWorldDeleted?.call(item);
   }
 }
 

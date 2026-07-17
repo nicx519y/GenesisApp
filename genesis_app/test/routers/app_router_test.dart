@@ -1,9 +1,21 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/pages/world/world_page_result.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 
 void main() {
+  test('world route returns a typed delete result', () {
+    final route = AppRouter.onGenerateRoute(
+      const RouteSettings(
+        name: RouteNames.world,
+        arguments: <String, Object?>{'wid': 'w_test'},
+      ),
+    );
+
+    expect(route, isA<MaterialPageRoute<WorldPageResult>>());
+  });
+
   testWidgets('page not found route shows text without retry', (
     WidgetTester tester,
   ) async {

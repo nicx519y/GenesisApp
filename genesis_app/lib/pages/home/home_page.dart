@@ -23,10 +23,12 @@ import '../../network/json_utils.dart';
 import '../../platform/privacy/app_tracking_transparency_service.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
+import '../../ui/components/genesis_deleted_list_item_transition.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import 'home_feed_cache_store.dart';
+import '../world/world_page_result.dart';
 
 void _ignoreHomeFeedCacheWrite(Future<void> write) {
   unawaited(write.catchError((_) {}));
@@ -1084,10 +1086,34 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _deletingWorldIds.remove(worldId);
       _collapsingWorldIds.remove(worldId);
       _collapseBottomCompensation.remove(worldId);
-      if (_total > _items.length) {
+      if (_total > 0) {
         _total -= 1;
       }
       _hasMore = _items.length < _total && _items.isNotEmpty;
+    });
+  }
+
+  Future<void> _openWorld(WorldListItem item) async {
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'home_my_worlds_click',
+      object1: item.wid,
+    );
+    final result = await Navigator.of(context).pushNamed<WorldPageResult>(
+      RouteNames.world,
+      arguments: {'wid': item.wid},
+    );
+    if (!mounted || result == null) return;
+    final deletedWorldId = result.deletedWorldId.trim();
+    if (deletedWorldId.isEmpty ||
+        !_items.any((item) => item.wid.trim() == deletedWorldId) ||
+        _collapsingWorldIds.contains(deletedWorldId)) {
+      return;
+    }
+    setState(() {
+      _locallyDeletedWorldIds.add(deletedWorldId);
+      _deletingWorldIds.remove(deletedWorldId);
+      _collapsingWorldIds.add(deletedWorldId);
     });
   }
 
@@ -1189,19 +1215,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                   onCollapsed: () => _handleWorldCollapseCompleted(worldId),
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: canInteract
-                        ? () {
-                            GenesisTelemetry.collectLog(
-                              actionType: 'event',
-                              action: 'home_my_worlds_click',
-                              object1: vm.wid,
-                            );
-                            Navigator.of(context).pushNamed(
-                              RouteNames.world,
-                              arguments: {'wid': vm.wid},
-                            );
-                          }
-                        : null,
+                    onTap: canInteract ? () => unawaited(_openWorld(vm)) : null,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: WorldItemCard(
@@ -1275,18 +1289,16 @@ class _AnimatedHomeWorldListItemState extends State<_AnimatedHomeWorldListItem>
   late final AnimationController _controller;
   final GlobalKey _contentKey = GlobalKey();
   double _contentExtent = 0;
+  int _animationRevision = 0;
 
   @override
   void initState() {
     super.initState();
-    _controller =
-        AnimationController(
-            vsync: this,
-            duration: const Duration(milliseconds: 500),
-            value: widget.isCollapsing ? 0 : 1,
-          )
-          ..addListener(_notifyCompensationChanged)
-          ..addStatusListener(_handleAnimationStatus);
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+      value: widget.isCollapsing ? 0 : 1,
+    )..addListener(_notifyCompensationChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _measureContentExtent();
       _notifyCompensationChanged();
@@ -1301,8 +1313,9 @@ class _AnimatedHomeWorldListItemState extends State<_AnimatedHomeWorldListItem>
       _notifyCompensationChanged();
     });
     if (oldWidget.isCollapsing == widget.isCollapsing) return;
+    final revision = ++_animationRevision;
     if (widget.isCollapsing) {
-      _controller.animateTo(0, curve: Curves.easeOutCubic);
+      unawaited(_collapse(revision));
     } else {
       _controller.animateTo(1, curve: Curves.easeOutCubic);
     }
@@ -1311,7 +1324,6 @@ class _AnimatedHomeWorldListItemState extends State<_AnimatedHomeWorldListItem>
   @override
   void dispose() {
     _controller.removeListener(_notifyCompensationChanged);
-    _controller.removeStatusListener(_handleAnimationStatus);
     widget.onCollapseCompensationChanged(0);
     _controller.dispose();
     super.dispose();
@@ -1325,15 +1337,22 @@ class _AnimatedHomeWorldListItemState extends State<_AnimatedHomeWorldListItem>
 
   void _notifyCompensationChanged() {
     if (_contentExtent <= 0) return;
+    final progress = 1 - _controller.value;
     widget.onCollapseCompensationChanged(
-      _contentExtent * (1 - _controller.value),
+      _contentExtent *
+          (1 -
+              GenesisDeletedListItemTransition.heightFactorForProgress(
+                progress,
+              )),
     );
   }
 
-  void _handleAnimationStatus(AnimationStatus status) {
-    if (status == AnimationStatus.dismissed && widget.isCollapsing) {
-      widget.onCollapsed();
+  Future<void> _collapse(int revision) async {
+    await _controller.animateTo(0, curve: Curves.linear);
+    if (!mounted || revision != _animationRevision || !widget.isCollapsing) {
+      return;
     }
+    widget.onCollapsed();
   }
 
   @override
@@ -1341,12 +1360,9 @@ class _AnimatedHomeWorldListItemState extends State<_AnimatedHomeWorldListItem>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        return ClipRect(
-          child: Align(
-            heightFactor: _controller.value,
-            alignment: Alignment.topCenter,
-            child: child,
-          ),
+        return GenesisDeletedListItemTransition(
+          progress: 1 - _controller.value,
+          child: child!,
         );
       },
       child: RepaintBoundary(

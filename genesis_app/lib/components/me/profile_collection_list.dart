@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../ui/genesis_ui.dart';
+import '../../ui/components/genesis_deleted_list_item_transition.dart';
 
 class ProfileCollectionList extends StatefulWidget {
   const ProfileCollectionList({
@@ -172,13 +175,14 @@ class _AnimatedProfileCollectionListItemState
   late final AnimationController _controller;
   final GlobalKey _contentKey = GlobalKey();
   double _contentExtent = 0;
+  int _animationRevision = 0;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 1000),
       value: widget.item.isCollapsing ? 0 : 1,
     )..addListener(_notifyCompensationChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -195,8 +199,9 @@ class _AnimatedProfileCollectionListItemState
       _notifyCompensationChanged();
     });
     if (oldWidget.item.isCollapsing == widget.item.isCollapsing) return;
+    final revision = ++_animationRevision;
     if (widget.item.isCollapsing) {
-      _controller.animateTo(0, curve: Curves.easeOutCubic);
+      unawaited(_collapse(revision));
     } else {
       _controller.animateTo(1, curve: Curves.easeOutCubic);
     }
@@ -218,9 +223,24 @@ class _AnimatedProfileCollectionListItemState
 
   void _notifyCompensationChanged() {
     if (_contentExtent <= 0) return;
+    final progress = 1 - _controller.value;
     widget.onCollapseCompensationChanged(
-      _contentExtent * (1 - _controller.value),
+      _contentExtent *
+          (1 -
+              GenesisDeletedListItemTransition.heightFactorForProgress(
+                progress,
+              )),
     );
+  }
+
+  Future<void> _collapse(int revision) async {
+    await _controller.animateTo(0, curve: Curves.linear);
+    if (!mounted ||
+        revision != _animationRevision ||
+        !widget.item.isCollapsing) {
+      return;
+    }
+    widget.item.onCollapsed?.call();
   }
 
   @override
@@ -228,12 +248,9 @@ class _AnimatedProfileCollectionListItemState
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        return ClipRect(
-          child: Align(
-            heightFactor: _controller.value,
-            alignment: Alignment.topCenter,
-            child: child,
-          ),
+        return GenesisDeletedListItemTransition(
+          progress: 1 - _controller.value,
+          child: child!,
         );
       },
       child: RepaintBoundary(

@@ -39,6 +39,7 @@ import 'world_location_chat_host.dart';
 import 'world_map_bubble_candidates.dart';
 import 'world_map_data.dart';
 import 'world_models.dart';
+import 'world_page_result.dart';
 import 'world_recent_chat_location.dart';
 import 'world_sections.dart';
 import 'world_value_helpers.dart';
@@ -2264,10 +2265,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     final confirmed = await showGenesisActionBox<bool>(
       context: actionContext,
       title: '',
-      titleWidget: _DeleteWorldConfirmationTitle(
-        name: world.name.trim().isEmpty ? worldId : world.name.trim(),
-        worldId: worldId,
-      ),
+      titleWidget: _DeleteWorldConfirmationTitle(name: world.name.trim()),
       titleHeight: 104,
       actions: const [
         GenesisActionBoxAction<bool>(
@@ -2286,9 +2284,12 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       if (!mounted) return;
       final bottomSheetContext = _worldBottomSheetContext;
       if (bottomSheetContext != null && bottomSheetContext.mounted) {
-        Navigator.of(bottomSheetContext).maybePop();
+        await Navigator.of(bottomSheetContext).maybePop();
       }
-      Navigator.of(context).maybePop();
+      if (!mounted) return;
+      Navigator.of(
+        context,
+      ).pop(WorldPageResult.deleted(deletedWorldId: worldId));
     } catch (error) {
       if (!actionContext.mounted) return;
       showGenesisToast(actionContext, apiErrorMessage(error));
@@ -2297,10 +2298,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 }
 
 class _DeleteWorldConfirmationTitle extends StatelessWidget {
-  const _DeleteWorldConfirmationTitle({
-    required this.name,
-    required this.worldId,
-  });
+  const _DeleteWorldConfirmationTitle({required this.name});
 
   static const _baseStyle = TextStyle(
     color: Color(0xFF111111),
@@ -2311,11 +2309,10 @@ class _DeleteWorldConfirmationTitle extends StatelessWidget {
   static const _nameStyle = TextStyle(color: Color(0xFF4B6192));
 
   final String name;
-  final String worldId;
 
   @override
   Widget build(BuildContext context) {
-    final resolvedName = name.trim().isEmpty ? worldId : name.trim();
+    final resolvedName = name.trim().isEmpty ? 'this World' : name.trim();
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -2325,7 +2322,7 @@ class _DeleteWorldConfirmationTitle extends StatelessWidget {
             children: [
               const TextSpan(text: 'Are you sure you want to delete '),
               TextSpan(text: resolvedName, style: _nameStyle),
-              TextSpan(text: '[$worldId]?'),
+              const TextSpan(text: '?'),
             ],
           ),
           textAlign: TextAlign.center,

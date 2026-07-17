@@ -97,4 +97,62 @@ void main() {
     expect(svg.height, moreOrLessEquals(13.75));
     expect(find.text('7'), findsOneWidget);
   });
+
+  testWidgets('notifies after a collection item finishes collapsing', (
+    WidgetTester tester,
+  ) async {
+    var isCollapsing = false;
+    var collapsedCount = 0;
+    late StateSetter updateHost;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              updateHost = setState;
+              return ProfileCollectionList(
+                items: [
+                  GenesisProfileCollectionItemData(
+                    animationKey: 'w_delete',
+                    imageUrl: '',
+                    title: 'Deleted World',
+                    subtitle: 'World subtitle',
+                    isCollapsing: isCollapsing,
+                    onCollapsed: () => collapsedCount += 1,
+                  ),
+                ],
+                emptyText: 'Empty',
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    updateHost(() => isCollapsing = true);
+    await tester.pump();
+    expect(
+      tester
+          .widget<GenesisProfileCollectionListItem>(
+            find.byType(GenesisProfileCollectionListItem),
+          )
+          .item
+          .isCollapsing,
+      isTrue,
+    );
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final itemFinder = find.byType(GenesisProfileCollectionListItem);
+    final opacity = tester.widget<Opacity>(
+      find.ancestor(of: itemFinder, matching: find.byType(Opacity)).first,
+    );
+    expect(opacity.opacity, greaterThan(0.6));
+    expect(opacity.opacity, lessThan(1));
+
+    await tester.pumpAndSettle();
+
+    expect(collapsedCount, 1);
+    expect(find.text('Deleted World'), findsNothing);
+  });
 }

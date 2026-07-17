@@ -14,6 +14,7 @@ import '../pages/gems/memory_model_page.dart';
 import '../pages/search/search_page.dart';
 import '../pages/origin/origin_world_page.dart';
 import '../pages/world/world_page.dart';
+import '../pages/world/world_page_result.dart';
 import '../pages/chat/chat_page.dart';
 import '../pages/chat/location_chat_page.dart';
 import '../pages/messages/message_category_list_page.dart';
@@ -491,7 +492,7 @@ sealed class AppRouter {
         );
       case RouteNames.world:
         final args = _WorldRouteArgs.from(settings.arguments);
-        return MaterialPageRoute<void>(
+        return MaterialPageRoute<WorldPageResult>(
           settings: settings,
           builder: (_) => WorldPage(
             wid: args.wid,

@@ -19,6 +19,7 @@ class GenesisProfileCollectionItemData {
     this.enableFeedback = true,
     this.onTap,
     this.onLongPress,
+    this.onCollapsed,
   });
 
   final Object? animationKey;
@@ -32,6 +33,7 @@ class GenesisProfileCollectionItemData {
   final bool enableFeedback;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onCollapsed;
 }
 
 class GenesisProfileCollectionStat {
