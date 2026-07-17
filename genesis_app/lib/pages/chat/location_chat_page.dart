@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug/location_chat_debug_slice.dart';
+import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
@@ -42,6 +43,7 @@ class LocationChatPage extends StatelessWidget {
     required this.locationId,
     this.isLeafLocation = true,
     this.localMessageLocationIds = const <String>[],
+    this.recentChatLocationPathIds = const <String>[],
     this.worldName,
     this.locationName,
     this.backgroundImageUrl,
@@ -54,6 +56,7 @@ class LocationChatPage extends StatelessWidget {
   final String locationId;
   final bool isLeafLocation;
   final List<String> localMessageLocationIds;
+  final List<String> recentChatLocationPathIds;
   final String? worldName;
   final String? locationName;
   final String? backgroundImageUrl;
@@ -68,6 +71,7 @@ class LocationChatPage extends StatelessWidget {
       locationId: locationId,
       isLeafLocation: isLeafLocation,
       localMessageLocationIds: localMessageLocationIds,
+      recentChatLocationPathIds: recentChatLocationPathIds,
       worldName: worldName,
       locationName: locationName,
       backgroundImageUrl: backgroundImageUrl,
@@ -88,6 +92,7 @@ class LocationChatPanel extends StatefulWidget {
     required this.locationId,
     this.isLeafLocation = true,
     this.localMessageLocationIds = const <String>[],
+    this.recentChatLocationPathIds = const <String>[],
     this.worldName,
     this.locationName,
     this.backgroundImageUrl,
@@ -114,6 +119,7 @@ class LocationChatPanel extends StatefulWidget {
   final String locationId;
   final bool isLeafLocation;
   final List<String> localMessageLocationIds;
+  final List<String> recentChatLocationPathIds;
   final String? worldName;
   final String? locationName;
   final String? backgroundImageUrl;
@@ -1472,6 +1478,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         object2: widget.locationId,
         object3: ack.messageId,
       );
+      unawaited(_markRecentWorldChatLocation());
       setState(() {
         localMessage.globalMessageId = ack.globalMessageId;
         localMessage.messageId = ack.messageId;
@@ -1505,6 +1512,16 @@ class _LocationChatPanelState extends State<LocationChatPanel>
         details: {'clientMsgId': clientMsgId, 'error': '$e'},
       );
     }
+  }
+
+  Future<void> _markRecentWorldChatLocation() async {
+    final uid = await resolveRecentWorldChatUid(AppServicesScope.read(context));
+    await recentWorldChatStore.markRecentChat(
+      uid: uid,
+      worldId: widget.worldId,
+      locationId: widget.locationId,
+      locationPathIds: widget.recentChatLocationPathIds,
+    );
   }
 
   String _nextClientMsgId() {

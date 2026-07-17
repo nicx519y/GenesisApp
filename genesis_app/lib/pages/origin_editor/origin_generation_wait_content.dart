@@ -1,7 +1,13 @@
 import '../create/create_origin_draft_store.dart';
 
-List<String> originDraftGenerationWaitLines(CreateOriginDraft draft) {
-  final lines = <String>[];
+List<String> originDraftGenerationWaitLines(
+  CreateOriginDraft draft, {
+  String originatorName = '',
+}) {
+  final originator = originatorName.trim();
+  final lines = <String>[
+    if (originator.isNotEmpty) ...['Originator', originator],
+  ];
   final brief = draft.basics.worldView.trim();
   final settings = draft.basics.worldLogic.trim();
   if (brief.isNotEmpty) lines.add(brief);

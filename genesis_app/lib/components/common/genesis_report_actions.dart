@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
-import '../auth/login_guard.dart';
 import 'genesis_content_submission_dialog.dart';
 
 const TextStyle _genesisActionMenuTextStyle = TextStyle(
@@ -57,12 +56,18 @@ class GenesisMoreActionMenuButton extends StatefulWidget {
     this.iconSize = 18,
     this.iconColor = Colors.black,
     this.buttonSize = 38,
+    this.menuRightInset,
+    this.menuVerticalOffset = 0,
+    this.visualRightInset,
   });
 
   final List<GenesisActionMenuItem> items;
   final double iconSize;
   final Color iconColor;
   final double buttonSize;
+  final double? menuRightInset;
+  final double menuVerticalOffset;
+  final double? visualRightInset;
 
   @override
   State<GenesisMoreActionMenuButton> createState() =>
@@ -81,7 +86,7 @@ class _GenesisMoreActionMenuButtonState
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    final button = SizedBox(
       width: widget.buttonSize,
       height: widget.buttonSize,
       child: IconButton(
@@ -97,6 +102,17 @@ class _GenesisMoreActionMenuButtonState
         ),
         onPressed: () => _showFromButton(context),
       ),
+    );
+    final visualRightInset = widget.visualRightInset;
+    if (visualRightInset == null) return button;
+    final centeredIconTrailingSpace = (widget.buttonSize - widget.iconSize) / 2;
+    final trailingPadding = visualRightInset > centeredIconTrailingSpace
+        ? visualRightInset - centeredIconTrailingSpace
+        : 0.0;
+    return SizedBox(
+      width: widget.buttonSize + trailingPadding,
+      height: widget.buttonSize,
+      child: Align(alignment: Alignment.centerLeft, child: button),
     );
   }
 
@@ -116,6 +132,8 @@ class _GenesisMoreActionMenuButtonState
       items: widget.items,
       placement: _GenesisActionMenuPlacement.leftOfTrigger,
       appearance: GenesisActionMenuAppearance.standard,
+      rightInset: widget.menuRightInset,
+      verticalOffset: widget.menuVerticalOffset,
     );
     final handle = _menuHandle;
     if (handle != null) {
@@ -208,15 +226,21 @@ _GenesisActionMenuPosition _genesisActionMenuLeftPosition({
   required Size overlaySize,
   required int itemCount,
   required double menuWidth,
+  double? rightInset,
+  double verticalOffset = 0,
 }) {
   final menuHeight = itemCount * _genesisActionMenuRowHeight;
   final maxLeft =
       overlaySize.width - menuWidth - _genesisActionMenuScreenPadding;
-  final desiredLeft =
-      triggerRect.left - menuWidth - _genesisActionMenuTriggerGap / 2;
+  final desiredLeft = rightInset == null
+      ? triggerRect.left - menuWidth
+      : overlaySize.width - rightInset - menuWidth;
   final maxTop =
       overlaySize.height - menuHeight - _genesisActionMenuScreenPadding;
-  final desiredTop = triggerRect.center.dy - menuHeight / 2;
+  // Keep the first action row aligned with the trigger. Additional rows then
+  // expand below it, so a two-item profile menu keeps Block below Report.
+  final desiredTop =
+      triggerRect.center.dy - _genesisActionMenuRowHeight / 2 + verticalOffset;
   return _GenesisActionMenuPosition(
     left: desiredLeft
         .clamp(
@@ -378,6 +402,8 @@ _GenesisActionMenuHandle? _showGenesisActionMenuAtInternal({
   required _GenesisActionMenuPlacement placement,
   required GenesisActionMenuAppearance appearance,
   Rect? triggerRect,
+  double? rightInset,
+  double verticalOffset = 0,
 }) {
   if (items.isEmpty) return null;
   final overlay = Overlay.maybeOf(context, rootOverlay: true);
@@ -407,6 +433,8 @@ _GenesisActionMenuHandle? _showGenesisActionMenuAtInternal({
           overlaySize: overlayBox.size,
           itemCount: rowCount,
           menuWidth: menuWidth,
+          rightInset: rightInset,
+          verticalOffset: verticalOffset,
         )
       : _genesisActionMenuPosition(
           globalPosition: globalPosition,
@@ -819,7 +847,6 @@ Future<bool> showGenesisReportDialog({
   required String targetType,
   required String targetId,
 }) async {
-  if (!await ensureGenesisLogin(context)) return false;
   if (!context.mounted) return false;
   final api = AppServicesScope.read(context).api;
   return showGenesisContentSubmissionDialog(

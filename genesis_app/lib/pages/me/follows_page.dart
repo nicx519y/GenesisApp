@@ -10,6 +10,7 @@ import '../../components/page_header.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../ui/components/secend_tabs.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -175,10 +176,10 @@ class _FollowsPageState extends State<FollowsPage>
               : _decrementCount(followingTotal);
         }
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _loadingUids.remove(uid));
-      showGenesisToast(context, 'Follow update failed');
+      showGenesisToast(context, apiErrorMessage(error));
     }
   }
 

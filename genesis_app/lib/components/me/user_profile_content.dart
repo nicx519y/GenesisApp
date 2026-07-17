@@ -13,6 +13,7 @@ import '../../icons/my_flutter_app_icons.dart';
 import '../../routers/app_router.dart';
 import '../../ui/genesis_ui.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -38,6 +39,9 @@ class UserProfileContent extends StatefulWidget {
     this.onCollapsedChanged,
     this.nameUidGap = 4,
     this.tabLabelFontSize = 16,
+    this.isBlocking = false,
+    this.isBlocked = false,
+    this.recentChatWorldId = '',
   });
 
   final UserProfileData data;
@@ -59,6 +63,9 @@ class UserProfileContent extends StatefulWidget {
   final ValueChanged<bool>? onCollapsedChanged;
   final double nameUidGap;
   final double? tabLabelFontSize;
+  final bool isBlocking;
+  final bool isBlocked;
+  final String recentChatWorldId;
 
   @override
   State<UserProfileContent> createState() => _UserProfileContentState();
@@ -122,43 +129,72 @@ class _UserProfileContentState extends State<UserProfileContent>
           SliverToBoxAdapter(
             child: _buildProfileHeader(data, isFollowed, followerCount),
           ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _ProfileTabsHeaderDelegate(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: GenesisTabBar(
-                  controller: _tabController,
-                  labels: const ['#Worldo', 'World'],
-                  horizontalPadding: 8,
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-                  labelFontSize: widget.tabLabelFontSize,
-                  onTap: _reportCollectionTab,
+          if (!widget.isBlocking && !widget.isBlocked)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _ProfileTabsHeaderDelegate(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: GenesisTabBar(
+                    controller: _tabController,
+                    labels: const ['#Worldo', 'World'],
+                    horizontalPadding: 8,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    labelFontSize: widget.tabLabelFontSize,
+                    onTap: _reportCollectionTab,
+                  ),
                 ),
               ),
             ),
-          ),
         ];
       },
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: TabBarView(
-          controller: _tabController,
-          children: [
-            _OriginProfileCollectionList(
-              items: data.origins,
-              isLoading: widget.originsLoading,
-              listenable: widget.originsListenable,
-              onRefresh: widget.onRefreshOrigins,
-            ),
-            _WorldProfileCollectionList(
-              items: data.worlds,
-              isLoading: widget.worldsLoading,
-              listenable: widget.worldsListenable,
-              onRefresh: widget.onRefreshWorlds,
-            ),
-          ],
+      body: _buildCollectionBody(data),
+    );
+  }
+
+  Widget _buildCollectionBody(UserProfileData data) {
+    if (widget.isBlocking) {
+      return const Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2.4),
         ),
+      );
+    }
+    if (widget.isBlocked) {
+      return const Center(
+        child: Text(
+          'User blocked',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Color(0xFF888888),
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: TabBarView(
+        controller: _tabController,
+        children: [
+          _OriginProfileCollectionList(
+            items: data.origins,
+            isLoading: widget.originsLoading,
+            listenable: widget.originsListenable,
+            onRefresh: widget.onRefreshOrigins,
+          ),
+          _WorldProfileCollectionList(
+            items: data.worlds,
+            isLoading: widget.worldsLoading,
+            listenable: widget.worldsListenable,
+            onRefresh: widget.onRefreshWorlds,
+            recentChatWorldId: widget.recentChatWorldId,
+          ),
+        ],
       ),
     );
   }
@@ -309,10 +345,10 @@ class _UserProfileContentState extends State<UserProfileContent>
             : _decrementCount(currentFollowerCount);
         _followLoading = false;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _followLoading = false);
-      showGenesisToast(context, 'Follow update failed');
+      showGenesisToast(context, apiErrorMessage(error));
     }
   }
 
@@ -545,6 +581,7 @@ class _WorldProfileCollectionList extends StatelessWidget {
     required this.isLoading,
     required this.listenable,
     required this.onRefresh,
+    required this.recentChatWorldId,
   });
 
   final List<UserProfileWorldItem> items;
@@ -552,6 +589,7 @@ class _WorldProfileCollectionList extends StatelessWidget {
   final ValueListenable<UserProfileCollectionState<UserProfileWorldItem>>?
   listenable;
   final Future<void> Function()? onRefresh;
+  final String recentChatWorldId;
 
   @override
   Widget build(BuildContext context) {
@@ -581,6 +619,7 @@ class _WorldProfileCollectionList extends StatelessWidget {
               imageUrl: item.imageUrl,
               title: item.title,
               subtitle: item.subtitle,
+              showRecentChatTag: item.wid == recentChatWorldId,
               stats: [
                 GenesisProfileCollectionStat(
                   iconAsset: tickStatIconAsset,

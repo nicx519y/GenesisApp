@@ -38,6 +38,8 @@ void main() {
     );
 
     expect(find.text('Last Progress'), findsOneWidget);
+    expect(find.text('Alpha World'), findsOneWidget);
+    expect(find.text('#Alpha World'), findsNothing);
     expect(
       _horizontalGap(
         tester,

@@ -7,6 +7,8 @@ import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/genesis_logo.dart';
 import '../../components/page_header.dart';
 import '../../network/api_exception.dart';
+import '../../network/json_utils.dart';
+import '../../utils/display_name_formatter.dart';
 import '../create/create_origin_draft_store.dart';
 import '../origin_editor/origin_draft_repository.dart';
 import '../origin_editor/origin_editor_pages.dart';
@@ -77,10 +79,17 @@ class _EditOriginPageState extends State<EditOriginPage> {
       final initialDraft = originDraftFromV1Detail(detail);
       setState(() {
         _repository = MemoryOriginDraftRepository(initialDraft: initialDraft);
-        _generationWaitLines = originDraftGenerationWaitLines(initialDraft);
         _updateNotesController.clear();
         _submitStatus = OriginDraftSubmitStatus.idle;
         _isLoading = false;
+      });
+      final originatorName = await _readOriginatorName(context);
+      if (!mounted) return;
+      setState(() {
+        _generationWaitLines = originDraftGenerationWaitLines(
+          initialDraft,
+          originatorName: originatorName,
+        );
       });
       await _pendingCoordinator.ensurePublishingPolling(
         loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
@@ -172,6 +181,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
               child: GenesisLogo(height: 88, width: 152),
             ),
             perspectiveLines: _generationWaitLines,
+            centeredPerspectiveLineCount: 2,
             onBackPressed: () => Navigator.of(context).maybePop(),
           ),
         ),
@@ -193,8 +203,15 @@ class _EditOriginPageState extends State<EditOriginPage> {
     final originId = draft.basics.originId.trim();
     final api = AppServicesScope.read(context).api;
     if (mounted) {
+      final originatorName = await _readOriginatorName(context);
+      if (!context.mounted) {
+        return const OriginSubmitResult(message: '', showMessage: false);
+      }
       setState(
-        () => _generationWaitLines = originDraftGenerationWaitLines(draft),
+        () => _generationWaitLines = originDraftGenerationWaitLines(
+          draft,
+          originatorName: originatorName,
+        ),
       );
     }
     final payload = draft.toCreateOriginPayload();
@@ -250,5 +267,21 @@ class _EditOriginPageState extends State<EditOriginPage> {
       _submitStatus = OriginDraftSubmitStatus.idle;
       _reloadSignal++;
     });
+  }
+
+  Future<String> _readOriginatorName(BuildContext context) async {
+    final services = AppServicesScope.read(context);
+    final userInfo = await services.sessionStore.readUserInfo();
+    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+    final rawName = userInfo == null
+        ? ''
+        : asString(
+            userInfo['name'] ??
+                userInfo['user_name'] ??
+                userInfo['username'] ??
+                userInfo['display_name'] ??
+                userInfo['nickname'],
+          );
+    return formatUidForDisplay(rawName, fallback: uid.isEmpty ? 'You' : uid);
   }
 }

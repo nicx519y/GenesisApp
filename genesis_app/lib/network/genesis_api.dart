@@ -60,6 +60,8 @@ class GenesisApi {
     IdentityAuthService? identityAuthService,
     RequestHeaderProvider? appHeaderProvider,
     GatewayRequestInterceptor? gatewayRequestInterceptor,
+    ApiRequestInterceptor Function(ApiRequestInterceptor? next)?
+    startupRequestInterceptor,
     Future<void> Function(String message)? onSessionExpired,
     Future<void> Function(String message)? onPageNotFound,
   }) {
@@ -77,6 +79,10 @@ class GenesisApi {
       transport: transport,
       useMock: useMock,
     );
+    final gatewayInterceptor = gatewayRequestInterceptor?.call;
+    final gatedGatewayInterceptor = startupRequestInterceptor == null
+        ? gatewayInterceptor
+        : startupRequestInterceptor(gatewayInterceptor);
 
     _apiClient =
         apiClient ??
@@ -87,11 +93,11 @@ class GenesisApi {
             'accept': 'application/json',
           },
           requestHeaderProvider: _runtimeRequestHeaders,
-          requestInterceptor: gatewayRequestInterceptor?.call,
+          requestInterceptor: gatedGatewayInterceptor,
           transport: resolvedTransport,
           responseProcessor: _processGenesisResponse,
         );
-    final gatewayClient =
+    final ungatedGatewayClient =
         gatewayApiClient ??
         ApiClient(
           baseUrl: _normalizeBaseUrl(
@@ -102,11 +108,11 @@ class GenesisApi {
             'accept': 'application/json',
           },
           requestHeaderProvider: _runtimeRequestHeaders,
-          requestInterceptor: gatewayRequestInterceptor?.call,
+          requestInterceptor: gatewayInterceptor,
           transport: resolvedTransport,
           responseProcessor: _processGenesisResponse,
         );
-    _healthClient = healthClient ?? gatewayClient;
+    _healthClient = healthClient ?? ungatedGatewayClient;
     _chatroomHttpClient =
         chatroomHttpClient ??
         ApiClient(
@@ -119,7 +125,7 @@ class GenesisApi {
           },
           requestHeaderProvider: _runtimeRequestHeaders,
           requestInterceptor: LocationChatDebugHttp.wrapChatroomHttpInterceptor(
-            gatewayRequestInterceptor?.call,
+            gatedGatewayInterceptor,
           ),
           transport: resolvedTransport,
           responseProcessor: _processGenesisResponse,

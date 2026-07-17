@@ -180,6 +180,40 @@ void main() {
     expect(startupStreet.size.height, greaterThan(12.0));
   });
 
+  testWidgets('world map renders recent chat icon outside location label', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const <WorldPoint>[
+        WorldPoint(
+          id: 'point-1',
+          sceneId: 'location-1',
+          name: 'Gate',
+          type: WorldPointType.portal,
+          position: _pointPosition,
+          users: <UserAvatar>[],
+        ),
+      ],
+      recentChatMapLocationIds: const <String>{'location-1'},
+    );
+
+    final labelRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-map-location-label-point-1')),
+    );
+    final iconRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-map-recent-chat-icon')),
+    );
+    final dotRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-map-location-dot')),
+    );
+
+    expect(iconRect.left, closeTo(labelRect.right + 3, 0.01));
+    expect(iconRect.center.dy, closeTo(labelRect.center.dy, 0.01));
+    expect(labelRect.center.dx, closeTo(dotRect.center.dx, 0.01));
+  });
+
   testWidgets('world map renders generated avatar when avatar URL is empty', (
     tester,
   ) async {
@@ -2008,6 +2042,7 @@ Future<void> _pumpWorldMap(
   List<WorldMapMessageBubble> messageBubbles = const <WorldMapMessageBubble>[],
   bool messageBubblePlaybackPaused = false,
   double initialZoomScale = 1,
+  Set<String> recentChatMapLocationIds = const <String>{},
 }) async {
   tester.view.physicalSize = const Size(430, 820);
   tester.view.devicePixelRatio = 1;
@@ -2038,6 +2073,7 @@ Future<void> _pumpWorldMap(
                 messageBubbles: messageBubbles,
                 messageBubblePlaybackPaused: messageBubblePlaybackPaused,
                 initialZoomScale: initialZoomScale,
+                recentChatMapLocationIds: recentChatMapLocationIds,
                 onDrillIntoLocation: onDrillIntoLocation,
                 onMapTap: onMapTap,
                 onPointTap: onPointTap,

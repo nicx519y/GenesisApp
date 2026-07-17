@@ -36,6 +36,26 @@ enum AppTrackingAuthorizationStatus {
 class AppTrackingTransparencyService {
   const AppTrackingTransparencyService._();
 
+  static Future<AppTrackingAuthorizationStatus> authorizationStatus({
+    MethodChannel channel = GenesisMethodChannels.device,
+    TargetPlatform? platform,
+  }) async {
+    final resolvedPlatform = platform ?? defaultTargetPlatform;
+    if (resolvedPlatform != TargetPlatform.iOS) {
+      return AppTrackingAuthorizationStatus.notSupported;
+    }
+    try {
+      final status = await channel.invokeMethod<String>(
+        GenesisMethodChannels.trackingAuthorizationStatus,
+      );
+      return AppTrackingAuthorizationStatus.fromNativeValue(status);
+    } on MissingPluginException {
+      return AppTrackingAuthorizationStatus.unknown;
+    } on PlatformException {
+      return AppTrackingAuthorizationStatus.unknown;
+    }
+  }
+
   static Future<AppTrackingAuthorizationStatus> requestAuthorization({
     MethodChannel channel = GenesisMethodChannels.device,
     TargetPlatform? platform,

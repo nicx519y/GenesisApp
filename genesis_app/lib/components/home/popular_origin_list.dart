@@ -151,6 +151,7 @@ class _PopularOriginListState extends State<PopularOriginList> {
                   const <OriginDiscussPreviewItem>[]
             : null;
         return Padding(
+          key: ValueKey<String>('popular-origin-${item.oid}'),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: PopularOriginListItem(
             item: item,

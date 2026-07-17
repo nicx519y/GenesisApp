@@ -18,7 +18,7 @@ class GenesisAvatar extends StatelessWidget {
     this.alignment = Alignment.topCenter,
     this.imageKey,
     this.textStyle,
-    this.showFallbackWhileLoading = true,
+    this.showFallbackWhileLoading = false,
     this.showFallbackWhenUnavailable = true,
     this.onVisibilityChanged,
   });

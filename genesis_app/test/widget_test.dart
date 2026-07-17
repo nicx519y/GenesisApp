@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
+import 'package:genesis_flutter_android/app/blocked_user_review_return.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
@@ -17,6 +18,7 @@ import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
+import 'package:genesis_flutter_android/app/startup/startup_network_gate.dart';
 import 'package:genesis_flutter_android/app/version/app_version_check_service.dart';
 import 'package:genesis_flutter_android/app/version/force_upgrade_gate.dart';
 import 'package:genesis_flutter_android/main.dart';
@@ -50,6 +52,7 @@ import 'package:genesis_flutter_android/pages/edit/edit_characters_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_locations_page.dart';
 import 'package:genesis_flutter_android/pages/edit/edit_origin_page.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
+import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
@@ -61,6 +64,7 @@ import 'package:genesis_flutter_android/components/world_map_stage.dart';
 import 'package:genesis_flutter_android/pages/app_shell_page.dart';
 import 'package:genesis_flutter_android/pages/chat/chat_page.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
+import 'package:genesis_flutter_android/pages/home/home_feed_cache_store.dart';
 import 'package:genesis_flutter_android/pages/home/home_page.dart';
 import 'package:genesis_flutter_android/pages/me/follows_page.dart';
 import 'package:genesis_flutter_android/pages/me/developer_page.dart';
@@ -218,6 +222,7 @@ Future<AppServices> _testServices({
         ),
     appVersionCheck: appVersionCheck ?? const _NoUpgradeVersionCheckService(),
     externalUrlOpener: externalUrlOpener ?? _FakeExternalUrlOpener(),
+    startupNetworkGate: StartupNetworkGate.open(),
   );
 }
 
@@ -1890,6 +1895,7 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    BlockedUserReviewReturn.resetForTesting();
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
     OriginLaunchCoordinator.instance.resetForTesting();
   });
@@ -1897,6 +1903,7 @@ void main() {
   tearDown(() async {
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
     OriginLaunchCoordinator.instance.resetForTesting();
+    BlockedUserReviewReturn.resetForTesting();
     await OriginLaunchPendingStore.clear();
   });
 
@@ -2101,7 +2108,11 @@ void main() {
     final transport = _RecordingSearchTransport();
     await tester.pumpWidget(
       GenesisApp(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -2129,7 +2140,7 @@ void main() {
     expect(find.text('#Search Origin'), findsOneWidget);
     final title = tester.widget<Text>(find.text('#Search Origin'));
     expect(title.style?.fontSize, 14);
-    expect(title.style?.fontWeight, FontWeight.w700);
+    expect(title.style?.fontWeight, FontWeight.w600);
     expect(find.text('Worlds'), findsOneWidget);
     expect(find.text('Search World'), findsOneWidget);
     expect(find.text('Users'), findsOneWidget);
@@ -2158,7 +2169,7 @@ void main() {
     );
     expect(subtitle.style?.fontSize, 12);
     expect(subtitle.style?.fontWeight, FontWeight.w400);
-    expect(find.textContaining('Latest Version: V3 ·'), findsOneWidget);
+    expect(find.textContaining('Latest Version: V3'), findsOneWidget);
     expect(find.text('WID: w_search_1  Owner: World Owner'), findsOneWidget);
     expect(find.byType(StatItem), findsNWidgets(7));
   });
@@ -3611,7 +3622,7 @@ void main() {
           services: await _testServices(
             transport: transport,
             useMock: false,
-            initialAuthToken: 'backend-token',
+            initialUid: null,
           ),
           child: const AppShellPage(initialIndex: 1),
         ),
@@ -3878,10 +3889,248 @@ void main() {
   });
 
   testWidgets(
-    'Home iOS startup gate keeps skeleton until network prime succeeds',
+    'Home iOS startup gate does not request network before ATT and runtime complete',
+    (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final transport = _RecordingV1ListTransport();
+      final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
+      final runtimeInitialization = Completer<void>();
+      var trackingRequested = false;
+      var runtimeInitialized = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'backend-token',
+            ),
+            child: HomePage(
+              startupPlatform: TargetPlatform.iOS,
+              initialTabIndex: HomePage.myWorldsTabIndex,
+              initialRequestMetricWindow: Duration.zero,
+              networkPermissionDialogSettleTimeout: Duration.zero,
+              postSystemDialogResumeDelay: Duration.zero,
+              primeNetworkPermission: (_) async => true,
+              trackingAuthorizationStatus: () async =>
+                  AppTrackingAuthorizationStatus.notDetermined,
+              requestTrackingAuthorization: () async {
+                trackingRequested = true;
+                return trackingAuthorization.future;
+              },
+              initializeRuntime: (services, trackingAuthorizationStatus) {
+                runtimeInitialized = true;
+                expect(
+                  trackingAuthorizationStatus,
+                  AppTrackingAuthorizationStatus.denied,
+                );
+                return runtimeInitialization.future;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(
+          const ValueKey<String>(
+            'home-my-worlds-empty-image:'
+            'assets/images/my_worlds_empty_worldo_launch.jpg',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+      expect(trackingRequested, isTrue);
+      expect(runtimeInitialized, isFalse);
+
+      trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
+      for (var i = 0; i < 10 && !runtimeInitialized; i += 1) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(runtimeInitialized, isTrue);
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+
+      runtimeInitialization.complete();
+      for (
+        var i = 0;
+        i < 10 && transport.requestsFor('/api/v1/world/list').isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+      expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
+    },
+  );
+
+  testWidgets('Home iOS signed-out My Worlds renders empty state during gate', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final transport = _RecordingV1ListTransport();
+    final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: null,
+          ),
+          child: HomePage(
+            startupPlatform: TargetPlatform.iOS,
+            initialTabIndex: HomePage.myWorldsTabIndex,
+            initialRequestMetricWindow: Duration.zero,
+            networkPermissionDialogSettleTimeout: Duration.zero,
+            postSystemDialogResumeDelay: Duration.zero,
+            primeNetworkPermission: (_) async => true,
+            trackingAuthorizationStatus: () async =>
+                AppTrackingAuthorizationStatus.notDetermined,
+            requestTrackingAuthorization: () => trackingAuthorization.future,
+            initializeRuntime: (services, trackingAuthorizationStatus) async {},
+          ),
+        ),
+      ),
+    );
+
+    for (
+      var i = 0;
+      i < 10 &&
+          find
+              .byKey(
+                const ValueKey<String>(
+                  'home-my-worlds-empty-image:'
+                  'assets/images/my_worlds_empty_worldo_launch.jpg',
+                ),
+              )
+              .evaluate()
+              .isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(
+      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'home-my-worlds-empty-image:'
+          'assets/images/my_worlds_empty_worldo_launch.jpg',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+
+    trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
+  });
+
+  testWidgets('Home iOS My Worlds renders signed-in cache before ATT completes', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    final cachedWorld = transport._worldItem(0)..['name'] = 'iOS Cached World';
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      '${HomeFeedCacheStore.storageKey}.u_cached.my_worlds': jsonEncode({
+        'list': [cachedWorld],
+        'total': 1,
+      }),
+    });
+    final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
+    final runtimeInitialization = Completer<void>();
+    var runtimeInitialized = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: 'u_cached',
+            initialAuthToken: 'backend-token',
+          ),
+          child: HomePage(
+            startupPlatform: TargetPlatform.iOS,
+            initialTabIndex: HomePage.myWorldsTabIndex,
+            initialRequestMetricWindow: Duration.zero,
+            networkPermissionDialogSettleTimeout: Duration.zero,
+            postSystemDialogResumeDelay: Duration.zero,
+            primeNetworkPermission: (_) async => true,
+            trackingAuthorizationStatus: () async =>
+                AppTrackingAuthorizationStatus.notDetermined,
+            requestTrackingAuthorization: () => trackingAuthorization.future,
+            initializeRuntime: (services, trackingAuthorizationStatus) {
+              runtimeInitialized = true;
+              return runtimeInitialization.future;
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'home-my-worlds-empty-image:assets/images/my_worlds_empty_worldo_launch.jpg',
+        ),
+      ),
+      findsNothing,
+    );
+
+    for (
+      var i = 0;
+      i < 10 && find.text('#iOS Cached World').evaluate().isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(find.text('#iOS Cached World'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+      findsNothing,
+    );
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(runtimeInitialized, isFalse);
+
+    trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
+    for (var i = 0; i < 10 && !runtimeInitialized; i += 1) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(runtimeInitialized, isTrue);
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+
+    runtimeInitialization.complete();
+    for (
+      var i = 0;
+      i < 10 && transport.requestsFor('/api/v1/world/list').isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+  });
+
+  testWidgets(
+    'Home iOS startup gate requests ATT after network dialog resume',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport();
-      final networkPrime = Completer<bool>();
+      var networkPrimed = false;
       var trackingRequested = false;
       await tester.pumpWidget(
         MaterialApp(
@@ -3895,17 +4144,181 @@ void main() {
               startupPlatform: TargetPlatform.iOS,
               initialTabIndex: HomePage.myWorldsTabIndex,
               initialRequestMetricWindow: Duration.zero,
-              primeNetworkPermission: (_) => networkPrime.future,
+              networkPermissionDialogSettleTimeout: const Duration(seconds: 5),
+              postSystemDialogResumeDelay: Duration.zero,
+              primeNetworkPermission: (_) async {
+                networkPrimed = true;
+                return true;
+              },
+              trackingAuthorizationStatus: () async =>
+                  AppTrackingAuthorizationStatus.notDetermined,
               requestTrackingAuthorization: () async {
                 trackingRequested = true;
                 return AppTrackingAuthorizationStatus.denied;
+              },
+              initializeRuntime:
+                  (services, trackingAuthorizationStatus) async {},
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump();
+
+      expect(networkPrimed, isTrue);
+      expect(trackingRequested, isFalse);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+
+      expect(trackingRequested, isFalse);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      for (var i = 0; i < 10 && !trackingRequested; i += 1) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(trackingRequested, isTrue);
+    },
+  );
+
+  testWidgets(
+    'Home iOS startup gate renders cached popular before ATT completes',
+    (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        '${HomeFeedCacheStore.storageKey}.${HomeFeedCacheStore.anonymousOwnerUid}.popular':
+            jsonEncode({
+              'list': [
+                {
+                  'oid': 'ios_cached_origin_1',
+                  'name': 'iOS Cached Origin',
+                  'brief': 'Cached subtitle',
+                  'world_view': 'Cached world view',
+                  'owner_name': 'Cached owner',
+                  'updated_at': '2026-07-08T00:00:00Z',
+                  'discusses': <Object?>[],
+                },
+              ],
+              'total': 1,
+            }),
+      });
+      final transport = _RecordingV1ListTransport();
+      final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
+      final runtimeInitialization = Completer<void>();
+      var runtimeInitialized = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialUid: null,
+            ),
+            child: HomePage(
+              startupPlatform: TargetPlatform.iOS,
+              initialRequestMetricWindow: Duration.zero,
+              networkPermissionDialogSettleTimeout: Duration.zero,
+              postSystemDialogResumeDelay: Duration.zero,
+              primeNetworkPermission: (_) async => true,
+              trackingAuthorizationStatus: () async =>
+                  AppTrackingAuthorizationStatus.notDetermined,
+              requestTrackingAuthorization: () => trackingAuthorization.future,
+              initializeRuntime: (services, trackingAuthorizationStatus) {
+                runtimeInitialized = true;
+                return runtimeInitialization.future;
               },
             ),
           ),
         ),
       );
+
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('#iOS Cached Origin'), findsWidgets);
+      expect(
+        find.byKey(
+          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
+        ),
+        findsNothing,
+      );
+      expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
+      expect(runtimeInitialized, isFalse);
+
+      trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
+      for (
+        var i = 0;
+        i < 10 &&
+            (!runtimeInitialized ||
+                find.text('#iOS Cached Origin').evaluate().isEmpty);
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(find.text('#iOS Cached Origin'), findsWidgets);
+      expect(runtimeInitialized, isTrue);
+      expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
+
+      runtimeInitialization.complete();
+      for (
+        var i = 0;
+        i < 10 && transport.requestsFor('/api/v1/origin/list').isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
+    },
+  );
+
+  testWidgets(
+    'Home iOS startup gate shows popular skeleton instead of No data without cache',
+    (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final transport = _RecordingV1ListTransport();
+      final trackingAuthorization = Completer<AppTrackingAuthorizationStatus>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialUid: null,
+            ),
+            child: HomePage(
+              startupPlatform: TargetPlatform.iOS,
+              initialRequestMetricWindow: Duration.zero,
+              networkPermissionDialogSettleTimeout: Duration.zero,
+              postSystemDialogResumeDelay: Duration.zero,
+              primeNetworkPermission: (_) async => true,
+              trackingAuthorizationStatus: () async =>
+                  AppTrackingAuthorizationStatus.notDetermined,
+              requestTrackingAuthorization: () => trackingAuthorization.future,
+              initializeRuntime:
+                  (services, trackingAuthorizationStatus) async {},
+            ),
+          ),
+        ),
+      );
+
+      for (
+        var i = 0;
+        i < 10 &&
+            find
+                .byKey(
+                  const ValueKey<String>(
+                    'genesis-popular-origin-list-skeleton',
+                  ),
+                )
+                .evaluate()
+                .isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
 
       expect(
         find.byKey(
@@ -3913,53 +4326,86 @@ void main() {
         ),
         findsOneWidget,
       );
-      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-      expect(trackingRequested, isFalse);
+      expect(find.text('No data'), findsNothing);
+      expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
 
-      networkPrime.complete(true);
-      for (var i = 0; i < 10 && !trackingRequested; i += 1) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-
-      expect(trackingRequested, isTrue);
-      expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
+      trackingAuthorization.complete(AppTrackingAuthorizationStatus.denied);
     },
   );
 
-  testWidgets('Home iOS startup gate shows retry when network prime fails', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialAuthToken: 'backend-token',
-          ),
-          child: HomePage(
-            startupPlatform: TargetPlatform.iOS,
-            initialRequestMetricWindow: Duration.zero,
-            primeNetworkPermission: (_) async => false,
-            requestTrackingAuthorization: () async =>
-                AppTrackingAuthorizationStatus.denied,
+  testWidgets(
+    'Home iOS initial network timeout keeps skeleton instead of Retry',
+    (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final originListCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        originListCompleter: originListCompleter,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialUid: null,
+            ),
+            child: HomePage(
+              startupPlatform: TargetPlatform.iOS,
+              initialRequestMetricWindow: Duration.zero,
+              networkPermissionDialogSettleTimeout: Duration.zero,
+              postSystemDialogResumeDelay: Duration.zero,
+              primeNetworkPermission: (_) async => true,
+              trackingAuthorizationStatus: () async =>
+                  AppTrackingAuthorizationStatus.authorized,
+              initializeRuntime:
+                  (services, trackingAuthorizationStatus) async {},
+            ),
           ),
         ),
-      ),
-    );
-    for (
-      var i = 0;
-      i < 10 && find.widgetWithText(FilledButton, 'Retry').evaluate().isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+      );
 
-    expect(find.widgetWithText(FilledButton, 'Retry'), findsOneWidget);
-    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-    expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
-  });
+      for (
+        var i = 0;
+        i < 10 && transport.requestsFor('/api/v1/origin/list').isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+
+      expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
+      originListCompleter.completeError(
+        ApiException(
+          message: 'network permission pending timeout',
+          kind: ApiExceptionKind.timeout,
+          transportErrorKind: TransportErrorKind.timeout,
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
+
+      await tester.pump(const Duration(seconds: 3));
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('genesis-popular-origin-list-skeleton'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.widgetWithText(FilledButton, 'Retry'), findsNothing);
+      expect(
+        transport.requestsFor('/api/v1/origin/list').length,
+        greaterThan(1),
+      );
+    },
+  );
 
   testWidgets('Home My Worlds signed-out initial frame shows empty state', (
     WidgetTester tester,
@@ -3986,7 +4432,7 @@ void main() {
       find.text(
         'Worldo is the blueprint. Launch to create a live World you can enter and grow.',
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
 
@@ -3995,6 +4441,12 @@ void main() {
     expect(
       find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
       findsNothing,
+    );
+    expect(
+      find.text(
+        'Worldo is the blueprint. Launch to create a live World you can enter and grow.',
+      ),
+      findsOneWidget,
     );
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
   });
@@ -4023,6 +4475,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     await tester.tap(find.text('My Worlds'));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+      findsNothing,
+    );
     for (
       var i = 0;
       i < 10 &&
@@ -4065,6 +4522,47 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets(
+    'Home My Worlds signed-out tab never keeps an offstage skeleton',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialUid: null,
+            ),
+            child: const HomePage(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('genesis-world-list-skeleton'),
+          skipOffstage: false,
+        ),
+        findsNothing,
+      );
+
+      await tester.tap(find.text('My Worlds'));
+      await tester.pump();
+
+      expect(
+        find.byKey(
+          const ValueKey<String>('genesis-world-list-skeleton'),
+          skipOffstage: false,
+        ),
+        findsNothing,
+      );
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    },
+  );
 
   testWidgets('Home My World signed-out state uses launch image', (
     WidgetTester tester,
@@ -4236,7 +4734,11 @@ void main() {
 
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -4332,7 +4834,11 @@ void main() {
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -4380,7 +4886,11 @@ void main() {
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -4414,7 +4924,11 @@ void main() {
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -4466,7 +4980,11 @@ void main() {
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -4551,6 +5069,9 @@ void main() {
       tester.getSize(find.byKey(const ValueKey('origin-role-launch'))).height,
       35,
     );
+
+    await tester.tap(find.text('Preset'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
     await tester.pump();
@@ -4737,7 +5258,11 @@ void main() {
     final transport = _RecordingV1ListTransport();
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -4769,7 +5294,11 @@ void main() {
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -4945,7 +5474,11 @@ void main() {
     final transport = _RecordingV1ListTransport();
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -5184,6 +5717,59 @@ void main() {
     expect(tester.widget<TextField>(fields.at(2)).controller?.text, 'B' * 500);
   });
 
+  testWidgets(
+    'Origin role sheet defaults to launched worlds and enters selection',
+    (WidgetTester tester) async {
+      OriginRoleLaunchSelection? result;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => FilledButton(
+                onPressed: () async {
+                  result = await showOriginRoleLaunchSheet(
+                    context: context,
+                    characters: const <OriginCharacter>[],
+                    launchedWorldsLoader: () async => const [
+                      OriginLaunchedWorldRole(
+                        worldId: 'w_launched_1',
+                        roleName: 'Mira',
+                        avatarUrl: '',
+                        tickCount: 7,
+                        currentTime: 'Day 3',
+                      ),
+                    ],
+                  );
+                },
+                child: const Text('Open role sheet'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open role sheet'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Launched'), findsOneWidget);
+      expect(find.text('Mira'), findsOneWidget);
+      expect(find.text('w_launched_1'), findsOneWidget);
+      expect(find.text('Tick 7 · Day 3'), findsOneWidget);
+      expect(
+        find.widgetWithText(GenesisPrimaryButton, 'Enter'),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('origin-role-launched-w_launched_1')),
+      );
+      await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
+      await tester.pumpAndSettle();
+
+      expect(result?.existingWorldId, 'w_launched_1');
+    },
+  );
+
   testWidgets('Origin detail profile fill asks for login when signed out', (
     WidgetTester tester,
   ) async {
@@ -5274,7 +5860,11 @@ void main() {
     final transport = _RecordingV1ListTransport();
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const HomePage(),
@@ -5283,7 +5873,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('World 1'));
+    await tester.tap(find.text('#World 1'));
     await tester.pumpAndSettle();
 
     final detailRequests = transport.requestsFor('/api/v1/world/detail');
@@ -5323,7 +5913,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('World 1'));
+    await tester.tap(find.text('#World 1'));
     await tester.pumpAndSettle();
 
     final stage = tester.widget<WorldMapStage>(find.byType(WorldMapStage));
@@ -5353,7 +5943,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('World 1'));
+    await tester.tap(find.text('#World 1'));
     await tester.pumpAndSettle();
     await tester.dragFrom(const Offset(400, 570), const Offset(0, -360));
     await tester.pumpAndSettle();
@@ -5427,7 +6017,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('World 1'));
+    await tester.tap(find.text('#World 1'));
     await tester.pumpAndSettle();
     await tester.dragFrom(const Offset(400, 570), const Offset(0, -360));
     await tester.pumpAndSettle();
@@ -5473,7 +6063,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('World 1'));
+    await tester.tap(find.text('#World 1'));
     await tester.pumpAndSettle();
     await tester.dragFrom(const Offset(400, 570), const Offset(0, -360));
     await tester.pumpAndSettle();
@@ -5498,7 +6088,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('World 1'));
+    await tester.tap(find.text('#World 1'));
     await tester.pumpAndSettle();
 
     expect(find.text('World Location'), findsWidgets);
@@ -5547,7 +6137,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('World detail w_test_1'), findsNothing);
-    expect(find.text('World 1'), findsOneWidget);
+    expect(find.text('#World 1'), findsOneWidget);
   });
 
   testWidgets('World map starts with root location map url', (
@@ -5589,7 +6179,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('World 1'));
+    await tester.tap(find.text('#World 1'));
     await tester.pumpAndSettle();
 
     expect(_assetImageFinder(kMockV1LocationCentralHubMap), findsOneWidget);
@@ -5611,7 +6201,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('World 1'));
+    await tester.tap(find.text('#World 1'));
     await tester.pumpAndSettle();
 
     final buttonFinder = find.widgetWithText(FilledButton, 'Request');
@@ -5650,7 +6240,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('World 1'));
+    await tester.tap(find.text('#World 1'));
     await tester.pumpAndSettle();
 
     final buttonFinder = find.widgetWithText(FilledButton, 'Requested');
@@ -5683,7 +6273,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('World 1'));
+    await tester.tap(find.text('#World 1'));
     await tester.pumpAndSettle();
 
     final buttonFinder = find.widgetWithText(FilledButton, 'Launch');
@@ -6248,8 +6838,8 @@ void main() {
     await tester.tap(find.text('World'));
     await tester.pumpAndSettle();
 
-    expect(find.text('World Old'), findsOneWidget);
-    expect(find.text('World New'), findsNothing);
+    expect(find.text('#World Old'), findsOneWidget);
+    expect(find.text('#World New'), findsNothing);
 
     refreshFuture = tester
         .widget<RefreshIndicator>(
@@ -6259,15 +6849,15 @@ void main() {
     await tester.pump();
 
     expect(transport.worldListRequests, 2);
-    expect(find.text('World Old'), findsOneWidget);
-    expect(find.text('World New'), findsNothing);
+    expect(find.text('#World Old'), findsOneWidget);
+    expect(find.text('#World New'), findsNothing);
 
     transport.completeWorldRefresh();
     await tester.pumpAndSettle();
     await refreshFuture;
 
-    expect(find.text('World Old'), findsNothing);
-    expect(find.text('World New'), findsOneWidget);
+    expect(find.text('#World Old'), findsNothing);
+    expect(find.text('#World New'), findsOneWidget);
   });
 
   test('remote user info with same rendered fields is ignored', () {
@@ -9465,8 +10055,8 @@ void main() {
       await tester.tap(find.text('World'));
       await tester.pumpAndSettle();
 
-      expect(find.text('World Old'), findsOneWidget);
-      expect(find.text('World New'), findsNothing);
+      expect(find.text('#World Old'), findsOneWidget);
+      expect(find.text('#World New'), findsNothing);
 
       refreshFuture = tester
           .widget<RefreshIndicator>(
@@ -9476,15 +10066,15 @@ void main() {
       await tester.pump();
 
       expect(transport.worldListRequests, 2);
-      expect(find.text('World Old'), findsOneWidget);
-      expect(find.text('World New'), findsNothing);
+      expect(find.text('#World Old'), findsOneWidget);
+      expect(find.text('#World New'), findsNothing);
 
       transport.completeWorldRefresh();
       await tester.pumpAndSettle();
       await refreshFuture;
 
-      expect(find.text('World Old'), findsNothing);
-      expect(find.text('World New'), findsOneWidget);
+      expect(find.text('#World Old'), findsNothing);
+      expect(find.text('#World New'), findsOneWidget);
     },
   );
 
@@ -9566,6 +10156,85 @@ void main() {
     final chatPage = tester.widget<ChatPage>(find.byType(ChatPage));
     expect(chatPage.peerUid, 'u_peer');
     expect(chatPage.peerName, 'Peer User');
+  });
+
+  testWidgets('blocking a peer profile also reports the user to moderation', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingProfileActionTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
+        child: const MaterialApp(home: UserInfoPage(uid: 'u_peer')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_horiz_sharp));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Block').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Block').last);
+    await tester.pumpAndSettle();
+
+    expect(transport.blockRequests, hasLength(1));
+    expect(transport.decodedBody(transport.blockRequests.single), {
+      'target_uid': 'u_peer',
+    });
+    expect(transport.reportRequests, hasLength(1));
+    expect(transport.decodedBody(transport.reportRequests.single), {
+      'target_type': 'user',
+      'target_id': 'u_peer',
+      'content': 'User blocked from profile.',
+    });
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('back after blocking a peer profile returns to Home Popular', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingProfileActionTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
+        child: MaterialApp(
+          home: const UserInfoPage(uid: 'u_peer'),
+          onGenerateRoute: (settings) {
+            if (settings.name == RouteNames.home) {
+              return MaterialPageRoute<void>(
+                settings: settings,
+                builder: (_) {
+                  final args = settings.arguments as Map?;
+                  return Scaffold(body: Text('Home tab: ${args?['home_tab']}'));
+                },
+              );
+            }
+            return null;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_horiz_sharp));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Block').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Block').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Home tab: popular'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('follows page loads following and followers lists', (
@@ -13712,6 +14381,26 @@ class _RecordingProfileActionTransport implements HttpTransport {
           (request) =>
               request.method == 'POST' &&
               request.uri.path == '/api/v1/user/follow',
+        )
+        .toList(growable: false);
+  }
+
+  List<TransportRequest> get blockRequests {
+    return requests
+        .where(
+          (request) =>
+              request.method == 'POST' &&
+              request.uri.path == '/api/v1/user/block',
+        )
+        .toList(growable: false);
+  }
+
+  List<TransportRequest> get reportRequests {
+    return requests
+        .where(
+          (request) =>
+              request.method == 'POST' &&
+              request.uri.path == '/api/v1/report/create',
         )
         .toList(growable: false);
   }
