@@ -107,42 +107,40 @@ void main() {
     expect(style?.fontStyle, FontStyle.normal);
   });
 
-  testWidgets(
-    'CreateTextFieldBlock uses decorative unicode visual fallback input',
-    (WidgetTester tester) async {
-      final controller = TextEditingController();
-      addTearDown(controller.dispose);
-      const raw = '☛ ˙۵ও⃢♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀〬𓈒ֹ⁠꙳';
-      const rendered = '☛ ˙۵▤▤▤♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀°ₒ✩';
+  testWidgets('CreateTextFieldBlock preserves decorative unicode input', (
+    WidgetTester tester,
+  ) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+    const raw = '☛ ˙۵ও⃢♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀〬𓈒ֹ⁠꙳';
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: CreateTextFieldBlock(
-              label: 'Name',
-              controller: controller,
-              hintText: 'Worldo Name',
-              onChanged: (_) {},
-            ),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CreateTextFieldBlock(
+            label: 'Name',
+            controller: controller,
+            hintText: 'Worldo Name',
+            onChanged: (_) {},
           ),
         ),
-      );
+      ),
+    );
 
-      await tester.enterText(find.byType(TextField), raw);
-      await tester.pump();
+    await tester.enterText(find.byType(TextField), raw);
+    await tester.pump();
 
-      expect(controller.text, rendered);
-      final input = tester.widget<TextField>(find.byType(TextField));
-      expect(input.style?.fontFamily, isNull);
-      expect(input.style?.fontFamilyFallback, isNull);
-      expect(input.decoration?.hintStyle?.fontFamilyFallback, isNull);
+    expect(controller.text, raw);
+    final input = tester.widget<TextField>(find.byType(TextField));
+    expect(input.style?.fontFamily, isNull);
+    expect(input.style?.fontFamilyFallback, isNull);
+    expect(input.decoration?.hintStyle?.fontFamilyFallback, isNull);
 
-      controller.text = raw;
-      await tester.pump();
+    controller.text = raw;
+    await tester.pump();
 
-      expect(controller.text, rendered);
-    },
-  );
+    expect(controller.text, raw);
+  });
 
   testWidgets('CreateTextFieldBlock advances focus on done', (
     WidgetTester tester,

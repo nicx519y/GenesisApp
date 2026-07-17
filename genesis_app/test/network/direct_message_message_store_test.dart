@@ -163,39 +163,69 @@ void main() {
         senderUid: 'me',
         content: 'hello',
       );
+      final localNotifier = store.rowListenable(secondLocalId);
+      final replacementNotifications = <List<String>>[];
+      void recordReplacementNotification() {
+        replacementNotifications.add([...store.orderedMessageIds.value]);
+      }
+
+      store.orderedMessageIds.addListener(recordReplacementNotification);
       await store.replaceLocalMessage(
         peerUid: 'peer_1',
         localMessageId: secondLocalId,
-        serverMessage: _message('server_1', minutesAgo: 0, content: 'hello'),
+        serverMessage: {
+          ..._message('server_1', minutesAgo: 0, content: 'server hello'),
+          'sender_uid': '',
+        },
       );
+      store.orderedMessageIds.removeListener(recordReplacementNotification);
       expect(store.orderedMessageIds.value, ['server_1']);
+      expect(replacementNotifications, [
+        ['server_1'],
+      ]);
       expect(store.rowListenable(secondLocalId), isNull);
+      expect(identical(store.rowListenable('server_1'), localNotifier), isTrue);
       expect(
         store.rowListenable('server_1')!.value.sendStatus,
         DirectMessageSendStatus.sent,
       );
+      expect(store.rowListenable('server_1')!.value.localId, secondLocalId);
+      expect(store.rowListenable('server_1')!.value.senderUid, 'me');
       expect(store.rowListenable('server_1')!.value.content, 'hello');
     },
   );
 
-  test('replace local message overwrites instead of duplicating', () async {
-    final store = await _store(_DmMessageTransport({}, total: 0));
+  test(
+    'ack keeps optimistic presentation while persisting server data',
+    () async {
+      final storage = MemoryDirectMessageMessageStorage();
+      final store = await _store(
+        _DmMessageTransport({}, total: 0),
+        storage: storage,
+      );
 
-    final localId = await store.insertLocalMessage(
-      peerUid: 'peer_1',
-      senderUid: 'me',
-      content: 'draft',
-    );
-    await store.replaceLocalMessage(
-      peerUid: 'peer_1',
-      localMessageId: localId,
-      serverMessage: _message('server_2', minutesAgo: 0, content: 'server'),
-    );
+      final localId = await store.insertLocalMessage(
+        peerUid: 'peer_1',
+        senderUid: 'me',
+        content: 'draft',
+      );
+      await store.replaceLocalMessage(
+        peerUid: 'peer_1',
+        localMessageId: localId,
+        serverMessage: _message('server_2', minutesAgo: 0, content: 'server'),
+      );
 
-    expect(store.orderedMessageIds.value, ['server_2']);
-    expect(store.rowListenable(localId), isNull);
-    expect(store.rowListenable('server_2')!.value.content, 'server');
-  });
+      expect(store.orderedMessageIds.value, ['server_2']);
+      expect(store.rowListenable(localId), isNull);
+      expect(store.rowListenable('server_2')!.value.content, 'draft');
+      final persisted = await storage.loadMessages(
+        ownerUid: 'me',
+        peerUid: 'peer_1',
+      );
+      expect(persisted.single.messageId, 'server_2');
+      expect(persisted.single.content, 'server');
+    },
+  );
 
   test('clear cache removes active peer messages', () async {
     final store = await _store(

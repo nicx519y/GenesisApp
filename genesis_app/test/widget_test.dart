@@ -1492,6 +1492,8 @@ class _RecordingDmChatTransport implements HttpTransport {
   _RecordingDmChatTransport({
     this.failSend = false,
     this.sendFailureMessage = 'send failed',
+    this.sendGate,
+    this.sentMessageOverrides = const <String, dynamic>{},
     List<Map<String, dynamic>>? messages,
   }) : messages =
            messages ??
@@ -1508,6 +1510,8 @@ class _RecordingDmChatTransport implements HttpTransport {
 
   final bool failSend;
   final String sendFailureMessage;
+  final Completer<void>? sendGate;
+  final Map<String, dynamic> sentMessageOverrides;
   final requests = <TransportRequest>[];
   final List<Map<String, dynamic>> messages;
 
@@ -1524,6 +1528,7 @@ class _RecordingDmChatTransport implements HttpTransport {
       });
     }
     if (request.method == 'POST' && path == '/api/v1/direct_message/send') {
+      await sendGate?.future;
       if (failSend) {
         return TransportResponse(
           statusCode: 200,
@@ -1543,6 +1548,7 @@ class _RecordingDmChatTransport implements HttpTransport {
         'receiver_uid': body['peer_uid'],
         'content': body['content'],
         'created_at': _unixTimestamp(DateTime.now()),
+        ...sentMessageOverrides,
       };
       messages.add(message);
       return _v1Response({
@@ -10697,7 +10703,11 @@ void main() {
   testWidgets('chat page clears the peer draft when sending a message', (
     WidgetTester tester,
   ) async {
-    final transport = _RecordingDmChatTransport();
+    final sendGate = Completer<void>();
+    final transport = _RecordingDmChatTransport(
+      sendGate: sendGate,
+      sentMessageOverrides: const {'sender_uid': ''},
+    );
     final sessionStore = MemoryUserSessionStore();
     await sessionStore.saveUid('u_mock');
     final api = GenesisApi(
@@ -10712,7 +10722,7 @@ void main() {
     await storage.saveDraft(
       ownerUid: 'u_mock',
       peerUid: 'u_peer_dm',
-      content: 'send this draft',
+      content: r'send\nthis draft',
     );
     final store = DirectMessageMessageStore(
       api: api,
@@ -10727,6 +10737,10 @@ void main() {
             transport: transport,
             useMock: false,
             initialAuthToken: 'backend-token',
+            initialUserInfo: const {
+              'uid': 'u_mock',
+              'avatar_url': 'https://example.test/current-user.webp',
+            },
             directMessageMessages: store,
           ),
           child: const ChatPage(peerUid: 'u_peer_dm', peerName: 'Penny Direct'),
@@ -10736,15 +10750,70 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('send this draft'), findsOneWidget);
+    expect(find.text(r'send\nthis draft'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('chat-composer-send-button')));
     await tester.pump();
+
+    final sendingBubble = find.ancestor(
+      of: find.text(r'send\nthis draft'),
+      matching: find.byType(ChatMessageBubble),
+    );
+    expect(sendingBubble, findsOneWidget);
+    final sendingBubbleElement = tester.element(sendingBubble);
+    final sendingBubbleX = tester.getTopLeft(sendingBubble).dx;
+    final sendingRow = find.ancestor(
+      of: sendingBubble,
+      matching: find.byType(ChatMessageRow),
+    );
+    final sendingAvatarImage = find.descendant(
+      of: sendingRow,
+      matching: find.byType(GenesisStaticNetworkImage),
+    );
+    expect(sendingAvatarImage, findsOneWidget);
+    final sendingAvatarImageState = tester.state(sendingAvatarImage);
+
+    sendGate.complete();
     await tester.pumpAndSettle();
 
     expect(
       await storage.loadDraft(ownerUid: 'u_mock', peerUid: 'u_peer_dm'),
       '',
+    );
+    final sendRequest = transport.requests.singleWhere(
+      (request) => request.uri.path == '/api/v1/direct_message/send',
+    );
+    final rawBody = utf8.decode(sendRequest.bodyBytes!);
+    expect(rawBody, contains(r'"content":"send\\nthis draft"'));
+    expect(
+      (jsonDecode(rawBody) as Map<String, dynamic>)['content'],
+      r'send\nthis draft',
+    );
+    expect(transport.messages.last['content'], r'send\nthis draft');
+    expect(
+      jsonEncode(transport.messages.last),
+      contains(r'"content":"send\\nthis draft"'),
+    );
+    expect(find.text(r'send\nthis draft'), findsOneWidget);
+    final sentBubble = find.ancestor(
+      of: find.text(r'send\nthis draft'),
+      matching: find.byType(ChatMessageBubble),
+    );
+    expect(sentBubble, findsOneWidget);
+    expect(identical(tester.element(sentBubble), sendingBubbleElement), isTrue);
+    expect(tester.getTopLeft(sentBubble).dx, closeTo(sendingBubbleX, 0.01));
+    final sentRow = find.ancestor(
+      of: sentBubble,
+      matching: find.byType(ChatMessageRow),
+    );
+    final sentAvatarImage = find.descendant(
+      of: sentRow,
+      matching: find.byType(GenesisStaticNetworkImage),
+    );
+    expect(sentAvatarImage, findsOneWidget);
+    expect(
+      identical(tester.state(sentAvatarImage), sendingAvatarImageState),
+      isTrue,
     );
   });
 

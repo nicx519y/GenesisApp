@@ -745,21 +745,26 @@ class DirectMessageMessageStore {
     final ownerUid = await _ownerUid();
     final cleanPeerUid = peerUid.trim();
     _resetIfTargetChanged(ownerUid, cleanPeerUid);
+    final optimisticRecord = _isActiveTarget(ownerUid, cleanPeerUid)
+        ? _rowNotifiers[localMessageId]?.value
+        : null;
     await _storage.replaceLocalMessage(
       ownerUid: ownerUid,
       peerUid: cleanPeerUid,
       localMessageId: localMessageId,
       serverMessage: serverMessage,
     );
-    final record = DirectMessageMessageRecord.fromJson(
+    final serverRecord = DirectMessageMessageRecord.fromJson(
       serverMessage,
       localId: localMessageId,
       sendStatus: DirectMessageSendStatus.sent,
     );
+    final record = optimisticRecord == null
+        ? serverRecord
+        : _acknowledgedOptimisticRecord(optimisticRecord, serverRecord);
     if (_isActiveTarget(ownerUid, cleanPeerUid) &&
         record.messageId.isNotEmpty) {
-      _removeVisibleRecord(localMessageId);
-      _mergeVisibleRecords([record]);
+      _replaceVisibleRecord(localMessageId, record);
     }
   }
 
@@ -869,6 +874,25 @@ class DirectMessageMessageStore {
     _applyRecords(nextRecords);
   }
 
+  void _replaceVisibleRecord(
+    String replacedMessageId,
+    DirectMessageMessageRecord replacement,
+  ) {
+    final replacedNotifier = _rowNotifiers.remove(replacedMessageId);
+    if (replacedNotifier != null) {
+      _rowNotifiers.remove(replacement.messageId);
+      _rowNotifiers[replacement.messageId] = replacedNotifier;
+    }
+    final nextRecords = <DirectMessageMessageRecord>[];
+    for (final id in orderedMessageIds.value) {
+      if (id == replacedMessageId || id == replacement.messageId) continue;
+      final record = _rowNotifiers[id]?.value;
+      if (record != null) nextRecords.add(record);
+    }
+    nextRecords.add(replacement);
+    _applyRecords(nextRecords);
+  }
+
   DirectMessageMessageRecord? get _earliestVisibleRecord {
     for (final messageId in orderedMessageIds.value) {
       final record = _rowNotifiers[messageId]?.value;
@@ -902,6 +926,26 @@ class DirectMessageMessageStore {
     if (_knownRemoteTotal < 0) return _hasMoreRemoteOlder;
     return (page - 1) * pageSize < _knownRemoteTotal;
   }
+}
+
+DirectMessageMessageRecord _acknowledgedOptimisticRecord(
+  DirectMessageMessageRecord optimistic,
+  DirectMessageMessageRecord server,
+) {
+  return DirectMessageMessageRecord(
+    messageId: server.messageId,
+    localId: optimistic.localId,
+    conversationId: server.conversationId.isNotEmpty
+        ? server.conversationId
+        : optimistic.conversationId,
+    senderUid: optimistic.senderUid,
+    receiverUid: optimistic.receiverUid,
+    content: optimistic.content,
+    createdAt: optimistic.createdAt,
+    sortValue: optimistic.sortValue,
+    sendStatus: DirectMessageSendStatus.sent,
+    rawJson: server.rawJson,
+  );
 }
 
 List<DirectMessageMessageRecord> _sorted(

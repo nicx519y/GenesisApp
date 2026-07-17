@@ -439,9 +439,6 @@ class ChatComposer extends StatelessWidget {
                                 if (sendEnabled) unawaited(onSend());
                               }
                             : null,
-                        inputFormatters: const [
-                          GenesisDisplaySafeTextInputFormatter(),
-                        ],
                         style: GenesisTypography.withFallback(
                           style.inputTextStyle,
                         ),
@@ -1056,27 +1053,41 @@ class ChatMessageRow extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    if (showFailedBadge) ...[
-                      ChatFailedBadge(style: style),
-                      SizedBox(width: style.badgeBubbleGap),
-                    ] else if (showSendingBadge) ...[
-                      ChatSendingBadge(style: style),
-                      SizedBox(width: style.badgeBubbleGap),
-                    ],
                     Flexible(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: maxBubbleWidth),
-                        child: ChatMessageBubble(
-                          message: message,
-                          style: style,
-                          onLongPressStart: onMessageLongPressStart == null
-                              ? null
-                              : (details) => onMessageLongPressStart!(
-                                  context,
-                                  message,
-                                  details,
-                                ),
-                        ),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.centerLeft,
+                        children: [
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: maxBubbleWidth,
+                            ),
+                            child: ChatMessageBubble(
+                              message: message,
+                              style: style,
+                              onLongPressStart: onMessageLongPressStart == null
+                                  ? null
+                                  : (details) => onMessageLongPressStart!(
+                                      context,
+                                      message,
+                                      details,
+                                    ),
+                            ),
+                          ),
+                          if (showFailedBadge || showSendingBadge)
+                            Positioned(
+                              left:
+                                  -(style.sendingBadgeSize +
+                                      style.badgeBubbleGap),
+                              top: 0,
+                              bottom: 0,
+                              child: Center(
+                                child: showFailedBadge
+                                    ? ChatFailedBadge(style: style)
+                                    : ChatSendingBadge(style: style),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ],
@@ -1260,7 +1271,7 @@ class ChatMessageBubble extends StatelessWidget {
   }
 }
 
-class ChatAvatar extends StatelessWidget {
+class ChatAvatar extends StatefulWidget {
   const ChatAvatar({
     super.key,
     required this.label,
@@ -1279,10 +1290,48 @@ class ChatAvatar extends StatelessWidget {
   final ChatUiStyleConfig? style;
 
   @override
+  State<ChatAvatar> createState() => _ChatAvatarState();
+}
+
+class _ChatAvatarState extends State<ChatAvatar> {
+  Widget? _cachedAvatarImage;
+  Object? _cachedAvatarSignature;
+
+  Widget _avatarImage(
+    ChatUiStyleConfig style, {
+    required String seed,
+    required String imageUrl,
+  }) {
+    final signature = (
+      seed: seed,
+      imageUrl: imageUrl,
+      size: style.avatarSize,
+      borderRadius: style.avatarBorderRadius,
+      textStyle: style.avatarTextStyle,
+    );
+    if (_cachedAvatarImage == null || _cachedAvatarSignature != signature) {
+      _cachedAvatarSignature = signature;
+      _cachedAvatarImage = GenesisAvatar(
+        name: seed,
+        url: imageUrl,
+        size: style.avatarSize,
+        borderRadius: style.avatarBorderRadius,
+        textStyle: style.avatarTextStyle,
+        showFallbackWhileLoading: false,
+        showFallbackWhenUnavailable: imageUrl.isEmpty,
+      );
+    }
+    return _cachedAvatarImage!;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final style = this.style ?? ChatUiStyleConfig.standard;
-    final seed = this.seed?.trim();
-    final imageUrl = this.imageUrl.trim();
+    final style = widget.style ?? ChatUiStyleConfig.standard;
+    final trimmedSeed = widget.seed?.trim();
+    final seed = trimmedSeed == null || trimmedSeed.isEmpty
+        ? widget.label
+        : trimmedSeed;
+    final imageUrl = widget.imageUrl.trim();
     return SizedBox(
       width: style.avatarSize,
       height: style.avatarSize,
@@ -1297,22 +1346,14 @@ class ChatAvatar extends StatelessWidget {
             ),
           ),
           Positioned.fill(
-            child: GenesisAvatar(
-              name: seed == null || seed.isEmpty ? label : seed,
-              url: imageUrl,
-              size: style.avatarSize,
-              borderRadius: style.avatarBorderRadius,
-              textStyle: style.avatarTextStyle,
-              showFallbackWhileLoading: false,
-              showFallbackWhenUnavailable: imageUrl.isEmpty,
-            ),
+            child: _avatarImage(style, seed: seed, imageUrl: imageUrl),
           ),
           Positioned.fill(
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   border: Border.all(
-                    color: borderColor ?? Colors.white,
+                    color: widget.borderColor ?? Colors.white,
                     width: 1,
                   ),
                   borderRadius: BorderRadius.circular(style.avatarBorderRadius),
@@ -1611,20 +1652,6 @@ List<InlineSpan> _inlineMarkdownSpans(
 
   while (index < text.length) {
     final marker = text[index];
-    if (marker == '\\' && index + 1 < text.length) {
-      final escaped = text[index + 1];
-      if (escaped == 'r' &&
-          index + 3 < text.length &&
-          text[index + 2] == '\\' &&
-          text[index + 3] == 'n') {
-        buffer.write('\n');
-        index += 4;
-      } else {
-        buffer.write(escaped == 'n' ? '\n' : escaped);
-        index += 2;
-      }
-      continue;
-    }
     if (marker == '*' && !_isRepeatedMarker(text, index, marker)) {
       final end = _findInlineItalicEnd(text, index + 1, marker);
       if (end != -1 && end > index + 1) {
@@ -1715,10 +1742,6 @@ bool _isRepeatedMarker(String text, int index, String marker) {
 
 int _findInlineItalicEnd(String text, int start, String marker) {
   for (var index = start; index < text.length; index += 1) {
-    if (text[index] == '\\') {
-      index += 1;
-      continue;
-    }
     if (text[index] == marker && !_isRepeatedMarker(text, index, marker)) {
       return index;
     }

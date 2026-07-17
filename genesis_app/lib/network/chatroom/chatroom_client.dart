@@ -9,6 +9,7 @@ import '../app_request_headers.dart';
 import '../gateway_auth.dart';
 import '../../platform/device/device_id_service.dart';
 import '../../platform/session/user_session_store.dart';
+import '../../utils/genesis_ugc_text.dart';
 import 'chatroom_models.dart';
 import 'chatroom_socket_transport.dart';
 
@@ -346,13 +347,13 @@ class ChatroomSession {
 
   Future<ChatroomAck> sendMessage(String text, {String? clientMsgId}) async {
     _throwIfClosed();
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) {
+    final content = normalizeGenesisUgcTextForSubmission(text);
+    if (isGenesisUgcTextBlank(content)) {
       throw const ChatroomProtocolException('Message text is required');
     }
     return _sendAckedClientMessage(
       'send_message',
-      <String, Object?>{'content': trimmed},
+      <String, Object?>{'content': content},
       clientMsgId: clientMsgId,
       requestType: 'send_message',
     );

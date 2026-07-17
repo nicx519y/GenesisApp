@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../network/json_utils.dart';
+import '../../utils/genesis_ugc_text.dart';
 import '../create/create_origin_draft_store.dart';
 
 abstract class OriginDraftRepository {
@@ -242,29 +243,35 @@ CreateOriginDraft originDraftFromV1Detail(Map<String, dynamic> raw) {
     basics: BasicsDraft(
       originId: originId,
       originVersion: asString(origin['origin_version']),
-      originName: asString(
-        origin['name'],
-        fallback: asString(origin['origin_name'], fallback: originId),
-      ),
-      worldView: asString(
-        origin['world_view'],
-        fallback: asString(
-          origin['brief'],
-          fallback: asString(origin['setting']),
+      originName: decodeGenesisUgcTextForDisplay(
+        asString(
+          origin['name'],
+          fallback: asString(origin['origin_name'], fallback: originId),
         ),
       ),
-      worldLogic: asString(
-        origin['world_setting'],
-        fallback: asString(
-          origin['setting'],
+      worldView: decodeGenesisUgcTextForDisplay(
+        asString(
+          origin['world_view'],
           fallback: asString(
-            origin['display_subtitle'],
-            fallback: asString(origin['brief']),
+            origin['brief'],
+            fallback: asString(origin['setting']),
+          ),
+        ),
+      ),
+      worldLogic: decodeGenesisUgcTextForDisplay(
+        asString(
+          origin['world_setting'],
+          fallback: asString(
+            origin['setting'],
+            fallback: asString(
+              origin['display_subtitle'],
+              fallback: asString(origin['brief']),
+            ),
           ),
         ),
       ),
       metricJson: metric is Map && metric.isNotEmpty
-          ? jsonEncode(asJsonMap(metric))
+          ? jsonEncode(decodeGenesisUgcValueForDisplay(asJsonMap(metric)))
           : '',
       startedAt: asString(
         origin['started_at'],
@@ -301,20 +308,24 @@ CharacterDraft _characterDraftFromV1(Map<String, dynamic> raw) {
   return CharacterDraft(
     charId: asString(raw['character_id'], fallback: asString(raw['char_id'])),
     avatarUrl: asImageUrl(raw['avatar']),
-    name: asString(raw['name']),
-    identity: asString(raw['identity']),
-    personality: asString(
-      raw['personality'],
-      fallback: asString(raw['tagline'], fallback: asString(raw['brief'])),
-    ),
-    bio: asString(
-      raw['bio'],
-      fallback: asString(
-        raw['description'],
-        fallback: asString(raw['brief'], fallback: asString(raw['tagline'])),
+    name: decodeGenesisUgcTextForDisplay(asString(raw['name'])),
+    identity: decodeGenesisUgcTextForDisplay(asString(raw['identity'])),
+    personality: decodeGenesisUgcTextForDisplay(
+      asString(
+        raw['personality'],
+        fallback: asString(raw['tagline'], fallback: asString(raw['brief'])),
       ),
     ),
-    goal: asString(raw['goal']),
+    bio: decodeGenesisUgcTextForDisplay(
+      asString(
+        raw['bio'],
+        fallback: asString(
+          raw['description'],
+          fallback: asString(raw['brief'], fallback: asString(raw['tagline'])),
+        ),
+      ),
+    ),
+    goal: decodeGenesisUgcTextForDisplay(asString(raw['goal'])),
   );
 }
 
@@ -334,12 +345,16 @@ LocationDraft _locationDraftFromV1(
   return LocationDraft(
     locationId: locationId,
     imageUrl: asImageUrl(raw['image'], fallback: raw['icon']),
-    name: asString(raw['name'], fallback: asString(raw['location_name'])),
-    description: asString(
-      raw['description'],
-      fallback: asString(
-        raw['location_description'],
-        fallback: asString(raw['location_summary']),
+    name: decodeGenesisUgcTextForDisplay(
+      asString(raw['name'], fallback: asString(raw['location_name'])),
+    ),
+    description: decodeGenesisUgcTextForDisplay(
+      asString(
+        raw['description'],
+        fallback: asString(
+          raw['location_description'],
+          fallback: asString(raw['location_summary']),
+        ),
       ),
     ),
     initialCharacterIds: initialCharacterIds,
@@ -348,24 +363,28 @@ LocationDraft _locationDraftFromV1(
 
 StoryEventDraft _storyEventDraftFromV1(Object? raw) {
   if (raw is! Map) {
-    return StoryEventDraft(event: asString(raw));
+    return StoryEventDraft(
+      event: decodeGenesisUgcTextForDisplay(asString(raw)),
+    );
   }
   final map = asJsonMap(raw);
   final tickResult = map['tick_result'] is Map
       ? asJsonMap(map['tick_result'])
       : const <String, dynamic>{};
   return StoryEventDraft(
-    event: asString(
-      map['content'],
-      fallback: asString(
-        map['event'],
+    event: decodeGenesisUgcTextForDisplay(
+      asString(
+        map['content'],
         fallback: asString(
-          map['text'],
+          map['event'],
           fallback: asString(
-            map['summary'],
+            map['text'],
             fallback: asString(
-              map['narrator'],
-              fallback: asString(tickResult['narrator']),
+              map['summary'],
+              fallback: asString(
+                map['narrator'],
+                fallback: asString(tickResult['narrator']),
+              ),
             ),
           ),
         ),

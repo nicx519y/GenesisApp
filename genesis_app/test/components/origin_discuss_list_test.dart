@@ -19,6 +19,25 @@ import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 
 void main() {
+  test('preserves returned UGC backslashes in posts and replies', () {
+    final page = OriginDiscussPage.fromJson({
+      'list': [
+        {
+          'comment': {'discuss_id': 'post-1', 'content': r'post\ncontent'},
+          'latest_replies': [
+            {'discuss_id': 'reply-1', 'content': r'reply\ncontent'},
+          ],
+        },
+      ],
+    });
+
+    expect(page.items.single.content, r'post\ncontent');
+    expect(
+      page.items.single.latestReplies.single['content'],
+      r'reply\ncontent',
+    );
+  });
+
   test('ignores first page completion after controller dispose', () async {
     final pageCompleter = Completer<OriginDiscussPage>();
     final controller = OriginDiscussListController()
@@ -1130,7 +1149,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextField, 'Write a reply').last,
-      'reply now',
+      r'reply\nnow',
     );
     await tester.pump();
     await tester.tap(find.text('Send'));
@@ -1159,7 +1178,10 @@ void main() {
       controller.items.single.latestReplies.first['discuss_id'],
       'dis_reply_new',
     );
-    expect(controller.items.single.latestReplies.first['content'], 'reply now');
+    expect(
+      controller.items.single.latestReplies.first['content'],
+      r'reply\nnow',
+    );
     expect(
       transport.requests.where(
         (request) => request.uri.path.endsWith('/discuss/replies'),

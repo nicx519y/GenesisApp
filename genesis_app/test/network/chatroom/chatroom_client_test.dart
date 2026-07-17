@@ -257,6 +257,54 @@ void main() {
     await session.close();
   });
 
+  test(
+    'sendMessage leaves UGC backslashes to JSON and normalizes real newlines',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final client = await _client(_FakeChatroomTransport(socket));
+      final session = await _connectedSession(client, socket);
+      const raw = '  first\r\n${r'literal \n \u300c \\'}  ';
+      const expected = '  first\n${r'literal \n \u300c \\'}  ';
+
+      final ackFuture = session.sendMessage(raw, clientMsgId: 'client-ugc');
+      await _tick();
+
+      expect(socket.sentFrame('send_message'), {
+        'type': 'send_message',
+        'client_msg_id': 'client-ugc',
+        'content': expected,
+      });
+      expect(
+        socket.sent.lastWhere(
+          (raw) =>
+              (jsonDecode(raw) as Map<String, dynamic>)['type'] ==
+              'send_message',
+        ),
+        jsonEncode({
+          'type': 'send_message',
+          'client_msg_id': 'client-ugc',
+          'content': expected,
+        }),
+      );
+
+      socket.serverFrame('ack', {
+        'world_id': 'world-1',
+        'session_id': 'sess-1',
+        'location_id': 'loc-1',
+        'global_msg_id': 9002,
+        'msg_id': 1002,
+        'location_msg_id': 12,
+        'conversation_round_id': 202,
+        'err_no': '',
+        'err_msg': '',
+        'payload': {'client_msg_id': 'client-ugc'},
+      });
+
+      await ackFuture;
+      await session.close();
+    },
+  );
+
   test('sendMessage completes from matching user_message push', () async {
     final socket = _FakeChatroomSocket();
     final client = await _client(_FakeChatroomTransport(socket));

@@ -92,8 +92,10 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
           (form) => LocationDraft(
             locationId: form.locationId,
             imageUrl: form.imageUrl.text.trim(),
-            name: form.name.text.trim(),
-            description: form.description.text.trim(),
+            name: normalizeGenesisUgcTextForDisplay(form.name.text),
+            description: normalizeGenesisUgcTextForDisplay(
+              form.description.text,
+            ),
             initialCharacterIds: form.selectedCharacterIds
                 .where(validCharacterIds.contains)
                 .toList(growable: false),
