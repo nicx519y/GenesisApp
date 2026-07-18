@@ -12,11 +12,13 @@ class GenesisActionBoxAction<T> {
     required this.label,
     required this.value,
     this.color,
+    this.enabled = true,
   });
 
   final String label;
   final T value;
   final Color? color;
+  final bool enabled;
 }
 
 Future<T?> showGenesisActionBox<T>({
@@ -296,15 +298,17 @@ class _ActionRow<T> extends StatelessWidget {
         action.color ??
         (isPreferred ? _genesisActionBoxDestructive : _genesisActionBoxText);
     return InkWell(
-      onTap: () {
-        GenesisTelemetry.click(
-          actionId: 'action_box.${_actionSlug(action.label)}',
-          component: 'GenesisActionBoxAction',
-          enabled: true,
-          data: <String, Object?>{'label': action.label},
-        );
-        onSelected(action.value);
-      },
+      onTap: !action.enabled
+          ? null
+          : () {
+              GenesisTelemetry.click(
+                actionId: 'action_box.${_actionSlug(action.label)}',
+                component: 'GenesisActionBoxAction',
+                enabled: true,
+                data: <String, Object?>{'label': action.label},
+              );
+              onSelected(action.value);
+            },
       child: SizedBox(
         key: const ValueKey('genesis-action-box-action-row'),
         height: height,

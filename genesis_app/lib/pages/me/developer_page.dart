@@ -18,6 +18,7 @@ import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../components/gems/gem_purchase_catalog.dart';
+import '../../components/gems/daily_check_in_dialog.dart';
 import '../../components/genesis_logo.dart';
 import '../../components/page_header.dart';
 import '../../app/gems/gem_wallet_store.dart';
@@ -28,6 +29,7 @@ import '../../network/models/gem_wallet.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
+import '../../routers/app_router.dart';
 import '../gems/gem_wallet_page.dart';
 import '../../ui/genesis_ui.dart';
 import 'about_us_page.dart';
@@ -137,6 +139,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
   bool _verifyingGatewaySignature = false;
   bool _loadingEndpointOverrides = true;
   bool _savingEndpointOverrides = false;
+  bool _dailyCheckInPreviewClaimed = false;
   String? _gatewaySignatureVerifyResult;
 
   @override
@@ -277,10 +280,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     }
   }
 
-  Future<void> _saveEndpointOverrides({String? successMessage}) async {
-    if (_savingEndpointOverrides || _loadingEndpointOverrides) return;
+  Future<bool> _saveEndpointOverrides({
+    String? successMessage,
+    bool signOutCurrentSession = false,
+  }) async {
+    if (_savingEndpointOverrides || _loadingEndpointOverrides) return false;
     setState(() => _savingEndpointOverrides = true);
     try {
+      final currentServices = AppServicesScope.read(context);
       final overrides = AppEndpointOverrides(
         apiBaseUrl: AppEndpointOverrideStore.normalizeHttpsApiBaseUrl(
           _apiBaseUrlController.text,
@@ -297,9 +304,18 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
         ),
       );
       await AppEndpointOverrideStore.save(overrides);
-      if (!mounted) return;
+      if (signOutCurrentSession) {
+        await currentServices.backendAuth.signOut();
+      }
+      if (!mounted) return false;
       final config = overrides.applyTo(const AppConfig());
-      AppServicesScope.replaceWithConfig(context, config);
+      final updatedServices = AppServicesScope.replaceWithConfig(
+        context,
+        config,
+      );
+      if (signOutCurrentSession) {
+        updatedServices.notifySessionChanged();
+      }
       _apiBaseUrlController.text = AppEndpointOverrideStore.displayDomain(
         overrides.apiBaseUrl,
       );
@@ -311,12 +327,17 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
         context,
         successMessage ?? 'Saved. New requests use endpoints.',
       );
+      return true;
     } on FormatException catch (error) {
-      if (!mounted) return;
-      showGenesisToast(context, error.message);
+      if (mounted) {
+        showGenesisToast(context, error.message);
+      }
+      return false;
     } catch (error) {
-      if (!mounted) return;
-      showGenesisToast(context, 'Save failed: $error');
+      if (mounted) {
+        showGenesisToast(context, 'Save failed: $error');
+      }
+      return false;
     } finally {
       if (mounted) {
         setState(() => _savingEndpointOverrides = false);
@@ -344,6 +365,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
 
   Future<void> _switchEndpointEnvironment() async {
     if (_loadingEndpointOverrides || _savingEndpointOverrides) return;
+    final navigator = Navigator.of(context, rootNavigator: true);
     final host = _isUsingTestEndpointHost
         ? _productionEndpointHost
         : _testEndpointHost;
@@ -351,7 +373,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     _apiBaseUrlController.text = host;
     _gatewayApiBaseUrlController.text = host;
     _chatroomWsBaseUrlController.text = host;
-    await _saveEndpointOverrides(successMessage: successMessage);
+    final switched = await _saveEndpointOverrides(
+      successMessage: successMessage,
+      signOutCurrentSession: true,
+    );
+    if (!switched || !navigator.mounted) return;
+    unawaited(
+      navigator.pushNamedAndRemoveUntil<void>(RouteNames.me, (_) => false),
+    );
   }
 
   Future<void> _showCreatingWaitOverlayPreview() async {
@@ -477,6 +506,25 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     }
     if (!navigator.mounted) return;
     await showGemBillingPurchaseOverlayPreview(navigator.context);
+  }
+
+  Future<void> _showDailyCheckInPreview() async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (widget.dismissBeforePreview) {
+      await widget.onDismissBeforePreview?.call();
+    }
+    if (!navigator.mounted) return;
+    final checkedIn = await showDailyCheckInDialog(
+      navigator.context,
+      status: _dailyCheckInPreviewClaimed
+          ? DailyCheckInDialogStatus.claimed
+          : DailyCheckInDialogStatus.checkIn,
+    );
+    if (!checkedIn || !navigator.mounted) return;
+    if (mounted) {
+      setState(() => _dailyCheckInPreviewClaimed = true);
+    }
+    await showDailyCheckInSuccessDialog(navigator.context);
   }
 
   Future<List<GenesisGenerationWaitAvatar>?> _loadPreviewOriginAvatars() async {
@@ -689,6 +737,13 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           GenesisPrimaryButton(
             label: 'Preview purchase overlay',
             onPressed: _showGemPurchaseOverlayPreview,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            label: 'Preview Daily Check-in',
+            onPressed: _showDailyCheckInPreview,
             backgroundColor: const Color(0xFFE1E1E3),
             foregroundColor: Colors.black,
           ),

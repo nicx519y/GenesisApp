@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../platform/auth/auth_session.dart';
 import '../login_sheet.dart';
 
@@ -16,6 +17,8 @@ Future<bool> ensureGenesisLogin(BuildContext context) async {
     },
   );
   if (!loginContext.mounted || !loggedIn) return false;
+  await showDailyCheckInAfterLogin(loginContext);
+  if (!loginContext.mounted) return false;
   return hasGenesisLoginSession(loginContext);
 }
 

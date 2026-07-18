@@ -43,6 +43,7 @@ import '../../ui/components/genesis_search_field.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_radii.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/display_name_formatter.dart';
@@ -548,6 +549,8 @@ class _OriginWorldPageState extends State<OriginWorldPage>
       onLogin: _loginWithProvider,
     );
     if (!mounted || !loggedIn) return false;
+    await showDailyCheckInAfterLogin(context);
+    if (!mounted) return false;
     return _hasLocalLoginSession();
   }
 

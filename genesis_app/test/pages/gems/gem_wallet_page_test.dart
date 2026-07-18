@@ -479,12 +479,16 @@ void main() {
     expect(find.text('+500'), findsOneWidget);
   });
 
-  testWidgets('tapping a product starts its billing purchase', (tester) async {
+  testWidgets('tapping a product immediately shows purchase processing', (
+    tester,
+  ) async {
     final walletStore = GemWalletStore(
       loadWallet: () async => const GemWallet(balance: 430),
       readUid: () async => 'u_user',
     );
     final billing = _FakeBillingService();
+    final purchaseCompleter = Completer<void>();
+    billing.purchaseCompleter = purchaseCompleter;
     addTearDown(walletStore.dispose);
     addTearDown(billing.dispose);
 
@@ -521,6 +525,10 @@ void main() {
           .any((scope) => scope.canPop == false),
       isTrue,
     );
+
+    expect(purchaseCompleter.isCompleted, isFalse);
+    purchaseCompleter.complete();
+    await tester.pump();
 
     billing.emitProcessing();
     await tester.pump();
@@ -570,6 +578,44 @@ void main() {
 
     expect(billing.purchasedProducts, hasLength(1));
     expect(billing.purchasedProducts.single.productId, 'gem_pack_500');
+  });
+
+  testWidgets('billing failure closes immediate processing and shows toast', (
+    tester,
+  ) async {
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    final billing = _FakeBillingService();
+    addTearDown(walletStore.dispose);
+    addTearDown(billing.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          billingService: billing,
+          productsLoader: (_) async => _products(),
+          tasksLoader: (_) async => _taskGroups(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('gem-product-gem_pack_500')),
+    );
+    await tester.pump();
+    expect(find.textContaining('Purchasing Gems'), findsOneWidget);
+
+    billing.emitFailure();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.textContaining('Purchasing Gems'), findsNothing);
+    expect(find.text('Purchase failed.'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
   });
 
   testWidgets('billing success refreshes products tasks and wallet', (
@@ -854,6 +900,7 @@ void main() {
   ) async {
     final reportResult = Completer<GemTaskActionResult>();
     var reportCalls = 0;
+    var claimCalls = 0;
     var productsLoadCount = 0;
     var tasksLoadCount = 0;
     var walletLoadCount = 0;
@@ -892,6 +939,11 @@ void main() {
             reportCalls += 1;
             return reportResult.future;
           },
+          taskClaimer: (taskCode) async {
+            expect(taskCode, 'daily_checkin');
+            claimCalls += 1;
+            return const GemTaskActionResult(status: 'claimed');
+          },
         ),
       ),
     );
@@ -906,22 +958,25 @@ void main() {
     await tester.pump();
     expect(reportCalls, 1);
 
-    reportResult.complete(const GemTaskActionResult(status: 'claimed'));
+    reportResult.complete(const GemTaskActionResult(status: 'claimable'));
     await tester.pumpAndSettle();
 
+    expect(claimCalls, 1);
     expect(productsLoadCount, 1);
     expect(tasksLoadCount, 2);
     expect(walletLoadCount, 2);
     expect(find.text('Received'), findsOneWidget);
-    expect(find.text('Check in successful.'), findsOneWidget);
+    expect(find.text('Check in successful!'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets('daily check-in skips stale red Check in transition', (
+  testWidgets('daily check-in does not expose intermediate Claim state', (
     tester,
   ) async {
+    final claimResult = Completer<GemTaskActionResult>();
     final refreshedTasks = Completer<List<GemTaskGroup>>();
     var tasksLoadCount = 0;
+    var claimCalls = 0;
     final walletStore = GemWalletStore(
       loadWallet: () async => const GemWallet(balance: 430),
       readUid: () async => 'u_user',
@@ -950,6 +1005,10 @@ void main() {
           },
           taskReporter: (_) async =>
               const GemTaskActionResult(status: 'claimable'),
+          taskClaimer: (_) {
+            claimCalls += 1;
+            return claimResult.future;
+          },
         ),
       ),
     );
@@ -960,19 +1019,20 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Check in'), findsNothing);
-    expect(find.text('Claim'), findsOneWidget);
-    expect(
-      tester.widget<Text>(find.text('Claim')).style?.color,
-      const Color(0xFFFF2442),
-    );
+    expect(claimCalls, 1);
+    expect(find.text('Claim'), findsNothing);
+
+    claimResult.complete(const GemTaskActionResult(status: 'claimed'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Check in successful!'), findsOneWidget);
 
     refreshedTasks.complete([
       _taskGroup(
         _task(
           taskCode: 'daily_checkin',
-          status: 'claimable',
-          actionText: 'Claim',
+          status: 'claimed',
+          actionText: 'Received',
         ),
       ),
     ]);
@@ -1281,7 +1341,9 @@ void main() {
     expect(launchedUris, [Uri.parse('https://discord.gg/wuKHk7cyX7')]);
   });
 
-  testWidgets('claimable task claims with its task code', (tester) async {
+  testWidgets('claimable task shows its reward in success dialog', (
+    tester,
+  ) async {
     var productsLoadCount = 0;
     var tasksLoadCount = 0;
     final claimedCodes = <String>[];
@@ -1330,7 +1392,19 @@ void main() {
     expect(claimedCodes, ['discord_follow']);
     expect(productsLoadCount, 1);
     expect(tasksLoadCount, 2);
-    expect(find.text('Reward claimed'), findsOneWidget);
+    expect(find.text('Claim successful!'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey<String>('gem-task-reward-value')),
+          )
+          .data,
+      '+20',
+    );
+    expect(
+      find.byKey(const ValueKey<String>('gem-task-reward-icon')),
+      findsOneWidget,
+    );
     expect(find.text('Received'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
@@ -1388,6 +1462,7 @@ class _FakeBillingService implements BillingService {
   final StreamController<BillingUiEvent> _events =
       StreamController<BillingUiEvent>.broadcast();
   final List<GemProduct> purchasedProducts = <GemProduct>[];
+  Completer<void>? purchaseCompleter;
 
   @override
   Stream<BillingUiEvent> get events => _events.stream;
@@ -1398,6 +1473,8 @@ class _FakeBillingService implements BillingService {
   @override
   Future<void> purchaseGem(GemProduct product) async {
     purchasedProducts.add(product);
+    final completer = purchaseCompleter;
+    if (completer != null) await completer.future;
     _state.value = BillingState(
       storeAvailable: true,
       busyProductIds: <String>{product.productId},
@@ -1444,6 +1521,18 @@ class _FakeBillingService implements BillingService {
         attemptId: 'pay_test',
         message:
             'Payment successful. Your Gems are being issued as quickly as possible. Please check your balance again later.',
+      ),
+    );
+  }
+
+  void emitFailure() {
+    _state.value = BillingState(storeAvailable: true);
+    _events.add(
+      const BillingUiEvent(
+        kind: BillingUiEventKind.failure,
+        productId: 'gem_pack_500',
+        attemptId: 'pay_test',
+        message: 'Purchase failed.',
       ),
     );
   }

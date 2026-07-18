@@ -403,6 +403,7 @@ class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
   final User? _loginUser;
   final Object? _loginError;
   int loginCount = 0;
+  int signOutCount = 0;
   int sessionCheckCount = 0;
   IdentityProvider? lastLoginProvider;
 
@@ -440,6 +441,7 @@ class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
 
   @override
   Future<void> signOut() async {
+    signOutCount += 1;
     await _sessionStore.clearUid();
   }
 
@@ -9843,7 +9845,7 @@ void main() {
     );
   });
 
-  testWidgets('developer page switches endpoint environment display', (
+  testWidgets('developer page shows the current endpoint environment', (
     WidgetTester tester,
   ) async {
     await AppEndpointOverrideStore.save(
@@ -9871,9 +9873,6 @@ void main() {
       scrollable: scrollable,
     );
 
-    await tester.tap(find.text('切换到正式环境'));
-    await tester.pumpAndSettle();
-
     String endpointText(String key) {
       final texts = tester.widgetList<Text>(
         find.descendant(
@@ -9890,23 +9889,6 @@ void main() {
 
     expect(
       endpointText('developer-api-base-url-field'),
-      'https://api.worldo.ai',
-    );
-    expect(
-      endpointText('developer-gateway-api-base-url-field'),
-      'https://api.worldo.ai',
-    );
-    expect(
-      endpointText('developer-chatroom-ws-base-url-field'),
-      'wss://api.worldo.ai',
-    );
-    expect(find.text('切换到测试环境'), findsOneWidget);
-
-    await tester.tap(find.text('切换到测试环境'));
-    await tester.pumpAndSettle();
-
-    expect(
-      endpointText('developer-api-base-url-field'),
       'https://dev.hushie.ai',
     );
     expect(
@@ -9918,103 +9900,128 @@ void main() {
       'wss://dev.hushie.ai',
     );
     expect(find.text('切换到正式环境'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 2));
     await AppEndpointOverrideStore.clear();
   });
 
-  testWidgets('developer page endpoint switch saves overrides automatically', (
-    WidgetTester tester,
-  ) async {
-    await AppEndpointOverrideStore.save(
-      const AppEndpointOverrides(
-        apiBaseUrl: 'https://api.worldo.ai/api/',
-        gatewayApiBaseUrl: 'https://api.worldo.ai/apix/',
-        chatroomHttpBaseUrl: 'https://api.worldo.ai/',
-        chatroomWsBaseUrl: 'wss://api.worldo.ai/aitown-chat/ws',
-      ),
-    );
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(),
-          child: const DeveloperPage(),
+  testWidgets(
+    'developer endpoint switch signs out and resets navigation to me',
+    (WidgetTester tester) async {
+      await AppEndpointOverrideStore.save(
+        const AppEndpointOverrides(
+          apiBaseUrl: 'https://api.worldo.ai/api/',
+          gatewayApiBaseUrl: 'https://api.worldo.ai/apix/',
+          chatroomHttpBaseUrl: 'https://api.worldo.ai/',
+          chatroomWsBaseUrl: 'wss://api.worldo.ai/aitown-chat/ws',
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_logged_in');
+      await sessionStore.saveAuthToken('backend-token');
+      final backendAuth = _FakeBackendAuthCoordinator(
+        authenticated: true,
+        sessionStore: sessionStore,
+      );
+      final services = await _testServices(
+        backendAuth: backendAuth,
+        initialUid: null,
+        sessionStoreOverride: sessionStore,
+      );
 
-    final scrollable = find.byType(Scrollable).first;
-    await tester.scrollUntilVisible(
-      find.text('切换到测试环境'),
-      180,
-      scrollable: scrollable,
-    );
-    expect(tester.testTextInput.isVisible, isFalse);
-    expect(find.byType(TextField), findsNothing);
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey<String>('developer-api-base-url-field')),
-        matching: find.text('https://api.worldo.ai'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(
-        const ValueKey<String>('developer-chatroom-http-base-url-field'),
-      ),
-      findsNothing,
-    );
-    var contentContext = tester.element(find.byType(DeveloperPageContent));
-    final originalServices = AppServicesScope.read(contentContext);
-    await tester.tap(find.text('切换到测试环境'));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: const DeveloperPage(),
+            onGenerateRoute: (settings) {
+              if (settings.name == RouteNames.me) {
+                return MaterialPageRoute<void>(
+                  settings: settings,
+                  builder: (_) => const Scaffold(body: Text('Me page')),
+                );
+              }
+              return AppRouter.onGenerateRoute(settings);
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('已切换到测试环境'), findsOneWidget);
-    final saved = await AppEndpointOverrideStore.load();
-    expect(saved.apiBaseUrl, 'https://dev.hushie.ai/api/');
-    expect(saved.gatewayApiBaseUrl, 'https://dev.hushie.ai/apix/');
-    expect(saved.chatroomHttpBaseUrl, 'https://dev.hushie.ai/');
-    expect(saved.chatroomWsBaseUrl, 'wss://dev.hushie.ai/aitown-chat/ws');
+      final scrollable = find.byType(Scrollable).first;
+      await tester.scrollUntilVisible(
+        find.text('切换到测试环境'),
+        180,
+        scrollable: scrollable,
+      );
+      expect(tester.testTextInput.isVisible, isFalse);
+      expect(find.byType(TextField), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey<String>('developer-api-base-url-field'),
+          ),
+          matching: find.text('https://api.worldo.ai'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey<String>('developer-chatroom-http-base-url-field'),
+        ),
+        findsNothing,
+      );
+      final originalServices = AppServicesScope.read(
+        tester.element(find.byType(DeveloperPageContent)),
+      );
 
-    contentContext = tester.element(find.byType(DeveloperPageContent));
-    final updatedServices = AppServicesScope.read(contentContext);
-    expect(identical(updatedServices, originalServices), isFalse);
-    expect(updatedServices.config.apiBaseUrl, 'https://dev.hushie.ai/api/');
-    expect(
-      updatedServices.config.gatewayApiBaseUrl,
-      'https://dev.hushie.ai/apix/',
-    );
-    expect(
-      updatedServices.config.chatroomHttpBaseUrl,
-      'https://dev.hushie.ai/',
-    );
-    expect(
-      updatedServices.config.chatroomWsBaseUrl,
-      'wss://dev.hushie.ai/aitown-chat/ws',
-    );
-    expect(
-      identical(updatedServices.sessionStore, originalServices.sessionStore),
-      isTrue,
-    );
-    expect(
-      identical(
-        updatedServices.sessionRevision,
-        originalServices.sessionRevision,
-      ),
-      isTrue,
-    );
+      await tester.tap(find.text('切换到测试环境'));
+      await tester.pumpAndSettle();
 
-    final config = await AppEndpointOverrideStore.loadConfig();
-    expect(config.apiBaseUrl, 'https://dev.hushie.ai/api/');
-    expect(config.gatewayApiBaseUrl, 'https://dev.hushie.ai/apix/');
-    expect(config.chatroomHttpBaseUrl, 'https://dev.hushie.ai/');
-    expect(config.chatroomWsBaseUrl, 'wss://dev.hushie.ai/aitown-chat/ws');
+      expect(find.text('Me page'), findsOneWidget);
+      expect(find.byType(DeveloperPage), findsNothing);
+      expect(backendAuth.signOutCount, 1);
+      expect(await sessionStore.readUid(), isNull);
+      expect(await sessionStore.readAuthToken(), isNull);
+      expect(originalServices.sessionRevision.value, 1);
 
-    expect(find.text('Save endpoints'), findsNothing);
-    expect(find.text('Clear endpoint overrides'), findsNothing);
-    await tester.pump(const Duration(seconds: 2));
-    await AppEndpointOverrideStore.clear();
-  });
+      final saved = await AppEndpointOverrideStore.load();
+      expect(saved.apiBaseUrl, 'https://dev.hushie.ai/api/');
+      expect(saved.gatewayApiBaseUrl, 'https://dev.hushie.ai/apix/');
+      expect(saved.chatroomHttpBaseUrl, 'https://dev.hushie.ai/');
+      expect(saved.chatroomWsBaseUrl, 'wss://dev.hushie.ai/aitown-chat/ws');
+
+      final updatedServices = AppServicesScope.read(
+        tester.element(find.text('Me page')),
+      );
+      expect(identical(updatedServices, originalServices), isFalse);
+      expect(updatedServices.config.apiBaseUrl, 'https://dev.hushie.ai/api/');
+      expect(
+        updatedServices.config.gatewayApiBaseUrl,
+        'https://dev.hushie.ai/apix/',
+      );
+      expect(
+        updatedServices.config.chatroomHttpBaseUrl,
+        'https://dev.hushie.ai/',
+      );
+      expect(
+        updatedServices.config.chatroomWsBaseUrl,
+        'wss://dev.hushie.ai/aitown-chat/ws',
+      );
+      expect(
+        identical(updatedServices.sessionStore, originalServices.sessionStore),
+        isTrue,
+      );
+      expect(
+        identical(
+          updatedServices.sessionRevision,
+          originalServices.sessionRevision,
+        ),
+        isTrue,
+      );
+
+      await tester.pump(const Duration(seconds: 2));
+      await AppEndpointOverrideStore.clear();
+    },
+  );
 
   testWidgets('developer page sheet leaves keyboard avoidance to route', (
     WidgetTester tester,
