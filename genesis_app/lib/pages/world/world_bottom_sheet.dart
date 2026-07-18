@@ -34,7 +34,7 @@ class WorldBottomTags extends StatelessWidget {
     return Container(
       height: worldMainTabsHeight,
       color: const Color(0xFFFFFFFF),
-      alignment: Alignment.center,
+      alignment: Alignment.centerLeft,
       child: DefaultTextStyle(
         style: const TextStyle(
           color: Color(0xFF111111),
