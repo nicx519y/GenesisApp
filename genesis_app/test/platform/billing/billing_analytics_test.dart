@@ -36,7 +36,7 @@ void main() {
       'offerToken': 'offer-token-1',
       'billing_account_id': 'account-1',
       'uid': 'u_1',
-      'uuid': 'uuid-1',
+      'device_id': 'device-1',
       'transaction_id': 'GPA.1',
       'original_json': '{"purchaseToken":"purchase-token-1"}',
       'payload': <String, Object?>{'secret': 'value'},
@@ -49,6 +49,8 @@ void main() {
       'product_id': 'gem_pack_500',
       'offer_token_present': true,
       'billing_account_id_present': true,
+      'uid': 'u_1',
+      'device_id': 'device-1',
     });
   });
 
@@ -63,6 +65,8 @@ void main() {
         'product_id': 'gem_pack_500',
         'result': 'completed',
         'retry_count': 1,
+        'uid': 'u_1',
+        'device_id': 'device-1',
         'purchase_token': 'must-not-send',
       },
     );
@@ -77,10 +81,16 @@ void main() {
       'action': 'report_result',
       'object1': 'gem_pack_500',
       'object2': 'attempt-1',
-      'object3': '{"result":"completed","retry_count":1}',
+      'object3':
+          '{"result":"completed","retry_count":1,"uid":"u_1","device_id":"device-1"}',
     });
     final details = jsonDecode('${event.collectPayload!['object3']}');
-    expect(details, {'result': 'completed', 'retry_count': 1});
+    expect(details, {
+      'result': 'completed',
+      'retry_count': 1,
+      'uid': 'u_1',
+      'device_id': 'device-1',
+    });
     expect('${event.collectPayload}', isNot(contains('must-not-send')));
   });
 }

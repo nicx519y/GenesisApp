@@ -146,6 +146,7 @@ void main() {
       },
       refreshWallet: () async => refreshCount += 1,
       readUid: () async => 'u_1',
+      readDeviceId: () async => 'device-1',
       analytics: analytics,
     );
     service.events.listen(uiEvents.add);
@@ -211,6 +212,7 @@ void main() {
       );
 
       await service.purchaseGem(_product);
+      await _settle();
 
       expect(platform.buyCount, 0);
       final result = analytics.records.singleWhere(
@@ -218,6 +220,8 @@ void main() {
       );
       expect(result.properties['result'], 'failure');
       expect(result.properties['error_code'], 'offer_not_available');
+      expect(result.properties['uid'], 'u_1');
+      expect(result.properties['device_id'], 'device-1');
       expect(
         analytics.records
             .where((record) => record.action == 'flow_result')
@@ -232,12 +236,15 @@ void main() {
     platform.buyAccepted = false;
 
     await service.purchaseGem(_product);
+    await _settle();
 
     final result = analytics.records.singleWhere(
       (record) => record.action == 'purchase_launch_result',
     );
     expect(result.properties['result'], 'failure');
     expect(result.properties['status'], 'rejected');
+    expect(result.properties['uid'], 'u_1');
+    expect(result.properties['device_id'], 'device-1');
     expect(
       analytics.records
           .where((record) => record.action == 'flow_result')
