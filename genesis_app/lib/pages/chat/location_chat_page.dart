@@ -65,12 +65,22 @@ void preserveUnmatchedLocationChatLocalMessages({
   }
 }
 
-String? recoverLocationChatDraftAfterInsufficientBalance({
+const Set<String> _locationChatDraftRecoverableFailureCodes = <String>{
+  '2010',
+  '3001',
+};
+
+String? recoverLocationChatDraftAfterRetriableAckFailure({
   required Object failure,
   required ChatMessageVm localMessage,
   required List<ChatMessageVm> messages,
 }) {
-  if (failure is! ChatroomFailureEvent || failure.code != '3001') return null;
+  if (failure is! ChatroomFailureEvent ||
+      !_locationChatDraftRecoverableFailureCodes.contains(
+        failure.code.trim(),
+      )) {
+    return null;
+  }
   messages.removeWhere((message) => identical(message, localMessage));
   return localMessage.text;
 }
@@ -1666,7 +1676,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        final restoredDraft = recoverLocationChatDraftAfterInsufficientBalance(
+        final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
           failure: e,
           localMessage: localMessage,
           messages: _messages,

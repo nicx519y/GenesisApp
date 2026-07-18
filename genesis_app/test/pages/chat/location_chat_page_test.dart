@@ -100,7 +100,7 @@ void main() {
     );
     final messages = <ChatMessageVm>[localMessage];
 
-    final restoredDraft = recoverLocationChatDraftAfterInsufficientBalance(
+    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
       failure: const ChatroomFailureEvent(
         code: '3001',
         message: 'Insufficient balance',
@@ -110,6 +110,31 @@ void main() {
     );
 
     expect(restoredDraft, 'Try this again after top up');
+    expect(messages, isEmpty);
+  });
+
+  test('ack 2010 removes the optimistic message and restores its draft', () {
+    final localMessage = ChatMessageVm(
+      localId: 'local-rate-limited',
+      clientMsgId: 'client-rate-limited',
+      senderId: 'u_me',
+      senderName: 'Me',
+      text: 'Send this later',
+      isMe: true,
+      status: 'sending',
+    );
+    final messages = <ChatMessageVm>[localMessage];
+
+    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
+      failure: const ChatroomFailureEvent(
+        code: '2010',
+        message: 'Rate limit exceeded',
+      ),
+      localMessage: localMessage,
+      messages: messages,
+    );
+
+    expect(restoredDraft, 'Send this later');
     expect(messages, isEmpty);
   });
 
@@ -125,7 +150,7 @@ void main() {
     );
     final messages = <ChatMessageVm>[localMessage];
 
-    final restoredDraft = recoverLocationChatDraftAfterInsufficientBalance(
+    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
       failure: const ChatroomFailureEvent(
         code: 'send_failed',
         message: 'Send failed',

@@ -187,5 +187,48 @@ void main() {
         'You cannot send messages right now',
       );
     });
+
+    test('maps rate limit ack to concise user facing copy', () {
+      expect(
+        chatroomFailureToastMessage(
+          const ChatroomFailureEvent(
+            code: '2010',
+            message: 'Rate limit exceeded',
+            sourceType: 'ack',
+            requestType: 'send_message',
+          ),
+        ),
+        'Too little time between posts. Ease up and try again shortly.',
+      );
+    });
+  });
+
+  group('chatroomFailureToastDuration', () {
+    test('keeps rate limit toast visible for four seconds', () {
+      expect(
+        chatroomFailureToastDuration(
+          const ChatroomFailureEvent(
+            code: '2010',
+            message: 'Rate limit exceeded',
+            sourceType: 'ack',
+            requestType: 'send_message',
+          ),
+        ),
+        const Duration(seconds: 4),
+      );
+    });
+
+    test('keeps the default duration for other failures', () {
+      expect(
+        chatroomFailureToastDuration(
+          const ChatroomFailureEvent(
+            code: 'send_failed',
+            message: 'Send failed',
+            requestType: 'send_message',
+          ),
+        ),
+        const Duration(seconds: 2),
+      );
+    });
   });
 }

@@ -50,6 +50,10 @@ bool shouldShowChatroomFailureToast(ChatroomFailureEvent failure) {
 }
 
 String chatroomFailureToastMessage(ChatroomFailureEvent failure) {
+  if (failure.code.trim() == '2010') {
+    return 'Too little time between posts. Ease up and try again shortly.';
+  }
+
   final message = failure.message.trim();
   final requestType = failure.requestType.trim();
   if (!_isGenericChatroomFailureMessage(message) &&
@@ -62,6 +66,12 @@ String chatroomFailureToastMessage(ChatroomFailureEvent failure) {
     'send_message' => 'Send failed',
     _ => message.isEmpty ? 'Something went wrong' : message,
   };
+}
+
+Duration chatroomFailureToastDuration(ChatroomFailureEvent failure) {
+  return failure.code.trim() == '2010'
+      ? const Duration(seconds: 4)
+      : const Duration(seconds: 2);
 }
 
 bool _isGenericChatroomFailureMessage(String message) {
@@ -86,7 +96,11 @@ StreamSubscription<ChatroomFailureEvent> bindChatroomFailureToast(
     if (!shouldShowChatroomFailureToast(failure)) return;
     if (shouldShow != null && !shouldShow(failure)) return;
     if (context.mounted) {
-      showGenesisToast(context, chatroomFailureToastMessage(failure));
+      showGenesisToast(
+        context,
+        chatroomFailureToastMessage(failure),
+        duration: chatroomFailureToastDuration(failure),
+      );
       onFailure?.call(failure);
     }
   });
