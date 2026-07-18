@@ -253,7 +253,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
       _disposePurchaseDialogState();
       return;
     }
-    Navigator.of(context, rootNavigator: true).maybePop();
+    Navigator.of(context, rootNavigator: true).pop();
   }
 
   void _disposePurchaseDialogState() {

@@ -422,10 +422,21 @@ class _GemWalletPageState extends State<GemWalletPage>
       return;
     }
     _bindBillingService(service);
+    if (service.state.value.hasBusyPurchase) return;
+    _showBillingPurchaseDialog(
+      const BillingUiEvent(
+        kind: BillingUiEventKind.processing,
+        productId: '',
+        attemptId: '',
+        message: 'Purchasing Gems',
+      ),
+    );
     await service.purchaseGem(product);
     if (!mounted) return;
-    if (service.state.value.hasBusyPurchase) {
-      _presentBillingPurchaseDialog();
+    if (!service.state.value.hasBusyPurchase &&
+        _billingPurchaseDialogState?.value.phase ==
+            GemBillingPurchaseDialogPhase.processing) {
+      _dismissBillingPurchaseDialog();
     }
   }
 
@@ -538,7 +549,7 @@ class _GemWalletPageState extends State<GemWalletPage>
       _disposeBillingPurchaseDialogState();
       return;
     }
-    Navigator.of(context, rootNavigator: true).maybePop();
+    Navigator.of(context, rootNavigator: true).pop();
   }
 
   void _disposeBillingPurchaseDialogState() {

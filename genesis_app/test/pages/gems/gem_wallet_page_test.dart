@@ -515,7 +515,12 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, false);
+    expect(
+      tester
+          .widgetList<PopScope>(find.byType(PopScope))
+          .any((scope) => scope.canPop == false),
+      isTrue,
+    );
 
     billing.emitProcessing();
     await tester.pump();
@@ -652,7 +657,12 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, false);
+    expect(
+      tester
+          .widgetList<PopScope>(find.byType(PopScope))
+          .any((scope) => scope.canPop == false),
+      isTrue,
+    );
     expect(
       tester
           .getSize(find.byKey(const ValueKey('genesis-action-box-title-row')))
@@ -665,6 +675,10 @@ void main() {
 
     await tester.tapAt(Offset.zero);
     await tester.pump();
+    expect(find.textContaining('Purchasing Gems'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump(const Duration(milliseconds: 100));
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
 
     billing.emitSuccess();
