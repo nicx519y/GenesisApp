@@ -28,6 +28,7 @@ import '../../network/models/gem_wallet.dart';
 import '../../platform/app/app_metadata_service.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
+import '../../routers/app_router.dart';
 import '../gems/gem_wallet_page.dart';
 import '../../ui/genesis_ui.dart';
 import 'about_us_page.dart';
@@ -277,10 +278,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     }
   }
 
-  Future<void> _saveEndpointOverrides({String? successMessage}) async {
-    if (_savingEndpointOverrides || _loadingEndpointOverrides) return;
+  Future<bool> _saveEndpointOverrides({
+    String? successMessage,
+    bool signOutCurrentSession = false,
+  }) async {
+    if (_savingEndpointOverrides || _loadingEndpointOverrides) return false;
     setState(() => _savingEndpointOverrides = true);
     try {
+      final currentServices = AppServicesScope.read(context);
       final overrides = AppEndpointOverrides(
         apiBaseUrl: AppEndpointOverrideStore.normalizeHttpsApiBaseUrl(
           _apiBaseUrlController.text,
@@ -297,9 +302,18 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
         ),
       );
       await AppEndpointOverrideStore.save(overrides);
-      if (!mounted) return;
+      if (signOutCurrentSession) {
+        await currentServices.backendAuth.signOut();
+      }
+      if (!mounted) return false;
       final config = overrides.applyTo(const AppConfig());
-      AppServicesScope.replaceWithConfig(context, config);
+      final updatedServices = AppServicesScope.replaceWithConfig(
+        context,
+        config,
+      );
+      if (signOutCurrentSession) {
+        updatedServices.notifySessionChanged();
+      }
       _apiBaseUrlController.text = AppEndpointOverrideStore.displayDomain(
         overrides.apiBaseUrl,
       );
@@ -311,12 +325,17 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
         context,
         successMessage ?? 'Saved. New requests use endpoints.',
       );
+      return true;
     } on FormatException catch (error) {
-      if (!mounted) return;
-      showGenesisToast(context, error.message);
+      if (mounted) {
+        showGenesisToast(context, error.message);
+      }
+      return false;
     } catch (error) {
-      if (!mounted) return;
-      showGenesisToast(context, 'Save failed: $error');
+      if (mounted) {
+        showGenesisToast(context, 'Save failed: $error');
+      }
+      return false;
     } finally {
       if (mounted) {
         setState(() => _savingEndpointOverrides = false);
@@ -344,6 +363,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
 
   Future<void> _switchEndpointEnvironment() async {
     if (_loadingEndpointOverrides || _savingEndpointOverrides) return;
+    final navigator = Navigator.of(context, rootNavigator: true);
     final host = _isUsingTestEndpointHost
         ? _productionEndpointHost
         : _testEndpointHost;
@@ -351,7 +371,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     _apiBaseUrlController.text = host;
     _gatewayApiBaseUrlController.text = host;
     _chatroomWsBaseUrlController.text = host;
-    await _saveEndpointOverrides(successMessage: successMessage);
+    final switched = await _saveEndpointOverrides(
+      successMessage: successMessage,
+      signOutCurrentSession: true,
+    );
+    if (!switched || !navigator.mounted) return;
+    unawaited(
+      navigator.pushNamedAndRemoveUntil<void>(RouteNames.me, (_) => false),
+    );
   }
 
   Future<void> _showCreatingWaitOverlayPreview() async {
