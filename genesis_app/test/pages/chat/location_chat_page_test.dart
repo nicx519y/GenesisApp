@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
+import 'package:genesis_flutter_android/components/chat/chatroom_failure_toast.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
@@ -21,6 +22,7 @@ void main() {
     const panel = LocationChatPanel(worldId: 'world-1', locationId: 'loc-1');
 
     expect(panel.showMoreButton, isFalse);
+    expect(panel.unauthorizedHandledByOwner, isFalse);
   });
 
   test('selected model code reads the user info sibling field', () {
@@ -136,6 +138,149 @@ void main() {
 
     expect(restoredDraft, 'Send this later');
     expect(messages, isEmpty);
+  });
+
+  test('ack 2006 removes the optimistic message and restores its draft', () {
+    final localMessage = ChatMessageVm(
+      localId: 'local-world-progressing',
+      clientMsgId: 'client-world-progressing',
+      senderId: 'u_me',
+      senderName: 'Me',
+      text: 'Send after world progress',
+      isMe: true,
+      status: 'sending',
+    );
+    final messages = <ChatMessageVm>[localMessage];
+
+    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
+      failure: const ChatroomFailureEvent(
+        code: '2006',
+        message: 'World is progressing',
+      ),
+      localMessage: localMessage,
+      messages: messages,
+    );
+
+    expect(restoredDraft, 'Send after world progress');
+    expect(messages, isEmpty);
+  });
+
+  test('ack 5000 removes the optimistic message and restores its draft', () {
+    final localMessage = ChatMessageVm(
+      localId: 'local-server-error',
+      clientMsgId: 'client-server-error',
+      senderId: 'u_me',
+      senderName: 'Me',
+      text: 'Retry after server recovery',
+      isMe: true,
+      status: 'sending',
+    );
+    final messages = <ChatMessageVm>[localMessage];
+
+    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
+      failure: const ChatroomFailureEvent(
+        code: '5000',
+        message: 'Service unavailable',
+      ),
+      localMessage: localMessage,
+      messages: messages,
+    );
+
+    expect(restoredDraft, 'Retry after server recovery');
+    expect(messages, isEmpty);
+  });
+
+  test('ack 1002 removes the optimistic message and restores its draft', () {
+    final localMessage = ChatMessageVm(
+      localId: 'local-format-error',
+      clientMsgId: 'client-format-error',
+      senderId: 'u_me',
+      senderName: 'Me',
+      text: 'Edit this message',
+      isMe: true,
+      status: 'sending',
+    );
+    final messages = <ChatMessageVm>[localMessage];
+
+    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
+      failure: const ChatroomFailureEvent(
+        code: '1002',
+        message: 'Message format error',
+      ),
+      localMessage: localMessage,
+      messages: messages,
+    );
+
+    expect(restoredDraft, 'Edit this message');
+    expect(messages, isEmpty);
+  });
+
+  test('ack 1008 removes the optimistic message and restores its draft', () {
+    final localMessage = ChatMessageVm(
+      localId: 'local-send-format-error',
+      clientMsgId: 'client-send-format-error',
+      senderId: 'u_me',
+      senderName: 'Me',
+      text: 'Edit this send message',
+      isMe: true,
+      status: 'sending',
+    );
+    final messages = <ChatMessageVm>[localMessage];
+
+    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
+      failure: const ChatroomFailureEvent(
+        code: '1008',
+        message: 'Send message format error',
+      ),
+      localMessage: localMessage,
+      messages: messages,
+    );
+
+    expect(restoredDraft, 'Edit this send message');
+    expect(messages, isEmpty);
+  });
+
+  test('ack 10001 removes the optimistic message and restores its draft', () {
+    final localMessage = ChatMessageVm(
+      localId: 'local-unauthorized',
+      clientMsgId: 'client-unauthorized',
+      senderId: 'u_me',
+      senderName: 'Me',
+      text: 'Retry this message',
+      isMe: true,
+      status: 'sending',
+    );
+    final messages = <ChatMessageVm>[localMessage];
+
+    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
+      failure: const ChatroomFailureEvent(
+        code: '10001',
+        message: 'Unauthorized',
+      ),
+      localMessage: localMessage,
+      messages: messages,
+    );
+
+    expect(restoredDraft, 'Retry this message');
+    expect(messages, isEmpty);
+  });
+
+  test('only ack 10001 prompts chat login recovery', () {
+    expect(
+      isChatroomUnauthorizedFailure(
+        const ChatroomFailureEvent(code: '10001', message: 'Unauthorized'),
+      ),
+      isTrue,
+    );
+    expect(
+      isChatroomUnauthorizedFailure(
+        const ChatroomFailureEvent(
+          code: '5000',
+          message: 'Service unavailable',
+        ),
+      ),
+      isFalse,
+    );
   });
 
   test('other send failures keep the optimistic message', () {

@@ -590,8 +590,8 @@ class ChatroomSession {
           requestType: pending?.requestType ?? 'send_message',
           clientMsgId: pendingEntry?.key ?? '',
         );
-        _emitFailure(failure);
         pending?.completeError(failure);
+        _emitFailure(failure);
       }
     } else if (event is ChatroomUserMessage) {
       final pending = event.clientMsgId.isEmpty
@@ -647,7 +647,7 @@ class ChatroomSession {
       final pending = _pendingAcks.remove(clientMsgId);
       return pending == null ? null : MapEntry(clientMsgId, pending);
     }
-    if (event.code != 3001) return null;
+    if (event.code != 3001 && event.code != 10001) return null;
     final sendMessageEntries = _pendingAcks.entries
         .where((entry) => entry.value.requestType == 'send_message')
         .toList(growable: false);

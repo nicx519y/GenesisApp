@@ -34,6 +34,10 @@ const Set<String> _passiveChatroomFailureSourceTypes = <String>{
   'socket_error',
 };
 
+bool isChatroomUnauthorizedFailure(ChatroomFailureEvent failure) {
+  return failure.code.trim() == '10001';
+}
+
 bool shouldShowChatroomFailureToast(ChatroomFailureEvent failure) {
   if (failure.code.trim() == '3001') return false;
 
@@ -50,8 +54,21 @@ bool shouldShowChatroomFailureToast(ChatroomFailureEvent failure) {
 }
 
 String chatroomFailureToastMessage(ChatroomFailureEvent failure) {
-  if (failure.code.trim() == '2010') {
+  final code = failure.code.trim();
+  if (code == '1002' || code == '1008') {
+    return 'Message format error. Please edit and send again.';
+  }
+  if (code == '2006') {
+    return 'The World is progressing. Please try again shortly.';
+  }
+  if (code == '2010') {
     return 'Too little time between posts. Ease up and try again shortly.';
+  }
+  if (code == '10001') {
+    return "You've been signed out unexpectedly. Please sign in again.";
+  }
+  if (code == '5000') {
+    return 'Something went wrong. Please try again later.';
   }
 
   final message = failure.message.trim();
@@ -69,7 +86,14 @@ String chatroomFailureToastMessage(ChatroomFailureEvent failure) {
 }
 
 Duration chatroomFailureToastDuration(ChatroomFailureEvent failure) {
-  return failure.code.trim() == '2010'
+  return const <String>{
+        '1002',
+        '1008',
+        '2006',
+        '2010',
+        '5000',
+        '10001',
+      }.contains(failure.code.trim())
       ? const Duration(seconds: 4)
       : const Duration(seconds: 2);
 }

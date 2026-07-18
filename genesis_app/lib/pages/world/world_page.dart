@@ -78,6 +78,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   StreamSubscription<WorldChatroomState>? _worldChatroomSub;
   StreamSubscription? _worldChatroomFailureSub;
   StreamSubscription<GemBalanceAlert>? _worldChatroomBalanceSub;
+  Future<void>? _worldChatroomAuthRecovery;
   Map<String, WorldLocationChatPanelDescriptor> _locationChatDescriptors =
       <String, WorldLocationChatPanelDescriptor>{};
   final _locationChatPageCache = WorldLocationChatPageCache();
@@ -386,6 +387,12 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   void _startWorldChatroom() {
     if (_worldChatroom != null) return;
     final services = AppServicesScope.read(context);
+    final service = _createWorldChatroom(services);
+    _attachWorldChatroom(service);
+    unawaited(_connectWorldChatroom(service, services));
+  }
+
+  WorldChatroomService _createWorldChatroom(AppServices services) {
     _lastAppliedNewUserJoinRevision = 0;
     final service = WorldChatroomService(
       api: services.api,
@@ -393,22 +400,153 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       messageStorage: services.chatroomMessages,
       refreshInitialSnapshotOnConnect: false,
     );
+    final world = _world;
+    if (world != null) {
+      service.applyWorldSnapshot(world);
+    }
+    return service;
+  }
+
+  void _attachWorldChatroom(WorldChatroomService service) {
     _worldChatroom = service;
     _worldChatroomSub = service.states.listen(_handleWorldChatroomState);
     _worldChatroomFailureSub = bindChatroomFailureToast(
       context,
       service.failures,
       shouldShow: (failure) => failure.code != 'snapshot_failed',
+      onFailure: _handleWorldChatroomFailure,
     );
     _worldChatroomBalanceSub = bindGemBalancePrompt(
       context,
       service.balanceAlerts,
     );
-    final world = _world;
-    if (world != null) {
-      service.applyWorldSnapshot(world);
+  }
+
+  void _handleWorldChatroomFailure(ChatroomFailureEvent failure) {
+    if (!isChatroomUnauthorizedFailure(failure)) return;
+    unawaited(_recoverWorldChatroomAuthentication());
+  }
+
+  Future<void> _recoverWorldChatroomAuthentication() {
+    final existing = _worldChatroomAuthRecovery;
+    if (existing != null) return existing;
+    final recovery = _performWorldChatroomAuthenticationRecovery();
+    _worldChatroomAuthRecovery = recovery;
+    return recovery.whenComplete(() {
+      if (identical(_worldChatroomAuthRecovery, recovery)) {
+        _worldChatroomAuthRecovery = null;
+      }
+    });
+  }
+
+  Future<void> _performWorldChatroomAuthenticationRecovery() async {
+    final oldService = _worldChatroom;
+    try {
+      await _detachWorldChatroomForAuthentication(oldService);
+      if (!mounted) return;
+
+      final services = AppServicesScope.read(context);
+      await services.sessionStore.clearUid();
+      services.notifySessionChanged();
+      try {
+        await services.identityAuth.signOutIdentity();
+      } catch (error) {
+        debugPrint(
+          '[Auth][WorldChatroomUnauthorized] identity sign out failed: $error',
+        );
+      }
+      if (!mounted) return;
+
+      final loggedIn = await ensureGenesisLogin(context);
+      if (!mounted) return;
+      if (!loggedIn) {
+        if (identical(_worldChatroom, oldService)) {
+          _worldChatroom = null;
+        }
+        _exitWorldAfterAuthenticationCancelled();
+        return;
+      }
+
+      await _loadCurrentUid();
+      if (!mounted) return;
+      final replacement = _createWorldChatroom(services);
+      final identity = await _chatroomIdentity(services);
+      try {
+        await replacement.connect(worldId: widget.wid, identity: identity);
+      } catch (error) {
+        debugPrint(
+          '[Auth][WorldChatroomUnauthorized] reconnect failed: $error',
+        );
+      }
+      if (!mounted) {
+        await replacement.dispose();
+        return;
+      }
+
+      final activeLocationId = _activeChatLocationId.trim();
+      final activeDescriptor = _locationChatDescriptors[activeLocationId];
+      if (activeDescriptor?.isLeafLocation == true) {
+        try {
+          await replacement.join(locationId: activeLocationId);
+        } catch (error) {
+          debugPrint(
+            '[Auth][WorldChatroomUnauthorized] location rejoin failed: $error',
+          );
+        }
+      }
+      if (!mounted) {
+        await replacement.dispose();
+        return;
+      }
+      _attachWorldChatroom(replacement);
+      setState(() {
+        _preloadedLocationMessageIds.clear();
+        _preloadingLocationMessageFutures.clear();
+        _mapBubbleMessagesReady = false;
+        _recentChatLocationIds = const <String>{};
+        _recentChatLocationPathIds = const <String>{};
+        _replaceMapBubbleCandidates(const <WorldMapBubbleCandidate>[]);
+      });
+      _handleWorldChatroomState(replacement.state);
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[Auth][WorldChatroomUnauthorized] recovery failed: $error\n$stackTrace',
+      );
+      if (!mounted) return;
+      if (identical(_worldChatroom, oldService)) {
+        _worldChatroom = null;
+      }
+      _exitWorldAfterAuthenticationCancelled();
     }
-    unawaited(_connectWorldChatroom(service, services));
+  }
+
+  Future<void> _detachWorldChatroomForAuthentication(
+    WorldChatroomService? service,
+  ) async {
+    await _worldChatroomSub?.cancel();
+    await _worldChatroomFailureSub?.cancel();
+    await _worldChatroomBalanceSub?.cancel();
+    _worldChatroomSub = null;
+    _worldChatroomFailureSub = null;
+    _worldChatroomBalanceSub = null;
+    if (service != null) await service.dispose();
+  }
+
+  void _exitWorldAfterAuthenticationCancelled() {
+    final navigator = Navigator.of(context);
+    if (_activeChatLocationId.isEmpty) {
+      unawaited(navigator.maybePop());
+      return;
+    }
+    setState(() {
+      _activeChatLocationId = '';
+      _locationChatPageCache.deactivate();
+    });
+    _syncWorldStatusBarForMainTab();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(navigator.maybePop());
+    });
   }
 
   void _handleWorldChatroomState(WorldChatroomState state) {

@@ -371,6 +371,53 @@ void main() {
     },
   );
 
+  test(
+    'unauthorized ack restores the pending send before failure broadcast',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final client = await _client(_FakeChatroomTransport(socket));
+      final session = await _connectedSession(client, socket);
+      final completionOrder = <String>[];
+      final failureSub = session.failures.listen((_) {
+        completionOrder.add('failure_broadcast');
+      });
+
+      final sendFuture = session
+          .sendMessage('retry after login', clientMsgId: 'client-unauthorized')
+          .catchError((Object error) {
+            completionOrder.add('send_failure');
+            throw error;
+          });
+      await _tick();
+
+      socket.serverFrame('ack', {
+        'world_id': 'world-1',
+        'session_id': 'sess-1',
+        'err_no': 10001,
+        'err_msg': 'Unauthorized',
+        'payload': <String, Object?>{},
+      });
+
+      await expectLater(
+        sendFuture,
+        throwsA(
+          isA<ChatroomFailureEvent>()
+              .having((e) => e.code, 'code', '10001')
+              .having(
+                (e) => e.clientMsgId,
+                'clientMsgId',
+                'client-unauthorized',
+              ),
+        ),
+      );
+      await _tick();
+      expect(completionOrder, <String>['send_failure', 'failure_broadcast']);
+
+      await failureSub.cancel();
+      await session.close();
+    },
+  );
+
   test('balance_low is parsed as a supported chatroom event', () async {
     final socket = _FakeChatroomSocket();
     final client = await _client(_FakeChatroomTransport(socket));

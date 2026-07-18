@@ -10,6 +10,7 @@ import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug/location_chat_debug_slice.dart';
 import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
+import '../../components/auth/login_guard.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/ai_content_disclaimer.dart';
@@ -66,8 +67,13 @@ void preserveUnmatchedLocationChatLocalMessages({
 }
 
 const Set<String> _locationChatDraftRecoverableFailureCodes = <String>{
+  '1002',
+  '1008',
+  '10001',
+  '2006',
   '2010',
   '3001',
+  '5000',
 };
 
 String? recoverLocationChatDraftAfterRetriableAckFailure({
@@ -162,6 +168,7 @@ class LocationChatPanel extends StatefulWidget {
     this.initialDraftText = '',
     this.onDraftTextChanged,
     this.messageQueueInitializationCovered = false,
+    this.unauthorizedHandledByOwner = false,
   });
 
   final String worldId;
@@ -189,6 +196,7 @@ class LocationChatPanel extends StatefulWidget {
   final String initialDraftText;
   final ValueChanged<String>? onDraftTextChanged;
   final bool messageQueueInitializationCovered;
+  final bool unauthorizedHandledByOwner;
 
   @override
   State<LocationChatPanel> createState() => _LocationChatPanelState();
@@ -219,6 +227,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   bool _ownsService = false;
   bool _joinedLocation = false;
   bool _sending = false;
+  bool _handlingUnauthorizedFailure = false;
   bool _awaitingAiResponse = false;
   bool _hasDraftText = false;
   bool _loadingOlderMessages = false;
@@ -455,6 +464,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     if (provided != null) {
       _service = provided;
       _ownsService = false;
+      _joinedLocation = provided.state.joinedLocationId == widget.locationId;
       _syncSenderIdentity(provided);
       final services = AppServicesScope.read(context);
       _startHydrateLocalMessages(provided, services);
@@ -517,6 +527,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     if (provided != null) {
       _service = provided;
       _ownsService = false;
+      _joinedLocation = provided.state.joinedLocationId == widget.locationId;
       _syncSenderIdentity(provided);
       final services = AppServicesScope.read(context);
       _startHydrateLocalMessages(provided, services);
@@ -670,6 +681,10 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _failuresSubscription = bindChatroomFailureToast(
       context,
       service.failures,
+      shouldShow: (failure) {
+        return !widget.unauthorizedHandledByOwner ||
+            !isChatroomUnauthorizedFailure(failure);
+      },
       onFailure: _handleFailure,
     );
     _stateSubscription = service.states.listen(_handleChatroomState);
@@ -1532,8 +1547,55 @@ class _LocationChatPanelState extends State<LocationChatPanel>
   }
 
   void _handleFailure(ChatroomFailureEvent failure) {
-    // Toast binding already displays the failure. Keep the message list backed
-    // by WorldChatroomState instead of appending synthetic rows.
+    if (!isChatroomUnauthorizedFailure(failure)) return;
+    unawaited(_handleUnauthorizedFailure());
+  }
+
+  Future<void> _handleUnauthorizedFailure() async {
+    if (_handlingUnauthorizedFailure || !mounted) return;
+    _handlingUnauthorizedFailure = true;
+    try {
+      final services = AppServicesScope.read(context);
+      final previousService = _service;
+      final ownedPreviousService = _ownsService;
+      await _closeChatroom();
+      if (!ownedPreviousService && previousService != null) {
+        try {
+          await previousService.disconnect();
+        } catch (_) {}
+      }
+      await services.sessionStore.clearUid();
+      services.notifySessionChanged();
+      try {
+        await services.identityAuth.signOutIdentity();
+      } catch (error) {
+        debugPrint(
+          '[Auth][ChatroomUnauthorized] identity sign out failed: $error',
+        );
+      }
+      if (!mounted) return;
+      final loggedIn = await ensureGenesisLogin(context);
+      if (!mounted) return;
+      if (!loggedIn) {
+        final onBack = widget.onBack;
+        if (onBack != null) {
+          onBack();
+        } else {
+          await Navigator.of(context).maybePop();
+        }
+        return;
+      }
+      if (!ownedPreviousService && previousService != null) {
+        _service = previousService;
+        _ownsService = false;
+        _attachService(previousService);
+        await _connectFallbackAndJoin(previousService, services);
+      } else {
+        _prepareConnection();
+      }
+    } finally {
+      _handlingUnauthorizedFailure = false;
+    }
   }
 
   bool _hasCompletedAwaitedAiResponse(List<WorldChatroomMessage> source) {
@@ -2186,6 +2248,7 @@ class _LocationChatPanelState extends State<LocationChatPanel>
     _serviceGeneration++;
     _service = null;
     _sending = false;
+    _joinedLocation = false;
     _awaitingAiResponse = false;
     _awaitingAiResponseRoundId = '';
 

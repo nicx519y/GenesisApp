@@ -390,6 +390,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             service: chatroom,
             active: active,
             leaveOnInactive: false,
+            unauthorizedHandledByOwner: true,
             messageQueueInitializationCovered:
                 messageQueueInitializationCovered,
             systemUiOverlayStyle: kChatDarkHeaderSystemUiOverlayStyle,

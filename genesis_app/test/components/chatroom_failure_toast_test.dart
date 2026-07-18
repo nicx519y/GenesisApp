@@ -201,6 +201,64 @@ void main() {
         'Too little time between posts. Ease up and try again shortly.',
       );
     });
+
+    test('maps world progress ack to retry copy', () {
+      expect(
+        chatroomFailureToastMessage(
+          const ChatroomFailureEvent(
+            code: '2006',
+            message: 'World is progressing',
+            sourceType: 'ack',
+            requestType: 'send_message',
+          ),
+        ),
+        'The World is progressing. Please try again shortly.',
+      );
+    });
+
+    test('maps temporary server failure ack to retry copy', () {
+      expect(
+        chatroomFailureToastMessage(
+          const ChatroomFailureEvent(
+            code: '5000',
+            message: 'Service unavailable',
+            sourceType: 'ack',
+            requestType: 'send_message',
+          ),
+        ),
+        'Something went wrong. Please try again later.',
+      );
+    });
+
+    test('maps unauthorized ack to sign-in copy', () {
+      expect(
+        chatroomFailureToastMessage(
+          const ChatroomFailureEvent(
+            code: '10001',
+            message: 'Unauthorized',
+            sourceType: 'ack',
+            requestType: 'send_message',
+          ),
+        ),
+        "You've been signed out unexpectedly. Please sign in again.",
+      );
+    });
+
+    test('maps message format ack to edit copy', () {
+      for (final code in <String>['1002', '1008']) {
+        expect(
+          chatroomFailureToastMessage(
+            ChatroomFailureEvent(
+              code: code,
+              message: 'Message format error',
+              sourceType: 'ack',
+              requestType: 'send_message',
+            ),
+          ),
+          'Message format error. Please edit and send again.',
+        );
+      }
+    });
   });
 
   group('chatroomFailureToastDuration', () {
@@ -216,6 +274,52 @@ void main() {
         ),
         const Duration(seconds: 4),
       );
+    });
+
+    test('keeps world progress toast visible for four seconds', () {
+      expect(
+        chatroomFailureToastDuration(
+          const ChatroomFailureEvent(
+            code: '2006',
+            message: 'World is progressing',
+            sourceType: 'ack',
+            requestType: 'send_message',
+          ),
+        ),
+        const Duration(seconds: 4),
+      );
+    });
+
+    test('keeps temporary server failure toast visible for four seconds', () {
+      for (final code in <String>['5000', '10001']) {
+        expect(
+          chatroomFailureToastDuration(
+            ChatroomFailureEvent(
+              code: code,
+              message: 'Service unavailable',
+              sourceType: 'ack',
+              requestType: 'send_message',
+            ),
+          ),
+          const Duration(seconds: 4),
+        );
+      }
+    });
+
+    test('keeps message format toast visible for four seconds', () {
+      for (final code in <String>['1002', '1008']) {
+        expect(
+          chatroomFailureToastDuration(
+            ChatroomFailureEvent(
+              code: code,
+              message: 'Message format error',
+              sourceType: 'ack',
+              requestType: 'send_message',
+            ),
+          ),
+          const Duration(seconds: 4),
+        );
+      }
     });
 
     test('keeps the default duration for other failures', () {
