@@ -18,6 +18,7 @@ import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../components/gems/gem_purchase_catalog.dart';
+import '../../components/gems/daily_check_in_dialog.dart';
 import '../../components/genesis_logo.dart';
 import '../../components/page_header.dart';
 import '../../app/gems/gem_wallet_store.dart';
@@ -138,6 +139,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
   bool _verifyingGatewaySignature = false;
   bool _loadingEndpointOverrides = true;
   bool _savingEndpointOverrides = false;
+  bool _dailyCheckInPreviewClaimed = false;
   String? _gatewaySignatureVerifyResult;
 
   @override
@@ -506,6 +508,23 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     await showGemBillingPurchaseOverlayPreview(navigator.context);
   }
 
+  Future<void> _showDailyCheckInPreview() async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (widget.dismissBeforePreview) {
+      await widget.onDismissBeforePreview?.call();
+    }
+    if (!navigator.mounted) return;
+    final checkedIn = await showDailyCheckInDialog(
+      navigator.context,
+      claimed: _dailyCheckInPreviewClaimed,
+    );
+    if (!checkedIn || !navigator.mounted) return;
+    if (mounted) {
+      setState(() => _dailyCheckInPreviewClaimed = true);
+    }
+    await showDailyCheckInSuccessDialog(navigator.context);
+  }
+
   Future<List<GenesisGenerationWaitAvatar>?> _loadPreviewOriginAvatars() async {
     final api = AppServicesScope.read(context).api;
     try {
@@ -716,6 +735,13 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
           GenesisPrimaryButton(
             label: 'Preview purchase overlay',
             onPressed: _showGemPurchaseOverlayPreview,
+            backgroundColor: const Color(0xFFE1E1E3),
+            foregroundColor: Colors.black,
+          ),
+          const SizedBox(height: _itemGap),
+          GenesisPrimaryButton(
+            label: 'Preview Daily Check-in',
+            onPressed: _showDailyCheckInPreview,
             backgroundColor: const Color(0xFFE1E1E3),
             foregroundColor: Colors.black,
           ),

@@ -104,6 +104,7 @@ class _GemWalletPageState extends State<GemWalletPage>
       ValueNotifier<BillingState>(BillingState());
   ValueNotifier<GemBillingPurchaseDialogState>? _billingPurchaseDialogState;
   bool _billingPurchaseDialogShowing = false;
+  bool _billingPurchaseDialogDismissing = false;
 
   @override
   void initState() {
@@ -422,10 +423,21 @@ class _GemWalletPageState extends State<GemWalletPage>
       return;
     }
     _bindBillingService(service);
-    await service.purchaseGem(product);
+    _showBillingPurchaseProcessing();
+    try {
+      await service.purchaseGem(product);
+    } catch (_) {
+      if (!mounted) return;
+      _dismissBillingPurchaseDialog();
+      showGenesisToast(context, 'Purchase failed.');
+      return;
+    }
     if (!mounted) return;
     if (service.state.value.hasBusyPurchase) {
       _presentBillingPurchaseDialog();
+    } else if (_billingPurchaseDialogState?.value.phase ==
+        GemBillingPurchaseDialogPhase.processing) {
+      _dismissBillingPurchaseDialog();
     }
   }
 
@@ -433,7 +445,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     if (!mounted) return;
     switch (event.kind) {
       case BillingUiEventKind.processing:
-        _showBillingPurchaseDialog(event);
+        _showBillingPurchaseProcessing(attemptId: event.attemptId);
         return;
       case BillingUiEventKind.success:
         _showBillingPurchaseSuccess(event);
@@ -450,9 +462,9 @@ class _GemWalletPageState extends State<GemWalletPage>
     }
   }
 
-  void _showBillingPurchaseDialog(BillingUiEvent event) {
+  void _showBillingPurchaseProcessing({String attemptId = ''}) {
     final nextState = GemBillingPurchaseDialogState.processing(
-      attemptId: event.attemptId,
+      attemptId: attemptId,
     );
     final notifier = _billingPurchaseDialogState;
     if (notifier != null) {
@@ -527,6 +539,7 @@ class _GemWalletPageState extends State<GemWalletPage>
           return;
         }
         _billingPurchaseDialogShowing = false;
+        _billingPurchaseDialogDismissing = false;
         _disposeBillingPurchaseDialogState();
         setState(() {});
       }),
@@ -538,6 +551,8 @@ class _GemWalletPageState extends State<GemWalletPage>
       _disposeBillingPurchaseDialogState();
       return;
     }
+    if (_billingPurchaseDialogDismissing) return;
+    _billingPurchaseDialogDismissing = true;
     Navigator.of(context, rootNavigator: true).maybePop();
   }
 
