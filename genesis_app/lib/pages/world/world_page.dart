@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug/location_chat_debug_slice.dart';
 import '../../app/recent_chat/recent_world_chat_store.dart';
@@ -1340,6 +1341,8 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       onLogin: _loginWithProvider,
     );
     if (!mounted || !loggedIn) return false;
+    await showDailyCheckInAfterLogin(context);
+    if (!mounted) return false;
     return _hasLocalLoginSession();
   }
 

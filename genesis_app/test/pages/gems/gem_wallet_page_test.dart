@@ -886,6 +886,7 @@ void main() {
   ) async {
     final reportResult = Completer<GemTaskActionResult>();
     var reportCalls = 0;
+    var claimCalls = 0;
     var productsLoadCount = 0;
     var tasksLoadCount = 0;
     var walletLoadCount = 0;
@@ -924,6 +925,11 @@ void main() {
             reportCalls += 1;
             return reportResult.future;
           },
+          taskClaimer: (taskCode) async {
+            expect(taskCode, 'daily_checkin');
+            claimCalls += 1;
+            return const GemTaskActionResult(status: 'claimed');
+          },
         ),
       ),
     );
@@ -938,22 +944,25 @@ void main() {
     await tester.pump();
     expect(reportCalls, 1);
 
-    reportResult.complete(const GemTaskActionResult(status: 'claimed'));
+    reportResult.complete(const GemTaskActionResult(status: 'claimable'));
     await tester.pumpAndSettle();
 
+    expect(claimCalls, 1);
     expect(productsLoadCount, 1);
     expect(tasksLoadCount, 2);
     expect(walletLoadCount, 2);
     expect(find.text('Received'), findsOneWidget);
-    expect(find.text('Check in successful.'), findsOneWidget);
+    expect(find.text('Check in successful!'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets('daily check-in skips stale red Check in transition', (
+  testWidgets('daily check-in does not expose intermediate Claim state', (
     tester,
   ) async {
+    final claimResult = Completer<GemTaskActionResult>();
     final refreshedTasks = Completer<List<GemTaskGroup>>();
     var tasksLoadCount = 0;
+    var claimCalls = 0;
     final walletStore = GemWalletStore(
       loadWallet: () async => const GemWallet(balance: 430),
       readUid: () async => 'u_user',
@@ -982,6 +991,10 @@ void main() {
           },
           taskReporter: (_) async =>
               const GemTaskActionResult(status: 'claimable'),
+          taskClaimer: (_) {
+            claimCalls += 1;
+            return claimResult.future;
+          },
         ),
       ),
     );
@@ -992,19 +1005,20 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Check in'), findsNothing);
-    expect(find.text('Claim'), findsOneWidget);
-    expect(
-      tester.widget<Text>(find.text('Claim')).style?.color,
-      const Color(0xFFFF2442),
-    );
+    expect(claimCalls, 1);
+    expect(find.text('Claim'), findsNothing);
+
+    claimResult.complete(const GemTaskActionResult(status: 'claimed'));
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Check in successful!'), findsOneWidget);
 
     refreshedTasks.complete([
       _taskGroup(
         _task(
           taskCode: 'daily_checkin',
-          status: 'claimable',
-          actionText: 'Claim',
+          status: 'claimed',
+          actionText: 'Received',
         ),
       ),
     ]);
@@ -1313,7 +1327,9 @@ void main() {
     expect(launchedUris, [Uri.parse('https://discord.gg/wuKHk7cyX7')]);
   });
 
-  testWidgets('claimable task claims with its task code', (tester) async {
+  testWidgets('claimable task shows its reward in success dialog', (
+    tester,
+  ) async {
     var productsLoadCount = 0;
     var tasksLoadCount = 0;
     final claimedCodes = <String>[];
@@ -1362,7 +1378,19 @@ void main() {
     expect(claimedCodes, ['discord_follow']);
     expect(productsLoadCount, 1);
     expect(tasksLoadCount, 2);
-    expect(find.text('Reward claimed'), findsOneWidget);
+    expect(find.text('Claim successful!'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey<String>('gem-task-reward-value')),
+          )
+          .data,
+      '+20',
+    );
+    expect(
+      find.byKey(const ValueKey<String>('gem-task-reward-icon')),
+      findsOneWidget,
+    );
     expect(find.text('Received'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });

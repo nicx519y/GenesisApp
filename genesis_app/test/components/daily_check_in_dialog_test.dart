@@ -13,7 +13,7 @@ void main() {
               onPressed: () async {
                 final checkedIn = await showDailyCheckInDialog(
                   context,
-                  claimed: false,
+                  status: DailyCheckInDialogStatus.checkIn,
                 );
                 if (checkedIn && context.mounted) {
                   await showDailyCheckInSuccessDialog(context);
@@ -31,7 +31,7 @@ void main() {
       expect(find.text('Daily Check-in'), findsOneWidget);
       expect(find.text('+50'), findsOneWidget);
       expect(
-        find.byKey(const ValueKey<String>('daily-check-in-reward-icon')),
+        find.byKey(const ValueKey<String>('gem-task-reward-icon')),
         findsOneWidget,
       );
       expect(find.text('Check in'), findsOneWidget);
@@ -40,14 +40,14 @@ void main() {
       await tester.tap(find.text('Check in'));
       await tester.pumpAndSettle();
 
-    expect(find.text('Check in successful!'), findsOneWidget);
+      expect(find.text('Check in successful!'), findsOneWidget);
       expect(find.text('+50'), findsOneWidget);
 
       await tester.pump(const Duration(milliseconds: 2999));
-    expect(find.text('Check in successful!'), findsOneWidget);
+      expect(find.text('Check in successful!'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pumpAndSettle();
-    expect(find.text('Check in successful!'), findsNothing);
+      expect(find.text('Check in successful!'), findsNothing);
     },
   );
 
@@ -58,7 +58,10 @@ void main() {
         home: Builder(
           builder: (context) => TextButton(
             onPressed: () async {
-              checkedIn = await showDailyCheckInDialog(context, claimed: true);
+              checkedIn = await showDailyCheckInDialog(
+                context,
+                status: DailyCheckInDialogStatus.claimed,
+              );
             },
             child: const Text('Open'),
           ),
@@ -79,5 +82,59 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Daily Check-in'), findsNothing);
     expect(checkedIn, isFalse);
+  });
+
+  testWidgets('claimable daily check-in shows Claim action', (tester) async {
+    var shouldClaim = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () async {
+              shouldClaim = await showDailyCheckInDialog(
+                context,
+                status: DailyCheckInDialogStatus.claim,
+              );
+            },
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(find.text('Claim'), findsOneWidget);
+    expect(find.text('Check in'), findsNothing);
+
+    await tester.tap(find.text('Claim'));
+    await tester.pumpAndSettle();
+    expect(shouldClaim, isTrue);
+  });
+
+  testWidgets('generic task success uses supplied title and reward', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () => showGemTaskSuccessDialog(
+              context,
+              title: 'Claim successful!',
+              rewardGems: 120,
+            ),
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Claim successful!'), findsOneWidget);
+    expect(find.text('+120'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
   });
 }

@@ -8,21 +8,29 @@ import 'gem_assets.dart';
 import 'gem_colors.dart';
 
 const int dailyCheckInPreviewReward = 50;
+const String dailyCheckInTaskCode = 'daily_checkin';
 const Duration dailyCheckInSuccessDuration = Duration(seconds: 3);
+
+enum DailyCheckInDialogStatus { checkIn, claim, claimed }
 
 Future<bool> showDailyCheckInDialog(
   BuildContext context, {
-  required bool claimed,
+  required DailyCheckInDialogStatus status,
   int rewardGems = dailyCheckInPreviewReward,
 }) async {
+  final claimed = status == DailyCheckInDialogStatus.claimed;
   final shouldCheckIn = await showGenesisActionBox<bool>(
     context: context,
     title: 'Daily Check-in',
-    titleContent: _DailyCheckInReward(rewardGems: rewardGems),
+    titleContent: _GemTaskReward(rewardGems: rewardGems),
     titleContentSpacing: 10,
     actions: [
       GenesisActionBoxAction<bool>(
-        label: claimed ? 'Claimed' : 'Check in',
+        label: switch (status) {
+          DailyCheckInDialogStatus.checkIn => 'Check in',
+          DailyCheckInDialogStatus.claim => 'Claim',
+          DailyCheckInDialogStatus.claimed => 'Claimed',
+        },
         value: true,
         color: claimed ? kGemTaskClaimedForegroundColor : kGemAccentColor,
         enabled: !claimed,
@@ -38,6 +46,20 @@ Future<void> showDailyCheckInSuccessDialog(
   int rewardGems = dailyCheckInPreviewReward,
   Duration duration = dailyCheckInSuccessDuration,
 }) async {
+  return showGemTaskSuccessDialog(
+    context,
+    title: 'Check in successful!',
+    rewardGems: rewardGems,
+    duration: duration,
+  );
+}
+
+Future<void> showGemTaskSuccessDialog(
+  BuildContext context, {
+  required String title,
+  required int rewardGems,
+  Duration duration = dailyCheckInSuccessDuration,
+}) async {
   final navigator = Navigator.of(context, rootNavigator: true);
   final timer = Timer(duration, () {
     if (navigator.mounted && navigator.canPop()) navigator.pop();
@@ -45,8 +67,8 @@ Future<void> showDailyCheckInSuccessDialog(
   try {
     await showGenesisActionBox<void>(
       context: context,
-      title: 'Check in successful!',
-      titleContent: _DailyCheckInReward(rewardGems: rewardGems),
+      title: title,
+      titleContent: _GemTaskReward(rewardGems: rewardGems),
       titleContentSpacing: 10,
       actions: const [],
       showCancel: false,
@@ -56,8 +78,8 @@ Future<void> showDailyCheckInSuccessDialog(
   }
 }
 
-class _DailyCheckInReward extends StatelessWidget {
-  const _DailyCheckInReward({required this.rewardGems});
+class _GemTaskReward extends StatelessWidget {
+  const _GemTaskReward({required this.rewardGems});
 
   final int rewardGems;
 
@@ -68,7 +90,7 @@ class _DailyCheckInReward extends StatelessWidget {
       children: [
         Text(
           '+$rewardGems',
-          key: const ValueKey<String>('daily-check-in-reward-value'),
+          key: const ValueKey<String>('gem-task-reward-value'),
           style: const TextStyle(
             color: Color(0xFF111111),
             fontSize: 15,
@@ -79,7 +101,7 @@ class _DailyCheckInReward extends StatelessWidget {
         const SizedBox(width: 4),
         SvgPicture.asset(
           gemIconAsset,
-          key: const ValueKey<String>('daily-check-in-reward-icon'),
+          key: const ValueKey<String>('gem-task-reward-icon'),
           width: gemSmallIconSize,
           height: gemSmallIconSize,
         ),

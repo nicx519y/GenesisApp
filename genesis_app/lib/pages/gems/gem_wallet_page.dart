@@ -10,6 +10,7 @@ import '../../app/debug_page_tracker.dart';
 import '../../app/gems/gem_wallet_store.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
+import '../../components/gems/daily_check_in_dialog.dart';
 import '../../components/gems/gem_assets.dart';
 import '../../components/gems/gem_billing_purchase_dialog.dart';
 import '../../components/gems/gem_colors.dart';
@@ -256,7 +257,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     final status = _taskStatus(task);
     if (status == 'claimed') return;
     if (status == 'claimable') {
-      await _claimTaskReward(taskCode);
+      await _claimTaskReward(taskCode, rewardGems: task.rewardGems);
       return;
     }
     if (status != 'in_progress') return;
@@ -299,7 +300,7 @@ class _GemWalletPageState extends State<GemWalletPage>
         );
         return;
       case 'daily_checkin':
-        await _reportTaskAction(taskCode);
+        await _reportTaskAction(taskCode, rewardGems: task.rewardGems);
         return;
       case 'discord_follow':
         await Future.wait<void>([_openDiscord(), _reportTaskAction(taskCode)]);
@@ -345,20 +346,44 @@ class _GemWalletPageState extends State<GemWalletPage>
     }
   }
 
-  Future<void> _reportTaskAction(String taskCode) async {
+  Future<void> _reportTaskAction(
+    String taskCode, {
+    int rewardGems = dailyCheckInPreviewReward,
+  }) async {
     if (!_beginTaskAction(taskCode)) return;
+    final isDailyCheckIn = taskCode == dailyCheckInTaskCode;
+    var claimingDailyReward = false;
     try {
-      final result = await _reportTask(taskCode);
-      if (!mounted) return;
-      setState(() => _taskStatusOverrides[taskCode] = result.status);
-      if (taskCode == 'daily_checkin') {
-        showGenesisToast(context, 'Check in successful.');
+      var result = await _reportTask(taskCode);
+      if (isDailyCheckIn && result.status == 'claimable') {
+        claimingDailyReward = true;
+        result = await _claimTask(taskCode);
       }
-      await _refreshTasksAndWallet();
+      if (!mounted) return;
+      if (isDailyCheckIn && result.status != 'claimed') {
+        setState(() => _taskStatusOverrides[taskCode] = result.status);
+        showGenesisToast(
+          context,
+          claimingDailyReward ? 'Claim failed.' : 'Check in failed.',
+        );
+        return;
+      }
+      setState(() => _taskStatusOverrides[taskCode] = result.status);
+      if (isDailyCheckIn && mounted) {
+        final successDialog = showDailyCheckInSuccessDialog(
+          context,
+          rewardGems: rewardGems,
+        );
+        unawaited(_refreshTasksAndWallet());
+        await successDialog;
+      } else {
+        await _refreshTasksAndWallet();
+      }
     } catch (_) {
       if (!mounted) return;
       final message = switch (taskCode) {
-        'daily_checkin' => 'Check in failed.',
+        'daily_checkin' =>
+          claimingDailyReward ? 'Claim failed.' : 'Check in failed.',
         'discord_follow' => 'Follow failed.',
         _ => 'Task update failed.',
       };
@@ -368,7 +393,10 @@ class _GemWalletPageState extends State<GemWalletPage>
     }
   }
 
-  Future<void> _claimTaskReward(String taskCode) async {
+  Future<void> _claimTaskReward(
+    String taskCode, {
+    int rewardGems = dailyCheckInPreviewReward,
+  }) async {
     if (!_beginTaskAction(taskCode)) return;
     try {
       final result = await _claimTask(taskCode);
@@ -378,8 +406,15 @@ class _GemWalletPageState extends State<GemWalletPage>
         return;
       }
       setState(() => _taskStatusOverrides[taskCode] = result.status);
-      showGenesisToast(context, 'Reward claimed');
-      await _refreshTasksAndWallet();
+      final successDialog = taskCode == dailyCheckInTaskCode
+          ? showDailyCheckInSuccessDialog(context, rewardGems: rewardGems)
+          : showGemTaskSuccessDialog(
+              context,
+              title: 'Claim successful!',
+              rewardGems: rewardGems,
+            );
+      unawaited(_refreshTasksAndWallet());
+      await successDialog;
     } catch (_) {
       if (mounted) showGenesisToast(context, 'Claim failed.');
     } finally {

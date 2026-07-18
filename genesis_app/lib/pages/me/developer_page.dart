@@ -516,7 +516,9 @@ class _DeveloperPageContentState extends State<DeveloperPageContent> {
     if (!navigator.mounted) return;
     final checkedIn = await showDailyCheckInDialog(
       navigator.context,
-      claimed: _dailyCheckInPreviewClaimed,
+      status: _dailyCheckInPreviewClaimed
+          ? DailyCheckInDialogStatus.claimed
+          : DailyCheckInDialogStatus.checkIn,
     );
     if (!checkedIn || !navigator.mounted) return;
     if (mounted) {

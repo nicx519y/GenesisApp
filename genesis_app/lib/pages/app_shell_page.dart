@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../app/bootstrap/app_services_scope.dart';
 import '../app/bootstrap/polling_scheduler.dart';
+import '../app/gems/daily_check_in_coordinator.dart';
 import '../app/startup/app_startup_coordinator.dart';
 import '../app/telemetry/genesis_telemetry.dart';
 import '../components/bottom_tabs.dart';
@@ -233,6 +234,8 @@ class _AppShellPageState extends State<AppShellPage>
       onLogin: _loginWithProvider,
     );
     if (!mounted || !loggedIn) return false;
+    await showDailyCheckInAfterLogin(context);
+    if (!mounted) return false;
     return _hasLocalLoginSession();
   }
 
@@ -383,6 +386,7 @@ class _AppShellPageState extends State<AppShellPage>
         4 => MePage(
           onLoggedOut: _handleMeLoggedOut,
           onLogin: _loginWithProvider,
+          onLoginCompleted: () => showDailyCheckInAfterLogin(context),
           activationListenable: _meTabActivationNotifier,
           isActiveListenable: _meTabActiveNotifier,
         ),
