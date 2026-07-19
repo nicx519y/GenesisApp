@@ -122,6 +122,8 @@ We may offer Gems through daily check-ins, new-user tasks, bonus tasks, social a
 
 Eligible actions may consume Gems. The applicable or estimated cost may depend on the selected AI model, memory length, feature, or other usage parameters. The Service will display the cost or an estimate in the relevant purchase, model, memory, or feature interface. Usage-dependent estimates may differ from the final deduction; completed deductions will appear in your Gem transaction history.
 
+**Deduction order.** Where your balance includes both earned or promotional Gems and purchased Gems, we deduct earned and promotional Gems first (starting with those scheduled to expire soonest) and purchased Gems last, so that your non-expiring purchased Gems are preserved for as long as possible.
+
 We may change Gem prices or feature costs prospectively. Changes do not reduce Gems already purchased or retroactively alter completed transactions. You are responsible for reviewing the displayed cost before using a paid feature.
 
 ### 10.5 Delivery and Transaction Processing
@@ -136,11 +138,17 @@ The applicable app marketplace generally processes purchase authorization, billi
 
 If a purchase is refunded, reversed, charged back, canceled, or found to be invalid, fraudulent, duplicated, or unauthorized, we may remove the corresponding Gems or benefits, correct the account balance, suspend further Gem use while the matter is reviewed, or seek payment where permitted by law. We will not remove more purchased Gems than are reasonably associated with the affected transaction, except to correct fraud or accounting errors.
 
-### 10.7 Account and Platform Restrictions
+### 10.7 Account, Deletion, and Platform Restrictions
 
 Gems are generally associated with the Worldo account to which they were granted. They may not be transferable between accounts or between separate app titles. Platform availability and balances may be subject to technical and app-store limitations.
 
-Deleting your account may permanently remove access to unused Gems. Except where required by applicable law or marketplace policy, account deletion does not itself create a right to a refund. If we permanently discontinue paid Gem functionality, we will provide any notice, continued use period, replacement benefit, or remedy required by applicable law.
+**Voluntary account deletion.** Before you delete your account, we will make reasonable efforts to inform you if you hold unused purchased Gems and to give you the opportunity to use them or to cancel the deletion. If you choose to proceed with deletion, you will be deemed to have voluntarily waived any remaining unused Gems and your right to use them, and they will no longer be accessible. Except where required by applicable law or marketplace policy, account deletion does not itself create a right to a refund.
+
+**Termination for cause.** If we suspend or terminate your account because you violated these Terms, our Community Guidelines, or applicable law, or because you abused payment, refund, promotional, or Gem systems, you may lose access to unused Gems, including purchased Gems, without a refund, to the extent permitted by applicable law.
+
+**Discontinuation of the feature.** If we permanently discontinue paid Gem functionality, we will provide any notice, continued-use period, replacement benefit, or remedy required by applicable law.
+
+Nothing in this Section limits rights that cannot be waived under applicable consumer law.
 
 ## 11. Intellectual Property
 

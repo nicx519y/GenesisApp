@@ -120,7 +120,7 @@ This EULA remains effective until terminated. You may terminate it by deleting t
 
 We may suspend or terminate your license and access if we believe you violated this EULA, the Terms of Service, Community Guidelines, law, app-store rules, or third-party rights; abused payments, refunds, promotions, or Gem systems; or created risk or legal exposure.
 
-Upon termination, you must stop using the App and delete all copies. Account deletion or termination may result in loss of access to unused Gems as described in the Terms of Service, subject to applicable law. Sections that by their nature should survive will survive, including ownership, license restrictions, payment reconciliation, virtual-item restrictions, disclaimers, limitation of liability, indemnity, governing law, and dispute resolution.
+Upon termination, you must stop using the App and delete all copies. Access to unused Gems on account deletion or termination is governed by the Terms of Service (Section 10.7), subject to applicable law: if you voluntarily delete your account you are deemed to have waived any remaining unused Gems, and if we terminate your account for cause you may lose unused Gems, in each case to the extent permitted by applicable law. Sections that by their nature should survive will survive, including ownership, license restrictions, payment reconciliation, virtual-item restrictions, disclaimers, limitation of liability, indemnity, governing law, and dispute resolution.
 
 ## 14. Disclaimers
 

@@ -204,7 +204,7 @@ Although All Football Inc. is incorporated in the Cayman Islands, Singapore's Pe
 
 We collect, use, and disclose personal data for purposes a reasonable person would consider appropriate in the circumstances, including those described in this Policy. Where consent is required, you may withdraw it with reasonable notice, subject to legal and contractual consequences.
 
-You may request access to or correction of personal data, subject to applicable exceptions. Contact our Data Protection Officer at worldodeveloper@gmail.com with the subject "Singapore PDPA Request."
+You may request access to or correction of personal data, subject to applicable exceptions. Contact our Privacy Compliance Team at worldodeveloper@gmail.com with the subject "Singapore PDPA Request."
 
 ## 16. Do Not Track
 
