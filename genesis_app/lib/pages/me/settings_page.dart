@@ -717,6 +717,19 @@ class _AccountPageState extends State<AccountPage> {
                       height: 1.55,
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'All unused Gems, including purchased and earned Gems, will '
+                    'be permanently lost. By continuing, you voluntarily waive '
+                    'them, and account deletion does not automatically entitle '
+                    'you to a refund.',
+                    style: TextStyle(
+                      color: Color(0xFFFF2442),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      height: 1.55,
+                    ),
+                  ),
                 ],
               ),
             ),
