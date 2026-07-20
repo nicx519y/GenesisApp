@@ -265,6 +265,59 @@ void main() {
     expect(messages, isEmpty);
   });
 
+  test('active socket close send failure restores its draft', () {
+    final localMessage = ChatMessageVm(
+      localId: 'local-socket-closed',
+      clientMsgId: 'client-socket-closed',
+      senderId: 'u_me',
+      senderName: 'Me',
+      text: 'Put this back in the input',
+      isMe: true,
+      status: 'sending',
+    );
+    final messages = <ChatMessageVm>[localMessage];
+
+    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
+      failure: const ChatroomFailureEvent(
+        code: 'socket_closed',
+        message: 'Something went wrong',
+        sourceType: 'socket_closed',
+      ),
+      localMessage: localMessage,
+      messages: messages,
+      activeSendFailure: true,
+    );
+
+    expect(restoredDraft, 'Put this back in the input');
+    expect(messages, isEmpty);
+  });
+
+  test('passive socket close does not restore a draft', () {
+    final localMessage = ChatMessageVm(
+      localId: 'local-passive-socket-closed',
+      clientMsgId: 'client-passive-socket-closed',
+      senderId: 'u_me',
+      senderName: 'Me',
+      text: 'Do not restore this',
+      isMe: true,
+      status: 'sending',
+    );
+    final messages = <ChatMessageVm>[localMessage];
+
+    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
+      failure: const ChatroomFailureEvent(
+        code: 'socket_closed',
+        message: 'Something went wrong',
+        sourceType: 'socket_closed',
+      ),
+      localMessage: localMessage,
+      messages: messages,
+    );
+
+    expect(restoredDraft, isNull);
+    expect(messages, [localMessage]);
+  });
+
   test('only ack 10001 prompts chat login recovery', () {
     expect(
       isChatroomUnauthorizedFailure(
