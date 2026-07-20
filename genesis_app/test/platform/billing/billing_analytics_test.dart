@@ -32,6 +32,7 @@ void main() {
       'product_id': 'gem_pack_500',
       'offer_token_present': true,
       'billing_account_id_present': true,
+      'source': 'buy_gems_sheet',
       'purchase_token': 'purchase-token-1',
       'offerToken': 'offer-token-1',
       'billing_account_id': 'account-1',
@@ -49,6 +50,7 @@ void main() {
       'product_id': 'gem_pack_500',
       'offer_token_present': true,
       'billing_account_id_present': true,
+      'source': 'buy_gems_sheet',
     });
   });
 
@@ -90,4 +92,56 @@ void main() {
       expect('${event.collectPayload}', isNot(contains('u_1')));
     },
   );
+
+  test(
+    'product click collect projection keeps source as object3 text',
+    () async {
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(sink);
+
+      const GenesisBillingAnalytics().track(
+        'product_click',
+        properties: <String, Object?>{
+          'attempt_id': 'attempt-1',
+          'product_id': 'gem_pack_500',
+          'source': 'buy_gems_sheet',
+          'provider': 'google',
+          'can_purchase': true,
+        },
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final event = sink.events.single;
+      expect(event.collectPayload, {
+        'action_type': 'pay_event',
+        'action': 'product_click',
+        'object1': 'gem_pack_500',
+        'object2': 'attempt-1',
+        'object3': 'buy_gems_sheet',
+      });
+    },
+  );
+
+  test('success collect projection only sends product and track id', () async {
+    final sink = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(sink);
+
+    const GenesisBillingAnalytics().track(
+      'success',
+      properties: <String, Object?>{
+        'attempt_id': 'attempt-1',
+        'product_id': 'gem_pack_500',
+        'store_product_id': 'worldo_gem_pack_500',
+      },
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final event = sink.events.single;
+    expect(event.collectPayload, {
+      'action_type': 'pay_event',
+      'action': 'success',
+      'object1': 'gem_pack_500',
+      'object2': 'attempt-1',
+    });
+  });
 }

@@ -43,7 +43,8 @@ Future<void> showGemPurchaseBottomSheet(
     return;
   }
 
-  _trackGemPurchaseSheetShow(analyticsTrigger);
+  final payTrackId = newBillingAttemptId();
+  _trackGemPurchaseSheetShow(analyticsTrigger, payTrackId);
 
   await showGenesisModalBottomSheet<void>(
     context: context,
@@ -59,18 +60,20 @@ Future<void> showGemPurchaseBottomSheet(
         productsLoader: resolvedProductsLoader,
         walletStore: resolvedWalletStore,
         billingService: resolvedBillingService,
+        payTrackId: payTrackId,
       ),
     ),
   );
 }
 
-void _trackGemPurchaseSheetShow(String? analyticsTrigger) {
+void _trackGemPurchaseSheetShow(String? analyticsTrigger, String payTrackId) {
   final trigger = analyticsTrigger?.trim() ?? '';
-  if (trigger.isEmpty) return;
   GenesisTelemetry.collectLog(
     actionType: 'pay_event',
-    action: 'buy_gems_sheet_show',
-    object1: trigger,
+    action: 'buy_page_show',
+    object1: BillingPurchaseSource.buyGemsSheet.value,
+    object2: payTrackId,
+    object3: trigger.isEmpty ? null : trigger,
   );
 }
 
@@ -81,12 +84,14 @@ class GemPurchaseBottomSheet extends StatefulWidget {
     required this.productsLoader,
     required this.walletStore,
     required this.billingService,
+    required this.payTrackId,
   });
 
   final GemBalanceAlert alert;
   final GemPurchaseProductsLoader productsLoader;
   final GemWalletStore walletStore;
   final BillingService billingService;
+  final String payTrackId;
 
   @override
   State<GemPurchaseBottomSheet> createState() => _GemPurchaseBottomSheetState();
@@ -148,7 +153,11 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
     _startedProductIds.add(product.productId);
     _showPurchaseProcessing(attemptId: '');
     try {
-      await widget.billingService.purchaseGem(product);
+      await widget.billingService.purchaseGem(
+        product,
+        source: BillingPurchaseSource.buyGemsSheet,
+        payTrackId: widget.payTrackId,
+      );
     } catch (_) {
       if (!mounted) return;
       _startedProductIds.remove(product.productId);

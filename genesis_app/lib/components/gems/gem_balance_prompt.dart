@@ -9,7 +9,7 @@ import 'gem_purchase_bottom_sheet.dart';
 
 const String insufficientGemBalancePrompt = 'Insufficient Gems';
 const String lowGemBalancePrompt = 'Low Gems';
-const String gemPurchaseSheetTriggerTick = 'tick';
+const String gemPurchaseSheetTriggerTick = 'tick_no_balance';
 const String gemPurchaseSheetTriggerMessageLowBalance = 'msg_low_balance';
 const String gemPurchaseSheetTriggerMessageNoBalance = 'msg_no_balance';
 

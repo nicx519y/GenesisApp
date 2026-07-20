@@ -53,15 +53,15 @@ void main() {
     final events = telemetry.events
         .where(
           (event) =>
-              event.category == 'collect.log' &&
-              event.name == 'buy_gems_page_show',
+              event.category == 'collect.log' && event.name == 'buy_page_show',
         )
         .toList();
     expect(events, hasLength(1));
-    expect(events.single.data, <String, Object?>{
-      'action_type': 'pay_event',
-      'action': 'buy_gems_page_show',
-    });
+    expect(events.single.data['action_type'], 'pay_event');
+    expect(events.single.data['action'], 'buy_page_show');
+    expect(events.single.data['object1'], 'buy_gems_page');
+    expect(events.single.data['object2'], isA<String>());
+    expect('${events.single.data['object2']}', startsWith('pay_'));
   });
 
   testWidgets('GemWalletPage renders split data and refreshes on resume', (
@@ -522,6 +522,8 @@ void main() {
   testWidgets('tapping a product immediately shows purchase processing', (
     tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
     final walletStore = GemWalletStore(
       loadWallet: () async => const GemWallet(balance: 430),
       readUid: () async => 'u_user',
@@ -551,6 +553,13 @@ void main() {
 
     expect(billing.purchasedProducts, hasLength(1));
     expect(billing.purchasedProducts.single.productId, 'gem_pack_500');
+    expect(billing.purchaseSources, [BillingPurchaseSource.buyGemsPage]);
+    expect(billing.purchaseTrackIds, hasLength(1));
+    final showEvent = telemetry.events.singleWhere(
+      (event) =>
+          event.category == 'collect.log' && event.name == 'buy_page_show',
+    );
+    expect(billing.purchaseTrackIds.single, showEvent.data['object2']);
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
     expect(
       find.descendant(
@@ -1544,6 +1553,8 @@ class _FakeBillingService implements BillingService {
   final StreamController<BillingUiEvent> _events =
       StreamController<BillingUiEvent>.broadcast();
   final List<GemProduct> purchasedProducts = <GemProduct>[];
+  final List<BillingPurchaseSource> purchaseSources = <BillingPurchaseSource>[];
+  final List<String> purchaseTrackIds = <String>[];
   Completer<void>? purchaseCompleter;
 
   @override
@@ -1553,8 +1564,14 @@ class _FakeBillingService implements BillingService {
   ValueListenable<BillingState> get state => _state;
 
   @override
-  Future<void> purchaseGem(GemProduct product) async {
+  Future<void> purchaseGem(
+    GemProduct product, {
+    BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
+    String payTrackId = '',
+  }) async {
     purchasedProducts.add(product);
+    purchaseSources.add(source);
+    purchaseTrackIds.add(payTrackId);
     final completer = purchaseCompleter;
     if (completer != null) await completer.future;
     _state.value = BillingState(

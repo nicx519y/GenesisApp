@@ -44,6 +44,15 @@ extension BillingRecoverySourceValue on BillingRecoverySource {
   };
 }
 
+enum BillingPurchaseSource { buyGemsPage, buyGemsSheet }
+
+extension BillingPurchaseSourceValue on BillingPurchaseSource {
+  String get value => switch (this) {
+    BillingPurchaseSource.buyGemsPage => 'buy_gems_page',
+    BillingPurchaseSource.buyGemsSheet => 'buy_gems_sheet',
+  };
+}
+
 enum BillingPendingPurchaseStatus {
   received,
   reported,

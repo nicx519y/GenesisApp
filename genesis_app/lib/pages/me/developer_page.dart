@@ -919,7 +919,11 @@ class _DeveloperPreviewBillingService implements BillingService {
   Future<void> start() async {}
 
   @override
-  Future<void> purchaseGem(GemProduct product) async {
+  Future<void> purchaseGem(
+    GemProduct product, {
+    BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
+    String payTrackId = '',
+  }) async {
     if (_disposed) return;
     if (_state.value.hasBusyPurchase) return;
     _state.value = BillingState(

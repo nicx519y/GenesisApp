@@ -24,7 +24,11 @@ abstract interface class BillingService {
 
   Future<void> start();
 
-  Future<void> purchaseGem(GemProduct product);
+  Future<void> purchaseGem(
+    GemProduct product, {
+    BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
+    String payTrackId = '',
+  });
 
   Future<void> recover(BillingRecoverySource source);
 
@@ -118,13 +122,20 @@ class GooglePlayBillingService implements BillingService {
   }
 
   @override
-  Future<void> purchaseGem(GemProduct product) async {
-    final attemptId = newBillingAttemptId();
+  Future<void> purchaseGem(
+    GemProduct product, {
+    BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
+    String payTrackId = '',
+  }) async {
+    final attemptId = payTrackId.trim().isNotEmpty
+        ? payTrackId.trim()
+        : newBillingAttemptId();
     _trackProduct(
       'product_click',
       product: product,
       attemptId: attemptId,
       data: <String, Object?>{
+        'source': source.value,
         'can_purchase': product.canPurchase,
         'billing_type': product.billingType,
         'base_gems': product.baseGems,
@@ -1020,6 +1031,12 @@ class GooglePlayBillingService implements BillingService {
     }
 
     if (report.status == GemPurchaseReportStatus.completed) {
+      _track(
+        'success',
+        attemptId: record.attemptId,
+        productId: record.productId,
+        storeProductId: record.storeProductId,
+      );
       try {
         await _refreshWallet();
       } catch (_) {}

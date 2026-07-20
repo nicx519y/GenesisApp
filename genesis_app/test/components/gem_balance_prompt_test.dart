@@ -145,6 +145,8 @@ void main() {
   testWidgets('purchase sheet starts one purchase and closes on success', (
     tester,
   ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
     final fixture = _PromptFixture(
       products: [_product('gem_pack_500'), _product('gem_pack_1100')],
     );
@@ -162,6 +164,14 @@ void main() {
 
     expect(fixture.billing.purchasedProducts, hasLength(1));
     expect(fixture.billing.purchasedProducts.single.productId, 'gem_pack_500');
+    expect(fixture.billing.purchaseSources, [
+      BillingPurchaseSource.buyGemsSheet,
+    ]);
+    final showEvent = telemetry.events.singleWhere(
+      (event) =>
+          event.category == 'collect.log' && event.name == 'buy_page_show',
+    );
+    expect(fixture.billing.purchaseTrackIds, [showEvent.data['object2']]);
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
     expect(
       find.descendant(
@@ -240,16 +250,16 @@ void _expectSheetShowEvent(_CapturingTelemetrySink telemetry, String trigger) {
   final events = telemetry.events
       .where(
         (event) =>
-            event.category == 'collect.log' &&
-            event.name == 'buy_gems_sheet_show',
+            event.category == 'collect.log' && event.name == 'buy_page_show',
       )
       .toList();
   expect(events, hasLength(1));
-  expect(events.single.data, <String, Object?>{
-    'action_type': 'pay_event',
-    'action': 'buy_gems_sheet_show',
-    'object1': trigger,
-  });
+  expect(events.single.data['action_type'], 'pay_event');
+  expect(events.single.data['action'], 'buy_page_show');
+  expect(events.single.data['object1'], 'buy_gems_sheet');
+  expect(events.single.data['object2'], isA<String>());
+  expect('${events.single.data['object2']}', startsWith('pay_'));
+  expect(events.single.data['object3'], trigger);
 }
 
 class _CapturingTelemetrySink implements GenesisTelemetrySink {
@@ -295,6 +305,8 @@ class _FakeBillingService implements BillingService {
   final StreamController<BillingUiEvent> _events =
       StreamController<BillingUiEvent>.broadcast();
   final List<GemProduct> purchasedProducts = <GemProduct>[];
+  final List<BillingPurchaseSource> purchaseSources = <BillingPurchaseSource>[];
+  final List<String> purchaseTrackIds = <String>[];
 
   @override
   Stream<BillingUiEvent> get events => _events.stream;
@@ -303,9 +315,15 @@ class _FakeBillingService implements BillingService {
   ValueListenable<BillingState> get state => _state;
 
   @override
-  Future<void> purchaseGem(GemProduct product) async {
+  Future<void> purchaseGem(
+    GemProduct product, {
+    BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
+    String payTrackId = '',
+  }) async {
     if (_state.value.hasBusyPurchase) return;
     purchasedProducts.add(product);
+    purchaseSources.add(source);
+    purchaseTrackIds.add(payTrackId);
     _state.value = BillingState(
       storeAvailable: true,
       busyProductIds: <String>{product.productId},

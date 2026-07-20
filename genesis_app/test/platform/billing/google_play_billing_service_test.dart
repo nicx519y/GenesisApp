@@ -174,6 +174,10 @@ void main() {
     expect(uiEvents.first.message, 'Purchasing Gems');
     expect(uiEvents.last.kind, BillingUiEventKind.success);
     expect(uiEvents.last.grantedGems, 550);
+    final click = analytics.records.singleWhere(
+      (record) => record.action == 'product_click',
+    );
+    expect(click.properties['source'], 'buy_gems_page');
 
     platform.emit(_purchase(BillingPurchaseStatus.purchased));
     await _settle();
@@ -383,7 +387,11 @@ void main() {
         ),
       );
 
-      await service.purchaseGem(_product);
+      await service.purchaseGem(
+        _product,
+        source: BillingPurchaseSource.buyGemsSheet,
+        payTrackId: 'pay_sheet_track',
+      );
       platform.emit(_purchase(BillingPurchaseStatus.purchased));
       await _settle();
 
@@ -402,9 +410,20 @@ void main() {
           'report_start',
           'report_result',
           'local_order_persist_result',
+          'success',
           'flow_result',
         ]),
       );
+      final click = analytics.records.singleWhere(
+        (record) => record.action == 'product_click',
+      );
+      expect(click.properties['source'], 'buy_gems_sheet');
+      expect(click.properties['attempt_id'], 'pay_sheet_track');
+      final success = analytics.records.singleWhere(
+        (record) => record.action == 'success',
+      );
+      expect(success.properties['product_id'], 'gem_pack_500');
+      expect(success.properties['attempt_id'], 'pay_sheet_track');
       final launch = analytics.records.singleWhere(
         (record) => record.action == 'purchase_launch_start',
       );

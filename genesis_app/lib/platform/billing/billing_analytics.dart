@@ -39,11 +39,29 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
   final action = data['action'];
   if (action is! String || action.isEmpty) return const {};
 
+  final productId = data['product_id'] ?? data['store_product_id'];
+  if (action == 'product_click') {
+    return <String, Object?>{
+      'action_type': 'pay_event',
+      'action': action,
+      if (productId != null) 'object1': productId,
+      if (data['attempt_id'] != null) 'object2': data['attempt_id'],
+      if (data['source'] != null) 'object3': data['source'],
+    };
+  }
+  if (action == 'success') {
+    return <String, Object?>{
+      'action_type': 'pay_event',
+      'action': action,
+      if (productId != null) 'object1': productId,
+      if (data['attempt_id'] != null) 'object2': data['attempt_id'],
+    };
+  }
+
   final details = Map<String, Object?>.of(data)
     ..remove('action')
     ..remove('product_id')
     ..remove('attempt_id');
-  final productId = data['product_id'] ?? data['store_product_id'];
 
   return <String, Object?>{
     'action_type': 'pay_event',
@@ -60,6 +78,7 @@ Map<String, Object?> _billingCollectPayload(Map<String, Object?> data) {
 const Set<String> _allowedBillingAnalyticsKeys = <String>{
   'action',
   'attempt_id',
+  'source',
   'provider',
   'product_id',
   'store_product_id',

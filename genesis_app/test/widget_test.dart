@@ -320,7 +320,11 @@ class _FakeBillingService implements BillingService {
   ValueListenable<BillingState> get state => _state;
 
   @override
-  Future<void> purchaseGem(GemProduct product) async {}
+  Future<void> purchaseGem(
+    GemProduct product, {
+    BillingPurchaseSource source = BillingPurchaseSource.buyGemsPage,
+    String payTrackId = '',
+  }) async {}
 
   @override
   Future<void> recover(BillingRecoverySource source) async {}

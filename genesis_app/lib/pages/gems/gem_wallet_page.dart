@@ -105,6 +105,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   final Map<String, String> _taskStatusOverrides = <String, String>{};
   final ValueNotifier<BillingState> _idleBillingState =
       ValueNotifier<BillingState>(BillingState());
+  late final String _payTrackId = newBillingAttemptId();
   ValueNotifier<GemBillingPurchaseDialogState>? _billingPurchaseDialogState;
   bool _billingPurchaseDialogShowing = false;
   bool _billingPurchaseDialogDismissing = false;
@@ -162,7 +163,9 @@ class _GemWalletPageState extends State<GemWalletPage>
   void _trackBuyGemsPageView() {
     GenesisTelemetry.collectLog(
       actionType: 'pay_event',
-      action: 'buy_gems_page_show',
+      action: 'buy_page_show',
+      object1: BillingPurchaseSource.buyGemsPage.value,
+      object2: _payTrackId,
     );
   }
 
@@ -475,7 +478,11 @@ class _GemWalletPageState extends State<GemWalletPage>
     if (service.state.value.hasBusyPurchase) return;
     _showBillingPurchaseProcessing();
     try {
-      await service.purchaseGem(product);
+      await service.purchaseGem(
+        product,
+        source: BillingPurchaseSource.buyGemsPage,
+        payTrackId: _payTrackId,
+      );
     } catch (_) {
       if (!mounted) return;
       _dismissBillingPurchaseDialog();
