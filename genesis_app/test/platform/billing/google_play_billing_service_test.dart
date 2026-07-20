@@ -206,7 +206,7 @@ void main() {
     'product query failure is tracked and does not launch billing',
     () async {
       platform.queryResult = const BillingProductQueryResult.failure(
-        'offer_not_available',
+        'product_not_found',
       );
 
       await service.purchaseGem(_product);
@@ -471,6 +471,30 @@ void main() {
       expect(platform.queriedPurchaseOptionId, '500-gems-new');
       expect(platform.queriedOfferId, '500-gems-new-discount');
       expect(platform.purchasedOfferToken, 'offer-token-1');
+    },
+  );
+
+  test(
+    'ignores Google offer fields unless purchase option and offer id are both present',
+    () async {
+      const product = GemProduct(
+        productId: 'gem_pack_500',
+        appleProductId: 'com.worldo.gems.500',
+        googleProductId: 'worldo_gems_500',
+        googlePurchaseOptionId: '500-gems-new',
+        baseGems: 500,
+        bonusGems: 50,
+        priceCurrencyCode: 'USD',
+        priceAmount: 149,
+        canPurchase: true,
+        activityType: 'none',
+      );
+
+      await service.purchaseGem(product);
+
+      expect(platform.queriedPurchaseOptionId, isNull);
+      expect(platform.queriedOfferId, isNull);
+      expect(platform.purchasedOfferToken, isNull);
     },
   );
 }

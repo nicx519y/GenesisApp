@@ -202,11 +202,15 @@ class GooglePlayBillingService implements BillingService {
 
     late final BillingProductQueryResult queryResult;
     try {
+      final googlePurchaseOptionId = product.googlePurchaseOptionId.trim();
+      final googleOfferId = product.googleOfferId.trim();
+      final shouldUseGoogleOffer =
+          googlePurchaseOptionId.isNotEmpty && googleOfferId.isNotEmpty;
       queryResult = await _platform.queryProduct(
         product.googleProductId,
         BillingStoreProductType.inApp,
-        purchaseOptionId: _nonEmpty(product.googlePurchaseOptionId),
-        offerId: _nonEmpty(product.googleOfferId),
+        purchaseOptionId: shouldUseGoogleOffer ? googlePurchaseOptionId : null,
+        offerId: shouldUseGoogleOffer ? googleOfferId : null,
       );
     } catch (error) {
       _clearActiveAttempt(product.googleProductId, attempt);

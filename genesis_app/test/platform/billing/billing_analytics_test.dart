@@ -117,7 +117,7 @@ void main() {
         'attempt_id': 'attempt-1',
         'product_id': 'gem_pack_500',
         'reason': 'query_failed',
-        'error_code': 'offer_not_available',
+        'error_code': 'product_not_found',
       },
     );
     await Future<void>.delayed(Duration.zero);
