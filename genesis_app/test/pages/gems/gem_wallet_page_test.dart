@@ -759,7 +759,7 @@ void main() {
     expect(find.text('Go Chat Now.'), findsNothing);
   });
 
-  testWidgets('billing accepted keeps dialog until OK', (tester) async {
+  testWidgets('billing accepted keeps the dialog processing', (tester) async {
     final walletStore = GemWalletStore(
       loadWallet: () async => const GemWallet(balance: 430),
       readUid: () async => 'u_user',
@@ -786,24 +786,11 @@ void main() {
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
 
     billing.emitAccepted();
-    await tester.pumpAndSettle();
+    await tester.pump();
 
-    expect(
-      find.text(
-        'Payment successful. Your Gems are being issued as quickly as possible. Please check your balance again later.',
-      ),
-      findsOneWidget,
-    );
-
-    await tester.tap(find.text('OK'));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text(
-        'Payment successful. Your Gems are being issued as quickly as possible. Please check your balance again later.',
-      ),
-      findsNothing,
-    );
+    expect(find.textContaining('Purchasing Gems'), findsOneWidget);
+    expect(find.text('Purchase successful!'), findsNothing);
+    expect(find.text('OK'), findsNothing);
   });
 
   testWidgets('task button always displays backend action text', (

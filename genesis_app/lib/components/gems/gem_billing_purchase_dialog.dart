@@ -14,9 +14,7 @@ class GemBillingPurchaseDialogState {
   const GemBillingPurchaseDialogState({
     required this.phase,
     required this.attemptId,
-    required this.message,
     this.grantedText = '',
-    this.isGrantedSuccess = false,
   });
 
   factory GemBillingPurchaseDialogState.processing({
@@ -25,30 +23,23 @@ class GemBillingPurchaseDialogState {
     return GemBillingPurchaseDialogState(
       phase: GemBillingPurchaseDialogPhase.processing,
       attemptId: attemptId,
-      message: 'Purchasing Gems',
     );
   }
 
   factory GemBillingPurchaseDialogState.success({
     required String attemptId,
-    required String message,
-    String grantedText = '',
-    bool isGrantedSuccess = false,
+    required String grantedText,
   }) {
     return GemBillingPurchaseDialogState(
       phase: GemBillingPurchaseDialogPhase.success,
       attemptId: attemptId,
-      message: message,
       grantedText: grantedText,
-      isGrantedSuccess: isGrantedSuccess,
     );
   }
 
   final GemBillingPurchaseDialogPhase phase;
   final String attemptId;
-  final String message;
   final String grantedText;
-  final bool isGrantedSuccess;
 }
 
 class GemBillingPurchaseDialog extends StatelessWidget {
@@ -97,20 +88,9 @@ class GemBillingPurchaseDialog extends StatelessWidget {
                   const SizedBox(height: 18),
                 ],
                 if (isSuccess)
-                  !value.isGrantedSuccess
-                      ? Text(
-                          value.message,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            height: 20 / 15,
-                            fontWeight: FontWeight.w400,
-                            color: Color(0xFF111111),
-                          ),
-                        )
-                      : _GemBillingPurchaseGrantedMessage(
-                          grantedText: value.grantedText,
-                        )
+                  _GemBillingPurchaseGrantedMessage(
+                    grantedText: value.grantedText,
+                  )
                 else
                   const _ProcessingPaymentText(),
               ],

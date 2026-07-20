@@ -161,7 +161,8 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
         unawaited(widget.walletStore.refresh());
         return;
       case BillingUiEventKind.accepted:
-        _showPurchaseAccepted(event);
+        // Accepted is an internal settlement state. Keep the user-facing
+        // dialog in Processing until a definitive success event arrives.
         return;
       case BillingUiEventKind.failure:
       case BillingUiEventKind.pending:
@@ -191,20 +192,9 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
     final grantedGems = event.grantedGems;
     final nextState = GemBillingPurchaseDialogState.success(
       attemptId: event.attemptId,
-      message: 'Purchase successful!',
-      isGrantedSuccess: true,
       grantedText: grantedGems > 0 ? formatGemInteger(grantedGems) : '',
     );
     _updatePurchaseDialog(nextState);
-  }
-
-  void _showPurchaseAccepted(BillingUiEvent event) {
-    _updatePurchaseDialog(
-      GemBillingPurchaseDialogState.success(
-        attemptId: event.attemptId,
-        message: event.message,
-      ),
-    );
   }
 
   void _updatePurchaseDialog(GemBillingPurchaseDialogState nextState) {
