@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../app/gems/gem_wallet_store.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/gems/daily_check_in_dialog.dart';
@@ -111,6 +112,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _trackBuyGemsPageView();
     unawaited(_refreshAll());
   }
 
@@ -155,6 +157,13 @@ class _GemWalletPageState extends State<GemWalletPage>
   }
 
   bool get _hasPageData => _products != null || _taskGroups != null;
+
+  void _trackBuyGemsPageView() {
+    GenesisTelemetry.collectLog(
+      actionType: 'pay_event',
+      action: 'buy_gems_page_show',
+    );
+  }
 
   Future<void> _refreshAll({bool silent = false}) async {
     unawaited(_walletStore.refresh());

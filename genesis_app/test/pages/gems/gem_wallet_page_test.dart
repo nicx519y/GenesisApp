@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
+import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_catalog.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
@@ -24,6 +25,45 @@ const _wrappingTaskDescription =
     'and interacting with characters to move its story forward.';
 
 void main() {
+  tearDown(GenesisTelemetry.resetForTesting);
+
+  testWidgets('GemWalletPage reports buy gems page view pay event', (
+    tester,
+  ) async {
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balance: 430),
+      readUid: () async => 'u_user',
+    );
+    addTearDown(walletStore.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          productsLoader: (_) async => _products(),
+          tasksLoader: (_) async => _taskGroups(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final events = telemetry.events
+        .where(
+          (event) =>
+              event.category == 'collect.log' &&
+              event.name == 'buy_gems_page_show',
+        )
+        .toList();
+    expect(events, hasLength(1));
+    expect(events.single.data, <String, Object?>{
+      'action_type': 'pay_event',
+      'action': 'buy_gems_page_show',
+    });
+  });
+
   testWidgets('GemWalletPage renders split data and refreshes on resume', (
     tester,
   ) async {
@@ -1408,6 +1448,24 @@ void main() {
     expect(find.text('Received'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
+}
+
+class _CapturingTelemetrySink implements GenesisTelemetrySink {
+  final events = <GenesisTelemetryEvent>[];
+
+  @override
+  Future<void> captureException(Object error, StackTrace stackTrace) async {}
+
+  @override
+  Future<void> record(GenesisTelemetryEvent event) async {
+    events.add(event);
+  }
+
+  @override
+  Future<void> setContext(GenesisTelemetryContext context) async {}
+
+  @override
+  Future<void> setUserId(String? uid) async {}
 }
 
 void _expectGrantedSuccessDialog(WidgetTester tester) {
