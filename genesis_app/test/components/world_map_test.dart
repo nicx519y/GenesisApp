@@ -698,6 +698,45 @@ void main() {
     expect(states.last, isFalse);
   });
 
+  testWidgets('world map ignores stale pointer events after unmounting', (
+    tester,
+  ) async {
+    var showMap = true;
+    late StateSetter setHarnessState;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              setHarnessState = setState;
+              return showMap
+                  ? const SizedBox(
+                      width: 375,
+                      height: 670,
+                      child: WorldMap(points: <WorldPoint>[]),
+                    )
+                  : const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
+
+    final gesture = await tester.createGesture(pointer: 1);
+    await gesture.down(const Offset(100, 100));
+    await tester.pump();
+
+    setHarnessState(() => showMap = false);
+    await tester.pump();
+
+    await gesture.moveTo(const Offset(130, 130));
+    await gesture.up();
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('world map renders local asset map background', (tester) async {
     await _pumpWorldMap(
       tester,

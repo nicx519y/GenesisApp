@@ -1543,6 +1543,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   bool get _canPan {
+    if (!mounted) return false;
     final renderObject = context.findRenderObject();
     if (renderObject is! RenderBox || !renderObject.attached) return _isZoomed;
     final viewportSize = renderObject.size;
@@ -1559,6 +1560,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _handlePointerDown(PointerDownEvent event) {
+    if (!mounted) return;
     if (_activePointers.isEmpty) {
       _handlePossibleDoubleTap(event);
       _mapTapPointer = event.pointer;
@@ -1575,6 +1577,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _handleOverlayPointerDown(PointerDownEvent event) {
+    if (!mounted) return;
     if (_mapTapPointer == event.pointer) {
       _mapTapStartedOnOverlay = true;
     }
@@ -1583,6 +1586,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
+    if (!mounted) return;
     if (!_activePointers.contains(event.pointer)) return;
     if (_mapTapPointer == event.pointer) {
       final start = _mapTapStartPosition;
@@ -1604,6 +1608,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _handlePointerEnd(PointerEvent event) {
+    if (!mounted) return;
     if (event is PointerUpEvent &&
         _mapTapPointer == event.pointer &&
         !_mapTapStartedOnOverlay &&
@@ -1756,6 +1761,7 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void _toggleDoubleTapZoom(Offset focalPoint) {
+    if (!mounted) return;
     if (_isZoomed) {
       final renderObject = context.findRenderObject();
       if (renderObject is RenderBox && renderObject.attached) {
@@ -1784,8 +1790,10 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
   }
 
   void zoomByControl(double delta) {
-    final box = context.findRenderObject() as RenderBox?;
-    final size = box?.size ?? Size.zero;
+    if (!mounted) return;
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.attached) return;
+    final size = renderObject.size;
     if (size.isEmpty) return;
 
     final matrix = _transformationController.value;
@@ -1824,16 +1832,19 @@ class _ZoomableMapContentState extends State<_ZoomableMapContent> {
                   constrained: false,
                   alignment: Alignment.topLeft,
                   onInteractionStart: (details) {
+                    if (!mounted) return;
                     if (details.pointerCount > 1 || _canPan) {
                       _dispatchMapInteraction(true);
                     }
                   },
                   onInteractionUpdate: (details) {
+                    if (!mounted) return;
                     if (details.pointerCount > 1 || _canPan) {
                       _dispatchMapInteraction(true);
                     }
                   },
                   onInteractionEnd: (_) {
+                    if (!mounted) return;
                     if (_activePointers.isEmpty) {
                       _dispatchMapInteraction(false);
                     }
